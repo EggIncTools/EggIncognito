@@ -1,4 +1,5 @@
 using EggIncognito.Core.Services.Devices;
+using EggIncognito.Models.Devices;
 
 namespace EggIncognito.Services.Devices.Cookbooks;
 
@@ -6,23 +7,20 @@ public sealed class InstallCaStep(
     IEnumerable<IDeviceCaInstaller> installers,
     IDeviceConnectionFactory connections,
     ProxyReachProbe proxyReach,
-    IConfiguration configuration) : CookbookStep {
+    CaptureCaSource captureCa) : CookbookStep {
     private const string SystemCaCerts = "/system/etc/security/cacerts/";
+    private const string NoCa = "no capture CA available; run capture once so one gets minted";
 
     public override string Id => DeviceCookbookIds.InstallCa;
     public override string Title => "Install capture CA";
 
-    public override Task<CookbookStepAvailability> DescribeAsync(DeviceTarget target, CancellationToken ct) {
+    public override async Task<CookbookStepAvailability> DescribeAsync(DeviceTarget target, CancellationToken ct) {
         if (Installer(target.Platform) is null)
-            return Task.FromResult(CookbookStepAvailability.No($"no ca installer for platform '{target.Platform}'"));
+            return CookbookStepAvailability.No($"no ca installer for platform '{target.Platform}'");
 
-        string caPath = CaptureCaPath.Resolve(configuration);
-        if (!File.Exists(caPath)) {
-            return Task.FromResult(CookbookStepAvailability.No(
-                $"no capture CA at {caPath}; run capture once so one gets minted"));
-        }
-
-        return Task.FromResult(CookbookStepAvailability.Ready);
+        var ca = await captureCa.ResolveAsync(ct);
+        if (ca is null || !File.Exists(ca.Path)) return CookbookStepAvailability.No(NoCa);
+        return CookbookStepAvailability.Ready;
     }
 
     public override async Task<CookbookStepResult> RunAsync(DeviceCookbookContext context, CancellationToken ct) {
@@ -36,11 +34,10 @@ public sealed class InstallCaStep(
         if (Installer(target.Platform) is not { } installer)
             return Skipped(lines, $"no ca installer for platform '{target.Platform}'");
 
-        string caPath = CaptureCaPath.Resolve(configuration);
-        if (!File.Exists(caPath))
-            return Failed(lines, $"no capture CA at {caPath}; run capture once so one gets minted");
+        var ca = await captureCa.ResolveAsync(ct);
+        if (ca is null || !File.Exists(ca.Path)) return Failed(lines, NoCa);
 
-        if (await TrustedAsync(target, ct) is { } file) {
+        if (await TrustedAsync(target, ca, ct) is { } file) {
             Add($"{file} already in the system trust store");
             return Ok(lines, "capture CA already in the system trust store");
         }
@@ -53,17 +50,17 @@ public sealed class InstallCaStep(
 
         Add(reach.Ok ? reach.Note ?? "capture proxy reachable" : $"proxy reach not tested: {reach.Note}");
 
-        Add($"installing {Path.GetFileName(caPath)} on {target.Id}");
-        (bool ok, string? note) = await installer.InstallAsync(target, caPath, ct);
+        Add($"installing {Path.GetFileName(ca.Path)} on {target.Id}");
+        (bool ok, string? note) = await installer.InstallAsync(target, ca.Path, ct);
         if (!ok) return Failed(lines, note ?? "ca install failed");
 
         Add(note ?? "ca installed");
         return Ok(lines, note);
     }
 
-    private async Task<string?> TrustedAsync(DeviceTarget target, CancellationToken ct) {
+    private async Task<string?> TrustedAsync(DeviceTarget target, CaptureCa ca, CancellationToken ct) {
         if (!Platforms.Matches(target.Platform, Platforms.Android)) return null;
-        if (CaptureCaPath.AndroidTrustFile(configuration) is not { } file) return null;
+        if (ca.AndroidTrustFile is not { } file) return null;
         if (connections.For(target) is not { } conn) return null;
 
         var root = await DeviceRoot.ProbeAsync(conn, ct);

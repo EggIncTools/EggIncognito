@@ -56,13 +56,18 @@ public sealed class VirtualDevicesController(
         var containers = new Dictionary<string, ProvisionedInstance>(StringComparer.Ordinal);
         foreach (var c in listed.Value ?? []) containers[c.InstanceId] = c;
 
-        if (Store is not { } store) {
-            return StatusCode(503, new {
-                error = "provisioning is not registered here; it needs a database and the real device stack"
-            });
-        }
+        List<VirtualInstanceRow> rows;
+        if (lifecycle.Delegated) {
+            rows = await WithActivityAsync([.. containers.Values.Select(Row)], ct);
+        } else {
+            if (Store is not { } store) {
+                return StatusCode(503, new {
+                    error = "provisioning is not registered here; it needs a database and the real device stack"
+                });
+            }
 
-        var rows = await WithActivityAsync([.. (await store.AllAsync(ct)).Select(r => Row(r, containers))], ct);
+            rows = await WithActivityAsync([.. (await store.AllAsync(ct)).Select(r => Row(r, containers))], ct);
+        }
 
         var byState = rows.GroupBy(r => r.State, StringComparer.Ordinal)
             .ToDictionary(g => g.Key, g => g.Count(), StringComparer.Ordinal);
@@ -242,17 +247,24 @@ public sealed class VirtualDevicesController(
     private VirtualInstanceRow Row(
         ProvisionedInstanceRow row, Dictionary<string, ProvisionedInstance> containers) {
         containers.TryGetValue(row.InstanceId, out var container);
-        long flows = 0;
-        string? lastFlow = null;
-        if (row.DeviceId is { Length: > 0 } deviceId && Captures is { } captures) {
-            flows = captures.DiagFor(deviceId).Flows;
-            var snap = captures.HubFor(deviceId)?.Snapshot();
-            if (snap is { Count: > 0 }) lastFlow = snap[^1].Timestamp;
-        }
-
+        (long flows, string? lastFlow) = Flows(row.DeviceId);
         return new VirtualInstanceRow(
             row.InstanceId, row.Kind, row.Image, row.State,
             row.AdbSerial, row.DeviceId, row.CreatedAt, row.LastSeenAt, row.Note,
             container is not null, container?.Note, flows, lastFlow);
+    }
+
+    private VirtualInstanceRow Row(ProvisionedInstance instance) {
+        (long flows, string? lastFlow) = Flows(instance.DeviceId);
+        return new VirtualInstanceRow(
+            instance.InstanceId, instance.Kind, instance.Image, instance.State,
+            instance.AdbSerial, instance.DeviceId, instance.CreatedAt, null, instance.Note,
+            true, instance.Note, flows, lastFlow);
+    }
+
+    private (long Flows, string? LastFlow) Flows(string? deviceId) {
+        if (deviceId is not { Length: > 0 } id || Captures is not { } captures) return (0, null);
+        var snap = captures.HubFor(id)?.Snapshot();
+        return (captures.DiagFor(id).Flows, snap is { Count: > 0 } ? snap[^1].Timestamp : null);
     }
 }

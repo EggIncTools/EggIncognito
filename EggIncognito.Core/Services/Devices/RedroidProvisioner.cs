@@ -10,7 +10,6 @@ public sealed class RedroidProvisioner(
     TimeProvider time,
     ILogger<RedroidProvisioner> logger) : IDeviceProvisioner {
     public const string OwnerLabel = "egi.virtual";
-    public const string InstanceOwnerLabel = "egi.owner";
     public const string KindLabel = "egi.kind";
     public const string NamePrefix = "egi-vd-";
     public const int AdbPort = 5555;
@@ -42,13 +41,6 @@ public sealed class RedroidProvisioner(
     private static string? SerialFor(string name, string? ip, bool hostMode) =>
         hostMode ? ip is { Length: > 0 } ? $"{ip}:{AdbPort}" : null : TargetFor(name);
 
-    public static bool Owns(IReadOnlyDictionary<string, string> labels, string owner) {
-        string actual = labels.TryGetValue(InstanceOwnerLabel, out string? label) && !string.IsNullOrWhiteSpace(label)
-            ? label
-            : VirtualDeviceConfig.DefaultOwner;
-        return string.Equals(actual, owner, StringComparison.Ordinal);
-    }
-
     private async Task<DeviceResult<string>> NetworkAsync(CancellationToken ct) {
         if (config.Network is { Length: > 0 } configured) return DeviceResult<string>.Success(configured);
         if (_network is { } cached) return DeviceResult<string>.Success(cached);
@@ -76,7 +68,7 @@ public sealed class RedroidProvisioner(
 
         var existing = await docker.ListAsync(OwnerFilter, ct);
         if (!existing.Ok) return new DeviceResult<ProvisionedInstance>(existing.Outcome, null, existing.Note);
-        int mine = existing.Value?.Count(c => Owns(c.Labels, config.Owner)) ?? 0;
+        int mine = existing.Value?.Count ?? 0;
         if (mine >= config.MaxInstances) {
             return DeviceResult<ProvisionedInstance>.Error(
                 $"virtual device cap reached ({mine}/{config.MaxInstances}); destroy one before creating another");
@@ -91,7 +83,6 @@ public sealed class RedroidProvisioner(
         string image = string.IsNullOrWhiteSpace(spec.Image) ? config.Image : spec.Image;
         var labels = new Dictionary<string, string>(StringComparer.Ordinal) {
             [OwnerLabel] = "1",
-            [InstanceOwnerLabel] = config.Owner,
             [KindLabel] = Kind,
             ["egi.instance"] = name
         };
@@ -158,7 +149,7 @@ public sealed class RedroidProvisioner(
 
         bool hostMode = await HostModeAsync(ct);
         var mapped = rows
-            .Where(c => c.Name.StartsWith(NamePrefix, StringComparison.Ordinal) && Owns(c.Labels, config.Owner))
+            .Where(c => c.Name.StartsWith(NamePrefix, StringComparison.Ordinal))
             .Select(c => new ProvisionedInstance(
                 c.Name, Kind, c.Image, StateOf(c.State), SerialFor(c.Name, c.IpAddress, hostMode), c.Id, c.CreatedAt,
                 c.Status))

@@ -11,6 +11,11 @@ public static class BridgeRoutes {
     public const string Reach = "host/reach";
     public const string Claim = "claim";
     public const string Release = "release";
+    public const string Fleet = "fleet";
+    public const string Instances = "instances";
+
+    public static string InstanceDestroy(string instanceId) =>
+        $"{Instances}/{Uri.EscapeDataString(instanceId)}/destroy";
 
     public static string Absolute(string? baseUrl, string verb) =>
         $"{baseUrl?.TrimEnd('/')}/{Root}/{verb}";

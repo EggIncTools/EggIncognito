@@ -7,7 +7,7 @@ public sealed class VirtualDeviceReadinessProbe(
     IDeviceConnectionFactory connections,
     VirtualDeviceConfig config,
     ProxyReachProbe proxyReach,
-    IConfiguration configuration) {
+    CaptureCaSource captureCa) {
     private const string SystemCaCerts = "/system/etc/security/cacerts/";
 
     public async Task<DeviceReadiness> ProbeAsync(DeviceTarget target, CancellationToken ct) {
@@ -121,7 +121,7 @@ public sealed class VirtualDeviceReadinessProbe(
     }
 
     private async Task<ReadinessCheck> CaptureCaAsync(IDeviceConnection conn, RootAccess root, CancellationToken ct) {
-        if (CaptureCaPath.AndroidTrustFile(configuration) is not { } file)
+        if (await captureCa.ResolveAsync(ct) is not { AndroidTrustFile: { } file })
             return new ReadinessCheck(false, "no capture CA minted");
 
         var r = await conn.ShellAsync(root.WrapMountMaster($"[ -s {SystemCaCerts}{file} ] && echo present"), ct);

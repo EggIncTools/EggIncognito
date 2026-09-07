@@ -149,7 +149,10 @@ namespace EggIncognito.Data.Migrations
 
                     b.HasKey("Key");
 
-                    b.ToTable("app_settings");
+                    b.ToTable("app_settings", null, t =>
+                        {
+                            t.ExcludeFromMigrations();
+                        });
                 });
 
             modelBuilder.Entity("EggIncognito.Data.Models.ArtifactConsumeObservation", b =>

@@ -37,6 +37,11 @@ public sealed class DockerEventWatcher(
             return;
         }
 
+        if (lifecycle.Delegated) {
+            logger.LogInformation("docker events: idle, the host owns this fleet and reconciles it itself");
+            return;
+        }
+
         if (!docker.Available) {
             logger.LogInformation("docker events: idle, {Endpoint} is not usable", docker.Endpoint.Describe());
             return;

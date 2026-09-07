@@ -13,7 +13,10 @@ public sealed class DeviceCookbookRunner(
     CookbookExecutor executor,
     IServiceScopeFactory scopeFactory,
     CookbookCancellations cancellations,
+    IDeviceClaims claims,
+    DeviceTransportConfig transport,
     ILogger<DeviceCookbookRunner> logger) {
+    private const string ClaimFailure = "the host refused a claim on this device";
 
     public async Task<DeviceTarget?> TargetAsync(string deviceId, CancellationToken ct) {
         var entry = (await fleet.EnabledAsync(ct)).FirstOrDefault(d =>
@@ -75,7 +78,17 @@ public sealed class DeviceCookbookRunner(
 
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         cancellations.Register(deviceId, job.Id, cts);
+        using var renewals = new CancellationTokenSource();
+        Task? renewal = null;
         try {
+            var claim = await ClaimAsync(deviceId, cts.Token);
+            if (!claim.Ok) {
+                string note = claim.Note ?? ClaimFailure;
+                await jobs.FinishAsync(job, DeviceOutcomes.Error, note, StartFacts(cookbook), CancellationToken.None);
+                return new DeviceCookbookRun(false, cookbook.Id, [note], "claim", note);
+            }
+
+            renewal = RenewAsync(deviceId, renewals.Token);
             var context = new DeviceCookbookContext(target, request.Argument,
                 line => jobs.ProgressAsync(job, line, ct: cts.Token).GetAwaiter().GetResult());
             var run = await executor.RunAsync(cookbook, context, cts.Token);
@@ -87,6 +100,8 @@ public sealed class DeviceCookbookRunner(
             await jobs.FailAsync(job, ex.Message, CancellationToken.None);
             return new DeviceCookbookRun(false, cookbook.Id, [ex.Message], "exception", ex.Message);
         } finally {
+            await StopRenewalAsync(renewals, renewal);
+            await ReleaseAsync(deviceId);
             cancellations.Release(deviceId, job.Id, cts);
         }
     }
@@ -95,7 +110,16 @@ public sealed class DeviceCookbookRunner(
         CancellationTokenSource cts) {
         using var scope = scopeFactory.CreateScope();
         var scoped = scope.ServiceProvider.GetRequiredService<DeviceJobStore>();
+        using var renewals = new CancellationTokenSource();
+        Task? renewal = null;
         try {
+            var claim = await ClaimAsync(job.DeviceId, cts.Token);
+            if (!claim.Ok) {
+                await scoped.FailAsync(job, claim.Note ?? ClaimFailure, CancellationToken.None);
+                return;
+            }
+
+            renewal = RenewAsync(job.DeviceId, renewals.Token);
             var cookbook = cookbooks.Find(request.CookbookId)!;
             var context = new DeviceCookbookContext(target, request.Argument,
                 line => scoped.ProgressAsync(job, line).GetAwaiter().GetResult());
@@ -113,9 +137,43 @@ public sealed class DeviceCookbookRunner(
             await scoped.ProgressAsync(job, ex.ToString(), DeviceJobLevels.Error, CancellationToken.None);
             await scoped.FailAsync(job, ex.Message, CancellationToken.None);
         } finally {
+            await StopRenewalAsync(renewals, renewal);
+            await ReleaseAsync(job.DeviceId);
             cancellations.Release(job.DeviceId, job.Id, cts);
             cts.Dispose();
         }
+    }
+
+    private TimeSpan Ttl => TimeSpan.FromSeconds(Math.Max(2, transport.ClaimTtlSeconds));
+
+    private async Task<DeviceResult<DateTimeOffset>> ClaimAsync(string deviceId, CancellationToken ct) {
+        if (!claims.Active) return DeviceResult<DateTimeOffset>.Success(default);
+        return await claims.ClaimAsync(deviceId, Ttl, ct);
+    }
+
+    private async Task RenewAsync(string deviceId, CancellationToken ct) {
+        if (!claims.Active) return;
+
+        using var timer = new PeriodicTimer(TimeSpan.FromSeconds(Ttl.TotalSeconds / 2));
+        try {
+            while (await timer.WaitForNextTickAsync(ct)) {
+                var renewed = await claims.ClaimAsync(deviceId, Ttl, ct);
+                if (!renewed.Ok)
+                    logger.LogWarning("cookbook: re-claiming {Device} failed: {Note}", deviceId, renewed.Note);
+            }
+        } catch (OperationCanceledException ex) {
+            logger.LogDebug(ex, "cookbook: claim renewal for {Device} stopped", deviceId);
+        }
+    }
+
+    private static async Task StopRenewalAsync(CancellationTokenSource renewals, Task? renewal) {
+        await renewals.CancelAsync();
+        if (renewal is not null) await renewal;
+    }
+
+    private async Task ReleaseAsync(string deviceId) {
+        if (!claims.Active) return;
+        await claims.ReleaseAsync(deviceId, CancellationToken.None);
     }
 
     private static DeviceJobFacts StartFacts(IDeviceCookbook cookbook) =>

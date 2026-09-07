@@ -13,19 +13,6 @@ namespace EggIncognito.Data.Migrations
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.CreateTable(
-                name: "app_settings",
-                columns: table => new
-                {
-                    key = table.Column<string>(type: "text", nullable: false),
-                    value = table.Column<string>(type: "text", nullable: false),
-                    updated_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false, defaultValueSql: "now()")
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_app_settings", x => x.key);
-                });
-
-            migrationBuilder.CreateTable(
                 name: "build_blobs",
                 columns: table => new
                 {
@@ -117,9 +104,6 @@ namespace EggIncognito.Data.Migrations
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.DropTable(
-                name: "app_settings");
-
             migrationBuilder.DropTable(
                 name: "build_blobs");
 

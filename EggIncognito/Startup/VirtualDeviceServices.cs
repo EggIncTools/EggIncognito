@@ -8,20 +8,24 @@ public static class VirtualDeviceServices {
     public static void AddVirtualDeviceServices(this WebApplicationBuilder builder, BootFlags boot) {
         var config = VirtualDeviceConfig.Bind(builder.Configuration);
         var transport = boot.DeviceTransportConfig;
-        DockerEndpoint endpoint = transport.Mode == DeviceTransportMode.Remote
+        bool delegated = transport.Mode == DeviceTransportMode.Remote;
+        DockerEndpoint endpoint = delegated
             ? new DockerEndpoint.Bridge(transport.RemoteBaseUrl ?? "", transport.ApiKey)
             : new DockerEndpoint.Unix(config.DockerSocket);
         builder.Services.AddSingleton(config);
         builder.Services.AddSingleton(_ => new DockerEngineClient(endpoint));
         builder.Services.AddSingleton(_ => new DockerSocketProxy(config.DockerSocket));
-        builder.Services.AddSingleton<IDeviceProvisioner, RedroidProvisioner>();
+        if (delegated) builder.Services.AddSingleton<IDeviceProvisioner, BridgeProvisioner>();
+        else builder.Services.AddSingleton<IDeviceProvisioner, RedroidProvisioner>();
         builder.Services.AddSingleton<IDeviceProvisioners, DeviceProvisioners>();
         builder.Services.AddSingleton<VirtualDeviceLifecycle>();
 
         if (!boot.DbEnabled || boot.FakeDevices) return;
         builder.Services.AddScoped<ProvisionedInstanceStore>();
-        builder.Services.AddHostedService(sp => sp.GetRequiredService<VirtualDeviceLifecycle>());
-        builder.Services.AddHostedService<DockerEventWatcher>();
+        if (!delegated) {
+            builder.Services.AddHostedService(sp => sp.GetRequiredService<VirtualDeviceLifecycle>());
+            builder.Services.AddHostedService<DockerEventWatcher>();
+        }
 
         builder.Services.AddHttpClient(ImageBuilder.HttpClientName, c => {
             c.Timeout = TimeSpan.FromMinutes(10);

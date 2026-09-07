@@ -7,6 +7,8 @@ public sealed class DeviceProxyPusher(
     DeviceCaptureManager manager,
     DeviceCaptureConfig config,
     IDevicePlatforms platforms,
+    IDeviceFleet fleet,
+    DeviceTransportConfig transport,
     ILogger<DeviceProxyPusher> logger) {
     private bool _warnedBridge;
 
@@ -14,17 +16,29 @@ public sealed class DeviceProxyPusher(
 
     public int PortFor(string deviceId) => manager.PortFor(deviceId);
 
+    private BridgeDeviceFleet? Bridge =>
+        transport.Mode == DeviceTransportMode.Remote ? fleet as BridgeDeviceFleet : null;
+
+    public async Task<string?> HostIpAsync(CancellationToken ct) =>
+        Bridge is { } bridge ? await bridge.CaptureHostIpAsync(ct) : HostIp;
+
+    public async Task<int> PortForAsync(string deviceId, CancellationToken ct) =>
+        Bridge is { } bridge ? await bridge.CapturePortAsync(deviceId, ct) : manager.PortFor(deviceId);
+
     private static DeviceTarget TargetOf(DeviceEntry d) => new(d.Id, d.Platform, d.Target, d.Package);
 
     public async Task PushAllAsync(IReadOnlyList<DeviceEntry> devices, CancellationToken ct) {
         if (!config.Enabled) return;
-        string? host = HostIp;
+        string? host = await HostIpAsync(ct);
         if (string.IsNullOrEmpty(host)) {
-            logger.LogWarning("device capture: cannot push proxy, host IP unresolved (set DeviceCapture:HostIp)");
+            logger.LogWarning("device capture: cannot push proxy, {Why}", Bridge is null
+                ? "host IP unresolved (set DeviceCapture:HostIp)"
+                : "the host bridge reports no capture host ip");
             return;
         }
 
-        if (!_warnedBridge && string.IsNullOrWhiteSpace(config.HostIp) && LooksLikeDockerBridge(host)) {
+        if (Bridge is null && !_warnedBridge && string.IsNullOrWhiteSpace(config.HostIp)
+            && LooksLikeDockerBridge(host)) {
             _warnedBridge = true;
             logger.LogWarning(
                 "device capture: auto-detected host IP {Host} looks like a docker bridge address - LAN devices " +
@@ -41,7 +55,7 @@ public sealed class DeviceProxyPusher(
     }
 
     public async Task<(bool Ok, string? Note)> PushOneAsync(DeviceEntry d, string host, CancellationToken ct) {
-        int port = manager.PortFor(d.Id);
+        int port = await PortForAsync(d.Id, ct);
         if (port == 0) return (false, "no capture listener for device");
 
         var res = await platforms.For(d.Platform).SetProxyAsync(TargetOf(d), host, port, ct);

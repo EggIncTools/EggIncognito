@@ -15,6 +15,8 @@ public sealed class VirtualDeviceLifecycle(
     IDeviceConnectionFactory connections,
     IProcessRunner runner,
     IAdbServer adbServer,
+    DeviceTransportConfig transport,
+    DeviceClaimRegistry claims,
     AdminNotifier notifier,
     TimeProvider time,
     ILogger<VirtualDeviceLifecycle> logger) : BackgroundService {
@@ -36,11 +38,20 @@ public sealed class VirtualDeviceLifecycle(
     public bool Supported { get; private set; }
     public string? SupportNote { get; private set; }
 
+    public bool Delegated => transport.Mode == DeviceTransportMode.Remote;
+
     public IDeviceProvisioner Provisioner => provisioners.For(config.Kind);
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken) {
         if (!config.Enabled) {
             logger.LogInformation("virtual devices: disabled (Devices:Virtual:Enabled is false)");
+            return;
+        }
+
+        if (Delegated) {
+            logger.LogInformation(
+                "virtual devices: the host owns this fleet, so nothing is reconciled here; create, destroy and list "
+                + "go over the bridge");
             return;
         }
 
@@ -66,6 +77,7 @@ public sealed class VirtualDeviceLifecycle(
 
     public async Task<DeviceResult<ProvisionedInstance>> CreateAsync(string? image, CancellationToken ct) {
         if (!config.Enabled) return DeviceResult<ProvisionedInstance>.Unsupported("virtual devices are disabled");
+        if (Delegated) return await Provisioner.CreateAsync(new ProvisionSpec(config.Kind, image ?? ""), ct);
 
         using var scope = scopeFactory.CreateScope();
         if (scope.ServiceProvider.GetService(typeof(ProvisionedInstanceStore)) is not ProvisionedInstanceStore store)
@@ -96,6 +108,8 @@ public sealed class VirtualDeviceLifecycle(
     }
 
     public async Task<DeviceResult> DestroyAsync(string instanceId, CancellationToken ct) {
+        if (Delegated) return await Provisioner.DestroyAsync(instanceId, ct);
+
         using var scope = scopeFactory.CreateScope();
         var sp = scope.ServiceProvider;
         if (sp.GetService(typeof(ProvisionedInstanceStore)) is not ProvisionedInstanceStore store)
@@ -124,7 +138,7 @@ public sealed class VirtualDeviceLifecycle(
     }
 
     public async Task<int> ReconcileAsync(CancellationToken ct) {
-        if (!config.Enabled) return 0;
+        if (!config.Enabled || Delegated) return 0;
         if (!await _gate.WaitAsync(TimeSpan.Zero, ct)) return 0;
         try {
             return await ReconcileCoreAsync(ct);
@@ -194,6 +208,13 @@ public sealed class VirtualDeviceLifecycle(
 
             if (row.State != ProvisionStates.Ready)
                 await SetStateAsync(store, changed, row, ProvisionStates.Ready, "android boot completed", ct);
+
+            if (claims.IsHeld(row.DeviceId ?? row.InstanceId)) {
+                logger.LogDebug("virtual devices: {Id} is claimed, leaving root, bring-up and integrity to the claimer",
+                    row.InstanceId);
+                await EnsureDeviceRowAsync(row, serial, devices, store, changed, ct);
+                continue;
+            }
 
             if (!await EnsureRootAsync(row, serial, store, changed, ct)) continue;
 

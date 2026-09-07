@@ -2,6 +2,8 @@ using System.Net.Sockets;
 using System.Text;
 using System.Text.Json;
 using EggIncognito.Core.Services.Devices;
+using EggIncognito.Data.Models;
+using EggIncognito.Data.Services;
 using EggIncognito.Models.Devices;
 using EggIncognito.Services;
 using EggIncognito.Services.Auth;
@@ -22,8 +24,15 @@ public sealed class DeviceBridgeController(
     IProcessRunner runner,
     IServiceProvider services) : ControllerBase {
     private const int StreamChunk = 64 * 1024;
+    private const string NoProvisioner = "no provisioner here";
     private static readonly TimeSpan ReachTimeout = TimeSpan.FromSeconds(3);
     private static readonly JsonSerializerOptions SpecJson = new(JsonSerializerDefaults.Web);
+
+    private static readonly BridgeInstanceList NoProvisionerList =
+        new(false, DeviceOutcomes.Unsupported, NoProvisioner, []);
+
+    private static readonly BridgeInstanceResult NoProvisionerResult =
+        new(false, DeviceOutcomes.Unsupported, NoProvisioner, null);
 
     [HttpPost(BridgeRoutes.Exec)]
     [DisableRateLimiting]
@@ -171,9 +180,63 @@ public sealed class DeviceBridgeController(
         }
     }
 
+    [HttpGet(BridgeRoutes.Fleet)]
+    [DisableRateLimiting]
+    public async Task<IActionResult> Fleet(CancellationToken ct) {
+        if (BridgeGate.Check(HttpContext, config, currentUser, logger) is { } gate) return gate;
+        if (Service<IDeviceFleet>() is not { } fleet)
+            return StatusCode(503, new { error = "device fleet not configured" });
+
+        Note("fleet", "list");
+        var enabled = await fleet.EnabledAsync(ct);
+        return Ok(new BridgeFleet([.. enabled.Select(FleetEntry)], Service<DeviceProxyPusher>()?.HostIp));
+    }
+
+    [HttpGet(BridgeRoutes.Instances)]
+    [DisableRateLimiting]
+    public async Task<IActionResult> Instances(CancellationToken ct) {
+        if (BridgeGate.Check(HttpContext, config, currentUser, logger) is { } gate) return gate;
+
+        Note("instances", "list");
+        using var scope = services.CreateScope();
+        if (scope.ServiceProvider.GetService(typeof(ProvisionedInstanceStore)) is ProvisionedInstanceStore store) {
+            var rows = await store.AllAsync(ct);
+            return Ok(new BridgeInstanceList(true, DeviceOutcomes.Ok, null, [.. rows.Select(StoredInstance)]));
+        }
+
+        if (Service<VirtualDeviceLifecycle>() is not { } lifecycle) return Ok(NoProvisionerList);
+
+        var listed = await lifecycle.Provisioner.ListAsync(ct);
+        return Ok(new BridgeInstanceList(listed.Ok, DeviceOutcomes.Label(listed.Outcome), listed.Note,
+            [.. (listed.Value ?? []).Select(ProvisionedBridgeInstance)]));
+    }
+
+    [HttpPost(BridgeRoutes.Instances)]
+    [DisableRateLimiting]
+    public async Task<IActionResult> InstanceCreate([FromBody] BridgeInstanceCreate? body, CancellationToken ct) {
+        if (BridgeGate.Check(HttpContext, config, currentUser, logger) is { } gate) return gate;
+        if (Service<VirtualDeviceLifecycle>() is not { } lifecycle) return Ok(NoProvisionerResult);
+
+        Note("instances/create", body?.Image ?? "configured image");
+        var res = await lifecycle.CreateAsync(body?.Image, ct);
+        return Ok(new BridgeInstanceResult(res.Ok, DeviceOutcomes.Label(res.Outcome), res.Note,
+            res.Value is { } made ? ProvisionedBridgeInstance(made) : null));
+    }
+
+    [HttpPost(BridgeRoutes.Instances + "/{instanceId}/destroy")]
+    [DisableRateLimiting]
+    public async Task<IActionResult> InstanceDestroy(string instanceId, CancellationToken ct) {
+        if (BridgeGate.Check(HttpContext, config, currentUser, logger) is { } gate) return gate;
+        if (Service<VirtualDeviceLifecycle>() is not { } lifecycle) return Ok(NoProvisionerResult);
+
+        Note("instances/destroy", instanceId);
+        var res = await lifecycle.DestroyAsync(instanceId, ct);
+        return Ok(new BridgeInstanceResult(res.Ok, DeviceOutcomes.Label(res.Outcome), res.Note, null));
+    }
+
     [HttpPost(BridgeRoutes.Claim + "/{deviceId}")]
     [DisableRateLimiting]
-    public async Task<IActionResult> Claim(string deviceId, [FromBody] BridgeClaimRequest? req, CancellationToken ct) {
+    public async Task<IActionResult> Claim(string deviceId, [FromBody] BridgeClaimBody? req, CancellationToken ct) {
         if (BridgeGate.Check(HttpContext, config, currentUser, logger) is { } gate) return gate;
         if (Service<IDeviceFleet>() is not { } fleet || Service<DeviceClaimRegistry>() is not { } claims)
             return StatusCode(503, new { error = "device transport not configured" });
@@ -184,7 +247,7 @@ public sealed class DeviceBridgeController(
 
         Note("claim", deviceId);
         var expires = claims.Claim(deviceId, TimeSpan.FromSeconds(req?.TtlSeconds ?? config.ClaimTtlSeconds));
-        return Ok(new BridgeClaimResult(true, expires));
+        return Ok(new BridgeClaimOutcome(true, expires));
     }
 
     [HttpPost(BridgeRoutes.Release + "/{deviceId}")]
@@ -198,6 +261,15 @@ public sealed class DeviceBridgeController(
         claims.Release(deviceId);
         return Ok(new { ok = true });
     }
+
+    private static BridgeFleetEntry FleetEntry(DeviceEntry d) =>
+        new(d.Id, d.Platform, d.Label, d.Target, d.Package, d.Origin, d.CapturePort);
+
+    private static BridgeInstance StoredInstance(ProvisionedInstanceRow r) =>
+        new(r.InstanceId, r.Kind, r.Image, r.State, r.AdbSerial, r.HostRef, r.CreatedAt, r.Note, r.DeviceId);
+
+    private static BridgeInstance ProvisionedBridgeInstance(ProvisionedInstance i) =>
+        new(i.InstanceId, i.Kind, i.Image, i.State, i.AdbSerial, i.HostRef, i.CreatedAt, i.Note, null);
 
     private T? Service<T>() where T : class => services.GetService(typeof(T)) as T;
 

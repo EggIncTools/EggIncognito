@@ -3,6 +3,7 @@ using System.Text.Json;
 using EggIdentity.Contract;
 using EggIncognito.Controllers;
 using EggIncognito.Core.Services.Devices;
+using EggIncognito.Data.Models;
 using EggIncognito.Models.Devices;
 using EggIncognito.Services;
 using EggIncognito.Services.Devices;
@@ -150,12 +151,82 @@ public class DeviceBridgeControllerTests {
     }
 
     [Fact]
+    public async Task Fleet_MapsEnabledDevicesAndCaptureHostIp() {
+        var entry = new DeviceEntry("runtime-1", "android", "Pixel", "10.0.0.5:5555", "com.auxbrain.egginc",
+            DeviceOrigins.Config, 9100);
+        var sp = new ServiceCollection()
+            .AddSingleton<IDeviceFleet>(new StubFleet(entry))
+            .AddSingleton(Pusher("10.1.2.3"))
+            .BuildServiceProvider();
+        var c = Make(new DeviceTransportConfig { BridgeEnabled = true, ApiKey = Secret }, sp,
+            presentedSecret: Secret);
+
+        var ok = Assert.IsType<OkObjectResult>(await c.Fleet(CancellationToken.None));
+
+        var fleet = Assert.IsType<BridgeFleet>(ok.Value);
+        Assert.Equal("10.1.2.3", fleet.CaptureHostIp);
+        var only = Assert.Single(fleet.Devices);
+        Assert.Equal("runtime-1", only.Id);
+        Assert.Equal("android", only.Platform);
+        Assert.Equal("10.0.0.5:5555", only.Target);
+        Assert.Equal(DeviceOrigins.Config, only.Origin);
+        Assert.Equal(9100, only.CapturePort);
+    }
+
+    [Fact]
+    public async Task Fleet_NoFleetRegistered_503() {
+        var sp = new ServiceCollection().BuildServiceProvider();
+        var c = Make(new DeviceTransportConfig { BridgeEnabled = true, ApiKey = Secret }, sp,
+            presentedSecret: Secret);
+
+        var r = Assert.IsType<ObjectResult>(await c.Fleet(CancellationToken.None));
+        Assert.Equal(503, r.StatusCode);
+    }
+
+    [Fact]
+    public async Task Instances_NoProvisioner_UnsupportedEnvelope() {
+        var sp = new ServiceCollection().BuildServiceProvider();
+        var c = Make(new DeviceTransportConfig { BridgeEnabled = true, ApiKey = Secret }, sp,
+            presentedSecret: Secret);
+
+        var ok = Assert.IsType<OkObjectResult>(await c.Instances(CancellationToken.None));
+
+        var list = Assert.IsType<BridgeInstanceList>(ok.Value);
+        Assert.False(list.Ok);
+        Assert.Equal(DeviceOutcomes.Unsupported, list.Outcome);
+        Assert.Empty(list.Instances);
+    }
+
+    [Fact]
+    public async Task InstanceCreate_NoProvisioner_UnsupportedEnvelope() {
+        var sp = new ServiceCollection().BuildServiceProvider();
+        var c = Make(new DeviceTransportConfig { BridgeEnabled = true, ApiKey = Secret }, sp,
+            presentedSecret: Secret);
+
+        var ok = Assert.IsType<OkObjectResult>(
+            await c.InstanceCreate(new BridgeInstanceCreate("egi/redroid:12"), CancellationToken.None));
+
+        var res = Assert.IsType<BridgeInstanceResult>(ok.Value);
+        Assert.False(res.Ok);
+        Assert.Equal(DeviceOutcomes.Unsupported, res.Outcome);
+        Assert.Null(res.Instance);
+    }
+
+    [Fact]
     public async Task Reach_BadPort_400() {
         var sp = new ServiceCollection().BuildServiceProvider();
         var c = Make(new DeviceTransportConfig { BridgeEnabled = true, ApiKey = Secret }, sp,
             presentedSecret: Secret);
 
         Assert.IsType<BadRequestObjectResult>(await c.Reach("127.0.0.1", 0, CancellationToken.None));
+    }
+
+    private static DeviceProxyPusher Pusher(string hostIp) {
+        var capture = new DeviceCaptureConfig { HostIp = hostIp };
+        var manager = new DeviceCaptureManager(capture, new StubFleet(), Path.GetTempPath(), "ca.cer", null,
+            Path.GetTempPath(), NullLogger<DeviceCaptureManager>.Instance);
+        return new DeviceProxyPusher(manager, capture, new DevicePlatforms([]), new StubFleet(),
+            new DeviceTransportConfig(), NullLogger<DeviceProxyPusher>.Instance);
     }
 
     private static DefaultHttpContext FormRequest(BridgeExecSpec spec, (string Name, byte[] Bytes)[] inputs) {
@@ -177,6 +248,13 @@ public class DeviceBridgeControllerTests {
 
         http.Request.Form = new FormCollection(fields, files);
         return http;
+    }
+
+    private sealed class StubFleet(params DeviceEntry[] devices) : IDeviceFleet {
+        public Task<IReadOnlyList<DeviceEntry>> EnabledAsync(CancellationToken ct) =>
+            Task.FromResult<IReadOnlyList<DeviceEntry>>(devices);
+
+        public Task PersistCapturePortAsync(string deviceId, int port, CancellationToken ct) => Task.CompletedTask;
     }
 
     private sealed class RecordingRunner(Func<string, string[], ProcessResult>? fn = null) : IProcessRunner {

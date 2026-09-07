@@ -6,7 +6,6 @@ namespace EggIncognito.Core.Services.Devices;
 public sealed record VirtualDeviceConfig {
     public const string DefaultImage = "redroid/redroid:11.0.0_gapps_ndk_magisk";
     public const string DefaultSocket = "/var/run/docker.sock";
-    public const string DefaultOwner = "default";
 
     public const string DefaultGmsPackage = "com.google.android.gms";
 
@@ -22,7 +21,6 @@ public sealed record VirtualDeviceConfig {
     public string Kind { get; init; } = "redroid";
     public string Image { get; init; } = DefaultImage;
     public int MaxInstances { get; init; } = 4;
-    public string Owner { get; init; } = DefaultOwner;
     public string? Network { get; init; }
     public string DockerSocket { get; init; } = DefaultSocket;
     public int ReconcileSeconds { get; init; } = 20;
@@ -52,7 +50,6 @@ public sealed record VirtualDeviceConfig {
             Kind = Nz(v["Kind"]) ?? "redroid",
             Image = Nz(v["Image"]) ?? DefaultImage,
             MaxInstances = Num(v, "MaxInstances", 4),
-            Owner = Nz(v["Owner"]) ?? DefaultOwner,
             Network = Nz(v["Network"]),
             DockerSocket = Nz(v["DockerSocket"]) ?? DefaultSocket,
             ReconcileSeconds = Num(v, "ReconcileSeconds", 20),

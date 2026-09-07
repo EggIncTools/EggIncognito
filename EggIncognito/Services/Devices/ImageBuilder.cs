@@ -20,7 +20,7 @@ public sealed class ImageBuilder(
     VirtualDeviceConfig config,
     IHostFacts hostFacts,
     IntegrityAssets assets,
-    IConfiguration configuration,
+    CaptureCaSource captureCa,
     AdminNotifier notifier,
     ILogger<ImageBuilder> logger) {
     public const string HttpClientName = "image-build";
@@ -230,7 +230,7 @@ public sealed class ImageBuilder(
               + "it must be the key of the adb server this app talks to, so an adb server started elsewhere rejects it"
             : "integrity: no host adb public key found; the image carries none and adbd will reject this host after the seed boot", ct);
 
-        (string? caHash, string? caPem) = CaptureCa();
+        (string? caHash, string? caPem) = await CaptureCaAsync(ct);
         await Log(buildId, caHash is null
             ? "integrity: no capture CA minted yet, the image trusts none"
             : $"integrity: capture CA baked as {caHash}.0", ct);
@@ -246,14 +246,14 @@ public sealed class ImageBuilder(
         await Log(buildId, $"integrity: staged {bundle.Modules.Count} module(s) + seed under {IntegritySeed.SeedDir}", ct);
     }
 
-    private (string? Hash, string? Pem) CaptureCa() {
-        string path = CaptureCaPath.Resolve(configuration);
-        if (!File.Exists(path)) return (null, null);
+    private async Task<(string? Hash, string? Pem)> CaptureCaAsync(CancellationToken ct) {
+        var ca = await captureCa.ResolveAsync(ct);
+        if (ca is null || !File.Exists(ca.Path)) return (null, null);
         try {
-            using var cert = X509CertificateLoader.LoadCertificateFromFile(path);
+            using var cert = X509CertificateLoader.LoadCertificateFromFile(ca.Path);
             return (CaCertPrep.AndroidSubjectHashOld(cert), CaCertPrep.ToPem(cert));
         } catch (CryptographicException ex) {
-            logger.LogWarning(ex, "image build: capture CA at {Path} is unreadable", path);
+            logger.LogWarning(ex, "image build: capture CA at {Path} is unreadable", ca.Path);
             return (null, null);
         }
     }

@@ -18,9 +18,19 @@ public static class DeviceServices {
         builder.Services.AddSingleton(boot.GmsFirstRunConfig);
         builder.Services.AddSingleton(boot.DeviceCaptureConfig);
         builder.Services.AddSingleton(boot.DeviceTransportConfig);
-        builder.Services.AddSingleton<IDeviceFleet>(sp => new DeviceFleet(
-            sp.GetRequiredService<IServiceScopeFactory>(), boot.DeviceConfig,
-            boot.DbEnabled && !boot.FakeDevices));
+        bool remote = !boot.FakeDevices && boot.DeviceTransportConfig.Mode == DeviceTransportMode.Remote;
+        if (remote) {
+            builder.Services.AddSingleton<BridgeDeviceFleetSource>();
+            builder.Services.AddSingleton<IDeviceFleet, BridgeDeviceFleet>();
+            builder.Services.AddSingleton<IDeviceClaims, BridgeDeviceClaims>();
+        } else {
+            builder.Services.AddSingleton<IDeviceFleet>(sp => new DeviceFleet(
+                sp.GetRequiredService<IServiceScopeFactory>(), boot.DeviceConfig,
+                boot.DbEnabled && !boot.FakeDevices));
+            builder.Services.AddSingleton<IDeviceClaims>(sp =>
+                new NullDeviceClaims(sp.GetRequiredService<TimeProvider>()));
+        }
+
         if (boot.DbEnabled) builder.Services.AddScoped<DeviceRecertService>();
 
         int probeTimeoutSeconds = config.GetValue("DeviceProbe:TimeoutSeconds", 0);
@@ -37,7 +47,7 @@ public static class DeviceServices {
             builder.Services.AddSingleton<IDeviceAgentClient>(sp => sp.GetRequiredService<FakeDeviceAgent>());
             builder.Services.AddHostedService(sp => sp.GetRequiredService<FakeDeviceAgent>());
             if (boot.DbEnabled) builder.Services.AddScoped<DeviceHarvester>();
-        } else if (boot.DeviceTransportConfig.Mode == DeviceTransportMode.Remote) {
+        } else if (remote) {
             builder.Services.AddSingleton<IProcessRunner, BridgeProcessRunner>();
             builder.Services.AddSingleton<IHostFacts, BridgeHostFacts>();
             builder.Services.AddSingleton<IAdbServer, BridgeAdbServer>();
@@ -56,7 +66,8 @@ public static class DeviceServices {
             c.MaxResponseContentBufferSize = 512L * 1024 * 1024;
         });
 
-        if (boot.DeviceConfig.Enabled) builder.Services.AddHostedService<DeviceMaintenanceService>();
+        bool borrowing = boot.DeviceTransportConfig.Mode == DeviceTransportMode.Remote;
+        if (boot.DeviceConfig.Enabled && !borrowing) builder.Services.AddHostedService<DeviceMaintenanceService>();
 
         builder.Services.AddSingleton<DeviceClaimRegistry>();
         builder.Services.AddHttpClient();
@@ -69,6 +80,7 @@ public static class DeviceServices {
     }
 
     private static void AddDeviceCookbooks(this WebApplicationBuilder builder, BootFlags boot) {
+        builder.Services.AddSingleton<CaptureCaSource>();
         builder.Services.AddSingleton<VirtualDeviceReadinessProbe>();
         builder.Services.AddSingleton<CookbookExecutor>();
         builder.Services.AddSingleton<ModuleFetcher>();
@@ -181,7 +193,7 @@ public static class DeviceServices {
         builder.Services.AddSingleton<IDeviceCaptureStatus>(sp => sp.GetRequiredService<DeviceCaptureManager>());
         builder.Services.AddSingleton<DeviceProxyPusher>();
         builder.Services.AddSingleton<ProxyReachProbe>();
-        if (boot.DeviceCaptureConfig.Enabled)
+        if (boot.DeviceCaptureConfig.Enabled && boot.DeviceTransportConfig.Mode != DeviceTransportMode.Remote)
             builder.Services.AddHostedService(sp => sp.GetRequiredService<DeviceCaptureManager>());
     }
 

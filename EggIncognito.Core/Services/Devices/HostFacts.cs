@@ -7,7 +7,9 @@ public sealed record HostFacts(
     string? AdbPublicKey,
     string AdbSocket,
     bool AdbServerOwned,
-    bool DockerPresent);
+    bool DockerPresent,
+    string? CaptureHostIp = null,
+    string? CaptureCaPem = null);
 
 public interface IHostFacts {
     Task<DeviceResult<HostFacts>> GetAsync(CancellationToken ct);

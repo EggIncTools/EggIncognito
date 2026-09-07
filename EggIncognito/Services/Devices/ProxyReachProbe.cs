@@ -18,14 +18,25 @@ public sealed class ProxyReachProbe(
     public Task<DeviceResult> CheckAsync(CancellationToken ct) => CheckAsync(null, ct);
 
     public async Task<DeviceResult> CheckAsync(string? deviceId, CancellationToken ct) {
+        if (transport.Mode == DeviceTransportMode.Remote) return await RemoteAsync(deviceId, ct);
+
         if (Host is not { Length: > 0 } host)
             return DeviceResult.Unsupported("no capture proxy address to test (set DeviceCapture:HostIp)");
 
         int port = PortFor(deviceId);
         if (port <= 0) return DeviceResult.Unsupported("no capture listener port to test");
-        return transport.Mode == DeviceTransportMode.Remote
-            ? await BridgeAsync(host, port, ct)
-            : await LocalAsync(host, port, ct);
+        return await LocalAsync(host, port, ct);
+    }
+
+    private async Task<DeviceResult> RemoteAsync(string? deviceId, CancellationToken ct) {
+        if (await pusher.HostIpAsync(ct) is not { Length: > 0 } host)
+            return DeviceResult.Unsupported("the host bridge reports no capture host ip");
+        if (deviceId is not { Length: > 0 } id)
+            return DeviceResult.Unsupported("no device to look a capture port up for");
+
+        int port = await pusher.PortForAsync(id, ct);
+        if (port <= 0) return DeviceResult.Unsupported("the host bridge reports no capture port for this device");
+        return await BridgeAsync(host, port, ct);
     }
 
     private int PortFor(string? deviceId) {
