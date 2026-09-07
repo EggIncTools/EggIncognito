@@ -6,7 +6,6 @@ using EggIdentity.Metrics;
 using EggIncognito.Bot;
 using EggIncognito.Components;
 using EggIncognito.Core.Services;
-using EggIncognito.Core.Services.Devices;
 using EggIncognito.Data.Services;
 using EggIncognito.Services;
 using EggIncognito.Services.Auth;
@@ -24,22 +23,6 @@ public static class AppPipeline {
                 "checkers, process runner and device agent are not registered. Fake devices: {Devices}",
                 app.Environment.EnvironmentName, FakeDeviceGate.EnabledKey,
                 string.Join(", ", boot.FakeDeviceSettings.Devices.Select(d => $"{d.Id} [{d.Scenario}] {d.Target}")));
-        }
-
-        if (RemoteDeviceProvisioner.IsRemoteKind(app.Services.GetRequiredService<VirtualDeviceConfig>().Kind)) {
-            if (boot.DeviceTransportConfig.Mode == DeviceTransportMode.Remote) {
-                app.Logger.LogInformation(
-                    "virtual devices: provisioning is delegated to {Url}; no local reconciler and no local "
-                    + "provisioned_instances writes on this instance",
-                    boot.DeviceTransportConfig.RemoteBaseUrl ?? "(DeviceTransport:RemoteBaseUrl is not set)");
-            } else {
-                app.Logger.LogWarning(
-                    "virtual devices: Devices:Virtual:Kind is '{Kind}' but DeviceTransport:Mode is '{Mode}'. An "
-                    + "instance provisioned on the remote host only has an address on that host's docker network, "
-                    + "so adb must go through the device bridge too. Provisioning will refuse until "
-                    + "DeviceTransport:Mode is Remote.",
-                    RemoteDeviceProvisioner.KindName, boot.DeviceTransportConfig.Mode);
-            }
         }
 
         var extensions = app.Services.GetRequiredService<Services.Devices.DeviceExtensionCatalog>();

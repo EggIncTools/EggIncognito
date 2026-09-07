@@ -5,6 +5,7 @@ namespace EggIncognito.Services.Devices.Cookbooks;
 public sealed class InstallCaStep(
     IEnumerable<IDeviceCaInstaller> installers,
     IDeviceConnectionFactory connections,
+    ProxyReachProbe proxyReach,
     IConfiguration configuration) : CookbookStep {
     private const string SystemCaCerts = "/system/etc/security/cacerts/";
 
@@ -43,6 +44,14 @@ public sealed class InstallCaStep(
             Add($"{file} already in the system trust store");
             return Ok(lines, "capture CA already in the system trust store");
         }
+
+        var reach = await proxyReach.CheckAsync(target.Id, ct);
+        if (!reach.Ok && reach.Outcome != DeviceOutcome.Unsupported) {
+            return Failed(lines,
+                $"the capture proxy is not reachable from the host, so a trusted CA would capture nothing: {reach.Note}");
+        }
+
+        Add(reach.Ok ? reach.Note ?? "capture proxy reachable" : $"proxy reach not tested: {reach.Note}");
 
         Add($"installing {Path.GetFileName(caPath)} on {target.Id}");
         (bool ok, string? note) = await installer.InstallAsync(target, caPath, ct);

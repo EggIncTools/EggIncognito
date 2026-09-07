@@ -6,22 +6,23 @@ namespace EggIncognito.Services.Devices;
 public sealed class VirtualDeviceReadinessProbe(
     IDeviceConnectionFactory connections,
     VirtualDeviceConfig config,
+    ProxyReachProbe proxyReach,
     IConfiguration configuration) {
     private const string SystemCaCerts = "/system/etc/security/cacerts/";
 
     public async Task<DeviceReadiness> ProbeAsync(DeviceTarget target, CancellationToken ct) {
         if (!Platforms.Matches(target.Platform, Platforms.Android)) {
             var na = new ReadinessCheck(false, "android only");
-            return new DeviceReadiness(na, na, na, na, na, na);
+            return new DeviceReadiness(na, na, na, na, na, na, na);
         }
 
         if (connections.For(target) is not { } conn) {
             var no = new ReadinessCheck(false, "no connection");
-            return new DeviceReadiness(no, no, no, no, no, no);
+            return new DeviceReadiness(no, no, no, no, no, no, no);
         }
 
         if (await OfflineAsync(conn, ct) is { } offline)
-            return new DeviceReadiness(offline, offline, offline, offline, offline, offline);
+            return new DeviceReadiness(offline, offline, offline, offline, offline, offline, offline);
 
         var root = await DeviceRoot.ProbeAsync(conn, ct);
         var installed = await InstalledAsync(conn, target.Package, ct);
@@ -30,7 +31,13 @@ public sealed class VirtualDeviceReadinessProbe(
         var integrity = await IntegrityAsync(conn, root, ct);
         var launched = await LaunchedAsync(conn, target.Package, ct);
         var ca = await CaptureCaAsync(conn, root, ct);
-        return new DeviceReadiness(installed, ca, play, rooted, integrity, launched);
+        var proxy = await ProxyReachableAsync(target, ct);
+        return new DeviceReadiness(installed, ca, play, rooted, integrity, launched, proxy);
+    }
+
+    private async Task<ReadinessCheck> ProxyReachableAsync(DeviceTarget target, CancellationToken ct) {
+        var reach = await proxyReach.CheckAsync(target.Id, ct);
+        return new ReadinessCheck(reach.Ok, reach.Note);
     }
 
     private static async Task<ReadinessCheck?> OfflineAsync(IDeviceConnection conn, CancellationToken ct) {

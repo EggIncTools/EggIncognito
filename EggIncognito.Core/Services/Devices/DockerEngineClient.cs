@@ -79,45 +79,55 @@ public sealed class DockerEventReader : IAsyncDisposable {
 public sealed partial class DockerEngineClient : IDisposable {
     public const string HostNetwork = "host";
     private static readonly string[] ReservedNetworks = ["bridge", "host", "none"];
+    private static readonly Uri UnixBase = new("http://docker/");
     private readonly HttpClient _http;
     private readonly HttpClient _build;
     private readonly HttpClient _stream;
     private readonly SocketsHttpHandler _handler;
 
-    public DockerEngineClient(string socketPath) {
-        SocketPath = socketPath;
-        _handler = new SocketsHttpHandler {
-            ConnectCallback = async (_, ct) => {
-                var socket = new Socket(AddressFamily.Unix, SocketType.Stream, ProtocolType.Unspecified);
-                try {
-                    await socket.ConnectAsync(new UnixDomainSocketEndPoint(socketPath), ct);
-                    return new NetworkStream(socket, true);
-                } catch {
-                    socket.Dispose();
-                    throw;
-                }
-            }
-        };
-        _http = new HttpClient(_handler, false) {
-            BaseAddress = new Uri("http://docker/"),
-            Timeout = TimeSpan.FromSeconds(90)
-        };
-        _http.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-        _build = new HttpClient(_handler, false) {
-            BaseAddress = new Uri("http://docker/"),
-            Timeout = Timeout.InfiniteTimeSpan
-        };
-        _build.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-        _stream = new HttpClient(_handler, false) {
-            BaseAddress = new Uri("http://docker/"),
-            Timeout = Timeout.InfiniteTimeSpan
-        };
-        _stream.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+    public DockerEngineClient(DockerEndpoint endpoint) {
+        Endpoint = endpoint;
+        _handler = endpoint is DockerEndpoint.Unix unix ? UnixHandler(unix.SocketPath) : new SocketsHttpHandler();
+
+        var baseAddress = UnixBase;
+        if (endpoint is DockerEndpoint.Bridge bridge && Uri.TryCreate(bridge.Root, UriKind.Absolute, out var parsed))
+            baseAddress = parsed;
+
+        _http = NewClient(baseAddress, TimeSpan.FromSeconds(90));
+        _build = NewClient(baseAddress, Timeout.InfiniteTimeSpan);
+        _stream = NewClient(baseAddress, Timeout.InfiniteTimeSpan);
+
+        if (endpoint is not DockerEndpoint.Bridge { Secret: { Length: > 0 } secret }) return;
+        foreach (var client in new[] { _http, _build, _stream })
+            client.DefaultRequestHeaders.Add(BridgeRoutes.SecretHeader, secret);
     }
 
-    public string SocketPath { get; }
+    private static SocketsHttpHandler UnixHandler(string socketPath) => new() {
+        ConnectCallback = async (_, ct) => {
+            var socket = new Socket(AddressFamily.Unix, SocketType.Stream, ProtocolType.Unspecified);
+            try {
+                await socket.ConnectAsync(new UnixDomainSocketEndPoint(socketPath), ct);
+                return new NetworkStream(socket, true);
+            } catch {
+                socket.Dispose();
+                throw;
+            }
+        }
+    };
 
-    public bool SocketPresent => !OperatingSystem.IsWindows() && File.Exists(SocketPath);
+    private HttpClient NewClient(Uri baseAddress, TimeSpan timeout) {
+        var client = new HttpClient(_handler, false) { BaseAddress = baseAddress, Timeout = timeout };
+        client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+        return client;
+    }
+
+    public DockerEndpoint Endpoint { get; }
+
+    public bool Available => Endpoint.Available;
+
+    private string NotAvailable => $"{Endpoint.Describe()} is not available";
+
+    private string Unreachable(Exception ex) => $"{Endpoint.Describe()} unreachable: {ex.Message}";
 
     public void Dispose() {
         _http.Dispose();
@@ -127,8 +137,7 @@ public sealed partial class DockerEngineClient : IDisposable {
     }
 
     public async Task<DeviceResult<DockerEventReader>> OpenEventsAsync(string? label, CancellationToken ct) {
-        if (!SocketPresent)
-            return DeviceResult<DockerEventReader>.Unsupported($"docker socket {SocketPath} is not present");
+        if (!Available) return DeviceResult<DockerEventReader>.Unsupported(NotAvailable);
 
         string filters = string.IsNullOrEmpty(label)
             ? "{\"type\":[\"container\"]}"
@@ -151,9 +160,9 @@ public sealed partial class DockerEngineClient : IDisposable {
             body = null;
             return DeviceResult<DockerEventReader>.Success(opened);
         } catch (HttpRequestException ex) {
-            return DeviceResult<DockerEventReader>.Unsupported($"docker socket unreachable: {ex.Message}");
+            return DeviceResult<DockerEventReader>.Unsupported(Unreachable(ex));
         } catch (SocketException ex) {
-            return DeviceResult<DockerEventReader>.Unsupported($"docker socket unreachable: {ex.Message}");
+            return DeviceResult<DockerEventReader>.Unsupported(Unreachable(ex));
         } catch (IOException ex) {
             return DeviceResult<DockerEventReader>.Unreachable($"docker event stream broke: {ex.Message}");
         } finally {
@@ -186,7 +195,7 @@ public sealed partial class DockerEngineClient : IDisposable {
     }
 
     public async Task<DeviceResult> PingAsync(CancellationToken ct) {
-        if (!SocketPresent) return DeviceResult.Unsupported($"docker socket {SocketPath} is not present");
+        if (!Available) return DeviceResult.Unsupported(NotAvailable);
         var res = await SendAsync(HttpMethod.Get, "_ping", null, ct);
         return res.Ok ? DeviceResult.Success() : new DeviceResult(res.Outcome, res.Note);
     }
@@ -294,7 +303,7 @@ public sealed partial class DockerEngineClient : IDisposable {
     public async Task<DeviceResult> BuildImageAsync(
         Stream tarContext, string tag, IReadOnlyDictionary<string, string>? buildArgs, Action<string> onLog,
         CancellationToken ct) {
-        if (!SocketPresent) return DeviceResult.Unsupported($"docker socket {SocketPath} is not present");
+        if (!Available) return DeviceResult.Unsupported(NotAvailable);
 
         string path = $"build?t={Uri.EscapeDataString(tag)}&rm=1&forcerm=1";
         if (buildArgs is { Count: > 0 })
@@ -321,9 +330,9 @@ public sealed partial class DockerEngineClient : IDisposable {
             if (!res.IsSuccessStatusCode) return DeviceResult.Error($"docker build {(int)res.StatusCode}: {error ?? "no detail"}");
             return error is null ? DeviceResult.Success() : DeviceResult.Error(error);
         } catch (HttpRequestException ex) {
-            return DeviceResult.Unsupported($"docker socket unreachable: {ex.Message}");
+            return DeviceResult.Unsupported(Unreachable(ex));
         } catch (SocketException ex) {
-            return DeviceResult.Unsupported($"docker socket unreachable: {ex.Message}");
+            return DeviceResult.Unsupported(Unreachable(ex));
         } catch (IOException ex) {
             return DeviceResult.Unreachable($"docker build stream broke: {ex.Message}");
         }
@@ -371,7 +380,9 @@ public sealed partial class DockerEngineClient : IDisposable {
     }
 
     public async Task<DeviceResult<string>> SelfNetworkAsync(CancellationToken ct) {
-        if (!SocketPresent) return DeviceResult<string>.Unsupported($"docker socket {SocketPath} is not present");
+        if (Endpoint is DockerEndpoint.Bridge)
+            return DeviceResult<string>.Unsupported("the app network on a bridge host is a host fact");
+        if (!Available) return DeviceResult<string>.Unsupported(NotAvailable);
 
         var tried = new List<string>();
         foreach (string candidate in SelfIdCandidates()) {
@@ -502,7 +513,7 @@ public sealed partial class DockerEngineClient : IDisposable {
 
     private async Task<DeviceResult<string>> SendAsync(
         HttpMethod method, string path, string? json, CancellationToken ct, bool allowMissing = false) {
-        if (!SocketPresent) return DeviceResult<string>.Unsupported($"docker socket {SocketPath} is not present");
+        if (!Available) return DeviceResult<string>.Unsupported(NotAvailable);
 
         using var req = new HttpRequestMessage(method, path);
         if (json is not null) req.Content = new StringContent(json, Encoding.UTF8, "application/json");
@@ -515,11 +526,11 @@ public sealed partial class DockerEngineClient : IDisposable {
                 return DeviceResult<string>.Success("", "already gone");
             return DeviceResult<string>.Error($"docker {(int)res.StatusCode}: {Trim(body)}");
         } catch (HttpRequestException ex) {
-            return DeviceResult<string>.Unsupported($"docker socket unreachable: {ex.Message}");
+            return DeviceResult<string>.Unsupported(Unreachable(ex));
         } catch (SocketException ex) {
-            return DeviceResult<string>.Unsupported($"docker socket unreachable: {ex.Message}");
+            return DeviceResult<string>.Unsupported(Unreachable(ex));
         } catch (IOException ex) {
-            return DeviceResult<string>.Unsupported($"docker socket unreachable: {ex.Message}");
+            return DeviceResult<string>.Unsupported(Unreachable(ex));
         } catch (TaskCanceledException ex) when (!ct.IsCancellationRequested) {
             return DeviceResult<string>.Unreachable($"docker request timed out: {ex.Message}");
         }

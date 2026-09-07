@@ -756,6 +756,7 @@
         yield return ("root", _readiness?.Rooted);
         yield return ("integrity", _readiness?.IntegrityModule);
         yield return ("launched", _readiness?.Launched);
+        yield return ("proxy", _readiness?.ProxyReachable);
     }
 
     static string ReadyClass(ReadinessCheck? check) {

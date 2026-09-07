@@ -9,8 +9,6 @@ namespace EggIncognito.Services.Devices;
 public sealed class DeviceCookbookRunner(
     IDeviceCookbooks cookbooks,
     IDeviceFleet fleet,
-    IDeviceProvisioners provisioners,
-    VirtualDeviceConfig virtualConfig,
     DeviceJobStore jobs,
     CookbookExecutor executor,
     IServiceScopeFactory scopeFactory,
@@ -20,9 +18,7 @@ public sealed class DeviceCookbookRunner(
     public async Task<DeviceTarget?> TargetAsync(string deviceId, CancellationToken ct) {
         var entry = (await fleet.EnabledAsync(ct)).FirstOrDefault(d =>
             string.Equals(d.Id, deviceId, StringComparison.Ordinal));
-        if (entry is not null) return new DeviceTarget(entry.Id, entry.Platform, entry.Target, entry.Package);
-
-        return await VirtualDeviceMirror.ResolveTargetAsync(provisioners, virtualConfig, deviceId, ct);
+        return entry is null ? null : new DeviceTarget(entry.Id, entry.Platform, entry.Target, entry.Package);
     }
 
     public async Task<IReadOnlyList<DeviceCookbookInfo>> DescribeAsync(string deviceId, CancellationToken ct) {

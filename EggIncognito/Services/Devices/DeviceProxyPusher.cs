@@ -12,6 +12,8 @@ public sealed class DeviceProxyPusher(
 
     public string? HostIp => HostAddress.Resolve(config.HostIp);
 
+    public int PortFor(string deviceId) => manager.PortFor(deviceId);
+
     private static DeviceTarget TargetOf(DeviceEntry d) => new(d.Id, d.Platform, d.Target, d.Package);
 
     public async Task PushAllAsync(IReadOnlyList<DeviceEntry> devices, CancellationToken ct) {

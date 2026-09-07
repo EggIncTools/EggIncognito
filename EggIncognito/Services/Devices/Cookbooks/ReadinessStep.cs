@@ -33,6 +33,7 @@ public sealed class ReadinessStep(VirtualDeviceReadinessProbe probe) : CookbookS
         Row("integrity module", readiness.IntegrityModule);
         Row("launched", readiness.Launched);
         Row("capture ca", readiness.CaptureCa);
+        Row("proxy reachable", readiness.ProxyReachable);
 
         return Ok(lines, missing.Count == 0 ? "all checks passed" : $"missing: {string.Join(", ", missing)}");
     }

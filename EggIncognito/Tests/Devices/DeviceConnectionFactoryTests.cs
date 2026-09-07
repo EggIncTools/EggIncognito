@@ -13,14 +13,8 @@ public class DeviceConnectionFactoryTests {
 
     private static DeviceTarget IosTarget => new("i1", Platforms.Ios, "UDID", "com.auxbrain.egginc");
 
-    private static DeviceTransportConfig RemoteTransport() => new() {
-        Mode = DeviceTransportMode.Remote,
-        RemoteBaseUrl = "https://frame.test",
-        ApiKey = "k"
-    };
-
     [Fact]
-    public void For_NullTransportConfig_AndroidReturnsAdbConnection() {
+    public void For_Android_ReturnsAdbConnection() {
         var factory = new DeviceConnectionFactory(new RefusingProcessRunner(), CaptureConfig());
 
         var conn = factory.For(AndroidTarget);
@@ -29,7 +23,7 @@ public class DeviceConnectionFactoryTests {
     }
 
     [Fact]
-    public void For_NullTransportConfig_IosReturnsSshConnection() {
+    public void For_Ios_ReturnsSshConnection() {
         var factory = new DeviceConnectionFactory(new RefusingProcessRunner(), CaptureConfig());
 
         var conn = factory.For(IosTarget);
@@ -38,50 +32,10 @@ public class DeviceConnectionFactoryTests {
     }
 
     [Fact]
-    public void For_ModeLocalExplicit_AndroidReturnsAdbConnection() {
-        var transport = new DeviceTransportConfig { Mode = DeviceTransportMode.Local };
-        var factory = new DeviceConnectionFactory(new RefusingProcessRunner(), CaptureConfig(), transport, new StubHttpFactory());
+    public void For_UnknownPlatform_ReturnsNull() {
+        var factory = new DeviceConnectionFactory(new RefusingProcessRunner(), CaptureConfig());
 
-        var conn = factory.For(AndroidTarget);
-
-        Assert.IsType<AdbDeviceConnection>(conn);
-    }
-
-    [Fact]
-    public void For_ModeLocalExplicit_IosReturnsSshConnection() {
-        var transport = new DeviceTransportConfig { Mode = DeviceTransportMode.Local };
-        var factory = new DeviceConnectionFactory(new RefusingProcessRunner(), CaptureConfig(), transport, new StubHttpFactory());
-
-        var conn = factory.For(IosTarget);
-
-        Assert.IsType<SshDeviceConnection>(conn);
-    }
-
-    [Fact]
-    public void For_ModeRemote_AndroidReturnsRemoteConnection() {
-        var factory = new DeviceConnectionFactory(new RefusingProcessRunner(), CaptureConfig(), RemoteTransport(), new StubHttpFactory());
-
-        var conn = factory.For(AndroidTarget);
-
-        Assert.IsType<RemoteDeviceConnection>(conn);
-    }
-
-    [Fact]
-    public void For_ModeRemote_IosReturnsRemoteConnection() {
-        var factory = new DeviceConnectionFactory(new RefusingProcessRunner(), CaptureConfig(), RemoteTransport(), new StubHttpFactory());
-
-        var conn = factory.For(IosTarget);
-
-        Assert.IsType<RemoteDeviceConnection>(conn);
-    }
-
-    [Fact]
-    public void For_ModeRemoteButNoHttpFactory_FallsBackToLocalAdb() {
-        var factory = new DeviceConnectionFactory(new RefusingProcessRunner(), CaptureConfig(), RemoteTransport());
-
-        var conn = factory.For(AndroidTarget);
-
-        Assert.IsType<AdbDeviceConnection>(conn);
+        Assert.Null(factory.For(new DeviceTarget("x1", "switch", "SER", "com.auxbrain.egginc")));
     }
 
     [Fact]

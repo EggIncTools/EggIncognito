@@ -29,12 +29,12 @@
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Staging",
         "Feed__PageBaseUrl": "http://localhost:5080",
-        "Devices__Fake__Enabled": "true",
         "DeviceCapture__Enabled": "true",
         "Auth__LocalIdentity__Enabled": "true",
         "Auth__LocalIdentity__Role": "Admin",
         "Devices__Virtual__Enabled": "true",
-        "Devices__Virtual__Kind": "remote",
+        "Devices__Virtual__Kind": "redroid",
+        "Devices__Virtual__Owner": "subprod",
         "DeviceTransport__Mode": "Remote",
         "DeviceTransport__RemoteBaseUrl": "http://192.168.1.66:8085"
       }

@@ -11,7 +11,17 @@ public sealed class VirtualDeviceSettingsProvider : ISettingsProvider {
             SettingKind.Bool, ApplyTier.RestartRequired, Sensitivity.Plain) { Default = "false" },
         new("devices.virtual.kind", "Devices__Virtual__Kind", "Provisioner kind", Category,
             SettingKind.Enum, ApplyTier.RestartRequired, Sensitivity.Plain) {
-            EnumValues = ["redroid", "remote"], Default = "redroid"
+            EnumValues = ["redroid"], Default = "redroid"
+        },
+        new("devices.virtual.owner", "Devices__Virtual__Owner", "Fleet owner", Category,
+            SettingKind.Text, ApplyTier.RestartRequired, Sensitivity.Plain) {
+            Default = VirtualDeviceConfig.DefaultOwner,
+            Description = "Containers are labelled egi.owner with this value; list, cap and reconcile only see this "
+                + "owner's instances, so two instances can share one docker daemon."
+        },
+        new("devices.virtual.network", "Devices__Virtual__Network", "Docker network", Category,
+            SettingKind.Text, ApplyTier.RestartRequired, Sensitivity.Plain) {
+            Description = "Network new containers join. Empty asks the docker daemon for this app container's own."
         },
         new(SettingKeys.VirtualImageOverride, "Devices__Virtual__Image", "Container image", Category,
             SettingKind.Text, ApplyTier.Live, Sensitivity.Plain) {

@@ -73,9 +73,35 @@ public sealed class ModuleFetcher(
         if (string.IsNullOrWhiteSpace(spec.Tag))
             throw new InvalidOperationException($"module '{spec.Name}' has a Repo but no pinned Tag to fetch");
 
-        (string assetUrl, string tag) = await ResolveTaggedAssetAsync(http, spec.Repo, spec.Tag, ct);
+        (string assetUrl, string tag) = await ResolveTaggedAssetAsync(http, spec.Repo, spec.Tag, ".zip", ct);
         byte[] bytes = await http.GetByteArrayAsync(assetUrl, ct);
         return (bytes, tag, spec.Repo);
+    }
+
+    public async Task<ModuleFetchResult> ResolveAssetAsync(
+        string name, string repo, string extension, bool forceRefresh, CancellationToken ct) {
+        using var scope = scopeFactory.CreateScope();
+        if (scope.ServiceProvider.GetService(typeof(DeviceModuleStore)) is not DeviceModuleStore store)
+            return new ModuleFetchResult(false, name, null, null, 0, false, "no database configured");
+
+        var cached = await store.LatestAsync(name, ct);
+        if (CacheUsable(cached, null, forceRefresh))
+            return new ModuleFetchResult(true, name, cached!.Version, cached.Bytes, cached.ByteSize, true, null);
+
+        try {
+            var http = httpFactory.CreateClient(HttpClientName);
+            string tag = await LatestTagAsync(repo, ct)
+                         ?? throw new InvalidOperationException($"{repo}: no latest release tag");
+            (string assetUrl, _) = await ResolveTaggedAssetAsync(http, repo, tag, extension, ct);
+            byte[] bytes = await http.GetByteArrayAsync(assetUrl, ct);
+            await store.PutAsync(name, repo, tag, Hashes.Sha256Hex(bytes), bytes, ct);
+            return new ModuleFetchResult(true, name, tag, bytes, bytes.LongLength, false, null);
+        } catch (Exception ex) when (ex is not OperationCanceledException) {
+            logger.LogWarning(ex, "asset fetch: {Name} from {Repo} failed", name, repo);
+            if (cached is not null)
+                return new ModuleFetchResult(true, name, cached.Version, cached.Bytes, cached.ByteSize, true, null);
+            return new ModuleFetchResult(false, name, null, null, 0, false, ex.Message);
+        }
     }
 
     public async Task<string?> LatestTagAsync(string repo, CancellationToken ct) {
@@ -93,7 +119,7 @@ public sealed class ModuleFetcher(
     }
 
     private static async Task<(string AssetUrl, string Tag)> ResolveTaggedAssetAsync(
-        HttpClient http, string repo, string tag, CancellationToken ct) {
+        HttpClient http, string repo, string tag, string extension, CancellationToken ct) {
         string api = $"https://api.github.com/repos/{repo}/releases/tags/{Uri.EscapeDataString(tag)}";
         using var resp = await http.GetAsync(api, ct);
         resp.EnsureSuccessStatusCode();
@@ -107,12 +133,12 @@ public sealed class ModuleFetcher(
         var zips = new List<(string Name, string Url)>();
         foreach (var asset in assets.EnumerateArray()) {
             string? name = asset.TryGetProperty("name", out var n) ? n.GetString() : null;
-            if (name is null || !name.EndsWith(".zip", StringComparison.OrdinalIgnoreCase)) continue;
+            if (name is null || !name.EndsWith(extension, StringComparison.OrdinalIgnoreCase)) continue;
             string? url = asset.TryGetProperty("browser_download_url", out var u) ? u.GetString() : null;
             if (url is { Length: > 0 }) zips.Add((name, url));
         }
 
-        if (zips.Count == 0) throw new InvalidOperationException($"{repo}@{tag}: release has no .zip asset");
+        if (zips.Count == 0) throw new InvalidOperationException($"{repo}@{tag}: release has no {extension} asset");
 
         var release = zips.FirstOrDefault(z => !z.Name.Contains("debug", StringComparison.OrdinalIgnoreCase));
         return (release.Url ?? zips[0].Url, tag);

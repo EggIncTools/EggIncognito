@@ -1,9 +1,14 @@
+using System.Text.RegularExpressions;
+
 namespace EggIncognito.Core.Services.Devices;
 
-public static class GsfIdentity {
+public static partial class GsfIdentity {
+    public const string CheckinPrefs = "/data/data/com.google.android.gms/shared_prefs/Checkin.xml";
+
     public const string AndroidIdQuery =
         "content query --uri content://com.google.android.gsf.gservices "
-        + "--projection value --where \"name='android_id'\" 2>&1";
+        + "--projection value --where \"name='android_id'\" 2>/dev/null; "
+        + "cat " + CheckinPrefs + " 2>&1";
 
     public const string CheckinCommand =
         "am broadcast -a android.server.checkin.CHECKIN -n com.google.android.gms/.checkin.CheckinService >/dev/null 2>&1; "
@@ -39,12 +44,17 @@ public static class GsfIdentity {
 
     public static string? Parse(string stdout) {
         foreach (string line in stdout.Split('\n')) {
+            if (!line.TrimStart().StartsWith("Row:", StringComparison.Ordinal)) continue;
             int at = line.IndexOf("value=", StringComparison.Ordinal);
             if (at < 0) continue;
             string value = line[(at + "value=".Length)..].Trim();
             if (value.Length > 0 && !value.Equals("NULL", StringComparison.OrdinalIgnoreCase)) return value;
         }
 
-        return null;
+        var pref = CheckinAndroidId().Match(stdout);
+        return pref.Success ? pref.Groups[1].Value : null;
     }
+
+    [GeneratedRegex("<string name=\"android_id\">(\\d+)</string>")]
+    private static partial Regex CheckinAndroidId();
 }

@@ -2,7 +2,7 @@ using EggIncognito.Core.Services.Devices;
 
 namespace EggIncognito.Services.Devices;
 
-public sealed class AdbServerHost(IProcessRunner runner, ILogger<AdbServerHost> logger) : BackgroundService {
+public sealed class AdbServerHost(IProcessRunner runner, ILogger<AdbServerHost> logger) : BackgroundService, IAdbServer {
     public const string SocketEnv = "ADB_SERVER_SOCKET";
     public const string DefaultSocket = "tcp:127.0.0.1:5037";
     private static readonly TimeSpan CheckInterval = TimeSpan.FromSeconds(30);

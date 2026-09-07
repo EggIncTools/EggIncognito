@@ -1,3 +1,5 @@
+using System.Security;
+
 namespace EggIncognito.Core.Services.Devices;
 
 public interface IDeviceConnection {
@@ -39,6 +41,25 @@ public static class DeviceShell {
 
     public static string NewTempPath(string suffix) =>
         Path.Combine(Path.GetTempPath(), $"egi-{Guid.NewGuid():N}{suffix}");
+
+    public static bool IsTempPath(string path) {
+        if (string.IsNullOrWhiteSpace(path)) return false;
+        if (Full(path) is not { } full || Full(Path.GetTempPath()) is not { } temp) return false;
+
+        StringComparison how = OperatingSystem.IsWindows()
+            ? StringComparison.OrdinalIgnoreCase
+            : StringComparison.Ordinal;
+        string root = Path.TrimEndingDirectorySeparator(temp) + Path.DirectorySeparatorChar;
+        return full.StartsWith(root, how) && Path.GetFileName(full).StartsWith("egi-", how);
+    }
+
+    private static string? Full(string path) {
+        try {
+            return Path.GetFullPath(path);
+        } catch (Exception ex) when (ex is ArgumentException or NotSupportedException or SecurityException) {
+            return null;
+        }
+    }
 
     public static bool TryDelete(string path) {
         try {

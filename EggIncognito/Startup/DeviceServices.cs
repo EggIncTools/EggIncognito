@@ -31,17 +31,30 @@ public static class DeviceServices {
             builder.Services.AddSingleton<FakeDeviceVersions>();
             builder.Services.AddSingleton<FakeFixtureSource>();
             builder.Services.AddSingleton<IProcessRunner, RefusingProcessRunner>();
+            builder.Services.AddSingleton<IHostFacts, LocalHostFacts>();
+            builder.Services.AddSingleton<IAdbServer>(sp => sp.GetRequiredService<AdbServerHost>());
             builder.Services.AddSingleton<FakeDeviceAgent>();
             builder.Services.AddSingleton<IDeviceAgentClient>(sp => sp.GetRequiredService<FakeDeviceAgent>());
             builder.Services.AddHostedService(sp => sp.GetRequiredService<FakeDeviceAgent>());
             if (boot.DbEnabled) builder.Services.AddScoped<DeviceHarvester>();
+        } else if (boot.DeviceTransportConfig.Mode == DeviceTransportMode.Remote) {
+            builder.Services.AddSingleton<IProcessRunner, BridgeProcessRunner>();
+            builder.Services.AddSingleton<IHostFacts, BridgeHostFacts>();
+            builder.Services.AddSingleton<IAdbServer, BridgeAdbServer>();
+            builder.Services.AddHttpClient<IDeviceAgentClient, DeviceAgentClient>();
         } else {
             builder.Services.AddSingleton<IProcessRunner, ProcessRunner>();
+            builder.Services.AddSingleton<IHostFacts, LocalHostFacts>();
+            builder.Services.AddSingleton<IAdbServer>(sp => sp.GetRequiredService<AdbServerHost>());
             builder.Services.AddHttpClient<IDeviceAgentClient, DeviceAgentClient>();
             builder.Services.AddHostedService(sp => sp.GetRequiredService<AdbServerHost>());
         }
 
         builder.Services.AddSingleton<AdbServerHost>();
+        builder.Services.AddHttpClient(BridgeClient.HttpClientName, c => {
+            c.Timeout = Timeout.InfiniteTimeSpan;
+            c.MaxResponseContentBufferSize = 512L * 1024 * 1024;
+        });
 
         if (boot.DeviceConfig.Enabled) builder.Services.AddHostedService<DeviceMaintenanceService>();
 
@@ -167,6 +180,7 @@ public static class DeviceServices {
         });
         builder.Services.AddSingleton<IDeviceCaptureStatus>(sp => sp.GetRequiredService<DeviceCaptureManager>());
         builder.Services.AddSingleton<DeviceProxyPusher>();
+        builder.Services.AddSingleton<ProxyReachProbe>();
         if (boot.DeviceCaptureConfig.Enabled)
             builder.Services.AddHostedService(sp => sp.GetRequiredService<DeviceCaptureManager>());
     }

@@ -37,14 +37,8 @@ public sealed class DockerEventWatcher(
             return;
         }
 
-        if (lifecycle.RemoteOwned) {
-            logger.LogInformation("docker events: idle, kind '{Kind}' is owned and reconciled by a remote host",
-                config.Kind);
-            return;
-        }
-
-        if (!docker.SocketPresent) {
-            logger.LogInformation("docker events: idle, socket {Socket} is not present", docker.SocketPath);
+        if (!docker.Available) {
+            logger.LogInformation("docker events: idle, {Endpoint} is not usable", docker.Endpoint.Describe());
             return;
         }
 

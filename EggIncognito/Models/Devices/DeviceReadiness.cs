@@ -6,4 +6,5 @@ public sealed record DeviceReadiness(
     ReadinessCheck GooglePlay,
     ReadinessCheck Rooted,
     ReadinessCheck IntegrityModule,
-    ReadinessCheck Launched);
+    ReadinessCheck Launched,
+    ReadinessCheck ProxyReachable);

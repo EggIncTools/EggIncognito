@@ -20,6 +20,12 @@ public sealed class DeviceTransportSettingsProvider : ISettingsProvider {
             SettingKind.CidrList, ApplyTier.RestartRequired, Sensitivity.Plain) {
             Description = "Comma separated. The stack may also set indexed DeviceTransport__AllowedCidrs__0 entries."
         },
+        new("device_transport.bridge_executables", "DeviceTransport__BridgeExecutables", "Bridge executables", Category,
+            SettingKind.StringList, ApplyTier.RestartRequired, Sensitivity.Plain) {
+            Default = "adb, ssh, scp, ideviceinstaller",
+            Description = "Comma separated allowlist for POST /api/bridge/exec. The stack may also set indexed "
+                + "DeviceTransport__BridgeExecutables__0 entries."
+        },
         new("device_transport.claim_ttl_seconds", "DeviceTransport__ClaimTtlSeconds", "Claim TTL (seconds)", Category,
             SettingKind.Number, ApplyTier.RestartRequired, Sensitivity.Plain) { Default = "900" }
     ];

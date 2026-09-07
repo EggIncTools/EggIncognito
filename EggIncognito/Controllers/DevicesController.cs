@@ -1,7 +1,5 @@
 using System.Diagnostics;
 using System.Globalization;
-using System.Net;
-using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
 using EggIdentity.Contract;
@@ -26,7 +24,6 @@ public sealed partial class DevicesController(
     ICurrentUser currentUser,
     IServiceProvider services,
     IServiceScopeFactory scopeFactory) : ControllerBase {
-    public const string BridgeSecretHeader = "X-Api-Key";
     private const string StreamBoundary = "egiframe";
     private const int MinStreamFps = 1;
     private const int MaxStreamFps = 5;
@@ -73,7 +70,7 @@ public sealed partial class DevicesController(
         var devices = enabled.ToDictionary(d => d.Id);
         var virtualUp = new Dictionary<string, DateTimeOffset>(StringComparer.Ordinal);
         HashSet<string> virtualLive = isAdmin
-            ? await MergeVirtualDevicesAsync(devices, virtualUp, ct)
+            ? await MergeVirtualDevicesAsync(virtualUp, ct)
             : [with(StringComparer.Ordinal)];
 
         var ids = devices.Keys.ToList();
@@ -102,21 +99,13 @@ public sealed partial class DevicesController(
         return Ok(devices.Values.Select(d => DeviceStatusProjector.Project(d, inputs)));
     }
 
-    private async Task<HashSet<string>> MergeVirtualDevicesAsync(Dictionary<string, Device> devices,
-        Dictionary<string, DateTimeOffset> up, CancellationToken ct) {
+    private async Task<HashSet<string>> MergeVirtualDevicesAsync(Dictionary<string, DateTimeOffset> up,
+        CancellationToken ct) {
         var live = new HashSet<string>(StringComparer.Ordinal);
-        if (Instances is { } instances) {
-            foreach (var row in await instances.AllAsync(ct)) {
-                if (row.DeviceId is { Length: > 0 } deviceId) up[deviceId] = row.CreatedAt;
-            }
-        }
+        if (Instances is not { } instances) return live;
 
-        if (Provisioners is not { } provisioners || VirtualConfig is not { } virtualConfig) return live;
-
-        foreach (var i in await VirtualDeviceMirror.RemoteLiveInstancesAsync(provisioners, virtualConfig, ct)) {
-            var d = VirtualDeviceMirror.ToDevice(i);
-            if (devices.TryAdd(d.Id, d)) live.Add(d.Id);
-            if (i.CreatedAt != default) up[d.Id] = i.CreatedAt;
+        foreach (var row in await instances.AllAsync(ct)) {
+            if (row.DeviceId is { Length: > 0 } deviceId) up[deviceId] = row.CreatedAt;
         }
 
         return live;
@@ -507,250 +496,22 @@ public sealed partial class DevicesController(
         return Ok(await probe.ProbeAsync(target, ct));
     }
 
-    private IActionResult? BridgeGate() {
-        if (services.GetService(typeof(DeviceTransportConfig)) is not DeviceTransportConfig cfg || !cfg.BridgeEnabled)
-            return NotFound();
-
-        var denied = StatusCode(403, new { error = "forbidden" });
-        if (!CallerInAllowedRange(cfg)) {
-            BridgeLog($"caller {HttpContext.Connection.RemoteIpAddress} is outside DeviceTransport:AllowedCidrs "
-                      + $"[{string.Join(", ", cfg.AllowedCidrs)}]");
-            return denied;
-        }
-
-        if (BridgeAuthorized(cfg)) return null;
-
-        BridgeLog(string.IsNullOrEmpty(cfg.ApiKey)
-            ? "DeviceTransport:ApiKey is not set on this host, so the bridge authorizes nobody by key"
-            : Request.Headers.ContainsKey(BridgeSecretHeader)
-                ? $"the {BridgeSecretHeader} presented does not match DeviceTransport:ApiKey on this host"
-                : $"no {BridgeSecretHeader} header was presented and the caller is not an admin session");
-        return denied;
-    }
-
-    private void BridgeLog(string reason) =>
-        (services.GetService(typeof(ILogger<DevicesController>)) as ILogger<DevicesController>)?
-        .LogWarning("device bridge refused {Path}: {Reason}", Request.Path.Value, reason);
-
-    private bool CallerInAllowedRange(DeviceTransportConfig cfg) {
-        if (cfg.AllowedCidrs.Length == 0) return true;
-
-        var ip = HttpContext.Connection.RemoteIpAddress;
-        if (ip is null) return false;
-        if (ip.IsIPv4MappedToIPv6) ip = ip.MapToIPv4();
-
-        foreach (string cidr in cfg.AllowedCidrs) {
-            try {
-                if (IPNetwork.Parse(cidr).Contains(ip)) return true;
-            } catch (FormatException) {
-                continue;
-            }
-        }
-
-        return false;
-    }
-
-    private bool BridgeAuthorized(DeviceTransportConfig cfg) =>
-        BridgeSecretPresented(cfg) || currentUser.IsAtLeast(UserRole.Admin);
-
-    private bool BridgeSecretPresented(DeviceTransportConfig cfg) {
-        if (string.IsNullOrEmpty(cfg.ApiKey)) return false;
-        if (!Request.Headers.TryGetValue(BridgeSecretHeader, out var presented)) return false;
-        string? offered = presented.ToString();
-        if (string.IsNullOrEmpty(offered)) return false;
-
-        byte[] expected = SHA256.HashData(Encoding.UTF8.GetBytes(cfg.ApiKey));
-        byte[] actual = SHA256.HashData(Encoding.UTF8.GetBytes(offered));
-        return CryptographicOperations.FixedTimeEquals(expected, actual);
-    }
-
-    private async Task<(IActionResult? Error, IDeviceConnection Connection)> ResolveTransportAsync(
-        string id, CancellationToken ct) {
-        if (services.GetService(typeof(IDeviceFleet)) is not IDeviceFleet fleet)
-            return (StatusCode(503, new { error = "device config not available" }), null!);
-        if (await FleetEntryAsync(fleet, id, ct) is not { } entry)
-            return (NotFound(new { error = "unknown device" }), null!);
-        var target = new DeviceTarget(entry.Id, entry.Platform, entry.Target, entry.Package);
-
-        if (services.GetService(typeof(IDeviceConnectionFactory)) is not IDeviceConnectionFactory factory)
-            return (StatusCode(503, new { error = "device transport not configured" }), null!);
-        var conn = factory.For(target);
-        if (conn is null) return (StatusCode(502, new { error = "no connection for device" }), null!);
-
-        return (null, conn);
-    }
-
-    [HttpPost("{id}/transport/shell")]
-    [ApiAccess(ApiAccessLevel.Public)]
-    [EnableRateLimiting("write")]
-    public async Task<IActionResult> TransportShell(string id, [FromBody] TransportShellRequest req) {
-        if (BridgeGate() is { } gate) return gate;
-        if (string.IsNullOrEmpty(req.Cmd)) return BadRequest(new { error = "cmd required" });
-        (IActionResult? err, var conn) = await ResolveTransportAsync(id, HttpContext.RequestAborted);
-        if (err is not null) return err;
-
-        var r = await conn.ShellAsync(req.Cmd, HttpContext.RequestAborted);
-        return Ok(new TransportShellResult(r.ExitCode, r.Stdout, r.Stderr));
-    }
-
-    [HttpPost("{id}/transport/pull")]
-    [ApiAccess(ApiAccessLevel.Public)]
-    [EnableRateLimiting("write")]
-    public async Task<IActionResult> TransportPull(string id, [FromBody] TransportPullRequest req) {
-        if (BridgeGate() is { } gate) return gate;
-        if (string.IsNullOrEmpty(req.Path)) return BadRequest(new { error = "path required" });
-        (IActionResult? err, var conn) = await ResolveTransportAsync(id, HttpContext.RequestAborted);
-        if (err is not null) return err;
-
-        byte[]? bytes = await conn.PullBytesAsync(req.Path, HttpContext.RequestAborted);
-        return bytes is null ? NotFound() : File(bytes, "application/octet-stream");
-    }
-
-    [HttpPost("{id}/transport/push")]
-    [ApiAccess(ApiAccessLevel.Public)]
-    [EnableRateLimiting("write")]
-    public async Task<IActionResult> TransportPush(string id, [FromBody] TransportPushRequest req) {
-        if (BridgeGate() is { } gate) return gate;
-        if (string.IsNullOrEmpty(req.Path) || string.IsNullOrEmpty(req.Base64))
-            return BadRequest(new { error = "path and base64 required" });
-
-        byte[] bytes;
-        try {
-            bytes = Convert.FromBase64String(req.Base64);
-        } catch (FormatException) {
-            return BadRequest(new { error = "malformed base64" });
-        }
-
-        (IActionResult? err, var conn) = await ResolveTransportAsync(id, HttpContext.RequestAborted);
-        if (err is not null) return err;
-
-        string tempPath = DeviceShell.NewTempPath(".bin");
-        try {
-            await System.IO.File.WriteAllBytesAsync(tempPath, bytes, HttpContext.RequestAborted);
-            bool ok = await conn.PushFileAsync(tempPath, req.Path, HttpContext.RequestAborted);
-            return ok ? Ok(new { ok = true }) : StatusCode(502, new { error = "push failed" });
-        } finally {
-            DeviceShell.TryDelete(tempPath);
-        }
-    }
-
-    [HttpPost("{id}/transport/claim")]
-    [ApiAccess(ApiAccessLevel.Public)]
-    [EnableRateLimiting("write")]
-    public async Task<IActionResult> TransportClaim(string id, [FromBody] TransportClaimRequest? req) {
-        if (BridgeGate() is { } gate) return gate;
-        if (services.GetService(typeof(IDeviceFleet)) is not IDeviceFleet fleet
-            || services.GetService(typeof(DeviceTransportConfig)) is not DeviceTransportConfig cfg
-            || services.GetService(typeof(DeviceClaimRegistry)) is not DeviceClaimRegistry claims)
-            return StatusCode(503, new { error = "device transport not configured" });
-
-        if (await FleetEntryAsync(fleet, id, HttpContext.RequestAborted) is null)
-            return NotFound(new { error = "unknown device" });
-
-        var ttl = TimeSpan.FromSeconds(req?.TtlSeconds ?? cfg.ClaimTtlSeconds);
-        var expires = claims.Claim(id, ttl);
-        return Ok(new TransportClaimResult(true, expires));
-    }
-
-    [HttpPost("{id}/transport/release")]
-    [ApiAccess(ApiAccessLevel.Public)]
-    [EnableRateLimiting("write")]
-    public IActionResult TransportRelease(string id) {
-        if (BridgeGate() is { } gate) return gate;
-        if (services.GetService(typeof(DeviceClaimRegistry)) is not DeviceClaimRegistry claims)
-            return StatusCode(503, new { error = "device transport not configured" });
-
-        claims.Release(id);
-        return Ok(new { ok = true });
-    }
-
-    private VirtualDeviceLifecycle? Virtual =>
-        services.GetService(typeof(VirtualDeviceLifecycle)) as VirtualDeviceLifecycle;
-
     private ProvisionedInstanceStore? Instances =>
         services.GetService(typeof(ProvisionedInstanceStore)) as ProvisionedInstanceStore;
-
-    private IDeviceProvisioners? Provisioners =>
-        services.GetService(typeof(IDeviceProvisioners)) as IDeviceProvisioners;
-
-    private VirtualDeviceConfig? VirtualConfig =>
-        services.GetService(typeof(VirtualDeviceConfig)) as VirtualDeviceConfig;
-
-    private static VirtualBridgeInstance BridgeInstance(ProvisionedInstanceRow row) => new(
-        row.InstanceId, row.Kind, row.Image, row.State, row.AdbSerial, row.HostRef, row.CreatedAt, row.Note,
-        row.DeviceId);
-
-    private static VirtualBridgeInstance BridgeInstance(ProvisionedInstance instance) => new(
-        instance.InstanceId, instance.Kind, instance.Image, instance.State, instance.AdbSerial, instance.HostRef,
-        instance.CreatedAt, instance.Note);
-
-    [HttpGet("virtual/bridge/instances")]
-    [ApiAccess(ApiAccessLevel.Public)]
-    [EnableRateLimiting("read")]
-    public async Task<IActionResult> BridgeVirtualList(CancellationToken ct) {
-        if (BridgeGate() is { } gate) return gate;
-        if (Virtual is not { } lifecycle)
-            return Ok(new VirtualBridgeListResult(false, DeviceOutcomes.Unsupported, "no provisioner here", []));
-
-        if (Instances is { } store) {
-            var rows = await store.AllAsync(ct);
-            return Ok(new VirtualBridgeListResult(
-                true, DeviceOutcomes.Ok, null, [.. rows.Select(BridgeInstance)]));
-        }
-
-        var listed = await lifecycle.Provisioner.ListAsync(ct);
-        return Ok(new VirtualBridgeListResult(
-            listed.Ok, DeviceOutcomes.Label(listed.Outcome), listed.Note,
-            [.. (listed.Value ?? []).Select(BridgeInstance)]));
-    }
-
-    [HttpPost("virtual/bridge/create")]
-    [ApiAccess(ApiAccessLevel.Public)]
-    [EnableRateLimiting("write")]
-    public async Task<IActionResult> BridgeVirtualCreate(
-        [FromBody] VirtualCreateRequest? req, CancellationToken ct) {
-        if (BridgeGate() is { } gate) return gate;
-        if (Virtual is not { } lifecycle)
-            return Ok(new VirtualBridgeCreateResult(false, DeviceOutcomes.Unsupported, "no provisioner here", null));
-
-        var res = await lifecycle.CreateAsync(req?.Image, ct);
-        return Ok(new VirtualBridgeCreateResult(
-            res.Ok, DeviceOutcomes.Label(res.Outcome), res.Note,
-            res.Value is { } instance ? BridgeInstance(instance) : null));
-    }
-
-    [HttpPost("virtual/bridge/{instanceId}/destroy")]
-    [ApiAccess(ApiAccessLevel.Public)]
-    [EnableRateLimiting("write")]
-    public async Task<IActionResult> BridgeVirtualDestroy(string instanceId, CancellationToken ct) {
-        if (BridgeGate() is { } gate) return gate;
-        if (Virtual is not { } lifecycle)
-            return Ok(new VirtualBridgeActionResult(false, DeviceOutcomes.Unsupported, "no provisioner here"));
-
-        var res = await lifecycle.DestroyAsync(instanceId, ct);
-        return Ok(new VirtualBridgeActionResult(res.Ok, DeviceOutcomes.Label(res.Outcome), res.Note));
-    }
 
     private async Task<(IActionResult? Error, IDevicePlatform Platform, DeviceTarget Target)> ResolveUiAsync(
         string id, CancellationToken ct) {
         if (services.GetService(typeof(IDeviceFleet)) is not IDeviceFleet fleet)
             return (StatusCode(503, new { error = "device config not available" }), null!, null!);
 
-        if (await FleetEntryAsync(fleet, id, ct) is { } entry) {
-            var target = new DeviceTarget(entry.Id, entry.Platform, entry.Target, entry.Package);
-            if (services.GetService(typeof(IDevicePlatforms)) is not IDevicePlatforms platforms)
-                return (StatusCode(503, new { error = "device platforms not available" }), null!, null!);
-            return (null, platforms.For(target.Platform), target);
-        }
+        if (await FleetEntryAsync(fleet, id, ct) is not { } entry)
+            return (NotFound(new { error = "unknown device" }), null!, null!);
 
-        if (Provisioners is { } provisioners && VirtualConfig is { } virtualConfig
-            && await VirtualDeviceMirror.ResolveTargetAsync(provisioners, virtualConfig, id, ct) is { } mirrored) {
-            if (services.GetService(typeof(AndroidPlatform)) is not AndroidPlatform androidPlatform)
-                return (StatusCode(503, new { error = "android platform not available" }), null!, null!);
-            return (null, androidPlatform, mirrored);
-        }
+        var target = new DeviceTarget(entry.Id, entry.Platform, entry.Target, entry.Package);
+        if (services.GetService(typeof(IDevicePlatforms)) is not IDevicePlatforms platforms)
+            return (StatusCode(503, new { error = "device platforms not available" }), null!, null!);
 
-        return (NotFound(new { error = "unknown device" }), null!, null!);
+        return (null, platforms.For(target.Platform), target);
     }
 
     private ObjectResult UiFailure(DeviceOutcome outcome, string? note) => outcome switch {

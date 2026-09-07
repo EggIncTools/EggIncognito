@@ -18,6 +18,7 @@ public sealed class ImageBuilder(
     IImageBuildExecutor executor,
     IHttpClientFactory httpFactory,
     VirtualDeviceConfig config,
+    IHostFacts hostFacts,
     IntegrityAssets assets,
     IConfiguration configuration,
     AdminNotifier notifier,
@@ -222,7 +223,7 @@ public sealed class ImageBuilder(
         await Log(buildId, $"integrity: keybox {bundle.KeyboxSource}, {bundle.KeyboxSerials.Count} certs, {bundle.KeyboxNote}", ct);
         foreach (string warning in bundle.Warnings) await Log(buildId, "integrity: " + warning, ct);
 
-        var resolvedKey = AdbHostKey.ResolveWithSource(config);
+        var resolvedKey = await HostAdbKey.ResolveAsync(hostFacts, config, ct);
         string? adbKey = resolvedKey?.Key;
         await Log(buildId, resolvedKey is { } rk
             ? $"integrity: host adb public key {AdbHostKey.Label(rk.Key)} from {rk.Source} baked as {IntegritySeed.RootAdbKeysFile} and into the seed; "

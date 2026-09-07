@@ -8,6 +8,7 @@ public sealed class InstallIntegrityStep(
     VirtualDeviceConfig config,
     ModuleFetcher fetcher,
     IDeviceConnectionFactory connections,
+    IHostFacts hostFacts,
     IProcessRunner runner) : CookbookStep {
     private const string ZygiskOffSql =
         "--sqlite \"REPLACE INTO settings (key,value) VALUES('zygisk',0)\"";
@@ -239,12 +240,13 @@ public sealed class InstallIntegrityStep(
             : $"Magisk su policy write failed (exit {policy.ExitCode}): "
               + DeviceParsing.TrimNote(policy.Stderr + policy.Stdout));
 
-        if (AdbHostKey.Resolve(config) is not { } key) {
+        if (await HostAdbKey.ResolveAsync(hostFacts, config, ct) is not { } resolved) {
             add(NoAdbKeyWarning(config));
             return;
         }
 
-        if (await PushAsync(conn, Encoding.ASCII.GetBytes(key + "\n"), "-adbkey.pub", RemoteAdbKey, ct) is null) {
+        add($"adb key {AdbHostKey.Label(resolved.Key)} from {resolved.Source}");
+        if (await PushAsync(conn, Encoding.ASCII.GetBytes(resolved.Key + "\n"), "-adbkey.pub", RemoteAdbKey, ct) is null) {
             add($"adb key push to {RemoteAdbKey} failed; adbd will reject this host once ro.adb.secure=1");
             return;
         }

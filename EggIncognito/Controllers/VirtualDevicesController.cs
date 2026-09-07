@@ -56,23 +56,13 @@ public sealed class VirtualDevicesController(
         var containers = new Dictionary<string, ProvisionedInstance>(StringComparer.Ordinal);
         foreach (var c in listed.Value ?? []) containers[c.InstanceId] = c;
 
-        List<VirtualInstanceRow> rows;
-        if (lifecycle.RemoteOwned) {
-            await lifecycle.MirrorRemoteDevicesAsync(containers.Values, ct);
-            rows = [.. containers.Values.Select(RemoteRow)];
-        } else {
-            var store = Store;
-            if (store is null) {
-                return StatusCode(503, new {
-                    error = "local provisioning is not registered here; it needs a database and the real device stack, "
-                            + "or set Devices:Virtual:Kind to remote to provision on another host"
-                });
-            }
-
-            rows = [.. (await store.AllAsync(ct)).Select(r => Row(r, containers))];
+        if (Store is not { } store) {
+            return StatusCode(503, new {
+                error = "provisioning is not registered here; it needs a database and the real device stack"
+            });
         }
 
-        rows = await WithActivityAsync(rows, ct);
+        var rows = await WithActivityAsync([.. (await store.AllAsync(ct)).Select(r => Row(r, containers))], ct);
 
         var byState = rows.GroupBy(r => r.State, StringComparer.Ordinal)
             .ToDictionary(g => g.Key, g => g.Count(), StringComparer.Ordinal);
@@ -227,10 +217,6 @@ public sealed class VirtualDevicesController(
         b.Warnings);
 
     private static string? Day(DateOnly? day) => day?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
-
-    private static VirtualInstanceRow RemoteRow(ProvisionedInstance instance) => new(
-        instance.InstanceId, instance.Kind, instance.Image, instance.State, instance.AdbSerial, instance.DeviceId,
-        instance.CreatedAt, null, instance.Note, true, instance.Note, 0, null);
 
     private async Task<List<VirtualInstanceRow>> WithActivityAsync(
         List<VirtualInstanceRow> rows, CancellationToken ct) {

@@ -14,7 +14,7 @@ public sealed class VirtualDeviceLifecycle(
     VirtualDeviceReadinessProbe readiness,
     IDeviceConnectionFactory connections,
     IProcessRunner runner,
-    AdbServerHost adbServer,
+    IAdbServer adbServer,
     AdminNotifier notifier,
     TimeProvider time,
     ILogger<VirtualDeviceLifecycle> logger) : BackgroundService {
@@ -38,18 +38,9 @@ public sealed class VirtualDeviceLifecycle(
 
     public IDeviceProvisioner Provisioner => provisioners.For(config.Kind);
 
-    public bool RemoteOwned => RemoteDeviceProvisioner.IsRemoteKind(config.Kind);
-
     protected override async Task ExecuteAsync(CancellationToken stoppingToken) {
         if (!config.Enabled) {
             logger.LogInformation("virtual devices: disabled (Devices:Virtual:Enabled is false)");
-            return;
-        }
-
-        if (RemoteOwned) {
-            logger.LogInformation(
-                "virtual devices: kind '{Kind}' - instances are owned and reconciled by the remote host, "
-                + "this instance runs no reconciler and writes no provisioned_instances rows", config.Kind);
             return;
         }
 
@@ -75,7 +66,6 @@ public sealed class VirtualDeviceLifecycle(
 
     public async Task<DeviceResult<ProvisionedInstance>> CreateAsync(string? image, CancellationToken ct) {
         if (!config.Enabled) return DeviceResult<ProvisionedInstance>.Unsupported("virtual devices are disabled");
-        if (RemoteOwned) return await Provisioner.CreateAsync(new ProvisionSpec(config.Kind, image ?? ""), ct);
 
         using var scope = scopeFactory.CreateScope();
         if (scope.ServiceProvider.GetService(typeof(ProvisionedInstanceStore)) is not ProvisionedInstanceStore store)
@@ -105,38 +95,7 @@ public sealed class VirtualDeviceLifecycle(
         return config.Image;
     }
 
-    public async Task MirrorRemoteDevicesAsync(IEnumerable<ProvisionedInstance> instances, CancellationToken ct) {
-        if (!RemoteOwned) return;
-
-        using var scope = scopeFactory.CreateScope();
-        if (scope.ServiceProvider.GetService(typeof(IDeviceStatusStore)) is not IDeviceStatusStore devices) return;
-
-        foreach (var instance in instances) {
-            if (instance.DeviceId is not { Length: > 0 } deviceId) continue;
-            if (!ProvisionStates.IsLive(instance.State)) {
-                await devices.RemoveAsync(deviceId, ct);
-                continue;
-            }
-
-            if (instance.AdbSerial is not { Length: > 0 } serial) continue;
-            var existing = await devices.GetAsync(deviceId, ct);
-            if (existing is not null && existing.Enabled && existing.Target == serial) continue;
-
-            await devices.UpsertDeviceAsync(deviceId, Platforms.Android, deviceId, serial, Package,
-                DeviceOrigins.Virtual, ct);
-            logger.LogInformation(
-                "virtual devices: mirrored remote device {Id} on {Serial} so the console can reach it over the bridge",
-                deviceId, serial);
-        }
-    }
-
     public async Task<DeviceResult> DestroyAsync(string instanceId, CancellationToken ct) {
-        if (RemoteOwned) {
-            var remote = await Provisioner.DestroyAsync(instanceId, ct);
-            if (remote.Ok) await ForgetRemoteDeviceAsync(instanceId, ct);
-            return remote;
-        }
-
         using var scope = scopeFactory.CreateScope();
         var sp = scope.ServiceProvider;
         if (sp.GetService(typeof(ProvisionedInstanceStore)) is not ProvisionedInstanceStore store)
@@ -164,14 +123,8 @@ public sealed class VirtualDeviceLifecycle(
         return DeviceResult.Success(destroyed.Note);
     }
 
-    private async Task ForgetRemoteDeviceAsync(string instanceId, CancellationToken ct) {
-        using var scope = scopeFactory.CreateScope();
-        if (scope.ServiceProvider.GetService(typeof(IDeviceStatusStore)) is not IDeviceStatusStore devices) return;
-        await devices.RemoveAsync(instanceId, ct);
-    }
-
     public async Task<int> ReconcileAsync(CancellationToken ct) {
-        if (!config.Enabled || RemoteOwned) return 0;
+        if (!config.Enabled) return 0;
         if (!await _gate.WaitAsync(TimeSpan.Zero, ct)) return 0;
         try {
             return await ReconcileCoreAsync(ct);

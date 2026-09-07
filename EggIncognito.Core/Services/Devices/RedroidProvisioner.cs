@@ -6,9 +6,11 @@ namespace EggIncognito.Core.Services.Devices;
 public sealed class RedroidProvisioner(
     DockerEngineClient docker,
     VirtualDeviceConfig config,
+    IHostFacts host,
     TimeProvider time,
     ILogger<RedroidProvisioner> logger) : IDeviceProvisioner {
     public const string OwnerLabel = "egi.virtual";
+    public const string InstanceOwnerLabel = "egi.owner";
     public const string KindLabel = "egi.kind";
     public const string NamePrefix = "egi-vd-";
     public const int AdbPort = 5555;
@@ -40,11 +42,27 @@ public sealed class RedroidProvisioner(
     private static string? SerialFor(string name, string? ip, bool hostMode) =>
         hostMode ? ip is { Length: > 0 } ? $"{ip}:{AdbPort}" : null : TargetFor(name);
 
+    public static bool Owns(IReadOnlyDictionary<string, string> labels, string owner) {
+        string actual = labels.TryGetValue(InstanceOwnerLabel, out string? label) && !string.IsNullOrWhiteSpace(label)
+            ? label
+            : VirtualDeviceConfig.DefaultOwner;
+        return string.Equals(actual, owner, StringComparison.Ordinal);
+    }
+
     private async Task<DeviceResult<string>> NetworkAsync(CancellationToken ct) {
+        if (config.Network is { Length: > 0 } configured) return DeviceResult<string>.Success(configured);
         if (_network is { } cached) return DeviceResult<string>.Success(cached);
-        var res = await docker.SelfNetworkAsync(ct);
-        if (res.Ok && res.Value is { } net) _network = net;
-        return res;
+
+        var facts = await host.GetAsync(ct);
+        if (!facts.Ok || facts.Value is not { } value)
+            return new DeviceResult<string>(facts.Outcome, null, facts.Note);
+        if (value.Network is not { Length: > 0 } net) {
+            return DeviceResult<string>.Error(
+                "the host reports no docker network for the app container; set Devices:Virtual:Network");
+        }
+
+        _network = net;
+        return DeviceResult<string>.Success(net);
     }
 
     private async Task<bool> HostModeAsync(CancellationToken ct) {
@@ -58,9 +76,10 @@ public sealed class RedroidProvisioner(
 
         var existing = await docker.ListAsync(OwnerFilter, ct);
         if (!existing.Ok) return new DeviceResult<ProvisionedInstance>(existing.Outcome, null, existing.Note);
-        if (existing.Value is { } live && live.Count >= config.MaxInstances) {
+        int mine = existing.Value?.Count(c => Owns(c.Labels, config.Owner)) ?? 0;
+        if (mine >= config.MaxInstances) {
             return DeviceResult<ProvisionedInstance>.Error(
-                $"virtual device cap reached ({live.Count}/{config.MaxInstances}); destroy one before creating another");
+                $"virtual device cap reached ({mine}/{config.MaxInstances}); destroy one before creating another");
         }
 
         var network = await NetworkAsync(ct);
@@ -72,6 +91,7 @@ public sealed class RedroidProvisioner(
         string image = string.IsNullOrWhiteSpace(spec.Image) ? config.Image : spec.Image;
         var labels = new Dictionary<string, string>(StringComparer.Ordinal) {
             [OwnerLabel] = "1",
+            [InstanceOwnerLabel] = config.Owner,
             [KindLabel] = Kind,
             ["egi.instance"] = name
         };
@@ -138,7 +158,7 @@ public sealed class RedroidProvisioner(
 
         bool hostMode = await HostModeAsync(ct);
         var mapped = rows
-            .Where(c => c.Name.StartsWith(NamePrefix, StringComparison.Ordinal))
+            .Where(c => c.Name.StartsWith(NamePrefix, StringComparison.Ordinal) && Owns(c.Labels, config.Owner))
             .Select(c => new ProvisionedInstance(
                 c.Name, Kind, c.Image, StateOf(c.State), SerialFor(c.Name, c.IpAddress, hostMode), c.Id, c.CreatedAt,
                 c.Status))
@@ -154,8 +174,7 @@ public sealed class RedroidProvisioner(
     };
 
     private DeviceResult? Guard(string instanceId) {
-        if (!docker.SocketPresent)
-            return DeviceResult.Unsupported($"docker socket {docker.SocketPath} is not present");
+        if (!docker.Available) return DeviceResult.Unsupported($"{docker.Endpoint.Describe()} is not available");
         return instanceId.StartsWith(NamePrefix, StringComparison.Ordinal)
             ? null
             : DeviceResult.Error($"'{instanceId}' is not a provisioned virtual device");
