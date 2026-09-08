@@ -3,10 +3,7 @@
 @using EggIncognito.Services.Events
 @inherits AdminPaneBase
 
-<div class="admin-pane-head">
-    <h2 class="admin-pane-title">Contracts</h2>
-    <span class="text-muted text-xs">@StatText</span>
-</div>
+<AdminPaneHead Title="Contracts" Facts="@Stats"/>
 <PaneNotice @ref="_notice"/>
 <div class="sub-section-head">Store</div>
 <div class="reg-wrap">
@@ -43,7 +40,9 @@
     bool _busy;
     string _carpetUrl = "";
 
-    string StatText => _stats is null ? "" : $"{_stats.Total} total, {_stats.Device} device, {_stats.Carpet} carpet";
+    IEnumerable<string> Stats => _stats is null
+        ? []
+        : [$"{_stats.Total} total", $"{_stats.Device} device", $"{_stats.Carpet} carpet"];
 
     static string CarpetPlaceholder =>
         "https://raw.githubusercontent.com/carpetsage/egg/master/periodicals/data/contracts.json";

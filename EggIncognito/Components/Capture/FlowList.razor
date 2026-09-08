@@ -14,50 +14,56 @@
         @if (Filtering && Flows.Count > 0) {
             <span class="flow-count">showing @ShownCount of @Flows.Count</span>
         }
-        <div class="flow-filters">
-            <span class="flow-filters-label">Filters</span>
-            <select class="flow-filter-select" aria-label="API group" value="@_group" @onchange="OnGroupChange">
-                <option value="">All groups</option>
-                @foreach (var g in GroupOptions()) {
-                    <option value="@g">@g</option>
-                }
-            </select>
-            <div class="flow-combo">
-                <FilterInput Class="flow-filter-input" Placeholder="path..."
-                             Value="@_pathFilter" ValueChanged="@(v => _pathFilter = v.Trim())"
-                             @onfocus="@(() => _openCombo = "path")" @onblur="CloseCombo"/>
-                @if (_openCombo == "path") {
-                    <div class="popover popover-combo open">
-                        @{ var pathOpts = PathOptions().ToList(); }
-                        @if (pathOpts.Count == 0) {
-                            <div class="combo-empty">No matches</div>
-                        }
-                        @foreach (var p in pathOpts) {
-                            <button type="button" class="popover-combo-opt" @onmousedown:preventDefault="true" @onclick="@(() => PickPath(p))">@p</button>
-                        }
-                    </div>
-                }
-            </div>
-            <div class="flow-combo">
-                <FilterInput Class="flow-filter-input" Placeholder="request/response type..."
-                             Value="@_typeFilter" ValueChanged="@(v => _typeFilter = v.Trim())"
-                             @onfocus="@(() => _openCombo = "type")" @onblur="CloseCombo"/>
-                @if (_openCombo == "type") {
-                    <div class="popover popover-combo open">
-                        @{ var typeOpts = TypeOptions().ToList(); }
-                        @if (typeOpts.Count == 0) {
-                            <div class="combo-empty">No matches</div>
-                        }
-                        @foreach (var t in typeOpts) {
-                            <button type="button" class="popover-combo-opt" @onmousedown:preventDefault="true" @onclick="@(() => PickType(t))">@t</button>
-                        }
-                    </div>
-                }
-            </div>
-            <button type="button" class="icon-btn icon-btn-sm" aria-label="Reset all filters" @onclick="ClearFilters">
-                <Icon Name="x"/>
-            </button>
+        @if (Tools is not null) {
+            <div class="flow-tools">@Tools</div>
+        }
+    </div>
+    @if (Stats is not null) {
+        <div class="flow-stats">@Stats</div>
+    }
+    <div class="flow-filters">
+        <span class="flow-filters-label">Filters</span>
+        <select class="flow-filter-select" aria-label="API group" value="@_group" @onchange="OnGroupChange">
+            <option value="">All groups</option>
+            @foreach (var g in GroupOptions()) {
+                <option value="@g">@g</option>
+            }
+        </select>
+        <div class="flow-combo">
+            <FilterInput Class="flow-filter-input" Placeholder="path..."
+                         Value="@_pathFilter" ValueChanged="@(v => _pathFilter = v.Trim())"
+                         @onfocus="@(() => _openCombo = "path")" @onblur="CloseCombo"/>
+            @if (_openCombo == "path") {
+                <div class="popover popover-combo open">
+                    @{ var pathOpts = PathOptions().ToList(); }
+                    @if (pathOpts.Count == 0) {
+                        <div class="combo-empty">No matches</div>
+                    }
+                    @foreach (var p in pathOpts) {
+                        <button type="button" class="popover-combo-opt" @onmousedown:preventDefault="true" @onclick="@(() => PickPath(p))">@p</button>
+                    }
+                </div>
+            }
         </div>
+        <div class="flow-combo">
+            <FilterInput Class="flow-filter-input" Placeholder="request/response type..."
+                         Value="@_typeFilter" ValueChanged="@(v => _typeFilter = v.Trim())"
+                         @onfocus="@(() => _openCombo = "type")" @onblur="CloseCombo"/>
+            @if (_openCombo == "type") {
+                <div class="popover popover-combo open">
+                    @{ var typeOpts = TypeOptions().ToList(); }
+                    @if (typeOpts.Count == 0) {
+                        <div class="combo-empty">No matches</div>
+                    }
+                    @foreach (var t in typeOpts) {
+                        <button type="button" class="popover-combo-opt" @onmousedown:preventDefault="true" @onclick="@(() => PickType(t))">@t</button>
+                    }
+                </div>
+            }
+        </div>
+        <button type="button" class="icon-btn icon-btn-sm" aria-label="Reset all filters" @onclick="ClearFilters">
+            <Icon Name="x"/>
+        </button>
     </div>
     <div id="flowList" class="flow-list" @ref="_listRef">
         @if (Flows.Count == 0) {
@@ -90,6 +96,7 @@
             }
         }
     </div>
+    @Foot
 </section>
 
 @code {
@@ -99,6 +106,9 @@
     [Parameter] public CaptureViewState View { get; set; } = new();
     [Parameter] public EventCallback<long> OnSelect { get; set; }
     [Parameter] public Func<DashboardFlow, bool>? CanSelect { get; set; }
+    [Parameter] public RenderFragment? Tools { get; set; }
+    [Parameter] public RenderFragment? Stats { get; set; }
+    [Parameter] public RenderFragment? Foot { get; set; }
 
     static readonly TimeSpan IdleGap = TimeSpan.FromSeconds(3);
 

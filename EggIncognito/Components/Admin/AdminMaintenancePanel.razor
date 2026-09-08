@@ -4,10 +4,7 @@
 @using EggIncognito.Models.Events
 @inherits AdminPaneBase
 
-<div class="admin-pane-head">
-    <h2 class="admin-pane-title">Maintenance</h2>
-    <span class="text-muted text-xs">@Stat</span>
-</div>
+<AdminPaneHead Title="Maintenance" Facts="[Stat]"/>
 <PaneNotice @ref="_notice"/>
 <div class="reg-wrap">
     <table class="data-table">

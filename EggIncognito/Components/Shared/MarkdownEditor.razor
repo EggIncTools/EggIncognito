@@ -19,6 +19,9 @@
                 <InputFile accept="image/png,image/jpeg,image/gif,image/webp" hidden="hidden" OnChange="OnImagePicked"/>
             </label>
             <span class="md-editor-spacer"></span>
+            @if (OnCancel.HasDelegate) {
+                <button type="button" class="btn-mini" disabled="@_busy" @onclick="Cancel">Cancel</button>
+            }
             <button type="button" class="btn-primary" disabled="@_busy" @onclick="Save">Save</button>
         </div>
         <textarea class="md-source" spellcheck="false" value="@_value" @oninput="OnInput"></textarea>
@@ -34,6 +37,7 @@
     [Parameter] public string Key { get; set; } = "";
     [Parameter] public string? Initial { get; set; }
     [Parameter] public EventCallback<string> OnSaved { get; set; }
+    [Parameter] public EventCallback OnCancel { get; set; }
 
     const long MaxImageBytes = 5 * 1024 * 1024;
     static readonly JsonSerializerOptions JsonOpts = new(JsonSerializerDefaults.Web);
@@ -79,6 +83,12 @@
 
     void SetStatus(string message, StatusNoteKind kind) {
         Toasts.Push(kind, message);
+    }
+
+    Task Cancel() {
+        _value = Initial ?? "";
+        _dirty = false;
+        return OnCancel.InvokeAsync();
     }
 
     async Task Save() {

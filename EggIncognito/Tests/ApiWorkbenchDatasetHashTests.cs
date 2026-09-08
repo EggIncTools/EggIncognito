@@ -1,4 +1,6 @@
+using EggIncognito.Models.Inspector;
 using EggIncognito.Services.Api;
+using EggIncognito.Services.Inspector;
 
 namespace EggIncognito.Tests;
 
@@ -32,6 +34,10 @@ public class ApiWorkbenchDatasetHashTests {
     [InlineData("#data/periodical")]
     [InlineData("#data/periodical/config/shells/extra")]
     [InlineData("#data//get_periodicals")]
+    [InlineData("#api/keys")]
+    [InlineData("#api/keys/all")]
+    [InlineData("#api/docs/config/AppMode")]
+    [InlineData("#api/docs/control/Foo")]
     public void ApplyHash_RejectsEverythingThatIsNotADataGrammar(string hash) => Assert.False(new ApiWorkbenchState().ApplyHash(hash));
 
     [Theory]
@@ -106,8 +112,6 @@ public class ApiWorkbenchDatasetHashTests {
     [InlineData(ApiSelectionKind.Endpoint, "apis")]
     [InlineData(ApiSelectionKind.Routes, "apis")]
     [InlineData(ApiSelectionKind.Dataset, "data")]
-    [InlineData(ApiSelectionKind.Keys, "data")]
-    [InlineData(ApiSelectionKind.AllKeys, "data")]
     [InlineData(ApiSelectionKind.Capture, "capture")]
     [InlineData(ApiSelectionKind.Docs, "docs")]
     public void ModeFor_MapsEveryKindToItsMode(ApiSelectionKind kind, string mode) => Assert.Equal(mode, ApiWorkbenchState.ModeFor(kind));
@@ -115,8 +119,7 @@ public class ApiWorkbenchDatasetHashTests {
     [Fact]
     public void Hash_RoundTripsADocsSubject() {
         var state = new ApiWorkbenchState {
-            DocsKind = "message",
-            DocsKey = "ContractsResponse",
+            Docs = new DocSubjectRef(DocSubjectKind.Message, "ContractsResponse"),
             Kind = ApiSelectionKind.Docs
         };
 
@@ -125,27 +128,49 @@ public class ApiWorkbenchDatasetHashTests {
         var fresh = new ApiWorkbenchState();
         Assert.True(fresh.ApplyHash(state.Hash()));
         Assert.Equal(ApiSelectionKind.Docs, fresh.Kind);
-        Assert.Equal("message", fresh.DocsKind);
-        Assert.Equal("ContractsResponse", fresh.DocsKey);
+        Assert.Equal(new DocSubjectRef(DocSubjectKind.Message, "ContractsResponse"), fresh.Docs);
+    }
+
+    [Fact]
+    public void Hash_RoundTripsADottedMessageKey() {
+        var state = new ApiWorkbenchState {
+            Docs = new DocSubjectRef(DocSubjectKind.Message, "Backup.Game"),
+            Kind = ApiSelectionKind.Docs
+        };
+
+        Assert.Equal("api/docs/message/Backup.Game", state.Hash());
+
+        var fresh = new ApiWorkbenchState();
+        Assert.True(fresh.ApplyHash(state.Hash()));
+        Assert.Equal(new DocSubjectRef(DocSubjectKind.Message, "Backup.Game"), fresh.Docs);
     }
 
     [Fact]
     public void Hash_RoundTripsADocsEndpointSubjectWithSlashes() {
         var state = new ApiWorkbenchState {
-            DocsKind = "endpoint",
-            DocsKey = "ei/get_periodicals",
+            Docs = new DocSubjectRef(DocSubjectKind.Endpoint, "ei/first_contact"),
             Kind = ApiSelectionKind.Docs
         };
 
+        Assert.Equal("api/docs/endpoint/ei/first_contact", state.Hash());
+
         var fresh = new ApiWorkbenchState();
         Assert.True(fresh.ApplyHash(state.Hash()));
-        Assert.Equal("endpoint", fresh.DocsKind);
-        Assert.Equal("ei/get_periodicals", fresh.DocsKey);
+        Assert.Equal(new DocSubjectRef(DocSubjectKind.Endpoint, "ei/first_contact"), fresh.Docs);
+    }
+
+    [Fact]
+    public void ApplyHash_LeavesTheDocsSubjectUnselectedForTheBareDocsHash() {
+        var state = new ApiWorkbenchState();
+
+        Assert.True(state.ApplyHash("#api/docs"));
+        Assert.Equal(ApiSelectionKind.Docs, state.Kind);
+        Assert.Null(state.Docs);
+        Assert.Equal("api/docs", state.Hash());
     }
 
     [Theory]
     [InlineData("#api/routes", "apis")]
-    [InlineData("#api/keys/all", "data")]
     [InlineData("#data/periodical/config/shells", "data")]
     [InlineData("#api/capture", "capture")]
     [InlineData("#api/ep:ei/get_periodicals", "apis")]

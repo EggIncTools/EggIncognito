@@ -1,6 +1,6 @@
-namespace EggIncognito.Models.AdminUi;
+namespace EggIncognito.Models.Routes;
 
-public record RouteBinaryRow(
+public sealed record RouteBinaryRow(
     string Path,
     string? Method,
     string? Request,

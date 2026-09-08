@@ -2,7 +2,5 @@
 @rendermode @(RenderModes.InteractiveServer)
 @inject ICurrentUser User
 
-<div class="admin-pane-head">
-    <h2 class="admin-pane-title">Settings</h2>
-</div>
+<AdminPaneHead Title="Settings"/>
 <SettingsPanel UpdatedBy="@(User.Username ?? User.DiscordId)"/>

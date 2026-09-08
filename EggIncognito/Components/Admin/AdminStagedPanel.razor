@@ -3,12 +3,7 @@
 @using EggIncognito.Models.Admin
 @inherits AdminPaneBase
 
-<div class="admin-pane-head">
-    <h2 class="admin-pane-title">Staged protos</h2>
-    <span class="text-muted text-xs">
-        @_rows.Count staged@(Oldest is { } oldest ? $", oldest {oldest.LocalDateTime:yyyy-MM-dd}" : "")
-    </span>
-</div>
+<AdminPaneHead Title="Staged protos" Facts="@Stats"/>
 <StagedReviewPanel IsAdmin="true" OnChanged="OnReviewed"/>
 
 @code {
@@ -18,6 +13,10 @@
         .OrderBy(r => r.SubmittedAt)
         .Select(r => r.SubmittedAt)
         .FirstOrDefault();
+
+    IEnumerable<string> Stats => Oldest is { } oldest
+        ? [$"{_rows.Count} staged", $"oldest {oldest.LocalDateTime:yyyy-MM-dd}"]
+        : [$"{_rows.Count} staged"];
 
     protected override IReadOnlyList<string> Topics => [AdminTopics.Staged];
 

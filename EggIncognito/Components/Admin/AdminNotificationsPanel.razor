@@ -3,16 +3,18 @@
 @using EggIncognito.Models.Notifications
 @inherits AdminPaneBase
 
-<div class="admin-pane-head">
-    <h2 class="admin-pane-title">Notifications</h2>
-    <div class="admin-pane-tools">
-        <span class="text-muted text-xs">@StatText</span>
+<AdminPaneHead Title="Notifications" Facts="[StatText]">
+    <Tools>
         <button type="button" class="btn-mini" @onclick="OpenWorkbench">Manage subscriptions</button>
-    </div>
-</div>
+    </Tools>
+</AdminPaneHead>
 <PaneNotice @ref="_notice"/>
 @if (_feed is { Total: > 0 } feed) {
-    <div class="text-xs text-muted mb-2">@SummaryLine(feed)</div>
+    <div class="meta-dots text-xs text-muted mb-2">
+        @foreach (var fact in Summary(feed)) {
+            <span>@fact</span>
+        }
+    </div>
 }
 @if (_owners.Count > 0) {
     <div class="sub-section-head">Owners</div>
@@ -41,8 +43,8 @@
 
     string StatText => _feed is { } feed ? $"{feed.Total} subs" : "";
 
-    static string SummaryLine(AdminFeedListResponse feed) {
-        return $"{feed.ActiveCount} active / {feed.Total - feed.ActiveCount} inactive / {feed.Owners} owners";
+    static IEnumerable<string> Summary(AdminFeedListResponse feed) {
+        return [$"{feed.ActiveCount} active", $"{feed.Total - feed.ActiveCount} inactive", $"{feed.Owners} owners"];
     }
 
     protected override IReadOnlyList<string> Topics => [AdminTopics.Notifications];

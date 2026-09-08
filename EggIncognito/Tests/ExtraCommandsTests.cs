@@ -45,5 +45,6 @@ public class ExtraCommandsTests {
         public MessageParser? FindParser(string typeName) => null;
         public SchemaMessage? Schema(string typeName) => null;
         public IReadOnlyList<string> AllMessageTypeNames() => Array.Empty<string>();
+        public IReadOnlyList<MessageTypeInfo> AllMessageTypes() => [];
     }
 }

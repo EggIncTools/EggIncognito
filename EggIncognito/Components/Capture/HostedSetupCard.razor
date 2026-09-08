@@ -1,11 +1,7 @@
 @using System.Text.Json
 @* Hosted-capture connection card: the caller's per-user IPv6 proxy host, the port, and the CA install
    steps. The front door identifies the user by destination address, so the proxy uses no auth. *@
-<section id="hostedSetupCard" class="panel">
-    @if (Expanded) {
-        <h2>Hosted proxy setup</h2>
-    }
-
+<div id="hostedSetupCard" class="capture-setup-strip">
     <div class="setup-strip">
         <span class="setup-strip-k">Server</span>
         <span class="code-chip" id="proxyHost">@(_proxyHost ?? "loading...")</span>
@@ -15,23 +11,30 @@
         <span class="code-chip">off</span>
         <span class="setup-strip-gap"></span>
         <button type="button" class="btn-mini" @onclick="Toggle">@(Expanded ? "Hide steps" : "Steps")</button>
-        @if (_rotated) {
-            <p class="setup-note" id="rotatedNotice">
-                New address issued. Update your
-                device's proxy Server to the value above.
-            </p>
-        }
     </div>
+
+    @if (_rotated) {
+        <p class="setup-note" id="rotatedNotice">
+            New address issued. Update your device's proxy Server to the value above.
+        </p>
+    }
 
     @if (_caDmFailed) {
         <p class="setup-note" id="caDmFailedNotice">
             Could not DM you the CA. You may not be in the
             Discord server, or your member DMs are off (Settings &gt; Privacy &amp; Safety).
             @if (!string.IsNullOrWhiteSpace(InviteUrl)) {
-                <span>Join: <a href="@InviteUrl" target="_blank" rel="noopener" class="text-accent underline">@InviteUrl</a>, enable DMs, then re-send the config from Controls.</span>
+                <span>Join: <a href="@InviteUrl" target="_blank" rel="noopener" class="text-accent underline">@InviteUrl</a>, enable DMs, then re-send the setup DM from the Requests toolbar.</span>
             } else {
-                <span>Enable DMs, then re-send the config from Controls.</span>
+                <span>Enable DMs, then re-send the setup DM from the Requests toolbar.</span>
             }
+        </p>
+    }
+
+    @if (Limited) {
+        <p class="setup-note" id="limitedNotice">
+            Limited capture: crafting, consume and demote requests open in full. Other requests list their route and
+            message types only. <a href="/#support">Supporters</a> get full capture.
         </p>
     }
 
@@ -59,7 +62,7 @@
             </ol>
         </div>
     }
-</section>
+</div>
 
 @code {
     [Parameter] public int Port { get; set; }
@@ -69,6 +72,8 @@
 
     [Parameter] public bool Expanded { get; set; }
     [Parameter] public EventCallback<bool> ExpandedChanged { get; set; }
+
+    [Parameter] public bool Limited { get; set; }
 
     private Task Toggle() {
         return ExpandedChanged.InvokeAsync(!Expanded);

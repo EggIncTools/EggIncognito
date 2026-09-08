@@ -2,10 +2,7 @@
 @using EggIncognito.Models.AdminUi
 @inherits AdminPaneBase
 
-<div class="admin-pane-head">
-    <h2 class="admin-pane-title">Capture sessions</h2>
-    <span class="text-muted text-xs">@_rows.Count active @((MarkupString)(_rows.Count == 0 ? "" : " &middot; " + KindBreakdown()))</span>
-</div>
+<AdminPaneHead Title="Capture sessions" Facts="@Stats()"/>
 <PaneNotice @ref="_notice"/>
 @if (_rows.Count == 0) {
     <p class="text-muted text-sm m-0">No active capture sessions.</p>
@@ -62,7 +59,11 @@
         if (_stale && State.SelectedPane == AdminPanes.Sessions) await Load();
     }
 
-    string KindBreakdown() {
+    IEnumerable<string> Stats() {
+        return KindBreakdown().Prepend($"{_rows.Count} active");
+    }
+
+    List<string> KindBreakdown() {
         var user = _rows.Count(r => r.Kind == "user");
         var device = _rows.Count(r => r.Kind == "device");
         var local = _rows.Count - user - device;
@@ -70,7 +71,7 @@
         if (user > 0) parts.Add($"{user} user");
         if (device > 0) parts.Add($"{device} device");
         if (local > 0) parts.Add($"{local} local");
-        return string.Join(" &middot; ", parts);
+        return parts;
     }
 
     async Task Load() {

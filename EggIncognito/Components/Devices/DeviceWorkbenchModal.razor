@@ -34,7 +34,7 @@
             <WorkbenchSection Label="Virtual">
                 <WorkbenchEntry Selected="@State.FleetOpen" OnClick="ShowFleet">
                     <Lead>
-                        <span class="dwb-lead">
+                        <span class="wb-lead">
                             <Icon Name="server" Class="icon-sm"/>
                         </span>
                     </Lead>
@@ -51,7 +51,7 @@
                 @foreach (var i in PendingInstances()) {
                     <WorkbenchEntry Selected="false" OnClick="ShowFleet" @key="i.InstanceId">
                         <Lead>
-                            <span class="dwb-lead">
+                            <span class="wb-lead">
                                 <span class="dwb-dot-bad"></span>
                                 <PlatformIcon Platform="android"/>
                             </span>
@@ -340,7 +340,7 @@
                                                                 Foot="@FootFor(d)"
                                                                 OnClick="@(() => Select(d.Id))">
                                                    <Lead>
-                                                       <span class="dwb-lead">
+                                                       <span class="wb-lead">
                                                            <span class="@(d.Reachable ? "dwb-dot-ok" : "dwb-dot-bad")"></span>
                                                            <PlatformIcon Platform="@d.Platform"/>
                                                        </span>

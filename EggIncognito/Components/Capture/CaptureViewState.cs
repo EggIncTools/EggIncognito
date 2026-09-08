@@ -2,13 +2,14 @@ using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using EggIncognito.Core;
 using EggIncognito.Core.Services;
+using EggIncognito.Services;
 
 namespace EggIncognito.Components.Capture;
 
 public sealed partial class CaptureViewState {
     public static readonly Regex EidRe = EidPattern.Contains;
 
-    public HashSet<string> SensitiveKeys { get; } = [with(StringComparer.Ordinal), "eiUserId", "userId"];
+    public HashSet<string> SensitiveKeys { get; } = [with(StringComparer.Ordinal), .. CaptureSensitiveKeys.All];
 
     public string RedactionMode { get; set; } = "blur";
     public bool ShowHeaders { get; set; }

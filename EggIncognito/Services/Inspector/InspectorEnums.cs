@@ -25,9 +25,7 @@ public enum EnvValueType {
 
 public enum DocSubjectKind {
     Endpoint,
-    Message,
-    Config,
-    Control
+    Message
 }
 
 public static class InspectorTargets {
@@ -59,20 +57,11 @@ public static class InspectorTargets {
 public static class DocSubjectKinds {
     public const string Endpoint = "endpoint";
     public const string Message = "message";
-    public const string Config = "config";
-    public const string Control = "control";
 
-    public static string Slug(DocSubjectKind kind) => kind switch {
-        DocSubjectKind.Endpoint => Endpoint,
-        DocSubjectKind.Config => Config,
-        DocSubjectKind.Control => Control,
-        _ => Message
-    };
+    public static bool IsKnown(string? slug) => slug is Endpoint or Message;
 
-    public static DocSubjectKind Parse(string slug) => slug switch {
-        Endpoint => DocSubjectKind.Endpoint,
-        Config => DocSubjectKind.Config,
-        Control => DocSubjectKind.Control,
-        _ => DocSubjectKind.Message
-    };
+    public static string Slug(DocSubjectKind kind) => kind == DocSubjectKind.Endpoint ? Endpoint : Message;
+
+    public static DocSubjectKind Parse(string? slug) =>
+        slug == Endpoint ? DocSubjectKind.Endpoint : DocSubjectKind.Message;
 }

@@ -118,7 +118,7 @@ public sealed class CaptureController(
 
     [HttpGet("sensitive-keys")]
     public IActionResult SensitiveKeys() => Ok(new {
-        keys = Redactor.SensitiveFieldNames.Concat(["eiUserId", "userId"]).Distinct().ToArray()
+        keys = CaptureSensitiveKeys.All
     });
 
     [HttpGet("stats")]

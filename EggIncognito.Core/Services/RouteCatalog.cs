@@ -21,6 +21,7 @@ public interface IRouteCatalog {
 }
 
 public sealed partial class RouteCatalog : IRouteCatalog {
+    public const string WrapperMessage = "AuthenticatedMessage";
     private readonly Dictionary<string, RouteInfo> _byPath;
     private readonly IReadOnlyList<RouteInfo> _routes;
 
@@ -171,7 +172,7 @@ public sealed partial class RouteCatalog : IRouteCatalog {
 
     private static (string? type, bool wrapped) Normalize(string? v) {
         if (v is null) return (null, false);
-        if (v == "AuthenticatedMessage") return (null, true);
+        if (v == WrapperMessage) return (null, true);
         return (v, false);
     }
 

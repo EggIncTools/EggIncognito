@@ -4,14 +4,15 @@
 @inject IRouteCatalog Catalog
 @inject IProtoReflection Reflection
 
-<div class="insp-rail-top">
-    <a class="icon-btn icon-btn-sm" href="/api/tools/postman-collection" download
-       aria-label="Download Postman collection">
-        <Icon Name="send"/>
+<div class="awb-tools">
+    <a class="btn-mini" href="/api/tools/postman-collection" download>
+        <Icon Name="download" Class="icon-sm"/> Postman
     </a>
-    <button type="button" class="icon-btn icon-btn-sm @(StatusLoading ? "spinning" : "")"
-            aria-label="Endpoint status" @onclick="OnOpenStatus">
-        <Icon Name="refresh-cw"/>
+    <button type="button" class="btn-mini @(StatusLoading ? "spinning" : "")" @onclick="OnOpenStatus">
+        <Icon Name="refresh-cw" Class="icon-sm"/> Status
+    </button>
+    <button type="button" class="btn-mini @(State.HasSalt ? "" : "text-muted")" title="@(State.HasSalt ? "Salt set" : "Salt unset")" @onclick="OnOpenSalt">
+        <Icon Name="key" Class="icon-sm"/> Salt
     </button>
     <button type="button" class="icon-btn icon-btn-sm ml-auto"
             aria-label="Inspector settings" @onclick="OnOpenSettings">
@@ -19,20 +20,35 @@
     </button>
 </div>
 
-<button type="button" class="insp-salt @(State.HasSalt ? "on" : "")"
-        @onclick="OnOpenSalt">
-    @(State.HasSalt ? "salt set" : "salt unset")
-</button>
-
 @if (!string.IsNullOrEmpty(State.Notice)) {
     <StatusNote Severity="StatusNoteKind.Error">@State.Notice</StatusNote>
 }
 
-<FilterInput Class="insp-filter" AriaLabel="Filter routes"
-             Value="@State.RailFilter" ValueChanged="OnFilterChanged"/>
-
-<div class="awb-rail-list">
+<div class="wb-rail-slot awb-rail-list">
     <WorkbenchSection Label="@EndpointsLabel" Scroll="true">
+        @if (ShowRouteCatalog) {
+            <WorkbenchEntry Selected="RouteCatalogSelected" OnClick="@(_ => OnOpenRouteCatalog.InvokeAsync())">
+                <Lead>
+                    <span class="wb-lead">
+                        <Icon Name="map-pin" Class="icon-sm"/>
+                    </span>
+                </Lead>
+                <Name>Route catalog</Name>
+                <MetaLine>
+                    @if (RouteSummary is { } summary) {
+                        <span class="meta-dots">
+                            <span>@summary.Routes routes</span>
+                            @if (summary.Edited > 0) {
+                                <span>@summary.Edited edited</span>
+                            }
+                            @if (summary.Drift > 0) {
+                                <span>@summary.Drift drift</span>
+                            }
+                        </span>
+                    }
+                </MetaLine>
+            </WorkbenchEntry>
+        }
         <div class="insp-list">
             <Virtualize Items="EndpointRows()" Context="row" ItemSize="24" OverscanCount="12">
                 @if (row.Route is null) {
@@ -55,7 +71,7 @@
     </WorkbenchSection>
 </div>
 
-<div class="awb-rail-hist">
+<div class="wb-rail-slot awb-rail-hist">
     <WorkbenchSection Label="@HistoryLabel" Scroll="true">
         <HistoryPanel HistoryEnabled="State.HistoryEnabled" History="State.History"
                       OnRestoreHistory="OnRestoreHistory" OnDeleteHistory="OnDeleteHistory"
@@ -66,11 +82,16 @@
 @code {
     [Inject] public ApiWorkbenchState State { get; set; } = default!;
 
+    [Parameter] public string Filter { get; set; } = "";
     [Parameter] public EventCallback<RouteInfo> OnSelectEndpoint { get; set; }
     [Parameter] public EventCallback OnOpenSalt { get; set; }
     [Parameter] public EventCallback OnOpenSettings { get; set; }
     [Parameter] public EventCallback OnOpenStatus { get; set; }
     [Parameter] public bool StatusLoading { get; set; }
+    [Parameter] public bool ShowRouteCatalog { get; set; }
+    [Parameter] public bool RouteCatalogSelected { get; set; }
+    [Parameter] public EventCallback OnOpenRouteCatalog { get; set; }
+    [Parameter] public RouteCatalogSummary? RouteSummary { get; set; }
     [Parameter] public EventCallback<InspectorHistoryEntry> OnRestoreHistory { get; set; }
     [Parameter] public EventCallback<string> OnDeleteHistory { get; set; }
     [Parameter] public EventCallback OnClearHistory { get; set; }
@@ -88,18 +109,13 @@
         return _routes ??= Catalog.All().ToList();
     }
 
-    void OnFilterChanged(string value) {
-        State.RailFilter = value;
-        _rowsKey = null;
-    }
-
     void ToggleGroup(string ns) {
         if (!_collapsed.Remove(ns)) _collapsed.Add(ns);
         _rowsKey = null;
     }
 
     List<RailRow> EndpointRows() {
-        var key = State.RailFilter.Trim();
+        var key = Filter.Trim();
         if (_rowsKey == key && _rows is not null) return _rows;
         _rowsKey = key;
         _rows = BuildEndpointRows(key);

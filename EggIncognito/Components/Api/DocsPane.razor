@@ -1,57 +1,42 @@
 @using EggIncognito.Components.Inspector
-@using EggIncognito.Services.Api
+@using EggIncognito.Models.Inspector
 @using EggIncognito.Services.Inspector
-@inject ApiWorkbenchState State
-@inject IDocRegistry Registry
 @inject IRouteCatalog Catalog
 
-@switch (State.DocsKind) {
-    case DocSubjectKinds.Message:
-        <ObjectReference Name="@State.DocsKey" OnSelectEndpoint="OnJumpEndpoint"/>
-        break;
-    case DocSubjectKinds.Endpoint:
-        <EndpointReference Route="@ResolvedRoute" OnSelectObject="OnJumpMessage"/>
-        break;
-    default:
-        @if (Subject() is { } subject) {
-            <DocSubjectView Kind="@ParsedKind" Key="@subject.Key" Title="@subject.Title">
-                <Aside>
-                    @if (!string.IsNullOrEmpty(subject.Summary)) {
-                        <p class="text-xs text-muted">@subject.Summary</p>
-                    }
-                </Aside>
-            </DocSubjectView>
-        } else {
-            <div class="empty-state">
-                No subject selected.
-                <div class="empty-hint">
-                    Pick a message, endpoint, config option or control in the rail to read and edit its
-                    documentation.
-                </div>
-            </div>
-        }
-
-        break;
+@{ var subject = Subject; }
+@if (subject is null || subject.Key.Length == 0) {
+    <div class="empty-state">
+        No subject selected.
+        <div class="empty-hint">Pick a message or endpoint in the rail to read and edit its documentation.</div>
+    </div>
+} else {
+    switch (subject.Kind) {
+        case DocSubjectKind.Message:
+            <ObjectReference Name="@subject.Key" OnSelectEndpoint="OnJumpEndpoint" OnSelectMessage="OnJumpMessage"/>
+            break;
+        case DocSubjectKind.Endpoint:
+            <EndpointReference Route="@ResolvedRoute" OnSelectObject="OnJumpMessage"/>
+            break;
+    }
 }
 
 @code {
-    [Parameter] public EventCallback<(string Kind, string Key)> OnSelectSubject { get; set; }
+    [Parameter] public DocSubjectRef? Subject { get; set; }
+    [Parameter] public EventCallback<DocSubjectRef> OnSelectSubject { get; set; }
 
-    RouteInfo? ResolvedRoute =>
-        string.IsNullOrEmpty(State.DocsKey) ? null : Catalog.Resolve(State.DocsKey) ?? Catalog.All().FirstOrDefault(r => r.Path == State.DocsKey);
-
-    DocSubjectKind ParsedKind => DocSubjectKinds.Parse(State.DocsKind);
-
-    DocSubject? Subject() {
-        return string.IsNullOrEmpty(State.DocsKey) ? null : Registry.Find(State.DocsKind, State.DocsKey);
+    RouteInfo? ResolvedRoute {
+        get {
+            if (Subject is not { Key.Length: > 0 } subject) return null;
+            return Catalog.Resolve(subject.Key) ?? Catalog.All().FirstOrDefault(r => r.Path == subject.Key);
+        }
     }
 
     Task OnJumpEndpoint(RouteInfo e) {
-        return OnSelectSubject.InvokeAsync((DocSubjectKinds.Endpoint, e.Path));
+        return OnSelectSubject.InvokeAsync(new DocSubjectRef(DocSubjectKind.Endpoint, e.Path));
     }
 
     Task OnJumpMessage(string name) {
-        return OnSelectSubject.InvokeAsync((DocSubjectKinds.Message, name));
+        return OnSelectSubject.InvokeAsync(new DocSubjectRef(DocSubjectKind.Message, name));
     }
 
 }

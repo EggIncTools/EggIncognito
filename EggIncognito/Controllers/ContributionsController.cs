@@ -73,7 +73,7 @@ public sealed class ContributionsController(
             return StatusCode(429, new { error = "you have too many submissions awaiting review" });
 
         int sent = await store.SubmitAsync(userId, ct);
-        return Ok(new { submitted = sent });
+        return Ok(new ContributionSubmitResult(sent));
     }
 
     [HttpPost("discard")]

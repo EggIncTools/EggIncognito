@@ -1,8 +1,8 @@
 using EggIncognito.Core.Services;
 
-namespace EggIncognito.Models.AdminUi;
+namespace EggIncognito.Models.Routes;
 
-public record RouteBinaryStatus(
+public sealed record RouteBinaryStatus(
     DateTimeOffset? LastRefresh,
     string? BinaryVersion,
     int Discovered,

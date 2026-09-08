@@ -1,13 +1,12 @@
 @rendermode @(RenderModes.InteractiveServer)
+@using EggIncognito.Models.Docs
 @inherits AdminPaneBase
 
-<div class="admin-pane-head">
-    <h2 class="admin-pane-title">Tags</h2>
-    <div class="admin-pane-tools">
-        <span class="text-muted text-xs">@_tags.Count tags / @Attachments() attachments</span>
+<AdminPaneHead Title="Tags" Facts="@Stats">
+    <Tools>
         <button type="button" class="btn-mini" disabled="@_busy" @onclick="LoadAsync">Refresh</button>
-    </div>
-</div>
+    </Tools>
+</AdminPaneHead>
 <PaneNotice @ref="_notice"/>
 @if (_tags.Count == 0) {
     <p class="text-muted text-sm m-0">No tags yet. Create one below, then attach it from any documented subject.</p>
@@ -95,6 +94,8 @@
     int Attachments() {
         return _usage.Values.Sum(v => v.Count);
     }
+
+    IEnumerable<string> Stats => [$"{_tags.Count} tags", $"{Attachments()} attachments"];
 
     List<string> Subjects(long tagId) {
         return _usage.TryGetValue(tagId, out var list) ? list : [];

@@ -2,11 +2,10 @@ using EggIncognito.Core.Services;
 using EggIncognito.Core.Services.ProtoExtract;
 using EggIncognito.Data.Models;
 using EggIncognito.Data.Services;
+using EggIncognito.Models.Routes;
 using Microsoft.EntityFrameworkCore;
 
 namespace EggIncognito.Services.DataApi;
-
-public sealed record EndpointRebuildResult(int Discovered, int New, int DriftCount, string? BinaryVersion, string? Note);
 
 public sealed class EndpointCatalogRebuilder(
     IServiceProvider services,
@@ -90,10 +89,9 @@ public sealed class EndpointCatalogRebuilder(
         (services.GetService(typeof(IBinaryRouteProvider)) as IBinaryRouteProvider)?.Invalidate();
 
         int newCount = seen.Count(p => !existing.ContainsKey(p));
-        var dbRoutes = services.GetService(typeof(IDbRouteProvider)) as IDbRouteProvider;
-        var overrides = services.GetService(typeof(IRouteOverrideProvider)) as IRouteOverrideProvider;
-        var nonBinaryEffective = new OverlayRouteCatalog(new MergedRouteCatalog(yaml, dbRoutes), overrides).All();
-        var drift = RouteDrift.Compute(nonBinaryEffective, binaryRows);
+        var nonBinary = services.GetService(typeof(INonBinaryRouteCatalog)) as INonBinaryRouteCatalog
+                        ?? new NonBinaryRouteCatalog(yaml, null, null);
+        var drift = RouteDrift.Compute(nonBinary.All(), binaryRows);
         string note = BuildNote(inputs, merged.Count, notUsed);
         return new EndpointRebuildResult(seen.Count, newCount, drift.Count, contributors[0].Candidate.Version, note);
     }

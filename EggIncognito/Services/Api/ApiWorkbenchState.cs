@@ -4,6 +4,7 @@ using EggIncognito.Components.Capture;
 using EggIncognito.Components.Inspector;
 using EggIncognito.Core.Services;
 using EggIncognito.Models.Data;
+using EggIncognito.Models.Inspector;
 using EggIncognito.Services.Inspector;
 using EggIncognito.Services.Workbench;
 using Google.Protobuf.Reflection;
@@ -36,7 +37,7 @@ public sealed class ApiWorkbenchState : WorkbenchStateBase {
 
     public static string ModeFor(ApiSelectionKind kind) {
         return kind switch {
-            ApiSelectionKind.Dataset or ApiSelectionKind.Keys or ApiSelectionKind.AllKeys => ModeData,
+            ApiSelectionKind.Dataset => ModeData,
             ApiSelectionKind.Capture => ModeCapture,
             ApiSelectionKind.Docs => ModeDocs,
             _ => ModeApis
@@ -44,8 +45,8 @@ public sealed class ApiWorkbenchState : WorkbenchStateBase {
     }
 
     public RouteInfo? Selected { get; set; }
-    public string DocsKind { get; set; } = DocSubjectKinds.Message;
-    public string? DocsKey { get; set; }
+    public DocSubjectRef? Docs { get; set; }
+    public string DocsFilter { get; set; } = "";
 
     public List<EnvRow> EnvRows { get; set; } = [];
     public bool EnvOpen { get; set; } = true;
@@ -80,6 +81,7 @@ public sealed class ApiWorkbenchState : WorkbenchStateBase {
     public bool SealedAvailable { get; set; }
     public bool CanSaveDb { get; set; }
     public bool IsAdmin { get; set; }
+    public bool IsContributor { get; set; }
     public bool Hosted { get; set; }
 
     public bool CanBuild => Selected is not null && !Busy;
@@ -183,7 +185,7 @@ public sealed class ApiWorkbenchState : WorkbenchStateBase {
     } = ApiSelectionKind.Endpoint;
 
     public void RememberSelection() =>
-        _memory[ModeFor(Kind)] = new ApiSelectionMemory(Kind, Group, Id, Sub, DocsKind, DocsKey);
+        _memory[ModeFor(Kind)] = new ApiSelectionMemory(Kind, Group, Id, Sub, Docs);
 
     public bool RestoreSelection(string mode) {
         if (!_memory.TryGetValue(mode, out var memory)) return false;
@@ -194,9 +196,8 @@ public sealed class ApiWorkbenchState : WorkbenchStateBase {
         }
 
         if (memory.Kind == ApiSelectionKind.Docs) {
-            if (memory.DocsKey is not { Length: > 0 } key) return false;
-            DocsKind = memory.DocsKind ?? DocSubjectKinds.Message;
-            DocsKey = key;
+            if (memory.Docs is not { Key.Length: > 0 } docs) return false;
+            Docs = docs;
             Kind = ApiSelectionKind.Docs;
             return true;
         }
@@ -244,12 +245,10 @@ public sealed class ApiWorkbenchState : WorkbenchStateBase {
         return Kind switch {
             ApiSelectionKind.Dataset when Group.Length > 0 && Id.Length > 0 =>
                 Sub is { Length: > 0 } sub ? $"api/data/{Group}/{Id}/{sub}" : $"api/data/{Group}/{Id}",
-            ApiSelectionKind.Keys => "api/keys",
-            ApiSelectionKind.AllKeys => "api/keys/all",
             ApiSelectionKind.Routes => "api/routes",
             ApiSelectionKind.Capture => "api/capture",
             ApiSelectionKind.Docs =>
-                DocsKey is { Length: > 0 } key ? $"api/docs/{DocsKind}/{key}" : "api/docs",
+                Docs is { Key.Length: > 0 } docs ? $"api/docs/{docs.Slug}/{docs.Key}" : "api/docs",
             _ => MockHash()
         };
     }
@@ -282,21 +281,16 @@ public sealed class ApiWorkbenchState : WorkbenchStateBase {
             string tail = rest["docs/".Length..];
             int slash = tail.IndexOf('/');
             if (slash <= 0 || slash == tail.Length - 1) return false;
-            string kind = tail[..slash];
-            string key = tail[(slash + 1)..];
-            DocsKind = kind;
-            DocsKey = key;
+            if (!DocSubjectRef.TryParse(tail[..slash], tail[(slash + 1)..], out var docs)) return false;
+            Docs = docs;
             Kind = ApiSelectionKind.Docs;
             return true;
         }
 
         switch (rest) {
             case "keys":
-                Kind = ApiSelectionKind.Keys;
-                return true;
             case "keys/all":
-                Kind = ApiSelectionKind.AllKeys;
-                return true;
+                return false;
             case "routes":
                 Kind = ApiSelectionKind.Routes;
                 return true;

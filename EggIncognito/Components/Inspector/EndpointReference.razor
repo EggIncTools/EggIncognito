@@ -1,3 +1,4 @@
+@using EggIncognito.Services.Docs
 @using EggIncognito.Services.Inspector
 @if (Route is null) {
     <div class="empty-state">
@@ -5,15 +6,17 @@
         <div class="empty-hint">Pick an endpoint in the rail to read and edit its documentation.</div>
     </div>
 } else {
-    <DocSubjectView Kind="DocSubjectKind.Endpoint" Key="@Route.Path" Title="@Route.Path">
+    <DocSubjectView Kind="DocSubjectKind.Endpoint" Key="@Route.Path" Title="@Route.Path" Taggable="true">
         <Aside>
             <div class="doc-types">
                 <span class="doc-type-row">
                     <span class="text-muted text-xs">request</span>
-                    @if (!string.IsNullOrEmpty(Route.Request)) {
+                    @if (Route.PathParamOnly) {
+                        <span class="text-muted">none, identity via URL path param</span>
+                    } else if (RequestType is { } req) {
                         <button type="button" class="doc-type-link mono"
-                                @onclick="() => OnSelectObject.InvokeAsync(Route.Request!)">
-                            @Route.Request
+                                @onclick="() => OnSelectObject.InvokeAsync(req)">
+                            @req
                         </button>
                         @if (Route.RequestWrapped) {
                             <span class="ep-signed">
@@ -26,15 +29,35 @@
                 </span>
                 <span class="doc-type-row">
                     <span class="text-muted text-xs">response</span>
-                    @if (!string.IsNullOrEmpty(Route.Response)) {
+                    @if (ResponseType is { } res) {
                         <button type="button" class="doc-type-link mono"
-                                @onclick="() => OnSelectObject.InvokeAsync(Route.Response!)">
-                            @Route.Response
+                                @onclick="() => OnSelectObject.InvokeAsync(res)">
+                            @res
                         </button>
+                        @if (Route.ResponseWrapped) {
+                            <span class="ep-signed">
+                                <Icon Name="lock" Class="icon-sm"/>
+                            </span>
+                        }
+                    } else if (Route.RawResponse is not null) {
+                        <span class="text-muted">raw response</span>
                     } else {
                         <span class="text-muted">none</span>
                     }
                 </span>
+                @if (Route.PathParam || Route.Aliases.Count > 0 || Route.RawResponse is not null) {
+                    <span class="doc-marks">
+                        @if (Route.PathParam) {
+                            <span class="doc-mark">path param</span>
+                        }
+                        @if (Route.RawResponse is not null) {
+                            <span class="doc-mark">raw response: @Route.RawResponse</span>
+                        }
+                        @if (Route.Aliases.Count > 0) {
+                            <span class="doc-mark">aliases: @string.Join(", ", Route.Aliases)</span>
+                        }
+                    </span>
+                }
             </div>
         </Aside>
     </DocSubjectView>
@@ -43,5 +66,9 @@
 @code {
     [Parameter] public RouteInfo? Route { get; set; }
     [Parameter] public EventCallback<string> OnSelectObject { get; set; }
+
+    string? RequestType => Route is null ? null : Route.Request ?? (Route.RequestWrapped ? RouteCatalog.WrapperMessage : null);
+
+    string? ResponseType => Route is null ? null : Route.Response ?? (Route.ResponseWrapped ? RouteCatalog.WrapperMessage : null);
 
 }

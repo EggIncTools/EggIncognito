@@ -28,14 +28,10 @@ public sealed class DocRegistryTests : IDisposable {
     }
 
     [Fact]
-    public void Roots_HasTheFourKinds() {
+    public void Roots_HasTheTwoKinds() {
         var roots = Build().Roots();
         var titles = roots.Select(r => r.Title).ToList();
-        Assert.Contains("Messages", titles);
-        Assert.Contains("Endpoints", titles);
-        Assert.Contains("Config", titles);
-        Assert.Contains("Controls", titles);
-        Assert.Equal(4, roots.Count);
+        Assert.Equal(new[] { "Messages", "Endpoints" }, titles);
     }
 
     [Fact]
@@ -48,6 +44,20 @@ public sealed class DocRegistryTests : IDisposable {
         Assert.Equal("message", contract.Kind);
         Assert.NotEmpty(contract.Children);
         Assert.All(contract.Children, c => Assert.Equal("field", c.Kind));
+    }
+
+    [Fact]
+    public void Messages_IncludeNestedTypesWithParents() {
+        var messages = Build().Roots().Single(r => r.Title == "Messages").Children;
+
+        var nested = messages.SingleOrDefault(m => m.Key == "Backup.Game");
+        Assert.NotNull(nested);
+        Assert.Equal("Backup", nested.Parent);
+        Assert.NotEmpty(nested.Children);
+
+        var backup = messages.SingleOrDefault(m => m.Key == "Backup");
+        Assert.NotNull(backup);
+        Assert.Null(backup.Parent);
     }
 
     [Fact]
@@ -65,30 +75,10 @@ public sealed class DocRegistryTests : IDisposable {
     }
 
     [Fact]
-    public void Config_IncludesCuratedKeys() {
-        var reg = Build();
-
-        var appMode = reg.Find("config", "AppMode");
-        Assert.NotNull(appMode);
-        Assert.False(string.IsNullOrEmpty(appMode.Summary));
-
-        var rl = reg.Find("config", "RateLimiting:Enabled");
-        Assert.NotNull(rl);
-        Assert.False(string.IsNullOrEmpty(rl.Summary));
-    }
-
-    [Fact]
-    public void Controls_ArePresent() {
-        var reg = Build();
-        var controls = reg.Roots().Single(r => r.Title == "Controls").Children;
-        Assert.NotEmpty(controls);
-        Assert.All(controls, c => Assert.Equal("control", c.Kind));
-    }
-
-    [Fact]
     public void Find_ResolvesMessageAndMisses() {
         var reg = Build();
         Assert.NotNull(reg.Find("message", "Contract"));
+        Assert.Null(reg.Find("config", "AppMode"));
         Assert.Null(reg.Find("nope", "nope"));
     }
 }

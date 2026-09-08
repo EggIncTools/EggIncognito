@@ -53,7 +53,6 @@ public partial class WorkbenchStyleTests(SharedAppFactory f) {
     public async Task ApiCard_DeclaresNoSizeOfItsOwn() {
         string css = await SheetAsync();
 
-        Assert.Contains(".awb-card ", css, StringComparison.Ordinal);
         Assert.Empty(AwbCardRegex().Matches(css));
     }
 

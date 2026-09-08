@@ -1,57 +1,61 @@
 @using System.Net
 @using System.Text.Json
-@using EggIncognito.Models.AdminUi
+@using EggIncognito.Models.Inspector
+@using EggIncognito.Models.Routes
+@using EggIncognito.Services.Routes
 @inherits SelfCallComponentBase
+@inject IRouteCatalogReport RouteReport
 @inject ToastService Toasts
 @inject ILogger<RouteCatalogPane> Logger
 
 <div class="awb-pane">
-    <div class="flex items-center justify-between gap-2">
+    <div class="routes-head">
         <h4 class="awb-pane-title">Route catalog</h4>
-        @if (_binary is not null) {
-            <button type="button" class="btn-mini" disabled="@_refreshing" @onclick="RefreshBinary">@(_refreshing ? "Refreshing..." : "Refresh now")</button>
-        }
+        <div class="routes-head-meta">
+            @if (_binary is { } b && !string.IsNullOrWhiteSpace(b.BinaryVersion)) {
+                <VersionLine App="@b.BinaryVersion"/>
+            } else {
+                <span class="text-muted">binary unknown</span>
+            }
+            @if (_binary?.LastRefresh is { } lr) {
+                <span class="text-muted">last refresh <TimeAgo Value="@lr"/></span>
+            } else {
+                <span class="text-muted">never refreshed</span>
+            }
+            <button type="button" class="btn-mini" disabled="@(_refreshing || _binaryUnavailable)" @onclick="RefreshBinary">@(_refreshing ? "Refreshing..." : "Refresh")</button>
+        </div>
     </div>
     @if (_binaryUnavailable) {
-        <p class="text-muted text-xs m-0 mb-2">Binary route status unavailable (no database).</p>
-    } else if (_binary is not null) {
-        <div class="routes-binary-status">
-            <div class="routes-binary-meta">
-                @if (_binary.LastRefresh is { } lr) {
-                    <span class="text-muted">last refresh <TimeAgo Value="@lr"/></span>
-                } else {
-                    <span class="text-muted">never refreshed</span>
-                }
-                @if (!string.IsNullOrWhiteSpace(_binary.BinaryVersion)) {
-                    <VersionLine App="@_binary.BinaryVersion"/>
-                } else {
-                    <span class="text-muted">binary unknown</span>
-                }
-            </div>
-            <div class="wbx-kpis routes-binary-kpis">
-                <div class="wbx-kpi">
-                    <span class="wbx-kpi-n">@_binary.Discovered</span>
-                    <span class="wbx-kpi-k">discovered</span>
-                </div>
-                <div class="wbx-kpi @(_binary.NewCount > 0 ? "wbx-kpi-warn" : "")">
-                    <span class="wbx-kpi-n">@_binary.NewCount</span>
-                    <span class="wbx-kpi-k">new</span>
-                </div>
-                <div class="wbx-kpi @(_binary.DriftCount > 0 ? "wbx-kpi-warn" : "")">
-                    <span class="wbx-kpi-n">@_binary.DriftCount</span>
-                    <span class="wbx-kpi-k">drift</span>
-                </div>
-            </div>
-        </div>
+        <p class="text-muted text-xs m-0">Binary route status unavailable (no database).</p>
     }
+    <div class="wbx-kpis routes-kpis">
+        <div class="wbx-kpi">
+            <span class="wbx-kpi-n">@Kpi(_binary?.Discovered)</span>
+            <span class="wbx-kpi-k">discovered</span>
+        </div>
+        <div class="wbx-kpi @(_binary is { NewCount: > 0 } ? "wbx-kpi-warn" : "")">
+            <span class="wbx-kpi-n">@Kpi(_binary?.NewCount)</span>
+            <span class="wbx-kpi-k">new</span>
+        </div>
+        <div class="wbx-kpi @(_binary is { DriftCount: > 0 } ? "wbx-kpi-warn" : "")">
+            <span class="wbx-kpi-n">@Kpi(_binary?.DriftCount)</span>
+            <span class="wbx-kpi-k">drift</span>
+        </div>
+        <div class="wbx-kpi">
+            <span class="wbx-kpi-n">@EditedCount</span>
+            <span class="wbx-kpi-k">edited</span>
+        </div>
+    </div>
 
-    <FilterInput Class="reg-filter-input mb-2" AriaLabel="Filter routes by path" @bind-Value="_filter"/>
-
-    <datalist id="routeMessageTypes">
-        @foreach (var m in _messages) {
-            <option value="@m"/>
-        }
-    </datalist>
+    <div class="routes-filter-row">
+        <FilterInput Class="reg-filter-input" AriaLabel="Filter routes by path" @bind-Value="_filter"/>
+        <div class="settings-seg routes-seg" role="radiogroup" aria-label="Route source">
+            <button type="button" class="seg-btn @(_view == ViewAll ? "active" : "")" @onclick="() => _view = ViewAll">All</button>
+            <button type="button" class="seg-btn @(_view == ViewEdited ? "active" : "")" @onclick="() => _view = ViewEdited">Edited</button>
+            <button type="button" class="seg-btn @(_view == ViewDrift ? "active" : "")" @onclick="() => _view = ViewDrift">Drift</button>
+            <button type="button" class="seg-btn @(_view == ViewOrphan ? "active" : "")" @onclick="() => _view = ViewOrphan">Orphan</button>
+        </div>
+    </div>
 
     @if (_loading) {
         <p class="text-muted text-sm m-0">Loading routes...</p>
@@ -62,7 +66,7 @@
             <table class="data-table">
                 <thead>
                 <tr>
-                    <th>Path</th><th></th><th></th>
+                    <th>Path</th><th>Request</th><th>Response</th><th>Flags</th><th>State</th>
                 </tr>
                 </thead>
                 <tbody>
@@ -70,69 +74,82 @@
                     var drift = DriftFor(row.Path);
                     <tr class="reg-row cursor-pointer @(drift.Count > 0 ? "route-drift-row" : "")" @onclick="() => ToggleExpand(row)">
                         <td class="mono text-xs">@row.Path</td>
-                        <td>
-                            <div class="flex gap-1">
-                                @if (row.Override is not null) {
-                                    <span class="route-flag text-accent">edited</span>
-                                }
-                                @if (row.Source == "db") {
-                                    <span class="route-flag text-info">db</span>
-                                }
-                                @if (BinaryPopulated && !IsInBinary(row.Path)) {
-                                    <span class="route-flag text-ok">no binary</span>
-                                }
-                                @if (row.Source == "orphan") {
-                                    <span class="route-flag text-err">orphan</span>
-                                }
-                            </div>
+                        <td>@TypeCell(row.Effective?.Request, row.Effective?.RequestWrapped == true)</td>
+                        <td>@TypeCell(row.Effective?.Response, row.Effective?.ResponseWrapped == true)</td>
+                        <td class="text-muted text-xs">@(row.Effective?.PathParam == true ? "path param" : "")</td>
+                        <td class="routes-state-cell">
+                            @if (row.Override is not null) {
+                                <span class="route-flag text-accent">edited</span>
+                            }
+                            @if (row.Source == "db") {
+                                <span class="route-flag text-muted">db</span>
+                            }
+                            @if (row.Source == "orphan") {
+                                <span class="route-flag text-err">orphan</span>
+                            }
+                            @if (BinaryPopulated && !IsInBinary(row.Path)) {
+                                <span class="route-flag text-muted">no binary</span>
+                            }
+                            @if (drift.Count > 0) {
+                                <span class="route-flag route-flag-warn">drift</span>
+                            }
                         </td>
-                        <td class="text-muted text-xs">@(drift.Count > 0 ? "drift" : "")</td>
                     </tr>
                     @if (_expandedPath == row.Path) {
                         <tr class="reg-edit-row">
-                            <td colspan="3">
+                            <td colspan="5">
                                 <div class="routes-editor">
-                                    @if (row.Source != "orphan") {
-                                        <p class="text-muted text-xs m-0">Saving persists this route definition to the database. It drives Inspector, capture decode, and docs.</p>
-                                    } else {
-                                        <p class="text-muted text-xs m-0">No matching route in yaml or the db catalog. Only Reset is available.</p>
-                                    }
-                                    <div class="routes-editor-fields">
+                                    <p class="text-muted text-xs m-0">@(row.Source == "orphan" ? "No matching route in routes.yaml or the binary catalog." : "Saved overrides persist to the database and win over routes.yaml.")</p>
+                                    <div class="routes-editor-grid">
                                         <label class="routes-editor-field">
                                             Request type
-                                            <input class="reg-filter-input w-auto" list="routeMessageTypes" value="@_draftRequest" @oninput="OnDraftRequest"/>
+                                            <select class="field-input" value="@(_draftRequest ?? "")" @onchange="OnDraftRequest">
+                                                <option value="">(none)</option>
+                                                @if (_draftRequest is { } dr && !KnownType(dr)) {
+                                                    <option value="@dr">@dr (not in proto)</option>
+                                                }
+                                                <optgroup label="Request types">
+                                                    @foreach (var m in _roles.Request) {
+                                                        <option value="@m">@m</option>
+                                                    }
+                                                </optgroup>
+                                                <optgroup label="Other messages">
+                                                    @foreach (var m in _roles.RequestOthers) {
+                                                        <option value="@m">@m</option>
+                                                    }
+                                                </optgroup>
+                                            </select>
                                         </label>
                                         <label class="routes-editor-field">
                                             Response type
-                                            <input class="reg-filter-input w-auto" list="routeMessageTypes" value="@_draftResponse" @oninput="OnDraftResponse"/>
-                                        </label>
-                                        <label class="routes-editor-field">
-                                            Request wrapped
-                                            <select class="reg-filter-input w-auto" value="@_draftRequestWrapped" @onchange="OnDraftRequestWrapped">
-                                                <option value="true">true</option>
-                                                <option value="false">false</option>
+                                            <select class="field-input" value="@(_draftResponse ?? "")" @onchange="OnDraftResponse">
+                                                <option value="">(none)</option>
+                                                @if (_draftResponse is { } ds && !KnownType(ds)) {
+                                                    <option value="@ds">@ds (not in proto)</option>
+                                                }
+                                                <optgroup label="Response types">
+                                                    @foreach (var m in _roles.Response) {
+                                                        <option value="@m">@m</option>
+                                                    }
+                                                </optgroup>
+                                                <optgroup label="Other messages">
+                                                    @foreach (var m in _roles.ResponseOthers) {
+                                                        <option value="@m">@m</option>
+                                                    }
+                                                </optgroup>
                                             </select>
                                         </label>
-                                        <label class="routes-editor-field">
-                                            Response wrapped
-                                            <select class="reg-filter-input w-auto" value="@_draftResponseWrapped" @onchange="OnDraftResponseWrapped">
-                                                <option value="true">true</option>
-                                                <option value="false">false</option>
-                                            </select>
-                                        </label>
-                                        <label class="routes-editor-field">
-                                            Path param
-                                            <select class="reg-filter-input w-auto" value="@_draftPathParam" @onchange="OnDraftPathParam">
-                                                <option value="true">true</option>
-                                                <option value="false">false</option>
-                                            </select>
-                                        </label>
+                                    </div>
+                                    <div class="routes-editor-checks">
+                                        <label class="settings-check"><input type="checkbox" checked="@_draftRequestWrapped" @onchange="e => _draftRequestWrapped = e.Value is true"/> Request wrapped (AuthenticatedMessage)</label>
+                                        <label class="settings-check"><input type="checkbox" checked="@_draftResponseWrapped" @onchange="e => _draftResponseWrapped = e.Value is true"/> Response wrapped (AuthenticatedMessage)</label>
+                                        <label class="settings-check"><input type="checkbox" checked="@_draftPathParam" @onchange="e => _draftPathParam = e.Value is true"/> Path param</label>
                                     </div>
                                     @if (drift.Count > 0) {
                                         <div class="flex flex-col gap-1">
                                             @foreach (var d in drift) {
                                                 <div class="routes-drift-row">
-                                                    <span class="route-flag @(d.Reliable ? "text-accent" : "text-info")">@(d.Reliable ? "drift" : "advisory")</span>
+                                                    <span class="route-flag @(d.Reliable ? "route-flag-warn" : "text-muted")">@(d.Reliable ? "drift" : "advisory")</span>
                                                     <span class="text-muted">@d.Field: effective @(d.EffectiveValue ?? "-") vs binary @(d.BinaryValue ?? "-")</span>
                                                     <button type="button" class="btn-mini" disabled="@_busy" @onclick="() => ApplyDrift(d)">Apply</button>
                                                 </div>
@@ -160,53 +177,81 @@
 </div>
 
 @code {
-    static readonly JsonSerializerOptions JsonOpts = new(JsonSerializerDefaults.Web);
+    [Parameter] public EventCallback OnChanged { get; set; }
 
-    List<RouteRow> _rows = [];
-    List<string> _messages = [];
+    static readonly JsonSerializerOptions JsonOpts = new(JsonSerializerDefaults.Web);
+    const string ViewAll = "all";
+    const string ViewEdited = "edited";
+    const string ViewDrift = "drift";
+    const string ViewOrphan = "orphan";
+
+    IReadOnlyList<RouteRow> _rows = [];
+    MessageRoles _roles = MessageRoles.Empty;
     RouteBinaryStatus? _binary;
     bool _binaryUnavailable;
     bool _loading = true;
     bool _busy;
     bool _refreshing;
     string _filter = "";
+    string _view = ViewAll;
     string? _expandedPath;
 
-    string _draftRequest = "";
-    string _draftResponse = "";
-    string _draftRequestWrapped = "false";
-    string _draftResponseWrapped = "false";
-    string _draftPathParam = "false";
+    string? _draftRequest;
+    string? _draftResponse;
+    bool _draftRequestWrapped;
+    bool _draftResponseWrapped;
+    bool _draftPathParam;
 
     protected override async Task OnInitializedAsync() {
-        await LoadMessages();
-        await LoadRoutes();
-        await LoadBinary();
+        await LoadRoles();
+        LoadRoutes();
+        LoadBinary();
     }
 
+    RenderFragment TypeCell(string? name, bool locked) => @<span class="routes-type">
+        @if (name is null) {
+            <span class="text-muted">none</span>
+        } else {
+            <span class="mono">@name</span>
+        }
+        @if (locked) {
+            <Icon Name="lock" Class="icon-sm"/>
+        }
+    </span>;
+
+    static string Kpi(int? value) => value?.ToString() ?? "-";
+
+    int EditedCount => _rows.Count(r => r.Override is not null);
+
     void OnDraftRequest(ChangeEventArgs e) {
-        _draftRequest = e.Value?.ToString() ?? "";
+        _draftRequest = Blank(e.Value?.ToString());
     }
 
     void OnDraftResponse(ChangeEventArgs e) {
-        _draftResponse = e.Value?.ToString() ?? "";
+        _draftResponse = Blank(e.Value?.ToString());
     }
 
-    void OnDraftRequestWrapped(ChangeEventArgs e) {
-        _draftRequestWrapped = e.Value?.ToString() ?? "false";
-    }
+    static string? Blank(string? v) => string.IsNullOrWhiteSpace(v) ? null : v;
 
-    void OnDraftResponseWrapped(ChangeEventArgs e) {
-        _draftResponseWrapped = e.Value?.ToString() ?? "false";
-    }
+    bool KnownType(string name) =>
+        _roles.Request.Contains(name) || _roles.Response.Contains(name) || _roles.Other.Contains(name);
 
-    void OnDraftPathParam(ChangeEventArgs e) {
-        _draftPathParam = e.Value?.ToString() ?? "false";
+    async Task Changed() {
+        LoadRoutes();
+        LoadBinary();
+        if (OnChanged.HasDelegate) await OnChanged.InvokeAsync();
     }
 
     List<RouteRow> FilteredRows() {
-        if (string.IsNullOrEmpty(_filter)) return _rows;
-        return _rows.Where(r => r.Path.Contains(_filter, StringComparison.OrdinalIgnoreCase)).ToList();
+        IEnumerable<RouteRow> rows = _rows;
+        if (!string.IsNullOrEmpty(_filter)) rows = rows.Where(r => r.Path.Contains(_filter, StringComparison.OrdinalIgnoreCase));
+        rows = _view switch {
+            ViewEdited => rows.Where(r => r.Override is not null),
+            ViewDrift => rows.Where(r => DriftFor(r.Path).Count > 0),
+            ViewOrphan => rows.Where(r => r.Source == "orphan"),
+            _ => rows
+        };
+        return rows.ToList();
     }
 
     List<RouteDriftRow> DriftFor(string path) {
@@ -220,18 +265,6 @@
 
     bool BinaryPopulated => _binary is { Rows.Count: > 0 };
 
-    static string Bool(bool? v) {
-        return v == true ? "true" : "false";
-    }
-
-    static bool? ParseTriState(string v) {
-        return v switch {
-            "true" => true,
-            "false" => false,
-            _ => null
-        };
-    }
-
     void ToggleExpand(RouteRow row) {
         if (_expandedPath == row.Path) {
             _expandedPath = null;
@@ -243,40 +276,26 @@
     }
 
     void SeedDrafts(RouteRow row) {
-        _draftRequest = row.Override?.Request ?? row.Effective?.Request ?? "";
-        _draftResponse = row.Override?.Response ?? row.Effective?.Response ?? "";
-        _draftRequestWrapped = Bool(row.Override?.RequestWrapped ?? row.Effective?.RequestWrapped);
-        _draftResponseWrapped = Bool(row.Override?.ResponseWrapped ?? row.Effective?.ResponseWrapped);
-        _draftPathParam = Bool(row.Override?.PathParam ?? row.Effective?.PathParam);
+        var draft = row.Draft();
+        _draftRequest = draft.Request;
+        _draftResponse = draft.Response;
+        _draftRequestWrapped = draft.RequestWrapped ?? false;
+        _draftResponseWrapped = draft.ResponseWrapped ?? false;
+        _draftPathParam = draft.PathParam ?? false;
     }
 
-    async Task LoadMessages() {
-        _messages = await Client().ListAsync<string>("/api/inspector/messages", Logger);
+    async Task LoadRoles() {
+        _roles = await Client().OneAsync<MessageRoles>("/api/inspector/message-roles", Logger) ?? MessageRoles.Empty;
     }
 
-    async Task LoadRoutes() {
-        _rows = await Client().ListAsync<RouteRow>("/api/admin/routes", Logger);
+    void LoadRoutes() {
+        _rows = RouteReport.Rows();
         _loading = false;
     }
 
-    async Task LoadBinary() {
-        _binaryUnavailable = false;
-        try {
-            var res = await Client().GetAsync("/api/admin/routes/binary");
-            if (res.StatusCode == HttpStatusCode.ServiceUnavailable) {
-                _binaryUnavailable = true;
-                _binary = null;
-                return;
-            }
-
-            _binary = res.IsSuccessStatusCode
-                ? await res.Content.ReadFromJsonAsync<RouteBinaryStatus>(JsonOpts)
-                : null;
-        }
-        catch (Exception ex) when (ex is HttpRequestException or JsonException or TaskCanceledException) {
-            Logger.LogDebug(ex, "binary route status could not be read");
-            _binary = null;
-        }
+    void LoadBinary() {
+        _binary = RouteReport.Binary();
+        _binaryUnavailable = _binary is null;
     }
 
     async Task RefreshBinary() {
@@ -287,7 +306,7 @@
             if (res.StatusCode == HttpStatusCode.ServiceUnavailable) {
                 Say(false, "refresh unavailable (no database)");
             } else if (res.IsSuccessStatusCode) {
-                var d = await res.Content.ReadFromJsonAsync<RouteBinaryRefreshResult>(JsonOpts);
+                var d = await res.Content.ReadFromJsonAsync<EndpointRebuildResult>(JsonOpts);
                 Say(true, d is null
                     ? "refresh complete"
                     : $"refresh complete: {d.Discovered} discovered, {d.New} new, {d.DriftCount} drift" +
@@ -300,25 +319,13 @@
             Say(false, $"refresh failed: {ex.Message}");
         }
 
-        await LoadBinary();
-        await LoadRoutes();
+        await Changed();
+        await LoadRoles();
         _refreshing = false;
     }
 
     async Task Save(RouteRow row) {
-        var body = new RouteUpsertBody(
-            string.IsNullOrWhiteSpace(_draftRequest) ? null : _draftRequest,
-            string.IsNullOrWhiteSpace(_draftResponse) ? null : _draftResponse,
-            ParseTriState(_draftRequestWrapped),
-            ParseTriState(_draftResponseWrapped),
-            ParseTriState(_draftPathParam));
-
-        if (body.Request is null && body.Response is null && body.RequestWrapped is null
-            && body.ResponseWrapped is null && body.PathParam is null) {
-            Say(false, "nothing to save; set at least one field or use Reset");
-            return;
-        }
-
+        var body = new UpsertRouteOverride(_draftRequest, _draftResponse, _draftRequestWrapped, _draftResponseWrapped, _draftPathParam);
         _busy = true;
         try {
             var res = await Client().PutAsJsonAsync($"/api/admin/routes/{row.Path}", body, JsonOpts);
@@ -329,8 +336,7 @@
             Say(false, $"save failed: {ex.Message}");
         }
 
-        await LoadRoutes();
-        await LoadBinary();
+        await Changed();
         _busy = false;
     }
 
@@ -345,23 +351,19 @@
             Say(false, $"clear failed: {ex.Message}");
         }
 
-        await LoadRoutes();
-        await LoadBinary();
+        await Changed();
         _busy = false;
     }
 
     async Task ApplyDrift(RouteDriftRow d) {
         if (d.BinaryValue is null || !bool.TryParse(d.BinaryValue, out var value)) return;
+        if (_rows.FirstOrDefault(r => r.Path == d.Path) is not { } row) return;
         _busy = true;
-        var row = _rows.FirstOrDefault(r => r.Path == d.Path);
-        var current = row?.Override;
-        var eff = row?.Effective;
-        var body = new RouteUpsertBody(
-            current?.Request ?? eff?.Request,
-            current?.Response ?? eff?.Response,
-            d.Field == "requestWrapped" ? value : current?.RequestWrapped ?? eff?.RequestWrapped,
-            d.Field == "responseWrapped" ? value : current?.ResponseWrapped ?? eff?.ResponseWrapped,
-            current?.PathParam ?? eff?.PathParam);
+        var body = d.Field switch {
+            "requestWrapped" => row.Draft() with { RequestWrapped = value },
+            "responseWrapped" => row.Draft() with { ResponseWrapped = value },
+            _ => row.Draft()
+        };
         try {
             var res = await Client().PutAsJsonAsync($"/api/admin/routes/{d.Path}", body, JsonOpts);
             Say(res.IsSuccessStatusCode, res.IsSuccessStatusCode ? $"applied {d.Field} for {d.Path}" : $"apply failed: HTTP {(int)res.StatusCode}");
@@ -370,8 +372,7 @@
             Say(false, $"apply failed: {ex.Message}");
         }
 
-        await LoadRoutes();
-        await LoadBinary();
+        await Changed();
         if (_expandedPath == d.Path && _rows.FirstOrDefault(r => r.Path == d.Path) is { } fresh) {
             SeedDrafts(fresh);
         }

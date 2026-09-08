@@ -22,12 +22,19 @@ public class DocsHubTests {
         }
 
         [Fact]
-        public async Task SubjectTags_ConfigKind_Accepted() {
+        public async Task SubjectTags_EndpointKind_Accepted() {
             var c = _f.CreateClient();
-            var r = await c.GetAsync("/api/docs/subject-tags/config/AppMode");
+            var r = await c.GetAsync("/api/docs/subject-tags/endpoint/ei/first_contact");
             Assert.Equal(HttpStatusCode.OK, r.StatusCode);
             string body = await r.Content.ReadAsStringAsync();
             Assert.Equal("[]", body.Trim());
+        }
+
+        [Fact]
+        public async Task SubjectTags_RemovedKind_Rejected() {
+            var c = _f.CreateClient();
+            var r = await c.GetAsync("/api/docs/subject-tags/config/AppMode");
+            Assert.Equal(HttpStatusCode.BadRequest, r.StatusCode);
         }
     }
 
@@ -49,11 +56,11 @@ public class DocsHubTests {
         }
 
         [Fact]
-        public void DocHelp_KnownConfigKey_RendersAffordance() {
+        public void DocHelp_KnownMessage_RendersAffordance() {
             Wire();
             var cut = Render<DocHelp>(p => p
-                .Add(c => c.Kind, "config")
-                .Add(c => c.Key, "AppMode"));
+                .Add(c => c.Kind, "message")
+                .Add(c => c.Key, "Contract"));
             Assert.NotNull(cut.Find(".dochelp"));
         }
 
@@ -61,7 +68,7 @@ public class DocsHubTests {
         public void DocHelp_UnknownSubject_RendersNothing() {
             Wire();
             var cut = Render<DocHelp>(p => p
-                .Add(c => c.Kind, "config")
+                .Add(c => c.Kind, "message")
                 .Add(c => c.Key, "NoSuchKey"));
             Assert.Empty(cut.Markup.Trim());
         }

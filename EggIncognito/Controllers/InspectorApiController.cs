@@ -11,6 +11,7 @@ using EggIncognito.Data.Services;
 using EggIncognito.Models.Inspector;
 using EggIncognito.Services;
 using EggIncognito.Services.Auth;
+using EggIncognito.Services.Inspector;
 using Google.Protobuf;
 using Google.Protobuf.Reflection;
 using Microsoft.AspNetCore.Mvc;
@@ -36,6 +37,12 @@ public sealed class InspectorApiController(
     public IActionResult Messages() {
         Response.Headers.CacheControl = "private, max-age=300";
         return Ok(reflection.AllMessageTypeNames());
+    }
+
+    [HttpGet("message-roles")]
+    public IActionResult Roles([FromServices] IMessageRoleIndex roles) {
+        Response.Headers.CacheControl = "private, max-age=60";
+        return Ok(roles.Snapshot());
     }
 
     [HttpGet("rinfo-seed")]

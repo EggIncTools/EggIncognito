@@ -2,15 +2,11 @@
 @using EggIncognito.Models.Playground
 @inherits SelfCallComponentBase
 
-<div class="admin-pane-head">
-    <h2 class="admin-pane-title">Farm Playground</h2>
-    <div class="admin-pane-tools">
-        @if (!_failed) {
-            <span class="text-muted text-xs">@_designs saved / @_presets showcase</span>
-        }
+<AdminPaneHead Title="Farm Playground" Facts="@Stats()">
+    <Tools>
         <button type="button" class="btn-primary" @onclick="Open">Open playground</button>
-    </div>
-</div>
+    </Tools>
+</AdminPaneHead>
 @if (_failed) {
     <div class="text-sm text-muted">design and showcase counts are unavailable</div>
 } else if (_designs == 0) {
@@ -45,6 +41,11 @@
     int _presets;
     bool _failed;
     bool _loaded;
+
+    IEnumerable<string> Stats() {
+        if (_failed) return [];
+        return [$"{_designs} saved", $"{_presets} showcase"];
+    }
 
     IEnumerable<DesignRow> Recent() {
         return _rows.OrderByDescending(r => r.UpdatedAt).Take(8);

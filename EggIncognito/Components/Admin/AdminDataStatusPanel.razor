@@ -2,13 +2,11 @@
 @using EggIncognito.Models.Admin
 @inherits AdminPaneBase
 
-<div class="admin-pane-head">
-    <h2 class="admin-pane-title">Data status</h2>
-    <div class="admin-pane-tools">
-        <span class="text-muted text-xs">@StatText</span>
+<AdminPaneHead Title="Data status" Facts="@Stats">
+    <Tools>
         <button type="button" class="btn-mini" disabled="@_busy" @onclick="Load">Refresh</button>
-    </div>
-</div>
+    </Tools>
+</AdminPaneHead>
 <PaneNotice @ref="_notice"/>
 @if (_data is null) {
     <div class="text-sm text-muted">no data</div>
@@ -91,7 +89,9 @@
     DataStatusResponse? _data;
     bool _busy;
 
-    string StatText => _data is null ? "" : $"{_data.GameData.Count} stores / {_data.Missing.Count} missing / config {(_data.Config.Enabled ? "on" : "off")}";
+    IEnumerable<string> Stats => _data is null
+        ? []
+        : [$"{_data.GameData.Count} stores", $"{_data.Missing.Count} missing", $"config {(_data.Config.Enabled ? "on" : "off")}"];
 
     protected override IReadOnlyList<string> Topics => [AdminTopics.DataStatus, AdminTopics.GameData, AdminTopics.Binaries];
 

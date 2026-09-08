@@ -5,14 +5,16 @@
 } else {
     <div class="hist-list">
         @foreach (var h in History) {
-            <div class="ep hist-row" @onclick="() => OnRestoreHistory.InvokeAsync(h)">
-                <span class="hist-path mono">@h.Path</span>
-                <span class="hist-meta">@h.Summary</span>
-                <button type="button" class="hist-del" aria-label="Remove"
-                        @onclick:stopPropagation="true" @onclick="() => OnDeleteHistory.InvokeAsync(h.Id)">
-                    <Icon Name="x" Class="icon-sm"/>
-                </button>
-            </div>
+            <WorkbenchEntry @key="h.Id" OnClick="@(_ => OnRestoreHistory.InvokeAsync(h))">
+                <Name>@h.Path</Name>
+                <Trail>
+                    <button type="button" class="wb-x" aria-label="Remove"
+                            @onclick:stopPropagation="true" @onclick="@(() => OnDeleteHistory.InvokeAsync(h.Id))">
+                        <Icon Name="x" Class="icon-sm"/>
+                    </button>
+                </Trail>
+                <MetaLine>@h.Summary</MetaLine>
+            </WorkbenchEntry>
         }
     </div>
     <button type="button" class="btn-mini self-start" @onclick="OnClearHistory">Clear</button>

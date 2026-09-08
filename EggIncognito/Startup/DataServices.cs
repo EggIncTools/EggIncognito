@@ -5,9 +5,12 @@ using EggIncognito.Services.Admin;
 using EggIncognito.Services.Contracts;
 using EggIncognito.Services.DataApi;
 using EggIncognito.Services.Devices;
+using EggIncognito.Services.Docs;
 using EggIncognito.Services.Events;
 using EggIncognito.Services.Feed;
+using EggIncognito.Services.Inspector;
 using EggIncognito.Services.Predictions;
+using EggIncognito.Services.Routes;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 
@@ -34,6 +37,24 @@ public static class DataServices {
                     boot.DbEnabled ? sp.GetRequiredService<IDbRouteProvider>() : null,
                     boot.DbEnabled ? sp.GetRequiredService<IBinaryRouteProvider>() : null),
                 boot.DbEnabled ? sp.GetRequiredService<IRouteOverrideProvider>() : null));
+        builder.Services.AddSingleton<INonBinaryRouteCatalog>(sp => new NonBinaryRouteCatalog(
+            sp.GetRequiredService<RouteCatalog>(),
+            boot.DbEnabled ? sp.GetRequiredService<IDbRouteProvider>() : null,
+            boot.DbEnabled ? sp.GetRequiredService<IRouteOverrideProvider>() : null));
+        builder.Services.AddSingleton<IMessageRoleIndex>(sp => new MessageRoleIndex(
+            sp.GetRequiredService<IProtoReflection>(),
+            sp.GetRequiredService<IRouteCatalog>(),
+            boot.DbEnabled ? sp.GetRequiredService<IBinaryRouteProvider>() : null));
+        builder.Services.AddSingleton<IRouteCatalogReport>(sp => new RouteCatalogReport(
+            sp.GetRequiredService<IRouteCatalog>(),
+            sp.GetRequiredService<RouteCatalog>(),
+            sp.GetRequiredService<INonBinaryRouteCatalog>(),
+            boot.DbEnabled ? sp.GetRequiredService<IRouteOverrideProvider>() : null,
+            boot.DbEnabled ? sp.GetRequiredService<IBinaryRouteProvider>() : null));
+        builder.Services.AddSingleton<IDocUsageIndex>(sp => new DocUsageIndex(
+            sp.GetRequiredService<IRouteCatalog>(),
+            sp.GetRequiredService<IProtoReflection>(),
+            boot.DbEnabled ? sp.GetRequiredService<IBinaryRouteProvider>() : null));
     }
 
     public static void AddDatabaseServices(this WebApplicationBuilder builder, BootFlags boot) {

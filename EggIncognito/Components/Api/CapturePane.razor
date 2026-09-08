@@ -18,53 +18,42 @@
 
 @if (_hub is not null) {
     <div class="awb-pane h-full">
-        <div class="capture-stack">
-            <div class="capture-bar">
-                <CaptureControlsPanel Running="_running" Port="_port" ToggleBusy="_toggleBusy" View="_view"
-                                      OnToggleCapture="ToggleCapture" OnClear="Clear" OnViewChanged="OnViewChanged"
-                                      Hosted="_hosted" ClientFactory="Client"
-                                      OnAddressRotated="@(h => {
-                                                            _rotatedHost = h;
-                                                            StateHasChanged();
-                                                        })"/>
-                <CaptureNoticesPanel Notices="_notices" Unread="_unread"
-                                     OnDismissNotice="DismissNotice" OnClearNotices="ClearNotices" OnNoticesRead="MarkNoticesRead"/>
-                <div class="capture-bar-gap"></div>
-                <StatsPanel Stats="_stats" FlowCount="_flows.Count" Running="_running" Port="_port"/>
-            </div>
-
-            @if (_session is not null && _hosted) {
-                <HostedSetupCard Port="HostedOptions.FrontDoorPort"
-                                 ClientFactory="Client" InviteUrl="@Config["Discord:InviteUrl"]"
-                                 HostOverride="@_rotatedHost"
-                                 Expanded="SetupExpanded" ExpandedChanged="SetSetupExpanded"/>
-            }
-        </div>
-
-        @if (_limited) {
-            <section class="panel capture-limited-banner">
-                <h2>Limited capture</h2>
-                <p class="text-muted text-sm mt-0 mb-0">
-                    Crafting, consume and demote requests open in full. Every other request is listed for context only:
-                    its route and message types are shown, its contents are never sent to this page.
-                    <a href="/#support">Supporters</a> get full capture.
-                </p>
-            </section>
+        @if (_session is not null && _hosted) {
+            <HostedSetupCard Port="HostedOptions.FrontDoorPort"
+                             ClientFactory="Client" InviteUrl="@Config["Discord:InviteUrl"]"
+                             HostOverride="@_rotatedHost" Limited="_limited"
+                             Expanded="SetupExpanded" ExpandedChanged="SetSetupExpanded"/>
         }
 
         <div class="capture-body grid gap-3 min-h-0">
             <FlowList Flows="_flows" SelectedId="_selectedId" Connected="_connected" View="_view" OnSelect="SelectFlow"
-                      CanSelect="CanSelectFlow"/>
+                      CanSelect="CanSelectFlow">
+                <Tools>
+                    <CaptureControlsPanel Running="_running" Port="_port" ToggleBusy="_toggleBusy" View="_view"
+                                          OnToggleCapture="ToggleCapture" OnClear="Clear" OnViewChanged="OnViewChanged"
+                                          Hosted="_hosted" ClientFactory="Client"
+                                          OnAddressRotated="@(h => {
+                                                                _rotatedHost = h;
+                                                                StateHasChanged();
+                                                            })"/>
+                    <CaptureNoticesPanel Notices="_notices" Unread="_unread"
+                                         OnDismissNotice="DismissNotice" OnClearNotices="ClearNotices" OnNoticesRead="MarkNoticesRead"/>
+                </Tools>
+                <Stats>
+                    <StatsPanel Stats="_stats" FlowCount="_flows.Count" Running="_running" Port="_port"/>
+                </Stats>
+                <Foot>
+                    @if (_hosted) {
+                        <ContributePanel @ref="_contribute" ClientFactory="Client"/>
+                    }
+                </Foot>
+            </FlowList>
 
             <section id="detailPanel" class="panel">
                 <h2>Detail</h2>
                 <DetailPane Flow="_selectedFlow" View="_view" ClientFactory="Client"/>
             </section>
         </div>
-
-        @if (_hosted) {
-            <ContributePanel @ref="_contribute" ClientFactory="Client"/>
-        }
     </div>
 } else if (AppMode.HostedCaptureEnabled) {
     <div class="awb-pane">
@@ -144,8 +133,6 @@
 
         foreach (var f in _hub.Snapshot()) AddOrUpdateFlow(f);
         ApplyStats(_hub.StatsSnapshot());
-
-        foreach (var k in CaptureController_SensitiveKeys()) _view.SensitiveKeys.Add(k);
     }
 
     void ResolveSession() {
@@ -174,10 +161,6 @@
         return !_limited || _fullDetailRoutes.Contains(flow.Path);
     }
 
-    static IEnumerable<string> CaptureController_SensitiveKeys() {
-        return Redactor.SensitiveFieldNames.Concat(["eiUserId", "userId"]).Distinct();
-    }
-
     protected override async Task OnAfterRenderAsync(bool firstRender) {
         if (!firstRender || _hub is null) return;
 
@@ -190,7 +173,7 @@
             _view.DefaultFormat = await InvokeOr("getDefaultFormat", _view.DefaultFormat);
             _view.SetupExpanded = await InvokeOr("getSetupExpanded", _view.SetupExpanded);
         }
-        catch {
+        catch (Exception ex) when (ex is JSDisconnectedException or JSException or ObjectDisposedException) {
             _store = null;
         }
 
@@ -392,7 +375,7 @@
         try {
             return await _store.InvokeAsync<T>(fn);
         }
-        catch {
+        catch (Exception ex) when (ex is JSDisconnectedException or JSException or ObjectDisposedException) {
             return fallback;
         }
     }

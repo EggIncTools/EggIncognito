@@ -26,6 +26,7 @@ public interface IProtoReflection {
     SchemaMessage? Schema(string typeName);
 
     IReadOnlyList<string> AllMessageTypeNames();
+    IReadOnlyList<MessageTypeInfo> AllMessageTypes();
 }
 
 public sealed class ProtoReflection : IProtoReflection {
@@ -45,7 +46,20 @@ public sealed class ProtoReflection : IProtoReflection {
             .OrderBy(n => n, StringComparer.OrdinalIgnoreCase)
             .ToList());
 
+    private static readonly Lazy<IReadOnlyList<MessageTypeInfo>> AllTypes = new(() => {
+        var list = new List<MessageTypeInfo>();
+        foreach (var t in EiAssembly.GetTypes().Where(t => t.DeclaringType is null && t.Namespace == "Ei"))
+            Collect(t, list);
+
+        return list
+            .DistinctBy(i => i.Name, StringComparer.Ordinal)
+            .OrderBy(i => i.Name, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    });
+
     public IReadOnlyList<string> AllMessageTypeNames() => AllNames.Value;
+
+    public IReadOnlyList<MessageTypeInfo> AllMessageTypes() => AllTypes.Value;
 
     public MessageDescriptor? FindMessage(string typeName) => Resolve(typeName)?.Descriptor;
 
@@ -59,6 +73,29 @@ public sealed class ProtoReflection : IProtoReflection {
         return new SchemaMessage(desc.Name, fields);
     }
 
+    private static void Collect(Type clr, List<MessageTypeInfo> into) {
+        if (DescriptorOf(clr) is not { } desc) return;
+        into.Add(new MessageTypeInfo(Relative(desc), desc.ContainingType is { } parent ? Relative(parent) : null));
+
+        var nested = clr.GetNestedType("Types", BindingFlags.Public);
+        if (nested is null) return;
+        foreach (var t in nested.GetNestedTypes(BindingFlags.Public)) Collect(t, into);
+    }
+
+    private static MessageDescriptor? DescriptorOf(Type clr) {
+        if (clr is not { IsClass: true, IsAbstract: false } || !typeof(IMessage).IsAssignableFrom(clr)) return null;
+        return clr.GetProperty("Descriptor", BindingFlags.Public | BindingFlags.Static)?.GetValue(null)
+            as MessageDescriptor;
+    }
+
+    private static string Relative(MessageDescriptor desc) {
+        string package = desc.File.Package;
+        string full = desc.FullName;
+        if (package.Length == 0) return full;
+        string prefix = package + ".";
+        return full.StartsWith(prefix, StringComparison.Ordinal) ? full[prefix.Length..] : full;
+    }
+
     private static string Short(string typeName) =>
         typeName.StartsWith("Ei.", StringComparison.Ordinal) ? typeName[3..] : typeName;
 
@@ -66,7 +103,7 @@ public sealed class ProtoReflection : IProtoReflection {
         string key = Short(typeName);
         if (Cache.TryGetValue(key, out var hit)) return hit;
 
-        var clr = EiAssembly.GetType("Ei." + key);
+        var clr = EiAssembly.GetType("Ei." + key.Replace(".", "+Types+", StringComparison.Ordinal));
         if (clr?.GetProperty("Descriptor", BindingFlags.Public | BindingFlags.Static)
                 ?.GetValue(null) is not MessageDescriptor descriptor || clr
                 ?.GetProperty("Parser", BindingFlags.Public | BindingFlags.Static)
@@ -85,7 +122,7 @@ public sealed class ProtoReflection : IProtoReflection {
 
         if (f.FieldType is FieldType.Message or FieldType.Group) {
             type = "message";
-            messageType = f.MessageType.Name;
+            messageType = Relative(f.MessageType);
         } else if (f.FieldType == FieldType.Enum) {
             type = "enum";
             enumValues = f.EnumType.Values

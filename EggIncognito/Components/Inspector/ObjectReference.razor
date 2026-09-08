@@ -1,31 +1,108 @@
+@using EggIncognito.Models.Docs
+@using EggIncognito.Services.Docs
 @using EggIncognito.Services.Inspector
-@inject IRouteCatalog Catalog
+@inject IDocUsageIndex Usage
 
 @if (string.IsNullOrEmpty(Name)) {
     <div class="empty-state">
         No object selected.
         <div class="empty-hint">
-            Pick a proto message type in the rail to see its documentation, its tags, and the
-            endpoints that use it as a request or response. Objects are the Egg, Inc. API's data
-            shapes, the building blocks every request and response is made of.
+            Pick a proto message type in the rail to see its documentation, its fields, the endpoints
+            that use it, and the messages that embed it. Objects are the Egg, Inc. API's data shapes,
+            the building blocks every request and response is made of.
         </div>
     </div>
 } else {
-    <DocSubjectView Kind="DocSubjectKind.Message" Key="@Name" Title="@Name">
+    <DocSubjectView Kind="DocSubjectKind.Message" Key="@Name" Title="@Name" Taggable="false">
         <Footer>
-            <div>
-                <div class="doc-section-title">Used by @(Using().Count) endpoint@(Using().Count == 1 ? "" : "s")</div>
-                @if (Using().Count > 0) {
-                    <div class="doc-usedby-list">
-                        @foreach (var e in Using()) {
-                            <button type="button" class="doc-usedby-item"
-                                    @onclick="() => OnSelectEndpoint.InvokeAsync(e)">
-                                <span class="mono">@e.Path</span><span class="doc-usedby-role">@RoleOf(e)</span>
-                            </button>
+            @if (_parent is { } parent) {
+                <div class="doc-section-title">Nested in</div>
+                <div class="doc-usedby-list">
+                    <button type="button" class="doc-usedby-item"
+                            @onclick="() => OnSelectMessage.InvokeAsync(parent)">
+                        <span class="mono">@parent</span>
+                    </button>
+                </div>
+            }
+
+            <div class="doc-section-title">Fields</div>
+            @if (_fields.Count == 0) {
+                <div class="doc-none">none</div>
+            } else {
+                <div class="doc-fields-wrap">
+                    <table class="doc-fields">
+                        <thead>
+                        <tr>
+                            <th class="doc-field-num">#</th>
+                            <th>name</th>
+                            <th>type</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        @foreach (var f in _fields) {
+                            <tr @key="f.Number">
+                                <td class="doc-field-num">@f.Number</td>
+                                <td class="doc-field-name">@f.Name</td>
+                                <td class="doc-field-type">
+                                    @if (f.Repeated) {
+                                        <span class="doc-field-repeated">repeated</span>
+                                    }
+                                    @if (f.Type == "message" && Usage.IsKnown(f.MessageType)) {
+                                        <button type="button" class="doc-type-link mono"
+                                                @onclick="() => OnSelectMessage.InvokeAsync(f.MessageType!)">
+                                            @f.MessageType
+                                        </button>
+                                    } else {
+                                        @(f.MessageType ?? f.Type)
+                                    }
+                                </td>
+                            </tr>
                         }
-                    </div>
-                }
-            </div>
+                        </tbody>
+                    </table>
+                </div>
+            }
+
+            @if (_nested.Count > 0) {
+                <div class="doc-section-title">Nested types (@_nested.Count)</div>
+                <DocRefGroups TItem="string" Items="_nested"
+                              GroupKey="@(n => Usage.ParentOf(n) ?? n)" ItemKey="@(n => n)">
+                    <ItemTemplate Context="nested">
+                        <button type="button" class="doc-usedby-item" title="@nested"
+                                @onclick="() => OnSelectMessage.InvokeAsync(nested)">
+                            <span class="mono">@RelativeName(nested)</span>
+                        </button>
+                    </ItemTemplate>
+                </DocRefGroups>
+            }
+
+            <div class="doc-section-title">Used by @_uses.Count endpoint@(Plural(_uses.Count))</div>
+            <DocRefGroups TItem="MessageEndpointUse" Items="_uses"
+                          GroupKey="@(u => RouteNamespace(u.Path))" ItemKey="@(u => u.Path)">
+                <ItemTemplate Context="u">
+                    @if (u.Route is { } route) {
+                        <button type="button" class="doc-usedby-item"
+                                @onclick="() => OnSelectEndpoint.InvokeAsync(route)">
+                            <span class="mono">@u.Path</span><span class="doc-usedby-role">@RoleText(u.Role)</span>
+                        </button>
+                    } else {
+                        <div class="doc-usedby-item doc-usedby-static">
+                            <span class="mono">@u.Path</span><span class="doc-usedby-role">@RoleText(u.Role), binary only</span>
+                        </div>
+                    }
+                </ItemTemplate>
+            </DocRefGroups>
+
+            <div class="doc-section-title">Referenced by @_refs.Count message@(Plural(_refs.Count))</div>
+            <DocRefGroups TItem="MessageFieldRef" Items="_refs"
+                          GroupKey="@(r => TopLevelName(r.Message))" ItemKey="RefKey">
+                <ItemTemplate Context="r">
+                    <button type="button" class="doc-usedby-item"
+                            @onclick="() => OnSelectMessage.InvokeAsync(r.Message)">
+                        <span class="mono">@r.Message</span><span class="doc-usedby-role">.@r.Field@(r.Repeated ? " (repeated)" : "")</span>
+                    </button>
+                </ItemTemplate>
+            </DocRefGroups>
         </Footer>
     </DocSubjectView>
 }
@@ -33,24 +110,66 @@
 @code {
     [Parameter] public string? Name { get; set; }
     [Parameter] public EventCallback<RouteInfo> OnSelectEndpoint { get; set; }
+    [Parameter] public EventCallback<string> OnSelectMessage { get; set; }
 
-    List<RouteInfo> _using = [];
-    string? _usingFor;
+    IReadOnlyList<SchemaField> _fields = [];
+    IReadOnlyList<MessageEndpointUse> _uses = [];
+    IReadOnlyList<MessageFieldRef> _refs = [];
+    IReadOnlyList<string> _nested = [];
+    string? _parent;
+    string? _loadedFor;
 
     protected override void OnParametersSet() {
-        if (Name == _usingFor) return;
-        _usingFor = Name;
-        _using = string.IsNullOrEmpty(Name)
-            ? []
-            : Catalog.All().Where(e => e.Request == Name || e.Response == Name).ToList();
+        if (Name == _loadedFor) return;
+        _loadedFor = Name;
+        if (string.IsNullOrEmpty(Name)) {
+            _fields = [];
+            _uses = [];
+            _refs = [];
+            _nested = [];
+            _parent = null;
+            return;
+        }
+
+        _fields = Usage.FieldsOf(Name);
+        _uses = Usage.EndpointsUsing(Name);
+        _refs = Usage.ReferencedBy(Name);
+        _nested = Usage.NestedOf(Name);
+        _parent = Usage.ParentOf(Name);
     }
 
-    List<RouteInfo> Using() {
-        return _using;
+    string RelativeName(string full) {
+        string prefix = (Name ?? "") + ".";
+        return full.StartsWith(prefix, StringComparison.Ordinal) ? full[prefix.Length..] : full;
     }
 
-    string RoleOf(RouteInfo e) {
-        return e.Request == Name && e.Response == Name ? "req+resp" : e.Request == Name ? "request" : "response";
+    static string RefKey(MessageFieldRef r) {
+        return $"{r.Message}.{r.Field}";
+    }
+
+    static string RouteNamespace(string path) {
+        int i = path.IndexOf('/', StringComparison.Ordinal);
+        return i < 0 ? path : path[..i];
+    }
+
+    static string TopLevelName(string name) {
+        int i = name.IndexOf('.', StringComparison.Ordinal);
+        return i < 0 ? name : name[..i];
+    }
+
+    static string Plural(int n) {
+        return n == 1 ? "" : "s";
+    }
+
+    static string RoleText(MessageUseRole role) {
+        return role switch {
+            MessageUseRole.Request => "request",
+            MessageUseRole.Response => "response",
+            MessageUseRole.Both => "request + response",
+            MessageUseRole.WrapsRequest => "wraps request",
+            MessageUseRole.WrapsResponse => "wraps response",
+            _ => "wraps both"
+        };
     }
 
 }

@@ -20,27 +20,23 @@
             @if (!string.IsNullOrWhiteSpace(s.Description)) {
                 <p class="ds-desc">@s.Description</p>
             }
-            <div class="ds-meta">
+            <div class="ds-meta meta-dots">
                 <span>@ProvenanceLabel(s.Provenance)</span>
-                <span class="ds-meta-sep">|</span>
                 <span>@AccessLabel(s.Access)</span>
                 @if (s.Bytes is { } bytes) {
-                    <span class="ds-meta-sep">|</span>
                     <span class="font-mono">@ByteFormat.Compact(bytes)</span>
                 }
                 @if (!string.IsNullOrEmpty(s.Feed)) {
-                    <span class="ds-meta-sep">|</span>
                     <span class="font-mono">@s.Feed</span>
                 }
                 @if (s.Meta?.BinaryVersion is { Length: > 0 } binaryVersion) {
-                    <span class="ds-meta-sep">|</span>
-                    <VersionLine App="@binaryVersion"/>
+                    <span><VersionLine App="@binaryVersion"/></span>
                 }
             </div>
             <a class="ds-route font-mono" href="@s.Url" target="_blank" rel="noopener">@s.Url</a>
             <div class="ds-curl">
                 <code class="ds-curl-text">@CurlLine(s)</code>
-                <CopyButton GetText="@(() => CurlLine(s))" ButtonClass="btn-mini" IconClass="icon-sm"
+                <CopyButton GetText="@(() => CurlLine(s))" ButtonClass="btn-mini ds-curl-copy" IconClass="icon-sm"
                             Label="Copy" CopiedLabel="Copied"/>
             </div>
         </header>

@@ -2,13 +2,11 @@
 @using EggIncognito.Models.Admin
 @inherits AdminPaneBase
 
-<div class="admin-pane-head">
-    <h2 class="admin-pane-title">Game data</h2>
-    <div class="admin-pane-tools">
-        <span class="text-muted text-xs">@StatText</span>
+<AdminPaneHead Title="Game data" Facts="@Stats">
+    <Tools>
         <button type="button" class="btn-mini" disabled="@_busy" @onclick="Load">Refresh</button>
-    </div>
-</div>
+    </Tools>
+</AdminPaneHead>
 <PaneNotice @ref="_notice"/>
 @if (_data is not null) {
     <div class="reg-wrap">
@@ -64,11 +62,11 @@
     string _importId = "";
     string _importJson = "";
 
-    string StatText {
+    IEnumerable<string> Stats {
         get {
-            if (_data is null) return "";
+            if (_data is null) return [];
             var present = _data.Documents.Count(d => d.Present);
-            return $"{present}/{_data.Documents.Count} docs / {_data.Missing.Count} missing";
+            return [$"{present}/{_data.Documents.Count} docs", $"{_data.Missing.Count} missing"];
         }
     }
 

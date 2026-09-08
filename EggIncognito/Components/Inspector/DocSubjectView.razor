@@ -1,48 +1,74 @@
 @using System.Text.Json
+@using EggIncognito.Models.Docs
 @using EggIncognito.Services.Inspector
 @inherits SelfCallComponentBase
 @inject ICurrentUser User
 @inject AdminNotifier Notifier
+@inject ToastService Toasts
 
+@if (_tagMenuOpen) {
+    <div class="popover-backdrop" @onclick="@(() => _tagMenuOpen = false)"></div>
+}
 <div class="doc-head">
     <h2 class="doc-title">@Title</h2>
-    <span class="tag-chips">
-        @foreach (var t in _tags) {
-            @if (_canTag) {
-                <button type="button" class="doc-tag doc-tag-btn" style="@TagStyle(t.Color)"
-                        title="Detach @t.Label" disabled="@_busy" @onclick="() => Detach(t.Id)">
-                    @t.Label &times;
-                </button>
-            } else {
-                <span class="doc-tag" style="@TagStyle(t.Color)">@t.Label</span>
+    @if (Taggable) {
+        <span class="doc-tags">
+            @foreach (var t in _tags) {
+                <span class="doc-tag" style="@TagStyle(t.Color)" @key="t.Id">
+                    @t.Label
+                    @if (_canTag) {
+                        <button type="button" class="doc-tag-x" aria-label="Detach @t.Label" title="Detach @t.Label"
+                                disabled="@_busy" @onclick="() => Detach(t.Id)">
+                            <Icon Name="x" Class="icon-sm"/>
+                        </button>
+                    }
+                </span>
             }
-        }
-        @if (_canTag && Attachable().Count > 0) {
-            <select @key="@_tags.Count" class="doc-tag-add" aria-label="Attach a tag" value=""
-                    disabled="@_busy" @onchange="Attach">
-                <option value="">attach...</option>
-                @foreach (var t in Attachable()) {
-                    <option value="@t.Id">@t.Label</option>
-                }
-            </select>
-        }
-    </span>
+            @if (_canTag) {
+                <span class="settings-wrap">
+                    <button type="button" class="doc-tag-plus" aria-label="Attach tags" title="Attach tags"
+                            aria-haspopup="true" aria-expanded="@_tagMenuOpen" disabled="@_busy" @onclick="ToggleTagMenu">
+                        <Icon Name="plus" Class="icon-sm"/>
+                    </button>
+                    <div class="settings-menu doc-tag-menu @(_tagMenuOpen ? "open" : "")">
+                        <div class="settings-title">Tags</div>
+                        @if (_allTags.Count == 0) {
+                            <div class="settings-hint">No tags defined yet.</div>
+                        }
+                        @foreach (var t in _allTags) {
+                            <label class="settings-check" @key="t.Id">
+                                <input type="checkbox" checked="@IsAttached(t.Id)" disabled="@_busy"
+                                       @onchange="() => ToggleTag(t.Id)"/>
+                                <span style="@TagStyle(t.Color)">@t.Label</span>
+                            </label>
+                        }
+                    </div>
+                </span>
+            }
+        </span>
+    }
+    @if (_canEdit && !_editing) {
+        <button type="button" class="btn-mini doc-edit-btn" @onclick="BeginEdit">
+            <Icon Name="pencil" Class="icon-sm"/> @(string.IsNullOrEmpty(_bodyMd) ? "Add documentation" : "Edit")
+        </button>
+    }
 </div>
-<PaneNotice @ref="_notice"/>
 
 @if (Aside is not null) {
     @Aside
 }
 
-<div class="doc-body">
-    @if (string.IsNullOrEmpty(_bodyMd)) {
-        <div class="muted">No documentation yet.</div>
-    } else {
-        <Markdown Body="@_bodyMd"/>
-    }
-</div>
-
-<MarkdownEditor @key="@_editorKey" Kind="@Slug" Key="@Key" Initial="@_bodyMd" OnSaved="OnDocSaved"/>
+@if (_editing) {
+    <MarkdownEditor @key="@_editorKey" Kind="@Slug" Key="@Key" Initial="@_bodyMd" OnSaved="OnDocSaved" OnCancel="EndEdit"/>
+} else {
+    <div class="doc-body">
+        @if (string.IsNullOrEmpty(_bodyMd)) {
+            <div class="muted">No documentation yet.</div>
+        } else {
+            <Markdown Body="@_bodyMd"/>
+        }
+    </div>
+}
 
 @if (Footer is not null) {
     @Footer
@@ -52,43 +78,68 @@
     [Parameter] public DocSubjectKind Kind { get; set; }
     [Parameter] public string Key { get; set; } = "";
     [Parameter] public string Title { get; set; } = "";
+    [Parameter] public bool Taggable { get; set; }
     [Parameter] public RenderFragment? Aside { get; set; }
     [Parameter] public RenderFragment? Footer { get; set; }
 
     static readonly JsonSerializerOptions JsonOpts = new(JsonSerializerDefaults.Web);
-
-    PaneNotice? _notice;
 
     string? _bodyMd;
     List<TagRow> _tags = [];
     List<TagRow> _allTags = [];
     string? _loadedFor;
     bool _canTag;
+    bool _canEdit;
     bool _busy;
+    bool _editing;
+    bool _tagMenuOpen;
+    string _editorKey = "";
 
     string Slug => DocSubjectKinds.Slug(Kind);
 
-    string _editorKey = "";
-
     protected override void OnInitialized() {
         base.OnInitialized();
-        _canTag = User.IsAtLeast(UserRole.Admin);
+        _canEdit = User.IsAtLeast(UserRole.Contributor);
     }
 
     protected override async Task OnParametersSetAsync() {
+        _canTag = Taggable && User.IsAtLeast(UserRole.Contributor);
         var subject = Slug + "/" + Key;
         if (string.IsNullOrEmpty(Key) || subject == _loadedFor) return;
         _loadedFor = subject;
         _editorKey = subject;
+        _editing = false;
+        _tagMenuOpen = false;
         _bodyMd = null;
         _tags = [];
-        await LoadAsync($"/api/docs/doc/{Slug}/{Uri.EscapeDataString(Key)}",
-            $"/api/docs/subject-tags/{Slug}/{Uri.EscapeDataString(Key)}");
+        await LoadDoc($"/api/docs/doc/{Slug}/{Uri.EscapeDataString(Key)}");
+        if (!Taggable) return;
+        await LoadTags($"/api/docs/subject-tags/{Slug}/{Uri.EscapeDataString(Key)}");
         if (_canTag) await LoadAllTags();
     }
 
-    List<TagRow> Attachable() {
-        return _allTags.Where(t => _tags.TrueForAll(a => a.Id != t.Id)).ToList();
+    void BeginEdit() {
+        _editing = true;
+    }
+
+    void EndEdit() {
+        _editing = false;
+    }
+
+    void ToggleTagMenu() {
+        _tagMenuOpen = !_tagMenuOpen;
+    }
+
+    bool IsAttached(long id) {
+        return _tags.Exists(t => t.Id == id);
+    }
+
+    Task ToggleTag(long id) {
+        return IsAttached(id) ? Detach(id) : SetTags([.. _tags.Select(t => t.Id), id]);
+    }
+
+    Task Detach(long id) {
+        return SetTags([.. _tags.Select(t => t.Id).Where(x => x != id)]);
     }
 
     async Task LoadAllTags() {
@@ -100,18 +151,8 @@
         }
     }
 
-    Task Attach(ChangeEventArgs e) {
-        if (!long.TryParse(e.Value?.ToString(), out var id)) return Task.CompletedTask;
-        return SetTags([.. _tags.Select(t => t.Id), id]);
-    }
-
-    Task Detach(long id) {
-        return SetTags([.. _tags.Select(t => t.Id).Where(x => x != id)]);
-    }
-
     async Task SetTags(long[] tagIds) {
         _busy = true;
-        _notice?.Clear();
         try {
             var res = await Client().PostAsJsonAsync("/api/docs/subject-tags",
                 new { subjectKind = Slug, subjectKey = Key, tagIds }, JsonOpts);
@@ -120,31 +161,32 @@
                     .ToList();
                 Notifier.Publish(AdminTopics.Tags);
             } else {
-                _notice?.Fail((int)res.StatusCode == 403
+                Toasts.Push(StatusNoteKind.Error, (int)res.StatusCode == 403
                     ? "Not authorized."
                     : $"Tag update failed: HTTP {(int)res.StatusCode}");
             }
         }
         catch (Exception ex) when (ex is HttpRequestException or JsonException or TaskCanceledException) {
-            _notice?.Fail($"Tag update failed: {ex.Message}");
+            Toasts.Push(StatusNoteKind.Error, $"Tag update failed: {ex.Message}");
         }
         finally {
             _busy = false;
         }
     }
 
-    async Task LoadAsync(string docUrl, string tagsUrl) {
-        var client = Client();
+    async Task LoadDoc(string docUrl) {
         try {
-            var doc = await client.GetFromJsonAsync<DocResult>(docUrl, JsonOpts);
+            var doc = await Client().GetFromJsonAsync<DocResult>(docUrl, JsonOpts);
             _bodyMd = doc?.BodyMd;
         }
         catch (Exception ex) when (ex is HttpRequestException or JsonException or TaskCanceledException) {
             _bodyMd = null;
         }
+    }
 
+    async Task LoadTags(string tagsUrl) {
         try {
-            _tags = await client.GetFromJsonAsync<List<TagRow>>(tagsUrl, JsonOpts) ?? [];
+            _tags = await Client().GetFromJsonAsync<List<TagRow>>(tagsUrl, JsonOpts) ?? [];
         }
         catch (Exception ex) when (ex is HttpRequestException or JsonException or TaskCanceledException) {
             _tags = [];
@@ -153,6 +195,7 @@
 
     Task OnDocSaved(string body) {
         _bodyMd = string.IsNullOrWhiteSpace(body) ? null : body;
+        _editing = false;
         return Task.CompletedTask;
     }
 

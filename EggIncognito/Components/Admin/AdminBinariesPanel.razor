@@ -4,14 +4,12 @@
 @using EggIncognito.Models.Devices
 @inherits AdminPaneBase
 
-<div class="admin-pane-head">
-    <h2 class="admin-pane-title">Stored binaries</h2>
-    <div class="admin-pane-tools">
-        <span class="text-muted text-xs">@_rows.Count binaries / @_refs.Count symbolized</span>
+<AdminPaneHead Title="Stored binaries" Facts="@Stats">
+    <Tools>
         <button type="button" class="btn-mini" disabled="@_busy" @onclick="PokeHarvest">Poke harvest</button>
         <button type="button" class="btn-mini" disabled="@_busy" @onclick="Load">Refresh</button>
-    </div>
-</div>
+    </Tools>
+</AdminPaneHead>
 <PaneNotice @ref="_notice"/>
 @if (_rows.Count == 0) {
     <p class="text-muted text-sm m-0">No stored binaries. Pulled automatically on the device maintenance schedule when a new version is installed.</p>
@@ -110,6 +108,8 @@
     bool _refBusy;
     string _refVersion = "";
     IJSObjectReference? _upload;
+
+    IEnumerable<string> Stats => [$"{_rows.Count} binaries", $"{_refs.Count} symbolized"];
 
     protected override IReadOnlyList<string> Topics => [AdminTopics.Binaries];
 

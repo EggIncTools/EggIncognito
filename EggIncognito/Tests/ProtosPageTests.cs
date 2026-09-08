@@ -1,8 +1,10 @@
 using System.Net;
 using Bunit;
 using EggIdentity.Contract;
+using EggIncognito.Capture;
 using EggIncognito.Core.Services;
 using EggIncognito.Services;
+using EggIncognito.Services.Routes;
 using EggIncognito.Services.Workbench;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
@@ -49,10 +51,14 @@ public class ProtosPageTests {
             Services.AddSingleton(new AuthState(false));
             Services.AddSingleton<IHttpContextAccessor>(new HttpContextAccessor());
             Services.AddSingleton<IWebHostEnvironment>(new FakeWebHostEnvironment());
-            Services.AddSingleton<IRouteCatalog>(new RouteCatalog("__no_routes_yaml__"));
+            var yaml = new RouteCatalog("__no_routes_yaml__");
+            Services.AddSingleton<IRouteCatalog>(yaml);
+            Services.AddSingleton<IRouteCatalogReport>(
+                new RouteCatalogReport(yaml, yaml, new NonBinaryRouteCatalog(yaml, null, null), null, null));
             Services.AddSingleton<IProtoReflection, ProtoReflection>();
             Services.AddSingleton<IAppMode>(new FakeAppMode());
             Services.AddSingleton<ISealedProxy>(new FakeSealedProxy());
+            Services.AddSingleton<ICaptureContributionKinds>(new CaptureContributionKinds([]));
             Services.AddWorkbenchStates();
             Services.AddHttpClient();
 

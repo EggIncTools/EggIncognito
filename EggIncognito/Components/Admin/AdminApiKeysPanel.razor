@@ -1,0 +1,58 @@
+@rendermode @(RenderModes.InteractiveServer)
+@using EggIncognito.Models.Admin
+@inherits AdminPaneBase
+@inject ToastService Toasts
+
+<AdminPaneHead Title="API keys" Facts="@Stats()">
+    <Tools>
+        <button type="button" class="btn-mini" disabled="@_busy" @onclick="LoadAsync">Refresh</button>
+    </Tools>
+</AdminPaneHead>
+@if (_rows.Count == 0) {
+    <p class="text-muted text-sm m-0">no api keys</p>
+} else {
+    <ApiKeysTable Rows="@_rows" ShowOwner="true" Busy="_busy" OnRevoke="Revoke" OnDelete="Delete"/>
+}
+
+@code {
+    List<ApiKeyRow> _rows = [];
+    bool _busy;
+
+    protected override IReadOnlyList<string> Topics => [];
+
+    protected override async Task LoadAsync() {
+        if (Api is null) return;
+        var res = await Api.GetAsync("/api/admin/api-keys");
+        if (!res.Ok) {
+            Toasts.Push(StatusNoteKind.Error, $"load api keys failed: {res.Describe()}");
+            return;
+        }
+
+        _rows = res.Json<List<ApiKeyRow>>() ?? [];
+    }
+
+    int RevokedCount => _rows.Count(r => r.Revoked);
+
+    IEnumerable<string> Stats() {
+        if (_rows.Count == 0) return ["0 total"];
+        return [$"{_rows.Count} total", $"{_rows.Count - RevokedCount} active", $"{RevokedCount} revoked"];
+    }
+
+    async Task Revoke(long id) {
+        await Mutate($"/api/admin/api-keys/{id}", $"revoked key {id}", "revoke failed");
+    }
+
+    async Task Delete(long id) {
+        await Mutate($"/api/admin/api-keys/{id}/purge", $"deleted key {id}", "delete failed");
+    }
+
+    async Task Mutate(string url, string okText, string failText) {
+        if (Api is null) return;
+        _busy = true;
+        var res = await Api.DeleteAsync(url);
+        Toasts.Push(res.Ok ? StatusNoteKind.Ok : StatusNoteKind.Error, res.Ok ? okText : $"{failText}: {res.Describe()}");
+        await LoadAsync();
+        _busy = false;
+    }
+
+}

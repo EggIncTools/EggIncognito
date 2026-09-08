@@ -2,14 +2,7 @@
 @using EggIncognito.Models.Contributions
 @inherits AdminPaneBase
 
-<div class="admin-pane-head">
-    <h2 class="admin-pane-title">Contributions</h2>
-    <span class="text-muted text-xs">
-        @if (_counts is not null) {
-            @($"{_counts.Submitted:N0} pending, {_counts.Approved:N0} accepted, {_counts.Rejected:N0} rejected")
-        }
-    </span>
-</div>
+<AdminPaneHead Title="Contributions" Facts="@Stats()"/>
 <ContributionReviewPanel @ref="_review" OnChanged="OnReviewed"/>
 
 @code {
@@ -17,6 +10,11 @@
     ContributionReviewPanel? _review;
 
     protected override IReadOnlyList<string> Topics => [AdminTopics.Contributions];
+
+    IEnumerable<string> Stats() {
+        if (_counts is null) return [];
+        return [$"{_counts.Submitted:N0} pending, {_counts.Approved:N0} accepted, {_counts.Rejected:N0} rejected"];
+    }
 
     protected override Task LoadAsync() {
         return Load();

@@ -2,10 +2,7 @@
 @using EggIncognito.Models.AdminUi
 @inherits AdminPaneBase
 
-<div class="admin-pane-head">
-    <h2 class="admin-pane-title">Theme policy</h2>
-    <span class="text-muted text-xs">custom CSS @(_customCssEnabled ? "allowed" : "blocked") &middot; default @(string.IsNullOrWhiteSpace(_defaultThemeSlug) ? "none" : _defaultThemeSlug)</span>
-</div>
+<AdminPaneHead Title="Theme policy" Facts="@Stats()"/>
 <PaneNotice @ref="_notice"/>
 <div class="flex flex-col gap-3">
     <label class="flex items-center gap-2 text-sm">
@@ -32,6 +29,13 @@
     bool _busy;
 
     protected override IReadOnlyList<string> Topics => [AdminTopics.ThemePolicy];
+
+    IEnumerable<string> Stats() {
+        return [
+            $"custom CSS {(_customCssEnabled ? "allowed" : "blocked")}",
+            $"default {(string.IsNullOrWhiteSpace(_defaultThemeSlug) ? "none" : _defaultThemeSlug)}"
+        ];
+    }
 
     protected override Task LoadAsync() {
         return Load();

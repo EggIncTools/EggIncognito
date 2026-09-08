@@ -3,10 +3,7 @@
 @using EggIncognito.Services.Events
 @inherits AdminPaneBase
 
-<div class="admin-pane-head">
-    <h2 class="admin-pane-title">Events</h2>
-    <span class="text-muted text-xs">@StatText</span>
-</div>
+<AdminPaneHead Title="Events" Facts="@Stats"/>
 <PaneNotice @ref="_notice"/>
 <div class="sub-section-head">Store</div>
 <div class="reg-wrap">
@@ -45,7 +42,9 @@
     EventStatsResponse? _stats;
     List<GameEventDto> _latest = [];
 
-    string StatText => _stats is null ? "" : $"{_stats.Total} total, {_stats.Device} device, {_stats.Carpet} carpet";
+    IEnumerable<string> Stats => _stats is null
+        ? []
+        : [$"{_stats.Total} total", $"{_stats.Device} device", $"{_stats.Carpet} carpet"];
 
     static string FormatStart(double startTimestamp) {
         return UnixSeconds.ToTime(startTimestamp).ToLocalTime().ToString("yyyy-MM-dd");

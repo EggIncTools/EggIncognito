@@ -58,19 +58,10 @@ public sealed partial class AdminController(ICurrentUser currentUser, IServicePr
     public async Task<IActionResult> ApiKeys(CancellationToken ct) {
         if (RequireAdmin() is { } no) return no;
         var store = Keys;
-        if (store is null) return Ok(Array.Empty<object>());
+        if (store is null) return Ok(new List<ApiKeyRow>());
         var rows = await store.AllAsync(ct);
-        return Ok(rows.Select(k => new {
-            k.Id,
-            k.Name,
-            k.Prefix,
-            k.OwnerUserId,
-            k.CreatedAt,
-            k.LastUsedAt,
-            k.RequestCount,
-            k.Revoked,
-            k.RevokedAt
-        }));
+        return Ok(rows.Select(k => new ApiKeyRow(k.Id, k.OwnerUserId.ToString(), k.Name, k.Prefix, k.LastUsedAt,
+            k.RequestCount, k.Revoked)).ToList());
     }
 
     [HttpDelete("api-keys/{id:int}")]

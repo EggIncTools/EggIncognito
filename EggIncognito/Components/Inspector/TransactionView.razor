@@ -27,16 +27,18 @@
     </div>
 </div>
 
-<div class="insp-disc @(_diagOpen ? "" : "collapsed")">
-    <div class="insp-disc-head">
-        <button type="button" class="insp-disc-toggle" @onclick="@(() => _diagOpen = !_diagOpen)">
-            <span class="ep-caret @(_diagOpen ? "ep-caret-open" : "")"></span>Diagnosis
-        </button>
+@if (Diagnosis is not null) {
+    <div class="insp-disc @(_diagOpen ? "" : "collapsed")">
+        <div class="insp-disc-head">
+            <button type="button" class="insp-disc-toggle" @onclick="@(() => _diagOpen = !_diagOpen)">
+                <span class="ep-caret @(_diagOpen ? "ep-caret-open" : "")"></span>Diagnosis
+            </button>
+        </div>
+        <div class="insp-disc-body">
+            <Forensics Result="Diagnosis" RootType="@RootType" ClientFactory="ClientFactory"/>
+        </div>
     </div>
-    <div class="insp-disc-body">
-        <Forensics Result="Diagnosis" RootType="@RootType" ClientFactory="ClientFactory"/>
-    </div>
-</div>
+}
 
 @code {
     [Parameter] public List<TransportStage>? Build { get; set; }

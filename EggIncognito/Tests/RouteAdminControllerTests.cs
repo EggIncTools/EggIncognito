@@ -4,6 +4,7 @@ using EggIncognito.Controllers;
 using EggIncognito.Core.Services;
 using EggIncognito.Models.Routes;
 using EggIncognito.Services;
+using EggIncognito.Services.Routes;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -31,11 +32,16 @@ public sealed class RouteAdminControllerTests : IDisposable {
     }
 
     private static RouteAdminController Controller(IRouteCatalog routes, RouteCatalog yamlRoutes,
-        IServiceProvider? services = null) =>
-        new(routes, yamlRoutes, new ProtoReflection(), new FakeUser(),
-            services ?? new ServiceCollection().BuildServiceProvider());
+        IServiceProvider? services = null) {
+        var sp = services ?? new ServiceCollection().BuildServiceProvider();
+        var overrides = sp.GetService<IRouteOverrideProvider>();
+        var report = new RouteCatalogReport(routes, yamlRoutes,
+            new NonBinaryRouteCatalog(yamlRoutes, null, overrides), overrides, sp.GetService<IBinaryRouteProvider>());
+        return new RouteAdminController(routes, report, new ProtoReflection(), new FakeUser(), sp);
+    }
 
-    private static string Json(object? value) => JsonSerializer.Serialize(value);
+    private static string Json(object? value) =>
+        JsonSerializer.Serialize(value, new JsonSerializerOptions(JsonSerializerDefaults.Web));
 
     [Fact]
     public void List_MergesSourceAndOverrides_IncludingOrphan() {

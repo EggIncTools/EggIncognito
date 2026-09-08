@@ -1,6 +1,6 @@
-namespace EggIncognito.Models.AdminUi;
+namespace EggIncognito.Models.Routes;
 
-public record OverrideInfo(
+public sealed record OverrideInfo(
     string? Request,
     string? Response,
     bool? RequestWrapped,

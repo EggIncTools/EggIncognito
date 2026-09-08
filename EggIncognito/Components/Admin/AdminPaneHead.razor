@@ -1,0 +1,24 @@
+<div class="admin-pane-head">
+    <h2 class="admin-pane-title">@Title</h2>
+    @{
+        var facts = (Facts ?? []).Where(f => !string.IsNullOrWhiteSpace(f)).ToList();
+    }
+    @if (facts.Count > 0 || Tools is not null) {
+        <div class="admin-pane-tools">
+            @if (facts.Count > 0) {
+                <span class="meta-dots text-muted text-xs">
+                    @foreach (var fact in facts) {
+                        <span>@fact</span>
+                    }
+                </span>
+            }
+            @Tools
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] [EditorRequired] public string Title { get; set; } = "";
+    [Parameter] public IEnumerable<string>? Facts { get; set; }
+    [Parameter] public RenderFragment? Tools { get; set; }
+}

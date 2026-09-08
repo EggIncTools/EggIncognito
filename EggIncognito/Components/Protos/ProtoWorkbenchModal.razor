@@ -39,8 +39,8 @@
         }
     </HeadTools>
     <Rail>
-        <WorkbenchRail>
-            <div class="pwb-rail-reg">
+        <WorkbenchRail Class="wb-rail-popout">
+            <div class="wb-rail-slot pwb-rail-reg">
                 <WorkbenchSection Label="Registry">
                     @{ var items = RegistryItems(); }
                     <div class="pwb-reg-stack">
@@ -131,7 +131,7 @@
                     </div>
                 </WorkbenchSection>
             </div>
-            <div class="pwb-rail-sess">
+            <div class="wb-rail-slot pwb-rail-sess">
                 <WorkbenchSection Label="Session" Scroll="true">
                     @foreach (var e in State.Entries.Where(x => !x.IsAnalyzed)) {
                         @Card(e, null, false)

@@ -58,10 +58,11 @@ public class InspectorReaderTests : BunitContext {
     }
 
     [Fact]
-    public void Diagnosis_StartsCollapsedAndOpensOnAFailedDecode() {
+    public void Diagnosis_IsAbsentUntilAFailedDecodeThenOpens() {
         var cut = RenderView();
-        Assert.True(Collapsed(cut, 2));
+        Assert.Equal(2, cut.FindAll(".insp-disc").Count);
         cut.Render(p => p.Add(c => c.Diagnosis, Broken()));
+        Assert.Equal(3, cut.FindAll(".insp-disc").Count);
         Assert.False(Collapsed(cut, 2));
     }
 

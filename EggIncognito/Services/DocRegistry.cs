@@ -6,7 +6,9 @@ public sealed record DocSubject(
     string Key,
     string Title,
     string? Summary,
-    IReadOnlyList<DocSubject> Children);
+    IReadOnlyList<DocSubject> Children) {
+    public string? Parent { get; init; }
+}
 
 public interface IDocRegistry {
     IReadOnlyList<DocSubject> Roots();
@@ -14,61 +16,16 @@ public interface IDocRegistry {
 }
 
 public sealed class DocRegistry : IDocRegistry {
-    private static readonly ConfigOption[] ConfigOptions = [
-        new("AppMode", "Local", "Local = full features; Hosted = capture + writes disabled (the public deploy)",
-            "host"),
-        new("EndpointsPath", "<app dir>/Endpoints", "Endpoints (response payloads) root", "host"),
-        new("ContentRoot", "auto-resolved", "The dir holding RouteMap/ + Endpoints/ (rarely set)", "host"),
-        new("HttpPort", "8080", "HTTP port when certs are present (overrides ASPNETCORE_URLS)", "host"),
-        new("HttpsPort", "8443", "HTTPS port (only active when certs are present)", "host"),
-        new("ConnectionStrings:Postgres", "unset",
-            "When set, enables the Postgres data layer and applies migrations at startup", "data"),
-        new(IdentityConfigKeys.ApiUrl, "unset",
-            "Internal EggIdentity Identity API base url; login wires when ApiUrl + ApiSecret are both set", "auth"),
-        new(IdentityConfigKeys.ApiSecret, "unset", "Bearer secret for the EggIdentity Identity API", "auth"),
-        new(IdentityConfigKeys.WidgetUrl, "unset",
-            "Public EggIdentity Identity host url; required for the native login buttons (/auth/sources)", "auth"),
-        new("Discord:BotToken", "unset", "When set, starts the optional Discord bot", "bot"),
-        new("Discord:GuildId", "unset", "Optional; enables instant guild command registration for the bot", "bot"),
-        new("SHARED_ROLE_ID", "unset",
-            "Optional; snowflake of a role the bot self-assigns on Ready. Shared with EggLedger in the same stack. Falls back to Discord:SharedRoleId",
-            "bot"),
-        new("CapturePort", "8080", "Port the capture proxy listens on", "capture"),
-        new("CapturePath", "<content root>/captures", "Directory the capture HAR is written to", "capture"),
-        new("CaPath", "<CapturePath>/eggincognito-ca.cer", "The persisted capture root CA file", "capture"),
-        new("EGG_INC_EID", "optional", "EID used to scrub captured/imported data and as the in-app capture default",
-            "capture"),
-        new("EGG_INC_API_SALT", "required for signing", "API signing phrase for the Inspector's Live API sends",
-            "inspector"),
-        new("RateLimiting:Enabled", "true", "Master switch for the built-in rate limiter; false makes it a no-op",
-            "host")
-    ];
-
-    private static readonly DocSubject[] Controls = [
-        new("control", "inspector-send-target", "Inspector send target", "Mock / Live API / Custom proxy send toggle",
-            []),
-        new("control", "custom-proxy-url", "Custom proxy URL", "Browser-direct send target; bypasses this server", []),
-        new("control", "redaction-mode", "Redaction mode",
-            "PII redaction for captured/imported data (off / blur / redact)", []),
-        new("control", "overwrite-existing", "Overwrite existing", "HAR import overwrite-existing-endpoints checkbox",
-            []),
-        new("control", "capture-pause", "Capture pause", "Pause/resume the live capture stream", [])
-    ];
-
     private readonly Dictionary<string, DocSubject> _byKey;
     private readonly IReadOnlyList<DocSubject> _roots;
 
     public DocRegistry(IProtoReflection proto, IRouteCatalog routes) {
         var messages = BuildMessages(proto);
         var endpoints = BuildEndpoints(routes, proto);
-        var config = BuildConfig();
-        var controls = BuildControls();
 
         _roots = [
             new DocSubject("group", "messages", "Messages", "Egg, Inc. proto message types", messages),
-            new DocSubject("group", "endpoints", "Endpoints", "Mock API routes", endpoints),
-            new DocSubject("group", "config", "Config", "Configuration options", config),
-            new DocSubject("group", "controls", "Controls", "UI controls", controls)
+            new DocSubject("group", "endpoints", "Endpoints", "Mock API routes", endpoints)
         ];
 
         _byKey = [with(StringComparer.Ordinal)];
@@ -87,12 +44,12 @@ public sealed class DocRegistry : IDocRegistry {
 
     private static List<DocSubject> BuildMessages(IProtoReflection proto) {
         var list = new List<DocSubject>();
-        foreach (string name in proto.AllMessageTypeNames()) {
-            var schema = proto.Schema(name);
+        foreach (var info in proto.AllMessageTypes()) {
+            var schema = proto.Schema(info.Name);
             var fields = schema is null
                 ? (IReadOnlyList<DocSubject>)[]
                 : schema.Fields.Select(FieldSubject).ToList();
-            list.Add(new DocSubject("message", name, name, null, fields));
+            list.Add(new DocSubject("message", info.Name, info.Name, null, fields) { Parent = info.Parent });
         }
 
         return list;
@@ -126,18 +83,4 @@ public sealed class DocRegistry : IDocRegistry {
         if (proto.Schema(typeName) is null) return;
         into.Add(new DocSubject("message", typeName, $"{role}: {typeName}", null, []));
     }
-
-    private static List<DocSubject> BuildConfig() => [
-        .. ConfigOptions
-            .Select(o => new DocSubject(
-                "config",
-                o.Key,
-                o.Key,
-                $"{o.Summary} (default: {o.Default ?? "unset"}; applies to: {o.AppliesTo})",
-                []))
-    ];
-
-    private static DocSubject[] BuildControls() => Controls;
-
-    private sealed record ConfigOption(string Key, string? Default, string Summary, string AppliesTo);
 }

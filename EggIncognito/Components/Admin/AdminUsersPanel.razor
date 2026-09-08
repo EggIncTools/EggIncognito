@@ -3,10 +3,7 @@
 @using EggIncognito.Services.Assets
 @inherits AdminPaneBase
 
-<div class="admin-pane-head">
-    <h2 class="admin-pane-title">Users</h2>
-    <span class="text-muted text-xs">@_users.Count total @((MarkupString)(_users.Count == 0 ? "" : " &middot; " + RoleBreakdown()))</span>
-</div>
+<AdminPaneHead Title="Users" Facts="@Stats()"/>
 <PaneNotice @ref="_notice"/>
 <div class="reg-wrap admin-users-scroll">
     <table class="data-table admin-users-table">
@@ -59,14 +56,17 @@
         return LoadUsers();
     }
 
-    string RoleBreakdown() {
+    IEnumerable<string> Stats() {
+        return RoleBreakdown().Prepend($"{_users.Count} total");
+    }
+
+    IEnumerable<string> RoleBreakdown() {
         var counts = _users.GroupBy(u => u.Role).ToDictionary(g => g.Key, g => g.Count());
-        var parts = Enum.GetValues<UserRole>()
+        return Enum.GetValues<UserRole>()
             .OrderByDescending(r => r)
             .Select(UserRoles.ToName)
             .Where(counts.ContainsKey)
             .Select(n => $"{counts[n]} {n}");
-        return string.Join(" &middot; ", parts);
     }
 
     async Task LoadUsers() {

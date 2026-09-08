@@ -1,0 +1,56 @@
+@typeparam TItem
+
+@if (Items.Count == 0) {
+    <div class="doc-none">@EmptyText</div>
+} else if (Flat()) {
+    <div class="doc-usedby-list">
+        @foreach (var item in Items) {
+            <div @key="@ItemKey(item)">@ItemTemplate(item)</div>
+        }
+    </div>
+} else {
+    <div class="doc-usedby-list">
+        @foreach (var group in Groups()) {
+            <div class="doc-ref-group" @key="group.Key">
+                <button type="button" class="doc-ref-group-head" @onclick="() => Toggle(group.Key)">
+                    <span class="ep-caret @(_open.Contains(group.Key) ? "ep-caret-open" : "")"></span>
+                    <span class="doc-ref-group-title">@group.Key</span>
+                    <span class="doc-ref-group-count">@group.Count()</span>
+                </button>
+                @if (_open.Contains(group.Key)) {
+                    <div class="doc-usedby-list">
+                        @foreach (var item in group) {
+                            <div @key="@ItemKey(item)">@ItemTemplate(item)</div>
+                        }
+                    </div>
+                }
+            </div>
+        }
+    </div>
+}
+
+@code {
+    [Parameter] public IReadOnlyList<TItem> Items { get; set; } = [];
+    [Parameter] public Func<TItem, string> GroupKey { get; set; } = default!;
+    [Parameter] public Func<TItem, string> ItemKey { get; set; } = default!;
+    [Parameter] public RenderFragment<TItem> ItemTemplate { get; set; } = default!;
+    [Parameter] public int Threshold { get; set; } = 8;
+    [Parameter] public string EmptyText { get; set; } = "none";
+
+    readonly HashSet<string> _open = [];
+
+    void Toggle(string key) {
+        if (!_open.Remove(key)) _open.Add(key);
+    }
+
+    bool Flat() {
+        return Items.Count <= Threshold || Items.Select(GroupKey).Distinct(StringComparer.Ordinal).Count() <= 1;
+    }
+
+    List<IGrouping<string, TItem>> Groups() {
+        return Items.GroupBy(GroupKey, StringComparer.Ordinal)
+            .OrderBy(g => g.Key, StringComparer.Ordinal)
+            .ToList();
+    }
+
+}

@@ -3,13 +3,11 @@
 @using EggIncognito.Models.Devices
 @inherits AdminPaneBase
 
-<div class="admin-pane-head">
-    <h2 class="admin-pane-title">Stored APKs</h2>
-    <div class="admin-pane-tools">
-        <span class="text-muted text-xs">@_rows.Count versions / @SplitCount splits / @ByteFormat.Mb(TotalBytes, "F1")</span>
+<AdminPaneHead Title="Stored APKs" Facts="@Stats">
+    <Tools>
         <button type="button" class="btn-mini" disabled="@_busy" @onclick="Load">Refresh</button>
-    </div>
-</div>
+    </Tools>
+</AdminPaneHead>
 <PaneNotice @ref="_notice"/>
 @if (_rows.Count == 0) {
     <p class="text-muted text-sm m-0">No stored APKs. Splits land here from device harvest and from the install-app cookbook when it pulls off a physical android device.</p>
@@ -72,6 +70,8 @@
     int SplitCount => _rows.Sum(r => r.Splits.Count);
 
     long TotalBytes => _rows.Sum(r => r.ByteSize);
+
+    IEnumerable<string> Stats => [$"{_rows.Count} versions", $"{SplitCount} splits", ByteFormat.Mb(TotalBytes, "F1")];
 
     async Task Load() {
         if (Api is null) return;

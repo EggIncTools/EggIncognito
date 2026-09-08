@@ -3,10 +3,7 @@
 @using EggIncognito.Models.AdminUi
 @inherits AdminPaneBase
 
-<div class="admin-pane-head">
-    <h2 class="admin-pane-title">API console</h2>
-    <span class="text-muted text-xs">@_endpoints.Count endpoints</span>
-</div>
+<AdminPaneHead Title="API console" Facts="[Stat]"/>
 <PaneNotice @ref="_notice"/>
 @if (_endpoints.Count == 0) {
     <p class="text-muted text-sm m-0">No endpoints available.</p>
@@ -64,6 +61,8 @@
     PaneNotice? _notice;
     List<ConsoleEndpoint> _endpoints = [];
     ConsoleEndpoint? _selected;
+
+    string Stat => $"{_endpoints.Count} endpoints";
 
     readonly Dictionary<string, string?> _paramValues = new(StringComparer.Ordinal);
     string _body = "";

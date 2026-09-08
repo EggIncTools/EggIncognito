@@ -4,6 +4,7 @@ using EggIncognito.Data.Services;
 using EggIncognito.Models.Docs;
 using EggIncognito.Services;
 using EggIncognito.Services.Auth;
+using EggIncognito.Services.Inspector;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
@@ -27,8 +28,9 @@ public sealed class DocsController(ICurrentUser currentUser, IServiceProvider se
             ? null
             : StatusCode(403, new { error = "contributor role required to edit documentation" });
 
-    private static bool ValidKind(string kind) =>
-        kind is "message" or "endpoint" or "route" or "config" or "control";
+    private static bool ValidKind(string kind) => DocSubjectKinds.IsKnown(kind);
+
+    private static bool TaggableKind(string kind) => kind == DocSubjectKinds.Endpoint;
 
     private void CacheFor(int seconds) =>
         Response.Headers.CacheControl = $"private, max-age={seconds}";
@@ -37,12 +39,10 @@ public sealed class DocsController(ICurrentUser currentUser, IServiceProvider se
     public async Task<IActionResult> GetDoc(string kind, string key) {
         if (!ValidKind(kind)) return BadRequest(new { error = "invalid subject kind" });
         var db = Db;
-        if (db is null) return Ok(new { bodyMd = (string?)null });
+        if (db is null) return Ok(new DocResult(null));
         var doc = await db.Docs.AsNoTracking()
             .FirstOrDefaultAsync(d => d.SubjectKind == kind && d.SubjectKey == key);
-        return Ok(doc is null
-            ? new { bodyMd = (string?)null }
-            : new { bodyMd = doc.BodyMd, updatedAt = (object)doc.UpdatedAt, owner = (object?)doc.OwnerUserId });
+        return Ok(doc is null ? new DocResult(null) : new DocResult(doc.BodyMd, doc.UpdatedAt, doc.OwnerUserId));
     }
 
     [HttpPost("doc")]
@@ -78,24 +78,24 @@ public sealed class DocsController(ICurrentUser currentUser, IServiceProvider se
     [HttpGet("tags")]
     public async Task<IActionResult> GetTags() {
         var db = Db;
-        if (db is null) return Ok(Array.Empty<object>());
+        if (db is null) return Ok(new List<TagRow>());
         var rows = await db.Tags.AsNoTracking().OrderBy(t => t.Label)
-            .Select(t => new { t.Id, t.Slug, t.Label, t.Color }).ToListAsync();
+            .Select(t => new TagRow(t.Id, t.Slug, t.Label, t.Color)).ToListAsync();
         CacheFor(30);
         return Ok(rows);
     }
 
     [HttpGet("subject-tags/{kind}/{**key}")]
     public async Task<IActionResult> GetSubjectTags(string kind, string key) {
-        if (!ValidKind(kind)) return BadRequest(new { error = "invalid subject kind" });
+        if (!TaggableKind(kind)) return BadRequest(new { error = "tags apply to endpoints only" });
         var db = Db;
-        if (db is null) return Ok(Array.Empty<object>());
+        if (db is null) return Ok(new List<TagRow>());
         var rows = await (
             from st in db.SubjectTags.AsNoTracking()
             where st.SubjectKind == kind && st.SubjectKey == key
             join t in db.Tags.AsNoTracking() on st.TagId equals t.Id
             orderby t.Label
-            select new { t.Id, t.Slug, t.Label, t.Color }).ToListAsync();
+            select new TagRow(t.Id, t.Slug, t.Label, t.Color)).ToListAsync();
         CacheFor(30);
         return Ok(rows);
     }
@@ -103,7 +103,7 @@ public sealed class DocsController(ICurrentUser currentUser, IServiceProvider se
     [HttpPost("subject-tags")]
     public async Task<IActionResult> SetSubjectTagsAsync([FromBody] SetSubjectTags body) {
         if (RequireContributor() is { } no) return no;
-        if (!ValidKind(body.SubjectKind)) return BadRequest(new { error = "invalid subject kind" });
+        if (!TaggableKind(body.SubjectKind)) return BadRequest(new { error = "tags apply to endpoints only" });
         var db = Db;
         if (db is null) return StatusCode(503, new { error = "no database configured" });
 
@@ -130,9 +130,10 @@ public sealed class DocsController(ICurrentUser currentUser, IServiceProvider se
     [HttpGet("tags-map")]
     public async Task<IActionResult> GetTagsMap() {
         var db = Db;
-        if (db is null) return Ok(new Dictionary<string, object>());
+        if (db is null) return Ok(new Dictionary<string, List<TagRow>>());
         var rows = await (
             from st in db.SubjectTags.AsNoTracking()
+            where st.SubjectKind == DocSubjectKinds.Endpoint
             join t in db.Tags.AsNoTracking() on st.TagId equals t.Id
             select new { st.SubjectKind, st.SubjectKey, t.Id, t.Slug, t.Label, t.Color }).ToListAsync();
 
@@ -140,8 +141,8 @@ public sealed class DocsController(ICurrentUser currentUser, IServiceProvider se
             .GroupBy(r => $"{r.SubjectKind}:{r.SubjectKey}")
             .ToDictionary(
                 g => g.Key,
-                g => (object)g.OrderBy(r => r.Label)
-                    .Select(r => new { r.Id, r.Slug, r.Label, r.Color }).ToList());
+                g => g.OrderBy(r => r.Label)
+                    .Select(r => new TagRow(r.Id, r.Slug, r.Label, r.Color)).ToList());
         CacheFor(30);
         return Ok(map);
     }
