@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text;
 using System.Xml;
 using System.Xml.Linq;
@@ -56,6 +57,48 @@ public sealed class AndroidUiDriver(IDeviceConnectionFactory connections) : IDev
         return png is null
             ? DeviceResult<byte[]>.Error("screencap pull failed")
             : DeviceResult<byte[]>.Success(png);
+    }
+
+    public async Task<DeviceResult<UiScreenSize>> ScreenSizeAsync(DeviceTarget target, CancellationToken ct) {
+        var conn = connections.For(target)!;
+        var r = await conn.ShellAsync("wm size", ct);
+        if (r.ExitCode != 0)
+            return DeviceResult<UiScreenSize>.Unreachable(DeviceParsing.TrimNote(r.Stderr + r.Stdout));
+        return TryParseWmSize(r.Stdout, out var size)
+            ? DeviceResult<UiScreenSize>.Success(size)
+            : DeviceResult<UiScreenSize>.Error("wm size gave no WxH");
+    }
+
+    public static bool TryParseWmSize(string output, out UiScreenSize size) {
+        size = default;
+        UiScreenSize? physical = null;
+        foreach (var raw in output.Split('\n')) {
+            var line = raw.Trim();
+            int colon = line.IndexOf(':', StringComparison.Ordinal);
+            if (colon < 0 || !TryParseWxH(line[(colon + 1)..].Trim(), out var parsed)) continue;
+            if (line.StartsWith("Override size", StringComparison.OrdinalIgnoreCase)) {
+                size = parsed;
+                return true;
+            }
+
+            physical ??= parsed;
+        }
+
+        if (physical is not { } p) return false;
+        size = p;
+        return true;
+    }
+
+    private static bool TryParseWxH(string text, out UiScreenSize size) {
+        size = default;
+        int x = text.IndexOf('x', StringComparison.OrdinalIgnoreCase);
+        if (x <= 0
+            || !int.TryParse(text[..x], NumberStyles.None, CultureInfo.InvariantCulture, out int w)
+            || !int.TryParse(text[(x + 1)..], NumberStyles.None, CultureInfo.InvariantCulture, out int h)
+            || w <= 0 || h <= 0)
+            return false;
+        size = new UiScreenSize(w, h);
+        return true;
     }
 
     public async Task<DeviceResult> TapAsync(DeviceTarget target, UiSelector selector, CancellationToken ct) {

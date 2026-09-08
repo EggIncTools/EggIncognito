@@ -554,6 +554,21 @@ public sealed partial class DevicesController(
         return File(png, "image/png");
     }
 
+    [HttpGet("{id}/ui/screen")]
+    [ApiAccess(ApiAccessLevel.Admin)]
+    [EnableRateLimiting("read")]
+    public async Task<IActionResult> UiScreen(string id, CancellationToken ct) {
+        if (RequireAdmin() is { } no) return no;
+        (IActionResult? err, var platform, var target) = await ResolveUiAsync(id, ct);
+        if (err is not null) return err;
+
+        var size = await platform.ScreenSizeAsync(target, ct);
+        if (!size.Ok) return UiFailure(size.Outcome, size.Note);
+
+        Response.Headers.CacheControl = "no-store";
+        return Ok(new UiScreenInfo(size.Value.Width, size.Value.Height));
+    }
+
     [HttpGet("{id}/ui/stream")]
     [ApiAccess(ApiAccessLevel.Admin)]
     [DisableRateLimiting]
@@ -642,6 +657,13 @@ public sealed partial class DevicesController(
         var conn = factory.For(target);
         if (conn is null) return StatusCode(502, new { error = "no connection for device" });
         if (!conn.SupportsExecOut) return StatusCode(501, new { error = "this connection cannot stream exec-out" });
+
+        var display = await platform.ScreenSizeAsync(target, ct);
+        if (display.Ok) {
+            string[] box = size.Split('x');
+            size = ScreenVideoPump.FitSize(display.Value.Width, display.Value.Height,
+                int.Parse(box[0], CultureInfo.InvariantCulture), int.Parse(box[1], CultureInfo.InvariantCulture));
+        }
 
         if (!DeviceStreamGate.TryEnter(target.Id))
             return StatusCode(409, new { error = "a screen stream is already open for this device" });

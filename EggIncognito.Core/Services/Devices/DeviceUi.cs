@@ -51,10 +51,15 @@ public sealed record UiSelector(UiSelectorBy By, string Value, bool Contains = f
 
 public enum DeviceKey { Home, Back, Wake, Sleep, Enter, DismissKeyguard, Recents, CloseApp }
 
+public readonly record struct UiScreenSize(int Width, int Height);
+
 public interface IDeviceUiDriver {
     string Platform { get; }
     Task<DeviceResult<UiTree>> DumpAsync(DeviceTarget target, CancellationToken ct);
     Task<DeviceResult<byte[]>> ScreenshotAsync(DeviceTarget target, CancellationToken ct);
+
+    Task<DeviceResult<UiScreenSize>> ScreenSizeAsync(DeviceTarget target, CancellationToken ct) =>
+        Task.FromResult(DeviceResult<UiScreenSize>.Unsupported($"{Platform} ui driver: screen size not supported"));
     Task<DeviceResult> TapAsync(DeviceTarget target, UiSelector selector, CancellationToken ct);
     Task<DeviceResult> TapPointAsync(DeviceTarget target, int x, int y, CancellationToken ct);
 

@@ -383,6 +383,8 @@
     int _fps = 3;
     int _shotW;
     int _shotH;
+    int _screenW;
+    int _screenH;
     int? _selectedUserId;
     double _videoFps;
     double _videoLatency;
@@ -433,9 +435,9 @@
 
     bool IsAndroid => string.Equals(Platform, "android", StringComparison.OrdinalIgnoreCase);
 
-    int TapWidth => IsIos && _dump is { Width: > 0 } d ? d.Width : _shotW;
+    int TapWidth => IsIos && _dump is { Width: > 0 } d ? d.Width : _screenW > 0 ? _screenW : _shotW;
 
-    int TapHeight => IsIos && _dump is { Height: > 0 } d ? d.Height : _shotH;
+    int TapHeight => IsIos && _dump is { Height: > 0 } d ? d.Height : _screenH > 0 ? _screenH : _shotH;
 
     protected override void OnInitialized() {
         base.OnInitialized();
@@ -465,6 +467,7 @@
         if (!_loaded) {
             _loaded = true;
             await LoadCookbooksAsync();
+            await LoadScreenAsync();
             await LoadReadinessAsync();
             await LoadLastRunsAsync();
             await LoadIslandsAsync();
@@ -483,6 +486,7 @@
         _streamError = null;
         _hasFrame = false;
         _shotW = _shotH = 0;
+        _screenW = _screenH = 0;
         _videoFps = _videoLatency = _videoKbps = _jpegFps = 0;
         _books = [];
         _lastRuns = [];
@@ -623,7 +627,22 @@
         var w = TapWidth;
         var h = TapHeight;
         if (w <= 0 || h <= 0) return null;
-        return (Frac(fx, w), Frac(fy, h));
+        var (ox, oy, cw, ch) = ContentRect(w, h);
+        return (Frac((fx - ox) / cw, w), Frac((fy - oy) / ch, h));
+    }
+
+    (double Ox, double Oy, double Cw, double Ch) ContentRect(int screenW, int screenH) {
+        if (_shotW <= 0 || _shotH <= 0) return (0, 0, 1, 1);
+        double frame = (double)_shotW / _shotH;
+        double screen = (double)screenW / screenH;
+        if (Math.Abs(frame - screen) < 0.002) return (0, 0, 1, 1);
+        if (screen < frame) {
+            double cw = screen / frame;
+            return ((1 - cw) / 2, 0, cw, 1);
+        }
+
+        double ch = frame / screen;
+        return (0, (1 - ch) / 2, 1, ch);
     }
 
     static int Frac(double fraction, int size) {
@@ -770,8 +789,9 @@
         var width = TapWidth;
         var height = TapHeight;
         if (width <= 0 || height <= 0) return "display:none";
+        var (ox, oy, cw, ch) = ContentRect(width, height);
         return string.Create(CultureInfo.InvariantCulture,
-            $"left:{100.0 * node.Left / width:0.###}%;top:{100.0 * node.Top / height:0.###}%;width:{100.0 * node.Width / width:0.###}%;height:{100.0 * node.Height / height:0.###}%");
+            $"left:{100.0 * (ox + cw * node.Left / width):0.###}%;top:{100.0 * (oy + ch * node.Top / height):0.###}%;width:{100.0 * cw * node.Width / width:0.###}%;height:{100.0 * ch * node.Height / height:0.###}%");
     }
 
     static string IndentStyle(UiNodeRow node) {
@@ -810,6 +830,13 @@
 
         _booksBusy = false;
         StateHasChanged();
+    }
+
+    async Task LoadScreenAsync() {
+        if (_deviceId is null || !IsAndroid) return;
+        if (await Client().OneAsync<UiScreenInfo>($"/api/devices/{_deviceId}/ui/screen", Logger) is not { Width: > 0, Height: > 0 } screen) return;
+        _screenW = screen.Width;
+        _screenH = screen.Height;
     }
 
     async Task LoadReadinessAsync() {

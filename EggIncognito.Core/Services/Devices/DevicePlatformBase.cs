@@ -60,6 +60,11 @@ public abstract class DevicePlatformBase : IDevicePlatform {
             ? DeviceResult<byte[]>.Unsupported($"no {Platform} ui driver")
             : await Ui.ScreenshotAsync(target, ct);
 
+    public virtual async Task<DeviceResult<UiScreenSize>> ScreenSizeAsync(DeviceTarget target, CancellationToken ct) =>
+        Ui is null
+            ? DeviceResult<UiScreenSize>.Unsupported($"no {Platform} ui driver")
+            : await Ui.ScreenSizeAsync(target, ct);
+
     public virtual async Task<DeviceResult> TapUiAsync(DeviceTarget target, UiSelector selector, CancellationToken ct) =>
         Ui is null
             ? DeviceResult.Unsupported($"no {Platform} ui driver")

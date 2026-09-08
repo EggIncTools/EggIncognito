@@ -219,6 +219,31 @@ public class AndroidUiDriverTests {
     }
 
     [Fact]
+    public async Task ScreenSizeAsync_ReadsWmSize() {
+        var runner = new FakeRunner(args => ShellCommand(args) == "wm size"
+            ? new ProcessResult(0, "Physical size: 1080x2340\n", "")
+            : new ProcessResult(0, "", ""));
+        var driver = new AndroidUiDriver(new FakeConnections(runner));
+
+        var result = await driver.ScreenSizeAsync(AndroidTarget, default);
+
+        Assert.True(result.Ok);
+        Assert.Equal(new UiScreenSize(1080, 2340), result.Value);
+    }
+
+    [Fact]
+    public void TryParseWmSize_PrefersOverrideOverPhysical() {
+        Assert.True(AndroidUiDriver.TryParseWmSize("Physical size: 1080x2340\nOverride size: 720x1560\n", out var size));
+        Assert.Equal(new UiScreenSize(720, 1560), size);
+    }
+
+    [Fact]
+    public void TryParseWmSize_Garbage_ReturnsFalse() {
+        Assert.False(AndroidUiDriver.TryParseWmSize("error: no display", out _));
+        Assert.False(AndroidUiDriver.TryParseWmSize("", out _));
+    }
+
+    [Fact]
     public async Task RunAsync_NonZeroExit_ReturnsTrimmedError() {
         var runner = new FakeRunner(_ => new ProcessResult(1, "out", "some failure"));
         var driver = new AndroidUiDriver(new FakeConnections(runner));
