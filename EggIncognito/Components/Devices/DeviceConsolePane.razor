@@ -878,10 +878,16 @@
         return island.Provisioned ? label : $"{label} - provisioning";
     }
 
-    void IslandChanged(ChangeEventArgs e) {
+    async Task IslandChanged(ChangeEventArgs e) {
         _selectedUserId = int.TryParse(e.Value?.ToString(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var uid)
             ? uid
             : null;
+        if (_deviceId is null) return;
+        _islandBusy = true;
+        StateHasChanged();
+        var res = await Client().PostAsync($"/api/devices/{_deviceId}/islands/{_selectedUserId ?? 0}/switch", null);
+        _islandBusy = false;
+        if (!res.IsSuccessStatusCode) await Fail(await ReadError(res));
     }
 
     void OpenNewIsland() {

@@ -71,6 +71,25 @@ public sealed class DeviceIslandsController(
         return Ok(islands.Select(Project));
     }
 
+    [HttpPost("{id}/islands/{userId:int}/switch")]
+    [EnableRateLimiting("write")]
+    public async Task<IActionResult> Switch(string id, int userId, CancellationToken ct) {
+        if (RequireAdmin() is { } no) return no;
+        if (userId < 0) return BadRequest(new { error = "user id must be non-negative" });
+        if (Runner is not { } runner) return StatusCode(503, new { error = "no database configured" });
+        if (await runner.TargetAsync(id, ct) is not { } target) return NotFound(new { error = "unknown device" });
+        if (!Platforms.Matches(target.Platform, Platforms.Android))
+            return StatusCode(501, new { error = "islands are android-only" });
+        if (services.GetService(typeof(IDeviceConnectionFactory)) is not IDeviceConnectionFactory factory
+            || factory.For(target) is not { } conn)
+            return StatusCode(502, new { error = "no connection for device" });
+
+        var r = await IslandScope.SwitchAsync(conn, userId, ct);
+        return r.Ok
+            ? Ok(new UiActionResult(true, DeviceOutcomes.Label(r), r.Note))
+            : StatusCode(502, new { error = r.Note ?? "switch failed" });
+    }
+
     private static IslandRow Project(DeviceIsland island) =>
         new(island.UserId, island.Label, island.Provisioned, island.EggAccountId);
 }

@@ -39,16 +39,21 @@ public sealed class LaunchIslandStep(
             return Failed(lines, "no connection for this device");
 
         string user = IslandScope.User(userId);
-        await conn.ShellAsync($"am start-user {user}", ct);
-        await conn.ShellAsync($"am switch-user {user}", ct);
+        var switched = await IslandScope.SwitchAsync(conn, userId, ct);
+        if (!switched.Ok) return Failed(lines, switched.Note);
+        Add(switched.Note ?? $"switched to user {user}");
 
-        var resolve = await conn.ShellAsync(
-            $"cmd package resolve-activity --brief --user {user} {target.Package} | tail -1", ct);
-        string component = resolve.Stdout.Trim();
-        if (resolve.ExitCode != 0 || !component.Contains('/', StringComparison.Ordinal)) {
-            return Failed(lines,
-                $"no launch activity for {target.Package} in user {user}: {DeviceParsing.TrimNote(resolve.Stdout + resolve.Stderr)}");
+        string? component = await ResolveLaunchAsync(conn, target.Package, user, ct);
+        if (component is null) {
+            Add($"{target.Package} is not in user {user}; sharing the device install in");
+            var share = await conn.ShellAsync($"pm install-existing --user {user} {target.Package}", ct);
+            if (share.ExitCode != 0 || share.Stdout.Contains("failed", StringComparison.OrdinalIgnoreCase))
+                return Failed(lines, $"pm install-existing --user {user} failed: {DeviceParsing.TrimNote(share.Stdout + share.Stderr)}; run install-app-island");
+            component = await ResolveLaunchAsync(conn, target.Package, user, ct);
         }
+
+        if (component is null)
+            return Failed(lines, $"no launch activity for {target.Package} in user {user}");
 
         await conn.ShellAsync("logcat -c 2>/dev/null", ct);
         Add($"starting {component} in user {user}");
@@ -61,6 +66,14 @@ public sealed class LaunchIslandStep(
             return Failed(lines, nagFailure);
 
         return await VerdictAsync(conn, target, user, component, keyed, lines, Add, ct);
+    }
+
+    private static async Task<string?> ResolveLaunchAsync(
+        IDeviceConnection conn, string package, string user, CancellationToken ct) {
+        var resolve = await conn.ShellAsync(
+            $"cmd package resolve-activity --brief --user {user} {package} | tail -1", ct);
+        string component = resolve.Stdout.Trim();
+        return resolve.ExitCode == 0 && component.Contains('/', StringComparison.Ordinal) ? component : null;
     }
 
     private async Task<bool> WaitAntiTamperAsync(IDeviceConnection conn, Action<string> add, CancellationToken ct) {
