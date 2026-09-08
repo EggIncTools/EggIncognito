@@ -25,10 +25,16 @@ public sealed record DeviceCaptureConfig {
     public string? IosAppProcessName { get; init; }
     public string? IosRestartCommand { get; init; }
 
+    public bool CraftAutoDismiss { get; init; } = true;
+    public int CraftDismissDelayMs { get; init; } = 2500;
+    public double CraftDismissX { get; init; } = 0.5;
+    public double CraftDismissY { get; init; } = 0.49;
+
     public static DeviceCaptureConfig Bind(IConfiguration config) {
         var dc = config.GetSection("DeviceCapture");
         var ios = dc.GetSection("Ios");
         var android = dc.GetSection("Android");
+        var craft = dc.GetSection("Craft");
         var upd = config.GetSection("DeviceUpdate").GetSection("Ios");
 
         return new DeviceCaptureConfig {
@@ -36,6 +42,10 @@ public sealed record DeviceCaptureConfig {
             BasePort = Num(dc, "BasePort", 9100),
             Verbose = Flag(dc, "Verbose", false),
             HostIp = Nz(dc["HostIp"]),
+            CraftAutoDismiss = Flag(craft, "AutoDismiss", true),
+            CraftDismissDelayMs = Num(craft, "DismissDelayMs", 2500),
+            CraftDismissX = Dbl(craft, "DismissX", 0.5),
+            CraftDismissY = Dbl(craft, "DismissY", 0.49),
             IosSshHost = Nz(ios["SshHost"]) ?? Nz(upd["SshHost"]),
             IosSshPort = Nz(ios["SshPort"]) ?? Nz(upd["SshPort"]) ?? "2222",
             IosSshKeyPath = Nz(ios["SshKeyPath"]) ?? Nz(upd["SshKeyPath"]),
@@ -63,4 +73,9 @@ public sealed record DeviceCaptureConfig {
 
     private static int Num(IConfiguration config, string key, int fallback) =>
         int.TryParse(Nz(config[key]), CultureInfo.InvariantCulture, out int parsed) ? parsed : fallback;
+
+    private static double Dbl(IConfiguration config, string key, double fallback) =>
+        double.TryParse(Nz(config[key]), NumberStyles.Float, CultureInfo.InvariantCulture, out double parsed)
+            ? parsed
+            : fallback;
 }

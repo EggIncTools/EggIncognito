@@ -2661,7 +2661,7 @@ body .modal-body .skm { color: var(--color-fg); }
 .dcon-rate { width: auto; min-width: 6rem; }
 .dcon-on { border-color: var(--color-accent); color: var(--color-accent); }
 .dcon-body {
-  --dcon-stage-h: 30rem;
+  --dcon-stage-h: max(30rem, calc(100dvh - 22rem));
   display: flex;
   align-items: stretch;
   gap: 1rem;
