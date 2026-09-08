@@ -13,6 +13,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Infrastructure;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace EggIncognito.Tests;
 
@@ -157,7 +158,7 @@ public class HostedCapturePageTests {
 
         private static CaptureController Controller(CaptureSessionManager manager, ICurrentUser user) =>
             new(manager, new FakeAppMode(false, true), user,
-                HostedCaptureOptions.Defaults(), new EmptyServices());
+                HostedCaptureOptions.Defaults(), NullLogger<CaptureController>.Instance, new EmptyServices());
 
         [Fact]
         public async Task Start_Anonymous_Is401() {
@@ -205,7 +206,7 @@ public class HostedCapturePageTests {
             var session = manager.GetOrCreate("tester");
             var controller = new CaptureController(
                 manager, new FakeAppMode(false, true), user,
-                HostedCaptureOptions.Defaults(), new EmptyServices());
+                HostedCaptureOptions.Defaults(), NullLogger<CaptureController>.Instance, new EmptyServices());
             return (controller, session);
         }
 

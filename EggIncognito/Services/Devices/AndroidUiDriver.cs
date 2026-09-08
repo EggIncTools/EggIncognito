@@ -89,7 +89,7 @@ public sealed class AndroidUiDriver(IDeviceConnectionFactory connections) : IDev
             DeviceKey.Enter => "input keyevent KEYCODE_ENTER",
             DeviceKey.Recents => "input keyevent KEYCODE_APP_SWITCH",
             DeviceKey.DismissKeyguard => "wm dismiss-keyguard",
-            DeviceKey.CloseApp => DeviceForeground.CloseForegroundCommand,
+            DeviceKey.CloseApp => $"am force-stop {target.Package}; " + DeviceForeground.CloseForegroundCommand,
             _ => throw new ArgumentOutOfRangeException(nameof(key), key, "unhandled DeviceKey")
         };
         return RunAsync(target, cmd, ct);

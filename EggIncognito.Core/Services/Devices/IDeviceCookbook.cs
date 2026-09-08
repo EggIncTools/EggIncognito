@@ -12,6 +12,7 @@ public static class DeviceCookbookIds {
     public const string ActivateIntegrity = "activate-integrity";
     public const string SeedAudit = "seed-audit";
     public const string IntegrityAudit = "integrity-audit";
+    public const string AppAudit = "app-audit";
 }
 
 public sealed record DeviceCookbookOption(

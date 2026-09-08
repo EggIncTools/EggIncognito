@@ -36,7 +36,7 @@ public sealed class CaptureCaNotifierTests : IDisposable {
         var controller = new CaptureController(
             manager, new FakeAppMode(false, true),
             new FakeUser(true, true),
-            HostedCaptureOptions.Defaults(), new StubServices(notifier));
+            HostedCaptureOptions.Defaults(), NullLogger<CaptureController>.Instance, new StubServices(notifier));
 
         var r = await controller.Start(CancellationToken.None);
 

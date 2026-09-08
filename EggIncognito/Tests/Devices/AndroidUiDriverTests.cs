@@ -177,7 +177,6 @@ public class AndroidUiDriverTests {
     [InlineData(DeviceKey.Enter, "input keyevent KEYCODE_ENTER")]
     [InlineData(DeviceKey.Recents, "input keyevent KEYCODE_APP_SWITCH")]
     [InlineData(DeviceKey.DismissKeyguard, "wm dismiss-keyguard")]
-    [InlineData(DeviceKey.CloseApp, DeviceForeground.CloseForegroundCommand)]
     public async Task KeyAsync_MapsToExpectedCommand(DeviceKey key, string expected) {
         var runner = new FakeRunner(_ => new ProcessResult(0, "", ""));
         var driver = new AndroidUiDriver(new FakeConnections(runner));
@@ -185,6 +184,16 @@ public class AndroidUiDriverTests {
         await driver.KeyAsync(AndroidTarget, key, default);
 
         Assert.Contains(runner.Commands, c => c == expected);
+    }
+
+    [Fact]
+    public async Task KeyAsync_CloseApp_ForceStopsTheTargetPackageFirst() {
+        var runner = new FakeRunner(_ => new ProcessResult(0, "", ""));
+        var driver = new AndroidUiDriver(new FakeConnections(runner));
+
+        await driver.KeyAsync(AndroidTarget, DeviceKey.CloseApp, default);
+
+        Assert.Contains(runner.Commands, c => c.StartsWith($"am force-stop {AndroidTarget.Package}", StringComparison.Ordinal));
     }
 
     [Fact]

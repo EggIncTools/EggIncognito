@@ -47,7 +47,7 @@
                     @DeviceEntry(d)
                 }
                 @foreach (var i in PendingInstances()) {
-                    <WorkbenchEntry Selected="false" Tone="WorkbenchTone.Muted" OnClick="ShowFleet" @key="i.InstanceId">
+                    <WorkbenchEntry Selected="false" OnClick="ShowFleet" @key="i.InstanceId">
                         <Lead>
                             <span class="dwb-lead">
                                 <span class="dwb-dot-bad"></span>
@@ -326,7 +326,6 @@
     }
 
     RenderFragment DeviceEntry(DeviceRow d) => @<WorkbenchEntry Selected="@(State.SelectedId == d.Id && !State.FleetOpen)" @key="d.Id"
-                                                                Tone="@(d.Reachable ? WorkbenchTone.Normal : WorkbenchTone.Muted)"
                                                                 Foot="@FootFor(d)"
                                                                 OnClick="@(() => Select(d.Id))">
                                                    <Lead>

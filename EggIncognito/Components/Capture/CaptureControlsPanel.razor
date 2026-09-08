@@ -114,13 +114,39 @@
         _open = _open == which ? null : which;
     }
 
+    static bool Sent(string body) {
+        try {
+            using var doc = JsonDocument.Parse(body);
+            return !doc.RootElement.TryGetProperty("sent", out var s) || s.GetBoolean();
+        }
+        catch (JsonException) {
+            return true;
+        }
+    }
+
+    static string Detail(string body) {
+        try {
+            using var doc = JsonDocument.Parse(body);
+            return doc.RootElement.TryGetProperty("error", out var e) ? e.GetString() ?? "" : "";
+        }
+        catch (JsonException) {
+            return "";
+        }
+    }
+
     async Task SendConfig() {
         if (ClientFactory is null) return;
         _dmBusy = true;
         try {
             var res = await ClientFactory().PostAsync("/api/capture/send-config", null);
-            if (res.IsSuccessStatusCode) Toasts.Push(StatusNoteKind.Ok, "Setup DM sent.");
-            else Toasts.Push(StatusNoteKind.Error, "Could not DM your setup (start a session + enable DMs).");
+            string body = await res.Content.ReadAsStringAsync();
+            if (!res.IsSuccessStatusCode) {
+                Toasts.Push(StatusNoteKind.Error, $"Could not DM your setup (HTTP {(int)res.StatusCode}). {Detail(body)}");
+            } else if (Sent(body)) {
+                Toasts.Push(StatusNoteKind.Ok, "Setup DM sent.");
+            } else {
+                Toasts.Push(StatusNoteKind.Error, "Discord would not take the DM. Use the setup card and the CA download instead.");
+            }
         }
         catch (Exception ex) {
             Toasts.Push(StatusNoteKind.Error, $"DM failed: {ex.Message}");

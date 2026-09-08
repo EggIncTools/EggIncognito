@@ -26,6 +26,7 @@ public sealed class CaptureController(
     IAppMode appMode,
     ICurrentUser currentUser,
     HostedCaptureOptions hostedOptions,
+    ILogger<CaptureController> logger,
     IServiceProvider services) : ControllerBase {
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
 
@@ -136,7 +137,7 @@ public sealed class CaptureController(
     [EnableRateLimiting("write")]
     public async Task<IActionResult> Start(CancellationToken ct) {
         if (appMode.CanCapture)
-            return Ok(await manager.GetOrCreate(CaptureSessionManager.LocalKey).StartAsync(ct));
+            return await StartSessionAsync(manager.GetOrCreate(CaptureSessionManager.LocalKey), "local");
         if (!appMode.HostedCaptureEnabled)
             return StatusCode(403, new { error = "capture is disabled in hosted mode" });
         if (!currentUser.IsAuthenticated || string.IsNullOrEmpty(currentUser.DiscordId))
@@ -155,12 +156,24 @@ public sealed class CaptureController(
 
         var store = Credentials;
         await RestoreCaAsync(session, store, currentUser.UserId.Value, ct);
-        var result = await session.StartAsync(ct);
+        var started = await StartSessionAsync(session, currentUser.DiscordId);
+        if (started is not OkObjectResult { Value: CaptureStartResult result }) return started;
         if (result.FreshCa && store is not null)
             await PersistFreshCaAsync(session, store, currentUser.UserId.Value, result.RootThumbprint, ct);
 
         await DeliverSetupAsync(session, currentUser.DiscordId, currentUser.UserId.Value, ct);
         return Ok(result);
+    }
+
+    private async Task<IActionResult> StartSessionAsync(CaptureSession session, string key) {
+        try {
+            var result = await session.StartAsync(CancellationToken.None);
+            logger.LogInformation("capture start: {Key} listening on port {Port}", key, result.Port);
+            return Ok(result);
+        } catch (Exception ex) {
+            logger.LogError(ex, "capture start: {Key} failed on port {Port}", key, session.Port);
+            return StatusCode(500, new { error = "capture_start_failed", detail = ex.Message });
+        }
     }
 
     [HttpPost("send-config")]
@@ -183,6 +196,7 @@ public sealed class CaptureController(
         CaptureSession session, string discordId, Guid userId, CancellationToken ct) {
         if (services.GetService(typeof(ICaptureCaNotifier)) is not ICaptureCaNotifier notifier ||
             services.GetService(typeof(CaptureAddressStore)) is not CaptureAddressStore addrStore) {
+            logger.LogWarning("capture setup DM: no notifier or address store registered");
             FlagDmFailed(session);
             return;
         }
@@ -190,11 +204,13 @@ public sealed class CaptureController(
         byte[] cer;
         try {
             cer = await System.IO.File.ReadAllBytesAsync(session.CaPath, ct);
-        } catch {
+        } catch (Exception ex) {
+            logger.LogWarning(ex, "capture setup DM: reading CA {Path} failed", session.CaPath);
             cer = [];
         }
 
         if (cer.Length == 0) {
+            logger.LogWarning("capture setup DM: CA {Path} is empty or missing", session.CaPath);
             FlagDmFailed(session);
             return;
         }
@@ -202,6 +218,7 @@ public sealed class CaptureController(
         var addr = await addrStore.AddrForUserAsync(hostedOptions.Ipv6Prefix, userId, ct);
         var dm = new CaptureSetupDm(discordId, cer, addr.ToString(), hostedOptions.FrontDoorPort);
         if (await notifier.SendSetupAsync(dm, ct)) return;
+        logger.LogWarning("capture setup DM: notifier declined for discord {DiscordId}", discordId);
         FlagDmFailed(session);
     }
 

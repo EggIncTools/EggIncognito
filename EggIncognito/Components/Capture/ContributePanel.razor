@@ -1,39 +1,41 @@
 @using EggIncognito.Models.Contributions
 @inject ILogger<ContributePanel> Logger
 
-<section class="panel contribute-panel">
-    <div class="contribute-head">
-        <h2>Contribute</h2>
-        <span class="contribute-counts">
-            <span class="contribute-stat"><b>@_recorded</b> recorded</span>
-            <span class="contribute-stat"><b>@_submitted</b> awaiting review</span>
-            <span class="contribute-stat"><b>@_approved</b> accepted</span>
-        </span>
-    </div>
+@if (_recorded > 0 || _submitted > 0 || _approved > 0) {
+    <section class="panel contribute-panel">
+        <div class="contribute-head">
+            <h2>Contribute</h2>
+            <span class="contribute-counts">
+                <span class="contribute-stat"><b>@_recorded</b> recorded</span>
+                <span class="contribute-stat"><b>@_submitted</b> awaiting review</span>
+                <span class="contribute-stat"><b>@_approved</b> accepted</span>
+            </span>
+        </div>
 
-    <p class="text-muted text-sm mt-0 mb-3">
-        Craft, consume and demote results are recorded locally to your account. Nothing is shared until you send it.
-        Sent rows are anonymous: the artifact, the outcome and the game version, with no player identifier.
-    </p>
+        <p class="text-muted text-sm mt-0 mb-3">
+            Craft, consume and demote results are recorded locally to your account. Nothing is shared until you send it.
+            Sent rows are anonymous: the artifact, the outcome and the game version, with no player identifier.
+        </p>
 
-    @if (_note is not null) {
-        <div class="contribute-note" role="status">
-            <span>@_note</span>
-            <button type="button" class="icon-btn icon-btn-sm" aria-label="Dismiss" @onclick="@(() => _note = null)">
-                <Icon Name="x"/>
+        @if (_note is not null) {
+            <div class="contribute-note" role="status">
+                <span>@_note</span>
+                <button type="button" class="icon-btn icon-btn-sm" aria-label="Dismiss" @onclick="@(() => _note = null)">
+                    <Icon Name="x"/>
+                </button>
+            </div>
+        }
+
+        <div class="contribute-actions">
+            <button type="button" class="btn-primary" disabled="@(_busy || _recorded == 0)" @onclick="Send">
+                @(_busy ? "Sending..." : $"Send {_recorded} for review")
+            </button>
+            <button type="button" class="btn-secondary" disabled="@(_busy || _recorded == 0)" @onclick="Discard">
+                Discard
             </button>
         </div>
-    }
-
-    <div class="contribute-actions">
-        <button type="button" class="btn-primary" disabled="@(_busy || _recorded == 0)" @onclick="Send">
-            @(_busy ? "Sending..." : $"Send {_recorded} for review")
-        </button>
-        <button type="button" class="btn-secondary" disabled="@(_busy || _recorded == 0)" @onclick="Discard">
-            Discard
-        </button>
-    </div>
-</section>
+    </section>
+}
 
 @code {
     [Parameter] public Func<HttpClient> ClientFactory { get; set; } = () => new HttpClient();

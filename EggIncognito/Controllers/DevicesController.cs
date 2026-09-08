@@ -59,13 +59,14 @@ public sealed partial class DevicesController(
     [HttpGet("status")]
     [EnableRateLimiting("fetch")]
     public async Task<IActionResult> Status() {
-        var store = Store;
-        if (store is null || Timeline is not { } timeline) return Ok(Array.Empty<DeviceStatusRow>());
+        if (services.GetService(typeof(IDeviceFleet)) is not IDeviceFleet fleet || Timeline is not { } timeline)
+            return Ok(Array.Empty<DeviceStatusRow>());
 
         var ct = HttpContext.RequestAborted;
         bool isAdmin = currentUser.IsAtLeast(UserRole.Admin);
-        var enabled = (await store.EnabledDevicesAsync(ct))
-            .Where(d => isAdmin || !DeviceOrigins.IsVirtual(d.Origin));
+        var enabled = (await fleet.EnabledAsync(ct))
+            .Where(d => isAdmin || !DeviceOrigins.IsVirtual(d.Origin))
+            .Select(AsDevice);
 
         var devices = enabled.ToDictionary(d => d.Id);
         var virtualUp = new Dictionary<string, DateTimeOffset>(StringComparer.Ordinal);
@@ -86,10 +87,9 @@ public sealed partial class DevicesController(
             : await DeviceVersionIndex.BuildAsync(db, platforms, ct);
         var storeLatest = await StoreLatestPerPlatformAsync(db, platforms, ct);
 
-        Func<string, int> capturePortFor =
-            services.GetService(typeof(DeviceCaptureManager)) is DeviceCaptureManager captures
-                ? captures.PortFor
-                : _ => 0;
+        var captures = services.GetService(typeof(DeviceCaptureManager)) as DeviceCaptureManager;
+        int capturePortFor(string id) =>
+            captures?.PortFor(id) is > 0 and var listening ? listening : devices[id].CapturePort ?? 0;
         var inputs = new DeviceStatusInputs(
             isAdmin, probes, updates, storeLatest, virtualLive, versions,
             await CapturedClientVersionsAsync(ct),
@@ -102,14 +102,33 @@ public sealed partial class DevicesController(
     private async Task<HashSet<string>> MergeVirtualDevicesAsync(Dictionary<string, DateTimeOffset> up,
         CancellationToken ct) {
         var live = new HashSet<string>(StringComparer.Ordinal);
-        if (Instances is not { } instances) return live;
+        if (services.GetService(typeof(VirtualDeviceLifecycle)) is VirtualDeviceLifecycle { Delegated: true } lifecycle) {
+            var listed = await lifecycle.Provisioner.ListAsync(ct);
+            foreach (var instance in listed.Value ?? []) {
+                if (instance.DeviceId is { Length: > 0 } deviceId) up[deviceId] = instance.CreatedAt;
+            }
 
+            return live;
+        }
+
+        if (Instances is not { } instances) return live;
         foreach (var row in await instances.AllAsync(ct)) {
             if (row.DeviceId is { Length: > 0 } deviceId) up[deviceId] = row.CreatedAt;
         }
 
         return live;
     }
+
+    private static Device AsDevice(DeviceEntry e) => new() {
+        Id = e.Id,
+        Platform = e.Platform,
+        Label = e.Label,
+        Target = e.Target,
+        Package = e.Package,
+        Origin = e.Origin,
+        CapturePort = e.CapturePort,
+        Enabled = true
+    };
 
     private static async Task<Dictionary<string, string?>> StoreLatestPerPlatformAsync(EggIncognitoDbContext? db,
         IEnumerable<string> platforms, CancellationToken ct) {

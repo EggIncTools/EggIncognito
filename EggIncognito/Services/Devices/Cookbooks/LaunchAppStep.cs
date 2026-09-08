@@ -4,6 +4,8 @@ namespace EggIncognito.Services.Devices.Cookbooks;
 
 public sealed class LaunchAppStep(IDeviceConnectionFactory connections) : CookbookStep {
     private static readonly TimeSpan ForegroundWait = TimeSpan.FromSeconds(25);
+
+    private const string PairipNote = "pairip key import failed; play will not release it to an untrusted device";
     private const string PlayReasonCommand =
         "logcat -d 2>/dev/null | grep -i -E 'finsky|vending|certif|licens|integrity|droidguard' | tail -n 12";
 
@@ -36,6 +38,8 @@ public sealed class LaunchAppStep(IDeviceConnectionFactory connections) : Cookbo
         if (connections.For(target) is not { } conn)
             return Failed(lines, "no connection for this device");
 
+        await conn.ShellAsync($"pm enable {DeviceForeground.PlayStorePackage} 2>&1", ct);
+
         Add($"resolving the launch activity for {target.Package}");
         var resolve = await conn.ShellAsync($"cmd package resolve-activity --brief {target.Package} | tail -1", ct);
         string component = resolve.Stdout.Trim();
@@ -45,6 +49,7 @@ public sealed class LaunchAppStep(IDeviceConnectionFactory connections) : Cookbo
         }
 
         Add($"starting {component}");
+        await conn.ShellAsync("logcat -c 2>/dev/null", ct);
         var start = await conn.ShellAsync($"am start -n {component}", ct);
         if (start.ExitCode != 0 || start.Stdout.Contains("Error", StringComparison.Ordinal)) {
             return Failed(lines,
@@ -52,31 +57,39 @@ public sealed class LaunchAppStep(IDeviceConnectionFactory connections) : Cookbo
         }
 
         var front = await WaitForegroundAsync(conn, target, ct);
-        bool dismissedPlay = false;
         if (front.Is(DeviceForeground.PlayStorePackage)) {
             Add($"play took the foreground: {front.Component ?? front.Package}");
             await ReportPlayReasonAsync(conn, Add, ct);
-            Add("closing play and relaunching");
-            await conn.ShellAsync($"am force-stop {DeviceForeground.PlayStorePackage}", ct);
-            await conn.ShellAsync($"am start -n {component}", ct);
-            front = await WaitForegroundAsync(conn, target, ct);
-            dismissedPlay = true;
-            if (front.Is(DeviceForeground.PlayStorePackage)) {
-                return Failed(lines,
-                    $"{component} started but {DeviceForeground.PlayBlockNote}; play re-took the foreground after "
-                    + $"being closed ({front.Component ?? front.Package}), a hard certification gate rather than a "
-                    + "dismissable dialog");
-            }
+            return Failed(lines, $"play blocked the launch: {PairipNote}{await CertifyHintAsync(conn, ct)}");
         }
 
         Add($"foreground: {front.Component ?? DeviceParsing.TrimNote(front.Raw)}");
-        if (front.Is(target.Package))
-            return Ok(lines, dismissedPlay ? $"launched {component} after closing play" : $"launched {component}");
+        if (front.Is(target.Package)) {
+            if (await PairipFailedAsync(conn, target.Package, ct)) {
+                Add("pairip key import failed");
+                return Failed(lines, $"foreground but black: {PairipNote}{await CertifyHintAsync(conn, ct)}");
+            }
+
+            return Ok(lines, $"launched {component}");
+        }
 
         var alive = await conn.ShellAsync($"pidof {target.Package}", ct);
         return alive.Stdout.Trim().Length > 0
             ? Failed(lines, $"{component} is running but never took the foreground in {ForegroundWait.TotalSeconds:F0}s; front is {front.Package ?? "unknown"}")
             : Failed(lines, $"{component} exited within {ForegroundWait.TotalSeconds:F0}s of starting; front is {front.Package ?? "unknown"}");
+    }
+
+    private static async Task<string> CertifyHintAsync(IDeviceConnection conn, CancellationToken ct) {
+        var root = await DeviceRoot.ProbeAsync(conn, ct);
+        string? gsf = await GsfIdentity.ReadAsync(conn, root, ct);
+        return gsf is { Length: > 0 } ? $"; gsf id {gsf}" : "; no gsf id";
+    }
+
+    private static async Task<bool> PairipFailedAsync(IDeviceConnection conn, string package, CancellationToken ct) {
+        var r = await conn.ShellAsync(
+            $"p=$(pidof {package}); [ -n \"$p\" ] && logcat -d --pid=$p 2>/dev/null "
+            + "| grep -c -E 'KeyImportException|KeyNotImported' || echo 0", ct);
+        return int.TryParse(r.Stdout.Trim(), out int hits) && hits > 0;
     }
 
     private static Task<ForegroundWindow> WaitForegroundAsync(
