@@ -5,7 +5,6 @@ using EggIncognito.Services.Workbench;
 namespace EggIncognito.Services.Devices;
 
 public sealed class DeviceWorkbenchState : WorkbenchStateBase {
-    public const string TabOverview = "overview";
     public const string TabDevice = "device";
     public const string TabScreen = "screen";
     public const string TabJobs = "jobs";
@@ -13,7 +12,6 @@ public sealed class DeviceWorkbenchState : WorkbenchStateBase {
     public const string TabBinaries = "binaries";
 
     private static readonly IReadOnlyList<WorkbenchMode> PhysicalModes = [
-        new(TabOverview, "Overview"),
         new(TabScreen, "Screen"),
         new(TabJobs, "Jobs"),
         new(TabCapture, "Capture"),

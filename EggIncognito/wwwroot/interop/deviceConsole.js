@@ -657,16 +657,26 @@ function onStageDown(s, ev) {
   s.timer = setTimeout(() => {
     if (!s.active || s.moved || s.handled) return;
     s.handled = true;
+    s.holding = true;
     ripple(s, s.startX, s.startY, "long");
-    if (s.startNorm) safeStage(s, "OnStageLongPress", s.startNorm.fx, s.startNorm.fy);
+    if (s.startNorm) safeStage(s, "OnStageHoldStart", s.startNorm.fx, s.startNorm.fy);
   }, s.o.longPressMs);
   ev.preventDefault();
+}
+
+function endHold(s, norm) {
+  if (!s.holding) return false;
+  s.holding = false;
+  const at = norm || s.startNorm;
+  if (at) safeStage(s, "OnStageHoldEnd", at.fx, at.fy);
+  return true;
 }
 
 function onStageMove(s, ev) {
   if (!s.active || ev.pointerId !== s.pid) return;
   s.lastEv = ev;
   const local = localPoint(s, ev);
+  if (s.holding) return;
   if (!s.moved && Math.abs(local.x - s.startX) < s.o.threshold && Math.abs(local.y - s.startY) < s.o.threshold) return;
   s.moved = true;
   if (s.timer) {
@@ -691,6 +701,7 @@ function onStageUp(s, ev) {
     s.stage.releasePointerCapture(ev.pointerId);
   } catch {
   }
+  if (endHold(s, normPoint(s, ev))) return;
   if (s.handled) return;
   const end = normPoint(s, ev);
   if (s.moved && s.startNorm && end) {
@@ -705,6 +716,7 @@ function onStageCancel(s) {
   s.active = false;
   clearTimers(s);
   clearLine(s);
+  endHold(s, null);
 }
 
 function onStageWheel(s, ev) {
@@ -725,7 +737,7 @@ export function bindStage(stage, media, dotnet, opts) {
   const o = { threshold: 8, longPressMs: 600, swipeMs: 200, ...(opts || {}) };
   const s = {
     stage, media, dotnet, o,
-    active: false, moved: false, handled: false, pid: -1,
+    active: false, moved: false, handled: false, holding: false, pid: -1,
     startX: 0, startY: 0, startNorm: null, lastEv: null,
     timer: 0, raf: 0, line: null
   };

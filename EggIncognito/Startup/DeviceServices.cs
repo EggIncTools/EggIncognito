@@ -213,10 +213,10 @@ public static class DeviceServices {
 #pragma warning restore IDE0028
                 boot.FakeDevices ? null : sp.GetService<ConfigChangeNotifier>(),
                 sp.GetRequiredService<IRouteCatalog>(),
-                new CompositeFlowObserver(sp.GetServices<IProcessedFlowObserver>()),
-                new CompositeDeviceResponseSources(sp.GetServices<IDeviceResponseSources>()));
+                sp.GetService<ConsumeObservationRecorder>(),
+                new CompositeDeviceResponseSources(sp.GetServices<IDeviceResponseSources>()),
+                new CompositeDeviceResponseTransforms(sp.GetServices<IDeviceResponseTransforms>()));
         });
-        if (!boot.FakeDevices) builder.Services.AddSingleton<IProcessedFlowObserver, RareCraftDismisser>();
         builder.Services.AddSingleton<IDeviceCaptureStatus>(sp => sp.GetRequiredService<DeviceCaptureManager>());
         builder.Services.AddSingleton<DeviceProxyPusher>();
         builder.Services.AddSingleton<ProxyReachProbe>();

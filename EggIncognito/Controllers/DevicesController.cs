@@ -722,6 +722,21 @@ public sealed partial class DevicesController(
         return r.Ok ? Ok(new UiActionResult(true, DeviceOutcomes.Label(r), r.Note)) : UiFailure(r.Outcome, r.Note);
     }
 
+    [HttpPost("{id}/ui/touch")]
+    [ApiAccess(ApiAccessLevel.Admin)]
+    [EnableRateLimiting("write")]
+    public async Task<IActionResult> UiTouch(string id, [FromBody] UiTouchRequest req, CancellationToken ct) {
+        if (RequireAdmin() is { } no) return no;
+        if (req.X < 0 || req.Y < 0) return BadRequest(new { error = "x and y must be non-negative" });
+        if (!Enum.TryParse(req.Phase, true, out TouchPhase phase))
+            return BadRequest(new { error = "phase must be down, move, up or cancel" });
+        (IActionResult? err, var platform, var target) = await ResolveUiAsync(id, ct);
+        if (err is not null) return err;
+
+        var r = await platform.TouchAsync(target, phase, req.X, req.Y, ct);
+        return r.Ok ? Ok(new UiActionResult(true, DeviceOutcomes.Label(r), r.Note)) : UiFailure(r.Outcome, r.Note);
+    }
+
     [HttpPost("{id}/ui/swipe")]
     [ApiAccess(ApiAccessLevel.Admin)]
     [EnableRateLimiting("write")]

@@ -41,13 +41,16 @@ public static class DeviceExtensionLoader {
 
         bool cookbook = typeof(IDeviceCookbook).IsAssignableFrom(type);
         bool responses = typeof(IDeviceResponseSources).IsAssignableFrom(type);
-        if (!cookbook && !responses) return false;
+        bool transforms = typeof(IDeviceResponseTransforms).IsAssignableFrom(type);
+        if (!cookbook && !responses && !transforms) return false;
 
         services.AddSingleton(type, sp => ActivatorUtilities.CreateInstance(sp, type));
         if (cookbook)
             services.AddSingleton<IDeviceCookbook>(sp => (IDeviceCookbook)sp.GetRequiredService(type));
         if (responses)
             services.AddSingleton<IDeviceResponseSources>(sp => (IDeviceResponseSources)sp.GetRequiredService(type));
+        if (transforms)
+            services.AddSingleton<IDeviceResponseTransforms>(sp => (IDeviceResponseTransforms)sp.GetRequiredService(type));
         return true;
     }
 }

@@ -29,6 +29,7 @@ public interface IDevicePlatform {
     Task<DeviceResult<UiScreenSize>> ScreenSizeAsync(DeviceTarget target, CancellationToken ct);
     Task<DeviceResult> TapUiAsync(DeviceTarget target, UiSelector selector, CancellationToken ct);
     Task<DeviceResult> TapPointAsync(DeviceTarget target, int x, int y, CancellationToken ct);
+    Task<DeviceResult> TouchAsync(DeviceTarget target, TouchPhase phase, int x, int y, CancellationToken ct);
     Task<DeviceResult> SwipeAsync(DeviceTarget target, int x1, int y1, int x2, int y2, int durationMs,
         CancellationToken ct);
     Task<DeviceResult> InputTextAsync(DeviceTarget target, string text, CancellationToken ct);
@@ -113,6 +114,9 @@ public sealed class NullDevicePlatform : IDevicePlatform {
         Task.FromResult(DeviceResult.Unsupported(Note(target)));
 
     public Task<DeviceResult> TapPointAsync(DeviceTarget target, int x, int y, CancellationToken ct) =>
+        Task.FromResult(DeviceResult.Unsupported(Note(target)));
+
+    public Task<DeviceResult> TouchAsync(DeviceTarget target, TouchPhase phase, int x, int y, CancellationToken ct) =>
         Task.FromResult(DeviceResult.Unsupported(Note(target)));
 
     public Task<DeviceResult> SwipeAsync(DeviceTarget target, int x1, int y1, int x2, int y2, int durationMs,

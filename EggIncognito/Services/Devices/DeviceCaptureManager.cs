@@ -20,7 +20,8 @@ public sealed class DeviceCaptureManager(
     IEndpointWriteObserver? writeObserver = null,
     IRouteCatalog? catalog = null,
     IProcessedFlowObserver? flowObserver = null,
-    IDeviceResponseSources? responseSources = null) : IHostedService, IDisposable, IDeviceCaptureStatus {
+    IDeviceResponseSources? responseSources = null,
+    IDeviceResponseTransforms? responseTransforms = null) : IHostedService, IDisposable, IDeviceCaptureStatus {
     public const int PortsPerDevice = 3;
 
     private static readonly TimeSpan RescanInterval = TimeSpan.FromMinutes(1);
@@ -180,7 +181,10 @@ public sealed class DeviceCaptureManager(
 
             var proxy = proxyFactory is { } factory
                 ? factory(config.Verbose)
-                : new NativeCaptureProxy(config.Verbose) { ResponseSource = responseSources?.For(d.Id) };
+                : new NativeCaptureProxy(config.Verbose) {
+                    ResponseSource = responseSources?.For(d.Id),
+                    ResponseTransform = responseTransforms?.For(d.Id)
+                };
             if (config.Verbose)
                 proxy.Trace += line => logger.LogDebug("device capture: {Id} trace: {Line}", d.Id, line);
             pipeline.Attach(proxy, hub, Now,

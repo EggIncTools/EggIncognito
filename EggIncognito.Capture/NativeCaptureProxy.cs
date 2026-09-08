@@ -34,6 +34,7 @@ public sealed class NativeCaptureProxy(bool verbose = false) : ICaptureProxy {
     public bool LanForwarderEnabled { get; init; } = true;
     public bool TrustCaInOsStore { get; init; } = true;
     public ICaptureResponseSource? ResponseSource { get; init; }
+    public ICaptureResponseTransform? ResponseTransform { get; init; }
 
     public bool FreshCa { get; private set; }
     public string? RootThumbprint => _rootCa?.Thumbprint;
@@ -230,19 +231,51 @@ public sealed class NativeCaptureProxy(bool verbose = false) : ICaptureProxy {
             if (req is null) break;
 
             var resp = await AnswerLocallyAsync(host, req, ct);
+            HttpMessage toDevice;
             if (resp is null) {
                 await req.WriteAsync(upstreamTls, ct);
                 resp = await HttpMessage.ReadAsync(upstreamTls, ct);
                 if (resp is null) break;
+                toDevice = await TransformAsync(host, req, resp, ct) ?? resp;
+            } else {
+                toDevice = resp;
             }
 
-            await resp.WriteAsync(deviceTls, ct);
+            await toDevice.WriteAsync(deviceTls, ct);
 
             MarkTrustProven();
             EmitFlow(host, req, resp);
 
             if (req.IsConnectionClose || resp.IsConnectionClose) break;
         }
+    }
+
+    private async Task<HttpMessage?> TransformAsync(
+        string host, HttpMessage req, HttpMessage resp, CancellationToken ct) {
+        if (ResponseTransform is not { } transform) return null;
+
+        byte[]? replaced;
+        try {
+            string reqText = req.Body is { Length: > 0 } ? Encoding.UTF8.GetString(req.Body) : "";
+            string? contentType = resp.Headers
+                .FirstOrDefault(h => h.Name.Equals("Content-Type", StringComparison.OrdinalIgnoreCase))?.Value;
+            replaced = await transform.TransformAsync(
+                new CaptureOverrideRequest(host, req.Method, req.Path, WireBody.ExtractDataParam(reqText), req.Body),
+                new CaptureUpstreamResponse(resp.StatusCode, contentType, resp.Body ?? []),
+                ct);
+        } catch (Exception ex) {
+            Log($"response transform failed for {host}{req.Path}, relaying upstream body: {ex.Message}");
+            return null;
+        }
+
+        if (replaced is null) return null;
+
+        Log($"rewrote {host}{req.Path} response, {resp.Body?.Length ?? 0} -> {replaced.Length} bytes");
+        return new HttpMessage {
+            StartLine = resp.StartLine,
+            Headers = [.. resp.Headers.Where(h => !h.Name.Equals("Content-Encoding", StringComparison.OrdinalIgnoreCase))],
+            Body = replaced
+        };
     }
 
     private async Task<HttpMessage?> AnswerLocallyAsync(string host, HttpMessage req, CancellationToken ct) {

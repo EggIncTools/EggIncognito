@@ -8,6 +8,9 @@
     <div class="detail-head">
         <span class="dpath">@Flow.Path</span>
         <span class="dstatus status-badge @CaptureHelpers.StatusClass(Flow.Status)">@Flow.Status</span>
+        @if (Tools is not null) {
+            <span class="detail-head-tools">@Tools</span>
+        }
     </div>
 
     @if (Flow.Known) {
@@ -45,6 +48,7 @@
     [Parameter] public DashboardFlow? Flow { get; set; }
     [Parameter] public CaptureViewState View { get; set; } = new();
     [Parameter] public Func<HttpClient> ClientFactory { get; set; } = default!;
+    [Parameter] public RenderFragment? Tools { get; set; }
 
     static readonly JsonSerializerOptions JsonOpts = new(JsonSerializerDefaults.Web);
 

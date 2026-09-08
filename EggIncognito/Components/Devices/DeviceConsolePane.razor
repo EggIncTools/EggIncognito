@@ -18,116 +18,124 @@
     <div class="wb-note">Pick a device.</div>
 } else {
     <div class="dcon">
-    <div class="dcon-bar">
-        <span class="dcon-bar-group">
-            <span class="dcon-bar-k">Stream</span>
-            <span class="dcon-bar-state @(_streamError is null ? "" : "text-err")">@StripText()</span>
-        </span>
-        <span class="dcon-bar-group">
-            @Actions
-            @if (_useVideo) {
-                <select class="field-input dcon-rate" aria-label="Stream quality" value="@_quality" @onchange="QualityChanged">
-                    <option value="@StreamQuality.Fluid">Fluid</option>
-                    <option value="@StreamQuality.Balanced">Balanced</option>
-                    <option value="@StreamQuality.Crisp">Crisp</option>
-                </select>
-            } else {
-                <select class="field-input dcon-rate" aria-label="Stream frame rate" value="@_fps" @onchange="FpsChanged">
-                    @foreach (var fps in Rates) {
-                        <option value="@fps">@fps fps</option>
-                    }
-                </select>
-            }
-            <button type="button" class="btn-mini" @onclick="ToggleStreamAsync">@(_live ? "Pause" : "Resume")</button>
-            <button type="button" class="btn-mini @(_mode == DeviceConsoleMode.Inspect ? "dcon-on" : "")"
-                    @onclick="ToggleInspect">
-                Inspect
+    <div class="dcon-body">
+    <div class="dcon-stage-col">
+        <div class="dcon-stage">
+            <button type="button" class="dcon-shot" @ref="_stage"
+                    aria-label="Device screen: tap, hold for long-press, drag or scroll to swipe">
+                @if (_useVideo) {
+                    <canvas class="dcon-canvas" @ref="_canvas"></canvas>
+                } else {
+                    <img class="dcon-img" alt="" @ref="_img"/>
+                }
+                @if (_hasFrame && _selected is { HasBounds: true } hl && TapWidth > 0) {
+                    <span class="dcon-hl" style="@HighlightStyle(hl)"></span>
+                }
             </button>
-        </span>
+            @if (!_hasFrame) {
+                <span class="dcon-stage-empty">@StageEmptyText()</span>
+            }
+        </div>
     </div>
 
-    @if (IsAndroid) {
+    <div class="dcon-side">
         <div class="dcon-bar">
             <span class="dcon-bar-group">
-                <span class="dcon-bar-k">Island</span>
-                <select class="field-input dcon-rate" aria-label="Island" value="@IslandValue()"
-                        disabled="@_islandBusy" @onchange="IslandChanged">
-                    <option value="">Device (no island)</option>
-                    @foreach (var island in _islands) {
-                        <option value="@island.UserId.ToString(CultureInfo.InvariantCulture)">@IslandLabel(island)</option>
-                    }
-                </select>
-                @if (!_newIslandOpen) {
-                    <button type="button" class="btn-mini" disabled="@_islandBusy" @onclick="OpenNewIsland">+ new island</button>
-                }
-                @if (SelectedIsland() is { } selIsland) {
-                    <button type="button" class="btn-mini" disabled="@_islandBusy"
-                            @onclick="@(() => RemoveIslandAsync(selIsland.UserId))">
-                        Remove
-                    </button>
-                }
-                <button type="button" class="btn-mini" disabled="@_islandBusy" @onclick="LoadIslandsAsync">
-                    @(_islandBusy ? "..." : "Refresh")
-                </button>
+                <span class="dcon-bar-k">Stream</span>
+                <span class="dcon-bar-state @(_streamError is null ? "" : "text-err")">@StripText()</span>
             </span>
             <span class="dcon-bar-group">
-                @if (_islandsLoaded && _islands.Count == 0 && !_newIslandOpen) {
-                    <span class="text-xs text-muted">no islands yet</span>
+                @if (_useVideo) {
+                    <select class="field-input dcon-rate" aria-label="Stream quality" value="@_quality" @onchange="QualityChanged">
+                        <option value="@StreamQuality.Fluid">Fluid</option>
+                        <option value="@StreamQuality.Balanced">Balanced</option>
+                        <option value="@StreamQuality.Crisp">Crisp</option>
+                    </select>
+                } else {
+                    <select class="field-input dcon-rate" aria-label="Stream frame rate" value="@_fps" @onchange="FpsChanged">
+                        @foreach (var fps in Rates) {
+                            <option value="@fps">@fps fps</option>
+                        }
+                    </select>
                 }
-                <span class="text-xs text-muted">islands run one at a time; only the foreground user renders</span>
+                <button type="button" class="btn-mini" @onclick="ToggleStreamAsync">@(_live ? "Pause" : "Resume")</button>
+                <button type="button" class="btn-mini @(_mode == DeviceConsoleMode.Inspect ? "dcon-on" : "")"
+                        @onclick="ToggleInspect">
+                    Inspect
+                </button>
             </span>
         </div>
-        @if (_newIslandOpen) {
-            <div class="dcon-run-row">
-                <input class="field-input" placeholder="island label" aria-label="New island label"
-                       @bind="_newIslandLabel" @bind:event="oninput" @onkeydown="NewIslandKeyAsync"/>
-                <button type="button" class="btn-mini" disabled="@(_islandBusy || _newIslandLabel.Trim().Length == 0)"
-                        @onclick="CreateIslandAsync">
-                    Create
-                </button>
-                <button type="button" class="btn-mini" disabled="@_islandBusy" @onclick="CancelNewIsland">Cancel</button>
+
+        @if (Actions is not null) {
+            <div class="dcon-bar">
+                <span class="dcon-bar-k">Actions</span>
+                <span class="dcon-bar-group">@Actions</span>
             </div>
+            @ActionNotes
         }
-    }
 
-    <div class="dcon-body">
-        <div class="dcon-stage-col">
-            <div class="dcon-stage">
-                <button type="button" class="dcon-shot" @ref="_stage"
-                        aria-label="Device screen: tap, hold for long-press, drag or scroll to swipe">
-                    @if (_useVideo) {
-                        <canvas class="dcon-canvas" @ref="_canvas"></canvas>
-                    } else {
-                        <img class="dcon-img" alt="" @ref="_img"/>
+        @if (IsAndroid) {
+            <div class="dcon-bar">
+                <span class="dcon-bar-group">
+                    <span class="dcon-bar-k">Island</span>
+                    <select class="field-input dcon-rate" aria-label="Island" value="@IslandValue()"
+                            disabled="@_islandBusy" @onchange="IslandChanged">
+                        <option value="">Device (no island)</option>
+                        @foreach (var island in _islands) {
+                            <option value="@island.UserId.ToString(CultureInfo.InvariantCulture)">@IslandLabel(island)</option>
+                        }
+                    </select>
+                    @if (!_newIslandOpen) {
+                        <button type="button" class="btn-mini" disabled="@_islandBusy" @onclick="OpenNewIsland">+ new island</button>
                     }
-                    @if (_hasFrame && _selected is { HasBounds: true } hl && TapWidth > 0) {
-                        <span class="dcon-hl" style="@HighlightStyle(hl)"></span>
+                    @if (SelectedIsland() is { } selIsland) {
+                        <button type="button" class="btn-mini" disabled="@_islandBusy"
+                                @onclick="@(() => RemoveIslandAsync(selIsland.UserId))">
+                            Remove
+                        </button>
                     }
-                </button>
-                @if (!_hasFrame) {
-                    <span class="dcon-stage-empty">@StageEmptyText()</span>
-                }
+                    <button type="button" class="btn-mini" disabled="@_islandBusy" @onclick="LoadIslandsAsync">
+                        @(_islandBusy ? "..." : "Refresh")
+                    </button>
+                </span>
+                <span class="dcon-bar-group">
+                    @if (_islandsLoaded && _islands.Count == 0 && !_newIslandOpen) {
+                        <span class="text-xs text-muted">no islands yet</span>
+                    }
+                    <span class="text-xs text-muted">islands run one at a time; only the foreground user renders</span>
+                </span>
             </div>
+            @if (_newIslandOpen) {
+                <div class="dcon-run-row">
+                    <input class="field-input" placeholder="island label" aria-label="New island label"
+                           @bind="_newIslandLabel" @bind:event="oninput" @onkeydown="NewIslandKeyAsync"/>
+                    <button type="button" class="btn-mini" disabled="@(_islandBusy || _newIslandLabel.Trim().Length == 0)"
+                            @onclick="CreateIslandAsync">
+                        Create
+                    </button>
+                    <button type="button" class="btn-mini" disabled="@_islandBusy" @onclick="CancelNewIsland">Cancel</button>
+                </div>
+            }
+        }
 
-            <div class="dcon-keys">
-                <button type="button" class="btn-mini" @onclick="@(() => KeyAsync("back"))">Back</button>
-                <button type="button" class="btn-mini" @onclick="@(() => KeyAsync("home"))">Home</button>
-                <button type="button" class="btn-mini" @onclick="@(() => KeyAsync("recents"))">Recents</button>
-                <button type="button" class="btn-mini" @onclick="@(() => KeyAsync("enter"))">Enter</button>
-                <button type="button" class="btn-mini" @onclick="@(() => KeyAsync("wake"))">Wake</button>
-                <button type="button" class="btn-mini" @onclick="@(() => KeyAsync("close-app"))">Close app</button>
-            </div>
+        <div class="dcon-keys">
+            <button type="button" class="btn-mini" @onclick="@(() => KeyAsync("back"))">Back</button>
+            <button type="button" class="btn-mini" @onclick="@(() => KeyAsync("home"))">Home</button>
+            <button type="button" class="btn-mini" @onclick="@(() => KeyAsync("recents"))">Recents</button>
+            <button type="button" class="btn-mini" @onclick="@(() => KeyAsync("enter"))">Enter</button>
+            <button type="button" class="btn-mini" @onclick="@(() => KeyAsync("wake"))">Wake</button>
+            <button type="button" class="btn-mini" @onclick="@(() => KeyAsync("close-app"))">Close app</button>
+        </div>
 
-            <div class="dcon-typing">
-                <input class="field-input font-mono" placeholder="@(_captureKeys ? "capturing keys live" : "text for the focused field")"
-                       aria-label="Text and hardware keys" @bind="_text" @bind:event="oninput"
-                       @onkeydown="TextKeyAsync" @onkeydown:preventDefault="_captureKeys"/>
-                <button type="button" class="btn-mini @(_captureKeys ? "dcon-on" : "")" @onclick="ToggleCapture"
-                        title="Send each keystroke live: printable keys as text, Enter and Escape as device keys">
-                    Capture
-                </button>
-                <button type="button" class="btn-mini" disabled="@(_captureKeys || _text.Length == 0)" @onclick="SendTextAsync">Send</button>
-            </div>
+        <div class="dcon-typing">
+            <input class="field-input font-mono" placeholder="@(_captureKeys ? "capturing keys live" : "text for the focused field")"
+                   aria-label="Text and hardware keys" @bind="_text" @bind:event="oninput"
+                   @onkeydown="TextKeyAsync" @onkeydown:preventDefault="_captureKeys"/>
+            <button type="button" class="btn-mini @(_captureKeys ? "dcon-on" : "")" @onclick="ToggleCapture"
+                    title="Send each keystroke live: printable keys as text, Enter and Escape as device keys">
+                Capture
+            </button>
+            <button type="button" class="btn-mini" disabled="@(_captureKeys || _text.Length == 0)" @onclick="SendTextAsync">Send</button>
         </div>
 
         <div class="dcon-activity">
@@ -333,6 +341,7 @@
         </div>
     </div>
     </div>
+    </div>
 }
 
 @code {
@@ -350,6 +359,8 @@
     [Parameter] public EventCallback OnChanged { get; set; }
 
     [Parameter] public RenderFragment? Actions { get; set; }
+
+    [Parameter] public RenderFragment? ActionNotes { get; set; }
 
     static readonly int[] Rates = [5, 4, 3, 2, 1];
     static readonly string[] JobIdNames = ["jobId", "JobId", "runId", "RunId", "id", "Id"];
@@ -611,10 +622,39 @@
         await TapAsync(p.X, p.Y);
     }
 
+    const int MaxHoldMs = 10_000;
+
+    bool _holding;
+    bool _holdReplay;
+    DateTimeOffset _holdStartedAt;
+    (int X, int Y) _holdPoint;
+
     [JSInvokable]
-    public async Task OnStageLongPress(double fx, double fy) {
+    public async Task OnStageHoldStart(double fx, double fy) {
         if (_deviceId is null || DevicePoint(fx, fy) is not { } p) return;
-        await SwipeAsync(p.X, p.Y, p.X, p.Y, LongPressMs);
+        _holding = true;
+        _holdReplay = false;
+        _holdStartedAt = DateTimeOffset.UtcNow;
+        _holdPoint = p;
+        var res = await Client().PostAsJsonAsync($"/api/devices/{_deviceId}/ui/touch",
+            new UiTouchRequest("down", p.X, p.Y), SelfCallJson.Web);
+        if (!res.IsSuccessStatusCode) _holdReplay = true;
+    }
+
+    [JSInvokable]
+    public async Task OnStageHoldEnd(double fx, double fy) {
+        if (_deviceId is null || !_holding) return;
+        _holding = false;
+        var end = DevicePoint(fx, fy) ?? _holdPoint;
+        if (_holdReplay) {
+            var held = (int)(DateTimeOffset.UtcNow - _holdStartedAt).TotalMilliseconds + LongPressMs;
+            await SwipeAsync(_holdPoint.X, _holdPoint.Y, _holdPoint.X, _holdPoint.Y, Math.Clamp(held, LongPressMs, MaxHoldMs));
+            return;
+        }
+
+        var res = await Client().PostAsJsonAsync($"/api/devices/{_deviceId}/ui/touch",
+            new UiTouchRequest("up", end.X, end.Y), SelfCallJson.Web);
+        if (!res.IsSuccessStatusCode) await Fail(await ReadError(res));
     }
 
     [JSInvokable]
@@ -634,15 +674,15 @@
 
     (double Ox, double Oy, double Cw, double Ch) ContentRect(int screenW, int screenH) {
         if (_shotW <= 0 || _shotH <= 0) return (0, 0, 1, 1);
-        double frame = (double)_shotW / _shotH;
-        double screen = (double)screenW / screenH;
+        var frame = (double)_shotW / _shotH;
+        var screen = (double)screenW / screenH;
         if (Math.Abs(frame - screen) < 0.002) return (0, 0, 1, 1);
         if (screen < frame) {
-            double cw = screen / frame;
+            var cw = screen / frame;
             return ((1 - cw) / 2, 0, cw, 1);
         }
 
-        double ch = frame / screen;
+        var ch = frame / screen;
         return (0, (1 - ch) / 2, 1, ch);
     }
 

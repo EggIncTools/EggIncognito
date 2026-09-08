@@ -1,4 +1,3 @@
-using EggIncognito.Capture;
 using EggIncognito.Core.Services;
 using EggIncognito.Data.Services;
 using EggIncognito.Services;
@@ -90,7 +89,6 @@ public static class DataServices {
 
         builder.Services.AddSingleton<ConsumeObservationRecorder>();
         builder.Services.AddHostedService(sp => sp.GetRequiredService<ConsumeObservationRecorder>());
-        builder.Services.AddSingleton<IProcessedFlowObserver>(sp => sp.GetRequiredService<ConsumeObservationRecorder>());
         builder.Services.AddScoped<CaptureCredentialStore>();
         builder.Services.AddScoped<CaptureAddressStore>();
         builder.Services.AddScoped<ProtoRegistryStore>();

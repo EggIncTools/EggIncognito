@@ -51,6 +51,8 @@ public sealed record UiSelector(UiSelectorBy By, string Value, bool Contains = f
 
 public enum DeviceKey { Home, Back, Wake, Sleep, Enter, DismissKeyguard, Recents, CloseApp }
 
+public enum TouchPhase { Down, Move, Up, Cancel }
+
 public readonly record struct UiScreenSize(int Width, int Height);
 
 public interface IDeviceUiDriver {
@@ -62,6 +64,9 @@ public interface IDeviceUiDriver {
         Task.FromResult(DeviceResult<UiScreenSize>.Unsupported($"{Platform} ui driver: screen size not supported"));
     Task<DeviceResult> TapAsync(DeviceTarget target, UiSelector selector, CancellationToken ct);
     Task<DeviceResult> TapPointAsync(DeviceTarget target, int x, int y, CancellationToken ct);
+
+    Task<DeviceResult> TouchAsync(DeviceTarget target, TouchPhase phase, int x, int y, CancellationToken ct) =>
+        Task.FromResult(DeviceResult.Unsupported($"{Platform} ui driver: held touches not supported"));
 
     Task<DeviceResult> SwipeAsync(DeviceTarget target, int x1, int y1, int x2, int y2, int durationMs,
         CancellationToken ct) =>

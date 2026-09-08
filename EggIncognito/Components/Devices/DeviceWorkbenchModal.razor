@@ -6,6 +6,7 @@
 @inject ToastService Toasts
 @inject AdminNotifier Notifier
 @inject ILogger<DeviceWorkbenchModal> Logger
+@inject ICaptureContributionKinds Kinds
 @using System.Globalization
 @using System.Net
 @using System.Text.Json
@@ -14,6 +15,7 @@
 @using EggIncognito.Components.Capture
 @using EggIncognito.Core
 @using EggIncognito.Core.Services.Devices
+@using EggIncognito.Models.Contributions
 @using EggIncognito.Models.Devices
 @using EggIncognito.Services.Devices
 @implements IDisposable
@@ -83,27 +85,6 @@
             </div>
 
             <div class="dwb-pane">
-                @if (State.Mode == DeviceWorkbenchState.TabOverview) {
-                    <div class="dwb-bar">
-                        <span class="dwb-bar-k">Actions</span>
-                        <span class="dwb-bar-group">
-                            <button type="button" class="btn-mini" disabled="@Busy" @onclick="ProbeNow">Probe</button>
-                            <button type="button" class="btn-mini" disabled="@Busy" @onclick="CheckStore">Check store</button>
-                            <button type="button" class="btn-mini" disabled="@Busy" @onclick="RestartApp">Restart app</button>
-                            @if (dev.Platform == "android") {
-                                <button type="button" class="btn-mini" disabled="@Busy" @onclick="Recert">Recert</button>
-                            }
-                            @if (_harvest is { InRegistry: false }) {
-                                <button type="button" class="btn-mini" disabled="@Busy" @onclick="SaveToRegistry">
-                                    Save to registry
-                                </button>
-                            }
-                            <button type="button" class="btn-mini" disabled="@Busy" @onclick="Poke">Poke harvest</button>
-                        </span>
-                    </div>
-                    @ActionLines(dev)
-                }
-
                 @if (State.Mode == DeviceWorkbenchState.TabDevice) {
                     <DeviceConsolePane DeviceId="@dev.Id" Platform="@dev.Platform" Virtual="@dev.Virtual" Active="true"
                                        OnNotice="Notice" OnChanged="ReloadDevices">
@@ -120,7 +101,23 @@
 
                 @if (State.Mode == DeviceWorkbenchState.TabScreen) {
                     <DeviceConsolePane DeviceId="@dev.Id" Platform="@dev.Platform" Virtual="@dev.Virtual" Active="true"
-                                       OnNotice="Notice" OnChanged="ReloadDevices"/>
+                                       OnNotice="Notice" OnChanged="ReloadDevices">
+                        <Actions>
+                            <button type="button" class="btn-mini" disabled="@Busy" @onclick="ProbeNow">Probe</button>
+                            <button type="button" class="btn-mini" disabled="@Busy" @onclick="CheckStore">Check store</button>
+                            <button type="button" class="btn-mini" disabled="@Busy" @onclick="RestartApp">Restart app</button>
+                            @if (dev.Platform == "android") {
+                                <button type="button" class="btn-mini" disabled="@Busy" @onclick="Recert">Recert</button>
+                            }
+                            @if (_harvest is { InRegistry: false }) {
+                                <button type="button" class="btn-mini" disabled="@Busy" @onclick="SaveToRegistry">
+                                    Save to registry
+                                </button>
+                            }
+                            <button type="button" class="btn-mini" disabled="@Busy" @onclick="Poke">Poke harvest</button>
+                        </Actions>
+                        <ActionNotes>@ActionLines(dev)</ActionNotes>
+                    </DeviceConsolePane>
                 }
 
                 @if (State.Mode == DeviceWorkbenchState.TabJobs) {
@@ -204,8 +201,19 @@
                             <div class="dwb-capture-body">
                                 <FlowList Flows="_flows" SelectedId="_selectedFlowId" Connected="_connected"
                                           View="State.Capture" OnSelect="SelectFlow"/>
-                                <DetailPane Flow="_selectedFlow" View="State.Capture" ClientFactory="Client"/>
+                                <DetailPane Flow="_selectedFlow" View="State.Capture" ClientFactory="Client">
+                                    <Tools>
+                                        @if (_selectedFlow is { } sel && Kinds.For(sel.Path) is not null) {
+                                            <button type="button" class="btn-mini" disabled="@(_offerBusy || _offered.Contains(sel.Id))"
+                                                    title="Record this observation to your account for review"
+                                                    @onclick="@(() => OfferAsync(dev, sel))">
+                                                @(_offered.Contains(sel.Id) ? "Offered" : _offerBusy ? "Offering..." : "Offer")
+                                            </button>
+                                        }
+                                    </Tools>
+                                </DetailPane>
                             </div>
+                            <ContributePanel @ref="_contribute" ClientFactory="Client"/>
                         </div>
                     }
                 }
@@ -298,6 +306,9 @@
     int _port;
     long? _selectedFlowId;
     DashboardFlow? _selectedFlow;
+    bool _offerBusy;
+    readonly HashSet<long> _offered = [];
+    ContributePanel? _contribute;
 
     DeviceRow? Current => _devices.FirstOrDefault(d => d.Id == State.SelectedId);
 
@@ -661,6 +672,28 @@
         await LoadAsync();
         await LoadForDeviceAsync();
         if (OnChanged.HasDelegate) await OnChanged.InvokeAsync();
+    }
+
+    async Task OfferAsync(DeviceRow dev, DashboardFlow flow) {
+        if (_offerBusy) return;
+        _offerBusy = true;
+        try {
+            var res = await Client().PostAsJsonAsync("/api/contributions/offer",
+                new ContributionOfferRequest(dev.Id, flow.Id), SelfCallJson.Web);
+            if (!res.IsSuccessStatusCode) {
+                Note(await ReadError(res), false);
+                return;
+            }
+
+            _offered.Add(flow.Id);
+            Note($"recorded {flow.Path} to your account", true);
+            await Task.Delay(500);
+            if (_contribute is { } panel) await panel.RefreshAsync();
+        }
+        finally {
+            _offerBusy = false;
+            StateHasChanged();
+        }
     }
 
     Task ProbeNow() {
