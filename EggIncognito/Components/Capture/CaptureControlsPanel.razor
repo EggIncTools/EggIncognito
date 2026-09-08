@@ -3,99 +3,101 @@
 @* Capture controls side-column widget: start/stop, clear, HAR export, and view/redaction settings.
    View settings mutate the shared CaptureViewState and call OnViewChanged. One popover open at a time. *@
 
-<div class="capture-controls">
-    @if (_open is not null) {
-        <div class="popover-backdrop" @onclick="@(() => _open = null)"></div>
-    }
-    <div class="flex items-center gap-2">
-        <div class="flex flex-wrap items-center gap-1.5">
-            @if (!ReadOnly) {
-                <button type="button" class="icon-btn @(Running ? "capture-stop" : "capture-start")" disabled="@ToggleBusy"
-                        aria-label="@(Running ? "Stop capture" : "Start capture")" @onclick="OnToggleCapture">
-                    <Icon Name="@(Running ? "pause" : "play")"/>
-                </button>
+@if (_open is not null) {
+    <div class="popover-backdrop" @onclick="@(() => _open = null)"></div>
+}
+<div class="capture-bar-group">
+    @if (!ReadOnly) {
+        <div class="cap-run">
+            <button type="button" class="btn-secondary cap-run-btn @(Running ? "cap-run-live" : "")" disabled="@ToggleBusy"
+                    aria-label="@(Running ? "Stop capture" : "Start capture")" @onclick="OnToggleCapture">
+                <Icon Name="@(Running ? "pause" : "play")"/>
+                @(Running ? "Stop" : "Start")
+            </button>
+            <span class="cap-state @(Running ? "cap-state-live" : "")"><span class="cap-state-dot"></span>@StateText</span>
+        </div>
+        <span class="capture-bar-sep"></span>
 
-                <div class="settings-wrap">
-                    <button type="button" class="icon-btn" aria-label="Clear list"
-                            aria-haspopup="true" aria-expanded="@(_open == "clear")" @onclick="@(() => Toggle("clear"))">
-                        <Icon Name="trash"/>
-                    </button>
-                    <div class="settings-menu confirm-menu @(_open == "clear" ? "open" : "")">
-                        <div class="settings-title">Clear list?</div>
-                        <div class="settings-hint">Removes the captured requests shown here. Saved endpoints, captured HAR(s), and exported files are kept.</div>
-                        <div class="confirm-actions">
-                            <button type="button" class="btn-mini" @onclick="@(() => _open = null)">Cancel</button>
-                            <button type="button" class="btn-mini btn-danger" @onclick="ConfirmClear">Clear</button>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="settings-wrap">
-                    <button type="button" class="icon-btn" aria-label="Export"
-                            aria-haspopup="true" aria-expanded="@(_open == "export")" @onclick="@(() => Toggle("export"))">
-                        <Icon Name="download"/>
-                    </button>
-                    <div class="settings-menu @(_open == "export" ? "open" : "")">
-                        <div class="settings-title">Export</div>
-                        <a class="export-item" href="/api/capture/har" download>HAR (all requests)</a>
-                    </div>
-                </div>
-
-                @if (Hosted) {
-                    <button type="button" class="icon-btn"
-                            aria-label="DM setup config" disabled="@_dmBusy" @onclick="SendConfig">
-                        <Icon Name="bell"/>
-                    </button>
-                    <button type="button" class="icon-btn"
-                            aria-label="Rotate proxy address" disabled="@_rotateBusy" @onclick="RotateAddress">
-                        <Icon Name="refresh-cw"/>
-                    </button>
-                }
-            }
-
-            <div class="settings-wrap">
-                <button type="button" class="icon-btn" aria-label="Settings"
-                        aria-haspopup="true" aria-expanded="@(_open == "settings")" @onclick="@(() => Toggle("settings"))">
-                    <Icon Name="settings"/>
-                </button>
-                <div class="settings-menu settings-menu-lg @(_open == "settings" ? "open" : "")">
-                    <div class="settings-title">Redaction</div>
-                    <div class="settings-hint">Hide user IDs and EIDs in the detail pane.</div>
-                    <div class="settings-seg" role="radiogroup" aria-label="Redaction mode">
-                        <button type="button" class="seg-btn @(View.RedactionMode == "off" ? "active" : "")" @onclick="@(() => SetMode("off"))">Off</button>
-                        <button type="button" class="seg-btn @(View.RedactionMode == "blur" ? "active" : "")" @onclick="@(() => SetMode("blur"))">Blur</button>
-                        <button type="button" class="seg-btn @(View.RedactionMode == "redact" ? "active" : "")" @onclick="@(() => SetMode("redact"))">Redact</button>
-                    </div>
-
-                    <div class="settings-title">Headers</div>
-                    <label class="settings-check"><input type="checkbox" checked="@View.ShowHeaders" @onchange="OnShowHeaders"/> Show captured headers</label>
-
-                    <div class="settings-title">List</div>
-                    <label class="settings-check"><input type="checkbox" checked="@View.AutoScroll" @onchange="OnAutoScroll"/> Auto-scroll to newest</label>
-
-                    <div class="settings-title">Comparison tags</div>
-                    <div class="settings-hint">Tag each capture against the saved endpoint set.</div>
-                    <label class="settings-check"><input type="checkbox" checked="@View.CompareToKnown" @onchange="OnCompare"/> Show comparison tags</label>
-
-                    <div class="settings-title">Default format</div>
-                    <div class="settings-hint">Format the data opens in.</div>
-                    <select class="data-format settings-select" value="@View.DefaultFormat" @onchange="OnDefaultFormat">
-                        <option value="json-tree">JSON (tree)</option>
-                        <option value="json">JSON (raw)</option>
-                        <option value="yaml">YAML</option>
-                        <option value="xml">XML</option>
-                        <option value="js">JS object</option>
-                        <option value="hex">Hex</option>
-                        <option value="bin">Binary</option>
-                    </select>
+        <div class="settings-wrap">
+            <button type="button" class="icon-btn" aria-label="Clear list" title="Clear the captured request list"
+                    aria-haspopup="true" aria-expanded="@(_open == "clear")" @onclick="@(() => Toggle("clear"))">
+                <Icon Name="trash"/>
+            </button>
+            <div class="settings-menu confirm-menu @(_open == "clear" ? "open" : "")">
+                <div class="settings-title">Clear list?</div>
+                <div class="settings-hint">Removes the captured requests shown here. Saved endpoints, captured HAR(s), and exported files are kept.</div>
+                <div class="confirm-actions">
+                    <button type="button" class="btn-mini" @onclick="@(() => _open = null)">Cancel</button>
+                    <button type="button" class="btn-mini btn-danger" @onclick="ConfirmClear">Clear</button>
                 </div>
             </div>
+        </div>
+
+        <div class="settings-wrap">
+            <button type="button" class="icon-btn" aria-label="Export" title="Export captured flows as HAR"
+                    aria-haspopup="true" aria-expanded="@(_open == "export")" @onclick="@(() => Toggle("export"))">
+                <Icon Name="download"/>
+            </button>
+            <div class="settings-menu @(_open == "export" ? "open" : "")">
+                <div class="settings-title">Export</div>
+                <a class="export-item" href="/api/capture/har" download>HAR (all requests)</a>
+            </div>
+        </div>
+
+        @if (Hosted) {
+            <button type="button" class="icon-btn" title="Re-send the setup DM"
+                    aria-label="DM setup config" disabled="@_dmBusy" @onclick="SendConfig">
+                <Icon Name="send"/>
+            </button>
+            <button type="button" class="icon-btn" title="Issue a new proxy address"
+                    aria-label="Rotate proxy address" disabled="@_rotateBusy" @onclick="RotateAddress">
+                <Icon Name="refresh-cw"/>
+            </button>
+        }
+    }
+
+    <div class="settings-wrap">
+        <button type="button" class="icon-btn" aria-label="Settings" title="Capture view settings"
+                aria-haspopup="true" aria-expanded="@(_open == "settings")" @onclick="@(() => Toggle("settings"))">
+            <Icon Name="settings"/>
+        </button>
+        <div class="settings-menu settings-menu-lg @(_open == "settings" ? "open" : "")">
+            <div class="settings-title">Redaction</div>
+            <div class="settings-hint">Hide user IDs and EIDs in the detail pane.</div>
+            <div class="settings-seg" role="radiogroup" aria-label="Redaction mode">
+                <button type="button" class="seg-btn @(View.RedactionMode == "off" ? "active" : "")" @onclick="@(() => SetMode("off"))">Off</button>
+                <button type="button" class="seg-btn @(View.RedactionMode == "blur" ? "active" : "")" @onclick="@(() => SetMode("blur"))">Blur</button>
+                <button type="button" class="seg-btn @(View.RedactionMode == "redact" ? "active" : "")" @onclick="@(() => SetMode("redact"))">Redact</button>
+            </div>
+
+            <div class="settings-title">Headers</div>
+            <label class="settings-check"><input type="checkbox" checked="@View.ShowHeaders" @onchange="OnShowHeaders"/> Show captured headers</label>
+
+            <div class="settings-title">List</div>
+            <label class="settings-check"><input type="checkbox" checked="@View.AutoScroll" @onchange="OnAutoScroll"/> Auto-scroll to newest</label>
+
+            <div class="settings-title">Comparison tags</div>
+            <div class="settings-hint">Tag each capture against the saved endpoint set.</div>
+            <label class="settings-check"><input type="checkbox" checked="@View.CompareToKnown" @onchange="OnCompare"/> Show comparison tags</label>
+
+            <div class="settings-title">Default format</div>
+            <div class="settings-hint">Format the data opens in.</div>
+            <select class="data-format settings-select" value="@View.DefaultFormat" @onchange="OnDefaultFormat">
+                <option value="json-tree">JSON (tree)</option>
+                <option value="json">JSON (raw)</option>
+                <option value="yaml">YAML</option>
+                <option value="xml">XML</option>
+                <option value="js">JS object</option>
+                <option value="hex">Hex</option>
+                <option value="bin">Binary</option>
+            </select>
         </div>
     </div>
 </div>
 
 @code {
     [Parameter] public bool Running { get; set; }
+    [Parameter] public int Port { get; set; }
     [Parameter] public bool ToggleBusy { get; set; }
     [Parameter] public CaptureViewState View { get; set; } = new();
     [Parameter] public EventCallback OnToggleCapture { get; set; }
@@ -109,6 +111,8 @@
     string? _open;
     bool _dmBusy;
     bool _rotateBusy;
+
+    string StateText => Running ? Port > 0 ? $"running :{Port}" : "running" : "stopped";
 
     void Toggle(string which) {
         _open = _open == which ? null : which;

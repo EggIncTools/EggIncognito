@@ -11,6 +11,9 @@
 <section id="flowsPanel" class="panel">
     <div class="flow-head">
         <h2>Requests</h2>
+        @if (Filtering && Flows.Count > 0) {
+            <span class="flow-count">showing @ShownCount of @Flows.Count</span>
+        }
         <div class="flow-filters">
             <span class="flow-filters-label">Filters</span>
             <select class="flow-filter-select" aria-label="API group" value="@_group" @onchange="OnGroupChange">
@@ -72,23 +75,18 @@
             </div>
         } else {
             TimeSpan? prevTime = null;
-            var first = true;
+            string? shownMinute = null;
             foreach (var flow in Flows) {
                 var t = ParseTime(flow.Timestamp);
-                if (!Filtering && !first && prevTime is { } p && t is { } cur) {
-                    var gap = cur - p;
-                    if (gap < TimeSpan.Zero) gap += TimeSpan.FromDays(1);
-                    if (gap >= BurstGap) {
-                        <div class="flow-burst-sep">
-                            <span>@flow.Timestamp</span>
-                            <span class="burst-gap">+@FormatGap(gap)</span>
-                        </div>
-                    }
+                var minute = Minute(flow.Timestamp);
+                if (!Filtering && minute is not null && minute != shownMinute) {
+                    shownMinute = minute;
+                    <div class="flow-minute">@minute</div>
                 }
 
+                var delta = prevTime is { } p && t is { } cur ? Gap(p, cur) : (TimeSpan?)null;
                 if (t is not null) prevTime = t;
-                first = false;
-                @Row(flow)
+                @Row(flow, delta)
             }
         }
     </div>
@@ -102,7 +100,7 @@
     [Parameter] public EventCallback<long> OnSelect { get; set; }
     [Parameter] public Func<DashboardFlow, bool>? CanSelect { get; set; }
 
-    static readonly TimeSpan BurstGap = TimeSpan.FromSeconds(3);
+    static readonly TimeSpan IdleGap = TimeSpan.FromSeconds(3);
 
     string _group = "";
     string _pathFilter = "";
@@ -111,11 +109,23 @@
 
     bool Filtering => !string.IsNullOrEmpty(_group) || !string.IsNullOrEmpty(_pathFilter) || !string.IsNullOrEmpty(_typeFilter);
 
+    int ShownCount => Flows.Count(Matches);
+
     static TimeSpan? ParseTime(string? ts) =>
         TimeSpan.TryParseExact(ts, @"hh\:mm\:ss", CultureInfo.InvariantCulture, out var t) ? t : null;
 
-    static string FormatGap(TimeSpan gap) =>
-        gap >= TimeSpan.FromMinutes(1) ? $"{(int)gap.TotalMinutes}m {gap.Seconds}s" : $"{(int)gap.TotalSeconds}s";
+    static string? Minute(string? ts) => ts is { Length: >= 5 } ? ts[..5] : null;
+
+    static TimeSpan Gap(TimeSpan prev, TimeSpan current) {
+        var gap = current - prev;
+        return gap < TimeSpan.Zero ? gap + TimeSpan.FromDays(1) : gap;
+    }
+
+    static string FormatDelta(TimeSpan? gap) {
+        if (gap is not { } g) return "";
+        if (g >= TimeSpan.FromMinutes(1)) return $"+{(int)g.TotalMinutes}m";
+        return g >= TimeSpan.FromSeconds(1) ? $"+{(int)g.TotalSeconds}s" : "+0s";
+    }
 
     ElementReference _listRef;
     IJSObjectReference? _scroll;
@@ -216,45 +226,49 @@
         return true;
     }
 
-    RenderFragment Row(DashboardFlow flow) => Selectable(flow)
+    RenderFragment Row(DashboardFlow flow, TimeSpan? delta) => Selectable(flow)
         ? @<div class="flow-row @(SelectedId == flow.Id ? "active" : "") @(Matches(flow) ? "" : "filtered-out")"
-                @onclick="@(() => OnSelect.InvokeAsync(flow.Id))">
-              @RowBody(flow)
+                title="@RowTitle(flow)" @onclick="@(() => OnSelect.InvokeAsync(flow.Id))">
+              @RowBody(flow, delta)
           </div>
         : @<div class="flow-row flow-row-locked @(Matches(flow) ? "" : "filtered-out")"
                 title="Detail for this request is not available in limited capture.">
-              @RowBody(flow)
+              @RowBody(flow, delta)
           </div>;
 
     bool Selectable(DashboardFlow flow) => CanSelect is null || CanSelect(flow);
 
-    RenderFragment RowBody(DashboardFlow flow) => @<text>
-                                                       @{
-                                                           var noReqBody = string.IsNullOrEmpty(flow.RequestDataB64);
-                                                           var outcome = View.CompareToKnown ? CaptureHelpers.Outcome(flow.Outcome) : null;
-                                                           var reqType = flow.RequestType ?? (noReqBody ? "(none)" : "(unknown)");
-                                                           var respType = flow.ResponseType ?? "(unknown)";
-                                                       }
-                                                       <span class="fseq">#@flow.Id</span>
-                                                       <span class="ftime">@flow.Timestamp</span>
-                                                       <span class="fpath">@flow.Path</span>
-                                                       <span class="ftypes">
-                                                           <span class="@(flow.RequestType is null ? "unknown" : "")">@reqType</span>
-                                                           <span class="type-arrow">›</span>
-                                                           <span class="@(flow.ResponseType is null ? "unknown" : "")">@respType</span>
-                                                       </span>
-                                                       @if (flow.Known || flow.Saved) {
-                                                           <span class="known-dot"></span>
-                                                       }
-                                                       @if (outcome is not null) {
-                                                           @OutcomeTag(flow, outcome)
-                                                       }
-                                                       @if (flow.Status is >= 200 and < 300) {
-                                                           <span class="status-dot"></span>
-                                                       } else {
-                                                           <span class="status-badge @CaptureHelpers.StatusClass(flow.Status)">@flow.Status</span>
-                                                       }
-                                                   </text>;
+    static string RowTitle(DashboardFlow flow) => $"#{flow.Id} at {flow.Timestamp}";
+
+    RenderFragment RowBody(DashboardFlow flow, TimeSpan? delta) => @<text>
+                                                                       @{
+                                                                           var noReqBody = string.IsNullOrEmpty(flow.RequestDataB64);
+                                                                           var outcome = View.CompareToKnown ? CaptureHelpers.Outcome(flow.Outcome) : null;
+                                                                           var reqType = flow.RequestType ?? (noReqBody ? "none" : "?");
+                                                                           var respType = flow.ResponseType ?? "?";
+                                                                           var idle = delta is { } d && d >= IdleGap;
+                                                                       }
+                                                                       <span class="fdelta @(idle ? "fdelta-idle" : "")">@FormatDelta(delta)</span>
+                                                                       <span class="fpath">@flow.Path</span>
+                                                                       <span class="fmeta">
+                                                                           <span class="ftypes">
+                                                                               <span class="@(flow.RequestType is null ? "unknown" : "")">@reqType</span>
+                                                                               <span class="type-arrow">›</span>
+                                                                               <span class="@(flow.ResponseType is null ? "unknown" : "")">@respType</span>
+                                                                           </span>
+                                                                           @if (flow.Known || flow.Saved) {
+                                                                               <span class="known-dot"></span>
+                                                                           }
+                                                                           @if (outcome is not null) {
+                                                                               @OutcomeTag(flow, outcome)
+                                                                           }
+                                                                           @if (flow.Status is >= 200 and < 300) {
+                                                                               <span class="status-dot"></span>
+                                                                           } else {
+                                                                               <span class="status-badge @CaptureHelpers.StatusClass(flow.Status)">@flow.Status</span>
+                                                                           }
+                                                                       </span>
+                                                                   </text>;
 
     RenderFragment OutcomeTag(DashboardFlow flow, CaptureHelpers.OutcomeMeta meta) => builder => {
         var seq = 0;

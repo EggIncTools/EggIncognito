@@ -13,6 +13,10 @@ public static class DeviceCookbookIds {
     public const string SeedAudit = "seed-audit";
     public const string IntegrityAudit = "integrity-audit";
     public const string AppAudit = "app-audit";
+    public const string CreateIsland = "create-island";
+    public const string InstallAppIsland = "install-app-island";
+    public const string LaunchIsland = "launch-island";
+    public const string RemoveIsland = "remove-island";
 }
 
 public sealed record DeviceCookbookOption(
@@ -29,7 +33,7 @@ public sealed record DeviceCookbookInfo(
     public string Group { get; init; } = CookbookGroups.Step;
 }
 
-public sealed record DeviceCookbookRequest(string CookbookId, string? Argument = null);
+public sealed record DeviceCookbookRequest(string CookbookId, string? Argument = null, int? UserId = null);
 
 public sealed record DeviceCookbookRun(
     bool Ok,
@@ -53,7 +57,8 @@ public sealed record DeviceCookbookRun(
 public sealed record DeviceCookbookContext(
     DeviceTarget Target,
     string? Argument,
-    Action<string> Progress);
+    Action<string> Progress,
+    int? UserId = null);
 
 public interface IDeviceCookbook {
     string Id { get; }

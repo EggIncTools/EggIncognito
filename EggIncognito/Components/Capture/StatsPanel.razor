@@ -1,12 +1,6 @@
 @using EggIncognito.Capture
 <div id="statsPanel" class="capture-stats">
     <span class="cap-stat">
-        <span class="cap-stat-k">Proxy</span>
-        <span class="cap-stat-v">
-            <span class="@(Running ? "text-ok" : "text-muted")">@StatusText</span>
-        </span>
-    </span>
-    <span class="cap-stat">
         <span class="cap-stat-k">Flows</span><span class="cap-stat-v">@(Stats?.CapturedAuxbrain ?? 0)</span>
     </span>
     <span class="cap-stat">
@@ -25,6 +19,4 @@
     [Parameter] public int FlowCount { get; set; }
     [Parameter] public bool Running { get; set; }
     [Parameter] public int Port { get; set; }
-
-    string StatusText => Running ? Port > 0 ? $"running :{Port}" : "running" : "stopped";
 }

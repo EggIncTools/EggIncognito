@@ -2,23 +2,21 @@
 @* Hosted-capture connection card: the caller's per-user IPv6 proxy host, the port, and the CA install
    steps. The front door identifies the user by destination address, so the proxy uses no auth. *@
 <section id="hostedSetupCard" class="panel">
-    <h2>Hosted proxy setup</h2>
+    @if (Expanded) {
+        <h2>Hosted proxy setup</h2>
+    }
 
-    <div class="setup-coords mb-3">
-        <div class="setup-coord">
-            <span class="text-muted text-xs">Server</span>
-            <span class="code-chip" id="proxyHost">@(_proxyHost ?? "loading...")</span>
-        </div>
-        <div class="setup-coord">
-            <span class="text-muted text-xs">Port</span>
-            <span class="code-chip">@Port</span>
-        </div>
-        <div class="setup-coord">
-            <span class="text-muted text-xs">Auth</span>
-            <span class="code-chip">off</span>
-        </div>
+    <div class="setup-strip">
+        <span class="setup-strip-k">Server</span>
+        <span class="code-chip" id="proxyHost">@(_proxyHost ?? "loading...")</span>
+        <span class="setup-strip-k">Port</span>
+        <span class="code-chip">@Port</span>
+        <span class="setup-strip-k">Auth</span>
+        <span class="code-chip">off</span>
+        <span class="setup-strip-gap"></span>
+        <button type="button" class="btn-mini" @onclick="Toggle">@(Expanded ? "Hide steps" : "Steps")</button>
         @if (_rotated) {
-            <p class="text-muted text-xs mt-1 mb-0 basis-full" id="rotatedNotice">
+            <p class="setup-note" id="rotatedNotice">
                 New address issued. Update your
                 device's proxy Server to the value above.
             </p>
@@ -26,7 +24,7 @@
     </div>
 
     @if (_caDmFailed) {
-        <p class="text-muted text-xs mb-3" id="caDmFailedNotice">
+        <p class="setup-note" id="caDmFailedNotice">
             Could not DM you the CA. You may not be in the
             Discord server, or your member DMs are off (Settings &gt; Privacy &amp; Safety).
             @if (!string.IsNullOrWhiteSpace(InviteUrl)) {
@@ -37,26 +35,30 @@
         </p>
     }
 
-    <ol class="setup-list">
-        <li>Set your Wi-Fi proxy to <strong>Manual</strong> using the Server + Port above (auth off).</li>
-        <li>
-            Install + trust the DM'd CA:
-            <ul class="setup-sublist">
+    @if (Expanded) {
+        <div class="setup-steps">
+            <ol class="setup-list">
+                <li>Set your Wi-Fi proxy to <strong>Manual</strong> using the Server + Port above (auth off).</li>
                 <li>
-                    <strong>iOS</strong>: open the CA profile, install it, then full-trust under Settings &gt;
-                    General &gt; About &gt; Certificate Trust Settings.
+                    Install + trust the DM'd CA:
+                    <ul class="setup-sublist">
+                        <li>
+                            <strong>iOS</strong>: open the CA profile, install it, then full-trust under Settings &gt;
+                            General &gt; About &gt; Certificate Trust Settings.
+                        </li>
+                        <li>
+                            <strong>Android</strong>: needs a rooted phone with the CA in the system trust store (Android
+                            7+ ignores user CAs), e.g. a Magisk cert module.
+                        </li>
+                    </ul>
                 </li>
                 <li>
-                    <strong>Android</strong>: needs a rooted phone with the CA in the system trust store (Android
-                    7+ ignores user CAs), e.g. a Magisk cert module.
+                    Open Egg, Inc. Flows appear live below. Only Egg, Inc. traffic is decrypted; everything else
+                    passes through untouched.
                 </li>
-            </ul>
-        </li>
-        <li>
-            Open Egg, Inc. Flows appear live below. Only Egg, Inc. traffic is decrypted; everything else
-            passes through untouched.
-        </li>
-    </ol>
+            </ol>
+        </div>
+    }
 </section>
 
 @code {
@@ -64,6 +66,11 @@
     [Parameter] public Func<HttpClient>? ClientFactory { get; set; }
 
     [Parameter] public string? InviteUrl { get; set; }
+
+    [Parameter] public bool Expanded { get; set; }
+    [Parameter] public EventCallback<bool> ExpandedChanged { get; set; }
+
+    private Task Toggle() => ExpandedChanged.InvokeAsync(!Expanded);
 
     string? _proxyHost;
     bool _caDmFailed;

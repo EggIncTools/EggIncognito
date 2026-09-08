@@ -15,7 +15,9 @@ public class BridgeProvisionerTests {
     private static BridgeProvisioner Provisioner(HttpMessageHandler handler) => new(
         new StubHttpFactory(handler),
         new DeviceTransportConfig {
-            Mode = DeviceTransportMode.Remote, RemoteBaseUrl = "https://host.test", ApiKey = "secret"
+            Mode = DeviceTransportMode.Remote,
+            RemoteBaseUrl = "https://host.test",
+            ApiKey = "secret"
         },
         new VirtualDeviceConfig { Kind = "redroid" });
 

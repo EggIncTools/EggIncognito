@@ -32,6 +32,7 @@ public class EggIncognitoDbContext(DbContextOptions<EggIncognitoDbContext> optio
     public DbSet<DeviceState> DeviceStates => Set<DeviceState>();
     public DbSet<DeviceAsset> DeviceAssets => Set<DeviceAsset>();
     public DbSet<ProvisionedInstanceRow> ProvisionedInstances => Set<ProvisionedInstanceRow>();
+    public DbSet<DeviceIslandRow> DeviceIslands => Set<DeviceIslandRow>();
     public DbSet<StagedProto> StagedProtos => Set<StagedProto>();
     public DbSet<EnvDesign> EnvDesigns => Set<EnvDesign>();
     public DbSet<EnvDesignVersion> EnvDesignVersions => Set<EnvDesignVersion>();
@@ -185,6 +186,11 @@ public class EggIncognitoDbContext(DbContextOptions<EggIncognitoDbContext> optio
         modelBuilder.Entity<ProvisionedInstanceRow>(e => {
             e.HasKey(x => x.InstanceId);
             e.HasIndex(x => x.State);
+            e.HasIndex(x => x.DeviceId);
+            e.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
+        });
+        modelBuilder.Entity<DeviceIslandRow>(e => {
+            e.HasKey(x => new { x.DeviceId, x.UserId });
             e.HasIndex(x => x.DeviceId);
             e.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
         });

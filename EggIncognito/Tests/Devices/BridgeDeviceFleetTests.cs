@@ -14,7 +14,9 @@ public class BridgeDeviceFleetTests {
         var source = new BridgeDeviceFleetSource(
             new StubHttpFactory(handler),
             new DeviceTransportConfig {
-                Mode = DeviceTransportMode.Remote, RemoteBaseUrl = "https://host.test", ApiKey = "secret"
+                Mode = DeviceTransportMode.Remote,
+                RemoteBaseUrl = "https://host.test",
+                ApiKey = "secret"
             },
             TimeProvider.System);
         return new BridgeDeviceFleet(source, NullLogger<BridgeDeviceFleet>.Instance);

@@ -17,17 +17,9 @@
 
 @if (_hub is not null) {
     <div class="awb-pane h-full">
-        @if (_session is not null && _hosted && (!_connected || !_running)) {
-            <div class="setup-collapsible @(_connected ? "setup-hidden" : "")">
-                <HostedSetupCard Port="HostedOptions.FrontDoorPort"
-                                 ClientFactory="Client" InviteUrl="@Config["Discord:InviteUrl"]"
-                                 HostOverride="@_rotatedHost"/>
-            </div>
-        }
-
-        <section class="panel capture-topbar">
-            <div class="capture-topbar-btns">
-                <CaptureControlsPanel Running="_running" ToggleBusy="_toggleBusy" View="_view"
+        <div class="capture-stack">
+            <div class="capture-bar">
+                <CaptureControlsPanel Running="_running" Port="_port" ToggleBusy="_toggleBusy" View="_view"
                                       OnToggleCapture="ToggleCapture" OnClear="Clear" OnViewChanged="OnViewChanged"
                                       Hosted="_hosted" ClientFactory="Client"
                                       OnAddressRotated="@(h => {
@@ -36,10 +28,17 @@
                                                         })"/>
                 <CaptureNoticesPanel Notices="_notices" Unread="_unread"
                                      OnDismissNotice="DismissNotice" OnClearNotices="ClearNotices" OnNoticesRead="MarkNoticesRead"/>
+                <div class="capture-bar-gap"></div>
+                <StatsPanel Stats="_stats" FlowCount="_flows.Count" Running="_running" Port="_port"/>
             </div>
-            <div class="capture-topbar-spacer"></div>
-            <StatsPanel Stats="_stats" FlowCount="_flows.Count" Running="_running" Port="_port"/>
-        </section>
+
+            @if (_session is not null && _hosted) {
+                <HostedSetupCard Port="HostedOptions.FrontDoorPort"
+                                 ClientFactory="Client" InviteUrl="@Config["Discord:InviteUrl"]"
+                                 HostOverride="@_rotatedHost"
+                                 Expanded="SetupExpanded" ExpandedChanged="SetSetupExpanded"/>
+            }
+        </div>
 
         @if (_limited) {
             <section class="panel capture-limited-banner">
@@ -127,6 +126,7 @@
     bool _isAdmin;
     string? _userId;
     bool _limited;
+    bool _setupTouched;
     IReadOnlySet<string> _fullDetailRoutes = new HashSet<string>(StringComparer.Ordinal);
     ContributePanel? _contribute;
 
@@ -187,6 +187,7 @@
             _view.AutoScroll = await InvokeOr("getAutoScroll", _view.AutoScroll);
             _view.CompareToKnown = await InvokeOr("getCompareToKnown", _view.CompareToKnown);
             _view.DefaultFormat = await InvokeOr("getDefaultFormat", _view.DefaultFormat);
+            _view.SetupExpanded = await InvokeOr("getSetupExpanded", _view.SetupExpanded);
         }
         catch {
             _store = null;
@@ -336,6 +337,15 @@
         await InvokeVoid("setAutoScroll", _view.AutoScroll);
         await InvokeVoid("setCompareToKnown", _view.CompareToKnown);
         await InvokeVoid("setDefaultFormat", _view.DefaultFormat);
+        StateHasChanged();
+    }
+
+    bool SetupExpanded => _setupTouched ? _view.SetupExpanded : _view.SetupExpanded && !_running;
+
+    async Task SetSetupExpanded(bool expanded) {
+        _setupTouched = true;
+        _view.SetupExpanded = expanded;
+        await InvokeVoid("setSetupExpanded", expanded);
         StateHasChanged();
     }
 

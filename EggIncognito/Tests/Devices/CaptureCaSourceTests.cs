@@ -20,7 +20,9 @@ public class CaptureCaSourceTests {
         .Build();
 
     private static DeviceTransportConfig Mode(DeviceTransportMode mode) => new() {
-        Mode = mode, RemoteBaseUrl = "https://host.test", ApiKey = "secret"
+        Mode = mode,
+        RemoteBaseUrl = "https://host.test",
+        ApiKey = "secret"
     };
 
     [Fact]

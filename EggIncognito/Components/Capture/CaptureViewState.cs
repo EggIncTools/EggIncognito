@@ -15,6 +15,7 @@ public sealed partial class CaptureViewState {
     public bool AutoScroll { get; set; } = true;
     public bool CompareToKnown { get; set; }
     public string DefaultFormat { get; set; } = "json-tree";
+    public bool SetupExpanded { get; set; } = true;
 
     public bool IsBlurMode => RedactionMode == "blur";
     public bool IsRedactMode => RedactionMode == "redact";
