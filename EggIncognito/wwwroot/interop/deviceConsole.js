@@ -5,6 +5,10 @@ function detach(img) {
   if (!s) return null;
   img.removeEventListener("load", s.onLoad);
   img.removeEventListener("error", s.onError);
+  if (s.statsTimer) {
+    clearInterval(s.statsTimer);
+    s.statsTimer = 0;
+  }
   sessions.delete(img);
   return s;
 }
@@ -18,20 +22,17 @@ function halt(img) {
 function report(img, s) {
   const w = img.naturalWidth;
   const h = img.naturalHeight;
-  const rw = img.clientWidth;
-  const rh = img.clientHeight;
-  if (w === s.lastW && h === s.lastH && rw === s.lastRw && rh === s.lastRh) return;
+  if (w === s.lastW && h === s.lastH) return;
   s.lastW = w;
   s.lastH = h;
-  s.lastRw = rw;
-  s.lastRh = rh;
-  s.dotnet.invokeMethodAsync("OnFrameSize", w, h, rw, rh);
+  s.dotnet.invokeMethodAsync("OnFrameSize", w, h);
 }
 
 function attach(img, dotnet, note, once) {
-  const s = { dotnet, lastW: -1, lastH: -1, lastRw: -1, lastRh: -1 };
+  const s = { dotnet, lastW: -1, lastH: -1, frames: 0, statsTimer: 0 };
   s.onLoad = () => {
     if (once) detach(img);
+    s.frames++;
     report(img, s);
   };
   s.onError = () => {
@@ -52,7 +53,20 @@ function bust(url) {
 export function start(img, streamUrl, dotnet) {
   if (!img) return false;
   halt(img);
-  attach(img, dotnet, "device stopped sending frames", false);
+  const s = attach(img, dotnet, "device stopped sending frames", false);
+  s.statsAt = performance.now();
+  s.statsTimer = setInterval(() => {
+    const now = performance.now();
+    const dt = Math.max(1, now - s.statsAt);
+    const fps = Math.round(((s.frames * 1000) / dt) * 10) / 10;
+    s.statsAt = now;
+    s.frames = 0;
+    try {
+      const p = dotnet.invokeMethodAsync("OnStreamFps", fps);
+      if (p && typeof p.catch === "function") p.catch(() => {});
+    } catch {
+    }
+  }, 1000);
   img.src = bust(streamUrl);
   return true;
 }
@@ -543,4 +557,203 @@ export function measureCanvas(canvas) {
     frameW: s ? s.frameW : canvas.width,
     frameH: s ? s.frameH : canvas.height
   };
+}
+
+const stageSessions = new WeakMap();
+const ACCENT = "#ef7559";
+
+function safeStage(s, method, ...args) {
+  if (!s.dotnet) return;
+  try {
+    const p = s.dotnet.invokeMethodAsync(method, ...args);
+    if (p && typeof p.catch === "function") p.catch(() => {});
+  } catch {
+  }
+}
+
+function clamp01(v) {
+  if (v < 0) return 0;
+  if (v > 1) return 1;
+  return v;
+}
+
+function normPoint(s, ev) {
+  const rect = s.media.getBoundingClientRect();
+  if (rect.width <= 0 || rect.height <= 0) return null;
+  return {
+    fx: clamp01((ev.clientX - rect.left) / rect.width),
+    fy: clamp01((ev.clientY - rect.top) / rect.height)
+  };
+}
+
+function localPoint(s, ev) {
+  const rect = s.stage.getBoundingClientRect();
+  return { x: ev.clientX - rect.left, y: ev.clientY - rect.top };
+}
+
+function ripple(s, x, y, kind) {
+  const size = kind === "long" ? 48 : 30;
+  const dot = document.createElement("span");
+  dot.style.cssText = "position:absolute;pointer-events:none;z-index:6;border-radius:9999px;border:2px solid "
+    + ACCENT + ";background:rgba(239,117,89,0.28);left:" + (x - size / 2) + "px;top:" + (y - size / 2)
+    + "px;width:" + size + "px;height:" + size + "px;";
+  s.stage.appendChild(dot);
+  const anim = dot.animate(
+    [{ transform: "scale(0.3)", opacity: 0.9 }, { transform: "scale(1)", opacity: 0 }],
+    { duration: kind === "long" ? 520 : 320, easing: "ease-out" }
+  );
+  anim.finished.then(() => dot.remove(), () => dot.remove());
+}
+
+function dragLine(s, x1, y1, x2, y2) {
+  if (!s.line) {
+    s.line = document.createElement("span");
+    s.line.style.cssText = "position:absolute;height:2px;transform-origin:0 50%;pointer-events:none;z-index:5;opacity:0.75;background:"
+      + ACCENT + ";";
+    s.stage.appendChild(s.line);
+  }
+  const dx = x2 - x1;
+  const dy = y2 - y1;
+  const len = Math.sqrt(dx * dx + dy * dy);
+  const ang = Math.atan2(dy, dx) * 180 / Math.PI;
+  s.line.style.left = x1 + "px";
+  s.line.style.top = y1 + "px";
+  s.line.style.width = len + "px";
+  s.line.style.transform = "rotate(" + ang + "deg)";
+}
+
+function clearLine(s) {
+  if (!s.line) return;
+  s.line.remove();
+  s.line = null;
+}
+
+function clearTimers(s) {
+  if (s.timer) {
+    clearTimeout(s.timer);
+    s.timer = 0;
+  }
+  if (s.raf) {
+    cancelAnimationFrame(s.raf);
+    s.raf = 0;
+  }
+}
+
+function onStageDown(s, ev) {
+  if (s.active || (ev.pointerType === "mouse" && ev.button !== 0)) return;
+  s.active = true;
+  s.moved = false;
+  s.handled = false;
+  s.pid = ev.pointerId;
+  const local = localPoint(s, ev);
+  s.startX = local.x;
+  s.startY = local.y;
+  s.startNorm = normPoint(s, ev);
+  ripple(s, local.x, local.y, "tap");
+  try {
+    s.stage.setPointerCapture(ev.pointerId);
+  } catch {
+  }
+  s.timer = setTimeout(() => {
+    if (!s.active || s.moved || s.handled) return;
+    s.handled = true;
+    ripple(s, s.startX, s.startY, "long");
+    if (s.startNorm) safeStage(s, "OnStageLongPress", s.startNorm.fx, s.startNorm.fy);
+  }, s.o.longPressMs);
+  ev.preventDefault();
+}
+
+function onStageMove(s, ev) {
+  if (!s.active || ev.pointerId !== s.pid) return;
+  s.lastEv = ev;
+  const local = localPoint(s, ev);
+  if (!s.moved && Math.abs(local.x - s.startX) < s.o.threshold && Math.abs(local.y - s.startY) < s.o.threshold) return;
+  s.moved = true;
+  if (s.timer) {
+    clearTimeout(s.timer);
+    s.timer = 0;
+  }
+  if (s.raf) return;
+  s.raf = requestAnimationFrame(() => {
+    s.raf = 0;
+    if (!s.lastEv) return;
+    const at = localPoint(s, s.lastEv);
+    dragLine(s, s.startX, s.startY, at.x, at.y);
+  });
+}
+
+function onStageUp(s, ev) {
+  if (!s.active || ev.pointerId !== s.pid) return;
+  s.active = false;
+  clearTimers(s);
+  clearLine(s);
+  try {
+    s.stage.releasePointerCapture(ev.pointerId);
+  } catch {
+  }
+  if (s.handled) return;
+  const end = normPoint(s, ev);
+  if (s.moved && s.startNorm && end) {
+    safeStage(s, "OnStageSwipe", s.startNorm.fx, s.startNorm.fy, end.fx, end.fy, s.o.swipeMs);
+  } else if (s.startNorm) {
+    safeStage(s, "OnStageTap", s.startNorm.fx, s.startNorm.fy);
+  }
+}
+
+function onStageCancel(s) {
+  if (!s.active) return;
+  s.active = false;
+  clearTimers(s);
+  clearLine(s);
+}
+
+function onStageWheel(s, ev) {
+  if (Math.abs(ev.deltaY) < 1) return;
+  ev.preventDefault();
+  const p = normPoint(s, ev);
+  if (!p) return;
+  const dir = ev.deltaY > 0 ? -1 : 1;
+  const span = 0.35;
+  const y1 = clamp01(p.fy - dir * span / 2);
+  const y2 = clamp01(p.fy + dir * span / 2);
+  safeStage(s, "OnStageSwipe", p.fx, y1, p.fx, y2, 150);
+}
+
+export function bindStage(stage, media, dotnet, opts) {
+  if (!stage || !media) return;
+  unbindStage(stage);
+  const o = { threshold: 8, longPressMs: 600, swipeMs: 200, ...(opts || {}) };
+  const s = {
+    stage, media, dotnet, o,
+    active: false, moved: false, handled: false, pid: -1,
+    startX: 0, startY: 0, startNorm: null, lastEv: null,
+    timer: 0, raf: 0, line: null
+  };
+  s.onDown = (ev) => onStageDown(s, ev);
+  s.onMove = (ev) => onStageMove(s, ev);
+  s.onUp = (ev) => onStageUp(s, ev);
+  s.onCancel = () => onStageCancel(s);
+  s.onWheel = (ev) => onStageWheel(s, ev);
+  stage.style.touchAction = "none";
+  stage.addEventListener("pointerdown", s.onDown);
+  stage.addEventListener("pointermove", s.onMove);
+  stage.addEventListener("pointerup", s.onUp);
+  stage.addEventListener("pointercancel", s.onCancel);
+  stage.addEventListener("wheel", s.onWheel, { passive: false });
+  stageSessions.set(stage, s);
+}
+
+export function unbindStage(stage) {
+  if (!stage) return;
+  const s = stageSessions.get(stage);
+  if (!s) return;
+  stage.removeEventListener("pointerdown", s.onDown);
+  stage.removeEventListener("pointermove", s.onMove);
+  stage.removeEventListener("pointerup", s.onUp);
+  stage.removeEventListener("pointercancel", s.onCancel);
+  stage.removeEventListener("wheel", s.onWheel);
+  stage.style.touchAction = "";
+  clearTimers(s);
+  clearLine(s);
+  stageSessions.delete(stage);
 }

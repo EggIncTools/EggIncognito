@@ -103,6 +103,10 @@ public static class DeviceServices {
         builder.Services.AddSingleton<SeedAuditStep>();
         builder.Services.AddSingleton<IntegrityAuditStep>();
         builder.Services.AddSingleton<AppAuditStep>();
+        builder.Services.AddSingleton<CreateIslandStep>();
+        builder.Services.AddSingleton<InstallAppIslandStep>();
+        builder.Services.AddSingleton<LaunchIslandStep>();
+        builder.Services.AddSingleton<RemoveIslandStep>();
 
         builder.Services.AddSingleton<InstallAppCookbook>();
         builder.Services.AddSingleton<InstallCaCookbook>();
@@ -116,6 +120,10 @@ public static class DeviceServices {
         builder.Services.AddSingleton<SeedAuditCookbook>();
         builder.Services.AddSingleton<IntegrityAuditCookbook>();
         builder.Services.AddSingleton<AppAuditCookbook>();
+        builder.Services.AddSingleton<CreateIslandCookbook>();
+        builder.Services.AddSingleton<InstallAppIslandCookbook>();
+        builder.Services.AddSingleton<LaunchIslandCookbook>();
+        builder.Services.AddSingleton<RemoveIslandCookbook>();
         builder.Services.AddSingleton<IDeviceCookbook>(sp => sp.GetRequiredService<InstallAppCookbook>());
         builder.Services.AddSingleton<IDeviceCookbook>(sp => sp.GetRequiredService<InstallCaCookbook>());
         builder.Services.AddSingleton<IDeviceCookbook>(sp => sp.GetRequiredService<LaunchAppCookbook>());
@@ -128,6 +136,10 @@ public static class DeviceServices {
         builder.Services.AddSingleton<IDeviceCookbook>(sp => sp.GetRequiredService<SeedAuditCookbook>());
         builder.Services.AddSingleton<IDeviceCookbook>(sp => sp.GetRequiredService<IntegrityAuditCookbook>());
         builder.Services.AddSingleton<IDeviceCookbook>(sp => sp.GetRequiredService<AppAuditCookbook>());
+        builder.Services.AddSingleton<IDeviceCookbook>(sp => sp.GetRequiredService<CreateIslandCookbook>());
+        builder.Services.AddSingleton<IDeviceCookbook>(sp => sp.GetRequiredService<InstallAppIslandCookbook>());
+        builder.Services.AddSingleton<IDeviceCookbook>(sp => sp.GetRequiredService<LaunchIslandCookbook>());
+        builder.Services.AddSingleton<IDeviceCookbook>(sp => sp.GetRequiredService<RemoveIslandCookbook>());
         builder.Services.AddSingleton<IDeviceAppLauncher>(sp => sp.GetRequiredService<LaunchAppCookbook>());
 
         var extensions = DeviceExtensionLoader.Load(

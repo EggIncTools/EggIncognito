@@ -25,7 +25,13 @@
             </span>
             <span class="dcon-bar-group">
                 @Actions
-                @if (!_useVideo) {
+                @if (_useVideo) {
+                    <select class="field-input dcon-rate" aria-label="Stream quality" value="@_quality" @onchange="QualityChanged">
+                        <option value="@StreamQuality.Fluid">Fluid</option>
+                        <option value="@StreamQuality.Balanced">Balanced</option>
+                        <option value="@StreamQuality.Crisp">Crisp</option>
+                    </select>
+                } else {
                     <select class="field-input dcon-rate" aria-label="Stream frame rate" value="@_fps" @onchange="FpsChanged">
                         @foreach (var fps in Rates) {
                             <option value="@fps">@fps fps</option>
@@ -40,13 +46,55 @@
             </span>
         </div>
 
+        @if (IsAndroid) {
+            <div class="dcon-bar">
+                <span class="dcon-bar-group">
+                    <span class="dcon-bar-k">Island</span>
+                    <select class="field-input dcon-rate" aria-label="Island" value="@IslandValue()"
+                            disabled="@_islandBusy" @onchange="IslandChanged">
+                        <option value="">Device (no island)</option>
+                        @foreach (var island in _islands) {
+                            <option value="@island.UserId.ToString(CultureInfo.InvariantCulture)">@IslandLabel(island)</option>
+                        }
+                    </select>
+                    @if (!_newIslandOpen) {
+                        <button type="button" class="btn-mini" disabled="@_islandBusy" @onclick="OpenNewIsland">+ new island</button>
+                    }
+                    @if (SelectedIsland() is { } selIsland) {
+                        <button type="button" class="btn-mini" disabled="@_islandBusy"
+                                @onclick="@(() => RemoveIslandAsync(selIsland.UserId))">
+                            Remove
+                        </button>
+                    }
+                    <button type="button" class="btn-mini" disabled="@_islandBusy" @onclick="LoadIslandsAsync">
+                        @(_islandBusy ? "..." : "Refresh")
+                    </button>
+                </span>
+                <span class="dcon-bar-group">
+                    @if (_islandsLoaded && _islands.Count == 0 && !_newIslandOpen) {
+                        <span class="text-xs text-muted">no islands yet</span>
+                    }
+                    <span class="text-xs text-muted">islands run one at a time; only the foreground user renders</span>
+                </span>
+            </div>
+            @if (_newIslandOpen) {
+                <div class="dcon-run-row">
+                    <input class="field-input" placeholder="island label" aria-label="New island label"
+                           @bind="_newIslandLabel" @bind:event="oninput" @onkeydown="NewIslandKeyAsync"/>
+                    <button type="button" class="btn-mini" disabled="@(_islandBusy || _newIslandLabel.Trim().Length == 0)"
+                            @onclick="CreateIslandAsync">
+                        Create
+                    </button>
+                    <button type="button" class="btn-mini" disabled="@_islandBusy" @onclick="CancelNewIsland">Cancel</button>
+                </div>
+            }
+        }
+
         <div class="dcon-body">
             <div class="dcon-stage-col">
                 <div class="dcon-stage">
-                    <button type="button" class="dcon-shot" @onclick="StageClickAsync"
-                            @onwheel="StageWheelAsync" @onwheel:preventDefault
-                            @onpointerdown="StagePointerDown" @onpointerup="StagePointerUpAsync"
-                            aria-label="Device screen: click to tap, drag or scroll to swipe">
+                    <button type="button" class="dcon-shot" @ref="_stage"
+                            aria-label="Device screen: tap, hold for long-press, drag or scroll to swipe">
                         @if (_useVideo) {
                             <canvas class="dcon-canvas" @ref="_canvas"></canvas>
                         } else {
@@ -71,10 +119,14 @@
                 </div>
 
                 <div class="dcon-typing">
-                    <input class="field-input font-mono" placeholder="text for the focused field"
-                           aria-label="Text to send" @bind="_text" @bind:event="oninput"
-                           @onkeydown="TextKeyAsync"/>
-                    <button type="button" class="btn-mini" disabled="@(_text.Length == 0)" @onclick="SendTextAsync">Send</button>
+                    <input class="field-input font-mono" placeholder="@(_captureKeys ? "capturing keys live" : "text for the focused field")"
+                           aria-label="Text and hardware keys" @bind="_text" @bind:event="oninput"
+                           @onkeydown="TextKeyAsync" @onkeydown:preventDefault="_captureKeys"/>
+                    <button type="button" class="btn-mini @(_captureKeys ? "dcon-on" : "")" @onclick="ToggleCapture"
+                            title="Send each keystroke live: printable keys as text, Enter and Escape as device keys">
+                        Capture
+                    </button>
+                    <button type="button" class="btn-mini" disabled="@(_captureKeys || _text.Length == 0)" @onclick="SendTextAsync">Send</button>
                 </div>
             </div>
 
@@ -156,6 +208,9 @@
                                     </select>
                                 }
                                 <button type="button" class="btn-mini" disabled="@(!CanRun())" @onclick="RunChosenAsync">Run</button>
+                                @if (SelectedIsland() is { } target) {
+                                    <span class="text-xs text-muted">to user @target.UserId</span>
+                                }
                             </div>
                         } else if (!_booksBusy) {
                             <div class="text-xs text-muted">no cookbooks for this device</div>
@@ -321,17 +376,24 @@
     bool _stopBusy;
     bool _refreshing;
     bool _wrap = true;
+    bool _captureKeys;
+    bool _islandBusy;
+    bool _islandsLoaded;
+    bool _newIslandOpen;
     int _fps = 3;
     int _shotW;
     int _shotH;
-    int _renderW;
-    int _renderH;
+    int? _selectedUserId;
     double _videoFps;
     double _videoLatency;
     double _videoKbps;
+    double _jpegFps;
+    StreamQuality _quality = StreamQuality.Balanced;
     string _filter = "";
     string _text = "";
+    string _newIslandLabel = "";
     string _streamKey = "";
+    string _stageKey = "";
     string _bookId = "";
     string? _deviceId;
     string? _streamError;
@@ -349,6 +411,7 @@
     List<JobGroupRow> _lastRuns = [];
     List<string> _runLog = [];
     List<CookbookStepResult> _steps = [];
+    List<IslandRow> _islands = [];
     readonly Dictionary<string, string> _args = [];
     UiDumpResult? _dump;
     UiNodeRow? _selected;
@@ -356,6 +419,7 @@
 
     ElementReference _img;
     ElementReference _canvas;
+    ElementReference _stage;
     IJSObjectReference? _module;
     DotNetObjectReference<DeviceConsolePane>? _self;
     IDisposable? _topics;
@@ -403,6 +467,7 @@
             await LoadCookbooksAsync();
             await LoadReadinessAsync();
             await LoadLastRunsAsync();
+            await LoadIslandsAsync();
             await CheckRunningAsync();
             return;
         }
@@ -417,10 +482,17 @@
         _dumpError = null;
         _streamError = null;
         _hasFrame = false;
-        _shotW = _shotH = _renderW = _renderH = 0;
-        _videoFps = _videoLatency = _videoKbps = 0;
+        _shotW = _shotH = 0;
+        _videoFps = _videoLatency = _videoKbps = _jpegFps = 0;
         _books = [];
         _lastRuns = [];
+        _islands = [];
+        _islandsLoaded = false;
+        _islandBusy = false;
+        _newIslandOpen = false;
+        _newIslandLabel = "";
+        _selectedUserId = null;
+        _captureKeys = false;
         _args.Clear();
         _bookId = "";
         _readiness = null;
@@ -459,7 +531,8 @@
         if (_streamError is { } err) return $"ended: {err}";
         if (!_live) return "paused";
         if (!_hasFrame) return "connecting";
-        if (!_useVideo) return $"jpeg {_fps} fps";
+        if (!_useVideo) return string.Create(CultureInfo.InvariantCulture,
+            $"jpeg {_jpegFps:0.#} of {_fps} fps {_shotW}x{_shotH}");
         return string.Create(CultureInfo.InvariantCulture,
             $"live {_videoFps:0} fps {_videoLatency:0} ms {_shotW}x{_shotH} {_videoKbps / 1000:0.0} Mbps");
     }
@@ -483,6 +556,15 @@
     void FpsChanged(ChangeEventArgs e) {
         if (!int.TryParse(e.Value?.ToString(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var fps)) return;
         _fps = Math.Clamp(fps, 1, 5);
+    }
+
+    void QualityChanged(ChangeEventArgs e) {
+        if (Enum.TryParse<StreamQuality>(e.Value?.ToString(), out var quality)) _quality = quality;
+    }
+
+    void ToggleCapture() {
+        _captureKeys = !_captureKeys;
+        if (_captureKeys) _text = "";
     }
 
     void ToggleInspect() {
@@ -509,22 +591,14 @@
     }
 
     const int DragThresholdPx = 8;
-    const int WheelTravelPercent = 35;
+    const int LongPressMs = 600;
 
     bool _swiping;
-    bool _dragging;
-    bool _swallowClick;
-    double _dragX;
-    double _dragY;
 
-    async Task StageClickAsync(MouseEventArgs e) {
+    [JSInvokable]
+    public async Task OnStageTap(double fx, double fy) {
         if (_deviceId is null) return;
-        if (_swallowClick) {
-            _swallowClick = false;
-            return;
-        }
-
-        if (await StagePointAsync(e.OffsetX, e.OffsetY) is not { } p) {
+        if (DevicePoint(fx, fy) is not { } p) {
             await Fail("no frame measured yet");
             return;
         }
@@ -532,44 +606,29 @@
         await TapAsync(p.X, p.Y);
     }
 
-    void StagePointerDown(PointerEventArgs e) {
-        _dragging = true;
-        _dragX = e.OffsetX;
-        _dragY = e.OffsetY;
+    [JSInvokable]
+    public async Task OnStageLongPress(double fx, double fy) {
+        if (_deviceId is null || DevicePoint(fx, fy) is not { } p) return;
+        await SwipeAsync(p.X, p.Y, p.X, p.Y, LongPressMs);
     }
 
-    async Task StagePointerUpAsync(PointerEventArgs e) {
-        if (!_dragging) return;
-        _dragging = false;
-        if (Math.Abs(e.OffsetX - _dragX) < DragThresholdPx && Math.Abs(e.OffsetY - _dragY) < DragThresholdPx) return;
-
-        _swallowClick = true;
-        if (await StagePointAsync(_dragX, _dragY) is not { } from) return;
-        if (await StagePointAsync(e.OffsetX, e.OffsetY) is not { } to) return;
-        await SwipeAsync(from.X, from.Y, to.X, to.Y, 200);
+    [JSInvokable]
+    public async Task OnStageSwipe(double fx1, double fy1, double fx2, double fy2, int durationMs) {
+        if (_deviceId is null) return;
+        if (DevicePoint(fx1, fy1) is not { } from || DevicePoint(fx2, fy2) is not { } to) return;
+        await SwipeAsync(from.X, from.Y, to.X, to.Y, Math.Clamp(durationMs, 50, 1000));
     }
 
-    async Task StageWheelAsync(WheelEventArgs e) {
-        if (_deviceId is null || _swiping || Math.Abs(e.DeltaY) < 1) return;
-        if (await StagePointAsync(e.OffsetX, e.OffsetY) is not { } p) return;
-        int travel = Math.Max(2, p.H * WheelTravelPercent / 100);
-        int dir = e.DeltaY > 0 ? -1 : 1;
-        int y1 = Math.Clamp(p.Y - dir * travel / 2, 0, p.H - 1);
-        int y2 = Math.Clamp(p.Y + dir * travel / 2, 0, p.H - 1);
-        await SwipeAsync(p.X, y1, p.X, y2, 150);
+    (int X, int Y)? DevicePoint(double fx, double fy) {
+        var w = TapWidth;
+        var h = TapHeight;
+        if (w <= 0 || h <= 0) return null;
+        return (Frac(fx, w), Frac(fy, h));
     }
 
-    async Task<(int X, int Y, int W, int H)?> StagePointAsync(double offsetX, double offsetY) {
-        if (_useVideo) {
-            if (await ModuleAsync() is not { } module) return null;
-            var m = await SafeValueAsync(() => module.InvokeAsync<StageMeasure>("measureCanvas", _canvas).AsTask());
-            if (m is not { W: > 0, H: > 0, FrameW: > 0, FrameH: > 0 }) return null;
-            return (Scale(offsetX, m.W, m.FrameW), Scale(offsetY, m.H, m.FrameH), m.FrameW, m.FrameH);
-        }
-
-        await MeasureAsync();
-        if (TapWidth <= 0 || TapHeight <= 0 || _renderW <= 0 || _renderH <= 0) return null;
-        return (Scale(offsetX, _renderW, TapWidth), Scale(offsetY, _renderH, TapHeight), TapWidth, TapHeight);
+    static int Frac(double fraction, int size) {
+        var value = (int)Math.Round(Math.Clamp(fraction, 0, 1) * (size - 1), MidpointRounding.AwayFromZero);
+        return Math.Clamp(value, 0, size - 1);
     }
 
     async Task SwipeAsync(int x1, int y1, int x2, int y2, int durationMs) {
@@ -585,11 +644,6 @@
         }
     }
 
-    static int Scale(double offset, int rendered, int device) {
-        var value = (int)Math.Round(offset / rendered * device, MidpointRounding.AwayFromZero);
-        return Math.Clamp(value, 0, device - 1);
-    }
-
     async Task TapAsync(int x, int y) {
         var res = await Client().PostAsJsonAsync($"/api/devices/{_deviceId}/ui/tap",
             new UiTapRequest(x, y), SelfCallJson.Web);
@@ -600,8 +654,32 @@
         return _selected is { } sel ? TapAsync(sel.CenterX, sel.CenterY) : Task.CompletedTask;
     }
 
-    Task TextKeyAsync(KeyboardEventArgs e) {
-        return e.Key == "Enter" ? SendTextAsync() : Task.CompletedTask;
+    async Task TextKeyAsync(KeyboardEventArgs e) {
+        if (_captureKeys) {
+            await CaptureKeyAsync(e);
+            return;
+        }
+
+        if (e.Key == "Enter") await SendTextAsync();
+        else if (e.Key == "Escape") await KeyAsync("back");
+    }
+
+    async Task CaptureKeyAsync(KeyboardEventArgs e) {
+        if (_deviceId is null) return;
+        if (e.Key == "Enter") {
+            await KeyAsync("enter");
+            return;
+        }
+
+        if (e.Key == "Escape") {
+            await KeyAsync("back");
+            return;
+        }
+
+        if (e.Key.Length != 1) return;
+        var res = await Client().PostAsJsonAsync($"/api/devices/{_deviceId}/ui/text",
+            new UiTextRequest(e.Key), SelfCallJson.Web);
+        if (!res.IsSuccessStatusCode) await Fail(await ReadError(res));
     }
 
     async Task SendTextAsync() {
@@ -749,6 +827,88 @@
         _lastRuns = [.. page.Rows.Where(j => j.Kind == DeviceJobKinds.Cookbook).Take(LastRunCount)];
     }
 
+    async Task LoadIslandsAsync() {
+        if (_deviceId is null || !IsAndroid) return;
+        _islandBusy = true;
+        StateHasChanged();
+        _islands = await Client().ListAsync<IslandRow>($"/api/devices/{_deviceId}/islands", Logger);
+        _islandsLoaded = true;
+        if (_selectedUserId is { } uid && _islands.All(i => i.UserId != uid)) _selectedUserId = null;
+        _islandBusy = false;
+        StateHasChanged();
+    }
+
+    IslandRow? SelectedIsland() {
+        return _selectedUserId is { } uid ? _islands.FirstOrDefault(i => i.UserId == uid) : null;
+    }
+
+    string IslandValue() {
+        return _selectedUserId?.ToString(CultureInfo.InvariantCulture) ?? "";
+    }
+
+    static string IslandLabel(IslandRow island) {
+        var label = string.IsNullOrWhiteSpace(island.Label) ? $"user {island.UserId}" : $"{island.Label} (user {island.UserId})";
+        return island.Provisioned ? label : $"{label} - provisioning";
+    }
+
+    void IslandChanged(ChangeEventArgs e) {
+        _selectedUserId = int.TryParse(e.Value?.ToString(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var uid)
+            ? uid
+            : null;
+    }
+
+    void OpenNewIsland() {
+        _newIslandOpen = true;
+        _newIslandLabel = "";
+    }
+
+    void CancelNewIsland() {
+        _newIslandOpen = false;
+        _newIslandLabel = "";
+    }
+
+    Task NewIslandKeyAsync(KeyboardEventArgs e) {
+        if (e.Key == "Enter") return CreateIslandAsync();
+        if (e.Key == "Escape") CancelNewIsland();
+        return Task.CompletedTask;
+    }
+
+    async Task CreateIslandAsync() {
+        if (_deviceId is null) return;
+        var label = _newIslandLabel.Trim();
+        if (label.Length == 0) return;
+        _islandBusy = true;
+        StateHasChanged();
+        var res = await Client().PostAsJsonAsync($"/api/devices/{_deviceId}/islands",
+            new NewIslandRequest(label), SelfCallJson.Web);
+        _islandBusy = false;
+        if (!res.IsSuccessStatusCode) {
+            await Fail(await ReadError(res));
+            StateHasChanged();
+            return;
+        }
+
+        _newIslandLabel = "";
+        _newIslandOpen = false;
+        await LoadIslandsAsync();
+    }
+
+    async Task RemoveIslandAsync(int userId) {
+        if (_deviceId is null) return;
+        _islandBusy = true;
+        StateHasChanged();
+        var res = await Client().DeleteAsync($"/api/devices/{_deviceId}/islands/{userId}");
+        _islandBusy = false;
+        if (!res.IsSuccessStatusCode) {
+            await Fail(await ReadError(res));
+            StateHasChanged();
+            return;
+        }
+
+        if (_selectedUserId == userId) _selectedUserId = null;
+        await LoadIslandsAsync();
+    }
+
     IEnumerable<(string Word, ReadinessCheck? Check)> ReadinessWords() {
         yield return ("installed", _readiness?.Installed);
         yield return ("ca", _readiness?.CaptureCa);
@@ -809,7 +969,7 @@
 
         var argument = book.Options is { Count: > 0 } ? ArgFor(book) : null;
         var res = await Client().PostAsJsonAsync($"/api/devices/{_deviceId}/cookbooks",
-            new DeviceCookbookRequest(book.Id, argument), SelfCallJson.Web);
+            new { cookbookId = book.Id, argument, userId = _selectedUserId }, SelfCallJson.Web);
         if (!res.IsSuccessStatusCode) {
             var failed = await ReadError(res);
             _runBusy = false;
@@ -935,6 +1095,7 @@
         await LoadCookbooksAsync();
         await LoadReadinessAsync();
         await LoadLastRunsAsync();
+        await LoadIslandsAsync();
         if (OnChanged.HasDelegate) await OnChanged.InvokeAsync();
     }
 
@@ -1091,8 +1252,13 @@
             }
         }
 
+        await SyncStreamAsync(module);
+        await SyncStageAsync(module);
+    }
+
+    async Task SyncStreamAsync(IJSObjectReference module) {
         var wanted = _live && Active && _deviceId is not null && _streamError is null;
-        var desired = !wanted ? "" : _useVideo ? $"{_deviceId}|video" : $"{_deviceId}|jpeg|{_fps}";
+        var desired = !wanted ? "" : _useVideo ? $"{_deviceId}|video|{_quality}" : $"{_deviceId}|jpeg|{_fps}";
         if (desired == _streamKey) return;
 
         await HaltAsync(module);
@@ -1100,12 +1266,20 @@
         if (desired.Length == 0) return;
 
         _streamOnVideo = _useVideo;
-        if (_useVideo) {
-            await SafeAsync(() => module.InvokeVoidAsync("startVideo", _canvas, VideoUrl(), Ref(), new { maxQueue = 2 }).AsTask());
-            return;
-        }
+        if (_useVideo) await SafeAsync(() => module.InvokeVoidAsync("startVideo", _canvas, VideoUrl(), Ref(), new { maxQueue = 2 }).AsTask());
+        else await SafeAsync(() => module.InvokeAsync<bool>("start", _img, StreamUrl(), Ref()).AsTask());
+    }
 
-        await SafeAsync(() => module.InvokeAsync<bool>("start", _img, StreamUrl(), Ref()).AsTask());
+    async Task SyncStageAsync(IJSObjectReference module) {
+        var desired = _deviceId is null || !Active ? "" : _useVideo ? $"{_deviceId}|v" : $"{_deviceId}|j";
+        if (desired == _stageKey) return;
+        if (_stageKey.Length > 0) await SafeAsync(() => module.InvokeVoidAsync("unbindStage", _stage).AsTask());
+        _stageKey = desired;
+        if (desired.Length == 0) return;
+
+        var media = _useVideo ? _canvas : _img;
+        await SafeAsync(() => module.InvokeVoidAsync("bindStage", _stage, media, Ref(),
+            new { threshold = DragThresholdPx, longPressMs = LongPressMs, swipeMs = 200 }).AsTask());
     }
 
     async Task HaltAsync(IJSObjectReference module) {
@@ -1119,34 +1293,41 @@
         _hasFrame = false;
         if (_module is not { } module) return;
         await HaltAsync(module);
-    }
-
-    async Task MeasureAsync() {
-        if (await ModuleAsync() is not { } module) return;
-        var size = await SafeValueAsync(() => module.InvokeAsync<int[]>("measure", _img).AsTask());
-        if (size is not { Length: 4 }) return;
-        _shotW = size[0];
-        _shotH = size[1];
-        _renderW = size[2];
-        _renderH = size[3];
-        _hasFrame = _shotW > 0;
+        if (_stageKey.Length > 0) {
+            _stageKey = "";
+            await SafeAsync(() => module.InvokeVoidAsync("unbindStage", _stage).AsTask());
+        }
     }
 
     string StreamUrl() {
         return $"/api/devices/{_deviceId}/ui/stream?fps={_fps}";
     }
 
+    (int W, int H, int Bitrate) QualitySpec() {
+        return _quality switch {
+            StreamQuality.Fluid => (540, 960, 1_500_000),
+            StreamQuality.Crisp => (1080, 1920, 6_000_000),
+            _ => (720, 1280, 3_000_000)
+        };
+    }
+
     string VideoUrl() {
-        return $"/api/devices/{_deviceId}/ui/video?size=720x1280&bitrate=3000000";
+        var (w, h, bitrate) = QualitySpec();
+        return string.Create(CultureInfo.InvariantCulture,
+            $"/api/devices/{_deviceId}/ui/video?size={w}x{h}&bitrate={bitrate}");
     }
 
     [JSInvokable]
-    public Task OnFrameSize(int naturalW, int naturalH, int renderW, int renderH) {
+    public Task OnFrameSize(int naturalW, int naturalH) {
         _shotW = naturalW;
         _shotH = naturalH;
-        _renderW = renderW;
-        _renderH = renderH;
         _hasFrame = naturalW > 0;
+        return InvokeAsync(StateHasChanged);
+    }
+
+    [JSInvokable]
+    public Task OnStreamFps(double fps) {
+        _jpegFps = fps;
         return InvokeAsync(StateHasChanged);
     }
 
@@ -1222,7 +1403,11 @@
         _disposed = true;
         StopTick();
         StopRunWatch();
-        if (_module is { } module) await HaltAsync(module);
+        if (_module is { } module) {
+            if (_stageKey.Length > 0) await SafeAsync(() => module.InvokeVoidAsync("unbindStage", _stage).AsTask());
+            await HaltAsync(module);
+        }
+
         await _module.DisposeModuleQuietAsync(logger: Logger);
         _self?.Dispose();
         _self = null;

@@ -90,7 +90,7 @@ public sealed class DeviceCookbookRunner(
 
             renewal = RenewAsync(deviceId, renewals.Token);
             var context = new DeviceCookbookContext(target, request.Argument,
-                line => jobs.ProgressAsync(job, line, ct: cts.Token).GetAwaiter().GetResult());
+                line => jobs.ProgressAsync(job, line, ct: cts.Token).GetAwaiter().GetResult(), request.UserId);
             var run = await executor.RunAsync(cookbook, context, cts.Token);
             await jobs.FinishAsync(job, run.Ok ? DeviceOutcomes.Ok : DeviceOutcomes.Error, Summarize(cookbook, run),
                 Facts(cookbook, run, request), CancellationToken.None);
@@ -122,7 +122,7 @@ public sealed class DeviceCookbookRunner(
             renewal = RenewAsync(job.DeviceId, renewals.Token);
             var cookbook = cookbooks.Find(request.CookbookId)!;
             var context = new DeviceCookbookContext(target, request.Argument,
-                line => scoped.ProgressAsync(job, line).GetAwaiter().GetResult());
+                line => scoped.ProgressAsync(job, line).GetAwaiter().GetResult(), request.UserId);
             var run = await executor.RunAsync(cookbook, context, cts.Token);
 
             await scoped.FinishAsync(job, run.Ok ? DeviceOutcomes.Ok : DeviceOutcomes.Error, Summarize(cookbook, run),

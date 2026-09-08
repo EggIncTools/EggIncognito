@@ -33,13 +33,13 @@ public sealed partial class CreateIslandStep(
     public override string Id => DeviceCookbookIds.CreateIsland;
     public override string Title => "Create island";
 
-    public override async Task<CookbookStepAvailability> DescribeAsync(DeviceTarget target, CancellationToken ct) {
+    public override Task<CookbookStepAvailability> DescribeAsync(DeviceTarget target, CancellationToken ct) {
         if (!Platforms.Matches(target.Platform, Platforms.Android))
-            return CookbookStepAvailability.No("islands are android-only");
+            return Task.FromResult(CookbookStepAvailability.No("islands are android-only"));
         if (connections.For(target) is null)
-            return CookbookStepAvailability.No("no connection for this device");
+            return Task.FromResult(CookbookStepAvailability.No("no connection for this device"));
 
-        return new CookbookStepAvailability(true, null, "Label");
+        return Task.FromResult(new CookbookStepAvailability(true, null, "Label"));
     }
 
     public override async Task<CookbookStepResult> RunAsync(DeviceCookbookContext context, CancellationToken ct) {
@@ -71,8 +71,8 @@ public sealed partial class CreateIslandStep(
 
         Add($"creating user '{label}'");
         var create = await conn.ShellAsync($"pm create-user {DeviceShell.Quote(label)}", ct);
-        if (CreatedUserRegex().Match(create.Stdout + create.Stderr) is not { Success: true } m
-            || !int.TryParse(m.Groups[1].Value, out int userId)) {
+        var match = CreatedUserRegex().Match(create.Stdout + create.Stderr);
+        if (!match.Success || !int.TryParse(match.Groups[1].Value, out int userId)) {
             return Failed(lines,
                 $"pm create-user did not report a new id: {DeviceParsing.TrimNote(create.Stdout + create.Stderr)}");
         }

@@ -51,6 +51,7 @@ public static class DataServices {
         builder.Services.AddScoped<SymbolizedReferenceStore>();
         builder.Services.AddScoped<DeviceAssetStore>();
         builder.Services.AddScoped<DeviceStateStore>();
+        builder.Services.AddScoped<DeviceIslandStore>();
         builder.Services.AddScoped<DeviceRegistryPublisher>();
         builder.Services.AddScoped<DeviceJobStore>();
         builder.Services.AddSingleton<DeviceTimelineCache>();
