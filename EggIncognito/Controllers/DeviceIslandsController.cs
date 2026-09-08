@@ -31,10 +31,23 @@ public sealed class DeviceIslandsController(
         if (RequireAdmin() is { } no) return no;
         if (Runner is not { } runner || Islands is not { } store)
             return StatusCode(503, new { error = "no database configured" });
-        if (await runner.TargetAsync(id, ct) is null) return NotFound(new { error = "unknown device" });
+        if (await runner.TargetAsync(id, ct) is not { } target) return NotFound(new { error = "unknown device" });
 
-        var islands = await store.ListAsync(id, ct);
-        return Ok(islands.Select(Project));
+        return Ok((await ReconciledAsync(store, target, ct)).Select(Project));
+    }
+
+    private async Task<IReadOnlyList<DeviceIsland>> ReconciledAsync(
+        DeviceIslandStore store, DeviceTarget target, CancellationToken ct) {
+        if (!Platforms.Matches(target.Platform, Platforms.Android)) return await store.ListAsync(target.Id, ct);
+        if (services.GetService(typeof(IDeviceConnectionFactory)) is not IDeviceConnectionFactory factory
+            || factory.For(target) is not { } conn)
+            return await store.ListAsync(target.Id, ct);
+
+        var users = await conn.ShellAsync("pm list users", ct);
+        if (users.ExitCode != 0 || !users.Stdout.Contains("UserInfo{", StringComparison.Ordinal))
+            return await store.ListAsync(target.Id, ct);
+
+        return await store.ReconcileAsync(target.Id, users.Stdout, ct);
     }
 
     [HttpPost("{id}/islands")]
@@ -43,15 +56,14 @@ public sealed class DeviceIslandsController(
         if (RequireAdmin() is { } no) return no;
         if (Runner is not { } runner || Islands is not { } store)
             return StatusCode(503, new { error = "no database configured" });
-        if (await runner.TargetAsync(id, ct) is null) return NotFound(new { error = "unknown device" });
+        if (await runner.TargetAsync(id, ct) is not { } target) return NotFound(new { error = "unknown device" });
 
         string who = currentUser.DiscordId ?? "?";
         var run = await runner.RunNowAsync(id,
             new DeviceCookbookRequest(DeviceCookbookIds.CreateIsland, request?.Label), $"admin:{who}", ct);
         if (!run.Ok) return StatusCode(502, new { error = run.Failure ?? "create-island failed" });
 
-        var islands = await store.ListAsync(id, ct);
-        return Ok(islands.Select(Project));
+        return Ok((await ReconciledAsync(store, target, ct)).Select(Project));
     }
 
     [HttpDelete("{id}/islands/{userId:int}")]
@@ -60,15 +72,29 @@ public sealed class DeviceIslandsController(
         if (RequireAdmin() is { } no) return no;
         if (Runner is not { } runner || Islands is not { } store)
             return StatusCode(503, new { error = "no database configured" });
-        if (await runner.TargetAsync(id, ct) is null) return NotFound(new { error = "unknown device" });
+        if (await runner.TargetAsync(id, ct) is not { } target) return NotFound(new { error = "unknown device" });
 
         string who = currentUser.DiscordId ?? "?";
         var run = await runner.RunNowAsync(id,
             new DeviceCookbookRequest(DeviceCookbookIds.RemoveIsland, UserId: userId), $"admin:{who}", ct);
         if (!run.Ok) return StatusCode(502, new { error = run.Failure ?? "remove-island failed" });
 
-        var islands = await store.ListAsync(id, ct);
-        return Ok(islands.Select(Project));
+        return Ok((await ReconciledAsync(store, target, ct)).Select(Project));
+    }
+
+    [HttpGet("{id}/islands/current")]
+    public async Task<IActionResult> Current(string id, CancellationToken ct) {
+        if (RequireAdmin() is { } no) return no;
+        if (Runner is not { } runner) return StatusCode(503, new { error = "no database configured" });
+        if (await runner.TargetAsync(id, ct) is not { } target) return NotFound(new { error = "unknown device" });
+        if (!Platforms.Matches(target.Platform, Platforms.Android)) return Ok(new IslandCurrent(IslandScope.Owner));
+        if (services.GetService(typeof(IDeviceConnectionFactory)) is not IDeviceConnectionFactory factory
+            || factory.For(target) is not { } conn)
+            return Ok(new IslandCurrent(IslandScope.Owner));
+
+        var r = await conn.ShellAsync("am get-current-user", ct);
+        int uid = r.ExitCode == 0 && int.TryParse(r.Stdout.Trim(), out int u) ? u : IslandScope.Owner;
+        return Ok(new IslandCurrent(uid));
     }
 
     [HttpPost("{id}/islands/{userId:int}/switch")]

@@ -62,7 +62,7 @@ public sealed class LaunchIslandStep(
             return Failed(lines, $"am start --user {user} failed: {DeviceParsing.TrimNote(start.Stdout + start.Stderr)}");
 
         bool keyed = await WaitAntiTamperAsync(conn, Add, ct);
-        if (await HandlePlayNagAsync(conn, user, component, keyed, Add, ct) is { } nagFailure)
+        if (await HandlePlayNagAsync(conn, user, component, Add, ct) is { } nagFailure)
             return Failed(lines, nagFailure);
 
         return await VerdictAsync(conn, target, user, component, keyed, lines, Add, ct);
@@ -96,7 +96,7 @@ public sealed class LaunchIslandStep(
     }
 
     private async Task<string?> HandlePlayNagAsync(
-        IDeviceConnection conn, string user, string component, bool keyed, Action<string> add,
+        IDeviceConnection conn, string user, string component, Action<string> add,
         CancellationToken ct) {
         string mode = config["Devices:Islands:PlayNag"] is { Length: > 0 } m ? m.Trim() : PlayNagFreeze;
         if (!string.Equals(mode, PlayNagFreeze, StringComparison.OrdinalIgnoreCase)) {
@@ -105,7 +105,7 @@ public sealed class LaunchIslandStep(
         }
 
         var front = await DeviceForeground.ReadAsync(conn, ct);
-        if (!keyed && !front.Is(DeviceForeground.PlayStorePackage)) return null;
+        if (!front.Is(DeviceForeground.PlayStorePackage)) return null;
 
         add("freezing Play to clear the account nag, then re-launching the app");
         await conn.ShellAsync($"am force-stop --user {user} {DeviceForeground.PlayStorePackage}", ct);

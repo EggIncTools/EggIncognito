@@ -1,4 +1,5 @@
 @implements IAsyncDisposable
+@using System.Text.Json
 @using System.Threading.Channels
 @using EggIncognito.Capture
 @using EggIncognito.Components.Capture
@@ -278,11 +279,11 @@
 
     async Task ToggleCapture() {
         _toggleBusy = true;
-        string verb = _running ? "stop" : "start";
+        var verb = _running ? "stop" : "start";
         try {
             var res = await Client().PostAsync($"/api/capture/{verb}", null);
             if (!res.IsSuccessStatusCode) {
-                string detail = await ProblemDetailAsync(res);
+                var detail = await ProblemDetailAsync(res);
                 Logger.LogWarning("capture {Verb} failed: HTTP {Status} {Detail}", verb, (int)res.StatusCode, detail);
                 Toasts.Push(StatusNoteKind.Error, $"Capture {verb} failed (HTTP {(int)res.StatusCode}). {detail}");
             }
@@ -298,14 +299,14 @@
     }
 
     static async Task<string> ProblemDetailAsync(HttpResponseMessage res) {
-        string body = (await res.Content.ReadAsStringAsync()).Trim();
+        var body = (await res.Content.ReadAsStringAsync()).Trim();
         if (body.Length == 0) return res.ReasonPhrase ?? "";
         try {
-            using var doc = System.Text.Json.JsonDocument.Parse(body);
+            using var doc = JsonDocument.Parse(body);
             if (doc.RootElement.TryGetProperty("detail", out var d) && d.GetString() is { Length: > 0 } detail) return detail;
             if (doc.RootElement.TryGetProperty("error", out var e) && e.GetString() is { Length: > 0 } error) return error;
         }
-        catch (System.Text.Json.JsonException) {
+        catch (JsonException) {
             return body.Length > 200 ? body[..200] : body;
         }
 

@@ -39,8 +39,7 @@ public sealed class DeviceResponseOverrideStore : IDeviceResponseOverrides, IDev
         }
 
         _devices[deviceId] = map;
-        return Task.FromResult(DeviceResult.Success(
-            $"installed {map.Count} override(s) for {deviceId}"));
+        return Task.FromResult(DeviceResult.Success($"installed {map.Count} override(s) for {deviceId}"));
     }
 
     public Task<DeviceResult> ClearAsync(string deviceId, CancellationToken ct) {

@@ -14,7 +14,9 @@
                 <Icon Name="@(Running ? "pause" : "play")"/>
                 @(Running ? "Stop" : "Start")
             </button>
-            <span class="cap-state @(Running ? "cap-state-live" : "")"><span class="cap-state-dot"></span>@StateText</span>
+            <span class="cap-state @(Running ? "cap-state-live" : "")">
+                <span class="cap-state-dot"></span>@StateText
+            </span>
         </div>
         <span class="capture-bar-sep"></span>
 
@@ -143,7 +145,7 @@
         _dmBusy = true;
         try {
             var res = await ClientFactory().PostAsync("/api/capture/send-config", null);
-            string body = await res.Content.ReadAsStringAsync();
+            var body = await res.Content.ReadAsStringAsync();
             if (!res.IsSuccessStatusCode) {
                 Toasts.Push(StatusNoteKind.Error, $"Could not DM your setup (HTTP {(int)res.StatusCode}). {Detail(body)}");
             } else if (Sent(body)) {

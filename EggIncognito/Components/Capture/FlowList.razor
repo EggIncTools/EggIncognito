@@ -241,34 +241,34 @@
     static string RowTitle(DashboardFlow flow) => $"#{flow.Id} at {flow.Timestamp}";
 
     RenderFragment RowBody(DashboardFlow flow, TimeSpan? delta) => @<text>
-                                                                       @{
-                                                                           var noReqBody = string.IsNullOrEmpty(flow.RequestDataB64);
-                                                                           var outcome = View.CompareToKnown ? CaptureHelpers.Outcome(flow.Outcome) : null;
-                                                                           var reqType = flow.RequestType ?? (noReqBody ? "none" : "?");
-                                                                           var respType = flow.ResponseType ?? "?";
-                                                                           var idle = delta is { } d && d >= IdleGap;
-                                                                       }
-                                                                       <span class="fdelta @(idle ? "fdelta-idle" : "")">@FormatDelta(delta)</span>
-                                                                       <span class="fpath">@flow.Path</span>
-                                                                       <span class="fmeta">
-                                                                           <span class="ftypes">
-                                                                               <span class="@(flow.RequestType is null ? "unknown" : "")">@reqType</span>
-                                                                               <span class="type-arrow">›</span>
-                                                                               <span class="@(flow.ResponseType is null ? "unknown" : "")">@respType</span>
-                                                                           </span>
-                                                                           @if (flow.Known || flow.Saved) {
-                                                                               <span class="known-dot"></span>
-                                                                           }
-                                                                           @if (outcome is not null) {
-                                                                               @OutcomeTag(flow, outcome)
-                                                                           }
-                                                                           @if (flow.Status is >= 200 and < 300) {
-                                                                               <span class="status-dot"></span>
-                                                                           } else {
-                                                                               <span class="status-badge @CaptureHelpers.StatusClass(flow.Status)">@flow.Status</span>
-                                                                           }
-                                                                       </span>
-                                                                   </text>;
+                                                                        @{
+                                                                            var noReqBody = string.IsNullOrEmpty(flow.RequestDataB64);
+                                                                            var outcome = View.CompareToKnown ? CaptureHelpers.Outcome(flow.Outcome) : null;
+                                                                            var reqType = flow.RequestType ?? (noReqBody ? "none" : "?");
+                                                                            var respType = flow.ResponseType ?? "?";
+                                                                            var idle = delta is { } d && d >= IdleGap;
+                                                                        }
+                                                                        <span class="fdelta @(idle ? "fdelta-idle" : "")">@FormatDelta(delta)</span>
+                                                                        <span class="fpath">@flow.Path</span>
+                                                                        <span class="fmeta">
+                                                                            <span class="ftypes">
+                                                                                <span class="@(flow.RequestType is null ? "unknown" : "")">@reqType</span>
+                                                                                <span class="type-arrow">›</span>
+                                                                                <span class="@(flow.ResponseType is null ? "unknown" : "")">@respType</span>
+                                                                            </span>
+                                                                            @if (flow.Known || flow.Saved) {
+                                                                                <span class="known-dot"></span>
+                                                                            }
+                                                                            @if (outcome is not null) {
+                                                                                @OutcomeTag(flow, outcome)
+                                                                            }
+                                                                            @if (flow.Status is >= 200 and < 300) {
+                                                                                <span class="status-dot"></span>
+                                                                            } else {
+                                                                                <span class="status-badge @CaptureHelpers.StatusClass(flow.Status)">@flow.Status</span>
+                                                                            }
+                                                                        </span>
+                                                                    </text>;
 
     RenderFragment OutcomeTag(DashboardFlow flow, CaptureHelpers.OutcomeMeta meta) => builder => {
         var seq = 0;

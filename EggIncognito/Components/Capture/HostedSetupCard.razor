@@ -70,7 +70,9 @@
     [Parameter] public bool Expanded { get; set; }
     [Parameter] public EventCallback<bool> ExpandedChanged { get; set; }
 
-    private Task Toggle() => ExpandedChanged.InvokeAsync(!Expanded);
+    private Task Toggle() {
+        return ExpandedChanged.InvokeAsync(!Expanded);
+    }
 
     string? _proxyHost;
     bool _caDmFailed;
