@@ -182,6 +182,17 @@ public static class DeviceServices {
     }
 
     private static void AddDeviceCapture(this WebApplicationBuilder builder, BootFlags boot) {
+        bool borrowing = boot.DeviceTransportConfig.Mode == DeviceTransportMode.Remote && !boot.FakeDevices;
+        if (borrowing) {
+            builder.Services.AddSingleton<IDeviceResponseOverrides, BridgeDeviceResponseOverrides>();
+        } else {
+            builder.Services.AddSingleton<DeviceResponseOverrideStore>();
+            builder.Services.AddSingleton<IDeviceResponseSources>(sp =>
+                sp.GetRequiredService<DeviceResponseOverrideStore>());
+            builder.Services.AddSingleton<IDeviceResponseOverrides>(sp =>
+                sp.GetRequiredService<DeviceResponseOverrideStore>());
+        }
+
         builder.Services.AddSingleton(sp => {
             var config = sp.GetRequiredService<IConfiguration>();
             string contentRoot = ContentRoot.Resolve(config["ContentRoot"]);
@@ -203,7 +214,7 @@ public static class DeviceServices {
                 boot.FakeDevices ? null : sp.GetService<ConfigChangeNotifier>(),
                 sp.GetRequiredService<IRouteCatalog>(),
                 sp.GetService<ConsumeObservationRecorder>(),
-                sp.GetService<IDeviceResponseSources>());
+                new CompositeDeviceResponseSources(sp.GetServices<IDeviceResponseSources>()));
         });
         builder.Services.AddSingleton<IDeviceCaptureStatus>(sp => sp.GetRequiredService<DeviceCaptureManager>());
         builder.Services.AddSingleton<DeviceProxyPusher>();

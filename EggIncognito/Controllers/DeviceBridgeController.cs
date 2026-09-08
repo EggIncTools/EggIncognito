@@ -262,6 +262,47 @@ public sealed class DeviceBridgeController(
         return Ok(new { ok = true });
     }
 
+    [HttpPut(BridgeRoutes.Overrides + "/{deviceId}")]
+    [DisableRateLimiting]
+    public async Task<IActionResult> OverridesSet(
+        string deviceId, [FromBody] DeviceResponseOverrideSet? body, CancellationToken ct) {
+        if (BridgeGate.Check(HttpContext, config, currentUser, logger) is { } gate) return gate;
+        if (Service<DeviceResponseOverrideStore>() is not { } store)
+            return StatusCode(503, new { error = "no capture proxy on this host" });
+        if (await UnknownDeviceAsync(deviceId, ct) is { } unknown) return unknown;
+        if (body?.Entries is not { Count: > 0 } entries)
+            return BadRequest(new { error = "at least one override entry is required" });
+
+        Note("overrides", deviceId);
+        var res = await store.SetAsync(deviceId, entries, ct);
+        if (!res.Ok) return BadRequest(new { error = res.Note ?? "overrides rejected" });
+        return Ok(new { ok = true, count = entries.Count });
+    }
+
+    [HttpDelete(BridgeRoutes.Overrides + "/{deviceId}")]
+    [DisableRateLimiting]
+    public async Task<IActionResult> OverridesClear(string deviceId, CancellationToken ct) {
+        if (BridgeGate.Check(HttpContext, config, currentUser, logger) is { } gate) return gate;
+        if (Service<DeviceResponseOverrideStore>() is not { } store)
+            return StatusCode(503, new { error = "no capture proxy on this host" });
+        if (await UnknownDeviceAsync(deviceId, ct) is { } unknown) return unknown;
+
+        Note("overrides", deviceId);
+        var res = await store.ClearAsync(deviceId, ct);
+        if (!res.Ok) return BadRequest(new { error = res.Note ?? "overrides not cleared" });
+        return Ok(new { ok = true });
+    }
+
+    private async Task<IActionResult?> UnknownDeviceAsync(string deviceId, CancellationToken ct) {
+        if (Service<IDeviceFleet>() is not { } fleet)
+            return StatusCode(503, new { error = "device transport not configured" });
+
+        var enabled = await fleet.EnabledAsync(ct);
+        return enabled.All(d => !string.Equals(d.Id, deviceId, StringComparison.Ordinal))
+            ? NotFound(new { error = "unknown device" })
+            : null;
+    }
+
     private static BridgeFleetEntry FleetEntry(DeviceEntry d) =>
         new(d.Id, d.Platform, d.Label, d.Target, d.Package, d.Origin, d.CapturePort);
 

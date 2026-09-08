@@ -13,6 +13,9 @@ public static class BridgeRoutes {
     public const string Release = "release";
     public const string Fleet = "fleet";
     public const string Instances = "instances";
+    public const string Overrides = "overrides";
+
+    public static string OverridesFor(string deviceId) => $"{Overrides}/{Uri.EscapeDataString(deviceId)}";
 
     public static string InstanceDestroy(string instanceId) =>
         $"{Instances}/{Uri.EscapeDataString(instanceId)}/destroy";
