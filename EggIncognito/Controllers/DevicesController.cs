@@ -680,6 +680,7 @@ public sealed partial class DevicesController(
 
         string command = ScreenVideoPump.ScreenrecordCommand(size, Math.Clamp(bitrate, MinVideoBitrate, MaxVideoBitrate));
         try {
+            await conn.ShellAsync(ScreenVideoPump.KillStaleCommand, ct);
             Response.StatusCode = StatusCodes.Status200OK;
             Response.ContentType = "application/octet-stream";
             Response.Headers.CacheControl = "no-store";

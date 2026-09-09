@@ -61,7 +61,7 @@
             }
         </span>
         <span class="dwb-bar-group">
-            <span class="text-muted text-xs">@(_useVideo ? "h264" : "jpeg")</span>
+            <span class="text-muted text-xs" title="@(_videoFallback ? "h264 gave no frame, retrying shortly" : null)">@(_useVideo ? "h264" : _videoFallback ? "jpeg, h264 retry pending" : "jpeg")</span>
             <select class="field-input dcon-rate" aria-label="Quality" value="@QualityValue()" @onchange="QualityPicked">
                 @if (_useVideo) {
                     <option value="@StreamQuality.Fluid">Fluid</option>
@@ -463,6 +463,7 @@
     const int LastRunPage = 25;
     const int StreamBusyStatus = 409;
     static readonly TimeSpan StreamRetryDelay = TimeSpan.FromSeconds(1);
+    static readonly TimeSpan VideoReprobeDelay = TimeSpan.FromSeconds(20);
 
     bool _disposed;
     bool _isAdmin;
@@ -473,6 +474,8 @@
     bool _streamOnVideo;
     bool _syncing;
     bool _streamRetried;
+    bool _videoFallback;
+    int _videoReprobe;
     bool? _videoSupported;
     bool _replaying;
     bool _booksBusy;
@@ -623,6 +626,8 @@
         _replaying = false;
         _streamError = null;
         _streamRetried = false;
+        _videoFallback = false;
+        _videoReprobe++;
         _hasFrame = false;
         _shotW = _shotH = 0;
         _screenW = _screenH = 0;
@@ -664,7 +669,7 @@
     }
 
     bool RecomputeVideo() {
-        var next = _videoSupported == true && IsAndroid;
+        var next = _videoSupported == true && IsAndroid && !_videoFallback;
         if (next == _useVideo) return false;
         _useVideo = next;
         return true;
@@ -710,12 +715,33 @@
         }
 
         ClearStreamError();
+        RetryVideo();
         _live = true;
     }
 
     void ClearStreamError() {
         _streamError = null;
         _streamRetried = false;
+    }
+
+    void RetryVideo() {
+        _videoReprobe++;
+        if (!_videoFallback) return;
+        _videoFallback = false;
+        RecomputeVideo();
+    }
+
+    async Task ReprobeVideoLaterAsync(string deviceId, int token) {
+        try {
+            await Task.Delay(VideoReprobeDelay);
+        } catch (TaskCanceledException) {
+            return;
+        }
+
+        if (_disposed || token != _videoReprobe || _deviceId != deviceId || !_live) return;
+        RetryVideo();
+        Logger.LogInformation("re-probing the h264 stream for {DeviceId}", deviceId);
+        await InvokeAsync(StateHasChanged);
     }
 
     string QualityValue() {
@@ -1666,10 +1692,11 @@
             return;
         }
 
-        if (videoNeverDrew && _live && _useVideo) {
-            _videoSupported = false;
+        if (videoNeverDrew && _live && _useVideo && _deviceId is { } deviceId) {
+            _videoFallback = true;
             RecomputeVideo();
-            Logger.LogInformation("video stream for {DeviceId} gave no frame ({Reason}); falling back to jpeg", _deviceId, reason);
+            Logger.LogInformation("video stream for {DeviceId} gave no frame ({Reason}); jpeg until the next re-probe", deviceId, reason);
+            _ = ReprobeVideoLaterAsync(deviceId, ++_videoReprobe);
             await InvokeAsync(StateHasChanged);
             return;
         }

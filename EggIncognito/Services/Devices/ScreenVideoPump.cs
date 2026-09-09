@@ -11,6 +11,7 @@ public sealed class ScreenVideoPump(Func<CancellationToken, Task<ProcessHandle?>
     public static readonly TimeSpan InstantSegment = TimeSpan.FromSeconds(2);
 
     public const int SizeAlign = 8;
+    public const string KillStaleCommand = "pkill -x screenrecord";
 
     public static string ScreenrecordCommand(string size, int bitrate) =>
         $"screenrecord --output-format=h264 --size {size} --bit-rate {bitrate} --time-limit {SegmentSeconds} -";
