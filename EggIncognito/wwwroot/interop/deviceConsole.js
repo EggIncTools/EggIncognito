@@ -1,6 +1,7 @@
 const sessions = new Map();
 const FIRST_FRAME_MS = 8000;
 const STALL_MS = 8000;
+const VIDEO_STALL_MS = 180000;
 
 function detach(img) {
   const s = sessions.get(img);
@@ -447,8 +448,8 @@ function tickStats(s) {
     finish(s, "no first frame within " + Math.round(FIRST_FRAME_MS / 1000) + "s", 0);
     return;
   }
-  if (s.lastFrameAt > 0 && now - s.lastFrameAt > STALL_MS) {
-    finish(s, "no frames for " + Math.round(STALL_MS / 1000) + "s", 0);
+  if (s.lastFrameAt > 0 && now - s.lastFrameAt > VIDEO_STALL_MS) {
+    finish(s, "no frames for " + Math.round(VIDEO_STALL_MS / 1000) + "s", 0);
     return;
   }
   const dt = Math.max(1, now - s.statsAt);

@@ -6,21 +6,21 @@
     <PackageVersion Include="AngleSharp" Version="1.5.2" />
     <PackageVersion Include="bunit" Version="2.7.2" />
     <PackageVersion Include="coverlet.collector" Version="6.0.4" />
-    <PackageVersion Include="EggIdentity.AdminUi" Version="2.3.3" />
-    <PackageVersion Include="EggIdentity.Bot" Version="2.3.3" />
-    <PackageVersion Include="EggIdentity.Bot.AdminUi" Version="2.3.3" />
-    <PackageVersion Include="EggIdentity.Client" Version="2.3.3" />
-    <PackageVersion Include="EggIdentity.CodeStyle" Version="2.3.3" />
-    <PackageVersion Include="EggIdentity.Deploy" Version="2.3.3" />
-    <PackageVersion Include="EggIdentity.Deploy.AdminUi" Version="2.3.3" />
-    <PackageVersion Include="EggIdentity.Fallback" Version="2.3.3" />
-    <PackageVersion Include="EggIdentity.Metrics" Version="2.3.3" />
-    <PackageVersion Include="EggIdentity.Metrics.AdminUi" Version="2.3.3" />
-    <PackageVersion Include="EggIdentity.Settings" Version="2.3.3" />
-    <PackageVersion Include="EggIdentity.Settings.AdminUi" Version="2.3.3" />
-    <PackageVersion Include="EggIdentity.Settings.Store" Version="2.3.3" />
-    <PackageVersion Include="EggIdentity.Styles" Version="2.3.3" />
-    <PackageVersion Include="EggIdentity.UI" Version="2.3.3" />
+    <PackageVersion Include="EggIdentity.AdminUi" Version="2.3.4" />
+    <PackageVersion Include="EggIdentity.Bot" Version="2.3.4" />
+    <PackageVersion Include="EggIdentity.Bot.AdminUi" Version="2.3.4" />
+    <PackageVersion Include="EggIdentity.Client" Version="2.3.4" />
+    <PackageVersion Include="EggIdentity.CodeStyle" Version="2.3.4" />
+    <PackageVersion Include="EggIdentity.Deploy" Version="2.3.4" />
+    <PackageVersion Include="EggIdentity.Deploy.AdminUi" Version="2.3.4" />
+    <PackageVersion Include="EggIdentity.Fallback" Version="2.3.4" />
+    <PackageVersion Include="EggIdentity.Metrics" Version="2.3.4" />
+    <PackageVersion Include="EggIdentity.Metrics.AdminUi" Version="2.3.4" />
+    <PackageVersion Include="EggIdentity.Settings" Version="2.3.4" />
+    <PackageVersion Include="EggIdentity.Settings.AdminUi" Version="2.3.4" />
+    <PackageVersion Include="EggIdentity.Settings.Store" Version="2.3.4" />
+    <PackageVersion Include="EggIdentity.Styles" Version="2.3.4" />
+    <PackageVersion Include="EggIdentity.UI" Version="2.3.4" />
     <PackageVersion Include="Gee.External.Capstone" Version="2.3.0" />
     <PackageVersion Include="Google.Protobuf" Version="3.29.3" />
     <PackageVersion Include="Grpc.Tools" Version="2.71.0" />

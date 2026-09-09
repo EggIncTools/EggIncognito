@@ -80,51 +80,92 @@
                 <div class="wb-note">@(_devices.Count == 0 ? "No devices declared on this host." : "Pick a device.")</div>
             }
         } else {
-            <div class="dwb-tabs">
-                <WorkbenchModes Modes="@Tabs(dev)" Current="@State.Mode" CurrentChanged="SelectTab" Label="Device view"/>
-            </div>
-
-            <div class="dwb-pane @(DeviceWorkbenchState.IsConsoleTab(State.Mode) ? "dwb-pane-fill" : "")">
-                @if (DeviceWorkbenchState.IsConsoleTab(State.Mode)) {
-                    <DeviceConsolePane DeviceId="@dev.Id" Platform="@dev.Platform" Virtual="@dev.Virtual" Active="true"
-                                       OnNotice="Notice" OnChanged="ReloadDevices">
-                        <Actions>
-                            @if (State.Mode == DeviceWorkbenchState.TabDevice) {
-                                <button type="button" class="btn-primary" disabled="@Busy" @onclick="Launch">
-                                    <Icon Name="play" Class="icon-sm"/>
-                                    Launch
-                                </button>
-                                <button type="button" class="btn-mini" disabled="@Busy" @onclick="RestartApp">Restart app</button>
+            <div class="dwb-pane dwb-pane-fill">
+                <DeviceConsolePane DeviceId="@dev.Id" Platform="@dev.Platform" Virtual="@dev.Virtual" Active="true"
+                                   OnNotice="Notice" OnChanged="ReloadDevices">
+                    <Actions>
+                        @if (dev.Virtual) {
+                            <button type="button" class="btn-primary" disabled="@Busy" @onclick="Launch">
+                                <Icon Name="play" Class="icon-sm"/>
+                                Launch
+                            </button>
+                            <button type="button" class="btn-mini" disabled="@Busy" @onclick="RestartApp">Restart app</button>
+                            <button type="button" class="btn-mini" disabled="@Busy" @onclick="Recert">Recert</button>
+                            <button type="button" class="btn-mini btn-danger" disabled="@Busy" @onclick="Destroy">
+                                <Icon Name="trash-2" Class="icon-sm"/>
+                                @(_destroyArmed ? "Destroy?" : "Destroy")
+                            </button>
+                        } else {
+                            <button type="button" class="btn-primary" disabled="@Busy" @onclick="ProbeNow">
+                                <Icon Name="refresh-cw" Class="icon-sm"/>
+                                Probe
+                            </button>
+                            <button type="button" class="btn-mini" disabled="@Busy" @onclick="CheckStore">Check store</button>
+                            <button type="button" class="btn-mini" disabled="@Busy" @onclick="RestartApp">Restart app</button>
+                            @if (dev.Platform == "android") {
                                 <button type="button" class="btn-mini" disabled="@Busy" @onclick="Recert">Recert</button>
-                                <button type="button" class="btn-mini btn-danger" disabled="@Busy" @onclick="Destroy">
-                                    <Icon Name="trash-2" Class="icon-sm"/>
-                                    @(_destroyArmed ? "Destroy?" : "Destroy")
-                                </button>
-                            } else {
-                                <button type="button" class="btn-primary" disabled="@Busy" @onclick="ProbeNow">
-                                    <Icon Name="refresh-cw" Class="icon-sm"/>
-                                    Probe
-                                </button>
-                                <button type="button" class="btn-mini" disabled="@Busy" @onclick="CheckStore">Check store</button>
-                                <button type="button" class="btn-mini" disabled="@Busy" @onclick="RestartApp">Restart app</button>
-                                @if (dev.Platform == "android") {
-                                    <button type="button" class="btn-mini" disabled="@Busy" @onclick="Recert">Recert</button>
-                                }
-
-                                @if (_harvest is { InRegistry: false }) {
-                                    <button type="button" class="btn-mini" disabled="@Busy" @onclick="SaveToRegistry">
-                                        Save to registry
-                                    </button>
-                                }
-
-                                <button type="button" class="btn-mini" disabled="@Busy" @onclick="Poke">Poke harvest</button>
                             }
-                        </Actions>
-                        <ActionNotes>@ActionLines(dev)</ActionNotes>
-                    </DeviceConsolePane>
-                }
 
-                @if (State.Mode == DeviceWorkbenchState.TabJobs) {
+                            @if (_harvest is { InRegistry: false }) {
+                                <button type="button" class="btn-mini" disabled="@Busy" @onclick="SaveToRegistry">
+                                    Save to registry
+                                </button>
+                            }
+
+                            <button type="button" class="btn-mini" disabled="@Busy" @onclick="Poke">Poke harvest</button>
+                        }
+                    </Actions>
+                    <ActionNotes>@ActionLines(dev)</ActionNotes>
+                    <Sections>
+                <DeviceSection Title="Capture" Count="@_flows.Count" Open="@State.IsOpen(DeviceWorkbenchState.SectionCapture)"
+                               OpenChanged="ToggleCapture">
+                    <Summary>
+                        @if (_hub is null) {
+                            <span class="text-muted text-xs">not configured on this host</span>
+                        } else {
+                            <span class="text-muted text-xs">@(_connected ? "connected" : "waiting for the device")</span>
+                        }
+                    </Summary>
+                    <ChildContent>
+                    @if (_hub is not null) {
+                        <div class="dwb-capture">
+                            <div class="dwb-capture-bar">
+                                <CaptureControlsPanel View="State.Capture" ReadOnly="true"
+                                                      OnViewChanged="StateHasChanged"/>
+                            </div>
+                            <div class="dwb-capture-body">
+                                <FlowList Flows="_flows" SelectedId="_selectedFlowId" Connected="_connected"
+                                          View="State.Capture" OnSelect="SelectFlow"/>
+                                @if (_selectedFlow is { } selected) {
+                                    <DetailPane Flow="selected" View="State.Capture" ClientFactory="Client">
+                                        <Tools>
+                                            @if (Kinds.For(selected.Path) is not null) {
+                                                <button type="button" class="btn-mini" disabled="@(_offerBusy || _offered.Contains(selected.Id))"
+                                                        @onclick="@(() => OfferAsync(dev, selected))">
+                                                    <Icon Name="send" Class="icon-sm"/>
+                                                    @(_offered.Contains(selected.Id) ? "Offered" : _offerBusy ? "Offering..." : "Offer for review")
+                                                </button>
+                                            }
+                                        </Tools>
+                                    </DetailPane>
+                                }
+                            </div>
+                            <ContributePanel @ref="_contribute" ClientFactory="Client"/>
+                        </div>
+                    }
+                    </ChildContent>
+                </DeviceSection>
+
+                <DeviceSection Title="Jobs" Count="@_jobs?.Count" Open="@State.IsOpen(DeviceWorkbenchState.SectionJobs)"
+                               OpenChanged="ToggleJobs">
+                    <Summary>
+                        @if (RunningFor(dev.Id) is { } running) {
+                            <span class="dwb-status wb-st-run"><Icon Name="play" Class="icon-sm"/><span>@running.Kind</span></span>
+                        } else if (_jobs is { Count: > 0 } latest) {
+                            <span class="text-muted text-xs">last @latest[0].Kind @(latest[0].Outcome ?? latest[0].State) at @Stamp(latest[0].LastAt)</span>
+                        }
+                    </Summary>
+                    <ChildContent>
                     <WorkbenchLoad T="JobGroupRow" Items="_jobs" EmptyText="No jobs yet." Context="jobs">
                         <div class="reg-wrap">
                             <table class="data-table dwb-jobs-table">
@@ -195,40 +236,12 @@
                             </button>
                         }
                     </WorkbenchLoad>
-                }
+                    </ChildContent>
+                </DeviceSection>
 
-                @if (State.Mode == DeviceWorkbenchState.TabCapture) {
-                    @if (_hub is null) {
-                        <div class="wb-note">Capture is not configured for this device on this host.</div>
-                    } else {
-                        <div class="dwb-capture">
-                            <div class="dwb-capture-bar">
-                                <CaptureControlsPanel View="State.Capture" ReadOnly="true"
-                                                      OnViewChanged="StateHasChanged"/>
-                            </div>
-                            <div class="dwb-capture-body">
-                                <FlowList Flows="_flows" SelectedId="_selectedFlowId" Connected="_connected"
-                                          View="State.Capture" OnSelect="SelectFlow"/>
-                                @if (_selectedFlow is { } selected) {
-                                    <DetailPane Flow="selected" View="State.Capture" ClientFactory="Client">
-                                        <Tools>
-                                            @if (Kinds.For(selected.Path) is not null) {
-                                                <button type="button" class="btn-mini" disabled="@(_offerBusy || _offered.Contains(selected.Id))"
-                                                        @onclick="@(() => OfferAsync(dev, selected))">
-                                                    <Icon Name="send" Class="icon-sm"/>
-                                                    @(_offered.Contains(selected.Id) ? "Offered" : _offerBusy ? "Offering..." : "Offer for review")
-                                                </button>
-                                            }
-                                        </Tools>
-                                    </DetailPane>
-                                }
-                            </div>
-                            <ContributePanel @ref="_contribute" ClientFactory="Client"/>
-                        </div>
-                    }
-                }
-
-                @if (State.Mode == DeviceWorkbenchState.TabBinaries) {
+                <DeviceSection Title="Binaries" Count="@BinaryCount(dev)" Open="@State.IsOpen(DeviceWorkbenchState.SectionBinaries)"
+                               OpenChanged="@(o => State.SetOpen(DeviceWorkbenchState.SectionBinaries, o))">
+                    <ChildContent>
                     <div class="reg-wrap">
                         <table class="data-table">
                             <thead>
@@ -286,7 +299,10 @@
                             </table>
                         </div>
                     }
-                }
+                    </ChildContent>
+                </DeviceSection>
+                    </Sections>
+                </DeviceConsolePane>
             </div>
         }
     </ChildContent>
@@ -422,16 +438,19 @@
                                                       }
                                                   </text>;
 
-    IReadOnlyList<(string Key, string Label, int? Count)> Tabs(DeviceRow dev) {
-        return [.. DeviceWorkbenchState.ModesFor(dev.Virtual).Select(m => (m.Key, m.Label, TabCount(m.Key)))];
+    int? BinaryCount(DeviceRow dev) {
+        return _binaries?.Count(x => x.Platform == dev.Platform);
     }
 
-    int? TabCount(string key) {
-        return key switch {
-            DeviceWorkbenchState.TabCapture => _flows.Count,
-            DeviceWorkbenchState.TabBinaries => _binaries?.Count(x => x.Platform == Current?.Platform),
-            _ => null
-        };
+    void ToggleCapture(bool open) {
+        State.SetOpen(DeviceWorkbenchState.SectionCapture, open);
+        if (open) AttachCapture();
+        else DetachCapture();
+    }
+
+    async Task ToggleJobs(bool open) {
+        State.SetOpen(DeviceWorkbenchState.SectionJobs, open);
+        if (open && _jobs is null) await LoadJobsAsync();
     }
 
     static string Stamp(DateTimeOffset at) {
@@ -474,13 +493,12 @@
         StateHasChanged();
     }
 
-    public async Task OpenScreen(string? deviceId = null) {
-        State.Mode = DeviceWorkbenchState.TabScreen;
-        await Open(deviceId);
+    public Task OpenScreen(string? deviceId = null) {
+        return Open(deviceId);
     }
 
     public async Task OpenCapture(string? deviceId = null) {
-        State.Mode = DeviceWorkbenchState.TabCapture;
+        State.SetOpen(DeviceWorkbenchState.SectionCapture, true);
         await Open(deviceId);
     }
 
@@ -527,12 +545,6 @@
         DetachCapture();
     }
 
-    async Task SelectTab(string tab) {
-        State.Mode = tab;
-        if (State.Mode == DeviceWorkbenchState.TabCapture) AttachCapture();
-        if (State.Mode == DeviceWorkbenchState.TabJobs) await LoadJobsAsync();
-    }
-
     void OnTopic(string topic) {
         if (_disposed || !_open) return;
         if (topic == AdminTopics.DeviceStatus) _ = InvokeAsync(RefreshAsync);
@@ -552,7 +564,7 @@
         try {
             await LoadLiveAsync();
             if (_devicesFailed || _live.Any(j => _devices.All(d => d.Id != j.Device))) await LoadAsync();
-            if (State.Mode == DeviceWorkbenchState.TabJobs && Current is not null) await RefreshJobsAsync();
+            if (Current is not null && (State.IsOpen(DeviceWorkbenchState.SectionJobs) || _jobs is not null)) await RefreshJobsAsync();
             if (_subscription is null) ResolveHub();
             StateHasChanged();
         }
@@ -576,12 +588,11 @@
     }
 
     async Task LoadForDeviceAsync() {
-        if (Current is not { } dev) return;
-        State.AlignMode(dev.Virtual);
+        if (Current is null) return;
         ResolveHub();
         await LoadHarvestAsync();
         await LoadJobsAsync();
-        if (State.Mode == DeviceWorkbenchState.TabCapture) AttachCapture();
+        if (State.IsOpen(DeviceWorkbenchState.SectionCapture)) AttachCapture();
     }
 
     async Task LoadLiveAsync() {

@@ -86,24 +86,20 @@
     </div>
 
     @if (Actions is not null) {
-        <div class="dwb-bar">
-            <span class="dwb-bar-group">
-                <span class="dcon-k">Actions</span>
-            </span>
-            <span class="dwb-bar-group">@Actions</span>
-            @if (ActionNotes is not null) {
-                <div class="dcon-fill">@ActionNotes</div>
-            }
-        </div>
+        <DeviceSection Title="Actions" Open="@State.IsOpen(DeviceWorkbenchState.SectionActions)"
+                       OpenChanged="@(o => State.SetOpen(DeviceWorkbenchState.SectionActions, o))">
+            <Tools>@Actions</Tools>
+            <ChildContent>@ActionNotes</ChildContent>
+        </DeviceSection>
     }
 
     @if (IsAndroid) {
-        <div class="dwb-bar">
-            <span class="dwb-bar-group">
-                <span class="dcon-k">Island</span>
-                <span class="text-muted text-xs">islands run one at a time; only the foreground user renders</span>
-            </span>
-            <span class="dwb-bar-group">
+        <DeviceSection Title="Island" Open="@State.IsOpen(DeviceWorkbenchState.SectionIsland)"
+                       OpenChanged="@(o => State.SetOpen(DeviceWorkbenchState.SectionIsland, o))">
+            <Summary>
+                <span class="text-muted text-xs">@CurrentIslandLabel()</span>
+            </Summary>
+            <Tools>
                 @if (!_newIslandOpen) {
                     <button type="button" class="btn-mini" disabled="@_islandBusy" @onclick="OpenNewIsland">
                         <Icon Name="plus" Class="icon-sm"/>
@@ -114,8 +110,10 @@
                     <Icon Name="refresh-cw" Class="icon-sm"/>
                     @(_islandBusy ? "Refreshing..." : "Refresh")
                 </button>
-            </span>
-            <div class="reg-wrap dcon-fill dcon-island-wrap">
+            </Tools>
+            <ChildContent>
+            <div class="text-muted text-xs">islands run one at a time; only the foreground user renders</div>
+            <div class="reg-wrap dcon-island-wrap">
                 <table class="data-table dcon-list">
                     <tbody>
                     <tr>
@@ -165,7 +163,7 @@
                 </table>
             </div>
             @if (_newIslandOpen) {
-                <div class="dcon-run-row dcon-fill">
+                <div class="dcon-run-row">
                     <input class="field-input" placeholder="island label" aria-label="New island label"
                            @bind="_newIslandLabel" @bind:event="oninput" @onkeydown="NewIslandKeyAsync"/>
                     <button type="button" class="btn-mini" disabled="@(_islandBusy || _newIslandLabel.Trim().Length == 0)"
@@ -175,22 +173,22 @@
                     <button type="button" class="btn-mini" disabled="@_islandBusy" @onclick="CancelNewIsland">Cancel</button>
                 </div>
             }
-        </div>
+            </ChildContent>
+        </DeviceSection>
     }
 
-    <div class="dwb-bar">
-        <span class="dwb-bar-group">
-            <span class="dcon-k">Input</span>
-        </span>
-        <span class="dwb-bar-group">
+    <DeviceSection Title="Input" Open="@State.IsOpen(DeviceWorkbenchState.SectionInput)"
+                   OpenChanged="@(o => State.SetOpen(DeviceWorkbenchState.SectionInput, o))">
+        <Tools>
             <button type="button" class="btn-mini" @onclick="@(() => KeyAsync("back"))">Back</button>
             <button type="button" class="btn-mini" @onclick="@(() => KeyAsync("home"))">Home</button>
             <button type="button" class="btn-mini" @onclick="@(() => KeyAsync("recents"))">Recents</button>
             <button type="button" class="btn-mini" @onclick="@(() => KeyAsync("enter"))">Enter</button>
             <button type="button" class="btn-mini" @onclick="@(() => KeyAsync("wake"))">Wake</button>
             <button type="button" class="btn-mini" @onclick="@(() => KeyAsync("close-app"))">Close app</button>
-        </span>
-        <div class="dcon-typing dcon-fill">
+        </Tools>
+        <ChildContent>
+        <div class="dcon-typing">
             <input class="field-input font-mono" placeholder="@(_captureKeys ? "capturing keys live" : "text for the focused field")"
                    aria-label="Text and hardware keys" @bind="_text" @bind:event="oninput"
                    @onkeydown="TextKeyAsync" @onkeydown:preventDefault="_captureKeys"/>
@@ -204,10 +202,14 @@
                 Send
             </button>
         </div>
-    </div>
+        </ChildContent>
+    </DeviceSection>
 
-    <div class="dcon-activity">
+    <div class="dcon-activity @(ActivityOpen ? "" : "dcon-activity-closed")">
         <div class="dcon-activity-head">
+            <button type="button" class="dcon-sec-toggle" aria-expanded="@(ActivityOpen ? "true" : "false")" @onclick="ToggleActivity">
+                <span class="ep-caret @(ActivityOpen ? "ep-caret-open" : "")"></span>
+            </button>
             @if (_mode == DeviceConsoleMode.Idle) {
                 <span class="dcon-activity-title">
                     <span class="dcon-k">Readiness</span>
@@ -267,6 +269,7 @@
             }
         </div>
 
+        @if (ActivityOpen) {
         <div class="dcon-activity-body">
             @if (_mode == DeviceConsoleMode.Idle) {
                 <div class="reg-wrap">
@@ -433,7 +436,10 @@
                 }
             }
         </div>
+        }
     </div>
+
+    @Sections
     </div>
     </div>
     </div>
@@ -456,6 +462,18 @@
     [Parameter] public RenderFragment? Actions { get; set; }
 
     [Parameter] public RenderFragment? ActionNotes { get; set; }
+
+    [Parameter] public RenderFragment? Sections { get; set; }
+
+    bool ActivityOpen => State.IsOpen(DeviceWorkbenchState.SectionActivity);
+
+    void ToggleActivity() {
+        State.SetOpen(DeviceWorkbenchState.SectionActivity, !ActivityOpen);
+    }
+
+    string CurrentIslandLabel() {
+        return SelectedIsland() is { } island ? $"{IslandLabel(island)}, user {island.UserId}" : "device, no island";
+    }
 
     static readonly int[] Rates = [5, 4, 3, 2, 1];
     static readonly string[] JobIdNames = ["jobId", "JobId", "runId", "RunId", "id", "Id"];

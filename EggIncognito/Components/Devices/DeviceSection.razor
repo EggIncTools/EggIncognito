@@ -1,0 +1,32 @@
+<div class="dwb-bar dcon-sec">
+    <span class="dwb-bar-group">
+        <button type="button" class="dcon-sec-toggle" aria-expanded="@(Open ? "true" : "false")" @onclick="Toggle">
+            <span class="ep-caret @(Open ? "ep-caret-open" : "")"></span>
+            <span class="dcon-k">@Title</span>
+        </button>
+        @if (Count is { } n) {
+            <span class="text-muted text-xs">@n</span>
+        }
+        @Summary
+    </span>
+    @if (Tools is not null) {
+        <span class="dwb-bar-group">@Tools</span>
+    }
+    @if (Open && ChildContent is not null) {
+        <div class="dcon-fill dcon-sec-body">@ChildContent</div>
+    }
+</div>
+
+@code {
+    [Parameter] public string Title { get; set; } = "";
+    [Parameter] public int? Count { get; set; }
+    [Parameter] public RenderFragment? Summary { get; set; }
+    [Parameter] public RenderFragment? Tools { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public bool Open { get; set; }
+    [Parameter] public EventCallback<bool> OpenChanged { get; set; }
+
+    Task Toggle() {
+        return OpenChanged.InvokeAsync(!Open);
+    }
+}

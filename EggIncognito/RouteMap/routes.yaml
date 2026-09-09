@@ -169,6 +169,7 @@ routes:
   - path: ei_afx/config
     requestType: ArtifactsConfigurationRequest
     responseType: ArtifactsConfigurationResponse
+    responseWrapped: true
   - path: ei_afx/consume_artifact
     request: ConsumeArtifactRequest
     requestWrapped: true
@@ -176,6 +177,7 @@ routes:
   - path: ei_afx/craft_artifact
     requestType: CraftArtifactRequest
     responseType: CraftArtifactResponse
+    responseWrapped: true
   - path: ei_afx/demote_artifact
     request: ConsumeArtifactRequest # decoded from capture (exact round-trip)
     response: AuthenticateArtifactResponse
