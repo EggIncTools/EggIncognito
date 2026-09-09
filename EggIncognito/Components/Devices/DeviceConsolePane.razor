@@ -5,6 +5,7 @@
 @inject ICurrentUser User
 @inject IServiceProvider Services
 @inject AdminNotifier Notifier
+@inject DeviceWorkbenchState State
 @inject ILogger<DeviceConsolePane> Logger
 @using System.Globalization
 @using System.Text
@@ -28,85 +29,143 @@
                 } else {
                     <img class="dcon-img" alt="" @ref="_img"/>
                 }
-                @if (_hasFrame && _selected is { HasBounds: true } hl && TapWidth > 0) {
-                    <span class="dcon-hl" style="@HighlightStyle(hl)"></span>
+                @if (_hasFrame && _selectedGesture is { } hl && TapWidth > 0) {
+                    <span class="dcon-hl dcon-hl-pt" style="@PointStyle(hl.X, hl.Y)"></span>
+                    @if (hl.Kind == RecordedGestureKind.Swipe) {
+                        <span class="dcon-hl dcon-hl-pt dcon-hl-end" style="@PointStyle(hl.X2, hl.Y2)"></span>
+                    }
                 }
             </button>
             @if (!_hasFrame) {
-                <span class="dcon-stage-empty">@StageEmptyText()</span>
+                <span class="dcon-stage-empty">
+                    <Icon Name="@StreamIcon()" Class="@("icon-sm " + StreamIconClass())"/>
+                    <span>@StageEmptyText()</span>
+                    @if (_streamError is { } stageErr) {
+                        <span class="text-muted dcon-stage-reason">@stageErr</span>
+                    }
+                </span>
             }
         </div>
     </div>
 
     <div class="dcon-side">
-        <div class="dcon-bar">
-            <span class="dcon-bar-group">
-                <span class="dcon-bar-k">Stream</span>
-                <span class="dcon-bar-state @(_streamError is null ? "" : "text-err")">@StripText()</span>
+    <div class="dwb-bar">
+        <span class="dwb-bar-group">
+            <span class="dcon-k">Stream</span>
+            <span class="dcon-status">
+                <Icon Name="@StreamIcon()" Class="@("icon-sm " + StreamIconClass())"/>
+                <span>@StreamLabel()</span>
             </span>
-            <span class="dcon-bar-group">
+            @if (StreamDetail() is { } streamDetail) {
+                <span class="text-muted text-xs dcon-status-detail">@streamDetail</span>
+            }
+        </span>
+        <span class="dwb-bar-group">
+            <span class="text-muted text-xs">@(_useVideo ? "h264" : "jpeg")</span>
+            <select class="field-input dcon-rate" aria-label="Quality" value="@QualityValue()" @onchange="QualityPicked">
                 @if (_useVideo) {
-                    <select class="field-input dcon-rate" aria-label="Stream quality" value="@_quality" @onchange="QualityChanged">
-                        <option value="@StreamQuality.Fluid">Fluid</option>
-                        <option value="@StreamQuality.Balanced">Balanced</option>
-                        <option value="@StreamQuality.Crisp">Crisp</option>
-                    </select>
+                    <option value="@StreamQuality.Fluid">Fluid</option>
+                    <option value="@StreamQuality.Balanced">Balanced</option>
+                    <option value="@StreamQuality.Crisp">Crisp</option>
                 } else {
-                    <select class="field-input dcon-rate" aria-label="Stream frame rate" value="@_fps" @onchange="FpsChanged">
-                        @foreach (var fps in Rates) {
-                            <option value="@fps">@fps fps</option>
-                        }
-                    </select>
+                    @foreach (var fps in Rates) {
+                        <option value="@fps">@fps fps</option>
+                    }
                 }
-                <button type="button" class="btn-mini" @onclick="ToggleStreamAsync">@(_live ? "Pause" : "Resume")</button>
-                <button type="button" class="btn-mini @(_mode == DeviceConsoleMode.Inspect ? "dcon-on" : "")"
-                        @onclick="ToggleInspect">
-                    Inspect
+            </select>
+            <button type="button" class="btn-mini" @onclick="ToggleStreamAsync">
+                <Icon Name="@(_live ? "pause" : "play")" Class="icon-sm"/>
+                @(_live ? "Pause" : "Resume")
+            </button>
+            <button type="button" class="btn-mini @(_mode == DeviceConsoleMode.Record ? "dcon-on" : "")"
+                    title="Record every tap, hold and swipe on the stage as flow steps" @onclick="ToggleRecord">
+                <Icon Name="@(_mode == DeviceConsoleMode.Record ? "circle-check" : "circle")" Class="icon-sm"/>
+                Record
+            </button>
+        </span>
+    </div>
+
+    @if (Actions is not null) {
+        <div class="dwb-bar">
+            <span class="dwb-bar-group">
+                <span class="dcon-k">Actions</span>
+            </span>
+            <span class="dwb-bar-group">@Actions</span>
+            @if (ActionNotes is not null) {
+                <div class="dcon-fill">@ActionNotes</div>
+            }
+        </div>
+    }
+
+    @if (IsAndroid) {
+        <div class="dwb-bar">
+            <span class="dwb-bar-group">
+                <span class="dcon-k">Island</span>
+                <span class="text-muted text-xs">islands run one at a time; only the foreground user renders</span>
+            </span>
+            <span class="dwb-bar-group">
+                @if (!_newIslandOpen) {
+                    <button type="button" class="btn-mini" disabled="@_islandBusy" @onclick="OpenNewIsland">
+                        <Icon Name="plus" Class="icon-sm"/>
+                        New island
+                    </button>
+                }
+                <button type="button" class="btn-mini" disabled="@_islandBusy" @onclick="LoadIslandsAsync">
+                    <Icon Name="refresh-cw" Class="icon-sm"/>
+                    @(_islandBusy ? "Refreshing..." : "Refresh")
                 </button>
             </span>
-        </div>
-
-        @if (Actions is not null) {
-            <div class="dcon-bar">
-                <span class="dcon-bar-k">Actions</span>
-                <span class="dcon-bar-group">@Actions</span>
-            </div>
-            @ActionNotes
-        }
-
-        @if (IsAndroid) {
-            <div class="dcon-bar">
-                <span class="dcon-bar-group">
-                    <span class="dcon-bar-k">Island</span>
-                    <select class="field-input dcon-rate" aria-label="Island" value="@IslandValue()"
-                            disabled="@_islandBusy" @onchange="IslandChanged">
-                        <option value="">Device (no island)</option>
-                        @foreach (var island in _islands) {
-                            <option value="@island.UserId.ToString(CultureInfo.InvariantCulture)">@IslandLabel(island)</option>
-                        }
-                    </select>
-                    @if (!_newIslandOpen) {
-                        <button type="button" class="btn-mini" disabled="@_islandBusy" @onclick="OpenNewIsland">+ new island</button>
+            <div class="reg-wrap dcon-fill dcon-island-wrap">
+                <table class="data-table dcon-list">
+                    <tbody>
+                    <tr>
+                        <td class="dcon-cur">
+                            @if (_selectedUserId is null) {
+                                <Icon Name="check" Class="icon-sm text-ok"/>
+                            }
+                        </td>
+                        <td class="dcon-list-title">Device (no island)</td>
+                        <td class="font-mono text-muted text-xs">user @IslandScope.Owner</td>
+                        <td class="dcon-row-tools">
+                            @if (_selectedUserId is not null) {
+                                <button type="button" class="btn-mini" disabled="@_islandBusy"
+                                        @onclick="@(() => SwitchIslandAsync(IslandScope.Owner))">
+                                    Switch
+                                </button>
+                            }
+                        </td>
+                    </tr>
+                    @foreach (var island in _islands) {
+                        var current = _selectedUserId == island.UserId;
+                        <tr @key="island.UserId">
+                            <td class="dcon-cur">
+                                @if (current) {
+                                    <Icon Name="check" Class="icon-sm text-ok"/>
+                                }
+                            </td>
+                            <td class="dcon-list-title">@IslandLabel(island)</td>
+                            <td class="font-mono text-muted text-xs">
+                                user @island.UserId@(island.Provisioned ? "" : ", provisioning")
+                            </td>
+                            <td class="dcon-row-tools">
+                                @if (!current) {
+                                    <button type="button" class="btn-mini" disabled="@(_islandBusy || !island.Provisioned)"
+                                            @onclick="@(() => SwitchIslandAsync(island.UserId))">
+                                        Switch
+                                    </button>
+                                }
+                                <button type="button" class="btn-mini btn-danger" disabled="@_islandBusy"
+                                        @onclick="@(() => RemoveIslandAsync(island.UserId))">
+                                    Remove
+                                </button>
+                            </td>
+                        </tr>
                     }
-                    @if (SelectedIsland() is { } selIsland) {
-                        <button type="button" class="btn-mini" disabled="@_islandBusy"
-                                @onclick="@(() => RemoveIslandAsync(selIsland.UserId))">
-                            Remove
-                        </button>
-                    }
-                    <button type="button" class="btn-mini" disabled="@_islandBusy" @onclick="LoadIslandsAsync">
-                        @(_islandBusy ? "..." : "Refresh")
-                    </button>
-                </span>
-                <span class="dcon-bar-group">
-                    @if (_islandsLoaded && _islands.Count == 0 && !_newIslandOpen) {
-                        <span class="text-xs text-muted">no islands yet</span>
-                    }
-                    <span class="text-xs text-muted">islands run one at a time; only the foreground user renders</span>
-                </span>
+                    </tbody>
+                </table>
             </div>
             @if (_newIslandOpen) {
-                <div class="dcon-run-row">
+                <div class="dcon-run-row dcon-fill">
                     <input class="field-input" placeholder="island label" aria-label="New island label"
                            @bind="_newIslandLabel" @bind:event="oninput" @onkeydown="NewIslandKeyAsync"/>
                     <button type="button" class="btn-mini" disabled="@(_islandBusy || _newIslandLabel.Trim().Length == 0)"
@@ -116,229 +175,265 @@
                     <button type="button" class="btn-mini" disabled="@_islandBusy" @onclick="CancelNewIsland">Cancel</button>
                 </div>
             }
-        }
+        </div>
+    }
 
-        <div class="dcon-keys">
+    <div class="dwb-bar">
+        <span class="dwb-bar-group">
+            <span class="dcon-k">Input</span>
+        </span>
+        <span class="dwb-bar-group">
             <button type="button" class="btn-mini" @onclick="@(() => KeyAsync("back"))">Back</button>
             <button type="button" class="btn-mini" @onclick="@(() => KeyAsync("home"))">Home</button>
             <button type="button" class="btn-mini" @onclick="@(() => KeyAsync("recents"))">Recents</button>
             <button type="button" class="btn-mini" @onclick="@(() => KeyAsync("enter"))">Enter</button>
             <button type="button" class="btn-mini" @onclick="@(() => KeyAsync("wake"))">Wake</button>
             <button type="button" class="btn-mini" @onclick="@(() => KeyAsync("close-app"))">Close app</button>
-        </div>
-
-        <div class="dcon-typing">
+        </span>
+        <div class="dcon-typing dcon-fill">
             <input class="field-input font-mono" placeholder="@(_captureKeys ? "capturing keys live" : "text for the focused field")"
                    aria-label="Text and hardware keys" @bind="_text" @bind:event="oninput"
                    @onkeydown="TextKeyAsync" @onkeydown:preventDefault="_captureKeys"/>
             <button type="button" class="btn-mini @(_captureKeys ? "dcon-on" : "")" @onclick="ToggleCapture"
                     title="Send each keystroke live: printable keys as text, Enter and Escape as device keys">
-                Capture
+                <Icon Name="@(_captureKeys ? "circle-check" : "circle")" Class="icon-sm"/>
+                Live keys
             </button>
-            <button type="button" class="btn-mini" disabled="@(_captureKeys || _text.Length == 0)" @onclick="SendTextAsync">Send</button>
+            <button type="button" class="btn-mini" disabled="@(_captureKeys || _text.Length == 0)" @onclick="SendTextAsync">
+                <Icon Name="send" Class="icon-sm"/>
+                Send
+            </button>
+        </div>
+    </div>
+
+    <div class="dcon-activity">
+        <div class="dcon-activity-head">
+            @if (_mode == DeviceConsoleMode.Idle) {
+                <span class="dcon-activity-title">
+                    <span class="dcon-k">Readiness</span>
+                    <span class="dcon-status">
+                        <Icon Name="@ReadinessIcon()" Class="@("icon-sm " + ReadinessIconClass())"/>
+                        <span>@ReadinessLabel()</span>
+                    </span>
+                    @if (_readinessAt is { } probedAt) {
+                        <span class="text-muted text-xs">probed @Stamp(probedAt)</span>
+                    }
+                </span>
+                <span class="dcon-activity-tools">
+                    <button type="button" class="btn-mini" disabled="@_readinessBusy" @onclick="LoadReadinessAsync">
+                        <Icon Name="refresh-cw" Class="icon-sm"/>
+                        @(_readinessBusy ? "Probing..." : "Probe")
+                    </button>
+                </span>
+            } else if (_mode == DeviceConsoleMode.Running) {
+                <span class="dcon-activity-title">
+                    <span class="dcon-run-title">@_runTitle</span>
+                    <span class="meta-dots">
+                        <span class="font-mono text-muted">@Elapsed()</span>
+                        <span class="dcon-status">
+                            <Icon Name="@RunIcon()" Class="@("icon-sm " + RunIconClass())"/>
+                            <span>@RunStateLine()</span>
+                        </span>
+                    </span>
+                </span>
+                <span class="dcon-activity-tools">
+                    @if (!_runDone && !_runReadOnly && _runJobId is not null) {
+                        <button type="button" class="btn-mini btn-danger" disabled="@_stopBusy" @onclick="StopRunAsync">
+                            @(_stopBusy ? "Stopping..." : "Stop")
+                        </button>
+                    }
+                    <CopyButton GetText="RunReport" Label="Copy" CopiedLabel="Copied" ShowIcon="false"
+                                ButtonClass="btn-mini"/>
+                    <button type="button" class="btn-mini" @onclick="ToggleWrap">@(_wrap ? "Nowrap" : "Wrap")</button>
+                    @if (_runDone) {
+                        <button type="button" class="btn-mini" @onclick="Done">Done</button>
+                    }
+                </span>
+            } else {
+                <span class="dcon-activity-title">
+                    <span class="dcon-k">Record</span>
+                    <span class="text-muted text-xs">@_recorded.Count @(_recorded.Count == 1 ? "step" : "steps")</span>
+                </span>
+                <span class="dcon-activity-tools">
+                    <CopyButton GetText="@(() => RecordedGesture.FlowText(_recorded))" Label="Copy flow" CopiedLabel="Copied"
+                                ShowIcon="false" ButtonClass="btn-mini"/>
+                    <button type="button" class="btn-mini" disabled="@(_recorded.Count == 0 || _replaying)" @onclick="ReplayAllAsync">
+                        <Icon Name="play" Class="icon-sm"/>
+                        @(_replaying ? "Replaying..." : "Replay")
+                    </button>
+                    <button type="button" class="btn-mini" disabled="@(_recorded.Count == 0)" @onclick="ClearRecorded">Clear</button>
+                    <button type="button" class="btn-mini" @onclick="CloseRecord">Close</button>
+                </span>
+            }
         </div>
 
-        <div class="dcon-activity">
-            <div class="dcon-activity-head">
-                @if (_mode == DeviceConsoleMode.Idle) {
-                    <span class="dcon-activity-title">
-                        <span class="dcon-bar-k">Ready</span>
-                        @foreach (var (word, check) in ReadinessWords()) {
-                            <span class="@ReadyClass(check)" title="@(check?.Note)">@word</span>
+        <div class="dcon-activity-body">
+            @if (_mode == DeviceConsoleMode.Idle) {
+                <div class="reg-wrap">
+                    <table class="data-table dcon-list">
+                        <tbody>
+                        @foreach (var (label, check) in ReadinessRows()) {
+                            <tr>
+                                <td class="dcon-cur">
+                                    <Icon Name="@CheckIcon(check)" Class="@("icon-sm " + CheckIconClass(check))"/>
+                                </td>
+                                <td class="dcon-check-label">@label</td>
+                                <td class="text-muted text-xs dcon-list-title" title="@CheckDetail(check)">@CheckDetail(check)</td>
+                            </tr>
                         }
-                    </span>
-                    <span class="dcon-activity-tools">
-                        <button type="button" class="btn-mini" disabled="@_readinessBusy" @onclick="LoadReadinessAsync">
-                            @(_readinessBusy ? "Refreshing..." : "Refresh")
-                        </button>
-                    </span>
-                } else if (_mode == DeviceConsoleMode.Running) {
-                    <span class="dcon-activity-title">
-                        <span class="dcon-run-title">@_runTitle</span>
-                        <span class="dcon-dot">&middot;</span>
-                        <span class="font-mono text-muted">@Elapsed()</span>
-                        <span class="@RunStateClass()">@RunStateLine()</span>
-                    </span>
-                    <span class="dcon-activity-tools">
-                        @if (!_runDone && !_runReadOnly && _runJobId is not null) {
-                            <button type="button" class="btn-mini" disabled="@_stopBusy" @onclick="StopRunAsync">
-                                @(_stopBusy ? "Stopping..." : "Stop")
-                            </button>
-                        }
-                        <CopyButton GetText="RunReport" Label="Copy" CopiedLabel="Copied" ShowIcon="false"
-                                    ButtonClass="btn-mini"/>
-                        <button type="button" class="btn-mini" @onclick="ToggleWrap">@(_wrap ? "Nowrap" : "Wrap")</button>
-                        @if (_runDone) {
-                            <button type="button" class="btn-mini" @onclick="Done">Done</button>
-                        }
-                    </span>
-                } else {
-                    <span class="dcon-activity-title">
-                        <span class="dcon-bar-k">Inspect</span>
-                    </span>
-                    <span class="dcon-activity-tools">
-                        <button type="button" class="btn-mini" @onclick="CloseInspect">Close</button>
-                    </span>
-                }
-            </div>
+                        </tbody>
+                    </table>
+                </div>
 
-            <div class="dcon-activity-body">
-                @if (_mode == DeviceConsoleMode.Idle) {
-                    @if (_books.Count > 0) {
-                        <div class="dcon-run-row">
-                            <select class="field-input dcon-pick" aria-label="Cookbook" value="@_bookId"
-                                    disabled="@_runBusy" @onchange="BookChanged">
-                                @if (Workflows() is { Count: > 0 } workflows) {
-                                    <optgroup label="workflows">
-                                        @foreach (var book in workflows) {
-                                            <option value="@book.Id" disabled="@(!book.Available)" title="@book.Unavailable">
-                                                @book.Title
-                                            </option>
-                                        }
-                                    </optgroup>
-                                }
-                                @if (Steps() is { Count: > 0 } steps) {
-                                    <optgroup label="steps">
-                                        @foreach (var book in steps) {
-                                            <option value="@book.Id" disabled="@(!book.Available)" title="@book.Unavailable">
-                                                @book.Title
-                                            </option>
-                                        }
-                                    </optgroup>
+                @if (_books.Count > 0) {
+                    <div class="dcon-run-row">
+                        <select class="field-input dcon-pick" aria-label="Cookbook" value="@_bookId"
+                                disabled="@_runBusy" @onchange="BookChanged">
+                            @if (Workflows() is { Count: > 0 } workflows) {
+                                <optgroup label="workflows">
+                                    @foreach (var book in workflows) {
+                                        <option value="@book.Id" disabled="@(!book.Available)" title="@book.Unavailable">
+                                            @book.Title
+                                        </option>
+                                    }
+                                </optgroup>
+                            }
+                            @if (Steps() is { Count: > 0 } steps) {
+                                <optgroup label="steps">
+                                    @foreach (var book in steps) {
+                                        <option value="@book.Id" disabled="@(!book.Available)" title="@book.Unavailable">
+                                            @book.Title
+                                        </option>
+                                    }
+                                </optgroup>
+                            }
+                        </select>
+                        @if (Chosen() is { Options: { Count: > 0 } options } chosen) {
+                            <select class="field-input dcon-pick" aria-label="@(chosen.ArgumentLabel ?? "Option")"
+                                    value="@ArgFor(chosen)" disabled="@_runBusy" @onchange="@(e => SetArg(chosen.Id, e))">
+                                @foreach (var option in options) {
+                                    <option value="@option.Value" title="@option.Detail">@option.Label</option>
                                 }
                             </select>
-                            @if (Chosen() is { Options: { Count: > 0 } options } chosen) {
-                                <select class="field-input dcon-pick" aria-label="@(chosen.ArgumentLabel ?? "Option")"
-                                        value="@ArgFor(chosen)" disabled="@_runBusy" @onchange="@(e => SetArg(chosen.Id, e))">
-                                    @foreach (var option in options) {
-                                        <option value="@option.Value" title="@option.Detail">@option.Label</option>
-                                    }
-                                </select>
-                            }
-                            <button type="button" class="btn-mini" disabled="@(!CanRun())" @onclick="RunChosenAsync">Run</button>
-                            @if (SelectedIsland() is { } target) {
-                                <span class="text-xs text-muted">to user @target.UserId</span>
-                            }
-                        </div>
-                    } else if (!_booksBusy) {
-                        <div class="text-xs text-muted">no cookbooks for this device</div>
+                        }
+                        <button type="button" class="btn-primary" disabled="@(!CanRun())" @onclick="RunChosenAsync">
+                            <Icon Name="play" Class="icon-sm"/>
+                            Run
+                        </button>
+                        @if (SelectedIsland() is { } target) {
+                            <span class="text-xs text-muted">to user @target.UserId</span>
+                        }
+                    </div>
+                    @if (Chosen() is { Unavailable: { Length: > 0 } why, Available: false }) {
+                        <div class="text-xs text-muted">@why</div>
                     }
+                } else if (!_booksBusy) {
+                    <div class="text-xs text-muted">no cookbooks for this device</div>
+                }
 
-                    @if (_lastRuns.Count > 0) {
-                        <div class="reg-wrap">
-                            <table class="data-table dcon-last">
-                                <tbody>
-                                @foreach (var job in _lastRuns) {
-                                    <tr class="dcon-last-row" @key="job.Id" title="@job.Message" @onclick="@(() => OpenRunAsync(job))">
-                                        <td class="font-mono text-muted">@Stamp(job.LastAt)</td>
-                                        <td class="dcon-last-title">@RunTitle(job)</td>
-                                        <td class="@OutcomeClass(job.State)">@(job.Outcome ?? job.State)</td>
-                                    </tr>
-                                }
-                                </tbody>
-                            </table>
-                        </div>
-                    }
-                } else if (_mode == DeviceConsoleMode.Running) {
-                    @if (_steps.Count > 0 || RunNote() is not null) {
-                        <div class="dcon-steps">
+                @if (_lastRuns.Count > 0) {
+                    <div class="reg-wrap">
+                        <table class="data-table dcon-list dcon-last">
+                            <tbody>
+                            @foreach (var job in _lastRuns) {
+                                <tr class="dcon-last-row" @key="job.Id" title="@job.Message" @onclick="@(() => OpenRunAsync(job))">
+                                    <td class="dcon-cur">
+                                        <Icon Name="@OutcomeIcon(job.State)" Class="@("icon-sm " + OutcomeIconClass(job.State))"/>
+                                    </td>
+                                    <td class="font-mono text-muted text-xs">@Stamp(job.LastAt)</td>
+                                    <td class="dcon-list-title">@RunTitle(job)</td>
+                                    <td class="text-muted text-xs">@(job.Outcome ?? job.State)</td>
+                                </tr>
+                            }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            } else if (_mode == DeviceConsoleMode.Running) {
+                @if (_steps.Count > 0 || RunNote() is not null) {
+                    <div class="reg-wrap">
+                        <table class="data-table dcon-list">
+                            <tbody>
                             @foreach (var step in _steps) {
-                                <div class="dcon-step">
-                                    <span class="dcon-step-title">@step.Title</span>
-                                    <span class="@StepClass(step.Status)">@StepStateWord(step.Status)</span>
-                                    @if (step.Status != CookbookStepStatus.Ok && step.Note is { Length: > 0 } stepNote) {
-                                        <span class="dcon-step-note">@stepNote</span>
-                                    }
-                                </div>
+                                <tr>
+                                    <td class="dcon-cur">
+                                        <Icon Name="@StepIcon(step.Status)" Class="@("icon-sm " + StepIconClass(step.Status))"/>
+                                    </td>
+                                    <td class="dcon-check-label">@step.Title</td>
+                                    <td class="text-muted text-xs dcon-list-title">
+                                        @(step.Status != CookbookStepStatus.Ok && step.Note is { Length: > 0 } stepNote ? stepNote : StepStateWord(step.Status))
+                                    </td>
+                                </tr>
                             }
                             @if (RunNote() is { } runNote) {
-                                <div class="dcon-step">
-                                    <span class="dcon-step-title">@(_runTitle ?? "run")</span>
-                                    <span class="@RunStateClass()">@RunStateLine()</span>
-                                    <span class="dcon-step-note">@runNote</span>
-                                </div>
+                                <tr>
+                                    <td class="dcon-cur">
+                                        <Icon Name="@RunIcon()" Class="@("icon-sm " + RunIconClass())"/>
+                                    </td>
+                                    <td class="dcon-check-label">@(_runTitle ?? "run")</td>
+                                    <td class="text-muted text-xs dcon-list-title">@runNote</td>
+                                </tr>
                             }
-                        </div>
-                    }
+                            </tbody>
+                        </table>
+                    </div>
+                }
 
+                <div class="reg-wrap dcon-log-wrap">
                     <div class="dcon-log @(_wrap ? "" : "dcon-log-nowrap")">
                         @for (var i = _runLog.Count - 1; i >= 0; i--) {
                             <div class="dcon-log-line">@_runLog[i]</div>
                         }
                     </div>
-                } else {
-                    <div class="dcon-tree-bar">
-                        <input class="field-input" type="search" placeholder="filter nodes"
-                               aria-label="Filter ui nodes" value="@_filter" @oninput="FilterChanged"/>
-                        <label class="dcon-check">
-                            <input type="checkbox" checked="@_clickableOnly" @onchange="ClickableChanged"/>
-                            clickable only
-                        </label>
-                        <button type="button" class="btn-mini" disabled="@_dumpBusy" @onclick="LoadDumpAsync">
-                            @(_dumpBusy ? "Reading..." : "Read")
-                        </button>
+                </div>
+            } else {
+                @if (_recorded.Count == 0) {
+                    <div class="dcon-status text-xs">
+                        <Icon Name="circle" Class="icon-sm text-muted"/>
+                        <span class="text-muted">Tap, hold or swipe the screen. Each gesture lands here as a flow step at device pixels.</span>
                     </div>
-
-                    @if (_dumpError is { } de) {
-                        <div class="dcon-tree-note text-err">@de</div>
-                    } else if (_dump is { } dump) {
-                        <div class="dcon-tree-note">@_rows.Count of @dump.Count nodes</div>
-                        <div class="dcon-tree">
-                            @foreach (var node in _rows) {
-                                <button type="button" @key="node.Id"
-                                        class="dcon-node @(_selected?.Id == node.Id ? "dcon-node-on" : "")"
-                                        style="@IndentStyle(node)" @onclick="@(() => SelectNode(node))">
-                                    <span class="dcon-node-kind">@node.Kind</span>
-                                    <span class="dcon-node-label">@node.Label</span>
-                                    @if (node.Clickable) {
-                                        <span class="dcon-node-tap">tap</span>
-                                    }
-                                </button>
+                } else {
+                    <div class="reg-wrap dcon-tree">
+                        <table class="data-table dcon-list">
+                            <tbody>
+                            @for (var i = 0; i < _recorded.Count; i++) {
+                                var index = i;
+                                var g = _recorded[i];
+                                <tr @key="g" class="dcon-node @(ReferenceEquals(_selectedGesture, g) ? "dcon-node-on" : "")"
+                                    @onclick="@(() => SelectGesture(g))">
+                                    <td class="dcon-cur text-muted">@(index + 1)</td>
+                                    <td class="dcon-node-kind">@GestureKind(g)</td>
+                                    <td class="dcon-list-title font-mono">@g.Where</td>
+                                    <td class="dcon-node-kind">@(g.DurationMs > 0 ? $"{g.DurationMs}ms" : "")</td>
+                                    <td class="dcon-row-tools">
+                                        <button type="button" class="btn-mini" disabled="@_replaying" title="Replay this step"
+                                                @onclick="@(() => ReplayAsync(g))" @onclick:stopPropagation="true">
+                                            <Icon Name="play" Class="icon-sm"/>
+                                        </button>
+                                        <button type="button" class="btn-mini" title="Remove this step"
+                                                @onclick="@(() => RemoveGesture(index))" @onclick:stopPropagation="true">
+                                            <Icon Name="x" Class="icon-sm"/>
+                                        </button>
+                                    </td>
+                                </tr>
                             }
-                        </div>
-                    }
-
-                    @if (_selected is { } sel) {
-                        <div class="dcon-sel">
-                            <div class="dcon-sel-head">
-                                <span class="font-mono text-xs">@(sel.ClassName ?? sel.Kind)</span>
-                                <span class="font-mono text-muted text-xs">@sel.Left,@sel.Top @sel.Width x @sel.Height</span>
-                                <button type="button" class="btn-mini" @onclick="TapSelectedAsync">Tap node</button>
-                            </div>
-
-                            @if (sel.Selectors.Count == 0) {
-                                <div class="dcon-snip-row">
-                                    <span class="dcon-snip-by">point</span>
-                                    <code class="dcon-snip">@PointStep(sel)</code>
-                                    <CopyButton Text="@PointStep(sel)" AriaLabel="Copy tap-point step"/>
-                                </div>
-                            } else {
-                                @foreach (var hint in sel.Selectors) {
-                                    <div class="dcon-snip-row @(hint == sel.Selectors[0] ? "dcon-snip-best" : "")">
-                                        <span class="dcon-snip-by">@HintLabel(hint)</span>
-                                        <code class="dcon-snip">@hint.Snippet</code>
-                                        <CopyButton Text="@hint.Snippet" AriaLabel="Copy selector"/>
-                                    </div>
-                                }
-
-                                <div class="dcon-sel-steps">
-                                    <div class="dcon-snip-row">
-                                        <span class="dcon-snip-by">tap step</span>
-                                        <code class="dcon-snip">@TapStep(sel)</code>
-                                        <CopyButton Text="@TapStep(sel)" AriaLabel="Copy tap step"/>
-                                    </div>
-                                    <div class="dcon-snip-row">
-                                        <span class="dcon-snip-by">wait step</span>
-                                        <code class="dcon-snip">@WaitStep(sel)</code>
-                                        <CopyButton Text="@WaitStep(sel)" AriaLabel="Copy wait step"/>
-                                    </div>
-                                </div>
-                            }
-                        </div>
-                    }
+                            </tbody>
+                        </table>
+                    </div>
                 }
-            </div>
+
+                @if (_selectedGesture is { } sel) {
+                    <div class="dcon-sel">
+                        <div class="dcon-snip-row">
+                            <span class="dcon-snip-by">step</span>
+                            <code class="dcon-snip">@sel.StepLine</code>
+                            <CopyButton Text="@sel.StepLine" AriaLabel="Copy flow step"/>
+                        </div>
+                    </div>
+                }
+            }
         </div>
+    </div>
     </div>
     </div>
     </div>
@@ -366,6 +461,8 @@
     static readonly string[] JobIdNames = ["jobId", "JobId", "runId", "RunId", "id", "Id"];
     const int LastRunCount = 5;
     const int LastRunPage = 25;
+    const int StreamBusyStatus = 409;
+    static readonly TimeSpan StreamRetryDelay = TimeSpan.FromSeconds(1);
 
     bool _disposed;
     bool _isAdmin;
@@ -374,9 +471,10 @@
     bool _hasFrame;
     bool _useVideo;
     bool _streamOnVideo;
+    bool _syncing;
+    bool _streamRetried;
     bool? _videoSupported;
-    bool _dumpBusy;
-    bool _clickableOnly;
+    bool _replaying;
     bool _booksBusy;
     bool _readinessBusy;
     bool _runBusy;
@@ -389,7 +487,6 @@
     bool _wrap = true;
     bool _captureKeys;
     bool _islandBusy;
-    bool _islandsLoaded;
     bool _newIslandOpen;
     int _fps = 3;
     int _shotW;
@@ -402,7 +499,6 @@
     double _videoKbps;
     double _jpegFps;
     StreamQuality _quality = StreamQuality.Balanced;
-    string _filter = "";
     string _text = "";
     string _newIslandLabel = "";
     string _streamKey = "";
@@ -410,24 +506,23 @@
     string _bookId = "";
     string? _deviceId;
     string? _streamError;
-    string? _dumpError;
     string? _runTitle;
     string? _runNote;
     string? _runFailedStepTitle;
     long? _runJobId;
     DateTimeOffset? _runStartedAt;
     DateTimeOffset? _runFinishedAt;
+    DateTimeOffset? _readinessAt;
     DeviceConsoleMode _mode = DeviceConsoleMode.Idle;
 
-    List<UiNodeRow> _rows = [];
+    List<RecordedGesture> _recorded = [];
     List<DeviceCookbookInfo> _books = [];
     List<JobGroupRow> _lastRuns = [];
     List<string> _runLog = [];
     List<CookbookStepResult> _steps = [];
     List<IslandRow> _islands = [];
     readonly Dictionary<string, string> _args = [];
-    UiDumpResult? _dump;
-    UiNodeRow? _selected;
+    RecordedGesture? _selectedGesture;
     DeviceReadiness? _readiness;
 
     ElementReference _img;
@@ -442,13 +537,15 @@
 
     DeviceJobFeed? JobFeed => Services.GetService(typeof(DeviceJobFeed)) as DeviceJobFeed;
 
-    bool IsIos => string.Equals(Platform, "ios", StringComparison.OrdinalIgnoreCase);
+    DeviceCookbookRunner? Runner => Services.GetService(typeof(DeviceCookbookRunner)) as DeviceCookbookRunner;
 
     bool IsAndroid => string.Equals(Platform, "android", StringComparison.OrdinalIgnoreCase);
 
-    int TapWidth => IsIos && _dump is { Width: > 0 } d ? d.Width : _screenW > 0 ? _screenW : _shotW;
+    int TapWidth => _screenW > 0 ? _screenW : _shotW;
 
-    int TapHeight => IsIos && _dump is { Height: > 0 } d ? d.Height : _screenH > 0 ? _screenH : _shotH;
+    int TapHeight => _screenH > 0 ? _screenH : _shotH;
+
+    DeviceConsoleCache? Cache => _deviceId is { } id ? State.ConsoleFor(id) : null;
 
     protected override void OnInitialized() {
         base.OnInitialized();
@@ -465,6 +562,7 @@
             ResetDevice();
             RecomputeVideo();
             _live = next is not null;
+            if (Cache is { } cache) PaintFromCache(cache);
         }
 
         if (!Active) {
@@ -477,24 +575,54 @@
         if (_deviceId is null) return;
         if (!_loaded) {
             _loaded = true;
-            await LoadCookbooksAsync();
-            await LoadScreenAsync();
-            await LoadReadinessAsync();
-            await LoadLastRunsAsync();
-            await LoadIslandsAsync();
-            await CheckRunningAsync();
+            _ = RefreshAllAsync();
             return;
         }
 
         if (_runJobId is not null && !_runDone && !_runReadOnly) StartRunWatch();
     }
 
+    void PaintFromCache(DeviceConsoleCache cache) {
+        _books = [.. cache.Cookbooks];
+        SeedCookbookDefaults();
+        _readiness = cache.Readiness;
+        _readinessAt = cache.ReadinessAt;
+        _islands = [.. cache.Islands];
+        _selectedUserId = cache.CurrentUserId;
+        _screenW = cache.ScreenW;
+        _screenH = cache.ScreenH;
+    }
+
+    async Task RefreshAllAsync() {
+        var id = _deviceId;
+        if (id is null) return;
+        try {
+            await Task.WhenAll(
+                LoadCookbooksAsync(),
+                LoadScreenAsync(),
+                LoadReadinessAsync(),
+                LoadLastRunsAsync(),
+                LoadIslandsAsync(),
+                CheckRunningAsync());
+        }
+        catch (Exception ex) when (ex is HttpRequestException or JsonException or TaskCanceledException or InvalidOperationException) {
+            Logger.LogDebug(ex, "device console refresh failed for {DeviceId}", id);
+        }
+
+        if (!_disposed && _deviceId == id && Cache is { } cache) cache.FetchedAt = DateTimeOffset.UtcNow;
+        if (!_disposed) await InvokeAsync(StateHasChanged);
+    }
+
+    bool Stale(string id) {
+        return _disposed || _deviceId != id;
+    }
+
     void ResetDevice() {
-        _dump = null;
-        _rows = [];
-        _selected = null;
-        _dumpError = null;
+        _recorded = [];
+        _selectedGesture = null;
+        _replaying = false;
         _streamError = null;
+        _streamRetried = false;
         _hasFrame = false;
         _shotW = _shotH = 0;
         _screenW = _screenH = 0;
@@ -502,7 +630,6 @@
         _books = [];
         _lastRuns = [];
         _islands = [];
-        _islandsLoaded = false;
         _islandBusy = false;
         _newIslandOpen = false;
         _newIslandLabel = "";
@@ -511,6 +638,7 @@
         _args.Clear();
         _bookId = "";
         _readiness = null;
+        _readinessAt = null;
         _readinessBusy = false;
         _booksBusy = false;
         _mode = DeviceConsoleMode.Idle;
@@ -542,20 +670,36 @@
         return true;
     }
 
-    string StripText() {
-        if (_streamError is { } err) return $"ended: {err}";
+    string StreamIcon() {
+        if (_streamError is not null) return "circle-x";
+        if (!_live) return "pause";
+        return _hasFrame ? "circle-check" : "circle";
+    }
+
+    string StreamIconClass() {
+        if (_streamError is not null) return "text-err";
+        return _live && _hasFrame ? "text-ok" : "text-muted";
+    }
+
+    string StreamLabel() {
+        if (_streamError is not null) return "ended";
         if (!_live) return "paused";
-        if (!_hasFrame) return "connecting";
+        return _hasFrame ? "live" : "connecting";
+    }
+
+    string? StreamDetail() {
+        if (_streamError is { } err) return err;
+        if (!_live || !_hasFrame) return null;
         if (!_useVideo)
             return string.Create(CultureInfo.InvariantCulture,
-                $"jpeg {_jpegFps:0.#} of {_fps} fps {_shotW}x{_shotH}");
+                $"{_jpegFps:0.#} of {_fps} fps, {_shotW}x{_shotH}");
         return string.Create(CultureInfo.InvariantCulture,
-            $"live {_videoFps:0} fps {_videoLatency:0} ms {_shotW}x{_shotH} {_videoKbps / 1000:0.0} Mbps");
+            $"{_videoFps:0} fps, {_videoLatency:0} ms, {_shotW}x{_shotH}, {_videoKbps / 1000:0.0} Mbps");
     }
 
     string StageEmptyText() {
         if (_streamError is not null) return "no picture";
-        return _live ? "waiting for a frame" : "paused";
+        return _live ? "waiting for the first frame" : "paused";
     }
 
     async Task ToggleStreamAsync() {
@@ -565,17 +709,29 @@
             return;
         }
 
-        _streamError = null;
+        ClearStreamError();
         _live = true;
     }
 
-    void FpsChanged(ChangeEventArgs e) {
-        if (!int.TryParse(e.Value?.ToString(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var fps)) return;
-        _fps = Math.Clamp(fps, 1, 5);
+    void ClearStreamError() {
+        _streamError = null;
+        _streamRetried = false;
     }
 
-    void QualityChanged(ChangeEventArgs e) {
-        if (Enum.TryParse<StreamQuality>(e.Value?.ToString(), out var quality)) _quality = quality;
+    string QualityValue() {
+        return _useVideo ? _quality.ToString() : _fps.ToString(CultureInfo.InvariantCulture);
+    }
+
+    void QualityPicked(ChangeEventArgs e) {
+        var raw = e.Value?.ToString();
+        if (_useVideo) {
+            if (Enum.TryParse<StreamQuality>(raw, out var quality)) _quality = quality;
+        } else if (int.TryParse(raw, NumberStyles.Integer, CultureInfo.InvariantCulture, out var fps)) {
+            _fps = Math.Clamp(fps, 1, 5);
+        }
+
+        ClearStreamError();
+        _live = true;
     }
 
     void ToggleCapture() {
@@ -583,18 +739,80 @@
         if (_captureKeys) _text = "";
     }
 
-    void ToggleInspect() {
-        if (_mode == DeviceConsoleMode.Inspect) {
-            CloseInspect();
+    void ToggleRecord() {
+        if (_mode == DeviceConsoleMode.Record) {
+            CloseRecord();
             return;
         }
 
-        _mode = DeviceConsoleMode.Inspect;
+        _mode = DeviceConsoleMode.Record;
     }
 
-    void CloseInspect() {
-        _selected = null;
+    void CloseRecord() {
+        _selectedGesture = null;
         _mode = _runJobId is not null ? DeviceConsoleMode.Running : DeviceConsoleMode.Idle;
+    }
+
+    void Record(RecordedGesture gesture) {
+        if (_mode != DeviceConsoleMode.Record) return;
+        _recorded.Add(gesture);
+        _selectedGesture = gesture;
+    }
+
+    void SelectGesture(RecordedGesture gesture) {
+        _selectedGesture = ReferenceEquals(_selectedGesture, gesture) ? null : gesture;
+    }
+
+    void RemoveGesture(int index) {
+        if (ReferenceEquals(_selectedGesture, _recorded[index])) _selectedGesture = null;
+        _recorded.RemoveAt(index);
+    }
+
+    void ClearRecorded() {
+        _recorded = [];
+        _selectedGesture = null;
+    }
+
+    Task ReplayAsync(RecordedGesture g) {
+        return g.Kind == RecordedGestureKind.Tap
+            ? TapAsync(g.X, g.Y)
+            : SwipeAsync(g.X, g.Y, g.X2, g.Y2, g.DurationMs);
+    }
+
+    async Task ReplayAllAsync() {
+        if (_replaying || _deviceId is null) return;
+        _replaying = true;
+        try {
+            var steps = _recorded.ToArray();
+            for (var i = 0; i < steps.Length; i++) {
+                if (i > 0) {
+                    var gap = steps[i].At - steps[i - 1].At;
+                    if (gap > TimeSpan.Zero) await Task.Delay(gap > TimeSpan.FromSeconds(10) ? TimeSpan.FromSeconds(10) : gap);
+                }
+
+                _selectedGesture = steps[i];
+                StateHasChanged();
+                await ReplayAsync(steps[i]);
+            }
+        }
+        finally {
+            _replaying = false;
+        }
+    }
+
+    static string GestureKind(RecordedGesture g) => g.Kind switch {
+        RecordedGestureKind.Tap => "tap",
+        RecordedGestureKind.Hold => "hold",
+        _ => "swipe"
+    };
+
+    string PointStyle(int x, int y) {
+        var width = TapWidth;
+        var height = TapHeight;
+        if (width <= 0 || height <= 0) return "display:none";
+        var (ox, oy, cw, ch) = ContentRect(width, height);
+        return string.Create(CultureInfo.InvariantCulture,
+            $"left:{100.0 * (ox + cw * x / width):0.###}%;top:{100.0 * (oy + ch * y / height):0.###}%");
     }
 
     void Done() {
@@ -619,6 +837,7 @@
             return;
         }
 
+        Record(RecordedGesture.Tap(p.X, p.Y));
         await TapAsync(p.X, p.Y);
     }
 
@@ -646,9 +865,10 @@
         if (_deviceId is null || !_holding) return;
         _holding = false;
         var end = DevicePoint(fx, fy) ?? _holdPoint;
+        var held = Math.Clamp((int)(DateTimeOffset.UtcNow - _holdStartedAt).TotalMilliseconds + LongPressMs, LongPressMs, MaxHoldMs);
+        Record(RecordedGesture.Hold(_holdPoint.X, _holdPoint.Y, held));
         if (_holdReplay) {
-            var held = (int)(DateTimeOffset.UtcNow - _holdStartedAt).TotalMilliseconds + LongPressMs;
-            await SwipeAsync(_holdPoint.X, _holdPoint.Y, _holdPoint.X, _holdPoint.Y, Math.Clamp(held, LongPressMs, MaxHoldMs));
+            await SwipeAsync(_holdPoint.X, _holdPoint.Y, _holdPoint.X, _holdPoint.Y, held);
             return;
         }
 
@@ -661,7 +881,9 @@
     public async Task OnStageSwipe(double fx1, double fy1, double fx2, double fy2, int durationMs) {
         if (_deviceId is null) return;
         if (DevicePoint(fx1, fy1) is not { } from || DevicePoint(fx2, fy2) is not { } to) return;
-        await SwipeAsync(from.X, from.Y, to.X, to.Y, Math.Clamp(durationMs, 50, 1000));
+        var ms = Math.Clamp(durationMs, 50, 1000);
+        Record(RecordedGesture.Swipe(from.X, from.Y, to.X, to.Y, ms));
+        await SwipeAsync(from.X, from.Y, to.X, to.Y, ms);
     }
 
     (int X, int Y)? DevicePoint(double fx, double fy) {
@@ -708,10 +930,6 @@
         var res = await Client().PostAsJsonAsync($"/api/devices/{_deviceId}/ui/tap",
             new UiTapRequest(x, y), SelfCallJson.Web);
         if (!res.IsSuccessStatusCode) await Fail(await ReadError(res));
-    }
-
-    Task TapSelectedAsync() {
-        return _selected is { } sel ? TapAsync(sel.CenterX, sel.CenterY) : Task.CompletedTask;
     }
 
     async Task TextKeyAsync(KeyboardEventArgs e) {
@@ -761,105 +979,22 @@
         if (!res.IsSuccessStatusCode) await Fail(await ReadError(res));
     }
 
-    async Task LoadDumpAsync() {
-        if (_deviceId is null) return;
-        _dumpBusy = true;
-        _dumpError = null;
-        StateHasChanged();
-        try {
-            var res = await Client().GetAsync($"/api/devices/{_deviceId}/ui/dump");
-            if (!res.IsSuccessStatusCode) {
-                _dumpError = await ReadError(res);
-                _dump = null;
-                _rows = [];
-                _selected = null;
-                return;
-            }
-
-            _dump = await res.Content.ReadFromJsonAsync<UiDumpResult>(SelfCallJson.Web);
-            _selected = null;
-            ApplyFilter();
-        }
-        catch (Exception ex) when (ex is HttpRequestException or JsonException or TaskCanceledException) {
-            Logger.LogDebug(ex, "ui dump read failed");
-            _dumpError = ex.Message;
-            _dump = null;
-            _rows = [];
-        }
-        finally {
-            _dumpBusy = false;
-        }
-    }
-
-    void FilterChanged(ChangeEventArgs e) {
-        _filter = e.Value?.ToString() ?? "";
-        ApplyFilter();
-    }
-
-    void ClickableChanged(ChangeEventArgs e) {
-        _clickableOnly = e.Value is true;
-        ApplyFilter();
-    }
-
-    void ApplyFilter() {
-        if (_dump is null) {
-            _rows = [];
-            return;
-        }
-
-        IEnumerable<UiNodeRow> query = _dump.Nodes;
-        if (_clickableOnly) query = query.Where(n => n.Clickable);
-        var needle = _filter.Trim();
-        if (needle.Length > 0) {
-            query = query.Where(n => Has(n.Label, needle) || Has(n.ResourceId, needle) || Has(n.Text, needle)
-                                     || Has(n.ContentDesc, needle) || Has(n.ClassName, needle));
-        }
-
-        _rows = [.. query];
-    }
-
-    static bool Has(string? value, string needle) {
-        return value is not null && value.Contains(needle, StringComparison.OrdinalIgnoreCase);
-    }
-
-    void SelectNode(UiNodeRow node) {
-        _selected = _selected?.Id == node.Id ? null : node;
-    }
-
-    string HighlightStyle(UiNodeRow node) {
-        var width = TapWidth;
-        var height = TapHeight;
-        if (width <= 0 || height <= 0) return "display:none";
-        var (ox, oy, cw, ch) = ContentRect(width, height);
-        return string.Create(CultureInfo.InvariantCulture,
-            $"left:{100.0 * (ox + cw * node.Left / width):0.###}%;top:{100.0 * (oy + ch * node.Top / height):0.###}%;width:{100.0 * cw * node.Width / width:0.###}%;height:{100.0 * ch * node.Height / height:0.###}%");
-    }
-
-    static string IndentStyle(UiNodeRow node) {
-        return string.Create(CultureInfo.InvariantCulture, $"--dcon-indent:{Math.Min(node.Depth, 12)}");
-    }
-
-    static string HintLabel(UiSelectorHint hint) {
-        return hint.Unique ? hint.Label : $"{hint.Label} {hint.Index + 1} of {hint.Matches}";
-    }
-
-    static string TapStep(UiNodeRow node) {
-        return $"DeviceFlowSteps.Tap({node.Selectors[0].Snippet})";
-    }
-
-    static string WaitStep(UiNodeRow node) {
-        return $"DeviceFlowSteps.WaitForSelector({node.Selectors[0].Snippet})";
-    }
-
-    static string PointStep(UiNodeRow node) {
-        return $"DeviceFlowSteps.TapPoint({node.CenterX}, {node.CenterY})";
-    }
-
     async Task LoadCookbooksAsync() {
-        if (_deviceId is null) return;
+        if (_deviceId is not { } id) return;
         _booksBusy = true;
         StateHasChanged();
-        _books = await Client().ListAsync<DeviceCookbookInfo>($"/api/devices/{_deviceId}/cookbooks", Logger);
+        var books = _isAdmin && Runner is { } runner
+            ? [.. await runner.DescribeAsync(id, CancellationToken.None)]
+            : await Client().ListAsync<DeviceCookbookInfo>($"/api/devices/{id}/cookbooks", Logger);
+        if (Stale(id)) return;
+        _books = books;
+        SeedCookbookDefaults();
+        if (Cache is { } cache) cache.Cookbooks = books;
+        _booksBusy = false;
+        StateHasChanged();
+    }
+
+    void SeedCookbookDefaults() {
         foreach (var book in _books) {
             if (book.Options is not { Count: > 0 } options || _args.ContainsKey(book.Id)) continue;
             _args[book.Id] = (options.FirstOrDefault(o => o.Recommended) ?? options[0]).Value;
@@ -868,75 +1003,91 @@
         if (_books.All(b => b.Id != _bookId)) {
             _bookId = (Workflows().FirstOrDefault(b => b.Available) ?? _books.FirstOrDefault(b => b.Available))?.Id ?? "";
         }
-
-        _booksBusy = false;
-        StateHasChanged();
     }
 
     async Task LoadScreenAsync() {
-        if (_deviceId is null || !IsAndroid) return;
-        if (await Client().OneAsync<UiScreenInfo>($"/api/devices/{_deviceId}/ui/screen", Logger) is not { Width: > 0, Height: > 0 } screen) return;
+        if (_deviceId is not { } id || !IsAndroid) return;
+        if (await Client().OneAsync<UiScreenInfo>($"/api/devices/{id}/ui/screen", Logger) is not { Width: > 0, Height: > 0 } screen) return;
+        if (Stale(id)) return;
         _screenW = screen.Width;
         _screenH = screen.Height;
+        if (Cache is { } cache) {
+            cache.ScreenW = screen.Width;
+            cache.ScreenH = screen.Height;
+        }
     }
 
     async Task LoadReadinessAsync() {
-        if (_deviceId is null) return;
+        if (_deviceId is not { } id || _readinessBusy) return;
         _readinessBusy = true;
         StateHasChanged();
-        _readiness = await Client().OneAsync<DeviceReadiness>($"/api/devices/{_deviceId}/readiness", Logger) ?? _readiness;
+        var readiness = await Client().OneAsync<DeviceReadiness>($"/api/devices/{id}/readiness", Logger);
+        if (Stale(id)) return;
+        if (readiness is not null) {
+            _readiness = readiness;
+            _readinessAt = DateTimeOffset.UtcNow;
+            if (Cache is { } cache) {
+                cache.Readiness = readiness;
+                cache.ReadinessAt = _readinessAt;
+            }
+        }
+
         _readinessBusy = false;
         StateHasChanged();
     }
 
     async Task LoadLastRunsAsync() {
-        if (_deviceId is null || !_isAdmin || JobFeed is not { } feed) return;
-        var page = await feed.PageAsync(_deviceId, LastRunPage, null, CancellationToken.None);
+        if (_deviceId is not { } id || !_isAdmin || JobFeed is not { } feed) return;
+        var page = await feed.PageAsync(id, LastRunPage, null, CancellationToken.None);
+        if (Stale(id)) return;
         _lastRuns = [.. page.Rows.Where(j => j.Kind == DeviceJobKinds.Cookbook).Take(LastRunCount)];
     }
 
     async Task LoadIslandsAsync() {
-        if (_deviceId is null || !IsAndroid) return;
+        if (_deviceId is not { } id || !IsAndroid) return;
         _islandBusy = true;
         StateHasChanged();
-        _islands = await Client().ListAsync<IslandRow>($"/api/devices/{_deviceId}/islands", Logger);
-        _islandsLoaded = true;
-        await SyncSelectedIslandAsync();
-        if (_selectedUserId is { } uid && _islands.All(i => i.UserId != uid)) _selectedUserId = null;
+        var islandsTask = Client().ListAsync<IslandRow>($"/api/devices/{id}/islands", Logger);
+        var currentTask = Client().OneAsync<IslandCurrent>($"/api/devices/{id}/islands/current", Logger);
+        var islands = await islandsTask;
+        var current = await currentTask;
+        if (Stale(id)) return;
+        _islands = islands;
+        if (current is not null)
+            _selectedUserId = current.UserId != IslandScope.Owner && islands.Any(i => i.UserId == current.UserId) ? current.UserId : null;
+        if (_selectedUserId is { } uid && islands.All(i => i.UserId != uid)) _selectedUserId = null;
+        if (Cache is { } cache) {
+            cache.Islands = islands;
+            cache.IslandsLoaded = true;
+            cache.CurrentUserId = _selectedUserId;
+        }
+
         _islandBusy = false;
         StateHasChanged();
-    }
-
-    async Task SyncSelectedIslandAsync() {
-        if (_deviceId is null) return;
-        if (await Client().OneAsync<IslandCurrent>($"/api/devices/{_deviceId}/islands/current", Logger) is not { } current) return;
-        _selectedUserId = current.UserId != 0 && _islands.Any(i => i.UserId == current.UserId) ? current.UserId : null;
     }
 
     IslandRow? SelectedIsland() {
         return _selectedUserId is { } uid ? _islands.FirstOrDefault(i => i.UserId == uid) : null;
     }
 
-    string IslandValue() {
-        return _selectedUserId?.ToString(CultureInfo.InvariantCulture) ?? "";
-    }
-
     static string IslandLabel(IslandRow island) {
-        var label = string.IsNullOrWhiteSpace(island.Label) ? $"user {island.UserId}" : $"{island.Label} (user {island.UserId})";
-        return island.Provisioned ? label : $"{label} - provisioning";
+        return string.IsNullOrWhiteSpace(island.Label) ? $"user {island.UserId}" : island.Label;
     }
 
-    async Task IslandChanged(ChangeEventArgs e) {
+    async Task SwitchIslandAsync(int userId) {
+        if (_deviceId is not { } id || _islandBusy) return;
         var previous = _selectedUserId;
-        _selectedUserId = int.TryParse(e.Value?.ToString(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var uid)
-            ? uid
-            : null;
-        if (_deviceId is null) return;
+        _selectedUserId = userId == IslandScope.Owner ? null : userId;
         _islandBusy = true;
         StateHasChanged();
-        var res = await Client().PostAsync($"/api/devices/{_deviceId}/islands/{_selectedUserId ?? 0}/switch", null);
+        var res = await Client().PostAsync($"/api/devices/{id}/islands/{userId}/switch", null);
+        if (Stale(id)) return;
         _islandBusy = false;
-        if (res.IsSuccessStatusCode) return;
+        if (res.IsSuccessStatusCode) {
+            if (Cache is { } cache) cache.CurrentUserId = _selectedUserId;
+            return;
+        }
+
         _selectedUserId = previous;
         StateHasChanged();
         await Fail(await ReadError(res));
@@ -994,18 +1145,45 @@
         await LoadIslandsAsync();
     }
 
-    IEnumerable<(string Word, ReadinessCheck? Check)> ReadinessWords() {
+    IEnumerable<(string Label, ReadinessCheck? Check)> ReadinessRows() {
         yield return ("installed", _readiness?.Installed);
-        yield return ("ca", _readiness?.CaptureCa);
-        yield return ("play", _readiness?.GooglePlay);
+        yield return ("capture CA", _readiness?.CaptureCa);
+        yield return ("Play services", _readiness?.GooglePlay);
         yield return ("root", _readiness?.Rooted);
-        yield return ("integrity", _readiness?.IntegrityModule);
+        yield return ("integrity chain", _readiness?.IntegrityModule);
         yield return ("launched", _readiness?.Launched);
         yield return ("proxy", _readiness?.ProxyReachable);
     }
 
-    static string ReadyClass(ReadinessCheck? check) {
+    static string CheckIcon(ReadinessCheck? check) {
+        return check is null ? "circle" : check.Ok ? "circle-check" : "circle-x";
+    }
+
+    static string CheckIconClass(ReadinessCheck? check) {
         return check is null ? "text-muted" : check.Ok ? "text-ok" : "text-err";
+    }
+
+    string CheckDetail(ReadinessCheck? check) {
+        if (check is null) return _readinessBusy ? "probing" : "not probed";
+        if (check.Note is { Length: > 0 } note) return note;
+        return check.Ok ? "ok" : "failed";
+    }
+
+    string ReadinessIcon() {
+        if (_readiness is null) return "circle";
+        return ReadinessRows().All(r => r.Check is { Ok: true }) ? "circle-check" : "circle-x";
+    }
+
+    string ReadinessIconClass() {
+        if (_readiness is null) return "text-muted";
+        return ReadinessRows().All(r => r.Check is { Ok: true }) ? "text-ok" : "text-err";
+    }
+
+    string ReadinessLabel() {
+        if (_readiness is null) return _readinessBusy ? "probing" : "not probed";
+        var rows = ReadinessRows().ToList();
+        var ok = rows.Count(r => r.Check is { Ok: true });
+        return ok == rows.Count ? "ready" : $"{ok} of {rows.Count} ready";
     }
 
     List<DeviceCookbookInfo> Workflows() {
@@ -1080,9 +1258,9 @@
     }
 
     async Task CheckRunningAsync() {
-        if (_deviceId is null) return;
-        var status = await Client().OneAsync<CookbookRunningInfo>($"/api/devices/{_deviceId}/cookbooks/running", Logger);
-        if (status is not { Running: true, JobId: { } jobId } || _deviceId is null) return;
+        if (_deviceId is not { } id) return;
+        var status = await Client().OneAsync<CookbookRunningInfo>($"/api/devices/{id}/cookbooks/running", Logger);
+        if (status is not { Running: true, JobId: { } jobId } || Stale(id)) return;
 
         StopRunWatch();
         ResetRun();
@@ -1177,10 +1355,7 @@
     }
 
     async Task AfterRunAsync() {
-        await LoadCookbooksAsync();
-        await LoadReadinessAsync();
-        await LoadLastRunsAsync();
-        await LoadIslandsAsync();
+        await Task.WhenAll(LoadCookbooksAsync(), LoadReadinessAsync(), LoadLastRunsAsync(), LoadIslandsAsync());
         if (OnChanged.HasDelegate) await OnChanged.InvokeAsync();
     }
 
@@ -1235,7 +1410,16 @@
         return at.ToLocalTime().ToString("HH:mm:ss", CultureInfo.InvariantCulture);
     }
 
-    static string OutcomeClass(string state) {
+    static string OutcomeIcon(string state) {
+        return state.ToLowerInvariant() switch {
+            "succeeded" => "circle-check",
+            "failed" => "circle-x",
+            "running" => "play",
+            _ => "circle"
+        };
+    }
+
+    static string OutcomeIconClass(string state) {
         return state.ToLowerInvariant() switch {
             "succeeded" => "text-ok",
             "failed" => "text-err",
@@ -1243,7 +1427,11 @@
         };
     }
 
-    string RunStateClass() {
+    string RunIcon() {
+        return !_runDone ? "play" : _runCancelled ? "circle" : _runOk ? "circle-check" : "circle-x";
+    }
+
+    string RunIconClass() {
         return !_runDone ? "text-accent" : _runCancelled ? "text-muted" : _runOk ? "text-ok" : "text-err";
     }
 
@@ -1251,7 +1439,15 @@
         return !_runDone ? "running" : _runCancelled ? "stopped" : _runOk ? "done" : "failed";
     }
 
-    static string StepClass(CookbookStepStatus status) {
+    static string StepIcon(CookbookStepStatus status) {
+        return status switch {
+            CookbookStepStatus.Ok => "circle-check",
+            CookbookStepStatus.Skipped => "circle",
+            _ => "circle-x"
+        };
+    }
+
+    static string StepIconClass(CookbookStepStatus status) {
         return status switch {
             CookbookStepStatus.Ok => "text-ok",
             CookbookStepStatus.Skipped => "text-muted",
@@ -1342,17 +1538,30 @@
     }
 
     async Task SyncStreamAsync(IJSObjectReference module) {
+        if (_syncing) return;
         var wanted = _live && Active && _deviceId is not null && _streamError is null;
         var desired = !wanted ? "" : _useVideo ? $"{_deviceId}|video|{_quality}" : $"{_deviceId}|jpeg|{_fps}";
         if (desired == _streamKey) return;
 
-        await HaltAsync(module);
-        _streamKey = desired;
-        if (desired.Length == 0) return;
+        _syncing = true;
+        try {
+            _streamKey = desired;
+            await HaltAsync(module);
+            if (desired.Length == 0) return;
 
-        _streamOnVideo = _useVideo;
-        if (_useVideo) await SafeAsync(() => module.InvokeVoidAsync("startVideo", _canvas, VideoUrl(), Ref(), new { maxQueue = 2 }).AsTask());
-        else await SafeAsync(() => module.InvokeAsync<bool>("start", _img, StreamUrl(), Ref()).AsTask());
+            _streamOnVideo = _useVideo;
+            var started = _useVideo
+                ? await SafeValueAsync(() => module.InvokeAsync<bool>("startVideo", _canvas, VideoUrl(), Ref(), new { maxQueue = 4 }).AsTask())
+                : await SafeValueAsync(() => module.InvokeAsync<bool>("start", _img, StreamUrl(), ScreenshotUrl(), Ref()).AsTask());
+            if (!started && _streamKey == desired) {
+                await StreamEndedAsync(_useVideo
+                    ? "the browser could not start the video decoder"
+                    : "the browser could not attach the image stream", 0);
+            }
+        }
+        finally {
+            _syncing = false;
+        }
     }
 
     async Task SyncStageAsync(IJSObjectReference module) {
@@ -1388,6 +1597,10 @@
         return $"/api/devices/{_deviceId}/ui/stream?fps={_fps}";
     }
 
+    string ScreenshotUrl() {
+        return $"/api/devices/{_deviceId}/ui/screenshot";
+    }
+
     (int W, int H, int Bitrate) QualitySpec() {
         return _quality switch {
             StreamQuality.Fluid => (540, 960, 1_500_000),
@@ -1407,6 +1620,7 @@
         _shotW = naturalW;
         _shotH = naturalH;
         _hasFrame = naturalW > 0;
+        if (_hasFrame) _streamRetried = false;
         return InvokeAsync(StateHasChanged);
     }
 
@@ -1418,8 +1632,7 @@
 
     [JSInvokable]
     public Task OnFrameFailed(int status, string note) {
-        var detail = status > 0 ? $"{note} [http {status}]" : note;
-        return StreamEndedAsync(string.IsNullOrWhiteSpace(detail) ? "stream ended" : detail);
+        return StreamEndedAsync(string.IsNullOrWhiteSpace(note) ? "the device stopped sending frames" : note, status);
     }
 
     [JSInvokable]
@@ -1430,22 +1643,40 @@
         _shotW = frameW;
         _shotH = frameH;
         _hasFrame = frameW > 0;
+        if (_hasFrame) _streamRetried = false;
         return InvokeAsync(StateHasChanged);
     }
 
     [JSInvokable]
-    public Task OnVideoEnded(string reason) {
+    public Task OnVideoEnded(string reason, int status) {
         if (string.Equals(reason, "stopped", StringComparison.OrdinalIgnoreCase)) return Task.CompletedTask;
-        return StreamEndedAsync(string.IsNullOrWhiteSpace(reason) ? "stream ended" : reason);
+        return StreamEndedAsync(string.IsNullOrWhiteSpace(reason) ? "the server closed the stream" : reason, status);
     }
 
-    Task StreamEndedAsync(string reason) {
+    async Task StreamEndedAsync(string reason, int status) {
+        bool videoNeverDrew = _streamOnVideo && _shotW == 0;
         _streamKey = "";
         _streamOnVideo = false;
-        _live = false;
         _hasFrame = false;
+        if (status == StreamBusyStatus && !_streamRetried && _live) {
+            _streamRetried = true;
+            await Task.Delay(StreamRetryDelay);
+            if (_disposed) return;
+            await InvokeAsync(StateHasChanged);
+            return;
+        }
+
+        if (videoNeverDrew && _live && _useVideo) {
+            _videoSupported = false;
+            RecomputeVideo();
+            Logger.LogInformation("video stream for {DeviceId} gave no frame ({Reason}); falling back to jpeg", _deviceId, reason);
+            await InvokeAsync(StateHasChanged);
+            return;
+        }
+
+        _live = false;
         _streamError = reason;
-        return InvokeAsync(StateHasChanged);
+        await InvokeAsync(StateHasChanged);
     }
 
     DotNetObjectReference<DeviceConsolePane> Ref() {

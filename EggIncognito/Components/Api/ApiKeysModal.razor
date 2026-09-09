@@ -1,0 +1,12 @@
+@if (Open) {
+    <ModalShell Title="API keys" TitleId="apiKeysModalTitle" OnClose="OnClose">
+        <div class="modal-body">
+            <ApiKeysPanel/>
+        </div>
+    </ModalShell>
+}
+
+@code {
+    [Parameter] public bool Open { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+}

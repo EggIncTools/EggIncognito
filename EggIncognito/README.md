@@ -14,7 +14,6 @@ Blazor Server, InteractiveServer over a SignalR circuit.
 
 - `/protos#api` - the API workbench: build, sign, send, and decode any API request, plus the live capture pane (`#api/capture`).
 - `/protos` - proto registry, game-data repository, public data API + key management.
-- `/admin` - roles, contribution review, API activity, themes, device status, the 3D farm playground.
 
 ## Run modes
 

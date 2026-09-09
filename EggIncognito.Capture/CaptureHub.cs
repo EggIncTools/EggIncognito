@@ -28,6 +28,7 @@ public sealed class CaptureHub {
     private int _decryptOk;
     private string? _lastError;
     private string? _lastGameVersion;
+    private CaptureStats? _mirrored;
 
     private string? _lastOs;
     private long _nextId;
@@ -205,7 +206,28 @@ public sealed class CaptureHub {
     }
 
     public CaptureStats StatsSnapshot() {
-        lock (_gate) return BuildStats();
+        lock (_gate) return _mirrored ?? BuildStats();
+    }
+
+    public void Mirror(CaptureEnvelope env) {
+        lock (_gate) {
+            if (env.Flow is { } flow) Upsert(flow);
+            if (env.Stats is { } stats) _mirrored = stats;
+        }
+
+        Broadcast(env);
+        if (env.Stats is not null) StatsChanged?.Invoke();
+    }
+
+    private void Upsert(DashboardFlow flow) {
+        for (var node = _buffer.First; node is not null; node = node.Next) {
+            if (node.Value.Id != flow.Id) continue;
+            node.Value = flow;
+            return;
+        }
+
+        _buffer.AddLast(flow);
+        while (_buffer.Count > BufferCap) _buffer.RemoveFirst();
     }
 
     private CaptureStats BuildStats() {

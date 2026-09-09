@@ -3,6 +3,7 @@ using System.Text.Json.Nodes;
 using Bunit;
 using EggIncognito.Components.Inspector;
 using EggIncognito.Core.Services;
+using EggIncognito.Services.Workbench;
 using Microsoft.AspNetCore.Mvc.Testing;
 
 namespace EggIncognito.Tests;
@@ -63,11 +64,12 @@ public class InspectorPageTests {
         public void FieldTree_RendersAllFieldKinds() {
             var nodes = FieldTreeBuilder.Build(Root(),
                 t => t == "Inner" ? Inner() : null);
+            Services.AddWorkbenchStates();
             var cut = Render<FieldTree>(p => p.Add(c => c.Nodes, nodes));
 
             Assert.NotEmpty(cut.FindAll("input.field-input"));
             Assert.NotEmpty(cut.FindAll("select.field-input"));
-            Assert.Contains("+ add", cut.Markup);
+            Assert.Contains(cut.FindAll("button.btn-mini"), b => b.TextContent.Trim() == "Add");
 
             Assert.Contains("flag", cut.Markup);
         }

@@ -17,7 +17,7 @@ namespace EggIncognito.Controllers;
 
 [ApiController]
 [Route("api/decomp")]
-[ApiAccess(ApiAccessLevel.Admin)]
+[ApiAccess(ApiAccessLevel.Contributor)]
 public sealed class DecompController(
     GameBinaryProvider binaries,
     IServiceProvider services,
@@ -31,6 +31,7 @@ public sealed class DecompController(
 
     [HttpGet("symbols")]
     [EnableRateLimiting("read")]
+    [ApiAccess(ApiAccessLevel.Admin)]
     public async Task<IActionResult> Symbols([FromQuery] string? filter, [FromQuery] string? device,
         CancellationToken ct) {
         if (!currentUser.IsAtLeast(UserRole.Admin))
@@ -55,6 +56,7 @@ public sealed class DecompController(
 
     [HttpGet("function-constants")]
     [EnableRateLimiting("read")]
+    [ApiAccess(ApiAccessLevel.Admin)]
     public async Task<IActionResult> FunctionConstants([FromQuery] string name, [FromQuery] string? device,
         CancellationToken ct) {
         if (!currentUser.IsAtLeast(UserRole.Admin))
@@ -66,6 +68,7 @@ public sealed class DecompController(
 
     [HttpGet("galaxy-particle")]
     [EnableRateLimiting("read")]
+    [ApiAccess(ApiAccessLevel.Admin)]
     public async Task<IActionResult> GalaxyParticle([FromQuery] string? device, CancellationToken ct) {
         if (!currentUser.IsAtLeast(UserRole.Admin))
             return StatusCode(403, new { error = "admin role required" });
@@ -85,6 +88,7 @@ public sealed class DecompController(
 
     [HttpGet("recover")]
     [EnableRateLimiting("read")]
+    [ApiAccess(ApiAccessLevel.Admin)]
     public async Task<IActionResult> Recover(
         [FromQuery] string? name, [FromQuery] string? refVersion, [FromQuery] string? targetPath,
         CancellationToken ct) {
@@ -123,6 +127,7 @@ public sealed class DecompController(
 
     [HttpGet("resolve-va")]
     [EnableRateLimiting("read")]
+    [ApiAccess(ApiAccessLevel.Admin)]
     public async Task<IActionResult> ResolveVa(
         [FromQuery] string name, [FromQuery] string? refVersion, [FromQuery] string? targetPath, CancellationToken ct) {
         if (!currentUser.IsAtLeast(UserRole.Admin))
@@ -175,6 +180,7 @@ public sealed class DecompController(
 
     [HttpGet("effect")]
     [EnableRateLimiting("read")]
+    [ApiAccess(ApiAccessLevel.Admin)]
     public async Task<IActionResult>
         Effect([FromQuery] string? name, [FromQuery] string? device, CancellationToken ct) {
         if (!currentUser.IsAtLeast(UserRole.Admin))
@@ -197,6 +203,7 @@ public sealed class DecompController(
 
     [HttpGet("farm-placement")]
     [EnableRateLimiting("read")]
+    [ApiAccess(ApiAccessLevel.Admin)]
     public async Task<IActionResult> FarmPlacement([FromQuery] string? device, CancellationToken ct) {
         if (!currentUser.IsAtLeast(UserRole.Admin))
             return StatusCode(403, new { error = "admin role required" });
@@ -220,6 +227,7 @@ public sealed class DecompController(
 
     [HttpGet("building-effects")]
     [EnableRateLimiting("read")]
+    [ApiAccess(ApiAccessLevel.Admin)]
     public async Task<IActionResult> BuildingEffects([FromQuery] string stem, [FromQuery] string? device,
         CancellationToken ct) {
         if (string.IsNullOrWhiteSpace(stem)) return BadRequest(new { error = "stem required" });
@@ -238,6 +246,7 @@ public sealed class DecompController(
 
     [HttpGet("hatchery-assembly")]
     [EnableRateLimiting("read")]
+    [ApiAccess(ApiAccessLevel.Admin)]
     public async Task<IActionResult> HatcheryAssembly([FromQuery] string? device, CancellationToken ct) {
         if (!currentUser.IsAtLeast(UserRole.Admin))
             return StatusCode(403, new { error = "admin role required" });
@@ -285,6 +294,7 @@ public sealed class DecompController(
 
     [HttpPost("particle-capture")]
     [EnableRateLimiting("read")]
+    [ApiAccess(ApiAccessLevel.Admin)]
     public async Task<IActionResult> ParticleCapture([FromQuery] string? addrOffset, [FromQuery] string platform = "ios",
         [FromQuery] string? device = null, CancellationToken ct = default) {
         if (!currentUser.IsAtLeast(UserRole.Admin))
@@ -321,6 +331,7 @@ public sealed class DecompController(
 
     [HttpGet("signature")]
     [EnableRateLimiting("read")]
+    [ApiAccess(ApiAccessLevel.Admin)]
     public async Task<IActionResult> Signature(
         [FromQuery] string name, [FromQuery] string? refVersion, [FromQuery] int instructions, CancellationToken ct) {
         if (!currentUser.IsAtLeast(UserRole.Admin))
@@ -365,6 +376,7 @@ public sealed class DecompController(
 
     [HttpGet("disasm")]
     [EnableRateLimiting("read")]
+    [ApiAccess(ApiAccessLevel.Admin)]
     public async Task<IActionResult> Disasm(
         [FromQuery] string name, [FromQuery] string? device, [FromQuery] string mode = "list",
         [FromQuery] int max = 512, [FromQuery] bool live = false, CancellationToken ct = default) {
@@ -429,6 +441,7 @@ public sealed class DecompController(
 
     [HttpGet("stored-binaries")]
     [EnableRateLimiting("read")]
+    [ApiAccess(ApiAccessLevel.Admin)]
     public async Task<IActionResult> StoredBinaries(CancellationToken ct) {
         if (!currentUser.IsAtLeast(UserRole.Admin))
             return StatusCode(403, new { error = "admin role required" });
@@ -450,8 +463,32 @@ public sealed class DecompController(
         });
     }
 
+    [HttpGet("stored-binaries/{platform}/{version}/download")]
+    [EnableRateLimiting("fetch")]
+    [ApiAccess(ApiAccessLevel.Contributor)]
+    public async Task<IActionResult> DownloadStoredBinary(string platform, string version, CancellationToken ct) {
+        if (!currentUser.IsAtLeast(UserRole.Contributor))
+            return StatusCode(403, new { error = "contributor role required" });
+        if (Store is not { } store) return StatusCode(503, new { error = "no database configured" });
+        var row = await store.GetAsync(platform, version, ct);
+        if (row is null || row.Bytes.Length == 0)
+            return NotFound(new { ok = false, error = $"no stored binary {platform} {version}" });
+
+        Response.Headers.CacheControl = "private, max-age=3600";
+        Response.Headers.ETag = $"\"{row.Sha256}\"";
+        return File(row.Bytes, "application/octet-stream", StoredBinaryFileName(row.Platform, row.AppVersion));
+    }
+
+    private static string StoredBinaryFileName(string platform, string version) {
+        string safeVersion = string.Concat(version.Where(c => char.IsLetterOrDigit(c) || c is '.' or '-' or '_'));
+        return Platforms.Matches(platform, Platforms.Android)
+            ? $"libegginc-{safeVersion}.so"
+            : $"egginc-{platform}-{safeVersion}";
+    }
+
     [HttpDelete("stored-binaries/{platform}/{version}")]
     [EnableRateLimiting("read")]
+    [ApiAccess(ApiAccessLevel.Admin)]
     public async Task<IActionResult> DeleteStoredBinary(string platform, string version, CancellationToken ct) {
         if (!currentUser.IsAtLeast(UserRole.Admin))
             return StatusCode(403, new { error = "admin role required" });
@@ -464,6 +501,7 @@ public sealed class DecompController(
 
     [HttpGet("symbolized")]
     [EnableRateLimiting("read")]
+    [ApiAccess(ApiAccessLevel.Admin)]
     public async Task<IActionResult> SymbolizedReferences(CancellationToken ct) {
         if (!currentUser.IsAtLeast(UserRole.Admin))
             return StatusCode(403, new { error = "admin role required" });
@@ -474,6 +512,7 @@ public sealed class DecompController(
 
     [HttpPost("symbolized")]
     [EnableRateLimiting("read")]
+    [ApiAccess(ApiAccessLevel.Admin)]
     [RequestSizeLimit(800_000_000)]
     [RequestFormLimits(MultipartBodyLengthLimit = 800_000_000)]
     public async Task<IActionResult> UploadSymbolizedReference(
@@ -520,6 +559,7 @@ public sealed class DecompController(
 
     [HttpDelete("symbolized/{version}")]
     [EnableRateLimiting("read")]
+    [ApiAccess(ApiAccessLevel.Admin)]
     public async Task<IActionResult> DeleteSymbolizedReference(string version, CancellationToken ct) {
         if (!currentUser.IsAtLeast(UserRole.Admin))
             return StatusCode(403, new { error = "admin role required" });
@@ -552,6 +592,7 @@ public sealed class DecompController(
 
     [HttpGet("harvested")]
     [EnableRateLimiting("read")]
+    [ApiAccess(ApiAccessLevel.Admin)]
     public async Task<IActionResult> Harvested(CancellationToken ct) {
         if (!currentUser.IsAtLeast(UserRole.Admin))
             return StatusCode(403, new { error = "admin role required" });
@@ -583,6 +624,7 @@ public sealed class DecompController(
 
     [HttpGet("section")]
     [EnableRateLimiting("read")]
+    [ApiAccess(ApiAccessLevel.Admin)]
     public async Task<IActionResult> Section(
         [FromQuery] string va, [FromQuery] int count, [FromQuery] string elem = "f64",
         [FromQuery] string? device = null, [FromQuery] bool live = false, CancellationToken ct = default) {

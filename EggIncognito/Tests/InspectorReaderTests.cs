@@ -1,6 +1,7 @@
 using Bunit;
 using EggIncognito.Components.Inspector;
 using EggIncognito.Core.Services;
+using EggIncognito.Models.Inspector;
 using EggIncognito.Services.Api;
 using EggIncognito.Services.Inspector;
 using Microsoft.Extensions.DependencyInjection;
@@ -60,10 +61,10 @@ public class InspectorReaderTests : BunitContext {
     [Fact]
     public void Diagnosis_IsAbsentUntilAFailedDecodeThenOpens() {
         var cut = RenderView();
-        Assert.Equal(2, cut.FindAll(".insp-disc").Count);
+        Assert.Single(cut.FindAll(".insp-disc"));
         cut.Render(p => p.Add(c => c.Diagnosis, Broken()));
-        Assert.Equal(3, cut.FindAll(".insp-disc").Count);
-        Assert.False(Collapsed(cut, 2));
+        Assert.Equal(2, cut.FindAll(".insp-disc").Count);
+        Assert.False(Collapsed(cut, 1));
     }
 
     [Fact]

@@ -1,0 +1,21 @@
+@using EggIncognito.Services.Api
+@inject ApiWorkbenchState State
+
+@if (Link) {
+    <button type="button" class="ep-type-link" @onclick:stopPropagation="true" @onclick="Select">@Name</button>
+} else {
+    <span class="ep-type">@Name</span>
+}
+
+@code {
+    [Parameter] [EditorRequired] public string Name { get; set; } = "";
+    [Parameter] public bool Link { get; set; } = true;
+    [Parameter] public EventCallback<string> OnSelect { get; set; }
+
+    Task Select() {
+        if (OnSelect.HasDelegate) return OnSelect.InvokeAsync(Name);
+        State.RequestMessageDocs(Name);
+        return Task.CompletedTask;
+    }
+
+}

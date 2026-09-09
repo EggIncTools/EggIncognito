@@ -5,16 +5,16 @@
 @if (_recorded > 0) {
     <div class="contribute-foot">
         <div class="contribute-row">
-            <span class="contribute-counts">
+            <span class="meta-dots contribute-counts">
                 <span class="contribute-stat"><b>@_recorded</b> unsent</span>
                 <span class="contribute-stat"><b>@_submitted</b> awaiting review</span>
                 <span class="contribute-stat"><b>@_approved</b> accepted</span>
             </span>
             <div class="contribute-actions">
-                <button type="button" class="btn-primary" disabled="@_busy" @onclick="Send">
-                    @(_busy ? "Sending..." : $"Send {_recorded} for review")
+                <button type="button" class="btn-mini" disabled="@_busy" @onclick="Send">
+                    <Icon Name="send" Class="icon-sm"/>@(_busy ? "Sending..." : $"Send {_recorded} for review")
                 </button>
-                <button type="button" class="btn-secondary" disabled="@_busy" @onclick="Discard">
+                <button type="button" class="btn-mini btn-danger" disabled="@_busy" @onclick="Discard">
                     Discard
                 </button>
             </div>
@@ -55,11 +55,12 @@
             var res = await ClientFactory().PostAsync("/api/contributions/submit", null);
             if (res.IsSuccessStatusCode) {
                 var body = await res.Content.ReadFromJsonAsync<ContributionSubmitResult>();
-                int sent = body?.Submitted ?? _recorded;
+                var sent = body?.Submitted ?? _recorded;
                 Toasts.Push(StatusNoteKind.Ok, $"Sent {sent} results for review.");
             } else {
                 Toasts.Push(StatusNoteKind.Error, "Could not send right now. Your results are still saved.");
             }
+
             await RefreshAsync();
         }
         catch (Exception ex) {

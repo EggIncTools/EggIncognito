@@ -103,6 +103,7 @@ routes:
     request: Backup
     requestWrapped: true
     response: SaveBackupResponse
+    responseWrapped: true
   - path: ei/send_chicken_run_coop
     request: SendChickenRunCoopRequest
     response:  # ack - AuthenticatedMessage-wrapped, empty body (confirmed by capture)

@@ -1,13 +1,16 @@
 @using System.Text.Json
 @using EggIncognito.Capture
 @using EggIncognito.Core
+@inject ToastService Toasts
 @* The detail pane: header (path + status), the known-endpoint card or save-as-endpoint bar + type
    lines, then the Request and Response panes carrying the body (CodeFormats), URL params, and optional headers. *@
 
 @if (Flow is not null) {
     <div class="detail-head">
         <span class="dpath">@Flow.Path</span>
-        <span class="dstatus status-badge @CaptureHelpers.StatusClass(Flow.Status)">@Flow.Status</span>
+        <span class="dstatus">
+            <Icon Name="@(Flow.Status is >= 200 and < 300 ? "circle-check" : "circle-x")" Class="icon-sm"/>@Flow.Status
+        </span>
         @if (Tools is not null) {
             <span class="detail-head-tools">@Tools</span>
         }
@@ -22,12 +25,10 @@
         </div>
         <div class="save-bar">
             @if (Flow.Saved) {
-                <span class="save-result ok">Saved as endpoint</span>
-                <button class="btn-mini" type="button" @onclick="Save">Save again</button>
-                <span class="save-result @_saveCls">@_saveMsg</span>
+                <span class="save-state"><Icon Name="circle-check" Class="icon-sm"/> Saved as endpoint</span>
+                <button class="btn-mini" type="button" disabled="@_saving" @onclick="Save">Save again</button>
             } else {
-                <button id="saveBtn" type="button" @onclick="Save">Save as endpoint</button>
-                <span class="save-result @_saveCls">@_saveMsg</span>
+                <button class="btn-primary" type="button" disabled="@_saving" @onclick="Save">Save as endpoint</button>
             }
         </div>
     }
@@ -53,8 +54,7 @@
     static readonly JsonSerializerOptions JsonOpts = new(JsonSerializerDefaults.Web);
 
     readonly Dictionary<string, string> _formatChoice = new();
-    string _saveMsg = "";
-    string _saveCls = "";
+    bool _saving;
 
     readonly CodeRevealState _reveal = new();
 
@@ -63,8 +63,6 @@
     protected override void OnParametersSet() {
         if (Flow is not null && Flow.Id != _renderedFlowId) {
             _renderedFlowId = Flow.Id;
-            _saveMsg = "";
-            _saveCls = "";
             _reveal.Clear();
         }
     }
@@ -74,24 +72,19 @@
     string RevealCls(string key) => _reveal.IsRevealed(key) ? "revealed" : "";
 
     async Task Save() {
-        if (Flow is null) return;
-        _saveCls = "muted";
-        _saveMsg = "Saving...";
-        StateHasChanged();
+        if (Flow is null || _saving) return;
+        _saving = true;
         try {
             var res = await ClientFactory().PostAsJsonAsync("/api/capture/save-endpoint", new { id = Flow.Id }, JsonOpts);
             var data = await res.Content.ReadFromJsonAsync<Models.Capture.SaveResult>(JsonOpts);
-            if (res.IsSuccessStatusCode && data?.Saved is not null) {
-                _saveCls = "ok";
-                _saveMsg = "Saved " + data.Saved;
-            } else {
-                _saveCls = "err";
-                _saveMsg = data?.Error ?? "Save failed";
-            }
+            if (res.IsSuccessStatusCode && data?.Saved is not null) Toasts.Push(StatusNoteKind.Ok, "Saved " + data.Saved);
+            else Toasts.Push(StatusNoteKind.Error, data?.Error ?? "Save failed");
         }
         catch (Exception ex) {
-            _saveCls = "err";
-            _saveMsg = "Save failed: " + ex.Message;
+            Toasts.Push(StatusNoteKind.Error, "Save failed: " + ex.Message);
+        }
+        finally {
+            _saving = false;
         }
     }
 
@@ -108,7 +101,8 @@
                                       @if (meta is not null) {
                                           <div class="known-card-line">
                                               <span class="known-card-label">Comparison</span>
-                                              <span class="known-card-val outcome-text outcome-@meta.Kind">
+                                              <span class="known-card-val outcome-text">
+                                                  <Icon Name="@meta.Icon" Class="icon-sm"/>
                                                   @if (CaptureHelpers.HasDiffCounts(Flow!.Outcome, Flow!.DiffAdded, Flow!.DiffRemoved)) {
                                                       <text>@(meta.Label + " (")@DiffCounts(Flow!.DiffAdded, Flow!.DiffRemoved)@(")")</text>
                                                   } else {

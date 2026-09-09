@@ -107,6 +107,7 @@ public sealed class DocUsageIndexTests : IDisposable {
         Assert.Equal("ei/mission", use.Path);
         Assert.Equal(MessageUseRole.Request, use.Role);
         Assert.Null(use.Route);
+        Assert.True(use.Locked);
 
         var periodicals = Assert.Single(index.EndpointsUsing("PeriodicalsResponse"));
         Assert.NotNull(periodicals.Route);

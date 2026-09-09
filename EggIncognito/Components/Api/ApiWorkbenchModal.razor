@@ -39,8 +39,7 @@
             <WorkbenchRail Class="wb-rail-popout" HasFilter="true" Filter="@State.RailFilter" FilterChanged="OnRailFilter"
                            FilterLabel="Filter endpoints">
                 <InspectorRail Filter="@State.RailFilter" OnSelectEndpoint="SelectEndpointFromRail"
-                               OnOpenSalt="OpenSalt" OnOpenSettings="@(() => _settingsOpen = true)"
-                               OnOpenStatus="OpenStatus" StatusLoading="_statusLoading"
+                               OnOpenSalt="OpenSalt"
                                ShowRouteCatalog="State.IsContributor" RouteCatalogSelected="@(State.Kind == ApiSelectionKind.Routes)"
                                OnOpenRouteCatalog="@(() => SelectSection(ApiSelectionKind.Routes))" RouteSummary="_routeSummary"
                                OnRestoreHistory="RestoreHistory" OnDeleteHistory="DeleteHistory"
@@ -48,6 +47,13 @@
             </WorkbenchRail>
         } else if (State.Mode == ApiWorkbenchState.ModeData) {
             <WorkbenchRail>
+                @if (User.IsAuthenticated) {
+                    <div class="awb-tools">
+                        <button type="button" class="btn-mini" @onclick="@(() => State.KeysOpen = true)">
+                            <Icon Name="key" Class="icon-sm"/> API keys
+                        </button>
+                    </div>
+                }
                 <WorkbenchLoad T="DataSourceRow" Items="@State.Sources" EmptyText="No data sources on this instance."
                                Context="sources">
                     @foreach (var group in DataGroups(sources)) {
@@ -122,32 +128,7 @@
                             @if (sel is not null) {
                                 <div class="insp-reader-subject">
                                     <span class="insp-route">@sel.Path</span>
-                                    <span class="insp-typing">
-                                        @if (sel.PathParamOnly) {
-                                            <span class="muted">no request body, identity via URL path param</span>
-                                        } else if (sel.Request is not null) {
-                                            <button type="button" class="doc-type-link"
-                                                    @onclick="@(() => SelectDocsSubject(new DocSubjectRef(DocSubjectKind.Message, sel.Request!)))">
-                                                @sel.Request
-                                            </button>
-                                            @if (sel.RequestWrapped) {
-                                                <span class="ep-signed">
-                                                    <Icon Name="lock" Class="icon-sm"/>
-                                                </span>
-                                            }
-                                        } else {
-                                            <span class="muted">no request type</span>
-                                        }
-                                        <span class="insp-typing-sep">-&gt;</span>
-                                        @if (sel.Response is not null) {
-                                            <button type="button" class="doc-type-link"
-                                                    @onclick="@(() => SelectDocsSubject(new DocSubjectRef(DocSubjectKind.Message, sel.Response!)))">
-                                                @sel.Response
-                                            </button>
-                                        } else {
-                                            <span class="muted">no response type</span>
-                                        }
-                                    </span>
+                                    <RouteTypes Route="sel" OnSelectType="SelectMessageDocs"/>
                                 </div>
                             } else {
                                 <span class="text-xs text-muted">Pick an endpoint to see its transaction here.</span>
@@ -172,10 +153,7 @@
 
 <SaltDialog Open="_saltOpen" OnSave="SaveSalt" OnClose="@(() => _saltOpen = false)"/>
 <LiveConsentDialog Open="_liveConsentOpen" OnAccept="AcceptLiveConsent" OnClose="@(() => _liveConsentOpen = false)"/>
-<InspectorSettingsDialog Open="_settingsOpen" HistoryEnabled="State.HistoryEnabled"
-                         HistoryEnabledChanged="ToggleHistoryEnabled" OnClose="@(() => _settingsOpen = false)"/>
-<EndpointStatusDialog Open="_statusOpen" Loading="_statusLoading" Summary="@_statusSummary" Body="@_statusOut"
-                      OnRefresh="RefreshStatus" OnClose="@(() => _statusOpen = false)"/>
+<ApiKeysModal Open="State.KeysOpen" OnClose="@(() => State.KeysOpen = false)"/>
 
 @code {
     static readonly JsonSerializerOptions JsonOpts = new(JsonSerializerDefaults.Web);
@@ -187,12 +165,7 @@
     bool _hashWired;
     bool _saltOpen;
     bool _liveConsentOpen;
-    bool _settingsOpen;
-    bool _statusOpen;
-    bool _statusLoading;
     bool _fixWrappedBusy;
-    string _statusOut = "";
-    string _statusSummary = "";
     RouteCatalogSummary? _routeSummary;
 
     IJSObjectReference? _store;
@@ -212,6 +185,18 @@
         State.Target = InspectorTarget.Mock;
         State.Sealed = false;
         State.SeedEnvRows();
+        State.DocsRequested += OnDocsRequested;
+    }
+
+    void OnDocsRequested(DocSubjectRef subject) {
+        _ = InvokeAsync(async () => {
+            await SelectDocsSubject(subject);
+            StateHasChanged();
+        });
+    }
+
+    Task SelectMessageDocs(string name) {
+        return SelectDocsSubject(new DocSubjectRef(DocSubjectKind.Message, name));
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender) {
@@ -246,7 +231,6 @@
         State.HasSalt = !string.IsNullOrEmpty(await InvokeOr("getSalt", ""));
         State.CustomTarget = await InvokeOr("getCustomTarget", "");
         State.RecentEids = await InvokeOr("recentEids", Array.Empty<string>());
-        State.HistoryEnabled = await InvokeOr("getHistoryEnabled", true);
         State.History = await InvokeOr("getHistory", new List<InspectorHistoryEntry>());
         State.SeedEnvRows();
     }
@@ -372,9 +356,26 @@
         return b => b.AddContent(0, ByteFormat.Compact(bytes));
     }
 
-    static RenderFragment? RowTrail(DataSourceRow r) {
-        if (!string.Equals(r.Access, "Authenticated", StringComparison.Ordinal)) return null;
-        return @<Icon Name="lock" Class="icon-sm ds-lock"/>;
+    static bool NeedsKey(DataSourceRow r) {
+        return string.Equals(r.Access, "Authenticated", StringComparison.Ordinal);
+    }
+
+    static RenderFragment RowTrail(DataSourceRow r) {
+        return @<span class="ds-trail">
+                   <span title="@(NeedsKey(r) ? "API key" : "Public")">
+                       <Icon Name="@(NeedsKey(r) ? "key" : "globe")" Class="icon-sm"/>
+                   </span>
+                   @if (NeedsKey(r)) {
+                       <span title="Requires an API key">
+                           <Icon Name="lock" Class="icon-sm"/>
+                       </span>
+                   }
+                   @if (r.AcceptsName) {
+                       <span title="Takes a name in the URL, no raw GET">
+                           <Icon Name="link" Class="icon-sm"/>
+                       </span>
+                   }
+               </span>;
     }
 
     static string TitleCase(string raw) {
@@ -553,40 +554,6 @@
         State.RawMode = false;
     }
 
-    async Task OpenStatus() {
-        _statusOpen = true;
-        if (string.IsNullOrEmpty(_statusSummary)) await RefreshStatus();
-    }
-
-    async Task RefreshStatus() {
-        _statusLoading = true;
-        _statusOut = "Loading...";
-        try {
-            var r = await Client().GetFromJsonAsync<EndpointStatusResult>("/api/tools/endpoint-status", JsonOpts);
-            if (r is not null) {
-                _statusSummary = $"ok {r.Ok.Count} / empty {r.Empty.Count} / missing {r.Missing.Count}";
-                var lines = new List<string>();
-                if (r.Empty.Count > 0) {
-                    lines.Add("empty:");
-                    lines.AddRange(r.Empty.Select(p => "  " + p));
-                }
-
-                if (r.Missing.Count > 0) {
-                    lines.Add("missing:");
-                    lines.AddRange(r.Missing.Select(p => "  " + p));
-                }
-
-                _statusOut = lines.Count > 0 ? string.Join("\n", lines) : "All mapped routes have a fixture.";
-            }
-        }
-        catch (Exception ex) when (ex is HttpRequestException or JsonException or TaskCanceledException) {
-            _statusOut = $"Request failed: {ex.Message}";
-        }
-        finally {
-            _statusLoading = false;
-        }
-    }
-
     void OpenSalt() {
         _saltOpen = true;
     }
@@ -704,7 +671,7 @@
     }
 
     async Task SaveToHistory(RouteInfo e, JsonNode? fields) {
-        if (!State.HistoryEnabled || _store is null) return;
+        if (_store is null) return;
         var entry = new InspectorHistoryEntry(
             Guid.NewGuid().ToString("n"),
             e.Path,
@@ -762,11 +729,6 @@
 
     async Task ClearHistory() {
         State.History = await InvokeOr("clearHistory", new List<InspectorHistoryEntry>());
-    }
-
-    async Task ToggleHistoryEnabled(bool on) {
-        State.HistoryEnabled = on;
-        await InvokeVoid("setHistoryEnabled", on);
     }
 
     async Task SendCore() {
@@ -1024,6 +986,7 @@
     }
 
     public async ValueTask DisposeAsync() {
+        State.DocsRequested -= OnDocsRequested;
         await _navHandle.DisposeModuleAsync("dispose", Logger);
         await _nav.DisposeModuleAsync(logger: Logger);
         await _store.DisposeModuleQuietAsync(logger: Logger);

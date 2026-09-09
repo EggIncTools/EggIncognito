@@ -1,7 +1,7 @@
 namespace EggIncognito.Core.Services.Devices;
 
 public enum DeviceFlowStepKind {
-    LaunchApp, Tap, TapPoint, WaitForSelector, WaitForText, WaitForTextGone,
+    LaunchApp, Tap, TapPoint, Swipe, WaitForSelector, WaitForText, WaitForTextGone,
     Key, InputText, Sleep, Screenshot, AssertText, ReadField
 }
 
@@ -17,7 +17,10 @@ public sealed record DeviceFlowStep(
     int PollSeconds = 2,
     bool Required = true,
     string? FieldName = null,
-    string? Label = null);
+    string? Label = null,
+    int? X2 = null,
+    int? Y2 = null,
+    int DurationMs = 0);
 
 public static class DeviceFlowSteps {
     public static DeviceFlowStep LaunchApp(string appRef) =>
@@ -28,6 +31,9 @@ public static class DeviceFlowSteps {
 
     public static DeviceFlowStep TapPoint(int x, int y) =>
         new(DeviceFlowStepKind.TapPoint, X: x, Y: y);
+
+    public static DeviceFlowStep Swipe(int x1, int y1, int x2, int y2, int durationMs) =>
+        new(DeviceFlowStepKind.Swipe, X: x1, Y: y1, X2: x2, Y2: y2, DurationMs: durationMs);
 
     public static DeviceFlowStep WaitForSelector(
         UiSelector selector, int timeoutSeconds = 20, int pollSeconds = 2, bool required = true) =>

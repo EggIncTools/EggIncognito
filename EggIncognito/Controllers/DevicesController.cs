@@ -578,8 +578,7 @@ public sealed partial class DevicesController(
         (IActionResult? err, var platform, var target) = await ResolveUiAsync(id, ct);
         if (err is not null) return err;
 
-        if (!DeviceStreamGate.TryEnter(target.Id))
-            return StatusCode(409, new { error = "a screen stream is already open for this device" });
+        if (await EnterStreamGateAsync(target.Id, ct) is { } busy) return busy;
 
         int jpegQuality = DeviceFrameEncoder.ClampQuality(quality);
         var gap = TimeSpan.FromMilliseconds(1000.0 / Math.Clamp(fps, MinStreamFps, MaxStreamFps));
@@ -594,6 +593,18 @@ public sealed partial class DevicesController(
         } finally {
             DeviceStreamGate.Exit(target.Id);
         }
+    }
+
+    private async Task<IActionResult?> EnterStreamGateAsync(string deviceId, CancellationToken ct) {
+        try {
+            if (await DeviceStreamGate.TryEnterAsync(deviceId, ct)) return null;
+        } catch (OperationCanceledException) {
+            return new EmptyResult();
+        }
+
+        return StatusCode(409, new {
+            error = $"a screen stream is still open for this device after waiting {DeviceStreamGate.HandoverWait.TotalSeconds:0}s"
+        });
     }
 
     private static async Task<(byte[]? Jpeg, DeviceOutcome Outcome, string? Note)> FrameAsync(
@@ -665,8 +676,7 @@ public sealed partial class DevicesController(
                 int.Parse(box[0], CultureInfo.InvariantCulture), int.Parse(box[1], CultureInfo.InvariantCulture));
         }
 
-        if (!DeviceStreamGate.TryEnter(target.Id))
-            return StatusCode(409, new { error = "a screen stream is already open for this device" });
+        if (await EnterStreamGateAsync(target.Id, ct) is { } busy) return busy;
 
         string command = ScreenVideoPump.ScreenrecordCommand(size, Math.Clamp(bitrate, MinVideoBitrate, MaxVideoBitrate));
         try {
@@ -692,21 +702,6 @@ public sealed partial class DevicesController(
         } finally {
             DeviceStreamGate.Exit(target.Id);
         }
-    }
-
-    [HttpGet("{id}/ui/dump")]
-    [ApiAccess(ApiAccessLevel.Admin)]
-    [EnableRateLimiting("read")]
-    public async Task<IActionResult> UiDump(string id, CancellationToken ct) {
-        if (RequireAdmin() is { } no) return no;
-        (IActionResult? err, var platform, var target) = await ResolveUiAsync(id, ct);
-        if (err is not null) return err;
-
-        var dump = await platform.DumpUiAsync(target, ct);
-        if (!dump.Ok || dump.Value is not { } tree) return UiFailure(dump.Outcome, dump.Note);
-
-        Response.Headers.CacheControl = "no-store";
-        return Ok(UiTreeProjector.Project(tree));
     }
 
     [HttpPost("{id}/ui/tap")]

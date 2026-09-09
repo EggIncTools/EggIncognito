@@ -69,8 +69,15 @@ public sealed class ApiWorkbenchState : WorkbenchStateBase {
     public SendResponse? Response { get; set; }
     public DiagnoseDto? Diagnosis { get; set; }
 
-    public bool HistoryEnabled { get; set; } = true;
+    public bool HistoryOpen { get; set; }
     public List<InspectorHistoryEntry> History { get; set; } = [];
+    public bool KeysOpen { get; set; }
+
+    public event Action<DocSubjectRef>? DocsRequested;
+
+    public void RequestDocs(DocSubjectRef subject) => DocsRequested?.Invoke(subject);
+
+    public void RequestMessageDocs(string name) => RequestDocs(new DocSubjectRef(DocSubjectKind.Message, name));
 
     public RinfoSeed Rinfo { get; set; } = new();
     public string[] RecentEids { get; set; } = [];

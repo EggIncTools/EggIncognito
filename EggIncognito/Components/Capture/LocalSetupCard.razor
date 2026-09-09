@@ -1,0 +1,50 @@
+@using EggIncognito.Services.Devices
+@inject IConfiguration Config
+<div id="localSetupCard" class="capture-setup-strip">
+    <div class="insp-disc setup-disc @(Expanded ? "" : "collapsed")">
+        <div class="insp-disc-head setup-head" @onclick="Toggle">
+            <button type="button" class="insp-disc-toggle" aria-expanded="@(Expanded ? "true" : "false")" aria-controls="localSetupSteps">
+                <span class="ep-caret @(Expanded ? "ep-caret-open" : "")"></span>Setup
+            </button>
+            <span class="setup-strip-k">Server</span>
+            <span class="code-chip" id="localProxyHost">@(_host ?? "LAN IP of this host")</span>
+            <span class="setup-strip-k">Port</span>
+            <span class="code-chip">@Port</span>
+            <span class="setup-strip-k">Auth</span>
+            <span class="code-chip">off</span>
+            <a class="btn-mini no-underline" href="/api/capture/ca.cer" download @onclick:stopPropagation="true">
+                <Icon Name="download" Class="icon-sm"/>CA certificate
+            </a>
+        </div>
+        <div class="insp-disc-body" id="localSetupSteps">
+            <ol class="setup-list">
+                <li>On the phone, set the Wi-Fi proxy to Manual with the Server and Port shown above and authentication off.</li>
+                <li>
+                    Start capture, then install and trust the CA certificate from the download above.
+                    <ul class="setup-sublist">
+                        <li><strong>iOS</strong>: install the profile, then enable full trust under Settings &gt; General &gt; About &gt; Certificate Trust Settings.</li>
+                        <li><strong>Android</strong>: the CA must sit in the system trust store, which needs a rooted phone (for example a Magisk certificate module).</li>
+                    </ul>
+                </li>
+                <li>Open Egg, Inc. on the phone and its requests appear in the list below.</li>
+            </ol>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public int Port { get; set; }
+    [Parameter] public bool Expanded { get; set; }
+    [Parameter] public EventCallback<bool> ExpandedChanged { get; set; }
+
+    string? _host;
+
+    protected override void OnInitialized() {
+        _host = HostAddress.Resolve(Config["DeviceCapture:HostIp"]);
+    }
+
+    Task Toggle() {
+        return ExpandedChanged.InvokeAsync(!Expanded);
+    }
+
+}

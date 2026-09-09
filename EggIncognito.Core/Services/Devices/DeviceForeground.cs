@@ -12,7 +12,7 @@ public static class DeviceForeground {
         "Google Play holds the foreground; the device is not Play Protect certified, "
         + "so Play refuses to let the app run";
 
-    private const string FocusCommand =
+    public const string FocusCommand =
         "dumpsys window 2>/dev/null | grep -E \"mCurrentFocus|mFocusedApp\" | head -n 2";
 
     public const string CloseForegroundCommand =

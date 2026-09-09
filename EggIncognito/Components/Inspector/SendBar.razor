@@ -12,28 +12,27 @@
             Live API
         </button>
     </div>
+    @if (InspectorTargets.IsLive(Target)) {
+        <span class="text-xs text-muted">via</span>
+        <div class="insp-target" role="radiogroup" aria-label="Live route">
+            <button type="button" class="insp-target-opt @(Target == InspectorTarget.LiveViaServer ? "on" : "")"
+                    @onclick="@(() => Choose(InspectorTarget.LiveViaServer))">
+                This server
+            </button>
+            <button type="button" class="insp-target-opt @(Target == InspectorTarget.LiveViaProxy ? "on" : "")"
+                    @onclick="@(() => Choose(InspectorTarget.LiveViaProxy))">
+                Custom proxy
+            </button>
+        </div>
+    }
     <DocHelp Kind="endpoint" Key="__live_api"/>
     <span class="insp-actions-gap"></span>
     <button class="btn-secondary" disabled="@(!CanBuild)" @onclick="OnBuild">Build</button>
     <button class="btn-primary" disabled="@(!CanSend)" @onclick="OnSend">Send</button>
 </div>
 
-@if (InspectorTargets.IsLive(Target)) {
+@if (Target == InspectorTarget.LiveViaProxy || (Target == InspectorTarget.LiveViaServer && SealedAvailable)) {
     <div class="live-suboptions">
-        <div class="live-route" role="radiogroup" aria-label="Live route">
-            <span class="text-xs text-muted mr-1">Route via</span>
-            <div class="insp-target">
-                <button type="button" class="insp-target-opt @(Target == InspectorTarget.LiveViaServer ? "on" : "")"
-                        @onclick="@(() => Choose(InspectorTarget.LiveViaServer))">
-                    This server
-                </button>
-                <button type="button" class="insp-target-opt @(Target == InspectorTarget.LiveViaProxy ? "on" : "")"
-                        @onclick="@(() => Choose(InspectorTarget.LiveViaProxy))">
-                    Custom proxy
-                </button>
-            </div>
-        </div>
-
         @if (Target == InspectorTarget.LiveViaProxy) {
             <div class="custom-config">
                 <label>Custom proxy URL</label>

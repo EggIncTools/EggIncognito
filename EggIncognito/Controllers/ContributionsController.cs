@@ -96,7 +96,7 @@ public sealed class ContributionsController(
         if (Store is null) return StatusCode(503, new { error = "no database configured" });
         if (services.GetService(typeof(ContributionRecorder)) is not ContributionRecorder recorder)
             return StatusCode(503, new { error = "contribution recording is off" });
-        if (services.GetService(typeof(DeviceCaptureManager)) is not DeviceCaptureManager captures)
+        if (services.GetService(typeof(IDeviceCaptureHubs)) is not IDeviceCaptureHubs captures)
             return StatusCode(503, new { error = "device capture is not configured" });
         if (string.IsNullOrWhiteSpace(body.DeviceId)) return BadRequest(new { error = "deviceId required" });
 

@@ -137,6 +137,21 @@ public sealed class CaptureDashboardTests : IDisposable {
     }
 
     [Fact]
+    public void Mirror_UpsertsFlowsById_AndServesMirroredStats() {
+        var hub = new CaptureHub();
+        var flow = F("ei/a") with { Id = 7, Timestamp = "t1" };
+        hub.Mirror(new CaptureEnvelope("flow", flow, null, null));
+        hub.Mirror(new CaptureEnvelope("flow", flow with { Saved = true }, null, null));
+        hub.Mirror(new CaptureEnvelope("stats", null, hub.StatsSnapshot() with { Running = true, Port = 9100 }, null));
+
+        var only = Assert.Single(hub.Snapshot());
+        Assert.Equal(7, only.Id);
+        Assert.True(only.Saved);
+        Assert.True(hub.StatsSnapshot().Running);
+        Assert.Equal(9100, hub.StatsSnapshot().Port);
+    }
+
+    [Fact]
     public void RingBuffer_CapsAt500_DroppingOldest() {
         var hub = new CaptureHub();
         for (int i = 0; i < 600; i++)

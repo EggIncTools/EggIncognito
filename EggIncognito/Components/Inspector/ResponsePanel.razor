@@ -1,4 +1,5 @@
 @using EggIncognito.Components.Capture
+@using EggIncognito.Models.Inspector
 @if (Response is null) {
     <div class="muted">No response yet.</div>
 } else if (Response.Error is not null && (Response.Stages is null || Response.Stages.Count == 0)

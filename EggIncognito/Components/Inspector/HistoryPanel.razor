@@ -1,6 +1,5 @@
-@if (!HistoryEnabled) {
-    <div class="hist-empty">History is off. Turn it on in the rail's settings.</div>
-} else if (History.Count == 0) {
+@using EggIncognito.Models.Inspector
+@if (History.Count == 0) {
     <div class="hist-empty">No saved requests yet. Build a request and it lands here for quick re-use.</div>
 } else {
     <div class="hist-list">
@@ -13,18 +12,21 @@
                         <Icon Name="x" Class="icon-sm"/>
                     </button>
                 </Trail>
-                <MetaLine>@h.Summary</MetaLine>
+                <MetaLine>
+                    <span class="meta-dots">
+                        @foreach (var part in h.Summary.Split(" / ", StringSplitOptions.RemoveEmptyEntries)) {
+                            <span>@part</span>
+                        }
+                    </span>
+                </MetaLine>
             </WorkbenchEntry>
         }
     </div>
-    <button type="button" class="btn-mini self-start" @onclick="OnClearHistory">Clear</button>
 }
 
 @code {
-    [Parameter] public bool HistoryEnabled { get; set; } = true;
     [Parameter] public IReadOnlyList<InspectorHistoryEntry> History { get; set; } = [];
     [Parameter] public EventCallback<InspectorHistoryEntry> OnRestoreHistory { get; set; }
     [Parameter] public EventCallback<string> OnDeleteHistory { get; set; }
-    [Parameter] public EventCallback OnClearHistory { get; set; }
 
 }

@@ -1,9 +1,21 @@
 @foreach (var node in Nodes) {
-    @if (node.IsMessage) {
+    @if (node.IsRequestInfo) {
+        <div class="field-row @(Nested ? "nested" : "")">
+            <div class="field-name">
+                @node.Field.JsonName
+                <span class="ftype">@(node.Field.Repeated ? "repeated " : "")message</span>
+                <MessageLink Name="@FieldNode.RequestInfoType"/>
+            </div>
+            <span class="text-muted text-xs">configured above</span>
+        </div>
+    } else if (node.IsMessage) {
         <div class="field-row">
             <div class="field-name field-span">
                 @node.Field.JsonName
-                <span class="ftype">@(node.Field.Repeated ? "repeated " : "")message @node.Field.MessageType</span>
+                <span class="ftype">@(node.Field.Repeated ? "repeated " : "")message</span>
+                @if (node.Field.MessageType is { } type) {
+                    <MessageLink Name="@type"/>
+                }
             </div>
         </div>
         <div class="field-span">
@@ -23,10 +35,14 @@
                             <input class="field-input"
                                    value="@node.Items[idx]" @attributes="InputAttrs.NoAutofill"
                                    @oninput="e => SetItem(node, idx, e.Value?.ToString())"/>
-                            <button type="button" class="btn-mini" @onclick="() => Remove(node, idx)">x</button>
+                            <button type="button" class="btn-mini" aria-label="Remove item" @onclick="() => Remove(node, idx)">
+                                <Icon Name="x" Class="icon-sm"/>
+                            </button>
                         </div>
                     }
-                    <button type="button" class="btn-mini" @onclick="() => Add(node)">+ add</button>
+                    <button type="button" class="btn-mini" @onclick="() => Add(node)">
+                        <Icon Name="plus" Class="icon-sm"/> Add
+                    </button>
                 </div>
             } else if (node.IsEnum) {
                 <select class="field-input @(node.Locked ? "env-locked" : "")" disabled="@node.Locked"

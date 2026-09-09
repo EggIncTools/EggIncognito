@@ -55,6 +55,17 @@ public sealed class DeviceFlowRunner(IDeviceUiDriver ui) {
 
                         break;
                     }
+                case DeviceFlowStepKind.Swipe: {
+                    Emit(descriptor);
+                    var r = await ui.SwipeAsync(target, step.X ?? 0, step.Y ?? 0, step.X2 ?? 0, step.Y2 ?? 0,
+                        step.DurationMs, ct);
+                    if (!r.Ok) {
+                        var fail = Fail(r.Note);
+                        if (fail is not null) return fail;
+                    }
+
+                    break;
+                }
                 case DeviceFlowStepKind.Key: {
                         Emit(descriptor);
                         var r = await ui.KeyAsync(target, step.Key!.Value, ct);
@@ -190,6 +201,7 @@ public sealed class DeviceFlowRunner(IDeviceUiDriver ui) {
         DeviceFlowStepKind.LaunchApp => $"launch {step.AppRef}",
         DeviceFlowStepKind.Tap => $"tap {DescribeSelector(step.Selector!)}",
         DeviceFlowStepKind.TapPoint => $"tap point ({step.X},{step.Y})",
+        DeviceFlowStepKind.Swipe => $"swipe ({step.X},{step.Y}) to ({step.X2},{step.Y2}) over {step.DurationMs}ms",
         DeviceFlowStepKind.WaitForSelector => $"wait selector {DescribeSelector(step.Selector!)}",
         DeviceFlowStepKind.WaitForText => $"wait text '{step.Text}'",
         DeviceFlowStepKind.WaitForTextGone => $"wait text gone '{step.Text}'",

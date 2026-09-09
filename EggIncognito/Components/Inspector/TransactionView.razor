@@ -1,31 +1,36 @@
-<div class="insp-disc @(_sentOpen ? "" : "collapsed")">
-    <div class="insp-disc-head">
-        <button type="button" class="insp-disc-toggle" @onclick="ToggleSent">
-            <span class="ep-caret @(_sentOpen ? "ep-caret-open" : "")"></span>Sent
-        </button>
+@using EggIncognito.Models.Inspector
+@if (Build is not null) {
+    <div class="insp-disc @(_sentOpen ? "" : "collapsed")">
+        <div class="insp-disc-head">
+            <button type="button" class="insp-disc-toggle" @onclick="ToggleSent">
+                <span class="ep-caret @(_sentOpen ? "ep-caret-open" : "")"></span>Sent
+            </button>
+        </div>
+        <div class="insp-disc-body">
+            <Pipeline Stages="Build"/>
+        </div>
     </div>
-    <div class="insp-disc-body">
-        <Pipeline Stages="Build"/>
-    </div>
-</div>
+}
 
-<div class="insp-disc @(_receivedOpen ? "" : "collapsed")">
-    <div class="insp-disc-head">
-        <button type="button" class="insp-disc-toggle" @onclick="@(() => _receivedOpen = !_receivedOpen)">
-            <span class="ep-caret @(_receivedOpen ? "ep-caret-open" : "")"></span>Received
-        </button>
-        @if (CanSaveDb && Response?.Json is not null) {
-            <span class="insp-disc-tools">
-                <button type="button" class="btn-mini" @onclick="OnSaveToDb">
-                    Save to DB
-                </button>
-            </span>
-        }
+@if (Response is not null) {
+    <div class="insp-disc @(_receivedOpen ? "" : "collapsed")">
+        <div class="insp-disc-head">
+            <button type="button" class="insp-disc-toggle" @onclick="@(() => _receivedOpen = !_receivedOpen)">
+                <span class="ep-caret @(_receivedOpen ? "ep-caret-open" : "")"></span>Received
+            </button>
+            @if (CanSaveDb && Response.Json is not null) {
+                <span class="insp-disc-tools">
+                    <button type="button" class="btn-mini" @onclick="OnSaveToDb">
+                        <Icon Name="database" Class="icon-sm"/> Save to DB
+                    </button>
+                </span>
+            }
+        </div>
+        <div class="insp-disc-body">
+            <ResponsePanel Response="Response" IsAdmin="IsAdmin" FixBusy="FixBusy" OnFixWrapped="OnFixWrapped"/>
+        </div>
     </div>
-    <div class="insp-disc-body">
-        <ResponsePanel Response="Response" IsAdmin="IsAdmin" FixBusy="FixBusy" OnFixWrapped="OnFixWrapped"/>
-    </div>
-</div>
+}
 
 @if (Diagnosis is not null) {
     <div class="insp-disc @(_diagOpen ? "" : "collapsed")">

@@ -18,30 +18,28 @@
 
 @if (_hub is not null) {
     <div class="awb-pane h-full">
-        @if (_session is not null && _hosted) {
+        @if (_session is not null && _hosted && _prefsLoaded) {
             <HostedSetupCard Port="HostedOptions.FrontDoorPort"
                              ClientFactory="Client" InviteUrl="@Config["Discord:InviteUrl"]"
-                             HostOverride="@_rotatedHost" Limited="_limited"
+                             Limited="_limited"
                              Expanded="SetupExpanded" ExpandedChanged="SetSetupExpanded"/>
+        }
+        @if (_session is not null && !_hosted && _prefsLoaded) {
+            <LocalSetupCard Port="_session.Port" Expanded="SetupExpanded" ExpandedChanged="SetSetupExpanded"/>
         }
 
         <div class="capture-body grid gap-3 min-h-0">
             <FlowList Flows="_flows" SelectedId="_selectedId" Connected="_connected" View="_view" OnSelect="SelectFlow"
                       CanSelect="CanSelectFlow">
                 <Tools>
-                    <CaptureControlsPanel Running="_running" Port="_port" ToggleBusy="_toggleBusy" View="_view"
-                                          OnToggleCapture="ToggleCapture" OnClear="Clear" OnViewChanged="OnViewChanged"
-                                          Hosted="_hosted" ClientFactory="Client"
-                                          OnAddressRotated="@(h => {
-                                                                _rotatedHost = h;
-                                                                StateHasChanged();
-                                                            })"/>
-                    <CaptureNoticesPanel Notices="_notices" Unread="_unread"
-                                         OnDismissNotice="DismissNotice" OnClearNotices="ClearNotices" OnNoticesRead="MarkNoticesRead"/>
+                    <CaptureControlsPanel Running="_running" ToggleBusy="_toggleBusy" View="_view" FlowCount="_flows.Count"
+                                          OnToggleCapture="ToggleCapture" OnClear="Clear" OnViewChanged="OnViewChanged">
+                        <Notices>
+                            <CaptureNoticesPanel Notices="_notices" Unread="_unread"
+                                                 OnDismissNotice="DismissNotice" OnClearNotices="ClearNotices" OnNoticesRead="MarkNoticesRead"/>
+                        </Notices>
+                    </CaptureControlsPanel>
                 </Tools>
-                <Stats>
-                    <StatsPanel Stats="_stats" FlowCount="_flows.Count" Running="_running" Port="_port"/>
-                </Stats>
                 <Foot>
                     @if (_hosted) {
                         <ContributePanel @ref="_contribute" ClientFactory="Client"/>
@@ -51,7 +49,14 @@
 
             <section id="detailPanel" class="panel">
                 <h2>Detail</h2>
-                <DetailPane Flow="_selectedFlow" View="_view" ClientFactory="Client"/>
+                @if (_selectedFlow is null) {
+                    <div class="empty-state flow-empty">
+                        <Icon Name="list" Class="flow-empty-icon"/>
+                        <span>Select a request to read it.</span>
+                    </div>
+                } else {
+                    <DetailPane Flow="_selectedFlow" View="_view" ClientFactory="Client"/>
+                }
             </section>
         </div>
     </div>
@@ -89,9 +94,7 @@
     long? _selectedId;
     DashboardFlow? _selectedFlow;
 
-    CaptureStats? _stats;
     bool _running;
-    int _port;
     bool _connected;
     bool _toggleBusy;
 
@@ -110,7 +113,7 @@
     CaptureSession? _session;
     CaptureHub? _hub;
     bool _hosted;
-    string? _rotatedHost;
+    bool _prefsLoaded;
     bool _isAuthenticated;
     bool _isSupporter;
     bool _isAdmin;
@@ -171,12 +174,13 @@
             _view.AutoScroll = await InvokeOr("getAutoScroll", _view.AutoScroll);
             _view.CompareToKnown = await InvokeOr("getCompareToKnown", _view.CompareToKnown);
             _view.DefaultFormat = await InvokeOr("getDefaultFormat", _view.DefaultFormat);
-            _view.SetupExpanded = await InvokeOr("getSetupExpanded", _view.SetupExpanded);
+            _view.SetupExpanded = await InvokeOr<bool?>("getSetupExpanded", null) ?? _view.SetupExpanded;
         }
         catch (Exception ex) when (ex is JSDisconnectedException or JSException or ObjectDisposedException) {
             _store = null;
         }
 
+        _prefsLoaded = true;
         StartSubscription();
         StateHasChanged();
     }
@@ -234,9 +238,7 @@
     }
 
     void ApplyStats(CaptureStats stats) {
-        _stats = stats;
         _running = stats.Running;
-        _port = stats.Port;
         _connected = stats.ActiveConnections > 0 || stats.DeviceCount > 0;
     }
 
@@ -324,7 +326,7 @@
         StateHasChanged();
     }
 
-    bool SetupExpanded => _setupTouched ? _view.SetupExpanded : _view.SetupExpanded && !_running;
+    bool SetupExpanded => _setupTouched ? _view.SetupExpanded : _view.SetupExpanded && !_connected;
 
     async Task SetSetupExpanded(bool expanded) {
         _setupTouched = true;

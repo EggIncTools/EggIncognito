@@ -1,6 +1,7 @@
 using System.Net;
 using System.Text.Json;
 using EggIdentity.Contract;
+using EggIncognito.Capture;
 using EggIncognito.Controllers;
 using EggIncognito.Core.Services.Devices;
 using EggIncognito.Data.Models;
@@ -213,6 +214,15 @@ public class DeviceBridgeControllerTests {
     }
 
     [Fact]
+    public async Task Capture_NoHubForDevice_404() {
+        var sp = new ServiceCollection().AddSingleton<IDeviceCaptureHubs>(new NoHubs()).BuildServiceProvider();
+        var c = Make(new DeviceTransportConfig { BridgeEnabled = true, ApiKey = Secret }, sp,
+            presentedSecret: Secret);
+
+        Assert.IsType<NotFoundObjectResult>(await c.Capture("runtime-9", CancellationToken.None));
+    }
+
+    [Fact]
     public async Task Reach_BadPort_400() {
         var sp = new ServiceCollection().BuildServiceProvider();
         var c = Make(new DeviceTransportConfig { BridgeEnabled = true, ApiKey = Secret }, sp,
@@ -255,6 +265,10 @@ public class DeviceBridgeControllerTests {
             Task.FromResult<IReadOnlyList<DeviceEntry>>(devices);
 
         public Task PersistCapturePortAsync(string deviceId, int port, CancellationToken ct) => Task.CompletedTask;
+    }
+
+    private sealed class NoHubs : IDeviceCaptureHubs {
+        public CaptureHub? HubFor(string deviceId) => null;
     }
 
     private sealed class RecordingRunner(Func<string, string[], ProcessResult>? fn = null) : IProcessRunner {

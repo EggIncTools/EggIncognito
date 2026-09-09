@@ -83,28 +83,19 @@ public sealed partial class CaptureViewState {
 }
 
 public static class CaptureHelpers {
-    public static string StatusClass(int status) => status switch {
-        >= 200 and < 300 => "status-2xx",
-        >= 300 and < 400 => "status-3xx",
-        >= 500 => "status-5xx",
-        _ => "status-4xx"
-    };
-
     public static string FormatBytes(long bytes) => ByteFormat.Humanize(bytes);
 
     public static OutcomeMeta? Outcome(string? outcome) => outcome switch {
-        "wrote" => new OutcomeMeta("wrote", "good", "New endpoint written to disk (none existed before)."),
-        "upd" => new OutcomeMeta("upd", "good", "Updated - an empty/placeholder endpoint was filled in."),
-        "diff" => new OutcomeMeta("diff", "warn",
-            "Differs from the saved endpoint - staged for review, not overwritten."),
-        "loss" => new OutcomeMeta("loss", "bad",
-            "Could not decode into an endpoint (no proto type / unparseable) - nothing saved."),
-        "same" => new OutcomeMeta("same", "same", "Identical to the saved endpoint - no change."),
+        "wrote" => new OutcomeMeta("wrote", "plus", "New endpoint written to disk."),
+        "upd" => new OutcomeMeta("updated", "pencil", "An empty placeholder endpoint was filled in."),
+        "diff" => new OutcomeMeta("diff", "circle-alert", "Differs from the saved endpoint. Staged for review, not overwritten."),
+        "loss" => new OutcomeMeta("loss", "circle-x", "Could not decode into an endpoint. Nothing saved."),
+        "same" => new OutcomeMeta("same", "check", "Identical to the saved endpoint."),
         _ => null
     };
 
     public static bool HasDiffCounts(string? outcome, int added, int removed) =>
         outcome == "diff" && (added > 0 || removed > 0);
 
-    public sealed record OutcomeMeta(string Label, string Kind, string Desc);
+    public sealed record OutcomeMeta(string Label, string Icon, string Desc);
 }

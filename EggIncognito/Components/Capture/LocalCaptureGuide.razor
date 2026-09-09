@@ -4,7 +4,7 @@
     <h2>Run it locally</h2>
 
     <div class="mb-4">
-        <div class="font-semibold text-sm mb-1">Option 1 - self-contained binary</div>
+        <div class="font-semibold text-sm mb-1">Option 1: self-contained binary</div>
         <p class="text-muted text-xs mt-0 mb-2">
             No runtime needed. Grab the build for your OS from the
             latest release, unzip, and launch with the capture proxy on:
@@ -17,7 +17,7 @@
     </div>
 
     <div>
-        <div class="font-semibold text-sm mb-1">Option 2 - Docker</div>
+        <div class="font-semibold text-sm mb-1">Option 2: Docker</div>
         <p class="text-muted text-xs mt-0 mb-2">
             Runs the published image in Local mode (capture + writes
             on). The dashboard is then at <span class="code-chip">http://localhost:5080/protos#api/capture</span>.
@@ -29,14 +29,14 @@
 <div class="panel">
     <h2>Then point a device at it</h2>
     <ol class="text-muted text-sm leading-relaxed pl-5 my-0">
-        <li>Set the device's Wi-Fi proxy to your machine's LAN IP and the capture port.</li>
-        <li>Install the generated CA cert on the device (so HTTPS can be decrypted).</li>
-        <li>Open Egg, Inc. (or any app) to generate traffic - flows appear live on the dashboard.</li>
+        <li>Set the device's Wi-Fi proxy to the LAN IP of the machine running EggIncognito and the capture port.</li>
+        <li>Install the generated CA cert on the device so HTTPS can be decrypted.</li>
+        <li>Open Egg, Inc. on the device and its requests appear live on the dashboard.</li>
         <li>Save the captured responses as endpoint fixtures from the detail pane.</li>
     </ol>
     <p class="text-muted text-xs mt-3 mb-0">
         Full setup notes are in the
-        <a class="text-accent" target="_blank" rel="noopener"
+        <a class="text-accent underline" target="_blank" rel="noopener"
            href="https://github.com/EggIncTools/EggIncognito/blob/main/EggIncognito.Capture/README.md">
             Capture README
         </a>.

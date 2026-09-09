@@ -52,7 +52,7 @@
                     <WorkbenchEntry Selected="false" OnClick="ShowFleet" @key="i.InstanceId">
                         <Lead>
                             <span class="wb-lead">
-                                <span class="dwb-dot-bad"></span>
+                                <Icon Name="circle-x" Class="icon-sm text-err"/>
                                 <PlatformIcon Platform="android"/>
                             </span>
                         </Lead>
@@ -84,37 +84,41 @@
                 <WorkbenchModes Modes="@Tabs(dev)" Current="@State.Mode" CurrentChanged="SelectTab" Label="Device view"/>
             </div>
 
-            <div class="dwb-pane">
-                @if (State.Mode == DeviceWorkbenchState.TabDevice) {
+            <div class="dwb-pane @(DeviceWorkbenchState.IsConsoleTab(State.Mode) ? "dwb-pane-fill" : "")">
+                @if (DeviceWorkbenchState.IsConsoleTab(State.Mode)) {
                     <DeviceConsolePane DeviceId="@dev.Id" Platform="@dev.Platform" Virtual="@dev.Virtual" Active="true"
                                        OnNotice="Notice" OnChanged="ReloadDevices">
                         <Actions>
-                            <button type="button" class="btn-mini" disabled="@Busy" @onclick="Launch">Launch</button>
-                            <button type="button" class="btn-mini" disabled="@Busy" @onclick="RestartApp">Restart app</button>
-                            <button type="button" class="btn-mini" disabled="@Busy" @onclick="Recert">Recert</button>
-                            <button type="button" class="btn-mini btn-danger" disabled="@Busy" @onclick="Destroy">
-                                @(_destroyArmed ? "Destroy?" : "Destroy")
-                            </button>
-                        </Actions>
-                    </DeviceConsolePane>
-                }
-
-                @if (State.Mode == DeviceWorkbenchState.TabScreen) {
-                    <DeviceConsolePane DeviceId="@dev.Id" Platform="@dev.Platform" Virtual="@dev.Virtual" Active="true"
-                                       OnNotice="Notice" OnChanged="ReloadDevices">
-                        <Actions>
-                            <button type="button" class="btn-mini" disabled="@Busy" @onclick="ProbeNow">Probe</button>
-                            <button type="button" class="btn-mini" disabled="@Busy" @onclick="CheckStore">Check store</button>
-                            <button type="button" class="btn-mini" disabled="@Busy" @onclick="RestartApp">Restart app</button>
-                            @if (dev.Platform == "android") {
-                                <button type="button" class="btn-mini" disabled="@Busy" @onclick="Recert">Recert</button>
-                            }
-                            @if (_harvest is { InRegistry: false }) {
-                                <button type="button" class="btn-mini" disabled="@Busy" @onclick="SaveToRegistry">
-                                    Save to registry
+                            @if (State.Mode == DeviceWorkbenchState.TabDevice) {
+                                <button type="button" class="btn-primary" disabled="@Busy" @onclick="Launch">
+                                    <Icon Name="play" Class="icon-sm"/>
+                                    Launch
                                 </button>
+                                <button type="button" class="btn-mini" disabled="@Busy" @onclick="RestartApp">Restart app</button>
+                                <button type="button" class="btn-mini" disabled="@Busy" @onclick="Recert">Recert</button>
+                                <button type="button" class="btn-mini btn-danger" disabled="@Busy" @onclick="Destroy">
+                                    <Icon Name="trash-2" Class="icon-sm"/>
+                                    @(_destroyArmed ? "Destroy?" : "Destroy")
+                                </button>
+                            } else {
+                                <button type="button" class="btn-primary" disabled="@Busy" @onclick="ProbeNow">
+                                    <Icon Name="refresh-cw" Class="icon-sm"/>
+                                    Probe
+                                </button>
+                                <button type="button" class="btn-mini" disabled="@Busy" @onclick="CheckStore">Check store</button>
+                                <button type="button" class="btn-mini" disabled="@Busy" @onclick="RestartApp">Restart app</button>
+                                @if (dev.Platform == "android") {
+                                    <button type="button" class="btn-mini" disabled="@Busy" @onclick="Recert">Recert</button>
+                                }
+
+                                @if (_harvest is { InRegistry: false }) {
+                                    <button type="button" class="btn-mini" disabled="@Busy" @onclick="SaveToRegistry">
+                                        Save to registry
+                                    </button>
+                                }
+
+                                <button type="button" class="btn-mini" disabled="@Busy" @onclick="Poke">Poke harvest</button>
                             }
-                            <button type="button" class="btn-mini" disabled="@Busy" @onclick="Poke">Poke harvest</button>
                         </Actions>
                         <ActionNotes>@ActionLines(dev)</ActionNotes>
                     </DeviceConsolePane>
@@ -146,7 +150,12 @@
                                     <tr class="dwb-job-row @(open ? "dwb-job-open" : "")" @key="j.Id" @onclick="@(() => ToggleJob(j))">
                                         <td class="font-mono">@Stamp(j.LastAt)</td>
                                         <td>@j.Kind</td>
-                                        <td class="@StateClass(j.State)">@(j.Outcome ?? j.State)</td>
+                                        <td>
+                                            <span class="dwb-status">
+                                                <Icon Name="@StateIcon(j.State)" Class="@($"icon-sm {StateClass(j.State)}")"/>
+                                                <span>@(j.Outcome ?? j.State)</span>
+                                            </span>
+                                        </td>
                                         <td class="font-mono text-accent" title="@(j.Repeat > 1 ? $"since {Stamp(j.StartedAt)}" : null)">
                                             @(j.Repeat > 1 ? $"x{j.Repeat}" : "")
                                         </td>
@@ -196,22 +205,23 @@
                             <div class="dwb-capture-bar">
                                 <CaptureControlsPanel View="State.Capture" ReadOnly="true"
                                                       OnViewChanged="StateHasChanged"/>
-                                <StatsPanel Stats="_stats" FlowCount="_flows.Count" Running="_capturing" Port="_port"/>
                             </div>
                             <div class="dwb-capture-body">
                                 <FlowList Flows="_flows" SelectedId="_selectedFlowId" Connected="_connected"
                                           View="State.Capture" OnSelect="SelectFlow"/>
-                                <DetailPane Flow="_selectedFlow" View="State.Capture" ClientFactory="Client">
-                                    <Tools>
-                                        @if (_selectedFlow is { } sel && Kinds.For(sel.Path) is not null) {
-                                            <button type="button" class="btn-mini" disabled="@(_offerBusy || _offered.Contains(sel.Id))"
-                                                    title="Record this observation to your account for review"
-                                                    @onclick="@(() => OfferAsync(dev, sel))">
-                                                @(_offered.Contains(sel.Id) ? "Offered" : _offerBusy ? "Offering..." : "Offer")
-                                            </button>
-                                        }
-                                    </Tools>
-                                </DetailPane>
+                                @if (_selectedFlow is { } selected) {
+                                    <DetailPane Flow="selected" View="State.Capture" ClientFactory="Client">
+                                        <Tools>
+                                            @if (Kinds.For(selected.Path) is not null) {
+                                                <button type="button" class="btn-mini" disabled="@(_offerBusy || _offered.Contains(selected.Id))"
+                                                        @onclick="@(() => OfferAsync(dev, selected))">
+                                                    <Icon Name="send" Class="icon-sm"/>
+                                                    @(_offered.Contains(selected.Id) ? "Offered" : _offerBusy ? "Offering..." : "Offer for review")
+                                                </button>
+                                            }
+                                        </Tools>
+                                    </DetailPane>
+                                }
                             </div>
                             <ContributePanel @ref="_contribute" ClientFactory="Client"/>
                         </div>
@@ -224,6 +234,9 @@
                             <thead>
                             <tr>
                                 <th>Version</th><th>SHA-256</th><th>Size</th><th>Symbols</th><th>Source</th><th>Pulled</th>
+                                @if (_isContributor) {
+                                    <th></th>
+                                }
                             </tr>
                             </thead>
                             <tbody>
@@ -237,6 +250,14 @@
                                     <td class="font-mono text-xs">@(b.EffectiveSymbols > 0 ? b.EffectiveSymbols : b.NativeSymbols)</td>
                                     <td class="text-xs">@b.Source</td>
                                     <td class="text-muted text-xs">@b.PulledAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
+                                    @if (_isContributor) {
+                                        <td class="dwb-row-tools">
+                                            <a class="btn-mini" href="@DownloadUrl(b)" download>
+                                                <Icon Name="download" Class="icon-sm"/>
+                                                Download
+                                            </a>
+                                        </td>
+                                    }
                                 </tr>
                             }
                             </tbody>
@@ -277,6 +298,7 @@
 
     bool _open;
     bool _isAdmin;
+    bool _isContributor;
     bool _disposed;
     bool _jobsBusy;
     bool _refreshing;
@@ -300,8 +322,6 @@
     CancellationTokenSource? _loopCts;
     readonly List<DashboardFlow> _flows = [];
     readonly Dictionary<long, int> _flowIndex = new();
-    CaptureStats? _stats;
-    bool _capturing;
     bool _connected;
     int _port;
     long? _selectedFlowId;
@@ -341,7 +361,8 @@
                                                                 OnClick="@(() => Select(d.Id))">
                                                    <Lead>
                                                        <span class="wb-lead">
-                                                           <span class="@(d.Reachable ? "dwb-dot-ok" : "dwb-dot-bad")"></span>
+                                                           <Icon Name="@(d.Reachable ? "circle-check" : "circle-x")"
+                                                                 Class="@($"icon-sm {(d.Reachable ? "text-ok" : "text-err")}")"/>
                                                            <PlatformIcon Platform="@d.Platform"/>
                                                        </span>
                                                    </Lead>
@@ -349,12 +370,10 @@
                                                    <MetaLine>
                                                        <VersionLine App="@d.InstalledAppVersion" Build="@d.InstalledBuild" Client="@Number(d.ClientVersion)"/>
                                                        @if (d.Virtual) {
-                                                           <span class="dwb-meta-vd">
+                                                           <span class="dwb-meta-vd meta-dots">
                                                                <span>@(d.Target ?? "no address yet")</span>
                                                                @if (d.Up is { } up) {
-                                                                   <span class="verline-sep">|</span>
-                                                                   <span>up</span>
-                                                                   <TimeAgo Value="@up" Hover="false"/>
+                                                                   <span>up <TimeAgo Value="@up" Hover="false"/></span>
                                                                }
                                                            </span>
                                                        }
@@ -363,7 +382,9 @@
 
     RenderFragment? FootFor(DeviceRow d) {
         if (RunningFor(d.Id) is not { } busy) return null;
-        return @<span class="wb-st-run">@busy.Kind</span>;
+        return @<span class="dwb-status wb-st-run">
+                   <Icon Name="play" Class="icon-sm"/><span>@busy.Kind</span>
+               </span>;
     }
 
     RenderFragment ActionLines(DeviceRow dev) => @<text>
@@ -371,12 +392,25 @@
                                                           <div class="font-mono text-xs text-muted mt-2">@dev.Note</div>
                                                       }
                                                       @if (RunningFor(dev.Id) is { } run) {
-                                                          <div class="wb-st-run text-xs mt-2">@run.Kind: @run.Message</div>
+                                                          <div class="dwb-job-line mt-2">
+                                                              <span class="dwb-status wb-st-run">
+                                                                  <Icon Name="play" Class="icon-sm"/>
+                                                                  <span>@run.Kind</span>
+                                                              </span>
+                                                              <span class="text-muted">@run.Message</span>
+                                                          </div>
                                                       }
                                                       @if (_recert is { } rc) {
                                                           <div class="dwb-job-lines mt-2">
-                                                              <div class="dwb-job-line @(rc.Ok ? "text-ok" : "text-err")">
-                                                                  @(rc.Ok ? "recert ok" : $"recert failed at {rc.FailedStep ?? "?"}")
+                                                              <div class="dwb-job-line">
+                                                                  <span class="dwb-status">
+                                                                      <Icon Name="@(rc.Ok ? "circle-check" : "circle-x")"
+                                                                            Class="@($"icon-sm {(rc.Ok ? "text-ok" : "text-err")}")"/>
+                                                                      <span>@(rc.Ok ? "recert ok" : "recert failed")</span>
+                                                                  </span>
+                                                                  @if (!rc.Ok) {
+                                                                      <span class="text-muted">at @(rc.FailedStep ?? "an unknown step")</span>
+                                                                  }
                                                               </div>
                                                               @if (rc.Fields.TryGetValue("expiry", out var expiry)) {
                                                                   <div class="dwb-job-line text-muted">expiry @expiry</div>
@@ -417,6 +451,11 @@
     protected override void OnInitialized() {
         base.OnInitialized();
         _isAdmin = User.IsAtLeast(UserRole.Admin);
+        _isContributor = User.IsAtLeast(UserRole.Contributor);
+    }
+
+    static string DownloadUrl(StoredBinaryRow b) {
+        return $"/api/decomp/stored-binaries/{Uri.EscapeDataString(b.Platform)}/{Uri.EscapeDataString(b.Version)}/download";
     }
 
     public async Task Open(string? deviceId = null) {
@@ -642,6 +681,16 @@
         return WorkbenchStatus.Class(WorkbenchStatus.Parse(state));
     }
 
+    static string StateIcon(string state) {
+        return WorkbenchStatus.Parse(state) switch {
+            WorkbenchStatusKind.Done => "circle-check",
+            WorkbenchStatusKind.Error => "circle-x",
+            WorkbenchStatusKind.Running => "play",
+            WorkbenchStatusKind.Queued => "clock",
+            _ => "circle"
+        };
+    }
+
     static string LevelClass(string level) {
         return level switch {
             "error" => "text-err",
@@ -830,8 +879,8 @@
 
     void ResolveHub() {
         if (Current is not { } dev) return;
-        if (Services.GetService(typeof(DeviceCaptureManager)) is not DeviceCaptureManager dcm) return;
-        if (dcm.HubFor(dev.Id) is not { } hub) return;
+        if (Services.GetService(typeof(IDeviceCaptureHubs)) is not IDeviceCaptureHubs hubs) return;
+        if (hubs.HubFor(dev.Id) is not { } hub) return;
         _hub = hub;
         foreach (var f in hub.Snapshot()) AddOrUpdateFlow(f);
         ApplyStats(hub.StatsSnapshot());
@@ -871,8 +920,6 @@
         _flowIndex.Clear();
         _selectedFlowId = null;
         _selectedFlow = null;
-        _stats = null;
-        _capturing = false;
         _connected = false;
         _port = 0;
     }
@@ -902,8 +949,6 @@
     }
 
     void ApplyStats(CaptureStats stats) {
-        _stats = stats;
-        _capturing = stats.Running;
         _port = stats.Port;
         _connected = stats.ActiveConnections > 0 || stats.DeviceCount > 0;
     }

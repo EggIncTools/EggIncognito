@@ -3,9 +3,16 @@ using System.Collections.Concurrent;
 namespace EggIncognito.Services.Devices;
 
 public static class DeviceStreamGate {
-    private static readonly ConcurrentDictionary<string, byte> Open = new(StringComparer.Ordinal);
+    public static readonly TimeSpan HandoverWait = TimeSpan.FromSeconds(3);
 
-    public static bool TryEnter(string deviceId) => Open.TryAdd(deviceId, 0);
+    private static readonly ConcurrentDictionary<string, SemaphoreSlim> Gates = new(StringComparer.Ordinal);
 
-    public static void Exit(string deviceId) => Open.TryRemove(deviceId, out _);
+    public static Task<bool> TryEnterAsync(string deviceId, CancellationToken ct) =>
+        Gate(deviceId).WaitAsync(HandoverWait, ct);
+
+    public static void Exit(string deviceId) {
+        if (Gates.TryGetValue(deviceId, out var gate)) gate.Release();
+    }
+
+    private static SemaphoreSlim Gate(string deviceId) => Gates.GetOrAdd(deviceId, _ => new SemaphoreSlim(1, 1));
 }

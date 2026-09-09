@@ -23,7 +23,7 @@ public partial class UnifiedStyleTests(SharedAppFactory f) {
         string css = await c.GetStringAsync("/styles.css");
         foreach (string cls in new[] {
                      ".panel", ".btn-primary", ".icon-btn", ".settings-menu", ".dropzone", ".result-pre",
-                     ".status-badge", ".flow-row", ".jtree-root", ".stage-row", ".cap-stat",
+                     ".flow-row", ".jtree-root", ".stage-row", ".flow-filters",
                      ".verline-app", ".verline-num", ".verline-sep", ".platform-icon", ".route-flag",
                      ".toast", ".modal-card", ".known-card", ".detail-pane-title", ".notif-item",
                      ".perk-list", ".rail", ".connect-card", ".faq-list",
@@ -44,7 +44,6 @@ public partial class UnifiedStyleTests(SharedAppFactory f) {
         var c = _f.CreateClient();
         string css = await c.GetStringAsync("/styles.css");
         foreach (string cls in new[] {
-                     ".status-2xx", ".status-3xx", ".status-4xx", ".status-5xx",
                      ".tok-string", ".tok-number", ".tok-bool", ".tok-null",
                      ".toast-info", ".bg-picker-input", ".picker"
                  }) {

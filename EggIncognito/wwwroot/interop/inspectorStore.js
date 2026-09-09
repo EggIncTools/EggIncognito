@@ -7,7 +7,6 @@ const CUSTOM_TARGET_KEY = "inspector.customTarget";
 const EIDS_KEY = "inspector.recentEids";
 const LIVE_CONSENT_KEY = "egi:liveApiConsent";
 const HISTORY_KEY = "inspector.history";
-const HISTORY_ENABLED_KEY = "inspector.historyEnabled";
 const HISTORY_MAX = 50;
 
 const EID_RE = /^EI\d{10,}$/;
@@ -89,12 +88,6 @@ export function forgetEids() {
   return [];
 }
 
-export function getHistoryEnabled() {
-  const raw = getRaw(HISTORY_ENABLED_KEY);
-  return raw === null ? true : raw === "1";
-}
-export function setHistoryEnabled(on) { setRaw(HISTORY_ENABLED_KEY, on ? "1" : "0"); }
-
 function loadHistory() {
   try {
     const raw = JSON.parse(getRaw(HISTORY_KEY) || "[]");
@@ -107,7 +100,7 @@ export function getHistory() {
 }
 
 export function saveHistory(entry) {
-  if (!getHistoryEnabled() || !entry || !entry.path) return getHistory();
+  if (!entry || !entry.path) return getHistory();
   const list = lruUpsert(
     loadHistory(),
     (e) => e.path === entry.path && e.fieldsJson === entry.fieldsJson && (e.pathParam || "") === (entry.pathParam || ""),

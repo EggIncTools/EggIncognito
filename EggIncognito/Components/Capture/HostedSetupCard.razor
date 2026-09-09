@@ -1,67 +1,60 @@
 @using System.Text.Json
+@inject ToastService Toasts
 @* Hosted-capture connection card: the caller's per-user IPv6 proxy host, the port, and the CA install
    steps. The front door identifies the user by destination address, so the proxy uses no auth. *@
 <div id="hostedSetupCard" class="capture-setup-strip">
-    <div class="setup-strip">
-        <span class="setup-strip-k">Server</span>
-        <span class="code-chip" id="proxyHost">@(_proxyHost ?? "loading...")</span>
-        <span class="setup-strip-k">Port</span>
-        <span class="code-chip">@Port</span>
-        <span class="setup-strip-k">Auth</span>
-        <span class="code-chip">off</span>
-        <span class="setup-strip-gap"></span>
-        <button type="button" class="btn-mini" @onclick="Toggle">@(Expanded ? "Hide steps" : "Steps")</button>
-    </div>
-
-    @if (_rotated) {
-        <p class="setup-note" id="rotatedNotice">
-            New address issued. Update your device's proxy Server to the value above.
-        </p>
-    }
-
-    @if (_caDmFailed) {
-        <p class="setup-note" id="caDmFailedNotice">
-            Could not DM you the CA. You may not be in the
-            Discord server, or your member DMs are off (Settings &gt; Privacy &amp; Safety).
-            @if (!string.IsNullOrWhiteSpace(InviteUrl)) {
-                <span>Join: <a href="@InviteUrl" target="_blank" rel="noopener" class="text-accent underline">@InviteUrl</a>, enable DMs, then re-send the setup DM from the Requests toolbar.</span>
-            } else {
-                <span>Enable DMs, then re-send the setup DM from the Requests toolbar.</span>
+    <div class="insp-disc setup-disc @(Expanded ? "" : "collapsed")">
+        <div class="insp-disc-head setup-head" @onclick="Toggle">
+            <button type="button" class="insp-disc-toggle" aria-expanded="@(Expanded ? "true" : "false")" aria-controls="setupSteps">
+                <span class="ep-caret @(Expanded ? "ep-caret-open" : "")"></span>Setup
+            </button>
+            <span class="setup-strip-k">Server</span>
+            <span class="code-chip" id="proxyHost">@(_proxyHost ?? "loading...")</span>
+            <button type="button" class="btn-mini" disabled="@_rotateBusy" @onclick="RotateAddress" @onclick:stopPropagation="true">
+                <Icon Name="refresh-cw" Class="icon-sm"/>New address
+            </button>
+            <span class="setup-strip-k">Port</span>
+            <span class="code-chip">@Port</span>
+            <span class="setup-strip-k">Auth</span>
+            <span class="code-chip">off</span>
+        </div>
+        <div class="insp-disc-body" id="setupSteps">
+            @if (_caDmFailed) {
+                <p class="setup-note" id="caDmFailedNotice">
+                    The setup DM could not be delivered.
+                    @if (!string.IsNullOrWhiteSpace(InviteUrl)) {
+                        <span>Join the Discord server at <a href="@InviteUrl" target="_blank" rel="noopener" class="text-accent underline">@InviteUrl</a>, allow member DMs under Settings &gt; Privacy &amp; Safety, then use Re-send setup DM in step 2.</span>
+                    } else {
+                        <span>Allow member DMs under Settings &gt; Privacy &amp; Safety, then use Re-send setup DM in step 2.</span>
+                    }
+                </p>
             }
-        </p>
-    }
 
-    @if (Limited) {
-        <p class="setup-note" id="limitedNotice">
-            Limited capture: crafting, consume and demote requests open in full. Other requests list their route and
-            message types only. <a href="/#support">Supporters</a> get full capture.
-        </p>
-    }
+            @if (Limited) {
+                <p class="setup-note" id="limitedNotice">
+                    Limited capture opens crafting, consume and demote requests in full and lists every other request by route and message types only.
+                    <a href="/#support" class="underline">Supporters</a> get full capture.
+                </p>
+            }
 
-    @if (Expanded) {
-        <div class="setup-steps">
             <ol class="setup-list">
-                <li>Set your Wi-Fi proxy to <strong>Manual</strong> using the Server + Port above (auth off).</li>
+                <li>On the phone, set the Wi-Fi proxy to Manual with the Server and Port shown above and authentication off.</li>
                 <li>
-                    Install + trust the DM'd CA:
+                    <span class="setup-step-line">
+                        Install and trust the CA certificate from the setup DM on Discord.
+                        <button type="button" class="btn-mini" disabled="@_dmBusy" @onclick="SendConfig">
+                            <Icon Name="send" Class="icon-sm"/>Re-send setup DM
+                        </button>
+                    </span>
                     <ul class="setup-sublist">
-                        <li>
-                            <strong>iOS</strong>: open the CA profile, install it, then full-trust under Settings &gt;
-                            General &gt; About &gt; Certificate Trust Settings.
-                        </li>
-                        <li>
-                            <strong>Android</strong>: needs a rooted phone with the CA in the system trust store (Android
-                            7+ ignores user CAs), e.g. a Magisk cert module.
-                        </li>
+                        <li><strong>iOS</strong>: install the profile, then enable full trust under Settings &gt; General &gt; About &gt; Certificate Trust Settings.</li>
+                        <li><strong>Android</strong>: the CA must sit in the system trust store, which needs a rooted phone (for example a Magisk certificate module).</li>
                     </ul>
                 </li>
-                <li>
-                    Open Egg, Inc. Flows appear live below. Only Egg, Inc. traffic is decrypted; everything else
-                    passes through untouched.
-                </li>
+                <li>Open Egg, Inc. on the phone and its requests appear in the list below.</li>
             </ol>
         </div>
-    }
+    </div>
 </div>
 
 @code {
@@ -75,21 +68,13 @@
 
     [Parameter] public bool Limited { get; set; }
 
-    private Task Toggle() {
-        return ExpandedChanged.InvokeAsync(!Expanded);
-    }
-
     string? _proxyHost;
     bool _caDmFailed;
-    bool _rotated;
+    bool _dmBusy;
+    bool _rotateBusy;
 
-    [Parameter] public string? HostOverride { get; set; }
-
-    protected override void OnParametersSet() {
-        if (!string.IsNullOrEmpty(HostOverride) && HostOverride != _proxyHost) {
-            _proxyHost = HostOverride;
-            _rotated = true;
-        }
+    Task Toggle() {
+        return ExpandedChanged.InvokeAsync(!Expanded);
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender) {
@@ -119,6 +104,70 @@
         catch {
             /* status unavailable (no session / prerender); the download button stays the fallback */
         }
+    }
+
+    static bool Sent(string body) {
+        try {
+            using var doc = JsonDocument.Parse(body);
+            return !doc.RootElement.TryGetProperty("sent", out var s) || s.GetBoolean();
+        }
+        catch (JsonException) {
+            return true;
+        }
+    }
+
+    static string Detail(string body) {
+        try {
+            using var doc = JsonDocument.Parse(body);
+            return doc.RootElement.TryGetProperty("error", out var e) ? e.GetString() ?? "" : "";
+        }
+        catch (JsonException) {
+            return "";
+        }
+    }
+
+    async Task SendConfig() {
+        if (ClientFactory is null) return;
+        _dmBusy = true;
+        try {
+            var res = await ClientFactory().PostAsync("/api/capture/send-config", null);
+            var body = await res.Content.ReadAsStringAsync();
+            if (!res.IsSuccessStatusCode) {
+                Toasts.Push(StatusNoteKind.Error, $"Could not send the setup DM (HTTP {(int)res.StatusCode}). {Detail(body)}");
+            } else if (Sent(body)) {
+                _caDmFailed = false;
+                Toasts.Push(StatusNoteKind.Ok, "Setup DM sent.");
+            } else {
+                _caDmFailed = true;
+                Toasts.Push(StatusNoteKind.Error, "Discord refused the DM. Allow member DMs, then try again.");
+            }
+        }
+        catch (Exception ex) {
+            Toasts.Push(StatusNoteKind.Error, $"Setup DM failed: {ex.Message}");
+        }
+
+        _dmBusy = false;
+    }
+
+    async Task RotateAddress() {
+        if (ClientFactory is null) return;
+        _rotateBusy = true;
+        try {
+            var res = await ClientFactory().PostAsync("/api/capture/proxy-address/rotate", null);
+            if (res.IsSuccessStatusCode) {
+                using var doc = JsonDocument.Parse(await res.Content.ReadAsStringAsync());
+                var host = doc.RootElement.GetProperty("host").GetString();
+                if (host is not null) _proxyHost = host;
+                Toasts.Push(StatusNoteKind.Ok, "New address issued. Update the proxy Server on your phone.");
+            } else {
+                Toasts.Push(StatusNoteKind.Error, $"New address failed (HTTP {(int)res.StatusCode}).");
+            }
+        }
+        catch (Exception ex) {
+            Toasts.Push(StatusNoteKind.Error, $"New address failed: {ex.Message}");
+        }
+
+        _rotateBusy = false;
     }
 
 }

@@ -1,5 +1,6 @@
 using EggIdentity.UI;
 using EggIncognito.Components.Capture;
+using EggIncognito.Models.Devices;
 using EggIncognito.Services.Workbench;
 
 namespace EggIncognito.Services.Devices;
@@ -31,9 +32,19 @@ public sealed class DeviceWorkbenchState : WorkbenchStateBase {
     public bool FleetOpen { get; set; }
     public HashSet<long> Expanded { get; } = [];
     public CaptureViewState Capture { get; } = new();
+    public Dictionary<string, DeviceConsoleCache> Console { get; } = [with(StringComparer.Ordinal)];
 
     public static IReadOnlyList<WorkbenchMode> ModesFor(bool virtualDevice) =>
         virtualDevice ? VirtualModes : PhysicalModes;
+
+    public static bool IsConsoleTab(string mode) => mode is TabDevice or TabScreen;
+
+    public DeviceConsoleCache ConsoleFor(string deviceId) {
+        if (Console.TryGetValue(deviceId, out var cached)) return cached;
+        var fresh = new DeviceConsoleCache();
+        Console[deviceId] = fresh;
+        return fresh;
+    }
 
     public void AlignMode(bool virtualDevice) {
         var modes = ModesFor(virtualDevice);

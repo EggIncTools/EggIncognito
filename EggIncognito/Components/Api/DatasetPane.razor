@@ -21,16 +21,23 @@
                 <p class="ds-desc">@s.Description</p>
             }
             <div class="ds-meta meta-dots">
-                <span>@ProvenanceLabel(s.Provenance)</span>
-                <span>@AccessLabel(s.Access)</span>
-                @if (s.Bytes is { } bytes) {
-                    <span class="font-mono">@ByteFormat.Compact(bytes)</span>
+                <span class="ds-access">
+                    <Icon Name="@(NeedsKey(s) ? "key" : "globe")" Class="icon-sm"/>
+                    @(NeedsKey(s) ? "API key" : "Public")
+                </span>
+                @if (s.AcceptsName) {
+                    <span class="ds-access">
+                        <Icon Name="link" Class="icon-sm"/>
+                        Name in URL, no raw GET
+                    </span>
                 }
-                @if (!string.IsNullOrEmpty(s.Feed)) {
-                    <span class="font-mono">@s.Feed</span>
+                @if (s.Bytes is { } bytes) {
+                    <span class="font-mono">@ByteFormat.Humanize(bytes, "0")</span>
                 }
                 @if (s.Meta?.BinaryVersion is { Length: > 0 } binaryVersion) {
-                    <span><VersionLine App="@binaryVersion"/></span>
+                    <span>
+                        <VersionLine App="@binaryVersion"/>
+                    </span>
                 }
             </div>
             <a class="ds-route font-mono" href="@s.Url" target="_blank" rel="noopener">@s.Url</a>
@@ -84,18 +91,8 @@
 
     string _origin = "https://eggincognito.davidarthurcole.me";
 
-    internal static string ProvenanceLabel(string raw) {
-        return raw switch {
-            "WireFixture" => "wire fixture",
-            "DerivedExtract" => "derived extract",
-            "Database" => "database document",
-            "Asset" => "game asset",
-            _ => raw
-        };
-    }
-
-    internal static string AccessLabel(string raw) {
-        return string.Equals(raw, "Authenticated", StringComparison.Ordinal) ? "account or API key" : "public";
+    static bool NeedsKey(DataSourceRow s) {
+        return string.Equals(s.Access, "Authenticated", StringComparison.Ordinal);
     }
 
     string CurlLine(DataSourceRow s) {

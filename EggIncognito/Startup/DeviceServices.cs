@@ -217,7 +217,8 @@ public static class DeviceServices {
                 new CompositeDeviceResponseSources(sp.GetServices<IDeviceResponseSources>()),
                 new CompositeDeviceResponseTransforms(sp.GetServices<IDeviceResponseTransforms>()));
         });
-        builder.Services.AddSingleton<IDeviceCaptureStatus>(sp => sp.GetRequiredService<DeviceCaptureManager>());
+        if (borrowing) builder.Services.AddSingleton<IDeviceCaptureHubs, BridgeCaptureHubs>();
+        else builder.Services.AddSingleton<IDeviceCaptureHubs>(sp => sp.GetRequiredService<DeviceCaptureManager>());
         builder.Services.AddSingleton<DeviceProxyPusher>();
         builder.Services.AddSingleton<ProxyReachProbe>();
         if (boot.DeviceCaptureConfig.Enabled && boot.DeviceTransportConfig.Mode != DeviceTransportMode.Remote)

@@ -18,11 +18,12 @@ public sealed class CaptureSessionManagerTests : IDisposable {
         throw new InvalidOperationException("Could not locate the EggIncognito project content root.");
     }
 
-    internal static CaptureSession NewSession(TempDir tmp, int port, FakeCaptureProxy? fake = null) {
+    internal static CaptureSession NewSession(TempDir tmp, int port, FakeCaptureProxy? fake = null,
+        CaptureTier tier = CaptureTier.Full) {
         string dir = tmp.CreateSubdir();
         var opts = new CaptureSessionOptions(port, null, null,
             false, false, dir, Path.Combine(dir, "ca.cer"),
-            false);
+            false) { Tier = tier };
         return new CaptureSession(RealContentRoot(), opts, _ => fake ?? new FakeCaptureProxy());
     }
 

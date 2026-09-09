@@ -1,5 +1,6 @@
 @using System.Net
 @using System.Text.Json
+@using EggIncognito.Components.Inspector
 @using EggIncognito.Models.Inspector
 @using EggIncognito.Models.Routes
 @using EggIncognito.Services.Routes
@@ -66,7 +67,7 @@
             <table class="data-table">
                 <thead>
                 <tr>
-                    <th>Path</th><th>Request</th><th>Response</th><th>Flags</th><th>State</th>
+                    <th>Path</th><th>Types</th><th>Flags</th><th>State</th>
                 </tr>
                 </thead>
                 <tbody>
@@ -74,30 +75,33 @@
                     var drift = DriftFor(row.Path);
                     <tr class="reg-row cursor-pointer @(drift.Count > 0 ? "route-drift-row" : "")" @onclick="() => ToggleExpand(row)">
                         <td class="mono text-xs">@row.Path</td>
-                        <td>@TypeCell(row.Effective?.Request, row.Effective?.RequestWrapped == true)</td>
-                        <td>@TypeCell(row.Effective?.Response, row.Effective?.ResponseWrapped == true)</td>
+                        <td>
+                            <RouteTypes Request="@row.Effective?.Request" Response="@row.Effective?.Response"
+                                        RequestWrapped="@(row.Effective?.RequestWrapped == true)"
+                                        ResponseWrapped="@(row.Effective?.ResponseWrapped == true)"/>
+                        </td>
                         <td class="text-muted text-xs">@(row.Effective?.PathParam == true ? "path param" : "")</td>
                         <td class="routes-state-cell">
                             @if (row.Override is not null) {
-                                <span class="route-flag text-accent">edited</span>
+                                <span class="route-flag"><Icon Name="pencil" Class="icon-sm"/> edited</span>
                             }
                             @if (row.Source == "db") {
-                                <span class="route-flag text-muted">db</span>
+                                <span class="route-flag"><Icon Name="database" Class="icon-sm"/> db</span>
                             }
                             @if (row.Source == "orphan") {
-                                <span class="route-flag text-err">orphan</span>
+                                <span class="route-flag"><Icon Name="circle-x" Class="icon-sm"/> orphan</span>
                             }
                             @if (BinaryPopulated && !IsInBinary(row.Path)) {
-                                <span class="route-flag text-muted">no binary</span>
+                                <span class="route-flag"><Icon Name="circle" Class="icon-sm"/> no binary</span>
                             }
                             @if (drift.Count > 0) {
-                                <span class="route-flag route-flag-warn">drift</span>
+                                <span class="route-flag"><Icon Name="circle-alert" Class="icon-sm"/> drift</span>
                             }
                         </td>
                     </tr>
                     @if (_expandedPath == row.Path) {
                         <tr class="reg-edit-row">
-                            <td colspan="5">
+                            <td colspan="4">
                                 <div class="routes-editor">
                                     <p class="text-muted text-xs m-0">@(row.Source == "orphan" ? "No matching route in routes.yaml or the binary catalog." : "Saved overrides persist to the database and win over routes.yaml.")</p>
                                     <div class="routes-editor-grid">
@@ -149,7 +153,9 @@
                                         <div class="flex flex-col gap-1">
                                             @foreach (var d in drift) {
                                                 <div class="routes-drift-row">
-                                                    <span class="route-flag @(d.Reliable ? "route-flag-warn" : "text-muted")">@(d.Reliable ? "drift" : "advisory")</span>
+                                                    <span class="route-flag">
+                                                        <Icon Name="@(d.Reliable ? "circle-alert" : "info")" Class="icon-sm"/> @(d.Reliable ? "drift" : "advisory")
+                                                    </span>
                                                     <span class="text-muted">@d.Field: effective @(d.EffectiveValue ?? "-") vs binary @(d.BinaryValue ?? "-")</span>
                                                     <button type="button" class="btn-mini" disabled="@_busy" @onclick="() => ApplyDrift(d)">Apply</button>
                                                 </div>
@@ -208,18 +214,9 @@
         LoadBinary();
     }
 
-    RenderFragment TypeCell(string? name, bool locked) => @<span class="routes-type">
-        @if (name is null) {
-            <span class="text-muted">none</span>
-        } else {
-            <span class="mono">@name</span>
-        }
-        @if (locked) {
-            <Icon Name="lock" Class="icon-sm"/>
-        }
-    </span>;
-
-    static string Kpi(int? value) => value?.ToString() ?? "-";
+    static string Kpi(int? value) {
+        return value?.ToString() ?? "-";
+    }
 
     int EditedCount => _rows.Count(r => r.Override is not null);
 
@@ -231,10 +228,13 @@
         _draftResponse = Blank(e.Value?.ToString());
     }
 
-    static string? Blank(string? v) => string.IsNullOrWhiteSpace(v) ? null : v;
+    static string? Blank(string? v) {
+        return string.IsNullOrWhiteSpace(v) ? null : v;
+    }
 
-    bool KnownType(string name) =>
-        _roles.Request.Contains(name) || _roles.Response.Contains(name) || _roles.Other.Contains(name);
+    bool KnownType(string name) {
+        return _roles.Request.Contains(name) || _roles.Response.Contains(name) || _roles.Other.Contains(name);
+    }
 
     async Task Changed() {
         LoadRoutes();

@@ -1,5 +1,6 @@
 @using EggIncognito.Models.Inspector
 @using EggIncognito.Services.Api
+@using EggIncognito.Services.Inspector
 @using Microsoft.AspNetCore.Components.Web.Virtualization
 @inject IRouteCatalog Catalog
 @inject IProtoReflection Reflection
@@ -8,15 +9,8 @@
     <a class="btn-mini" href="/api/tools/postman-collection" download>
         <Icon Name="download" Class="icon-sm"/> Postman
     </a>
-    <button type="button" class="btn-mini @(StatusLoading ? "spinning" : "")" @onclick="OnOpenStatus">
-        <Icon Name="refresh-cw" Class="icon-sm"/> Status
-    </button>
-    <button type="button" class="btn-mini @(State.HasSalt ? "" : "text-muted")" title="@(State.HasSalt ? "Salt set" : "Salt unset")" @onclick="OnOpenSalt">
-        <Icon Name="key" Class="icon-sm"/> Salt
-    </button>
-    <button type="button" class="icon-btn icon-btn-sm ml-auto"
-            aria-label="Inspector settings" @onclick="OnOpenSettings">
-        <Icon Name="settings"/>
+    <button type="button" class="btn-mini @(State.HasSalt ? "awb-tool-ok" : "text-muted")" @onclick="OnOpenSalt">
+        <Icon Name="@(State.HasSalt ? "check" : "key")" Class="icon-sm"/> Salt
     </button>
 </div>
 
@@ -59,7 +53,7 @@
                     <div class="ep @(State.Selected?.Path == row.Route.Path ? "active" : "")"
                          @onclick="@(() => OnSelectEndpoint.InvokeAsync(row.Route))">
                         <span class="ep-name">@row.Label</span>
-                        @if (row.Route.RequestWrapped) {
+                        @if (row.Route.RequestWrapped || row.Route.ResponseWrapped) {
                             <span class="ep-signed">
                                 <Icon Name="lock" Class="icon-sm"/>
                             </span>
@@ -71,12 +65,22 @@
     </WorkbenchSection>
 </div>
 
-<div class="wb-rail-slot awb-rail-hist">
-    <WorkbenchSection Label="@HistoryLabel" Scroll="true">
-        <HistoryPanel HistoryEnabled="State.HistoryEnabled" History="State.History"
-                      OnRestoreHistory="OnRestoreHistory" OnDeleteHistory="OnDeleteHistory"
-                      OnClearHistory="OnClearHistory"/>
-    </WorkbenchSection>
+<div class="wb-rail-slot awb-rail-hist @(State.HistoryOpen ? "awb-rail-hist-open" : "")">
+    <div class="insp-disc awb-hist @(State.HistoryOpen ? "" : "collapsed")">
+        <div class="insp-disc-head">
+            <button type="button" class="insp-disc-toggle" @onclick="ToggleHistory">
+                <span class="ep-caret @(State.HistoryOpen ? "ep-caret-open" : "")"></span>@HistoryLabel
+            </button>
+            @if (State.HistoryOpen && State.History.Count > 0) {
+                <button type="button" class="btn-mini btn-danger" @onclick="OnClearHistory">
+                    <Icon Name="trash-2" Class="icon-sm"/> Clear
+                </button>
+            }
+        </div>
+        <div class="insp-disc-body awb-hist-body">
+            <HistoryPanel History="State.History" OnRestoreHistory="OnRestoreHistory" OnDeleteHistory="OnDeleteHistory"/>
+        </div>
+    </div>
 </div>
 
 @code {
@@ -85,9 +89,6 @@
     [Parameter] public string Filter { get; set; } = "";
     [Parameter] public EventCallback<RouteInfo> OnSelectEndpoint { get; set; }
     [Parameter] public EventCallback OnOpenSalt { get; set; }
-    [Parameter] public EventCallback OnOpenSettings { get; set; }
-    [Parameter] public EventCallback OnOpenStatus { get; set; }
-    [Parameter] public bool StatusLoading { get; set; }
     [Parameter] public bool ShowRouteCatalog { get; set; }
     [Parameter] public bool RouteCatalogSelected { get; set; }
     [Parameter] public EventCallback OnOpenRouteCatalog { get; set; }
@@ -103,10 +104,15 @@
     string? _rowsKey;
 
     string EndpointsLabel => $"Endpoints ({Routes().Count})";
-    string HistoryLabel => State.History.Count > 0 ? $"History ({State.History.Count})" : "History";
+
+    string HistoryLabel => $"History ({State.History.Count})";
 
     List<RouteInfo> Routes() {
-        return _routes ??= Catalog.All().ToList();
+        return _routes ??= [.. Catalog.All()];
+    }
+
+    void ToggleHistory() {
+        State.HistoryOpen = !State.HistoryOpen;
     }
 
     void ToggleGroup(string ns) {
@@ -126,14 +132,13 @@
         var routes = Routes();
         var source = needle.Length == 0
             ? routes
-            : routes.Where(e => e.Path.Contains(needle, StringComparison.OrdinalIgnoreCase)).ToList();
+            : [.. routes.Where(e => e.Path.Contains(needle, StringComparison.OrdinalIgnoreCase))];
 
         var rows = new List<RailRow>();
-        foreach (var group in source.GroupBy(e => e.Path.Split('/')[0]).OrderBy(g => g.Key, StringComparer.Ordinal)) {
-            var ns = group.Key;
-            rows.Add(new RailRow(ns.ToLowerInvariant(), null, ""));
-            if (_collapsed.Contains(ns.ToLowerInvariant())) continue;
-            foreach (var e in group) rows.Add(new RailRow(ns.ToLowerInvariant(), e, e.Path[(ns.Length + 1)..]));
+        foreach (var group in RouteNamespaces.Group(source, e => e.Path)) {
+            rows.Add(new RailRow(group.Key, null, ""));
+            if (_collapsed.Contains(group.Key)) continue;
+            foreach (var e in group) rows.Add(new RailRow(group.Key, e, RouteNamespaces.LocalPath(e.Path)));
         }
 
         return rows;

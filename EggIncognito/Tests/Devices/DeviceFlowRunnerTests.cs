@@ -180,6 +180,19 @@ public class DeviceFlowRunnerTests {
     }
 
     [Fact]
+    public async Task Swipe_CallsDriverSwipeAsyncWithCoordinatesAndDuration() {
+        var driver = new FakeUiDriver();
+        var runner = new DeviceFlowRunner(driver);
+        var steps = new[] { DeviceFlowSteps.Swipe(10, 20, 30, 40, 250) };
+
+        var result = await runner.RunAsync(Target, steps, null, CancellationToken.None);
+
+        Assert.True(result.Ok);
+        Assert.Equal((10, 20, 30, 40, 250), Assert.Single(driver.SwipeCalls));
+        Assert.Contains("swipe (10,20) to (30,40) over 250ms", result.Log);
+    }
+
+    [Fact]
     public async Task ExternalCancellation_Rethrows() {
         var driver = new FakeUiDriver { Dumps = _ => DeviceResult<UiTree>.Success(Tree()) };
         var runner = new DeviceFlowRunner(driver);
@@ -216,6 +229,14 @@ public class DeviceFlowRunnerTests {
 
         public Task<DeviceResult> TapPointAsync(DeviceTarget target, int x, int y, CancellationToken ct) {
             TapPointCalls.Add((x, y));
+            return Task.FromResult(DeviceResult.Success());
+        }
+
+        public List<(int X1, int Y1, int X2, int Y2, int Ms)> SwipeCalls { get; } = [];
+
+        public Task<DeviceResult> SwipeAsync(DeviceTarget target, int x1, int y1, int x2, int y2, int durationMs,
+            CancellationToken ct) {
+            SwipeCalls.Add((x1, y1, x2, y2, durationMs));
             return Task.FromResult(DeviceResult.Success());
         }
 

@@ -20,8 +20,8 @@ namespace EggIncognito.Tests;
 public class HostedCapturePageTests {
     private static CaptureSessionManager NewManager(TempDir tmp) =>
         new(HostedCaptureOptions.Defaults(),
-            (key, basePort, _) => CaptureSessionManagerTests.NewSession(tmp,
-                key == CaptureSessionManager.LocalKey ? 18080 : basePort));
+            (key, basePort, tier) => CaptureSessionManagerTests.NewSession(tmp,
+                key == CaptureSessionManager.LocalKey ? 18080 : basePort, tier: tier));
 
     private sealed class FakeAppMode(bool canCapture, bool hostedEnabled) : IAppMode {
         public AppMode Mode => AppMode.Hosted;
@@ -105,8 +105,9 @@ public class HostedCapturePageTests {
             using var tmp = new TempDir();
             Wire(tmp, true, false);
             var cut = Render<CapturePane>();
-            Assert.NotNull(cut.Find("#hostedSetupCard"));
-            Assert.NotNull(cut.Find("#statsPanel"));
+            Assert.NotNull(cut.WaitForElement("#hostedSetupCard"));
+            Assert.NotNull(cut.Find("#flowsPanel"));
+            Assert.NotNull(cut.Find("#limitedNotice"));
         }
 
         [Fact]
@@ -114,8 +115,42 @@ public class HostedCapturePageTests {
             using var tmp = new TempDir();
             Wire(tmp, true, true);
             var cut = Render<CapturePane>();
-            Assert.NotNull(cut.Find("#hostedSetupCard"));
-            Assert.NotNull(cut.Find("#statsPanel"));
+            Assert.NotNull(cut.WaitForElement("#hostedSetupCard"));
+            Assert.NotNull(cut.Find("#flowsPanel"));
+            Assert.Empty(cut.FindAll("#limitedNotice"));
+            Assert.Empty(cut.FindAll("#statsPanel"));
+            Assert.Empty(cut.FindAll(".wbx-kpi"));
+        }
+
+        [Fact]
+        public void SetupCard_StartsExpanded_WithInlineStepActions() {
+            using var tmp = new TempDir();
+            Wire(tmp, true, true);
+            var cut = Render<CapturePane>();
+            cut.WaitForElement("#hostedSetupCard");
+            string markup = cut.Markup;
+
+            Assert.DoesNotContain("collapsed", cut.Find("#hostedSetupCard .insp-disc").ClassName);
+            Assert.NotEmpty(cut.FindAll("#hostedSetupCard .insp-disc-toggle .ep-caret"));
+            Assert.Contains("New address", markup);
+            Assert.Contains("Re-send setup DM", markup);
+            Assert.DoesNotContain("Hide steps", markup);
+            Assert.DoesNotContain("this machine", markup);
+            Assert.DoesNotContain("your machine", markup);
+        }
+
+        [Fact]
+        public void RequestsHead_HidesClearAndExport_WhenNoFlows() {
+            using var tmp = new TempDir();
+            Wire(tmp, true, true);
+            var cut = Render<CapturePane>();
+            cut.WaitForElement("#flowsPanel");
+            string markup = cut.Markup;
+
+            Assert.DoesNotContain("Export HAR", markup);
+            Assert.Empty(cut.FindAll("#flowsPanel .flow-tools .btn-danger"));
+            Assert.Contains("Start capture", markup);
+            Assert.NotEmpty(cut.FindAll("#flowsPanel .flow-filters"));
         }
 
         [Fact]
@@ -123,10 +158,11 @@ public class HostedCapturePageTests {
             using var tmp = new TempDir();
             Wire(tmp, false, false, canCapture: true);
             var cut = Render<CapturePane>();
-            Assert.NotNull(cut.Find("#statsPanel"));
+            Assert.NotNull(cut.WaitForElement("#localSetupCard"));
             Assert.NotNull(cut.Find("#flowsPanel"));
             Assert.NotNull(cut.Find("#detailPanel"));
             Assert.Empty(cut.FindAll("#hostedSetupCard"));
+            Assert.DoesNotContain("this machine", cut.Markup);
         }
 
         [Fact]
@@ -134,6 +170,7 @@ public class HostedCapturePageTests {
             using var tmp = new TempDir();
             Wire(tmp, true, true);
             var cut = Render<CapturePane>();
+            cut.WaitForElement("#proxyHost");
             string markup = cut.Markup;
 
             Assert.NotNull(cut.Find("#proxyHost"));

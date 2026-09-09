@@ -6,6 +6,8 @@ using EggIncognito.Services.Inspector;
 namespace EggIncognito.Components.Inspector;
 
 public sealed class FieldNode {
+    public const string RequestInfoType = "BasicRequestInfo";
+
     public required SchemaField Field { get; init; }
 
     public required string PathKey { get; init; }
@@ -19,6 +21,7 @@ public sealed class FieldNode {
     public bool Locked { get; set; }
 
     public bool IsMessage => Field.Type == "message";
+    public bool IsRequestInfo => IsMessage && Field.MessageType == RequestInfoType;
     public bool IsEnum => Field.Type == "enum";
     public bool IsBool => Field.Type == "bool";
     public bool IsRepeated => Field.Repeated && !IsMessage;

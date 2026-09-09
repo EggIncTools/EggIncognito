@@ -1,5 +1,3 @@
-@using System.Text.Json
-@inject ToastService Toasts
 @* Capture controls side-column widget: start/stop, clear, HAR export, and view/redaction settings.
    View settings mutate the shared CaptureViewState and call OnViewChanged. One popover open at a time. *@
 
@@ -8,59 +6,16 @@
 }
 <div class="capture-bar-group">
     @if (!ReadOnly) {
-        <div class="cap-run">
-            <button type="button" class="btn-secondary cap-run-btn @(Running ? "cap-run-live" : "")" disabled="@ToggleBusy"
-                    aria-label="@(Running ? "Stop capture" : "Start capture")" @onclick="OnToggleCapture">
-                <Icon Name="@(Running ? "pause" : "play")"/>
-                @(Running ? "Stop" : "Start")
-            </button>
-            <span class="cap-state @(Running ? "cap-state-live" : "")">
-                <span class="cap-state-dot"></span>@StateText
-            </span>
-        </div>
-
-        <div class="settings-wrap">
-            <button type="button" class="icon-btn" aria-label="Clear list" title="Clear the captured request list"
-                    aria-haspopup="true" aria-expanded="@(_open == "clear")" @onclick="@(() => Toggle("clear"))">
-                <Icon Name="trash"/>
-            </button>
-            <div class="settings-menu confirm-menu @(_open == "clear" ? "open" : "")">
-                <div class="settings-title">Clear list?</div>
-                <div class="settings-hint">Removes the captured requests shown here. Saved endpoints, captured HAR(s), and exported files are kept.</div>
-                <div class="confirm-actions">
-                    <button type="button" class="btn-mini" @onclick="@(() => _open = null)">Cancel</button>
-                    <button type="button" class="btn-mini btn-danger" @onclick="ConfirmClear">Clear</button>
-                </div>
-            </div>
-        </div>
-
-        <div class="settings-wrap">
-            <button type="button" class="icon-btn" aria-label="Export" title="Export captured flows as HAR"
-                    aria-haspopup="true" aria-expanded="@(_open == "export")" @onclick="@(() => Toggle("export"))">
-                <Icon Name="download"/>
-            </button>
-            <div class="settings-menu @(_open == "export" ? "open" : "")">
-                <div class="settings-title">Export</div>
-                <a class="export-item" href="/api/capture/har" download>HAR (all requests)</a>
-            </div>
-        </div>
-
-        @if (Hosted) {
-            <button type="button" class="icon-btn" title="Re-send the setup DM"
-                    aria-label="DM setup config" disabled="@_dmBusy" @onclick="SendConfig">
-                <Icon Name="send"/>
-            </button>
-            <button type="button" class="icon-btn" title="Issue a new proxy address"
-                    aria-label="Rotate proxy address" disabled="@_rotateBusy" @onclick="RotateAddress">
-                <Icon Name="refresh-cw"/>
-            </button>
-        }
+        <button type="button" class="@(Running ? "btn-mini btn-danger" : "btn-primary capture-start")" disabled="@ToggleBusy" @onclick="OnToggleCapture">
+            <Icon Name="@(Running ? "square" : "play")" Class="icon-sm"/>
+            @(Running ? "Stop capture" : "Start capture")
+        </button>
     }
 
     <div class="settings-wrap">
-        <button type="button" class="icon-btn" aria-label="Settings" title="Capture view settings"
-                aria-haspopup="true" aria-expanded="@(_open == "settings")" @onclick="@(() => Toggle("settings"))">
-            <Icon Name="settings"/>
+        <button type="button" class="btn-mini" aria-label="Capture view settings"
+                aria-haspopup="true" aria-expanded="@(_open == "settings" ? "true" : "false")" @onclick="@(() => Toggle("settings"))">
+            <Icon Name="settings" Class="icon-sm"/>
         </button>
         <div class="settings-menu settings-menu-lg @(_open == "settings" ? "open" : "")">
             <div class="settings-title">Redaction</div>
@@ -94,91 +49,45 @@
             </select>
         </div>
     </div>
+
+    @Notices
+
+    @if (!ReadOnly && FlowCount > 0) {
+        <div class="settings-wrap">
+            <button type="button" class="btn-mini btn-danger"
+                    aria-haspopup="true" aria-expanded="@(_open == "clear" ? "true" : "false")" @onclick="@(() => Toggle("clear"))">
+                Clear
+            </button>
+            <div class="settings-menu confirm-menu @(_open == "clear" ? "open" : "")">
+                <div class="settings-title">Clear list?</div>
+                <div class="settings-hint">Removes the captured requests shown here. Saved endpoints, captured HAR(s), and exported files are kept.</div>
+                <div class="confirm-actions">
+                    <button type="button" class="btn-mini" @onclick="@(() => _open = null)">Cancel</button>
+                    <button type="button" class="btn-mini btn-danger" @onclick="ConfirmClear">Clear</button>
+                </div>
+            </div>
+        </div>
+        <a class="btn-mini" href="/api/capture/har" download>
+            <Icon Name="download" Class="icon-sm"/>Export HAR
+        </a>
+    }
 </div>
 
 @code {
     [Parameter] public bool Running { get; set; }
-    [Parameter] public int Port { get; set; }
     [Parameter] public bool ToggleBusy { get; set; }
+    [Parameter] public int FlowCount { get; set; }
     [Parameter] public CaptureViewState View { get; set; } = new();
     [Parameter] public EventCallback OnToggleCapture { get; set; }
     [Parameter] public EventCallback OnClear { get; set; }
     [Parameter] public EventCallback OnViewChanged { get; set; }
-    [Parameter] public bool Hosted { get; set; }
     [Parameter] public bool ReadOnly { get; set; }
-    [Parameter] public Func<HttpClient>? ClientFactory { get; set; }
-    [Parameter] public EventCallback<string> OnAddressRotated { get; set; }
+    [Parameter] public RenderFragment? Notices { get; set; }
 
     string? _open;
-    bool _dmBusy;
-    bool _rotateBusy;
-
-    string StateText => Running ? Port > 0 ? $"running :{Port}" : "running" : "stopped";
 
     void Toggle(string which) {
         _open = _open == which ? null : which;
-    }
-
-    static bool Sent(string body) {
-        try {
-            using var doc = JsonDocument.Parse(body);
-            return !doc.RootElement.TryGetProperty("sent", out var s) || s.GetBoolean();
-        }
-        catch (JsonException) {
-            return true;
-        }
-    }
-
-    static string Detail(string body) {
-        try {
-            using var doc = JsonDocument.Parse(body);
-            return doc.RootElement.TryGetProperty("error", out var e) ? e.GetString() ?? "" : "";
-        }
-        catch (JsonException) {
-            return "";
-        }
-    }
-
-    async Task SendConfig() {
-        if (ClientFactory is null) return;
-        _dmBusy = true;
-        try {
-            var res = await ClientFactory().PostAsync("/api/capture/send-config", null);
-            var body = await res.Content.ReadAsStringAsync();
-            if (!res.IsSuccessStatusCode) {
-                Toasts.Push(StatusNoteKind.Error, $"Could not DM your setup (HTTP {(int)res.StatusCode}). {Detail(body)}");
-            } else if (Sent(body)) {
-                Toasts.Push(StatusNoteKind.Ok, "Setup DM sent.");
-            } else {
-                Toasts.Push(StatusNoteKind.Error, "Discord would not take the DM. Use the setup card and the CA download instead.");
-            }
-        }
-        catch (Exception ex) {
-            Toasts.Push(StatusNoteKind.Error, $"DM failed: {ex.Message}");
-        }
-
-        _dmBusy = false;
-    }
-
-    async Task RotateAddress() {
-        if (ClientFactory is null) return;
-        _rotateBusy = true;
-        try {
-            var res = await ClientFactory().PostAsync("/api/capture/proxy-address/rotate", null);
-            if (res.IsSuccessStatusCode) {
-                using var doc = JsonDocument.Parse(await res.Content.ReadAsStringAsync());
-                var host = doc.RootElement.GetProperty("host").GetString();
-                Toasts.Push(StatusNoteKind.Ok, "New address issued. Update your device's proxy server.");
-                if (host is not null) await OnAddressRotated.InvokeAsync(host);
-            } else {
-                Toasts.Push(StatusNoteKind.Error, $"Rotate failed (HTTP {(int)res.StatusCode}).");
-            }
-        }
-        catch (Exception ex) {
-            Toasts.Push(StatusNoteKind.Error, $"Rotate failed: {ex.Message}");
-        }
-
-        _rotateBusy = false;
     }
 
     async Task SetMode(string mode) {

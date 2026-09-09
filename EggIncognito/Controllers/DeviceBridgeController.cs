@@ -1,6 +1,7 @@
 using System.Net.Sockets;
 using System.Text;
 using System.Text.Json;
+using EggIncognito.Capture;
 using EggIncognito.Core.Services.Devices;
 using EggIncognito.Data.Models;
 using EggIncognito.Data.Services;
@@ -291,6 +292,41 @@ public sealed class DeviceBridgeController(
         var res = await store.ClearAsync(deviceId, ct);
         if (!res.Ok) return BadRequest(new { error = res.Note ?? "overrides not cleared" });
         return Ok(new { ok = true });
+    }
+
+    [HttpGet(BridgeRoutes.Capture + "/{deviceId}")]
+    [DisableRateLimiting]
+    public async Task<IActionResult> Capture(string deviceId, CancellationToken ct) {
+        if (BridgeGate.Check(HttpContext, config, currentUser, logger) is { } gate) return gate;
+        if (Service<IDeviceCaptureHubs>() is not { } hubs)
+            return StatusCode(503, new { error = "no capture proxy on this host" });
+        if (hubs.HubFor(deviceId) is not { } hub)
+            return NotFound(new { error = "no capture for that device on this host" });
+
+        Note("capture", deviceId);
+        Response.StatusCode = StatusCodes.Status200OK;
+        Response.ContentType = "application/x-ndjson";
+        Response.Headers.CacheControl = "no-store";
+        Response.Headers["X-Accel-Buffering"] = "no";
+        HttpContext.Features.Get<IHttpResponseBodyFeature>()?.DisableBuffering();
+
+        var (reader, subscription) = hub.Subscribe();
+        using (subscription) {
+            try {
+                foreach (var f in hub.Snapshot()) await WriteEnvelopeAsync(new CaptureEnvelope("flow", f, null, null), ct);
+                await WriteEnvelopeAsync(new CaptureEnvelope("stats", null, hub.StatsSnapshot(), null), ct);
+                await foreach (var env in reader.ReadAllAsync(ct)) await WriteEnvelopeAsync(env, ct);
+            } catch (Exception ex) when (ex is OperationCanceledException or IOException or ObjectDisposedException) {
+                Note("capture ended", deviceId);
+            }
+        }
+
+        return new EmptyResult();
+    }
+
+    private async Task WriteEnvelopeAsync(CaptureEnvelope env, CancellationToken ct) {
+        await Response.WriteAsync(JsonSerializer.Serialize(env, SpecJson) + "\n", ct);
+        await Response.Body.FlushAsync(ct);
     }
 
     private async Task<IActionResult?> UnknownDeviceAsync(string deviceId, CancellationToken ct) {

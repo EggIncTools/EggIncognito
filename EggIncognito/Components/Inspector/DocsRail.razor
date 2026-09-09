@@ -3,99 +3,144 @@
 @using EggIncognito.Services.Inspector
 @using Microsoft.AspNetCore.Components.Web.Virtualization
 @inject IDocRegistry Registry
+@inject IRouteCatalog Catalog
 @inject ApiWorkbenchState State
 
-<div class="wb-rail-slot awb-rail-list">
-    <WorkbenchSection Label="@($"Subjects ({TotalCount()})")" Scroll="true">
-        <div class="insp-list">
-            <Virtualize Items="Rows()" Context="row" ItemSize="24" OverscanCount="12">
-                @if (row.Leaf is null) {
-                    <div class="ep-ns" @onclick="@(() => ToggleGroup(row.GroupTitle))">
-                        <span class="ep-caret @(row.Expanded ? "ep-caret-open" : "")"></span>@(row.GroupTitle)
-                    </div>
-                } else {
+@{ EnsureRows(); }
+<div class="wb-rail-slot awb-rail-list docs-rail-half">
+    <WorkbenchSection Label="@($"Messages ({_messageCount})")" Scroll="true">
+        @if (_messageRows is { Count: 0 }) {
+            <div class="docs-rail-empty">No message matches the filter.</div>
+        } else {
+            <div class="insp-list">
+                <Virtualize Items="_messageRows" Context="row" ItemSize="24" OverscanCount="12">
                     <div class="ep @(row.Depth > 0 ? "ep-nested" : "") @(IsActive(row.Leaf) ? "active" : "")"
-                         style="@DepthStyle(row.Depth)"
-                         @onclick="@(() => OnSelectSubject.InvokeAsync(RefFor(row.Leaf)))">
+                         style="@DepthStyle(row.Depth)" @onclick="@(() => Select(row.Leaf))">
                         @if (row.HasChildren) {
                             <span class="ep-caret @(row.Expanded ? "ep-caret-open" : "")"
-                                  @onclick="@(() => ToggleNode(row.Leaf.Key))" @onclick:stopPropagation="true"></span>
+                                  @onclick="@(() => ToggleMessage(row.Key))" @onclick:stopPropagation="true">
+                            </span>
                         }
-                        <span class="ep-name">@row.Leaf.Title</span>
+                        <span class="ep-name">@row.Label</span>
                     </div>
-                }
-            </Virtualize>
-        </div>
+                </Virtualize>
+            </div>
+        }
+    </WorkbenchSection>
+</div>
+
+<div class="wb-rail-slot awb-rail-list docs-rail-half">
+    <WorkbenchSection Label="@($"Endpoints ({_endpointCount})")" Scroll="true">
+        @if (_endpointRows is { Count: 0 }) {
+            <div class="docs-rail-empty">No endpoint matches the filter.</div>
+        } else {
+            <div class="insp-list">
+                <Virtualize Items="_endpointRows" Context="row" ItemSize="24" OverscanCount="12">
+                    @if (row.Leaf is null) {
+                        <div class="ep-ns" @onclick="@(() => ToggleEndpoints(row.Key))">
+                            <span class="ep-caret @(row.Expanded ? "ep-caret-open" : "")"></span>@row.Label
+                        </div>
+                    } else {
+                        <div class="ep @(IsActive(row.Leaf) ? "active" : "")" @onclick="@(() => Select(row.Leaf))">
+                            <span class="ep-name">@row.Label</span>
+                            @if (row.Locked) {
+                                <span class="ep-signed">
+                                    <Icon Name="lock" Class="icon-sm"/>
+                                </span>
+                            }
+                        </div>
+                    }
+                </Virtualize>
+            </div>
+        }
     </WorkbenchSection>
 </div>
 
 @code {
+    const string MessagesRoot = "messages";
+    const string EndpointsRoot = "endpoints";
+
     [Parameter] public string? Filter { get; set; }
     [Parameter] public EventCallback<DocSubjectRef> OnSelectSubject { get; set; }
 
-    readonly HashSet<string> _collapsed = [];
-    readonly HashSet<string> _expanded = [];
+    readonly RailExpansion _messages = new();
+    readonly RailExpansion _endpoints = new();
 
-    List<DocRailRow>? _rows;
+    List<DocRailRow> _messageRows = [];
+    List<DocRailRow> _endpointRows = [];
+    int _messageCount;
+    int _endpointCount;
     string? _rowsKey;
+    int _version;
+    Dictionary<string, RouteInfo>? _routes;
 
-    void ToggleGroup(string title) {
-        if (!_collapsed.Remove(title)) _collapsed.Add(title);
-        _rowsKey = null;
+    void EnsureRows() {
+        var needle = (Filter ?? "").Trim();
+        var selected = State.Kind == ApiSelectionKind.Docs ? State.Docs : null;
+        var followedMessages = _messages.Follow(SelectionKey(selected, DocSubjectKind.Message), MessageAncestors(selected));
+        var followedEndpoints = _endpoints.Follow(SelectionKey(selected, DocSubjectKind.Endpoint), EndpointAncestors(selected));
+        var key = $"{needle}\n{_version}";
+        if (!followedMessages && !followedEndpoints && key == _rowsKey) return;
+        _rowsKey = key;
+        _messageRows = BuildMessages(needle);
+        _endpointRows = BuildEndpoints(needle);
     }
 
-    void ToggleNode(string key) {
-        if (!_expanded.Remove(key)) _expanded.Add(key);
-        _rowsKey = null;
+    void ToggleMessage(string key) {
+        _messages.Toggle(key);
+        _version++;
+    }
+
+    void ToggleEndpoints(string key) {
+        _endpoints.Toggle(key);
+        _version++;
+    }
+
+    Task Select(DocSubject? leaf) {
+        return leaf is null ? Task.CompletedTask : OnSelectSubject.InvokeAsync(RefFor(leaf));
     }
 
     static DocSubjectRef RefFor(DocSubject leaf) {
         return new DocSubjectRef(DocSubjectKinds.Parse(leaf.Kind), leaf.Key);
     }
 
-    bool IsActive(DocSubject leaf) {
-        return State.Kind == ApiSelectionKind.Docs && State.Docs == RefFor(leaf);
+    bool IsActive(DocSubject? leaf) {
+        return leaf is not null && State.Kind == ApiSelectionKind.Docs && State.Docs == RefFor(leaf);
     }
 
-    int TotalCount() {
-        return Registry.Roots().Sum(r => r.Children.Count);
+    static string? SelectionKey(DocSubjectRef? selected, DocSubjectKind kind) {
+        return selected is not null && selected.Kind == kind ? selected.Key : null;
+    }
+
+    static IEnumerable<string> MessageAncestors(DocSubjectRef? selected) {
+        if (selected is not { Kind: DocSubjectKind.Message }) yield break;
+        for (var i = selected.Key.IndexOf('.'); i > 0; i = selected.Key.IndexOf('.', i + 1)) yield return selected.Key[..i];
+    }
+
+    static IEnumerable<string> EndpointAncestors(DocSubjectRef? selected) {
+        return selected is { Kind: DocSubjectKind.Endpoint } ? [RouteNamespaces.Of(selected.Key)] : [];
     }
 
     static string? DepthStyle(int depth) {
         return depth > 0 ? $"--ep-depth: {depth}" : null;
     }
 
-    List<DocRailRow> Rows() {
-        var key = (Filter ?? "").Trim();
-        if (_rowsKey == key && _rows is not null) return _rows;
-        _rowsKey = key;
-        _rows = Build(key);
-        return _rows;
+    IReadOnlyList<DocSubject> RootChildren(string key) {
+        return Registry.Roots().FirstOrDefault(r => r.Key == key)?.Children ?? [];
     }
 
-    List<DocRailRow> Build(string needle) {
-        var rows = new List<DocRailRow>();
-        foreach (var root in Registry.Roots()) {
-            var visible = needle.Length == 0 || Matches(root.Title, needle) ? null : Visible(root.Children, needle);
-            if (visible is { Count: 0 }) continue;
-            bool open = !_collapsed.Contains(root.Title);
-            rows.Add(new DocRailRow(root.Title, null, 0, true, open));
-            if (!open) continue;
-            Emit(rows, root, visible);
-        }
-
-        return rows;
-    }
-
-    void Emit(List<DocRailRow> rows, DocSubject root, HashSet<string>? visible) {
+    List<DocRailRow> BuildMessages(string needle) {
+        var children = RootChildren(MessagesRoot);
+        var visible = needle.Length == 0 ? null : Visible(children, needle);
         var included = new List<DocSubject>();
         var present = new HashSet<string>(StringComparer.Ordinal);
-        foreach (var c in root.Children) {
+        foreach (var c in children) {
             if (visible is not null && !visible.Contains(c.Key)) continue;
             included.Add(c);
             present.Add(c.Key);
         }
 
+        _messageCount = included.Count;
         var byParent = new Dictionary<string, List<DocSubject>>(StringComparer.Ordinal);
         var top = new List<DocSubject>();
         foreach (var c in included) {
@@ -112,22 +157,54 @@
             kids.Add(c);
         }
 
-        Walk(rows, root.Title, top, byParent, visible is not null);
+        var rows = new List<DocRailRow>();
+        Walk(rows, top, byParent, visible is not null);
+        return rows;
     }
 
-    void Walk(List<DocRailRow> rows, string group, List<DocSubject> nodes,
-        Dictionary<string, List<DocSubject>> byParent, bool autoExpand) {
+    void Walk(List<DocRailRow> rows, List<DocSubject> nodes, Dictionary<string, List<DocSubject>> byParent, bool filtering) {
         foreach (var n in nodes) {
             var kids = byParent.GetValueOrDefault(n.Key);
-            bool has = kids is { Count: > 0 };
-            bool open = has && (autoExpand || _expanded.Contains(n.Key));
-            rows.Add(new DocRailRow(group, n, Depth(n.Key), has, open));
-            if (open && kids is not null) Walk(rows, group, kids, byParent, autoExpand);
+            var has = kids is { Count: > 0 };
+            var open = has && (filtering || _messages.IsOpen(n.Key));
+            rows.Add(new DocRailRow(n.Key, n, ShortName(n.Key), Depth(n.Key), has, open, false));
+            if (open && kids is not null) Walk(rows, kids, byParent, filtering);
         }
+    }
+
+    List<DocRailRow> BuildEndpoints(string needle) {
+        var endpoints = RootChildren(EndpointsRoot);
+        var source = needle.Length == 0 ? endpoints : [.. endpoints.Where(e => Matches(e.Key, needle))];
+        _endpointCount = source.Count;
+        var rows = new List<DocRailRow>();
+        foreach (var group in RouteNamespaces.Group(source, e => e.Key)) {
+            var open = needle.Length > 0 || _endpoints.IsOpen(group.Key);
+            rows.Add(new DocRailRow(group.Key, null, group.Key + "/", 0, true, open, false));
+            if (!open) continue;
+            foreach (var e in group) {
+                rows.Add(new DocRailRow(e.Key, e, RouteNamespaces.LocalPath(e.Key), 0, false, false, Locked(e.Key)));
+            }
+        }
+
+        return rows;
+    }
+
+    bool Locked(string path) {
+        if (_routes is null) {
+            _routes = [with(StringComparer.Ordinal)];
+            foreach (var r in Catalog.All()) _routes[r.Path] = r;
+        }
+
+        return _routes.GetValueOrDefault(path) is { } route && (route.RequestWrapped || route.ResponseWrapped);
     }
 
     static int Depth(string key) {
         return key.Count(c => c == '.');
+    }
+
+    static string ShortName(string key) {
+        var i = key.LastIndexOf('.');
+        return i < 0 ? key : key[(i + 1)..];
     }
 
     static HashSet<string> Visible(IReadOnlyList<DocSubject> children, string needle) {
@@ -138,7 +215,7 @@
         foreach (var c in children) {
             if (!Matches(c.Title, needle) && !Matches(c.Key, needle)) continue;
             set.Add(c.Key);
-            string? parent = c.Parent;
+            var parent = c.Parent;
             while (parent is not null && set.Add(parent)) parent = byKey.GetValueOrDefault(parent)?.Parent;
         }
 

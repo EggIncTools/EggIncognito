@@ -124,12 +124,14 @@ public sealed class InspectorApiController(
 
         var result = pipeline.Build(inner, body.Wrap, body.Salt);
 
-        return Ok(new {
-            result.Stages,
+        return Ok(new BuildResponse(
+            [.. result.Stages],
             result.FinalBase64,
             result.FinalFormBody,
-            canSign = !string.IsNullOrEmpty(body.Salt)
-        });
+            !string.IsNullOrEmpty(body.Salt),
+            null,
+            null,
+            null));
     }
 
     [HttpPost("send")]
@@ -175,15 +177,14 @@ public sealed class InspectorApiController(
             : null;
 
         var decode = pipeline.Decode(raw, parser, body.ResponseWrapped);
-        return Ok(new {
-            status = (int)resp.StatusCode,
-            rawBase64 = raw,
-            decode.Stages,
-            json = decode.Json,
-            error = decode.Error,
-            resolution = decode.Error is null ? null : DecodeResolution(decode.Error),
-            wrappedMismatch = decode.WrappedMismatch
-        });
+        return Ok(new SendResponse(
+            (int)resp.StatusCode,
+            raw,
+            [.. decode.Stages],
+            decode.Json,
+            decode.Error,
+            decode.Error is null ? null : DecodeResolution(decode.Error),
+            decode.WrappedMismatch));
     }
 
     private static string DecodeResolution(string error) =>
@@ -195,7 +196,7 @@ public sealed class InspectorApiController(
     public IActionResult DecodeResponse([FromBody] DecodeResponseRequest body) {
         var parser = body.ResponseType is not null ? reflection.FindParser(body.ResponseType) : null;
         var decode = pipeline.Decode(body.RawBase64, parser, body.ResponseWrapped);
-        return Ok(new { decode.Stages, json = decode.Json, error = decode.Error, wrappedMismatch = decode.WrappedMismatch });
+        return Ok(new SendResponse(null, null, [.. decode.Stages], decode.Json, decode.Error, null, decode.WrappedMismatch));
     }
 
     private static string MergeEnv(string fieldsJson, JsonElement? env,

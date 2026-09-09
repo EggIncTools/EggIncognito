@@ -1,8 +1,10 @@
 <div class="tree-head">
     <span>Body</span>
-    <label class="raw-toggle">
-        <input type="checkbox" checked="@RawMode" @onchange="ToggleRaw"/> raw JSON
-    </label>
+    @if (Route is not null) {
+        <label class="raw-toggle">
+            <input type="checkbox" checked="@RawMode" @onchange="ToggleRaw"/> raw JSON
+        </label>
+    }
 </div>
 
 @if (Route is null) {

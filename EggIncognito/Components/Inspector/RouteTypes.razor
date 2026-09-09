@@ -1,0 +1,49 @@
+<span class="ep-types">
+    @if (PathParamOnly) {
+        <span class="text-muted">no request body, identity via URL path param</span>
+    } else if (RequestName is { } req) {
+        @if (RequestLocked) {
+            <span class="ep-signed">
+                <Icon Name="lock" Class="icon-sm"/>
+            </span>
+        }
+
+        <MessageLink Name="@req" Link="Links" OnSelect="OnSelectType"/>
+    } else {
+        <span class="text-muted">no request type</span>
+    }
+    <Icon Name="arrow-right" Class="icon-sm ep-arrow"/>
+    @if (ResponseName is { } res) {
+        @if (ResponseLocked) {
+            <span class="ep-signed">
+                <Icon Name="lock" Class="icon-sm"/>
+            </span>
+        }
+
+        <MessageLink Name="@res" Link="Links" OnSelect="OnSelectType"/>
+    } else if (RawName is { } raw) {
+        <span class="text-muted">raw response @raw</span>
+    } else {
+        <span class="text-muted">no response type</span>
+    }
+</span>
+
+@code {
+    [Parameter] public RouteInfo? Route { get; set; }
+    [Parameter] public string? Request { get; set; }
+    [Parameter] public string? Response { get; set; }
+    [Parameter] public bool RequestWrapped { get; set; }
+    [Parameter] public bool ResponseWrapped { get; set; }
+    [Parameter] public bool Links { get; set; } = true;
+    [Parameter] public EventCallback<string> OnSelectType { get; set; }
+
+    bool PathParamOnly => Route?.PathParamOnly == true;
+    bool RequestLocked => Route?.RequestWrapped ?? RequestWrapped;
+    bool ResponseLocked => Route?.ResponseWrapped ?? ResponseWrapped;
+    string? RawName => Route?.RawResponse;
+
+    string? RequestName => (Route is null ? Request : Route.Request) ?? (RequestLocked ? RouteCatalog.WrapperMessage : null);
+
+    string? ResponseName => (Route is null ? Response : Route.Response) ?? (ResponseLocked ? RouteCatalog.WrapperMessage : null);
+
+}

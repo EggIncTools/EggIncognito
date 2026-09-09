@@ -21,7 +21,7 @@ public sealed class DeviceCaptureManager(
     IRouteCatalog? catalog = null,
     IProcessedFlowObserver? flowObserver = null,
     IDeviceResponseSources? responseSources = null,
-    IDeviceResponseTransforms? responseTransforms = null) : IHostedService, IDisposable, IDeviceCaptureStatus {
+    IDeviceResponseTransforms? responseTransforms = null) : IHostedService, IDisposable, IDeviceCaptureHubs {
     public const int PortsPerDevice = 3;
 
     private static readonly TimeSpan RescanInterval = TimeSpan.FromMinutes(1);

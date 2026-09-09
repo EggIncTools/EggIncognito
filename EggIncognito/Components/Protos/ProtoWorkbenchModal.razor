@@ -13,6 +13,7 @@
 @using EggIncognito.Core
 @using EggIncognito.Core.Services.ProtoExtract
 @using EggIncognito.Models.Registry
+@using EggIncognito.Models.Tools
 @using EggIncognito.Services.Protos
 @using Microsoft.AspNetCore.Components.Web.Virtualization
 @implements IAsyncDisposable
@@ -1758,7 +1759,7 @@
     }
 
     async Task BackfillBuildAndClientVersion(StagedEntry entry) {
-        var live = await Client().OneAsync<LiveVersionDto>(
+        var live = await Client().OneAsync<LiveVersionResult>(
             $"/api/tools/live-version?platform={entry.Platform}", Logger);
         if (live is { Found: true }) {
             await InvokeAsync(() => {

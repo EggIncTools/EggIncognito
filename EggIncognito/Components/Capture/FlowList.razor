@@ -10,17 +10,14 @@
 
 <section id="flowsPanel" class="panel">
     <div class="flow-head">
-        <h2>Requests</h2>
+        <h2>Requests (@Flows.Count)</h2>
         @if (Filtering && Flows.Count > 0) {
-            <span class="flow-count">showing @ShownCount of @Flows.Count</span>
+            <span class="flow-count">showing @ShownCount</span>
         }
         @if (Tools is not null) {
             <div class="flow-tools">@Tools</div>
         }
     </div>
-    @if (Stats is not null) {
-        <div class="flow-stats">@Stats</div>
-    }
     <div class="flow-filters">
         <span class="flow-filters-label">Filters</span>
         <select class="flow-filter-select" aria-label="API group" value="@_group" @onchange="OnGroupChange">
@@ -35,7 +32,7 @@
                          @onfocus="@(() => _openCombo = "path")" @onblur="CloseCombo"/>
             @if (_openCombo == "path") {
                 <div class="popover popover-combo open">
-                    @{ var pathOpts = PathOptions().ToList(); }
+                    @{ List<string> pathOpts = [.. PathOptions()]; }
                     @if (pathOpts.Count == 0) {
                         <div class="combo-empty">No matches</div>
                     }
@@ -51,7 +48,7 @@
                          @onfocus="@(() => _openCombo = "type")" @onblur="CloseCombo"/>
             @if (_openCombo == "type") {
                 <div class="popover popover-combo open">
-                    @{ var typeOpts = TypeOptions().ToList(); }
+                    @{ List<string> typeOpts = [.. TypeOptions()]; }
                     @if (typeOpts.Count == 0) {
                         <div class="combo-empty">No matches</div>
                     }
@@ -61,39 +58,73 @@
                 </div>
             }
         </div>
-        <button type="button" class="icon-btn icon-btn-sm" aria-label="Reset all filters" @onclick="ClearFilters">
-            <Icon Name="x"/>
+        <button type="button" class="btn-mini" aria-label="Reset all filters" @onclick="ClearFilters">
+            <Icon Name="x" Class="icon-sm"/>
         </button>
     </div>
-    <div id="flowList" class="flow-list" @ref="_listRef">
+    <div id="flowList" class="reg-wrap flow-wrap @(Flows.Count == 0 ? "flow-wrap-empty" : "")" @ref="_listRef">
         @if (Flows.Count == 0) {
-            <div class="empty-state">
-                @if (Connected) {
-                    @:No requests captured yet.
-                } else {
-                    @:No device connected yet.
-                    <div class="empty-hint">
-                        Point the device's Wi-Fi proxy at this machine and install the CA cert.
-                        The device only registers once an app sends a request through the proxy - the Settings app
-                        alone usually sends nothing, so open a browser or Egg, Inc. to generate traffic.
-                    </div>
-                }
+            <div class="empty-state flow-empty">
+                <Icon Name="@(Connected ? "list" : "smartphone")" Class="flow-empty-icon"/>
+                <span>@(Connected ? "No requests captured yet." : "No device connected yet.")</span>
+                <div class="empty-hint">
+                    @if (Connected) {
+                        @:Open Egg, Inc. on the phone and its requests appear here.
+                    } else {
+                        @:Set the phone's Wi-Fi proxy to the capture server address, then open Egg, Inc. The device only registers once an app sends a request through the proxy.
+                    }
+                </div>
             </div>
         } else {
-            TimeSpan? prevTime = null;
-            string? shownMinute = null;
-            foreach (var flow in Flows) {
-                var t = ParseTime(flow.Timestamp);
-                var minute = Minute(flow.Timestamp);
-                if (!Filtering && minute is not null && minute != shownMinute) {
-                    shownMinute = minute;
-                    <div class="flow-minute">@minute</div>
+            <table class="data-table flow-table">
+                <thead>
+                <tr>
+                    <th class="fdelta">Gap</th>
+                    <th>Path</th>
+                    <th>Types</th>
+                    <th class="fstatus">Status</th>
+                </tr>
+                </thead>
+                <tbody>
+                @{
+                    TimeSpan? prevTime = null;
+                    string? shownMinute = null;
                 }
+                @foreach (var run in FlowRunCollapser.Fold(Flows)) {
+                    var head = run.First;
+                    var t = ParseTime(head.Timestamp);
+                    var minute = Minute(head.Timestamp);
+                    if (!Filtering && minute is not null && minute != shownMinute) {
+                        shownMinute = minute;
+                        <tr class="flow-minute">
+                            <td colspan="4">@minute</td>
+                        </tr>
+                    }
 
-                var delta = prevTime is { } p && t is { } cur ? Gap(p, cur) : (TimeSpan?)null;
-                if (t is not null) prevTime = t;
-                @Row(flow, delta)
-            }
+                    var delta = prevTime is { } p && t is { } cur ? Gap(p, cur) : (TimeSpan?)null;
+                    if (!run.Folded) {
+                        if (t is not null) prevTime = t;
+                        @Row(head, delta)
+                        continue;
+                    }
+
+                    var open = IsOpen(run);
+                    @RunRow(run, delta, open)
+                    if (open) {
+                        var inner = t;
+                        for (var i = run.Start; i < run.Start + run.Count; i++) {
+                            var flow = Flows[i];
+                            var ft = ParseTime(flow.Timestamp);
+                            var fd = inner is { } ip && ft is { } fc ? Gap(ip, fc) : (TimeSpan?)null;
+                            if (ft is not null) inner = ft;
+                            @Row(flow, fd, true)
+                        }
+                    }
+
+                    if (ParseTime(run.Last.Timestamp) is { } last) prevTime = last;
+                }
+                </tbody>
+            </table>
         }
     </div>
     @Foot
@@ -107,11 +138,11 @@
     [Parameter] public EventCallback<long> OnSelect { get; set; }
     [Parameter] public Func<DashboardFlow, bool>? CanSelect { get; set; }
     [Parameter] public RenderFragment? Tools { get; set; }
-    [Parameter] public RenderFragment? Stats { get; set; }
     [Parameter] public RenderFragment? Foot { get; set; }
 
     static readonly TimeSpan IdleGap = TimeSpan.FromSeconds(3);
 
+    readonly HashSet<long> _openRuns = [];
     string _group = "";
     string _pathFilter = "";
     string _typeFilter = "";
@@ -236,19 +267,60 @@
         return true;
     }
 
-    RenderFragment Row(DashboardFlow flow, TimeSpan? delta) => Selectable(flow)
-        ? @<div class="flow-row @(SelectedId == flow.Id ? "active" : "") @(Matches(flow) ? "" : "filtered-out")"
-                title="@RowTitle(flow)" @onclick="@(() => OnSelect.InvokeAsync(flow.Id))">
+    bool IsOpen(FlowRun run) {
+        if (_openRuns.Contains(run.Id)) return true;
+        if (SelectedId is not { } sel) return false;
+        for (var i = run.Start; i < run.Start + run.Count; i++)
+            if (Flows[i].Id == sel) return true;
+        return false;
+    }
+
+    void ToggleRun(FlowRun run) {
+        if (!_openRuns.Remove(run.Id)) _openRuns.Add(run.Id);
+    }
+
+    RenderFragment RunRow(FlowRun run, TimeSpan? delta, bool open) => @<tr class="flow-row flow-run @(open ? "flow-run-open" : "") @(Matches(run.First) ? "" : "filtered-out")"
+                                                                             @onclick="@(() => ToggleRun(run))">
+                                                                            @{
+                                                                                var idle = delta is { } d && d >= IdleGap;
+                                                                                var ok = run.First.Status is >= 200 and < 300;
+                                                                                var span = ParseTime(run.First.Timestamp) is { } a && ParseTime(run.Last.Timestamp) is { } b ? Gap(a, b) : (TimeSpan?)null;
+                                                                            }
+                                                                            <td class="fdelta @(idle ? "fdelta-idle" : "")">@FormatDelta(delta)</td>
+                                                                            <td class="fpath">
+                                                                                <span class="flow-run-head">
+                                                                                    <Icon Name="@(open ? "chevron-down" : "chevron-right")" Class="icon-sm"/>
+                                                                                    <span class="flow-run-path">@run.First.Path</span>
+                                                                                    <span class="flow-run-count">x@(run.Count)</span>
+                                                                                </span>
+                                                                            </td>
+                                                                            <td class="ftypes">
+                                                                                <span class="@(run.First.RequestType is null ? "unknown" : "")">@(run.First.RequestType ?? "?")</span>
+                                                                                <Icon Name="arrow-right" Class="icon-sm"/>
+                                                                                <span class="@(run.First.ResponseType is null ? "unknown" : "")">@(run.First.ResponseType ?? "?")</span>
+                                                                            </td>
+                                                                            <td class="fstatus">
+                                                                                <span class="fstatus-in">
+                                                                                    @if (span is { } s) {
+                                                                                        <span class="fknown">over @FormatDelta(s).TrimStart('+')</span>
+                                                                                    }
+                                                                                    <span class="fcode">
+                                                                                        <Icon Name="@(ok ? "circle-check" : "circle-x")" Class="icon-sm"/>@run.First.Status
+                                                                                    </span>
+                                                                                </span>
+                                                                            </td>
+                                                                        </tr>;
+
+    RenderFragment Row(DashboardFlow flow, TimeSpan? delta, bool inRun = false) => Selectable(flow)
+        ? @<tr class="flow-row @(inRun ? "flow-run-in" : "") @(SelectedId == flow.Id ? "active" : "") @(Matches(flow) ? "" : "filtered-out")"
+               @onclick="@(() => OnSelect.InvokeAsync(flow.Id))">
               @RowBody(flow, delta)
-          </div>
-        : @<div class="flow-row flow-row-locked @(Matches(flow) ? "" : "filtered-out")"
-                title="Detail for this request is not available in limited capture.">
+          </tr>
+        : @<tr class="flow-row flow-row-locked @(inRun ? "flow-run-in" : "") @(Matches(flow) ? "" : "filtered-out")">
               @RowBody(flow, delta)
-          </div>;
+          </tr>;
 
     bool Selectable(DashboardFlow flow) => CanSelect is null || CanSelect(flow);
-
-    static string RowTitle(DashboardFlow flow) => $"#{flow.Id} at {flow.Timestamp}";
 
     RenderFragment RowBody(DashboardFlow flow, TimeSpan? delta) => @<text>
                                                                         @{
@@ -257,55 +329,46 @@
                                                                             var reqType = flow.RequestType ?? (noReqBody ? "none" : "?");
                                                                             var respType = flow.ResponseType ?? "?";
                                                                             var idle = delta is { } d && d >= IdleGap;
+                                                                            var ok = flow.Status is >= 200 and < 300;
                                                                         }
-                                                                        <span class="fdelta @(idle ? "fdelta-idle" : "")">@FormatDelta(delta)</span>
-                                                                        <span class="fpath">@flow.Path</span>
-                                                                        <span class="fmeta">
-                                                                            <span class="ftypes">
-                                                                                <span class="@(flow.RequestType is null ? "unknown" : "")">@reqType</span>
-                                                                                <span class="type-arrow">›</span>
-                                                                                <span class="@(flow.ResponseType is null ? "unknown" : "")">@respType</span>
+                                                                        <td class="fdelta @(idle ? "fdelta-idle" : "")">@FormatDelta(delta)</td>
+                                                                        <td class="fpath">@flow.Path</td>
+                                                                        <td class="ftypes">
+                                                                            <span class="@(flow.RequestType is null ? "unknown" : "")">@reqType</span>
+                                                                            <Icon Name="arrow-right" Class="icon-sm"/>
+                                                                            <span class="@(flow.ResponseType is null ? "unknown" : "")">@respType</span>
+                                                                        </td>
+                                                                        <td class="fstatus">
+                                                                            <span class="fstatus-in">
+                                                                                @if (!Selectable(flow)) {
+                                                                                    <Icon Name="lock" Class="icon-sm"/>
+                                                                                }
+                                                                                @if (flow.Known || flow.Saved) {
+                                                                                    <span class="fknown">@(flow.Saved ? "saved" : "known")</span>
+                                                                                }
+                                                                                @if (outcome is not null) {
+                                                                                    @OutcomeTag(flow, outcome)
+                                                                                }
+                                                                                <span class="fcode">
+                                                                                    <Icon Name="@(ok ? "circle-check" : "circle-x")" Class="icon-sm"/>@flow.Status
+                                                                                </span>
                                                                             </span>
-                                                                            @if (flow.Known || flow.Saved) {
-                                                                                <span class="known-dot"></span>
-                                                                            }
-                                                                            @if (outcome is not null) {
-                                                                                @OutcomeTag(flow, outcome)
-                                                                            }
-                                                                            @if (flow.Status is >= 200 and < 300) {
-                                                                                <span class="status-dot"></span>
-                                                                            } else {
-                                                                                <span class="status-badge @CaptureHelpers.StatusClass(flow.Status)">@flow.Status</span>
-                                                                            }
-                                                                        </span>
+                                                                        </td>
                                                                     </text>;
 
-    RenderFragment OutcomeTag(DashboardFlow flow, CaptureHelpers.OutcomeMeta meta) => builder => {
-        var seq = 0;
-        var hasCounts = CaptureHelpers.HasDiffCounts(flow.Outcome, flow.DiffAdded, flow.DiffRemoved);
-        builder.OpenElement(seq++, "span");
-        builder.AddAttribute(seq++, "class", "outcome-text outcome-" + meta.Kind + (hasCounts ? " outcome-diff-counts" : ""));
-        if (hasCounts) {
-            builder.AddAttribute(seq++, "title", $"endpoint: diff (+{flow.DiffAdded} -{flow.DiffRemoved})");
-            if (flow.DiffAdded > 0) {
-                builder.OpenElement(seq++, "span");
-                builder.AddAttribute(seq++, "class", "diff-add");
-                builder.AddContent(seq++, "+" + flow.DiffAdded);
-                builder.CloseElement();
-            }
+    RenderFragment OutcomeTag(DashboardFlow flow, CaptureHelpers.OutcomeMeta meta) => @<span class="outcome-text" title="@meta.Desc">
+                                                                                          <Icon Name="@meta.Icon" Class="icon-sm"/>
+                                                                                          @if (CaptureHelpers.HasDiffCounts(flow.Outcome, flow.DiffAdded, flow.DiffRemoved)) {
+                                                                                              @if (flow.DiffAdded > 0) {
+                                                                                                  <span class="diff-add">@("+" + flow.DiffAdded)</span>
+                                                                                              }
 
-            if (flow.DiffRemoved > 0) {
-                builder.OpenElement(seq++, "span");
-                builder.AddAttribute(seq++, "class", "diff-del");
-                builder.AddContent(seq, "-" + flow.DiffRemoved);
-                builder.CloseElement();
-            }
-        } else {
-            builder.AddAttribute(seq++, "title", "endpoint: " + meta.Label);
-            builder.AddContent(seq, meta.Label);
-        }
-
-        builder.CloseElement();
-    };
+                                                                                              @if (flow.DiffRemoved > 0) {
+                                                                                                  <span class="diff-del">@("-" + flow.DiffRemoved)</span>
+                                                                                              }
+                                                                                          } else {
+                                                                                              @meta.Label
+                                                                                          }
+                                                                                      </span>;
 
 }

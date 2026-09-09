@@ -2,13 +2,13 @@
     @if (_open) {
         <div class="popover-backdrop" @onclick="@(() => _open = false)"></div>
     }
-    <button type="button" class="icon-btn" aria-label="Notifications"
-            aria-haspopup="true" aria-expanded="@_open" @onclick="ToggleOpen">
-        <Icon Name="bell"/>
+    <button type="button" class="btn-mini" aria-label="Notifications"
+            aria-haspopup="true" aria-expanded="@(_open ? "true" : "false")" @onclick="ToggleOpen">
+        <Icon Name="bell" Class="icon-sm"/>
+        @if (Unread > 0) {
+            <span>@Unread</span>
+        }
     </button>
-    @if (Unread > 0) {
-        <span class="notices-dot"></span>
-    }
 
     <div class="settings-menu settings-menu-lg notices-menu @(_open ? "open" : "")">
         <div class="flex items-center justify-between mb-2">

@@ -1,4 +1,6 @@
 const sessions = new Map();
+const FIRST_FRAME_MS = 8000;
+const STALL_MS = 8000;
 
 function detach(img) {
   const s = sessions.get(img);
@@ -28,18 +30,56 @@ function report(img, s) {
   s.dotnet.invokeMethodAsync("OnFrameSize", w, h);
 }
 
-function attach(img, dotnet, note, once) {
-  const s = { dotnet, lastW: -1, lastH: -1, frames: 0, statsTimer: 0 };
+function invokeQuiet(dotnet, method, ...args) {
+  try {
+    const p = dotnet.invokeMethodAsync(method, ...args);
+    if (p && typeof p.catch === "function") p.catch(() => {});
+  } catch {
+  }
+}
+
+function errText(e) {
+  return e?.message ?? String(e);
+}
+
+function describeHttp(status, body) {
+  let error = "";
+  try {
+    const parsed = JSON.parse(body);
+    if (parsed && typeof parsed.error === "string") error = parsed.error;
+  } catch {
+  }
+  if (!error && body) error = String(body).slice(0, 160);
+  return error ? "http " + status + ": " + error : "http " + status;
+}
+
+async function explainImageFailure(screenshotUrl, fallback) {
+  if (!screenshotUrl) return { status: 0, note: fallback };
+  try {
+    const response = await fetch(bust(screenshotUrl), { cache: "no-store", credentials: "same-origin" });
+    if (response.ok) return { status: response.status, note: fallback + "; the device still answers screenshots" };
+    const body = await response.text();
+    return { status: response.status, note: describeHttp(response.status, body) };
+  } catch (e) {
+    return { status: 0, note: fallback + "; screenshot fetch failed: " + errText(e) };
+  }
+}
+
+function failImage(img, s, fallback) {
+  detach(img);
+  img.removeAttribute("src");
+  explainImageFailure(s.screenshotUrl, fallback).then((r) => invokeQuiet(s.dotnet, "OnFrameFailed", r.status, r.note));
+}
+
+function attach(img, dotnet, screenshotUrl, note, once) {
+  const s = { dotnet, screenshotUrl, lastW: -1, lastH: -1, frames: 0, statsTimer: 0, lastFrameAt: 0, startedAt: performance.now() };
   s.onLoad = () => {
     if (once) detach(img);
     s.frames++;
+    s.lastFrameAt = performance.now();
     report(img, s);
   };
-  s.onError = () => {
-    detach(img);
-    img.removeAttribute("src");
-    dotnet.invokeMethodAsync("OnFrameFailed", 0, note);
-  };
+  s.onError = () => failImage(img, s, note);
   img.addEventListener("load", s.onLoad);
   img.addEventListener("error", s.onError);
   sessions.set(img, s);
@@ -50,22 +90,26 @@ function bust(url) {
   return url + (url.indexOf("?") >= 0 ? "&" : "?") + "t=" + Date.now();
 }
 
-export function start(img, streamUrl, dotnet) {
+export function start(img, streamUrl, screenshotUrl, dotnet) {
   if (!img) return false;
   halt(img);
-  const s = attach(img, dotnet, "device stopped sending frames", false);
+  const s = attach(img, dotnet, screenshotUrl, "the device stopped sending frames", false);
   s.statsAt = performance.now();
   s.statsTimer = setInterval(() => {
     const now = performance.now();
+    if (s.lastFrameAt === 0 && now - s.startedAt > FIRST_FRAME_MS) {
+      failImage(img, s, "no first frame within " + Math.round(FIRST_FRAME_MS / 1000) + "s");
+      return;
+    }
+    if (s.lastFrameAt > 0 && now - s.lastFrameAt > STALL_MS) {
+      failImage(img, s, "no frames for " + Math.round(STALL_MS / 1000) + "s");
+      return;
+    }
     const dt = Math.max(1, now - s.statsAt);
     const fps = Math.round(((s.frames * 1000) / dt) * 10) / 10;
     s.statsAt = now;
     s.frames = 0;
-    try {
-      const p = dotnet.invokeMethodAsync("OnStreamFps", fps);
-      if (p && typeof p.catch === "function") p.catch(() => {});
-    } catch {
-    }
+    invokeQuiet(dotnet, "OnStreamFps", fps);
   }, 1000);
   img.src = bust(streamUrl);
   return true;
@@ -78,7 +122,7 @@ export function stop(img) {
 export function once(img, url, dotnet) {
   if (!img) return false;
   halt(img);
-  attach(img, dotnet, "no frame came back", true);
+  attach(img, dotnet, null, "no frame came back", true);
   img.src = bust(url);
   return true;
 }
@@ -308,7 +352,7 @@ function closeDecoder(s) {
   }
 }
 
-function finish(s, reason) {
+function finish(s, reason, status) {
   if (s.ended) return;
   s.ended = true;
   s.stopped = true;
@@ -338,7 +382,7 @@ function finish(s, reason) {
   s.pending.clear();
   if (videoSessions.get(s.canvas) === s) videoSessions.delete(s.canvas);
   blank(s.canvas);
-  safeInvoke(s, "OnVideoEnded", reason);
+  safeInvoke(s, "OnVideoEnded", reason, status || 0);
 }
 
 function blank(canvas) {
@@ -359,6 +403,7 @@ function onFrame(s, frame) {
   }
   closeFrame(s);
   s.frame = frame;
+  s.lastFrameAt = performance.now();
   const arrival = s.pending.get(frame.timestamp);
   s.pending.delete(frame.timestamp);
   s.frameArrival = arrival === undefined ? -1 : arrival;
@@ -398,6 +443,14 @@ function draw(s) {
 function tickStats(s) {
   if (s.ended) return;
   const now = performance.now();
+  if (s.lastFrameAt === 0 && now - s.startedAt > FIRST_FRAME_MS) {
+    finish(s, "no first frame within " + Math.round(FIRST_FRAME_MS / 1000) + "s", 0);
+    return;
+  }
+  if (s.lastFrameAt > 0 && now - s.lastFrameAt > STALL_MS) {
+    finish(s, "no frames for " + Math.round(STALL_MS / 1000) + "s", 0);
+    return;
+  }
   const dt = Math.max(1, now - s.statsAt);
   const fps = Math.round((s.drawn * 1000) / dt);
   const latency = s.latencyCount > 0 ? Math.round(s.latencySum / s.latencyCount) : 0;
@@ -425,13 +478,13 @@ function configure(s) {
   try {
     const d = new VideoDecoder({
       output: (frame) => onFrame(s, frame),
-      error: (e) => finish(s, "error: " + (e && e.message ? e.message : String(e)))
+      error: (e) => finish(s, "decoder error: " + (e && e.message ? e.message : String(e)), 0)
     });
     d.configure({ codec: info.codec, optimizeForLatency: true });
     s.decoder = d;
     s.needKey = true;
   } catch (e) {
-    finish(s, "error: " + (e && e.message ? e.message : String(e)));
+    finish(s, "decoder error: " + (e && e.message ? e.message : String(e)), 0);
   }
 }
 
@@ -473,12 +526,35 @@ function handleNal(s, nal, now) {
   }
 }
 
-async function pump(s) {
-  let reason = "ended";
-  try {
+function sleep(ms, signal) {
+  return new Promise((resolve) => {
+    const t = setTimeout(resolve, ms);
+    if (signal) signal.addEventListener("abort", () => { clearTimeout(t); resolve(); }, { once: true });
+  });
+}
+
+async function open(s) {
+  for (let attempt = 0; ; attempt++) {
     const response = await fetch(s.url, { cache: "no-store", credentials: "same-origin", signal: s.ctrl.signal });
-    if (!response.ok) throw new Error("http " + response.status);
-    if (!response.body) throw new Error("no response body");
+    if (response.ok) return response;
+    const body = await response.text();
+    if (response.status === 409 && attempt === 0 && !s.stopped) {
+      await sleep(1000, s.ctrl.signal);
+      if (s.stopped) throw new DOMException("stopped", "AbortError");
+      continue;
+    }
+    const err = new Error(describeHttp(response.status, body));
+    err.status = response.status;
+    throw err;
+  }
+}
+
+async function pump(s) {
+  let reason = "the server closed the stream";
+  let status = 0;
+  try {
+    const response = await open(s);
+    if (!response.body) throw new Error("the response had no body");
     s.reader = response.body.getReader();
     let rest = new Uint8Array(0);
     for (;;) {
@@ -491,10 +567,11 @@ async function pump(s) {
       for (const nal of split.nals) handleNal(s, nal, now);
     }
   } catch (e) {
-    const aborted = s.stopped || (e && e.name === "AbortError");
-    reason = aborted ? "stopped" : "error: " + (e && e.message ? e.message : String(e));
+    const aborted = s.stopped || e?.name === "AbortError";
+    reason = aborted ? "stopped" : errText(e);
+    status = typeof e?.status === "number" ? e.status : 0;
   }
-  finish(s, s.stopped ? "stopped" : reason);
+  finish(s, s.stopped ? "stopped" : reason, status);
 }
 
 export function startVideo(canvas, url, dotnet, opts) {
@@ -507,7 +584,7 @@ export function startVideo(canvas, url, dotnet, opts) {
     ctx,
     url,
     dotnet,
-    opts: Object.assign({ maxQueue: 2 }, opts || {}),
+    opts: Object.assign({ maxQueue: 4 }, opts || {}),
     ctrl: new AbortController(),
     reader: null,
     decoder: null,
@@ -529,6 +606,8 @@ export function startVideo(canvas, url, dotnet, opts) {
     latencyCount: 0,
     bytesSince: 0,
     statsAt: performance.now(),
+    startedAt: performance.now(),
+    lastFrameAt: 0,
     statsTimer: 0,
     stopped: false,
     ended: false
@@ -545,7 +624,7 @@ export function stopVideo(canvas) {
   const s = videoSessions.get(canvas);
   if (!s) return;
   s.stopped = true;
-  finish(s, "stopped");
+  finish(s, "stopped", 0);
 }
 
 export function measureCanvas(canvas) {

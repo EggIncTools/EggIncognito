@@ -66,15 +66,16 @@ public sealed class DocUsageIndex(IRouteCatalog routes, IProtoReflection proto, 
 
     private static void AddRoute(Dictionary<string, List<MessageEndpointUse>> map, string path, string? request,
         string? response, bool requestWrapped, bool responseWrapped, RouteInfo? route) {
+        bool locked = requestWrapped || responseWrapped;
         if (request is not null && request == response) {
-            Add(map, request, new MessageEndpointUse(path, MessageUseRole.Both, route));
+            Add(map, request, new MessageEndpointUse(path, MessageUseRole.Both, route, locked));
         } else {
-            if (request is not null) Add(map, request, new MessageEndpointUse(path, MessageUseRole.Request, route));
-            if (response is not null) Add(map, response, new MessageEndpointUse(path, MessageUseRole.Response, route));
+            if (request is not null) Add(map, request, new MessageEndpointUse(path, MessageUseRole.Request, route, locked));
+            if (response is not null) Add(map, response, new MessageEndpointUse(path, MessageUseRole.Response, route, locked));
         }
 
         if (WrapRole(requestWrapped, responseWrapped) is { } wrap) {
-            Add(map, RouteCatalog.WrapperMessage, new MessageEndpointUse(path, wrap, route));
+            Add(map, RouteCatalog.WrapperMessage, new MessageEndpointUse(path, wrap, route, locked));
         }
     }
 

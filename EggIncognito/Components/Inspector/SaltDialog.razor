@@ -6,9 +6,16 @@
             <p class="text-muted text-sm mt-0">
                 Signs requests. Stored in this browser only; never sent to the server beyond the build request.
             </p>
-            <input type="password" placeholder="EGG_INC_API_SALT value" spellcheck="false"
-                   class="settings-input" @ref="_inputRef" @attributes="InputAttrs.NoAutofill"
-                   @bind="_salt" @bind:event="oninput"/>
+            <div class="salt-row">
+                <input type="@(_reveal ? "text" : "password")" placeholder="EGG_INC_API_SALT value" spellcheck="false"
+                       class="settings-input" @ref="_inputRef" @attributes="InputAttrs.NoAutofill"
+                       @bind="_salt" @bind:event="oninput"/>
+                <button type="button" class="icon-btn icon-btn-sm @(_reveal ? "active" : "")"
+                        aria-label="@(_reveal ? "Hide salt" : "Show salt")" aria-pressed="@(_reveal ? "true" : "false")"
+                        @onclick="@(() => _reveal = !_reveal)">
+                    <Icon Name="@(_reveal ? "eye-off" : "eye")" Class="icon-sm"/>
+                </button>
+            </div>
             <div class="insp-dialog-foot">
                 <button type="button" class="btn-secondary" @onclick="OnClose">Cancel</button>
                 <button type="button" class="btn-primary" @onclick="Save">Save salt</button>
@@ -24,12 +31,14 @@
 
     ElementReference _inputRef;
     string _salt = "";
+    bool _reveal;
     bool _wasOpen;
     bool _focus;
 
     protected override void OnParametersSet() {
         if (Open && !_wasOpen) {
             _salt = "";
+            _reveal = false;
             _focus = true;
         }
 

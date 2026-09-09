@@ -375,6 +375,14 @@ public sealed class CaptureController(
 
     [HttpGet("ca.cer")]
     public async Task<IActionResult> DownloadCa(CancellationToken ct) {
+        if (appMode.CanCapture) {
+            var local = manager.GetOrCreate(CaptureSessionManager.LocalKey);
+            if (!System.IO.File.Exists(local.CaPath))
+                return NotFound(new { error = "no CA yet; start capture first" });
+            byte[] localCer = await System.IO.File.ReadAllBytesAsync(local.CaPath, ct);
+            return File(localCer, "application/x-x509-ca-cert", "eggincognito-ca.cer");
+        }
+
         if (RequireHostedUser() is { } no) return no;
         var session = manager.Get(currentUser.DiscordId!);
         if (session is not null && System.IO.File.Exists(session.CaPath)) {

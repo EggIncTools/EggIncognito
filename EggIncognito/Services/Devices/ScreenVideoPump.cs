@@ -63,7 +63,9 @@ public sealed class ScreenVideoPump(Func<CancellationToken, Task<ProcessHandle?>
     }
 
     private static string FailureNote(int exit, string tail) {
-        string reason = tail.Length > 0 ? tail : $"exit code {exit}";
+        string reason = tail.Length > 0 ? tail : exit == 0
+            ? "exit code 0 with no video bytes, the device encoder produced nothing"
+            : $"exit code {exit}";
         return $"screenrecord ended immediately {InstantSegmentLimit} times in a row: {reason}";
     }
 
