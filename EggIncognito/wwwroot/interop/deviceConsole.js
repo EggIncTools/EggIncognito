@@ -1,7 +1,7 @@
 const sessions = new Map();
 const FIRST_FRAME_MS = 8000;
 const STALL_MS = 8000;
-const VIDEO_STALL_MS = 180000;
+const VIDEO_STALL_MS = 600000;
 
 function detach(img) {
   const s = sessions.get(img);

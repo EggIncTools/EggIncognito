@@ -27,6 +27,16 @@ public class DeviceStreamGateTests {
     }
 
     [Fact]
+    public async Task IsHeld_TracksTheHolder() {
+        string id = $"gate-{Guid.NewGuid():N}";
+        Assert.False(DeviceStreamGate.IsHeld(id));
+        Assert.True(await DeviceStreamGate.TryEnterAsync(id, CancellationToken.None));
+        Assert.True(DeviceStreamGate.IsHeld(id));
+        DeviceStreamGate.Exit(id);
+        Assert.False(DeviceStreamGate.IsHeld(id));
+    }
+
+    [Fact]
     public async Task Keys_AreIndependent() {
         string a = $"gate-{Guid.NewGuid():N}";
         string b = $"gate-{Guid.NewGuid():N}";

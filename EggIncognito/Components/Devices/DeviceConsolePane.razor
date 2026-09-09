@@ -35,6 +35,9 @@
                         <span class="dcon-hl dcon-hl-pt dcon-hl-end" style="@PointStyle(hl.X2, hl.Y2)"></span>
                     }
                 }
+                @if (_hasFrame && _watch is { } wp && TapWidth > 0) {
+                    <span class="dcon-hl dcon-hl-pt dcon-hl-watch" style="@PointStyle(wp.X, wp.Y)"></span>
+                }
             </button>
             @if (!_hasFrame) {
                 <span class="dcon-stage-empty">
@@ -82,6 +85,13 @@
                 <Icon Name="@(_mode == DeviceConsoleMode.Record ? "circle-check" : "circle")" Class="icon-sm"/>
                 Record
             </button>
+            @if (IsAndroid) {
+                <button type="button" class="btn-mini @(_locking || _watch is not null ? "dcon-on" : "")"
+                        title="@WatchTitle()" @onclick="ToggleWatchAsync">
+                    <Icon Name="eye" Class="icon-sm"/>
+                    @WatchLabel()
+                </button>
+            }
         </span>
     </div>
 
@@ -142,12 +152,13 @@
                                 }
                             </td>
                             <td class="dcon-list-title">@IslandLabel(island)</td>
-                            <td class="font-mono text-muted text-xs">
-                                user @island.UserId@(island.Provisioned ? "" : ", provisioning")
+                            <td class="font-mono text-muted text-xs"
+                                title="@(island.Provisioned ? null : "setup wizard not marked complete for this user; interstitials may cover the app")">
+                                user @island.UserId@(island.Provisioned ? "" : ", unprovisioned")
                             </td>
                             <td class="dcon-row-tools">
                                 @if (!current) {
-                                    <button type="button" class="btn-mini" disabled="@(_islandBusy || !island.Provisioned)"
+                                    <button type="button" class="btn-mini" disabled="@_islandBusy"
                                             @onclick="@(() => SwitchIslandAsync(island.UserId))">
                                         Switch
                                     </button>
@@ -574,9 +585,11 @@
     }
 
     protected override async Task OnParametersSetAsync() {
+        SubscribeWatches();
         var next = string.IsNullOrEmpty(DeviceId) ? null : DeviceId;
         if (next != _deviceId) {
             await StopStreamAsync();
+            if (next is not null) _watch = Watches?.Status(next);
             StopRunWatch();
             _deviceId = next;
             _loaded = false;
@@ -642,6 +655,8 @@
         _recorded = [];
         _selectedGesture = null;
         _replaying = false;
+        _locking = false;
+        _watch = null;
         _streamError = null;
         _streamRetried = false;
         _videoFallback = false;
@@ -881,8 +896,72 @@
             return;
         }
 
+        if (_locking) {
+            await LockWatchAsync(p.X, p.Y);
+            return;
+        }
+
         Record(RecordedGesture.Tap(p.X, p.Y));
         await TapAsync(p.X, p.Y);
+    }
+
+    bool _locking;
+    bool _watchSubscribed;
+    PixelWatchStatus? _watch;
+
+    PixelWatchService? Watches => Services.GetService(typeof(PixelWatchService)) as PixelWatchService;
+
+    string WatchLabel() {
+        if (_watch is { } w) return w.Taps == 1 ? "Watching, 1 tap" : $"Watching, {w.Taps} taps";
+        return _locking ? "Tap the button" : "Lock";
+    }
+
+    string WatchTitle() {
+        if (_watch is { } w) {
+            return w.Error is { } err
+                ? $"Watching {w.X},{w.Y} for {w.Color}; last error: {err}. Click to stop."
+                : $"Watching {w.X},{w.Y} for {w.Color}; taps it whenever that colour returns. Click to stop.";
+        }
+
+        return _locking
+            ? "Now tap the popup button on the screen; its colour at that point becomes the trigger"
+            : "Lock a point: tap a popup button once and it gets tapped again every time it reappears";
+    }
+
+    async Task ToggleWatchAsync() {
+        if (_deviceId is null) return;
+        if (_watch is not null) {
+            var res = await Client().DeleteAsync($"/api/devices/{_deviceId}/ui/watch");
+            if (!res.IsSuccessStatusCode) await Fail(await ReadError(res));
+            _watch = null;
+            return;
+        }
+
+        _locking = !_locking;
+    }
+
+    async Task LockWatchAsync(int x, int y) {
+        _locking = false;
+        var res = await Client().PostAsJsonAsync($"/api/devices/{_deviceId}/ui/watch",
+            new PixelWatchRequest(x, y), SelfCallJson.Web);
+        if (!res.IsSuccessStatusCode) {
+            await Fail(await ReadError(res));
+            return;
+        }
+
+        _watch = await res.Content.ReadFromJsonAsync<PixelWatchStatus>(SelfCallJson.Web);
+    }
+
+    void SubscribeWatches() {
+        if (_watchSubscribed || Watches is not { } watches) return;
+        _watchSubscribed = true;
+        watches.Changed += OnWatchChanged;
+    }
+
+    void OnWatchChanged(string deviceId, PixelWatchStatus? status) {
+        if (_disposed || deviceId != _deviceId) return;
+        _watch = status;
+        _ = InvokeAsync(StateHasChanged);
     }
 
     const int MaxHoldMs = 10_000;
@@ -1762,6 +1841,7 @@
 
     public async ValueTask DisposeAsync() {
         _disposed = true;
+        if (_watchSubscribed && Watches is { } watches) watches.Changed -= OnWatchChanged;
         StopTick();
         StopRunWatch();
         if (_module is { } module) {

@@ -69,15 +69,18 @@ public sealed partial class DeviceIslandStore(EggIncognitoDbContext db, TimeProv
     }
 
     public async Task<IReadOnlyList<DeviceIsland>> ReconcileAsync(
-        string deviceId, string pmListUsersOutput, CancellationToken ct = default) {
+        string deviceId, string pmListUsersOutput, IReadOnlySet<int>? provisionedOnDevice = null,
+        CancellationToken ct = default) {
         var onDevice = ParseUsers(pmListUsersOutput);
         var rows = await db.DeviceIslands.Where(x => x.DeviceId == deviceId).ToListAsync(ct);
         var byUser = rows.ToDictionary(x => x.UserId);
 
         foreach ((int userId, string label) in onDevice) {
+            bool? provisioned = provisionedOnDevice?.Contains(userId);
             if (byUser.TryGetValue(userId, out var existing)) {
                 if (label.Length > 0 && !string.Equals(existing.Label, label, StringComparison.Ordinal))
                     existing.Label = label;
+                if (provisioned is { } known && existing.Provisioned != known) existing.Provisioned = known;
                 continue;
             }
 
@@ -85,7 +88,7 @@ public sealed partial class DeviceIslandStore(EggIncognitoDbContext db, TimeProv
                 DeviceId = deviceId,
                 UserId = userId,
                 Label = label.Length > 0 ? label : $"user {userId}",
-                Provisioned = false,
+                Provisioned = provisioned ?? false,
                 EggAccountId = null,
                 CreatedAt = time.GetUtcNow()
             });

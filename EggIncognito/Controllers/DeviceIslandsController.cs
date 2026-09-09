@@ -47,7 +47,13 @@ public sealed class DeviceIslandsController(
         if (users.ExitCode != 0 || !users.Stdout.Contains("UserInfo{", StringComparison.Ordinal))
             return await store.ListAsync(target.Id, ct);
 
-        return await store.ReconcileAsync(target.Id, users.Stdout, ct);
+        var provisioned = new HashSet<int>();
+        foreach ((int userId, _) in DeviceIslandStore.ParseUsers(users.Stdout)) {
+            var setup = await conn.ShellAsync($"settings get --user {userId} secure user_setup_complete", ct);
+            if (setup.ExitCode == 0 && setup.Stdout.Trim() == "1") provisioned.Add(userId);
+        }
+
+        return await store.ReconcileAsync(target.Id, users.Stdout, provisioned, ct);
     }
 
     [HttpPost("{id}/islands")]

@@ -174,6 +174,11 @@ public sealed class DeviceMaintenanceService(
             }
 
             if (!latest.TryGetValue(d.Id, out var probe)) continue;
+            if (DeviceStreamGate.IsHeld(d.Id)) {
+                logger.LogDebug("device sync: {Id} has a live screen stream, skipping the store check", d.Id);
+                continue;
+            }
+
             try {
                 await StoreSyncAsync(d, probe, jobs, db, ct);
             } catch (Exception ex) {

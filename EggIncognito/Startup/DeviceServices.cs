@@ -70,6 +70,7 @@ public static class DeviceServices {
         if (boot.DeviceConfig.Enabled && !borrowing) builder.Services.AddHostedService<DeviceMaintenanceService>();
 
         builder.Services.AddSingleton<DeviceClaimRegistry>();
+        builder.Services.AddSingleton<PixelWatchService>();
         builder.Services.AddHttpClient();
         builder.Services.AddSingleton<IDeviceConnectionFactory, DeviceConnectionFactory>();
         builder.AddDeviceProxyAndCa(boot);

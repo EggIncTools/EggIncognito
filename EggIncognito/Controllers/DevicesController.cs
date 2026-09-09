@@ -583,6 +583,7 @@ public sealed partial class DevicesController(
         int jpegQuality = DeviceFrameEncoder.ClampQuality(quality);
         var gap = TimeSpan.FromMilliseconds(1000.0 / Math.Clamp(fps, MinStreamFps, MaxStreamFps));
         try {
+            await using var hold = await DeviceStreamHold.AcquireAsync(services, target, ct);
             (byte[]? first, var outcome, string? note) = await FrameAsync(platform, target, jpegQuality, ct);
             if (first is null) return UiFailure(outcome, note);
             await PumpFramesAsync(platform, target, first, gap, jpegQuality, ct);
@@ -680,6 +681,7 @@ public sealed partial class DevicesController(
 
         string command = ScreenVideoPump.ScreenrecordCommand(size, Math.Clamp(bitrate, MinVideoBitrate, MaxVideoBitrate));
         try {
+            await using var hold = await DeviceStreamHold.AcquireAsync(services, target, ct);
             await conn.ShellAsync(ScreenVideoPump.KillStaleCommand, ct);
             Response.StatusCode = StatusCodes.Status200OK;
             Response.ContentType = "application/octet-stream";
@@ -716,6 +718,41 @@ public sealed partial class DevicesController(
 
         var r = await platform.TapPointAsync(target, req.X, req.Y, ct);
         return r.Ok ? Ok(new UiActionResult(true, DeviceOutcomes.Label(r), r.Note)) : UiFailure(r.Outcome, r.Note);
+    }
+
+    [HttpPost("{id}/ui/watch")]
+    [ApiAccess(ApiAccessLevel.Admin)]
+    [EnableRateLimiting("write")]
+    public async Task<IActionResult> UiWatch(string id, [FromBody] PixelWatchRequest req, CancellationToken ct) {
+        if (RequireAdmin() is { } no) return no;
+        if (req.X < 0 || req.Y < 0) return BadRequest(new { error = "x and y must be non-negative" });
+        if (services.GetService(typeof(PixelWatchService)) is not PixelWatchService watches)
+            return StatusCode(503, new { error = "pixel watch not configured" });
+        (IActionResult? err, var platform, var target) = await ResolveUiAsync(id, ct);
+        if (err is not null) return err;
+
+        var r = await watches.StartAsync(platform, target, req.X, req.Y, ct);
+        return r.Ok ? Ok(r.Value) : UiFailure(r.Outcome, r.Note);
+    }
+
+    [HttpGet("{id}/ui/watch")]
+    [ApiAccess(ApiAccessLevel.Admin)]
+    [EnableRateLimiting("read")]
+    public IActionResult UiWatchStatus(string id) {
+        if (RequireAdmin() is { } no) return no;
+        if (services.GetService(typeof(PixelWatchService)) is not PixelWatchService watches)
+            return StatusCode(503, new { error = "pixel watch not configured" });
+        return watches.Status(id) is { } status ? Ok(status) : NotFound(new { error = "no watch on this device" });
+    }
+
+    [HttpDelete("{id}/ui/watch")]
+    [ApiAccess(ApiAccessLevel.Admin)]
+    [EnableRateLimiting("write")]
+    public IActionResult UiWatchStop(string id) {
+        if (RequireAdmin() is { } no) return no;
+        if (services.GetService(typeof(PixelWatchService)) is not PixelWatchService watches)
+            return StatusCode(503, new { error = "pixel watch not configured" });
+        return Ok(new { ok = true, stopped = watches.Stop(id) });
     }
 
     [HttpPost("{id}/ui/touch")]

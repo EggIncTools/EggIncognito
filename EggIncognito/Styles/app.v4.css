@@ -2752,6 +2752,7 @@ body .modal-body .skm { color: var(--color-fg); }
   transform: translate(-50%, -50%);
 }
 .dcon-hl-end { outline-style: dashed; }
+.dcon-hl-watch { outline-style: dotted; outline-width: 3px; background-color: transparent; }
 .dcon-stage-empty {
   position: absolute;
   inset: 0;

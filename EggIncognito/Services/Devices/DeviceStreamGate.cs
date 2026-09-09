@@ -14,5 +14,8 @@ public static class DeviceStreamGate {
         if (Gates.TryGetValue(deviceId, out var gate)) gate.Release();
     }
 
+    public static bool IsHeld(string deviceId) =>
+        Gates.TryGetValue(deviceId, out var gate) && gate.CurrentCount == 0;
+
     private static SemaphoreSlim Gate(string deviceId) => Gates.GetOrAdd(deviceId, _ => new SemaphoreSlim(1, 1));
 }
