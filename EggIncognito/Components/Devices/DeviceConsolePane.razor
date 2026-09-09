@@ -399,7 +399,7 @@
                             @for (var i = 0; i < _recorded.Count; i++) {
                                 var index = i;
                                 var g = _recorded[i];
-                                <tr @key="g" class="dcon-node @(ReferenceEquals(_selectedGesture, g) ? "dcon-node-on" : "")"
+                                <tr @key="index" class="dcon-node @(ReferenceEquals(_selectedGesture, g) ? "dcon-node-on" : "")"
                                     @onclick="@(() => SelectGesture(g))">
                                     <td class="dcon-cur text-muted">@(index + 1)</td>
                                     <td class="dcon-node-kind">@GestureKind(g)</td>

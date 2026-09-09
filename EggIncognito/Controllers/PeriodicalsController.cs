@@ -6,10 +6,13 @@ using EggIncognito.Core.Services;
 using EggIncognito.Core.Services.Assets;
 using EggIncognito.Data.Services;
 using EggIncognito.GameData;
+using EggIncognito.Models.Periodicals;
 using EggIncognito.Services;
 using EggIncognito.Services.Assets;
 using EggIncognito.Services.Auth;
 using EggIncognito.Services.DataApi;
+using EggIncognito.Services.Events;
+using EggIncognito.Services.Periodicals;
 using Ei;
 using Google.Protobuf;
 using Microsoft.AspNetCore.Mvc;
@@ -123,48 +126,70 @@ public sealed class PeriodicalsController(
             return StatusCode(500, new { error = $"season fixture unreadable: {ex.Message}" });
         }
 
-        var seasonEggs = new Dictionary<string, List<(string Id, string? Icon, List<string> Contracts)>>(StringComparer.Ordinal);
+        var sightings = new List<EggSighting>();
+        var icons = new Dictionary<string, string?>(StringComparer.Ordinal);
         string? perRoute = catalog.ById("periodical", "get_periodicals")?.WireRoute;
         (string? perJson, _) = await ResolveCurrentJson(perRoute, ct);
         if (perJson is not null) {
             try {
                 var per = PeriodicalsResponse.Parser.ParseJson(perJson);
-                foreach (var contract in per.Contracts?.Contracts ?? []) {
-                    if (string.IsNullOrEmpty(contract.SeasonId) || string.IsNullOrEmpty(contract.CustomEggId)) continue;
-                    if (!seasonEggs.TryGetValue(contract.SeasonId, out var eggs)) {
-                        eggs = [];
-                        seasonEggs[contract.SeasonId] = eggs;
-                    }
-
-                    string contractName = string.IsNullOrEmpty(contract.Name) ? contract.Identifier : contract.Name;
-                    var existing = eggs.FirstOrDefault(e => e.Id == contract.CustomEggId);
-                    if (existing.Id is not null) {
-                        if (!existing.Contracts.Contains(contractName)) existing.Contracts.Add(contractName);
-                        continue;
-                    }
-
-                    string? icon = (per.Contracts?.CustomEggs ?? [])
-                        .FirstOrDefault(e => e.Identifier == contract.CustomEggId)?.Icon?.Url;
-                    eggs.Add((contract.CustomEggId, icon, [contractName]));
-                }
+                AddSightings(sightings, per.Contracts?.Contracts ?? []);
+                foreach (var egg in per.Contracts?.CustomEggs ?? []) icons[egg.Identifier] = egg.Icon?.Url;
             } catch (InvalidProtocolBufferException ex) {
                 logger.LogWarning(ex, "periodicals: colleggtible enrichment skipped, periodicals capture unreadable");
             }
         }
 
+        string? infoJson = await ResolveRouteJson(ContractsInfoRoute, ct);
+        if (infoJson is not null) {
+            try {
+                var info = ContractsInfoResponse.Parser.ParseJson(infoJson);
+                AddSightings(sightings, info.Contracts);
+                foreach (var egg in info.CustomEggs) icons.TryAdd(egg.Identifier, egg.Icon?.Url);
+            } catch (InvalidProtocolBufferException ex) {
+                logger.LogWarning(ex, "periodicals: contracts info fixture unreadable, colleggtible first-seen limited");
+            }
+        }
+
+        if (services.GetService(typeof(EggIncognitoDbContext)) is EggIncognitoDbContext db) {
+            try {
+                var rows = await db.ContractReleases.AsNoTracking()
+                    .Where(r => r.CustomEggId != null && r.CustomEggId != "")
+                    .Select(r => new { r.CustomEggId, r.SeasonId, r.StartTime, r.Name, r.ContractId })
+                    .ToListAsync(ct);
+                foreach (var r in rows) {
+                    sightings.Add(new EggSighting(r.CustomEggId!, r.SeasonId, UnixSeconds.FromTime(r.StartTime),
+                        string.IsNullOrEmpty(r.Name) ? r.ContractId : r.Name));
+                }
+            } catch (Exception ex) {
+                logger.LogWarning(ex, "periodicals: contract releases lookup failed, colleggtible first-seen limited");
+            }
+        }
+
+        string[] seasonIds = [.. infos.Infos.Select(s => s.Id)];
+        var seasonEggs = SeasonColleggtibles.Attribute(sightings, seasonIds, id => icons.GetValueOrDefault(id));
         return Ok(new { seasons = SeasonList(infos, seasonEggs) });
     }
 
-    private static object[] SeasonList(ContractSeasonInfos infos, Dictionary<string, List<(string Id, string? Icon, List<string> Contracts)>> seasonEggs) {
+    private const string ContractsInfoRoute = "ei_ctx/get_contracts_info";
+
+    private static void AddSightings(List<EggSighting> sightings, IEnumerable<Contract> contracts) {
+        foreach (var c in contracts) {
+            if (string.IsNullOrEmpty(c.CustomEggId)) continue;
+            double start = c.StartTime > 0 ? c.StartTime : c.ExpirationTime - c.LengthSeconds;
+            sightings.Add(new EggSighting(c.CustomEggId, c.SeasonId, start,
+                string.IsNullOrEmpty(c.Name) ? c.Identifier : c.Name));
+        }
+    }
+
+    private static object[] SeasonList(ContractSeasonInfos infos, Dictionary<string, List<SeasonEgg>> seasonEggs) {
         var list = infos.Infos.ToList();
         double[] starts = ResolveStarts(list);
         double quarter = Quarter(starts);
-        var releaseSeason = ReleaseSeasons(list, seasonEggs);
         return [
             .. list.Select((s, i) => {
                 object[] colleggtibles = seasonEggs.TryGetValue(s.Id, out var eggs)
-                    ? [.. eggs.Where(e => releaseSeason.GetValueOrDefault(e.Id) == s.Id)
-                        .Select(e => (object)new { id = e.Id, icon = e.Icon, contracts = e.Contracts.ToArray() })]
+                    ? [.. eggs.Select(e => (object)new { id = e.Id, icon = e.Icon, contracts = e.Contracts?.ToArray() ?? [] })]
                     : [];
                 return (object)new {
                 id = s.Id,
@@ -189,26 +214,6 @@ public sealed class PeriodicalsController(
                 };
             })
         ];
-    }
-
-    private static Dictionary<string, string> ReleaseSeasons(List<ContractSeasonInfo> list,
-        Dictionary<string, List<(string Id, string? Icon, List<string> Contracts)>> seasonEggs) {
-        var seasonIndex = new Dictionary<string, int>(StringComparer.Ordinal);
-        for (int i = 0; i < list.Count; i++) seasonIndex[list[i].Id] = i;
-
-        var releaseSeason = new Dictionary<string, string>(StringComparer.Ordinal);
-        var releaseIndex = new Dictionary<string, int>(StringComparer.Ordinal);
-        foreach ((string seasonId, var eggs) in seasonEggs) {
-            if (!seasonIndex.TryGetValue(seasonId, out int idx)) continue;
-            foreach (var egg in eggs) {
-                if (!releaseIndex.TryGetValue(egg.Id, out int bestIdx) || idx > bestIdx) {
-                    releaseIndex[egg.Id] = idx;
-                    releaseSeason[egg.Id] = seasonId;
-                }
-            }
-        }
-
-        return releaseSeason;
     }
 
     private static double[] ResolveStarts(List<ContractSeasonInfo> list) {

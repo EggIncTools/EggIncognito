@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk.Web" InitialTargets="BuildStyles">
+<Project Sdk="Microsoft.NET.Sdk.Web" InitialTargets="SyncFixtures;BuildStyles">
   <PropertyGroup>
     <UserSecretsId>e7aa6a77-af5b-41a6-90e6-4d9b1e792645</UserSecretsId>
     <DefaultItemExcludes>$(DefaultItemExcludes);Tests\**</DefaultItemExcludes>
@@ -48,6 +48,11 @@
     <_StylesInput Include="..\EggIncognito.Core\Services\MarkdownRenderer.cs" Condition="Exists('..\EggIncognito.Core\Services\MarkdownRenderer.cs')" />
     <_StylesInput Include="..\EggIncognito.CssBuild\**\*.cs" Exclude="..\EggIncognito.CssBuild\bin\**;..\EggIncognito.CssBuild\obj\**" />
   </ItemGroup>
+  <Target Name="SyncFixtures"
+          Condition="'$(SyncFixtures)' != 'false' And '$(EGI_PROD_URL)' != '' And '$(EGI_PROD_API_KEY)' != '' And Exists('$(MSBuildProjectDirectory)/../EggIncognito.FixtureSync/Program.cs')"
+          Returns="">
+    <Exec Command="dotnet run --project &quot;$(MSBuildProjectDirectory)/../EggIncognito.FixtureSync&quot; --configuration Release -- &quot;$(MSBuildProjectDirectory)&quot;" ContinueOnError="true" />
+  </Target>
   <Target Name="BuildStyles"
           Condition="'$(BuildStylesCss)' != 'false' And Exists('$(MSBuildProjectDirectory)/../EggIncognito.CssBuild/Program.cs')"
           Inputs="@(_StylesInput)"

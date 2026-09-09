@@ -56,16 +56,16 @@ public sealed class DeviceFlowRunner(IDeviceUiDriver ui) {
                         break;
                     }
                 case DeviceFlowStepKind.Swipe: {
-                    Emit(descriptor);
-                    var r = await ui.SwipeAsync(target, step.X ?? 0, step.Y ?? 0, step.X2 ?? 0, step.Y2 ?? 0,
-                        step.DurationMs, ct);
-                    if (!r.Ok) {
-                        var fail = Fail(r.Note);
-                        if (fail is not null) return fail;
-                    }
+                        Emit(descriptor);
+                        var r = await ui.SwipeAsync(target, step.X ?? 0, step.Y ?? 0, step.X2 ?? 0, step.Y2 ?? 0,
+                            step.DurationMs, ct);
+                        if (!r.Ok) {
+                            var fail = Fail(r.Note);
+                            if (fail is not null) return fail;
+                        }
 
-                    break;
-                }
+                        break;
+                    }
                 case DeviceFlowStepKind.Key: {
                         Emit(descriptor);
                         var r = await ui.KeyAsync(target, step.Key!.Value, ct);

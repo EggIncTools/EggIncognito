@@ -7,6 +7,7 @@
   <Project Path="EggIncognito.Capture/EggIncognito.Capture.csproj" />
   <Project Path="EggIncognito.CssBuild/EggIncognito.CssBuild.csproj" />
   <Project Path="EggIncognito.Data/EggIncognito.Data.csproj" />
+  <Project Path="EggIncognito.FixtureSync/EggIncognito.FixtureSync.csproj" />
   <Project Path="EggIncognito.Protos/EggIncognito.Protos.csproj" />
   <Project Path="EggIncognito.RelayAgent/EggIncognito.RelayAgent.csproj" />
   <Project Path="EggIncognito.RouteGenerator/EggIncognito.RouteGenerator.csproj" />

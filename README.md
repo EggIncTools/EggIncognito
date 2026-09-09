@@ -56,6 +56,7 @@ The app embeds a TLS-intercepting proxy that records real game traffic into reus
 - EggIncognito.Protos - the content-only `ei.proto` package; EggLedger builds against it.
 - EggIncognito.Runner - the device-farm agent.
 - EggIncognito.CssBuild - the build-time stylesheet compiler.
+- EggIncognito.FixtureSync - build-time refresh of the checked-in wire fixtures from a prod instance; runs only when `EGI_PROD_URL` and `EGI_PROD_API_KEY` are set.
 - EggIncognito.RelayAgent - the host-side sidecar for hosted capture routing.
 
 ## HTTPS (optional)

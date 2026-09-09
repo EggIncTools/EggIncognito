@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <Description>Build-time fixture refresh for EggIncognito: pulls the wire fixtures a prod instance serves from its public data API into Endpoints/default when EGI_PROD_URL and EGI_PROD_API_KEY are set, otherwise no-ops.</Description>
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+
+</Project>
