@@ -149,7 +149,7 @@ jobs:
     uses: EggIncTools/EggIdentity/.github/workflows/notify-agent.yml@main
     with:
       app: eggincognito
-      agent-url: https://eggidentity.davidarthurcole.me/agent
+      agent-url: https://egghook.davidarthurcole.me/agent
       digest: ${{ needs.docker.outputs.digest }}
       revision: ${{ github.sha }}
       version: ${{ github.ref_name }}
@@ -161,7 +161,7 @@ jobs:
     uses: EggIncTools/EggIdentity/.github/workflows/notify-agent.yml@main
     with:
       app: eggincognito-runner
-      agent-url: https://eggidentity.davidarthurcole.me/agent
+      agent-url: https://egghook.davidarthurcole.me/agent
       digest: ${{ needs.docker-runner.outputs.digest }}
       revision: ${{ github.sha }}
       version: ${{ github.ref_name }}
