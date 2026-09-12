@@ -170,6 +170,7 @@ internal sealed record FakeStack(FakeDevicePlatform Platform, FakeDevice Device,
                 NullLogger<FakeStoreChecker>.Instance)],
             [new FakeProxyConfigurator(platform)],
             [new FakeCaInstaller(platform)],
+            [],
             []);
         return new FakeStack(plat, device,
             new DeviceTarget(device.Id, device.Platform, device.Target, device.Package));

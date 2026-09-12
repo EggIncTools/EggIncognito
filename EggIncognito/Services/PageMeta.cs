@@ -5,9 +5,9 @@ namespace EggIncognito.Services;
 public static class PageMeta {
     public static readonly Meta Default = new(
         "EggIncognito - a toolkit for the Egg, Inc. API",
-        "A toolkit for the Egg, Inc. API: a byte-identical mock server, a request inspector, a live " +
-        "capture proxy, a versioned proto registry, and a physical device farm. Test tooling without real " +
-        "accounts or rate limits.");
+        "A toolkit for the Egg, Inc. API: a stateless mock server that replays captured responses in " +
+        "the exact base64-protobuf wire format, a request inspector, a live capture proxy, a versioned " +
+        "proto registry, and a physical device farm. Test tooling without real accounts or rate limits.");
 
     private static readonly Meta ProtoRegistry = new(
         "EggIncognito - Proto Registry",

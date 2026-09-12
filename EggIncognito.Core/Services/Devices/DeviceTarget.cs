@@ -44,5 +44,6 @@ public enum DeviceCapabilities {
     CaInstall = 1 << 5,
     AppLifecycle = 1 << 6,
     ParticleCapture = 1 << 7,
-    UiNavigation = 1 << 8
+    UiNavigation = 1 << 8,
+    ScreenStream = 1 << 9
 }

@@ -12,8 +12,10 @@ public sealed class FakeDevicePlatform(
     IEnumerable<IDeviceStoreChecker> storeCheckers,
     IEnumerable<IDeviceProxyConfigurator> proxyConfigurators,
     IEnumerable<IDeviceCaInstaller> caInstallers,
-    IEnumerable<IDeviceUiDriver> uiDrivers)
-    : DevicePlatformBase(platform, storeCheckers, proxyConfigurators, caInstallers, uiDrivers) {
+    IEnumerable<IDeviceUiDriver> uiDrivers,
+    IEnumerable<IScreenStreamSource> screenStreamSources)
+    : DevicePlatformBase(platform, storeCheckers, proxyConfigurators, caInstallers, uiDrivers,
+        screenStreamSources) {
     private const string PackageUnsupported = "ios ships the app binary, not an installable package";
     private const string ManifestUnsupported = "probe owns android package metadata";
     private const string UnknownDevice = "not a declared fake device";

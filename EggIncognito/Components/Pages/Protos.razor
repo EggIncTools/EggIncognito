@@ -498,7 +498,7 @@
 
         _isAdmin = User.IsAtLeast(UserRole.Admin);
         _isContributor = User.IsAtLeast(UserRole.Contributor);
-        if (LoginError == 1) Toasts.Push(StatusNoteKind.Error, "Login failed. Please try again.");
+        if (LoginError == 1) Toasts.Push(StatusNoteKind.Error, "Login failed. Try again.");
     }
 
     protected override Task OnInitializedAsync() {

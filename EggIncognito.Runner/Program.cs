@@ -75,8 +75,9 @@ public static class Program {
         var captureConfig = DeviceCaptureConfig.Bind(appConfig);
         var connections = new DeviceConnectionFactory(procRunner, captureConfig);
         return new DevicePlatforms([
-            new AndroidPlatform(procRunner, appConfig, [], [], [], [], loggerFactory.CreateLogger<AndroidPlatform>()),
-            new IosPlatform(connections, captureConfig, procRunner, [], [], [], [],
+            new AndroidPlatform(procRunner, appConfig, [], [], [], [], [],
+                loggerFactory.CreateLogger<AndroidPlatform>()),
+            new IosPlatform(connections, captureConfig, procRunner, [], [], [], [], [],
                 loggerFactory.CreateLogger<IosPlatform>())
         ]);
     }

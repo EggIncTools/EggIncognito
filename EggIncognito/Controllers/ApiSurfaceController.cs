@@ -1,4 +1,4 @@
-using EggIncognito.Core.Services;
+using EggIncognito.Models.Docs;
 using EggIncognito.Services;
 using EggIncognito.Services.Auth;
 using Microsoft.AspNetCore.Mvc;
@@ -82,28 +82,15 @@ public sealed class ApiSurfaceController(AuxbrainSurface surface) : ControllerBa
     [HttpGet("/api/catalog")]
     public IActionResult Catalog() {
         Response.Headers.CacheControl = "public, max-age=300";
-        return Ok(surface.Entries.Select(ToWire));
+        return Ok(surface.Entries.Select(AuxbrainRouteWire.From));
     }
 
     [HttpGet("/{ns:eins}")]
     public IActionResult NamespaceIndex(string ns) {
         if (!surface.Namespaces.Contains(ns)) return NotFound();
         Response.Headers.CacheControl = "public, max-age=300";
-        return Ok(new {
-            @namespace = ns,
-            routes = surface.Entries.Where(e => e.Namespace == ns).Select(ToWire)
-        });
+        List<AuxbrainRouteWire> routes =
+            [.. surface.Entries.Where(e => e.Namespace == ns).Select(AuxbrainRouteWire.From)];
+        return Ok(new AuxbrainNamespaceIndex(ns, routes));
     }
-
-    private static object ToWire(AuxbrainEntry e) => new {
-        path = e.Path,
-        @namespace = e.Namespace,
-        requestType = e.RequestType,
-        responseType = e.ResponseType,
-        requestWrapped = e.RequestWrapped,
-        responseWrapped = e.ResponseWrapped,
-        pathParam = e.PathParam,
-        status = AuxbrainCatalog.Label(e.Status),
-        aliases = e.Aliases
-    };
 }

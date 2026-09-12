@@ -11,6 +11,7 @@ using EggIncognito.Data.Models;
 using EggIncognito.Data.Services;
 using EggIncognito.GameData;
 using EggIncognito.Models.Admin;
+using EggIncognito.Models.AdminUi;
 using EggIncognito.Services;
 using EggIncognito.Services.Auth;
 using EggIncognito.Services.DataApi;
@@ -88,46 +89,18 @@ public sealed partial class AdminController(ICurrentUser currentUser, IServicePr
     [EnableRateLimiting("read")]
     public async Task<IActionResult> Sessions(CancellationToken ct) {
         if (RequireAdmin() is { } no) return no;
-        var rows = new List<object>();
+        var rows = new List<SessionRow>();
 
         if (services.GetService(typeof(CaptureSessionManager))
             is CaptureSessionManager mgr)
-            rows.AddRange(mgr.All().Select(x => {
-                var s = x.Session.Hub.StatsSnapshot();
-                return (object)new {
-                    key = x.Key,
-                    kind = x.Key == CaptureSessionManager.LocalKey ? "local" : "user",
-                    killable = true,
-                    running = s.Running,
-                    port = s.Port,
-                    flows = s.CapturedAuxbrain,
-                    connections = s.ActiveConnections,
-                    devices = s.DeviceCount,
-                    decryptOk = s.DecryptOk,
-                    decryptErr = s.DecryptErrors
-                };
-            }));
+            rows.AddRange(mgr.All().Select(x => SessionRow.FromCapture(x.Key, x.Session.Hub.StatsSnapshot())));
 
         if (services.GetService(typeof(DeviceCaptureManager))
                 is DeviceCaptureManager dcm
             && services.GetService(typeof(IDeviceFleet))
                 is IDeviceFleet fleet)
-            rows.AddRange((await fleet.EnabledAsync(ct)).Select(d => {
-                var diag = dcm.DiagFor(d.Id);
-                int port = dcm.PortFor(d.Id);
-                return (object)new {
-                    key = $"device:{d.Id}",
-                    kind = "device",
-                    killable = false,
-                    running = port != 0,
-                    port,
-                    flows = diag.Flows,
-                    connections = diag.ClientConnects,
-                    devices = 1,
-                    decryptOk = diag.RinfoHarvests,
-                    decryptErr = diag.LastDecryptError is null ? 0 : 1
-                };
-            }));
+            rows.AddRange((await fleet.EnabledAsync(ct))
+                .Select(d => SessionRow.FromDevice(d.Id, dcm.PortFor(d.Id), dcm.DiagFor(d.Id))));
 
         return Ok(rows);
     }
@@ -137,48 +110,37 @@ public sealed partial class AdminController(ICurrentUser currentUser, IServicePr
     public IActionResult DataStatus() {
         if (RequireAdmin() is { } no) return no;
 
-        var gameData = new List<object>();
+        var gameData = new List<DataStatusGameDataRow>();
         var gdStore = services.GetService(typeof(GameDataStore)) as GameDataStore;
         if (gdStore?.Provider is { } provider) {
             foreach (var f in provider.Families) {
-                gameData.Add(new {
-                    key = f.Key,
-                    count = f.Effects.Count,
-                    provenance = JsonSerializer.Serialize(f.Provenance, ProvenanceJson)
-                });
+                gameData.Add(new DataStatusGameDataRow(f.Key, f.Effects.Count,
+                    JsonSerializer.Serialize(f.Provenance, ProvenanceJson), null));
             }
 
             string? route = (services.GetService(typeof(DataCatalog)) as DataCatalog)
                 ?.ById("periodical", "get_periodicals")?.WireRoute;
             var live = route is null ? null : LiveColleggtibleSource.Derive(services, route);
             if (live is not null) {
-                gameData.Add(new {
-                    key = "colleggtibles",
-                    count = live.Extract.Eggs.Count,
-                    gameVersion = live.GameVersion,
-                    provenance = JsonSerializer.Serialize(live.Provenance, ProvenanceJson)
-                });
+                gameData.Add(new DataStatusGameDataRow("colleggtibles", live.Extract.Eggs.Count,
+                    JsonSerializer.Serialize(live.Provenance, ProvenanceJson), live.GameVersion));
             } else {
                 var col = provider.Colleggtibles;
-                gameData.Add(new {
-                    key = "colleggtibles",
-                    count = col.Eggs.Count,
-                    gameVersion = col.GameVersion,
-                    provenance = JsonSerializer.Serialize(col.Provenance, ProvenanceJson)
-                });
+                gameData.Add(new DataStatusGameDataRow("colleggtibles", col.Eggs.Count,
+                    JsonSerializer.Serialize(col.Provenance, ProvenanceJson), col.GameVersion));
             }
         }
 
-        object[] platforms = [];
+        List<DataStatusConfigPlatform> platforms = [];
         bool configEnabled = false;
         if (services.GetService(typeof(GameConfigStore)) is GameConfigStore store) {
             configEnabled = store.Enabled;
             platforms = [
-                .. store.List().Select(c => (object)new { platform = c.Platform, savedAt = c.SavedAt, bytes = c.Bytes })
+                .. store.List().Select(c => new DataStatusConfigPlatform(c.Platform, c.SavedAt, c.Bytes))
             ];
         }
 
-        var fixtures = new List<object>();
+        var fixtures = new List<DataStatusFixtureRow>();
         if (services.GetService(typeof(IConfiguration)) is IConfiguration cfg) {
             string eiDir = Path.Combine(ContentRoot.Resolve(cfg["ContentRoot"]), "Endpoints", "default", "ei");
             if (Directory.Exists(eiDir)) {
@@ -193,19 +155,16 @@ public sealed partial class AdminController(ICurrentUser currentUser, IServicePr
                         status = "unreadable";
                     }
 
-                    fixtures.Add(new {
-                        name = Path.GetFileNameWithoutExtension(info.Name),
-                        bytes = info.Length,
-                        updatedAt = new DateTimeOffset(info.LastWriteTimeUtc, TimeSpan.Zero),
-                        status
-                    });
+                    fixtures.Add(new DataStatusFixtureRow(Path.GetFileNameWithoutExtension(info.Name), info.Length,
+                        new DateTimeOffset(info.LastWriteTimeUtc, TimeSpan.Zero), status));
                 }
             }
         }
 
-        var documents = gdStore?.List() ?? [];
-        IReadOnlyList<string> missing = gdStore?.MissingIds() ?? [.. GameDataProvider.DocumentIds];
-        return Ok(new { gameData, documents, missing, config = new { enabled = configEnabled, platforms }, fixtures });
+        List<GameDataDocInfo> documents = [.. gdStore?.List() ?? []];
+        List<string> missing = [.. gdStore?.MissingIds() ?? GameDataProvider.DocumentIds];
+        return Ok(new DataStatusResponse(gameData, documents, missing, new DataStatusConfig(configEnabled, platforms),
+            fixtures));
     }
 
     [HttpGet("gamedata")]
@@ -215,12 +174,8 @@ public sealed partial class AdminController(ICurrentUser currentUser, IServicePr
         if (Db is null) return StatusCode(503, new { error = "no database configured" });
         var store = services.GetRequiredService<GameDataStore>();
         var rows = store.List().ToDictionary(d => d.Id, StringComparer.Ordinal);
-        var documents = GameDataProvider.ImportableIds
-            .Select(id => rows.TryGetValue(id, out var doc)
-                ? new { id, present = true, updatedAt = (DateTimeOffset?)doc.UpdatedAt, bytes = (int?)doc.Bytes }
-                : new { id, present = false, updatedAt = (DateTimeOffset?)null, bytes = (int?)null })
-            .ToArray();
-        return Ok(new { documents, missing = store.MissingIds() });
+        List<GameDataDocRow> documents = [.. GameDataProvider.ImportableIds.Select(id => GameDataDocRow.From(id, rows))];
+        return Ok(new GameDataStatusResponse(documents, [.. store.MissingIds()]));
     }
 
     [HttpPost("gamedata/rebuild")]
@@ -231,7 +186,9 @@ public sealed partial class AdminController(ICurrentUser currentUser, IServicePr
         var rebuilder = services.GetRequiredService<GameDataRebuilder>();
         (var results, string? binaryNote) = await rebuilder.RebuildAsync(force, ct);
         var store = services.GetRequiredService<GameDataStore>();
-        return Ok(new { results, binary = binaryNote, missing = store.MissingIds() });
+        List<GameDataRebuildDocResult> rows =
+            [.. results.Select(r => new GameDataRebuildDocResult(r.Id, r.Status, r.Count, r.Bytes, r.Note))];
+        return Ok(new GameDataRebuildResponse(rows, binaryNote, [.. store.MissingIds()]));
     }
 
     [HttpPost("protos/realign")]
@@ -282,16 +239,9 @@ public sealed partial class AdminController(ICurrentUser currentUser, IServicePr
         var icons = await db.DeviceAssets.AsNoTracking()
             .Where(i => i.Kind == DeviceAssetKinds.Icon)
             .OrderBy(i => i.Name)
-            .Select(i => new {
-                name = i.Name,
-                platform = i.Platform,
-                bytes = i.ByteSize,
-                contentType = i.ContentType,
-                sha256 = i.Sha256,
-                updatedAt = i.UpdatedAt
-            })
-            .ToListAsync(ct);
-        return Ok(new { icons });
+            .Select(i => new IconRow(i.Name, i.Platform, i.ByteSize, i.ContentType, i.Sha256, i.UpdatedAt))
+            .ToArrayAsync(ct);
+        return Ok(new IconList(icons));
     }
 
     [HttpPost("icons/{name}")]

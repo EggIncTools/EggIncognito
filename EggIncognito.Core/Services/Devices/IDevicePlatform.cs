@@ -36,6 +36,9 @@ public interface IDevicePlatform {
     Task<DeviceResult> KeyAsync(DeviceTarget target, DeviceKey key, CancellationToken ct);
     Task<DeviceResult> LaunchAppAsync(DeviceTarget target, string appRef, CancellationToken ct);
 
+    Task<string?> StreamScreenAsync(DeviceTarget target, ScreenStreamOptions options, Stream output,
+        CancellationToken ct);
+
     Task<DeviceResult> RestartAppAsync(DeviceTarget target, CancellationToken ct);
     Task<DeviceResult> LockAsync(DeviceTarget target, CancellationToken ct);
     Task<DeviceResult> UnlockAsync(DeviceTarget target, CancellationToken ct);
@@ -130,6 +133,9 @@ public sealed class NullDevicePlatform : IDevicePlatform {
 
     public Task<DeviceResult> LaunchAppAsync(DeviceTarget target, string appRef, CancellationToken ct) =>
         Task.FromResult(DeviceResult.Unsupported(Note(target)));
+
+    public Task<string?> StreamScreenAsync(DeviceTarget target, ScreenStreamOptions options, Stream output,
+        CancellationToken ct) => Task.FromResult<string?>(Note(target));
 
     public Task<DeviceResult> RestartAppAsync(DeviceTarget target, CancellationToken ct) =>
         Task.FromResult(DeviceResult.Unsupported(Note(target)));

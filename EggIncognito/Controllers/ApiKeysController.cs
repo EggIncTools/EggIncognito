@@ -37,7 +37,7 @@ public sealed class ApiKeysController(ICurrentUser currentUser, IConfiguration c
 
         (string full, string hash, string prefix) = ApiKeyGen.Mint();
         var row = await store.AddAsync(owner.Value, req.Name ?? "key", hash, prefix, ct);
-        return Ok(new { row.Id, row.Name, row.Prefix, key = full });
+        return Ok(new Minted(row.Id, row.Name, row.Prefix, full));
     }
 
     [HttpGet]
@@ -45,12 +45,13 @@ public sealed class ApiKeysController(ICurrentUser currentUser, IConfiguration c
         var owner = currentUser.UserId;
         if (owner is null) return Unauthorized(new { error = "log in to manage keys" });
         var store = Store;
-        if (store is null) return Ok(new { keys = Array.Empty<object>(), cap = Cap() });
+        if (store is null) return Ok(new KeysResponse([], Cap()));
         var rows = await store.ByOwnerAsync(owner.Value, ct);
-        return Ok(new {
-            keys = rows.Select(k => new { k.Id, k.Name, k.Prefix, k.CreatedAt, k.LastUsedAt, k.RequestCount, k.Revoked }),
-            cap = Cap()
-        });
+        List<ApiKeysPanelRow> keys = [
+            .. rows.Select(k =>
+                new ApiKeysPanelRow(k.Id, k.Name, k.Prefix, k.CreatedAt, k.LastUsedAt, k.RequestCount, k.Revoked))
+        ];
+        return Ok(new KeysResponse(keys, Cap()));
     }
 
     [HttpDelete("{id:int}")]

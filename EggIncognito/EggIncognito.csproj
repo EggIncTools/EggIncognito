@@ -17,6 +17,7 @@
     <PackageReference Include="EggIdentity.Settings.Store" />
     <PackageReference Include="EggIdentity.Styles" />
     <PackageReference Include="EggIdentity.UI" />
+    <PackageReference Include="LibUsbDotNet" />
     <PackageReference Include="SharpCompress" />
     <PackageReference Include="SixLabors.ImageSharp" />
     <PackageReference Include="SixLabors.ImageSharp.Drawing" />

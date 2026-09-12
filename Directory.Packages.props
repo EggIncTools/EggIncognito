@@ -1,29 +1,31 @@
 <Project>
   <PropertyGroup>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <EggIdentityVersion>2.4.3</EggIdentityVersion>
   </PropertyGroup>
   <ItemGroup>
     <PackageVersion Include="AngleSharp" Version="1.5.2" />
     <PackageVersion Include="bunit" Version="2.7.2" />
     <PackageVersion Include="coverlet.collector" Version="6.0.4" />
-    <PackageVersion Include="EggIdentity.AdminUi" Version="2.3.4" />
-    <PackageVersion Include="EggIdentity.Bot" Version="2.3.4" />
-    <PackageVersion Include="EggIdentity.Bot.AdminUi" Version="2.3.4" />
-    <PackageVersion Include="EggIdentity.Client" Version="2.3.4" />
-    <PackageVersion Include="EggIdentity.CodeStyle" Version="2.3.4" />
-    <PackageVersion Include="EggIdentity.Deploy" Version="2.3.4" />
-    <PackageVersion Include="EggIdentity.Deploy.AdminUi" Version="2.3.4" />
-    <PackageVersion Include="EggIdentity.Fallback" Version="2.3.4" />
-    <PackageVersion Include="EggIdentity.Metrics" Version="2.3.4" />
-    <PackageVersion Include="EggIdentity.Metrics.AdminUi" Version="2.3.4" />
-    <PackageVersion Include="EggIdentity.Settings" Version="2.3.4" />
-    <PackageVersion Include="EggIdentity.Settings.AdminUi" Version="2.3.4" />
-    <PackageVersion Include="EggIdentity.Settings.Store" Version="2.3.4" />
-    <PackageVersion Include="EggIdentity.Styles" Version="2.3.4" />
-    <PackageVersion Include="EggIdentity.UI" Version="2.3.4" />
+    <PackageVersion Include="EggIdentity.AdminUi" Version="$(EggIdentityVersion)" />
+    <PackageVersion Include="EggIdentity.Bot" Version="$(EggIdentityVersion)" />
+    <PackageVersion Include="EggIdentity.Bot.AdminUi" Version="$(EggIdentityVersion)" />
+    <PackageVersion Include="EggIdentity.Client" Version="$(EggIdentityVersion)" />
+    <PackageVersion Include="EggIdentity.CodeStyle" Version="$(EggIdentityVersion)" />
+    <PackageVersion Include="EggIdentity.Deploy" Version="$(EggIdentityVersion)" />
+    <PackageVersion Include="EggIdentity.Deploy.AdminUi" Version="$(EggIdentityVersion)" />
+    <PackageVersion Include="EggIdentity.Fallback" Version="$(EggIdentityVersion)" />
+    <PackageVersion Include="EggIdentity.Metrics" Version="$(EggIdentityVersion)" />
+    <PackageVersion Include="EggIdentity.Metrics.AdminUi" Version="$(EggIdentityVersion)" />
+    <PackageVersion Include="EggIdentity.Settings" Version="$(EggIdentityVersion)" />
+    <PackageVersion Include="EggIdentity.Settings.AdminUi" Version="$(EggIdentityVersion)" />
+    <PackageVersion Include="EggIdentity.Settings.Store" Version="$(EggIdentityVersion)" />
+    <PackageVersion Include="EggIdentity.Styles" Version="$(EggIdentityVersion)" />
+    <PackageVersion Include="EggIdentity.UI" Version="$(EggIdentityVersion)" />
     <PackageVersion Include="Gee.External.Capstone" Version="2.3.0" />
     <PackageVersion Include="Google.Protobuf" Version="3.29.3" />
     <PackageVersion Include="Grpc.Tools" Version="2.71.0" />
+    <PackageVersion Include="LibUsbDotNet" Version="3.0.224" />
     <PackageVersion Include="Microsoft.AspNetCore.DataProtection.EntityFrameworkCore" Version="10.0.10" />
     <PackageVersion Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.0" />
     <PackageVersion Include="Microsoft.CodeAnalysis.Analyzers" Version="3.11.0" />

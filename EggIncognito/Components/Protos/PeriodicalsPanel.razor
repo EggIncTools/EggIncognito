@@ -390,7 +390,7 @@
     string RewardFullName(GoalRow g) {
         return g.RewardType switch {
             "Gold" => "Golden Eggs",
-            "EggsOfProphecy" => "Eggs of Prophecy",
+            "EggsOfProphecy" => "Prophecy Eggs",
             "ShellScript" => "Shell Tickets",
             "PiggyFill" => "Piggy Fill",
             "ArtifactCase" => "Artifacts",
@@ -404,7 +404,7 @@
         var one = g.RewardAmount == 1;
         return g.RewardType switch {
             "Gold" => one ? "golden egg" : "golden eggs",
-            "EggsOfProphecy" => one ? "egg of prophecy" : "eggs of prophecy",
+            "EggsOfProphecy" => one ? "prophecy egg" : "prophecy eggs",
             "ShellScript" => one ? "shell ticket" : "shell tickets",
             "PiggyFill" => "added to the piggy bank",
             "ArtifactCase" => one ? "artifact" : "artifacts",

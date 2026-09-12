@@ -659,16 +659,10 @@ public sealed partial class DevicesController(
         if (RequireAdmin() is { } no) return no;
         (IActionResult? err, var platform, var target) = await ResolveUiAsync(id, ct);
         if (err is not null) return err;
-        if (!Platforms.Matches(platform.Platform, Platforms.Android))
-            return BadRequest(new { error = "video streaming is android only" });
+        if (!platform.Capabilities.HasFlag(DeviceCapabilities.ScreenStream))
+            return StatusCode(501, new { error = $"{platform.Platform} cannot stream video" });
         if (!VideoSizeRegex().IsMatch(size))
             return BadRequest(new { error = "size must look like WIDTHxHEIGHT, e.g. 720x1280" });
-
-        if (services.GetService(typeof(IDeviceConnectionFactory)) is not IDeviceConnectionFactory factory)
-            return StatusCode(503, new { error = "device transport not configured" });
-        var conn = factory.For(target);
-        if (conn is null) return StatusCode(502, new { error = "no connection for device" });
-        if (!conn.SupportsExecOut) return StatusCode(501, new { error = "this connection cannot stream exec-out" });
 
         var display = await platform.ScreenSizeAsync(target, ct);
         if (display.Ok) {
@@ -679,10 +673,13 @@ public sealed partial class DevicesController(
 
         if (await EnterStreamGateAsync(target.Id, ct) is { } busy) return busy;
 
-        string command = ScreenVideoPump.ScreenrecordCommand(size, Math.Clamp(bitrate, MinVideoBitrate, MaxVideoBitrate));
+        string[] wh = size.Split('x');
+        var options = new ScreenStreamOptions(
+            int.Parse(wh[0], CultureInfo.InvariantCulture),
+            int.Parse(wh[1], CultureInfo.InvariantCulture),
+            Math.Clamp(bitrate, MinVideoBitrate, MaxVideoBitrate));
         try {
             await using var hold = await DeviceStreamHold.AcquireAsync(services, target, ct);
-            await conn.ShellAsync(ScreenVideoPump.KillStaleCommand, ct);
             Response.StatusCode = StatusCodes.Status200OK;
             Response.ContentType = "application/octet-stream";
             Response.Headers.CacheControl = "no-store";
@@ -690,8 +687,7 @@ public sealed partial class DevicesController(
             Response.Headers["X-Accel-Buffering"] = "no";
             HttpContext.Features.Get<IHttpResponseBodyFeature>()?.DisableBuffering();
 
-            var pump = new ScreenVideoPump(token => conn.ExecOutStreamAsync(command, token));
-            string? note = await pump.RunAsync(Response.Body, ct);
+            string? note = await platform.StreamScreenAsync(target, options, Response.Body, ct);
             if (note is null) return new EmptyResult();
 
             (services.GetService(typeof(ILogger<DevicesController>)) as ILogger<DevicesController>)?

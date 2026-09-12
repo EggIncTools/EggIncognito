@@ -7,18 +7,21 @@ public abstract class DevicePlatformBase : IDevicePlatform {
         IEnumerable<IDeviceStoreChecker> storeCheckers,
         IEnumerable<IDeviceProxyConfigurator> proxyConfigurators,
         IEnumerable<IDeviceCaInstaller> caInstallers,
-        IEnumerable<IDeviceUiDriver> uiDrivers) {
+        IEnumerable<IDeviceUiDriver> uiDrivers,
+        IEnumerable<IScreenStreamSource> screenStreamSources) {
         Platform = platform;
         Store = storeCheckers.FirstOrDefault(c => Platforms.Matches(c.Platform, platform));
         Proxy = proxyConfigurators.FirstOrDefault(c => Platforms.Matches(c.Platform, platform));
         Ca = caInstallers.FirstOrDefault(c => Platforms.Matches(c.Platform, platform));
         Ui = uiDrivers.FirstOrDefault(c => Platforms.Matches(c.Platform, platform));
+        ScreenStream = screenStreamSources.FirstOrDefault(c => Platforms.Matches(c.Platform, platform));
     }
 
     protected IDeviceStoreChecker? Store { get; }
     protected IDeviceProxyConfigurator? Proxy { get; }
     protected IDeviceCaInstaller? Ca { get; }
     protected IDeviceUiDriver? Ui { get; }
+    protected IScreenStreamSource? ScreenStream { get; }
 
     public string Platform { get; }
 
@@ -26,7 +29,8 @@ public abstract class DevicePlatformBase : IDevicePlatform {
         DeviceCapabilities.BinaryPull | DeviceCapabilities.AssetRead | DeviceCapabilities.Probe |
         DeviceCapabilities.StoreUpdate | DeviceCapabilities.Proxy | DeviceCapabilities.CaInstall |
         DeviceCapabilities.AppLifecycle | DeviceCapabilities.ParticleCapture |
-        (Ui is not null ? DeviceCapabilities.UiNavigation : DeviceCapabilities.None);
+        (Ui is not null ? DeviceCapabilities.UiNavigation : DeviceCapabilities.None) |
+        (ScreenStream is not null ? DeviceCapabilities.ScreenStream : DeviceCapabilities.None);
 
     public Task<StoreCheckResult> DriveStoreUpdateAsync(DeviceTarget target, CancellationToken ct,
         Action<string>? progress = null) =>
@@ -101,6 +105,12 @@ public abstract class DevicePlatformBase : IDevicePlatform {
         Ui is null
             ? DeviceResult.Unsupported($"no {Platform} ui driver")
             : await Ui.LaunchAppAsync(target, appRef, ct);
+
+    public virtual async Task<string?> StreamScreenAsync(DeviceTarget target, ScreenStreamOptions options,
+        Stream output, CancellationToken ct) =>
+        ScreenStream is null
+            ? $"no {Platform} screen stream source"
+            : await ScreenStream.StreamAsync(target, options, output, ct);
 
     public abstract Task<DeviceResult<byte[]>> PullAppBinaryAsync(DeviceTarget target, CancellationToken ct);
 

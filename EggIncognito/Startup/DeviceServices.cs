@@ -249,6 +249,9 @@ public static class DeviceServices {
         builder.Services.AddSingleton<IDeviceUiDriver>(sp => new IosUiDriver(
             sp.GetRequiredService<IDeviceConnectionFactory>(), new IosUiDriver.Options(iosUiNavTweakPath)));
 
+        builder.Services.AddSingleton<IScreenStreamSource, AndroidScreenStreamSource>();
+        builder.Services.AddSingleton<IScreenStreamSource, IosScreenStreamSource>();
+
         builder.Services.AddSingleton<AndroidPlatform>();
 
         if (boot.FakeDevices) {
@@ -273,7 +276,8 @@ public static class DeviceServices {
             platform, boot.FakeDeviceSettings, sp.GetRequiredService<FakeDeviceVersions>(),
             sp.GetRequiredService<FakeFixtureSource>(), sp.GetRequiredService<ILogger<FakeDevicePlatform>>(),
             sp.GetServices<IDeviceStoreChecker>(), sp.GetServices<IDeviceProxyConfigurator>(),
-            sp.GetServices<IDeviceCaInstaller>(), sp.GetServices<IDeviceUiDriver>()));
+            sp.GetServices<IDeviceCaInstaller>(), sp.GetServices<IDeviceUiDriver>(),
+            sp.GetServices<IScreenStreamSource>()));
     }
 
     private static StoreUpdateOrchestrator AndroidChecker(IServiceProvider sp, ConfigurationManager config) {

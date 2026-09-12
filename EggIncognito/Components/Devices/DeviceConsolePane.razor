@@ -702,7 +702,7 @@
     }
 
     bool RecomputeVideo() {
-        var next = _videoSupported == true && IsAndroid && !_videoFallback;
+        var next = _videoSupported == true && !_videoFallback;
         if (next == _useVideo) return false;
         _useVideo = next;
         return true;

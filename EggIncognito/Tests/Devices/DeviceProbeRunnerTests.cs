@@ -99,7 +99,7 @@ public class DeviceProbeRunnerTests {
     }
 
     private sealed class RecordingPlatform(string platform)
-        : DevicePlatformBase(platform, [], [], [], []) {
+        : DevicePlatformBase(platform, [], [], [], [], []) {
         private const string Refusal = "recording platform";
 
         public DeviceTarget? Target { get; private set; }

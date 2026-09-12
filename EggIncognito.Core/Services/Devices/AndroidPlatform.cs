@@ -12,8 +12,10 @@ public sealed class AndroidPlatform(
     IEnumerable<IDeviceProxyConfigurator> proxyConfigurators,
     IEnumerable<IDeviceCaInstaller> caInstallers,
     IEnumerable<IDeviceUiDriver> uiDrivers,
+    IEnumerable<IScreenStreamSource> screenStreamSources,
     ILogger<AndroidPlatform> logger)
-    : DevicePlatformBase(Platforms.Android, storeCheckers, proxyConfigurators, caInstallers, uiDrivers) {
+    : DevicePlatformBase(Platforms.Android, storeCheckers, proxyConfigurators, caInstallers, uiDrivers,
+        screenStreamSources) {
     private readonly bool _particleCaptureEnabled =
         !bool.TryParse(appConfig["DeviceCapture:AndroidParticleCapture"], out bool enabled) || enabled;
 

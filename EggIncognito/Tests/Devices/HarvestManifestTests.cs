@@ -12,13 +12,13 @@ public class HarvestManifestTests {
     }
 
     private static AndroidPlatform Android() =>
-        new(new DeadRunner(), new ConfigurationBuilder().Build(), [], [], [], [],
+        new(new DeadRunner(), new ConfigurationBuilder().Build(), [], [], [], [], [],
             NullLogger<AndroidPlatform>.Instance);
 
     private static IosPlatform Ios() {
         var runner = new DeadRunner();
         var config = new DeviceCaptureConfig();
-        return new IosPlatform(new DeviceConnectionFactory(runner, config), config, runner, [], [], [], [],
+        return new IosPlatform(new DeviceConnectionFactory(runner, config), config, runner, [], [], [], [], [],
             NullLogger<IosPlatform>.Instance);
     }
 
