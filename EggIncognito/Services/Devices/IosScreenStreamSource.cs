@@ -1,5 +1,6 @@
 using EggIncognito.Core.Services.Devices;
 using EggIncognito.Services.Devices.QuickTime;
+using LibUsbDotNet.LibUsb;
 
 namespace EggIncognito.Services.Devices;
 
@@ -11,13 +12,15 @@ public sealed class IosScreenStreamSource(ILogger<IosScreenStreamSource> log) : 
     public async Task<string?> StreamAsync(DeviceTarget target, ScreenStreamOptions options, Stream output,
         CancellationToken ct) {
         QtUsbDevice? usb;
+        string? openNote;
         try {
-            usb = await QtUsbDevice.OpenAsync(target.Target, ct);
-        } catch (Exception ex) when (ex is IOException or InvalidOperationException or UnauthorizedAccessException) {
+            (usb, openNote) = await QtUsbDevice.OpenAsync(target.Target, ct);
+        } catch (Exception ex) when (ex is IOException or InvalidOperationException
+                                        or UnauthorizedAccessException or UsbException) {
             return $"quicktime usb open failed: {ex.Message}";
         }
 
-        if (usb is null) return "no quicktime av interface on this device";
+        if (usb is null) return openNote ?? "no quicktime av interface on this device";
 
         using (usb) {
             var session = new QtSession((data, token) => usb.SendAsync(data, token), output,

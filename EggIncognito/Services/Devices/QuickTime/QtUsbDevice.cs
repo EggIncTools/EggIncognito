@@ -22,22 +22,21 @@ internal sealed class QtUsbDevice : IDisposable {
     private UsbEndpointWriter? _writer;
     private int _interfaceNumber = -1;
 
-    public static async Task<QtUsbDevice?> OpenAsync(string udid, CancellationToken ct) {
+    public static async Task<(QtUsbDevice? Device, string? Note)> OpenAsync(string udid, CancellationToken ct) {
         var dev = new QtUsbDevice();
         try {
-            if (!await dev.ConnectAsync(udid, ct)) {
-                dev.Dispose();
-                return null;
-            }
-            return dev;
+            string? note = await dev.ConnectAsync(udid, ct);
+            if (note is null) return (dev, null);
+            dev.Dispose();
+            return (null, note);
         } catch {
             dev.Dispose();
             throw;
         }
     }
 
-    private async Task<bool> ConnectAsync(string udid, CancellationToken ct) {
-        if (!TryFind(udid, out var device) || device is null) return false;
+    private async Task<string?> ConnectAsync(string udid, CancellationToken ct) {
+        if (!TryFind(udid, out var device) || device is null) return "device not present on usb";
 
         if (!HasQuickTimeConfig(device)) {
             EnableQuickTimeConfig(device);
@@ -53,7 +52,7 @@ internal sealed class QtUsbDevice : IDisposable {
                     found.Dispose();
                 }
             }
-            if (device is null) return false;
+            if (device is null) return "device did not expose the quicktime config after enabling it";
         }
 
         _device = device;
@@ -103,17 +102,19 @@ internal sealed class QtUsbDevice : IDisposable {
         device.ControlTransfer(setup);
     }
 
-    private static void DisableQuickTimeConfig(IUsbDevice device) {
-        var setup = new UsbSetupPacket(0x40, 0x52, 0x00, 0x00, 0);
-        device.ControlTransfer(setup);
-    }
 
-    private bool ClaimQuickTimeInterface() {
-        if (_device is null) return false;
-        if (FindQuickTimeConfig(_device) is not { } qt) return false;
 
-        _device.SetConfiguration(qt.Config);
-        if (!_device.ClaimInterface(qt.Interface)) return false;
+    private string? ClaimQuickTimeInterface() {
+        if (_device is null) return "usb device was not opened";
+        if (FindQuickTimeConfig(_device) is not { } qt) return "no quicktime av interface on this device";
+
+        bool switched = TrySetConfiguration(qt.Config);
+        if (!_device.ClaimInterface(qt.Interface))
+            return switched
+                ? "could not claim the quicktime av interface"
+                : $"device is not on usb configuration {qt.Config} and it could not be switched while " +
+                  "another process holds an interface; switch it once on the host " +
+                  "(stop usbmuxd, write the configuration, start usbmuxd)";
         _interfaceNumber = qt.Interface;
 
         ClearFeature(qt.ReadEndpoint);
@@ -121,7 +122,16 @@ internal sealed class QtUsbDevice : IDisposable {
 
         _reader = _device.OpenEndpointReader((ReadEndpointID)qt.ReadEndpoint, ReadBufferSize);
         _writer = _device.OpenEndpointWriter((WriteEndpointID)qt.WriteEndpoint);
-        return _reader is not null && _writer is not null;
+        return _reader is not null && _writer is not null ? null : "could not open the quicktime bulk endpoints";
+    }
+
+    private bool TrySetConfiguration(int config) {
+        try {
+            _device!.SetConfiguration(config);
+            return true;
+        } catch (UsbException) {
+            return false;
+        }
     }
 
     private void ClearFeature(byte endpoint) {
@@ -165,10 +175,7 @@ internal sealed class QtUsbDevice : IDisposable {
 
     public void Dispose() {
         try {
-            if (_device is not null) {
-                if (_interfaceNumber >= 0) _device.ReleaseInterface(_interfaceNumber);
-                DisableQuickTimeConfig(_device);
-            }
+            if (_device is not null && _interfaceNumber >= 0) _device.ReleaseInterface(_interfaceNumber);
         } catch (Exception ex) when (ex is UsbException or IOException or InvalidOperationException) {
         }
         _device?.Dispose();
