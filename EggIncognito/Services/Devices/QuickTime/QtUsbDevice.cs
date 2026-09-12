@@ -102,8 +102,6 @@ internal sealed class QtUsbDevice : IDisposable {
         device.ControlTransfer(setup);
     }
 
-
-
     private string? ClaimQuickTimeInterface() {
         if (_device is null) return "usb device was not opened";
         if (FindQuickTimeConfig(_device) is not { } qt) return "no quicktime av interface on this device";
