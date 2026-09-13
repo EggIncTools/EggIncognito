@@ -15,8 +15,11 @@ internal sealed class QtUsbDevice : IDisposable {
     private const int ReadTimeoutMs = 2000;
     private const int WriteTimeoutMs = 2000;
     private const int ReadBufferSize = 256 * 1024;
+    private const int MaxPacketSize = 8 * 1024 * 1024;
 
     private readonly UsbContext _ctx = new();
+    private byte[] _buffer = new byte[ReadBufferSize];
+    private int _pending;
     private IUsbDevice? _device;
     private UsbEndpointReader? _reader;
     private UsbEndpointWriter? _writer;
@@ -148,27 +151,47 @@ internal sealed class QtUsbDevice : IDisposable {
 
     public byte[]? ReadPacket(CancellationToken ct) {
         if (_reader is null) return null;
-        byte[] header = new byte[4];
-        if (!ReadExact(header, ct)) return null;
-        uint total = BinaryPrimitives.ReadUInt32LittleEndian(header);
-        if (total is < 4 or > ReadBufferSize) return null;
-        byte[] body = new byte[total - 4];
-        if (body.Length == 0) return body;
-        return ReadExact(body, ct) ? body : null;
+
+        while (true) {
+            ct.ThrowIfCancellationRequested();
+            if (TryTakePacket() is { } packet) return packet;
+            if (!Fill()) return null;
+        }
     }
 
-    private bool ReadExact(byte[] buffer, CancellationToken ct) {
-        int at = 0;
-        while (at < buffer.Length) {
-            ct.ThrowIfCancellationRequested();
-            byte[] chunk = new byte[buffer.Length - at];
-            var code = _reader!.Read(chunk, ReadTimeoutMs, out int read);
-            if (code is Error.Timeout) continue;
-            if (code is not Error.Success || read == 0) return false;
-            Array.Copy(chunk, 0, buffer, at, read);
-            at += read;
+    private byte[]? TryTakePacket() {
+        if (_pending < 4) return null;
+        uint total = BinaryPrimitives.ReadUInt32LittleEndian(_buffer);
+        if (total is < 4 or > MaxPacketSize) {
+            _pending = 0;
+            return null;
         }
+        if (_pending < total) return null;
+
+        byte[] body = _buffer.AsSpan(4, (int)total - 4).ToArray();
+        int rest = _pending - (int)total;
+        if (rest > 0) Array.Copy(_buffer, (int)total, _buffer, 0, rest);
+        _pending = rest;
+        return body;
+    }
+
+    private bool Fill() {
+        if (_pending >= _buffer.Length) Grow();
+        byte[] chunk = new byte[_buffer.Length - _pending];
+        var code = _reader!.Read(chunk, ReadTimeoutMs, out int read);
+        if (code is Error.Timeout) return true;
+        if (code is not Error.Success || read == 0) return false;
+        Array.Copy(chunk, 0, _buffer, _pending, read);
+        _pending += read;
         return true;
+    }
+
+    private void Grow() {
+        if (_buffer.Length >= MaxPacketSize)
+            throw new IOException("quicktime packet exceeded the maximum buffer size");
+        byte[] bigger = new byte[Math.Min(_buffer.Length * 2, MaxPacketSize)];
+        Array.Copy(_buffer, bigger, _pending);
+        _buffer = bigger;
     }
 
     public void Dispose() {
