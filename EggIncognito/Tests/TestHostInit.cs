@@ -5,6 +5,7 @@ namespace EggIncognito.Tests;
 
 internal static class TestHostInit {
     private static readonly string[] FlatKeys = [
+        "ADMIN_API_SECRET",
         "AppMode",
         "CaptureEnabled",
         "CaptureLabel",

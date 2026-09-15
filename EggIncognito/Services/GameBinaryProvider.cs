@@ -271,9 +271,10 @@ public sealed class GameBinaryProvider(
             }
 
             if (row is not null) {
-                var resolved = await ResolveSymbolsAsync(row.Bytes, ct);
+                byte[] bytes = await store.BytesAsync(row, ct);
+                var resolved = await ResolveSymbolsAsync(bytes, ct);
                 string shaShort = row.Sha256.Length >= 12 ? row.Sha256[..12] : row.Sha256;
-                return (true, row.Bytes, resolved.Syms, version,
+                return (true, bytes, resolved.Syms, version,
                     $"stored binary {platform} {version} (sha {shaShort}); {resolved.Note}");
             }
         }

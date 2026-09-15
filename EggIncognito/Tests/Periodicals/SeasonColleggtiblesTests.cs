@@ -59,4 +59,20 @@ public class SeasonColleggtiblesTests {
         Assert.Equal("/icon/ice", egg.Icon);
         Assert.Equal(["Frozen"], egg.Contracts);
     }
+
+    [Fact]
+    public void TwoEggsDebutingInOneSeason_BothBelongToIt() {
+        EggSighting[] sightings = [
+            new("sunglow", "summer_2025", 1_750_000_000, "Sunglow Debut"),
+            new("seafoam", "summer_2025", 1_752_000_000, "Seafoam Debut"),
+            new("seafoam", "fall_2025", 1_758_000_000, "Seafoam Rerun")
+        ];
+
+        var result = SeasonColleggtibles.Attribute(sightings, Seasons, _ => null);
+
+        var eggs = Assert.Single(result).Value;
+        Assert.Equal("summer_2025", result.Keys.Single());
+        Assert.Equal(["sunglow", "seafoam"], eggs.Select(e => e.Id));
+        Assert.Equal(["Seafoam Debut"], eggs.Single(e => e.Id == "seafoam").Contracts);
+    }
 }

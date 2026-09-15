@@ -48,9 +48,9 @@ public sealed class DeviceIslandsController(
             return await store.ListAsync(target.Id, ct);
 
         var provisioned = new HashSet<int>();
-        foreach ((int userId, _) in DeviceIslandStore.ParseUsers(users.Stdout)) {
-            var setup = await conn.ShellAsync($"settings get --user {userId} secure user_setup_complete", ct);
-            if (setup.ExitCode == 0 && setup.Stdout.Trim() == "1") provisioned.Add(userId);
+        foreach ((int androidUserId, _) in DeviceIslandStore.ParseUsers(users.Stdout)) {
+            var setup = await conn.ShellAsync($"settings get --user {androidUserId} secure user_setup_complete", ct);
+            if (setup.ExitCode == 0 && setup.Stdout.Trim() == "1") provisioned.Add(androidUserId);
         }
 
         return await store.ReconcileAsync(target.Id, users.Stdout, provisioned, ct);
@@ -72,9 +72,9 @@ public sealed class DeviceIslandsController(
         return Ok((await ReconciledAsync(store, target, ct)).Select(Project));
     }
 
-    [HttpDelete("{id}/islands/{userId:int}")]
+    [HttpDelete("{id}/islands/{androidUserId:int}")]
     [EnableRateLimiting("write")]
-    public async Task<IActionResult> Remove(string id, int userId, CancellationToken ct) {
+    public async Task<IActionResult> Remove(string id, int androidUserId, CancellationToken ct) {
         if (RequireAdmin() is { } no) return no;
         if (Runner is not { } runner || Islands is not { } store)
             return StatusCode(503, new { error = "no database configured" });
@@ -82,7 +82,7 @@ public sealed class DeviceIslandsController(
 
         string who = currentUser.DiscordId ?? "?";
         var run = await runner.RunNowAsync(id,
-            new DeviceCookbookRequest(DeviceCookbookIds.RemoveIsland, UserId: userId), $"admin:{who}", ct);
+            new DeviceCookbookRequest(DeviceCookbookIds.RemoveIsland, AndroidUserId: androidUserId), $"admin:{who}", ct);
         if (!run.Ok) return StatusCode(502, new { error = run.Failure ?? "remove-island failed" });
 
         return Ok((await ReconciledAsync(store, target, ct)).Select(Project));
@@ -99,15 +99,15 @@ public sealed class DeviceIslandsController(
             return Ok(new IslandCurrent(IslandScope.Owner));
 
         var r = await conn.ShellAsync("am get-current-user", ct);
-        int uid = r.ExitCode == 0 && int.TryParse(r.Stdout.Trim(), out int u) ? u : IslandScope.Owner;
-        return Ok(new IslandCurrent(uid));
+        int current = r.ExitCode == 0 && int.TryParse(r.Stdout.Trim(), out int u) ? u : IslandScope.Owner;
+        return Ok(new IslandCurrent(current));
     }
 
-    [HttpPost("{id}/islands/{userId:int}/switch")]
+    [HttpPost("{id}/islands/{androidUserId:int}/switch")]
     [EnableRateLimiting("write")]
-    public async Task<IActionResult> Switch(string id, int userId, CancellationToken ct) {
+    public async Task<IActionResult> Switch(string id, int androidUserId, CancellationToken ct) {
         if (RequireAdmin() is { } no) return no;
-        if (userId < 0) return BadRequest(new { error = "user id must be non-negative" });
+        if (androidUserId < 0) return BadRequest(new { error = "android user id must be non-negative" });
         if (Runner is not { } runner) return StatusCode(503, new { error = "no database configured" });
         if (await runner.TargetAsync(id, ct) is not { } target) return NotFound(new { error = "unknown device" });
         if (!Platforms.Matches(target.Platform, Platforms.Android))
@@ -116,12 +116,12 @@ public sealed class DeviceIslandsController(
             || factory.For(target) is not { } conn)
             return StatusCode(502, new { error = "no connection for device" });
 
-        var r = await IslandScope.SwitchAsync(conn, userId, ct);
+        var r = await IslandScope.SwitchAsync(conn, androidUserId, ct);
         return r.Ok
             ? Ok(new UiActionResult(true, DeviceOutcomes.Label(r), r.Note))
             : StatusCode(502, new { error = r.Note ?? "switch failed" });
     }
 
     private static IslandRow Project(DeviceIsland island) =>
-        new(island.UserId, island.Label, island.Provisioned, island.EggAccountId);
+        new(island.AndroidUserId, island.Label, island.Provisioned, island.EggAccountId);
 }

@@ -33,7 +33,7 @@ public sealed record DeviceCookbookInfo(
     public string Group { get; init; } = CookbookGroups.Step;
 }
 
-public sealed record DeviceCookbookRequest(string CookbookId, string? Argument = null, int? UserId = null);
+public sealed record DeviceCookbookRequest(string CookbookId, string? Argument = null, int? AndroidUserId = null);
 
 public sealed record DeviceCookbookRun(
     bool Ok,
@@ -58,7 +58,7 @@ public sealed record DeviceCookbookContext(
     DeviceTarget Target,
     string? Argument,
     Action<string> Progress,
-    int? UserId = null);
+    int? AndroidUserId = null);
 
 public interface IDeviceCookbook {
     string Id { get; }

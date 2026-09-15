@@ -1,6 +1,5 @@
 using EggIncognito.Core.Services.Assets;
 using EggIncognito.Core.Services.Devices;
-using EggIncognito.Data.Models;
 using EggIncognito.Data.Services;
 
 namespace EggIncognito.Services.Assets;
@@ -16,7 +15,8 @@ public sealed class IconDbTier(IServiceProvider services, ILogger<IconDbTier> lo
         if (store is null) return null;
         try {
             var row = await store.GetAsync(DeviceAssetKinds.Icon, key.Name, key.Platform, ct);
-            return row is null ? null : ToAsset(key, row);
+            if (row is null) return null;
+            return new GameAsset(key, await store.BytesAsync(row, ct), row.ContentType, $"db@{row.Name}", row.UpdatedAt);
         } catch (Exception ex) {
             logger.LogWarning(ex, "icon db read failed {Name}", key.Name);
             return null;
@@ -33,9 +33,6 @@ public sealed class IconDbTier(IServiceProvider services, ILogger<IconDbTier> lo
             logger.LogWarning(ex, "icon db write failed {Name}", asset.Key.Name);
         }
     }
-
-    private static GameAsset ToAsset(GameAssetKey key, DeviceAsset row) =>
-        new(key, row.Bytes, row.ContentType, $"db@{row.Name}", row.UpdatedAt);
 }
 
 public sealed class IconDiskTier(IconAssetCache cache) : IGameAssetTier {

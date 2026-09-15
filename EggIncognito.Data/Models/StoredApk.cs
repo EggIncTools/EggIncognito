@@ -13,7 +13,7 @@ public static class ApkSplitNames {
 }
 
 [Table("stored_apks")]
-public sealed class StoredApk {
+public sealed class StoredApk : IBlobRow {
     [Key][Column("id")] public long Id { get; set; }
 
     [Column("platform")] public string Platform { get; set; } = "android";
@@ -28,7 +28,7 @@ public sealed class StoredApk {
 
     [Column("sha256")] public string Sha256 { get; set; } = "";
 
-    [Column("bytes")] public byte[] Bytes { get; set; } = [];
+    [Column("bytes")] public byte[]? Bytes { get; set; }
 
     [Column("byte_size")] public long ByteSize { get; set; }
 

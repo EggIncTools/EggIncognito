@@ -1748,9 +1748,9 @@ namespace EggIncognito.Data.Migrations
                         .HasColumnType("text")
                         .HasColumnName("device_id");
 
-                    b.Property<int>("UserId")
+                    b.Property<int>("AndroidUserId")
                         .HasColumnType("integer")
-                        .HasColumnName("user_id");
+                        .HasColumnName("android_user_id");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .ValueGeneratedOnAdd()
@@ -1771,7 +1771,7 @@ namespace EggIncognito.Data.Migrations
                         .HasColumnType("boolean")
                         .HasColumnName("provisioned");
 
-                    b.HasKey("DeviceId", "UserId");
+                    b.HasKey("DeviceId", "AndroidUserId");
 
                     b.HasIndex("DeviceId");
 

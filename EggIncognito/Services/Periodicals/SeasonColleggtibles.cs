@@ -10,11 +10,13 @@ public static class SeasonColleggtibles {
         Func<string, string?> icon) {
         var byEgg = sightings
             .Where(s => !string.IsNullOrEmpty(s.EggId) && s.StartTime > 0)
-            .GroupBy(s => s.EggId, StringComparer.Ordinal);
+            .GroupBy(s => s.EggId, StringComparer.Ordinal)
+            .Select(g => (Egg: g, First: g.MinBy(s => s.StartTime)!))
+            .OrderBy(x => x.First.StartTime)
+            .ThenBy(x => x.Egg.Key, StringComparer.Ordinal);
 
         var result = new Dictionary<string, List<SeasonEgg>>(StringComparer.Ordinal);
-        foreach (var egg in byEgg) {
-            var first = egg.MinBy(s => s.StartTime)!;
+        foreach (var (egg, first) in byEgg) {
             if (string.IsNullOrEmpty(first.SeasonId) || !seasonIds.Contains(first.SeasonId)) continue;
 
             var contracts = egg

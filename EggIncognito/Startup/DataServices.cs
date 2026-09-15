@@ -61,6 +61,12 @@ public static class DataServices {
         if (!boot.DbEnabled) return;
 
         builder.Services.AddDbContextPool<EggIncognitoDbContext>(o => o.UseNpgsql(boot.PgConn));
+        builder.Services.AddSingleton(
+            BlobFileStore.For(ContentRoot.Resolve(builder.Configuration["ContentRoot"])));
+        builder.Services.AddSingleton<BlobBytes>();
+        builder.Services.AddSingleton(new BlobOffloadGate(
+            builder.Configuration.GetValue("Storage:BlobOffloadEnabled", false)));
+        builder.Services.AddHostedService<BlobOffloadService>();
         builder.Services.AddDataProtection()
             .SetApplicationName("EggIncognito")
             .PersistKeysToDbContext<EggIncognitoDbContext>();

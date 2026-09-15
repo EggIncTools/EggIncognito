@@ -35,7 +35,21 @@
         "Devices__Virtual__Enabled": "true",
         "Devices__Virtual__Kind": "redroid",
         "DeviceTransport__Mode": "Remote",
-        "DeviceTransport__RemoteBaseUrl": "http://192.168.1.66:8085",
+        "Devices__Virtual__Image": "redroid/redroid:11.0.0_gapps_ndk_magisk_integrity"
+      }
+    },
+    "subprod-auth": {
+      "commandName": "Project",
+      "dotnetRunMessages": true,
+      "launchBrowser": false,
+      "applicationUrl": "http://localhost:5080",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Staging",
+        "Feed__PageBaseUrl": "http://localhost:5080",
+        "DeviceCapture__Enabled": "true",
+        "Devices__Virtual__Enabled": "true",
+        "Devices__Virtual__Kind": "redroid",
+        "DeviceTransport__Mode": "Remote",
         "Devices__Virtual__Image": "redroid/redroid:11.0.0_gapps_ndk_magisk_integrity"
       }
     }

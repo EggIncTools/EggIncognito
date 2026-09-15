@@ -3,8 +3,6 @@ using EggIdentity.Auth;
 using EggIdentity.Client;
 using EggIncognito.Services;
 using EggIncognito.Services.Auth;
-using Microsoft.AspNetCore.Authentication;
-using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Mvc;
 
 namespace EggIncognito.Controllers;
@@ -18,24 +16,22 @@ public sealed class AuthController(
     [HttpPost("/logout")]
     public async Task<IActionResult> Logout() {
         if (!authState.Enabled) return NotFound();
-        await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
         var session = HttpContext.RequestServices.GetService<SessionCookieOptions>();
-        if (session is not null) {
-            string? sid = User.FindFirstValue(SessionClaims.SessionId);
-            if (!string.IsNullOrEmpty(sid)) {
-                var identity = HttpContext.RequestServices.GetService<IdentityApiClient>();
-                if (identity is not null)
-                    try {
-                        await identity.RevokeSessionAsync(sid, HttpContext.RequestAborted);
-                    } catch (HttpRequestException ex) {
-                        logger.LogWarning(ex,
-                            "logout: shared session {Sid} not revoked, identity API unreachable", sid);
-                    }
-            }
+        if (session is null) return Redirect("/");
 
-            SessionIssuer.ClearCookie(Response, session);
+        string? sid = User.FindFirstValue(SessionClaims.SessionId);
+        if (!string.IsNullOrEmpty(sid)) {
+            var identity = HttpContext.RequestServices.GetService<IdentityApiClient>();
+            if (identity is not null)
+                try {
+                    await identity.RevokeSessionAsync(sid, HttpContext.RequestAborted);
+                } catch (HttpRequestException ex) {
+                    logger.LogWarning(ex,
+                        "logout: shared session {Sid} not revoked, identity API unreachable", sid);
+                }
         }
 
+        SessionIssuer.ClearCookie(Response, session);
         return Redirect("/");
     }
 

@@ -24,7 +24,6 @@ public static class IdentityServices {
         if (boot.LocalIdentity is not null) builder.AddLocalIdentityAuth(boot.LocalIdentity);
 
         builder.Services.AddSingleton(boot.AuthState);
-        builder.Services.AddScoped<LoginSignIn>();
         builder.Services.AddHttpContextAccessor();
         builder.Services.AddEggIdentityRequestMetrics(o => {
             o.PathPrefix = "/api";

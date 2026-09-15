@@ -471,12 +471,13 @@ public sealed class DecompController(
             return StatusCode(403, new { error = "contributor role required" });
         if (Store is not { } store) return StatusCode(503, new { error = "no database configured" });
         var row = await store.GetAsync(platform, version, ct);
-        if (row is null || row.Bytes.Length == 0)
+        if (row is null || row.ByteSize == 0)
             return NotFound(new { ok = false, error = $"no stored binary {platform} {version}" });
 
         Response.Headers.CacheControl = "private, max-age=3600";
         Response.Headers.ETag = $"\"{row.Sha256}\"";
-        return File(row.Bytes, "application/octet-stream", StoredBinaryFileName(row.Platform, row.AppVersion));
+        return File(await store.BytesAsync(row, ct), "application/octet-stream",
+            StoredBinaryFileName(row.Platform, row.AppVersion));
     }
 
     private static string StoredBinaryFileName(string platform, string version) {

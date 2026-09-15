@@ -4,7 +4,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 namespace EggIncognito.Data.Models;
 
 [Table("device_assets")]
-public sealed class DeviceAsset {
+public sealed class DeviceAsset : IBlobRow {
     [Key][Column("id")] public long Id { get; set; }
 
     [Column("platform")] public string Platform { get; set; } = "";
@@ -15,7 +15,7 @@ public sealed class DeviceAsset {
 
     [Column("sha256")] public string Sha256 { get; set; } = "";
 
-    [Column("bytes")] public byte[] Bytes { get; set; } = [];
+    [Column("bytes")] public byte[]? Bytes { get; set; }
 
     [Column("byte_size")] public long ByteSize { get; set; }
 

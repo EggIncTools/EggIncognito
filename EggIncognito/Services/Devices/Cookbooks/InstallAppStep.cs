@@ -209,7 +209,9 @@ public sealed class InstallAppStep(
             return (null, $"the apk store has no base split for {appVersion} ({build})");
 
         add($"loaded {rows.Count} stored split(s) for {appVersion} ({build})");
-        return ([.. rows.Select(r => new CookbookApkSplit(r.Split, r.Bytes))], null);
+        var splits = new List<CookbookApkSplit>(rows.Count);
+        foreach (var row in rows) splits.Add(new CookbookApkSplit(row.Split, await store.BytesAsync(row, ct)));
+        return (splits, null);
     }
 
     private async Task<(string? AppVersion, string? Build)> SourceVersionAsync(

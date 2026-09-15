@@ -17,7 +17,7 @@ public sealed class MeshDbTier(IServiceProvider services, ILogger<MeshDbTier> lo
         try {
             var row = await store.GetAsync(DeviceAssetKinds.Mesh, key.Name, key.Platform, ct);
             if (row is null) return null;
-            var decode = RpoMeshDecoder.Decode(row.Bytes, row.Name);
+            var decode = RpoMeshDecoder.Decode(await store.BytesAsync(row, ct), row.Name);
             if (!decode.Ok) {
                 logger.LogWarning("mesh decode failed {Stem}: {Why}", row.Name, decode.Diagnostics);
                 return null;

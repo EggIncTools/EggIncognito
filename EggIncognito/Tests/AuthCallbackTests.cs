@@ -1,62 +1,73 @@
-using System.Net;
-using EggIdentity.Client;
 using EggIncognito.Services;
-using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.Mvc.Testing;
-using Microsoft.Extensions.DependencyInjection;
+using Microsoft.AspNetCore.Http;
 
 namespace EggIncognito.Tests;
 
-public sealed class AuthCallbackFactory : EgiTestFactory {
-    protected override void Configure(IWebHostBuilder builder) {
-        builder.UseSetting(IdentityConfigKeys.ApiUrl, "http://identity.local");
-        builder.UseSetting(IdentityConfigKeys.ApiSecret, "test-secret");
-        builder.UseSetting(IdentityConfigKeys.WidgetUrl, "http://identity.local");
-        builder.ConfigureServices(s => s.AddSingleton(_ => StubIdentity()));
-    }
+public class AuthCallbackTests {
+    private static readonly AuthState Enabled =
+        new(true, "http://identity.local", SessionActive: true);
 
-    private static IdentityApiClient StubIdentity() {
-        var uid = Guid.NewGuid();
-        var http = new HttpClient(new StubHttpMessageHandler(req =>
-                StubHttpMessageHandler.Json(HttpStatusCode.OK,
-                    $$"""{"userId":"{{uid}}","username":"tester","role":"viewer","discordId":null,"avatar":null,"isNew":false}"""))) { BaseAddress = new Uri("http://identity.local") };
-        return new IdentityApiClient(http);
-    }
-}
+    private static async Task<(int Status, string? Location, bool Continued)> RunAsync(
+        AuthState state, string method, string path, string query) {
+        bool continued = false;
+        var mw = new LoginCallbackMiddleware(_ => {
+            continued = true;
+            return Task.CompletedTask;
+        });
 
-public class AuthCallbackTests(AuthCallbackFactory f) : IClassFixture<AuthCallbackFactory> {
-    private HttpClient NoRedirectClient() =>
-        f.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+        var ctx = new DefaultHttpContext();
+        ctx.Request.Method = method;
+        ctx.Request.Path = path;
+        ctx.Request.QueryString = new QueryString(query);
+        await mw.Invoke(ctx, state);
+        return (ctx.Response.StatusCode, ctx.Response.Headers.Location.ToString() is { Length: > 0 } l ? l : null,
+            continued);
+    }
 
     [Fact]
-    public async Task Code_OnAnyPage_SignsInAndRedirectsClean() {
-        var c = NoRedirectClient();
-        var r = await c.GetAsync("/protos?code=goodcode");
-        Assert.Equal(HttpStatusCode.Redirect, r.StatusCode);
-        Assert.Equal("/protos", r.Headers.Location?.OriginalString);
-        Assert.Contains("egi.auth", string.Join(";", r.Headers.GetValues("Set-Cookie")));
+    public async Task Code_OnAnyPage_RedirectsClean() {
+        var r = await RunAsync(Enabled, "GET", "/protos", "?code=goodcode");
+        Assert.Equal(StatusCodes.Status302Found, r.Status);
+        Assert.Equal("/protos", r.Location);
+        Assert.False(r.Continued);
     }
 
     [Fact]
     public async Task Code_PreservesOtherQueryParams() {
-        var c = NoRedirectClient();
-        var r = await c.GetAsync("/protos?tab=discord&code=goodcode");
-        Assert.Equal(HttpStatusCode.Redirect, r.StatusCode);
-        Assert.Equal("/protos?tab=discord", r.Headers.Location?.OriginalString);
+        var r = await RunAsync(Enabled, "GET", "/protos", "?tab=discord&code=goodcode");
+        Assert.Equal("/protos?tab=discord", r.Location);
     }
 
     [Fact]
     public async Task Error_RedirectsWithLoginErrorFlag() {
-        var c = NoRedirectClient();
-        var r = await c.GetAsync("/?error=login_failed");
-        Assert.Equal(HttpStatusCode.Redirect, r.StatusCode);
-        Assert.Equal("/?login_error=1", r.Headers.Location?.OriginalString);
+        var r = await RunAsync(Enabled, "GET", "/", "?error=login_failed");
+        Assert.Equal("/?login_error=1", r.Location);
+    }
+
+    [Fact]
+    public async Task State_IsStrippedToo() {
+        var r = await RunAsync(Enabled, "GET", "/protos", "?code=c&state=s");
+        Assert.Equal("/protos", r.Location);
     }
 
     [Fact]
     public async Task NoAuthParams_PassesThrough() {
-        var c = NoRedirectClient();
-        var r = await c.GetAsync("/health");
-        Assert.Equal(HttpStatusCode.OK, r.StatusCode);
+        var r = await RunAsync(Enabled, "GET", "/health", "");
+        Assert.True(r.Continued);
+        Assert.Null(r.Location);
+    }
+
+    [Fact]
+    public async Task Code_PassesThrough_WhenWidgetDisabled() {
+        var r = await RunAsync(new AuthState(false), "GET", "/health", "?code=abc");
+        Assert.True(r.Continued);
+        Assert.Null(r.Location);
+    }
+
+    [Fact]
+    public async Task Code_PassesThrough_OnPost() {
+        var r = await RunAsync(Enabled, "POST", "/protos", "?code=abc");
+        Assert.True(r.Continued);
+        Assert.Null(r.Location);
     }
 }

@@ -113,7 +113,7 @@ public sealed class DeviceRegistryPublisher(
                 return (null, new PublishResult(PublishOutcome.MissingAsset,
                     Error: "no harvested arm split for this device; poke the device agent and retry"));
 
-            var carved = ArchiveProtoExtractor.Extract(row.Bytes);
+            var carved = ArchiveProtoExtractor.Extract(await assets.BytesAsync(row, ct));
             if (!carved.Ok || string.IsNullOrEmpty(carved.Proto)) {
                 logger.LogWarning("device publish: {Id} carve failed ({Diag})", device.Id, carved.Diagnostics);
                 return (null, new PublishResult(PublishOutcome.CarveFailed,

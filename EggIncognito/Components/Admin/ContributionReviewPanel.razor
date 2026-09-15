@@ -29,7 +29,7 @@
             <tbody>
             @foreach (var t in _tallies) {
                 <tr>
-                    <td class="mono">@Short(t.ContributorUserId)</td>
+                    <td class="mono">@Who(t.ContributorName, t.ContributorUserId)</td>
                     <td class="mono">@t.Kind</td>
                     <td class="num">@t.Submitted</td>
                     <td>
@@ -64,7 +64,7 @@
                     </label>
                     <span class="contrib-summary">@r.Summary</span>
                     <span class="contrib-meta">@(r.ClientVersion ?? "unknown")</span>
-                    <span class="contrib-meta">@Short(r.ContributorUserId)</span>
+                    <span class="contrib-meta">@Who(r.ContributorName, r.ContributorUserId)</span>
                     <button type="button" class="btn-mini"
                             @onclick="@(() => _open = _open == r.Id ? null : r.Id)">
                         @(_open == r.Id ? "Hide" : "Payload")
@@ -202,8 +202,8 @@
         }
     }
 
-    static string Short(Guid id) {
-        return id.ToString("N")[..8];
+    static string Who(string? name, Guid id) {
+        return string.IsNullOrWhiteSpace(name) ? id.ToString("N")[..8] : name;
     }
 
 }

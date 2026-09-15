@@ -1,3 +1,4 @@
+using EggIdentity.Client;
 using EggIncognito.Capture;
 using EggIncognito.Data.Models;
 using EggIncognito.Data.Services;
@@ -18,10 +19,25 @@ public sealed class ContributionsController(
     ICurrentUser currentUser,
     ICaptureContributionKinds kinds,
     ContributionOptions options,
-    IServiceProvider services) : ControllerBase {
+    IServiceProvider services,
+    ILogger<ContributionsController> logger) : ControllerBase {
     private const int MaxPageSize = 200;
 
     private ContributionStore? Store => services.GetService(typeof(ContributionStore)) as ContributionStore;
+
+    private IdentityApiClient? Identity => services.GetService(typeof(IdentityApiClient)) as IdentityApiClient;
+
+    private async Task<Dictionary<Guid, string>> UsernamesAsync(CancellationToken ct) {
+        var names = new Dictionary<Guid, string>();
+        if (Identity is not { } identity) return names;
+        try {
+            foreach (var u in await identity.ListAdminUsersAsync(ct)) names[u.UserId] = u.Username;
+        } catch (Exception ex) {
+            logger.LogWarning(ex, "identity lookup failed; contributor ids will render as uuid fragments");
+        }
+
+        return names;
+    }
 
     private (Guid UserId, IActionResult? Error) Me() =>
         currentUser.IsAuthenticated && currentUser.UserId is { } id
@@ -115,11 +131,12 @@ public sealed class ContributionsController(
         [FromQuery] string? kind, [FromQuery] int skip, [FromQuery] int take, CancellationToken ct) {
         if (Store is not { } store) return StatusCode(503, new { error = "no database configured" });
         var page = await store.PendingAsync(kind, Math.Max(skip, 0), Clamp(take), ct);
+        var names = await UsernamesAsync(ct);
         return Ok(new {
             total = page.Total,
             rows = page.Rows.Select(r => new ContributionPendingRowDto(
-                r.Id, r.ContributorUserId, r.Kind, r.Summary, r.Payload, r.ClientVersion,
-                r.RecordedAt, r.SubmittedAt))
+                r.Id, r.ContributorUserId, names.GetValueOrDefault(r.ContributorUserId), r.Kind, r.Summary,
+                r.Payload, r.ClientVersion, r.RecordedAt, r.SubmittedAt))
         });
     }
 
@@ -129,7 +146,12 @@ public sealed class ContributionsController(
         if (Store is not { } store) return StatusCode(503, new { error = "no database configured" });
         var counts = await store.CountsAllAsync(ct);
         var tallies = await store.PendingTalliesAsync(50, ct);
-        return Ok(new { counts, tallies });
+        var names = await UsernamesAsync(ct);
+        return Ok(new {
+            counts,
+            tallies = tallies.Select(t => new ContributionTallyDto(
+                t.ContributorUserId, names.GetValueOrDefault(t.ContributorUserId), t.Kind, t.Submitted, t.Oldest))
+        });
     }
 
     [HttpPost("review")]

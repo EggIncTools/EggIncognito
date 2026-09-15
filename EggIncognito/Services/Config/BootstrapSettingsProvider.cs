@@ -6,6 +6,7 @@ public sealed class BootstrapSettingsProvider : ISettingsProvider {
     private const string Host = "Host";
     private const string Paths = "Paths";
     private const string Identity = "Identity";
+    private const string Storage = "Storage";
 
     private static readonly IReadOnlyList<SettingDescriptor> Descriptors = [
         new("database.postgres", "ConnectionStrings__Postgres", "Postgres connection", Host,
@@ -44,12 +45,25 @@ public sealed class BootstrapSettingsProvider : ISettingsProvider {
         new("paths.routes_yaml", "RoutesYamlPath", "routes.yaml path", Paths,
             SettingKind.Path, ApplyTier.Bootstrap, Sensitivity.Plain) { Default = "routes.yaml" },
 
+        new(SettingKeys.BlobOffloadEnabled, "Storage__BlobOffloadEnabled", "Move blobs to disk", Storage,
+            SettingKind.Bool, ApplyTier.RestartRequired, Sensitivity.Plain) {
+            Default = "false",
+            Description =
+                "Moves device assets, build blobs, binaries, APKs and modules out of Postgres into "
+                + "{content root}/blobs, one row at a time. Resumable; rows already on disk are read from there "
+                + "either way. Off until a first pass has been watched deliberately."
+        },
+
         new("identity.api_url", "Identity__ApiUrl", "Identity API URL", Identity,
             SettingKind.Url, ApplyTier.Bootstrap, Sensitivity.Plain),
         new("identity.api_secret", "Identity__ApiSecret", "Identity API secret", Identity,
             SettingKind.Secret, ApplyTier.Bootstrap, Sensitivity.Secret),
         new("identity.widget_url", "Identity__WidgetUrl", "Identity widget URL", Identity,
             SettingKind.Url, ApplyTier.Bootstrap, Sensitivity.Plain),
+        new("admin.api_secret", "ADMIN_API_SECRET", "Admin API secret", Identity,
+            SettingKind.Secret, ApplyTier.Bootstrap, Sensitivity.Secret) {
+            Description = "Bearer the EggIncTools hub presents to administer this app. Empty disables the surface."
+        },
         new("session.secret", "EGGIDENTITY_SESSION_SECRET", "Session secret", Identity,
             SettingKind.Secret, ApplyTier.Bootstrap, Sensitivity.Secret),
         new("session.cookie_domain", "EGGIDENTITY_SESSION_COOKIE_DOMAIN", "Session cookie domain", Identity,

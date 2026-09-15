@@ -3,6 +3,7 @@ using EggIdentity.Contract;
 using EggIdentity.Db;
 using EggIdentity.Fallback;
 using EggIdentity.Metrics;
+using EggIdentity.Settings.Api;
 using EggIncognito.Bot;
 using EggIncognito.Components;
 using EggIncognito.Core.Services;
@@ -100,6 +101,9 @@ public static class AppPipeline {
 
     public static void MapAppEndpoints(this WebApplication app, BootFlags boot) {
         app.MapControllers();
+        if (boot.DbEnabled && !string.IsNullOrWhiteSpace(boot.AdminApiSecret))
+            app.MapAdminApi(new AdminApiOptions("eggincognito", boot.AdminApiSecret));
+
         if (boot.SyncIngestEnabled) {
             var ingest = app.Services.GetRequiredService<NewVersionIngestService>();
             app.MapPost("/events/new-version",

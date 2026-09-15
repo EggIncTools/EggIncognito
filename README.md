@@ -2,12 +2,12 @@
 
 <p align="center">
   <a href="https://github.com/EggIncTools/EggIncognito/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/EggIncTools/EggIncognito/ci.yml?branch=main" alt="CI"></a>
-  <a href="https://discord.davidarthurcole.me"><img src="https://img.shields.io/badge/discord-join%20server-5865F2?logo=discord&logoColor=white" alt="Discord"></a>
+  <a href="https://discord.egginc.tools"><img src="https://img.shields.io/badge/discord-join%20server-5865F2?logo=discord&logoColor=white" alt="Discord"></a>
 </p>
 
 A toolkit for the [Egg, Inc.](https://auxbrain.com/) API: a stateless mock server that replays captured responses in the exact base64-protobuf wire format, a request inspector, a live capture proxy, a versioned proto registry, and a physical device farm. Test Egg, Inc. tooling without real accounts or rate limits.
 
-Public instance: [eggincognito.davidarthurcole.me](https://eggincognito.davidarthurcole.me).
+Public instance: [eggincognito.egginc.tools](https://eggincognito.egginc.tools).
 
 ## Quick start
 

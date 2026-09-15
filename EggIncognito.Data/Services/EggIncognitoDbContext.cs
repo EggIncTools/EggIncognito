@@ -74,6 +74,11 @@ public class EggIncognitoDbContext(DbContextOptions<EggIncognitoDbContext> optio
             o.Property(x => x.OtherRewards).HasColumnType("jsonb").HasDefaultValueSql("'[]'");
             o.Property(x => x.ObservedAt).HasDefaultValueSql("now()");
             o.HasIndex(x => new { x.SpecName, x.SpecLevel, x.SpecRarity, x.Action });
+            o.HasOne<Device>()
+                .WithMany()
+                .HasForeignKey(x => x.DeviceId)
+                .HasConstraintName("fk_artifact_consume_observations_device")
+                .OnDelete(DeleteBehavior.SetNull);
         });
         modelBuilder.Entity<ContributedCapture>(c => {
             c.HasKey(x => x.Id);
@@ -92,7 +97,14 @@ public class EggIncognitoDbContext(DbContextOptions<EggIncognitoDbContext> optio
             d.Property(x => x.UpdatedAt).HasDefaultValueSql("now()");
         });
         modelBuilder.Entity<Tag>(t => t.HasIndex(x => x.Slug).IsUnique());
-        modelBuilder.Entity<SubjectTag>(s => s.HasIndex(x => new { x.SubjectKind, x.SubjectKey, x.TagId }).IsUnique());
+        modelBuilder.Entity<SubjectTag>(s => {
+            s.HasIndex(x => new { x.SubjectKind, x.SubjectKey, x.TagId }).IsUnique();
+            s.HasOne<Tag>()
+                .WithMany()
+                .HasForeignKey(x => x.TagId)
+                .HasConstraintName("fk_subject_tags_tag")
+                .OnDelete(DeleteBehavior.Cascade);
+        });
         modelBuilder.Entity<DocImage>(im =>
             im.Property(x => x.CreatedAt).HasDefaultValueSql("now()").ValueGeneratedOnAdd());
         modelBuilder.Entity<CaptureUserCa>(c =>
@@ -105,10 +117,20 @@ public class EggIncognitoDbContext(DbContextOptions<EggIncognitoDbContext> optio
             e.HasKey(x => x.Id);
             e.HasIndex(x => new { x.Platform, x.Build }).IsUnique();
             e.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
+            e.HasOne<ProtoVersion>()
+                .WithMany()
+                .HasForeignKey(x => x.CanonicalId)
+                .HasConstraintName("fk_proto_versions_canonical")
+                .OnDelete(DeleteBehavior.SetNull);
         });
         modelBuilder.Entity<ProtoProto>(e => {
             e.HasKey(x => x.ProtoVersionId);
             e.Property(x => x.MessageIndex).HasColumnType("jsonb");
+            e.HasOne<ProtoVersion>()
+                .WithMany()
+                .HasForeignKey(x => x.ProtoVersionId)
+                .HasConstraintName("fk_proto_protos_version")
+                .OnDelete(DeleteBehavior.Cascade);
         });
         modelBuilder.Entity<ProtoShaOrder>(e => {
             e.HasKey(x => x.ProtoSha);
@@ -130,12 +152,22 @@ public class EggIncognitoDbContext(DbContextOptions<EggIncognitoDbContext> optio
             e.Property(x => x.EventKind).HasDefaultValue("proto_build");
             e.Property(x => x.DedupKey).HasDefaultValue("");
             e.HasIndex(x => new { x.SubscriptionId, x.EventKind, x.DedupKey }).IsUnique();
+            e.HasOne<FeedSubscription>()
+                .WithMany()
+                .HasForeignKey(x => x.SubscriptionId)
+                .HasConstraintName("fk_feed_deliveries_subscription")
+                .OnDelete(DeleteBehavior.Cascade);
         });
         modelBuilder.Entity<FeedSuppression>(e => {
             e.HasKey(x => x.Id);
             e.Property(x => x.EventKind).HasDefaultValue("proto_build");
             e.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
             e.HasIndex(x => new { x.SubscriptionId, x.CreatedAt });
+            e.HasOne<FeedSubscription>()
+                .WithMany()
+                .HasForeignKey(x => x.SubscriptionId)
+                .HasConstraintName("fk_feed_suppressions_subscription")
+                .OnDelete(DeleteBehavior.Cascade);
         });
         modelBuilder.Entity<BackfillJob>(e => {
             e.HasKey(x => x.Id);
@@ -163,6 +195,11 @@ public class EggIncognitoDbContext(DbContextOptions<EggIncognitoDbContext> optio
             e.HasIndex(x => x.State);
             e.Property(x => x.StartedAt).HasDefaultValueSql("now()");
             e.Property(x => x.Detail).HasColumnType("jsonb");
+            e.HasOne<Device>()
+                .WithMany()
+                .HasForeignKey(x => x.DeviceId)
+                .HasConstraintName("fk_device_jobs_device")
+                .OnDelete(DeleteBehavior.Cascade);
         });
         modelBuilder.Entity<DeviceJobLine>(e => {
             e.HasKey(x => x.Id);
@@ -176,6 +213,11 @@ public class EggIncognitoDbContext(DbContextOptions<EggIncognitoDbContext> optio
         modelBuilder.Entity<DeviceState>(e => {
             e.HasKey(x => x.DeviceId);
             e.Property(x => x.UpdatedAt).HasDefaultValueSql("now()");
+            e.HasOne<Device>()
+                .WithMany()
+                .HasForeignKey(x => x.DeviceId)
+                .HasConstraintName("fk_device_state_device")
+                .OnDelete(DeleteBehavior.Cascade);
         });
         modelBuilder.Entity<DeviceAsset>(e => {
             e.HasKey(x => x.Id);
@@ -188,11 +230,21 @@ public class EggIncognitoDbContext(DbContextOptions<EggIncognitoDbContext> optio
             e.HasIndex(x => x.State);
             e.HasIndex(x => x.DeviceId);
             e.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
+            e.HasOne<Device>()
+                .WithMany()
+                .HasForeignKey(x => x.DeviceId)
+                .HasConstraintName("fk_provisioned_instances_device")
+                .OnDelete(DeleteBehavior.SetNull);
         });
         modelBuilder.Entity<DeviceIslandRow>(e => {
-            e.HasKey(x => new { x.DeviceId, x.UserId });
+            e.HasKey(x => new { x.DeviceId, x.AndroidUserId });
             e.HasIndex(x => x.DeviceId);
             e.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
+            e.HasOne<Device>()
+                .WithMany()
+                .HasForeignKey(x => x.DeviceId)
+                .HasConstraintName("fk_device_islands_device")
+                .OnDelete(DeleteBehavior.Cascade);
         });
         modelBuilder.Entity<StagedProto>(e => {
             e.HasIndex(x => x.ProtoSha);
@@ -253,6 +305,11 @@ public class EggIncognitoDbContext(DbContextOptions<EggIncognitoDbContext> optio
             e.HasIndex(x => new { x.Platform, x.Package, x.Build });
             e.HasIndex(x => x.Sha256);
             e.Property(x => x.CapturedAt).HasDefaultValueSql("now()").ValueGeneratedOnAdd();
+            e.HasOne<Device>()
+                .WithMany()
+                .HasForeignKey(x => x.SourceDeviceId)
+                .HasConstraintName("fk_stored_apks_source_device")
+                .OnDelete(DeleteBehavior.SetNull);
         });
         modelBuilder.Entity<StoredModule>(e => {
             e.HasKey(x => x.Id);
@@ -302,6 +359,11 @@ public class EggIncognitoDbContext(DbContextOptions<EggIncognitoDbContext> optio
         modelBuilder.Entity<SiteThemePolicy>(e => {
             e.HasKey(x => x.Id);
             e.Property(x => x.Id).ValueGeneratedNever();
+            e.HasOne<UserTheme>()
+                .WithMany()
+                .HasForeignKey(x => x.DefaultThemeId)
+                .HasConstraintName("fk_site_theme_policy_default_theme")
+                .OnDelete(DeleteBehavior.SetNull);
         });
     }
 }

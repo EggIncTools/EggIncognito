@@ -18,12 +18,12 @@
     <meta property="og:title" content="@_meta.Title"/>
     <meta property="og:description" content="@_meta.Description"/>
     <meta property="og:url" content="@_canonicalUrl"/>
-    <meta property="og:image" content="https://eggincognito.davidarthurcole.me/brand/logo.png"/>
+    <meta property="og:image" content="https://eggincognito.egginc.tools/brand/logo.png"/>
     <meta property="og:image:alt" content="EggIncognito"/>
     <meta name="twitter:card" content="summary_large_image"/>
     <meta name="twitter:title" content="@_meta.Title"/>
     <meta name="twitter:description" content="@_meta.Description"/>
-    <meta name="twitter:image" content="https://eggincognito.davidarthurcole.me/brand/logo.png"/>
+    <meta name="twitter:image" content="https://eggincognito.egginc.tools/brand/logo.png"/>
 
     <link rel="stylesheet" href="@($"/nav.css?v={_assetVersion}")"/>
     <link rel="stylesheet" href="@($"/styles.css?v={_assetVersion}")"/>
@@ -77,7 +77,7 @@
         BuildInfo.FromAssembly("https://github.com/EggIncTools/EggIncognito").ShortSha;
 
     PageMeta.Meta _meta;
-    string _canonicalUrl = "https://eggincognito.davidarthurcole.me/";
+    string _canonicalUrl = "https://eggincognito.egginc.tools/";
     bool _subProd;
     ResolvedTheme? _theme;
     string? _nonce;
@@ -90,7 +90,7 @@
         var path = req?.Path.Value;
         _meta = PageMeta.For(path);
         if (req is not null)
-            _canonicalUrl = $"https://eggincognito.davidarthurcole.me{(string.IsNullOrEmpty(path) ? "/" : path)}";
+            _canonicalUrl = $"https://eggincognito.egginc.tools{(string.IsNullOrEmpty(path) ? "/" : path)}";
         _nonce = ctx?.Items["egi.csp.nonce"] as string;
         _theme = await Themes.ResolveAsync(ctx?.RequestAborted ?? CancellationToken.None);
         if (_theme is { HueRotation: true }) {

@@ -1,7 +1,7 @@
 <Project>
   <PropertyGroup>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
-    <EggIdentityVersion>2.4.3</EggIdentityVersion>
+    <EggIdentityVersion>2.5.3</EggIdentityVersion>
   </PropertyGroup>
   <ItemGroup>
     <PackageVersion Include="AngleSharp" Version="1.5.2" />
@@ -19,6 +19,7 @@
     <PackageVersion Include="EggIdentity.Metrics.AdminUi" Version="$(EggIdentityVersion)" />
     <PackageVersion Include="EggIdentity.Settings" Version="$(EggIdentityVersion)" />
     <PackageVersion Include="EggIdentity.Settings.AdminUi" Version="$(EggIdentityVersion)" />
+    <PackageVersion Include="EggIdentity.Settings.Api" Version="$(EggIdentityVersion)" />
     <PackageVersion Include="EggIdentity.Settings.Store" Version="$(EggIdentityVersion)" />
     <PackageVersion Include="EggIdentity.Styles" Version="$(EggIdentityVersion)" />
     <PackageVersion Include="EggIdentity.UI" Version="$(EggIdentityVersion)" />

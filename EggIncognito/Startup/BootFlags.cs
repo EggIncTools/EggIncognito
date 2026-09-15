@@ -15,6 +15,7 @@ public sealed record BootFlags {
     public required string? IdentityApiUrl { get; init; }
     public required string? IdentityApiSecret { get; init; }
     public required bool IdentityApiEnabled { get; init; }
+    public required string? AdminApiSecret { get; init; }
     public required SessionCookieOptions? Session { get; init; }
     public required LocalIdentitySettings? LocalIdentity { get; init; }
     public required bool LocalIdentityOn { get; init; }
@@ -47,9 +48,10 @@ public sealed record BootFlags {
         bool identityApiEnabled =
             !string.IsNullOrWhiteSpace(identityApiUrl) && !string.IsNullOrWhiteSpace(identityApiSecret);
         var session = SessionCookieOptions.FromEnvironment();
+        bool sharedAuthActive = identityApiEnabled && session is not null;
 
         LocalIdentityGate.Guard(env, appMode, config);
-        bool localIdentityOn = LocalIdentityGate.IsOn(env, appMode, config, identityApiEnabled);
+        bool localIdentityOn = LocalIdentityGate.IsOn(env, appMode, config, sharedAuthActive);
 
         FakeDeviceGate.Guard(env, appMode, config);
         bool fakeDevices = FakeDeviceGate.IsOn(env, appMode, config);
@@ -66,12 +68,13 @@ public sealed record BootFlags {
             IdentityApiUrl = identityApiUrl,
             IdentityApiSecret = identityApiSecret,
             IdentityApiEnabled = identityApiEnabled,
+            AdminApiSecret = config["ADMIN_API_SECRET"],
             Session = session,
             LocalIdentity = localIdentityOn ? LocalIdentitySettings.Bind(config) : null,
             LocalIdentityOn = localIdentityOn,
             AuthState = new AuthState(
                 identityApiEnabled, config[IdentityConfigKeys.WidgetUrl],
-                session?.CookieName ?? "eggidentity_session", localIdentityOn),
+                session?.CookieName ?? "eggidentity_session", localIdentityOn, session is not null),
             HostedBehindProxy = hosted,
             BotToken = config["Discord:BotToken"],
             EventSecret = config["SyncEvent:EventSecret"],

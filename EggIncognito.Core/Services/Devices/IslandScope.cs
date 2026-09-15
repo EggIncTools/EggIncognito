@@ -3,16 +3,16 @@ using System.Globalization;
 namespace EggIncognito.Core.Services.Devices;
 
 public static class IslandScope {
-    public static string User(int userId) => userId.ToString(CultureInfo.InvariantCulture);
+    public static string User(int androidUserId) => androidUserId.ToString(CultureInfo.InvariantCulture);
 
-    public static string UserFlag(int? userId) =>
-        userId is { } id ? $" --user {User(id)}" : "";
+    public static string UserFlag(int? androidUserId) =>
+        androidUserId is { } id ? $" --user {User(id)}" : "";
 
     public const int Owner = 0;
 
-    public static async Task<DeviceResult> SwitchAsync(IDeviceConnection conn, int userId, CancellationToken ct) {
-        string user = User(userId);
-        if (userId != Owner) {
+    public static async Task<DeviceResult> SwitchAsync(IDeviceConnection conn, int androidUserId, CancellationToken ct) {
+        string user = User(androidUserId);
+        if (androidUserId != Owner) {
             var start = await conn.ShellAsync($"am start-user {user}", ct);
             if (start.ExitCode != 0 || start.Stdout.Contains("Error", StringComparison.Ordinal))
                 return DeviceResult.Error($"am start-user {user}: {DeviceParsing.TrimNote(start.Stdout + start.Stderr)}");

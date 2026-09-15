@@ -107,7 +107,7 @@ public sealed class FakeFixtureSource(IServiceScopeFactory scopes) {
         if (entry.Kind == DeviceAssetKinds.Binary) {
             if (sp.GetService(typeof(GameBinaryStore)) is not GameBinaryStore binaries) return NoClone;
             var row = await binaries.GetLatestAsync(platform, ct);
-            return row is null || row.Bytes.Length == 0
+            return row is null || row.ByteSize == 0
                 ? NoClone
                 : new FakeFixtureSet(FakeFixtureTiers.Clone,
                     [new FakeFixtureFile(BinaryName(platform), row.Sha256, BinaryContentType, (int)row.ByteSize)]);
@@ -137,7 +137,8 @@ public sealed class FakeFixtureSource(IServiceScopeFactory scopes) {
 
         if (entry.Kind == DeviceAssetKinds.Binary) {
             if (sp.GetService(typeof(GameBinaryStore)) is not GameBinaryStore binaries) return null;
-            return (await binaries.GetLatestAsync(platform, ct))?.Bytes;
+            var binary = await binaries.GetLatestAsync(platform, ct);
+            return binary is null ? null : await binaries.BytesAsync(binary, ct);
         }
 
         if (sp.GetService(typeof(DeviceAssetStore)) is not DeviceAssetStore assets) return null;
@@ -147,7 +148,8 @@ public sealed class FakeFixtureSource(IServiceScopeFactory scopes) {
             return body is null ? null : Encoding.UTF8.GetBytes(body);
         }
 
-        return (await assets.GetAsync(entry.Kind, name, platform, ct))?.Bytes;
+        var asset = await assets.GetAsync(entry.Kind, name, platform, ct);
+        return asset is null ? null : await assets.BytesAsync(asset, ct);
     }
 
     private static async Task<string?> ListingBodyAsync(DeviceAssetStore assets, string platform,

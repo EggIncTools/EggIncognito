@@ -33,13 +33,13 @@ public sealed class LaunchIslandStep(
         var target = context.Target;
         if (!Platforms.Matches(target.Platform, Platforms.Android))
             return Skipped(lines, "islands are android-only");
-        if (context.UserId is not { } userId)
+        if (context.AndroidUserId is not { } androidUserId)
             return Failed(lines, "no island selected; this step needs a target island user id");
         if (connections.For(target) is not { } conn)
             return Failed(lines, "no connection for this device");
 
-        string user = IslandScope.User(userId);
-        var switched = await IslandScope.SwitchAsync(conn, userId, ct);
+        string user = IslandScope.User(androidUserId);
+        var switched = await IslandScope.SwitchAsync(conn, androidUserId, ct);
         if (!switched.Ok) return Failed(lines, switched.Note);
         Add(switched.Note ?? $"switched to user {user}");
 

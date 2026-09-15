@@ -7,7 +7,10 @@ namespace EggIncognito.Data.Services;
 public sealed record DeviceAssetHead(string Platform, string Kind, string Name, string Sha256, long ByteSize,
     string ContentType, string? SourceVersion, DateTimeOffset UpdatedAt);
 
-public sealed class DeviceAssetStore(EggIncognitoDbContext db) {
+public sealed class DeviceAssetStore(EggIncognitoDbContext db, BlobBytes blobs) {
+    public Task<byte[]> BytesAsync(DeviceAsset row, CancellationToken ct) =>
+        blobs.ResolveAsync(BlobTables.DeviceAssets, row.Bytes, row.Sha256, ct);
+
     public const string FingerprintPrefix = "fp:";
 
     public async Task<DeviceAsset?> GetAsync(string kind, string name, string? platform, CancellationToken ct) {
@@ -45,13 +48,15 @@ public sealed class DeviceAssetStore(EggIncognitoDbContext db) {
             .FirstOrDefaultAsync(a => a.Platform == platform && a.Kind == kind && a.Name == name, ct);
         if (existing is not null && string.Equals(existing.Sha256, sha, StringComparison.Ordinal)) return false;
 
+        var stored = await blobs.StoreAsync(BlobTables.DeviceAssets, sha, bytes, ct);
+
         if (existing is null) {
             db.DeviceAssets.Add(new DeviceAsset {
                 Platform = platform,
                 Kind = kind,
                 Name = name,
                 Sha256 = sha,
-                Bytes = bytes,
+                Bytes = stored,
                 ByteSize = bytes.LongLength,
                 ContentType = contentType,
                 SourceVersion = sourceVersion,
@@ -59,7 +64,7 @@ public sealed class DeviceAssetStore(EggIncognitoDbContext db) {
             });
         } else {
             existing.Sha256 = sha;
-            existing.Bytes = bytes;
+            existing.Bytes = stored;
             existing.ByteSize = bytes.LongLength;
             existing.ContentType = contentType;
             existing.SourceVersion = sourceVersion;

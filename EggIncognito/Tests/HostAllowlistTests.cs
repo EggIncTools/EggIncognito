@@ -34,9 +34,9 @@ public class HostAllowlistTests {
 
     [Fact]
     public void SelfHost_IsAllowed_OnlyWhenItMatches() {
-        const string self = "eggincognito.davidarthurcole.me";
+        const string self = "eggincognito.egginc.tools";
         Assert.True(InspectorApiController.IsAllowedHost(self, self));
-        Assert.True(InspectorApiController.IsAllowedHost("EggIncognito.DavidArthurCole.ME", self));
+        Assert.True(InspectorApiController.IsAllowedHost("EggIncognito.EggInc.TOOLS", self));
         Assert.False(InspectorApiController.IsAllowedHost(self));
         Assert.False(InspectorApiController.IsAllowedHost("evil.com", self));
     }

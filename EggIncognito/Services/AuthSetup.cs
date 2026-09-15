@@ -5,30 +5,10 @@ using EggIncognito.Data.Services;
 using EggIncognito.Services.Auth;
 using EggIncognito.Services.DataApi;
 using Microsoft.AspNetCore.Authentication;
-using Microsoft.AspNetCore.Authentication.Cookies;
 
 namespace EggIncognito.Services;
 
 public static class AuthSetup {
-    private const string SelectorScheme = "EgiAuthSelector";
-
-    private static async Task ValidateNotRevoked(CookieValidatePrincipalContext ctx) {
-        var identity = ctx.HttpContext.RequestServices.GetService<IdentityApiClient>();
-        if (identity is null) return;
-        try {
-            await AuthentikAspNetAuth.OnValidatePrincipalCheckRevoked(ctx, identity, AuthClaims.UserIdClaim,
-                AuthClaims.RoleClaim);
-        } catch (HttpRequestException ex) {
-            ctx.HttpContext.RequestServices.GetService<ILoggerFactory>()?
-                .CreateLogger("EggIncognito.Auth")
-                .LogWarning(ex, "revocation check skipped: identity API unreachable");
-        } catch (TaskCanceledException ex) {
-            ctx.HttpContext.RequestServices.GetService<ILoggerFactory>()?
-                .CreateLogger("EggIncognito.Auth")
-                .LogDebug(ex, "revocation check skipped: request cancelled");
-        }
-    }
-
     private static async Task StampSupporterClaim(ClaimsPrincipal principal, HttpContext ctx, CancellationToken ct) {
         if (principal.Identity is not ClaimsIdentity identity) return;
         if (SupporterUserId(principal) is not { } userId) return;
@@ -53,39 +33,13 @@ public static class AuthSetup {
             ? id
             : principal.EggIdentityUserId();
 
-    private static Task StampSupporterClaimCookie(CookieValidatePrincipalContext ctx) =>
-        ctx.Principal is null
-            ? Task.CompletedTask
-            : StampSupporterClaim(ctx.Principal, ctx.HttpContext, ctx.HttpContext.RequestAborted);
-
     public static bool AddEggIdentityAuthIfConfigured(
         this WebApplicationBuilder builder, bool identityApiEnabled, SessionCookieOptions? session) {
-        if (!identityApiEnabled) return false;
-        var auth = builder.Services.AddAuthentication(session is not null
-                ? SelectorScheme
-                : CookieAuthenticationDefaults.AuthenticationScheme)
-            .AddCookie(o => {
-                o.ExpireTimeSpan = TimeSpan.FromDays(30);
-                o.SlidingExpiration = true;
-                o.Cookie.Name = "egi.auth";
-                o.Cookie.HttpOnly = true;
-                o.Cookie.SameSite = SameSiteMode.Lax;
-                o.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
-                o.Events.OnValidatePrincipal = async ctx => {
-                    await ValidateNotRevoked(ctx);
-                    await StampSupporterClaimCookie(ctx);
-                };
-            })
-            .AddScheme<AuthenticationSchemeOptions, ApiKeyAuthenticationHandler>(
-                ApiKeyGen.SchemeName, null);
-        if (session is not null) {
-            auth.AddEggIdentitySession(session, StampSupporterClaim);
-            auth.AddPolicyScheme(SelectorScheme, SelectorScheme, o =>
-                o.ForwardDefaultSelector = ctx =>
-                    ctx.Request.Cookies.ContainsKey(session.CookieName)
-                        ? EggIdentitySessionDefaults.Scheme
-                        : CookieAuthenticationDefaults.AuthenticationScheme);
-        }
+        if (!identityApiEnabled || session is null) return false;
+
+        builder.Services.AddAuthentication(EggIdentitySessionDefaults.Scheme)
+            .AddEggIdentitySession(session, StampSupporterClaim)
+            .AddScheme<AuthenticationSchemeOptions, ApiKeyAuthenticationHandler>(ApiKeyGen.SchemeName, null);
 
         builder.Services.AddAuthorization();
         return true;

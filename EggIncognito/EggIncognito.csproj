@@ -14,6 +14,7 @@
     <PackageReference Include="EggIdentity.Metrics.AdminUi" />
     <PackageReference Include="EggIdentity.Settings" />
     <PackageReference Include="EggIdentity.Settings.AdminUi" />
+    <PackageReference Include="EggIdentity.Settings.Api" />
     <PackageReference Include="EggIdentity.Settings.Store" />
     <PackageReference Include="EggIdentity.Styles" />
     <PackageReference Include="EggIdentity.UI" />

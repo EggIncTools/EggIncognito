@@ -1,11 +1,9 @@
-using EggIdentity.Client;
 using Microsoft.AspNetCore.WebUtilities;
 
 namespace EggIncognito.Services;
 
 public sealed class LoginCallbackMiddleware(RequestDelegate next) {
-    public async Task Invoke(HttpContext ctx, AuthState authState, LoginSignIn signIn, IdentityApiClient identity,
-        ILogger<LoginCallbackMiddleware> logger) {
+    public async Task Invoke(HttpContext ctx, AuthState authState) {
         if (!authState.WidgetEnabled || !HttpMethods.IsGet(ctx.Request.Method)) {
             await next(ctx);
             return;
@@ -17,17 +15,6 @@ public sealed class LoginCallbackMiddleware(RequestDelegate next) {
         if (string.IsNullOrEmpty(code) && string.IsNullOrEmpty(error)) {
             await next(ctx);
             return;
-        }
-
-        if (!string.IsNullOrEmpty(code) && !(ctx.User.Identity?.IsAuthenticated ?? false)) {
-            try {
-                var result = await identity.RedeemAsync(code, ctx.RequestAborted);
-                await signIn.SignInAsync(ctx, result);
-            } catch (HttpRequestException ex) {
-                logger.LogWarning(ex, "login callback: code redemption failed");
-                ctx.Response.Redirect(StripAuthParams(ctx, true));
-                return;
-            }
         }
 
         ctx.Response.Redirect(StripAuthParams(ctx, !string.IsNullOrEmpty(error)));

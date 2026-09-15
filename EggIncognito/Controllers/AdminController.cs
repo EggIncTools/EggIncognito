@@ -41,6 +41,8 @@ public sealed partial class AdminController(ICurrentUser currentUser, IServicePr
 
     private ApiKeyStore? Keys => services.GetService(typeof(ApiKeyStore)) as ApiKeyStore;
 
+    private BlobBytes Blobs => services.GetService(typeof(BlobBytes)) as BlobBytes ?? BlobBytes.Inline;
+
     private ObjectResult? RequireAdmin() =>
         currentUser.IsAtLeast(UserRole.Admin) ? null : StatusCode(403, new { error = "admin role required" });
 
@@ -272,7 +274,7 @@ public sealed partial class AdminController(ICurrentUser currentUser, IServicePr
                    && data[4] == 0x0D && data[5] == 0x0A && data[6] == 0x1A && data[7] == 0x0A;
         if (!png) return BadRequest(new { error = "not a png" });
 
-        await new DeviceAssetStore(db).PutAsync(DeviceAssetKinds.AnyPlatform, DeviceAssetKinds.Icon, name, data,
+        await new DeviceAssetStore(db, Blobs).PutAsync(DeviceAssetKinds.AnyPlatform, DeviceAssetKinds.Icon, name, data,
             "image/png", null, ct);
         return Ok(new { name, bytes = data.Length });
     }

@@ -38,9 +38,9 @@ public sealed class HarvestScheduler(RunnerDb db, IDevicePlatforms platforms, IL
             return;
         }
 
-        var harvester = new DeviceHarvester(platforms, new DeviceAssetStore(ctx), states,
-            new DeviceJobStore(ctx, TimeProvider.System), new GameBinaryStore(ctx),
-            new ApkStore(ctx, TimeProvider.System), logs.CreateLogger<DeviceHarvester>());
+        var harvester = new DeviceHarvester(platforms, new DeviceAssetStore(ctx, BlobBytes.Inline), states,
+            new DeviceJobStore(ctx, TimeProvider.System), new GameBinaryStore(ctx, BlobBytes.Inline),
+            new ApkStore(ctx, TimeProvider.System, BlobBytes.Inline), logs.CreateLogger<DeviceHarvester>());
         var target = new DeviceTarget(device.Id, device.Platform, device.Target, device.Package);
         await harvester.RunAsync(target, force, CancellationToken.None);
     }

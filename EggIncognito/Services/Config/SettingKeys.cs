@@ -12,6 +12,8 @@ public static class SettingKeys {
     public const string ApiKeysMaxPerUser = "api_keys.max_per_user";
     public const string FeedPageBaseUrl = "feed.page_base_url";
 
+    public const string BlobOffloadEnabled = "storage.blob_offload_enabled";
+
     public const string RateLimitingEnabled = "rate_limiting.enabled";
     public const string RateLimitingTiers = "rate_limiting.tiers";
     public const string RateLimitingPolicies = "rate_limiting.policies";

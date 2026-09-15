@@ -33,9 +33,10 @@ public sealed class IntegrityAssets(
         foreach (var spec in config.IntegrityModules) {
             var row = await store.LatestAsync(spec.Name, ct);
             if (row is null) return IntegrityBundle.Fail($"module '{spec.Name}' is not cached yet; press Refresh cache");
-            string? id = MagiskModules.IdFromZip(row.Bytes);
+            byte[] zip = await store.BytesAsync(row, ct);
+            string? id = MagiskModules.IdFromZip(zip);
             if (id is null) return IntegrityBundle.Fail($"cached module '{spec.Name}' has no module.prop id");
-            modules.Add(new IntegrityModuleAsset(spec, id, row.Version, row.Bytes));
+            modules.Add(new IntegrityModuleAsset(spec, id, row.Version, zip));
         }
 
         var ib = modules.FirstOrDefault(m => m.ModuleId.Equals(IntegrityBoxModuleId, StringComparison.Ordinal));
@@ -45,7 +46,7 @@ public sealed class IntegrityAssets(
 
         PifProfile? profile = null;
         if (await store.LatestAsync(ProfileEntry, ct) is { } cachedProfile)
-            profile = PifProp.Parse(Encoding.UTF8.GetString(cachedProfile.Bytes)) is { } parsed ? parsed with { SecurityPatch = patchDate } : null;
+            profile = PifProp.Parse(Encoding.UTF8.GetString(await store.BytesAsync(cachedProfile, ct))) is { } parsed ? parsed with { SecurityPatch = patchDate } : null;
         if (profile is null) {
             profile = IntegrityBoxModule.LegacyProfile(ib.Zip) is { } legacy ? legacy with { SecurityPatch = patchDate } : null;
             if (profile is null) return IntegrityBundle.Fail("no fingerprint cached and Integrity-Box ships no legacy profile; press Refresh cache");
@@ -60,7 +61,7 @@ public sealed class IntegrityAssets(
             xml = operatorKeybox.Xml;
             source = operatorKeybox.Source ?? OperatorSource;
         } else if (await store.LatestAsync(KeyboxEntry, ct) is { } cachedKeybox) {
-            xml = Encoding.UTF8.GetString(cachedKeybox.Bytes);
+            xml = Encoding.UTF8.GetString(await store.BytesAsync(cachedKeybox, ct));
             source = SharedSource;
         } else {
             return IntegrityBundle.Fail("no keybox cached yet; press Refresh cache");
@@ -125,7 +126,7 @@ public sealed class IntegrityAssets(
         var row = await store.LatestAsync(ProfileEntry, ct);
         PifProfile? cached = null;
         if (row is { } stored) {
-            cached = PifProp.Parse(Encoding.UTF8.GetString(stored.Bytes)) is { } parsed
+            cached = PifProp.Parse(Encoding.UTF8.GetString(await store.BytesAsync(stored, ct))) is { } parsed
                 ? parsed with { SecurityPatch = patchDate }
                 : null;
             var maxAge = TimeSpan.FromDays(Math.Max(1, config.IntegrityFingerprintRefreshDays));
@@ -171,7 +172,7 @@ public sealed class IntegrityAssets(
         var row = await store.LatestAsync(KeyboxEntry, ct);
         var maxAge = TimeSpan.FromHours(Math.Max(1, config.IntegrityRefreshHours));
         if (row is { } stored && !forceRefresh && time.GetUtcNow() - stored.FetchedAt < maxAge)
-            return (Encoding.UTF8.GetString(stored.Bytes), source, null);
+            return (Encoding.UTF8.GetString(await store.BytesAsync(stored, ct)), source, null);
 
         try {
             var http = httpFactory.CreateClient(ModuleFetcher.HttpClientName);
@@ -185,7 +186,7 @@ public sealed class IntegrityAssets(
             logger.LogWarning(ex, "integrity assets: shared keybox fetch failed");
             if (row is null) return (null, null, $"shared keybox fetch failed: {ex.Message}");
             warnings.Add($"shared keybox refresh failed: {ex.Message}; using cached copy");
-            return (Encoding.UTF8.GetString(row.Bytes), source, null);
+            return (Encoding.UTF8.GetString(await store.BytesAsync(row, ct)), source, null);
         }
     }
 

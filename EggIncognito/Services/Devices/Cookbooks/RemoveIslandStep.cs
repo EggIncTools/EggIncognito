@@ -28,12 +28,12 @@ public sealed class RemoveIslandStep(
         var target = context.Target;
         if (!Platforms.Matches(target.Platform, Platforms.Android))
             return Skipped(lines, "islands are android-only");
-        if (context.UserId is not { } userId)
+        if (context.AndroidUserId is not { } androidUserId)
             return Failed(lines, "no island selected; this step needs a target island user id");
         if (connections.For(target) is not { } conn)
             return Failed(lines, "no connection for this device");
 
-        string user = IslandScope.User(userId);
+        string user = IslandScope.User(androidUserId);
         await conn.ShellAsync($"am force-stop --user {user} {target.Package}", ct);
         var remove = await conn.ShellAsync($"pm remove-user {user}", ct);
         bool removed = remove.ExitCode == 0
@@ -45,18 +45,18 @@ public sealed class RemoveIslandStep(
         }
 
         Add($"removed user {user}");
-        await DeleteRowAsync(target.Id, userId, Add, ct);
+        await DeleteRowAsync(target.Id, androidUserId, Add, ct);
         return Ok(lines, $"island {user} removed");
     }
 
-    private async Task DeleteRowAsync(string deviceId, int userId, Action<string> add, CancellationToken ct) {
+    private async Task DeleteRowAsync(string deviceId, int androidUserId, Action<string> add, CancellationToken ct) {
         using var scope = scopeFactory.CreateScope();
         if (scope.ServiceProvider.GetService(typeof(DeviceIslandStore)) is not DeviceIslandStore store) {
             add("no database configured, island row not deleted");
             return;
         }
 
-        await store.RemoveAsync(deviceId, userId, ct);
-        add($"island {userId} row deleted");
+        await store.RemoveAsync(deviceId, androidUserId, ct);
+        add($"island {androidUserId} row deleted");
     }
 }

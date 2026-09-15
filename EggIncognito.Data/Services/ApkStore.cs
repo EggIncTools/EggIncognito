@@ -46,7 +46,11 @@ public sealed record ApkVersionSet(
 public sealed class ApkStore(
     EggIncognitoDbContext db,
     TimeProvider time,
+    BlobBytes blobs,
     IEnumerable<IApkStoreObserver>? observers = null) {
+    public Task<byte[]> BytesAsync(StoredApk row, CancellationToken ct) =>
+        blobs.ResolveAsync(BlobTables.StoredApks, row.Bytes, row.Sha256, ct);
+
     public static string SplitLabel(string nameOrPath) {
         string name = Path.GetFileNameWithoutExtension(nameOrPath);
         if (name.Length == 0) return ApkSplitNames.Base;
@@ -65,6 +69,8 @@ public sealed class ApkStore(
                  && a.Build == build && a.Split == split, ct);
         if (existing is not null && string.Equals(existing.Sha256, sha, StringComparison.Ordinal)) return false;
 
+        var stored = await blobs.StoreAsync(BlobTables.StoredApks, sha, bytes, ct);
+
         if (existing is null) {
             db.StoredApks.Add(new StoredApk {
                 Platform = platform,
@@ -73,14 +79,14 @@ public sealed class ApkStore(
                 Build = build,
                 Split = split,
                 Sha256 = sha,
-                Bytes = bytes,
+                Bytes = stored,
                 ByteSize = bytes.LongLength,
                 SourceDeviceId = sourceDeviceId,
                 CapturedAt = time.GetUtcNow()
             });
         } else {
             existing.Sha256 = sha;
-            existing.Bytes = bytes;
+            existing.Bytes = stored;
             existing.ByteSize = bytes.LongLength;
             existing.SourceDeviceId = sourceDeviceId;
             existing.CapturedAt = time.GetUtcNow();

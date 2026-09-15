@@ -15,7 +15,8 @@ namespace EggIncognito.Data.Migrations
             // migration does this same repoint: every step is guarded (IF EXISTS/IF NOT EXISTS) so whichever app boots first wins and the other no-ops.
             migrationBuilder.Sql("CREATE EXTENSION IF NOT EXISTS pgcrypto;");
 
-            migrationBuilder.Sql("ALTER TABLE users ADD COLUMN IF NOT EXISTS user_id UUID NOT NULL DEFAULT gen_random_uuid();");
+            migrationBuilder.Sql(WhenUsersExists(
+                "ALTER TABLE users ADD COLUMN IF NOT EXISTS user_id UUID NOT NULL DEFAULT gen_random_uuid();"));
 
             migrationBuilder.Sql(@"
                 CREATE TABLE IF NOT EXISTS identities (
@@ -27,22 +28,22 @@ namespace EggIncognito.Data.Migrations
                 );");
             migrationBuilder.Sql("CREATE INDEX IF NOT EXISTS ix_identities_user_id ON identities(user_id);");
 
-            migrationBuilder.Sql(@"
+            migrationBuilder.Sql(WhenUsersExists(@"
                 INSERT INTO identities (user_id, provider, subject)
                 SELECT user_id, 'discord', discord_id FROM users
                 WHERE discord_id IS NOT NULL AND discord_id <> ''
-                ON CONFLICT (provider, subject) DO NOTHING;");
+                ON CONFLICT (provider, subject) DO NOTHING;"));
 
             migrationBuilder.Sql("ALTER TABLE capture_proxy_addrs ADD COLUMN IF NOT EXISTS user_id UUID;");
-            migrationBuilder.Sql(@"
+            migrationBuilder.Sql(WhenUsersExists(@"
                 UPDATE capture_proxy_addrs SET user_id = u.user_id FROM users u
-                WHERE capture_proxy_addrs.discord_id = u.discord_id AND capture_proxy_addrs.user_id IS NULL;");
+                WHERE capture_proxy_addrs.discord_id = u.discord_id AND capture_proxy_addrs.user_id IS NULL;"));
             migrationBuilder.Sql("ALTER TABLE capture_proxy_addrs ALTER COLUMN user_id SET NOT NULL;");
 
             migrationBuilder.Sql("ALTER TABLE capture_user_cas ADD COLUMN IF NOT EXISTS user_id UUID;");
-            migrationBuilder.Sql(@"
+            migrationBuilder.Sql(WhenUsersExists(@"
                 UPDATE capture_user_cas SET user_id = u.user_id FROM users u
-                WHERE capture_user_cas.discord_id = u.discord_id AND capture_user_cas.user_id IS NULL;");
+                WHERE capture_user_cas.discord_id = u.discord_id AND capture_user_cas.user_id IS NULL;"));
             migrationBuilder.Sql("ALTER TABLE capture_user_cas ALTER COLUMN user_id SET NOT NULL;");
 
             // EggLedger's sessions/blobs tables FK discord_id -> users(discord_id); drop defensively since Postgres refuses to drop the old PK while either still references it.
@@ -73,10 +74,20 @@ namespace EggIncognito.Data.Migrations
                     END IF;
                 END $$;");
 
-            migrationBuilder.Sql("ALTER TABLE users ALTER COLUMN discord_id DROP NOT NULL;");
-            migrationBuilder.Sql("UPDATE users SET discord_id = NULL WHERE discord_id = '';");
-            migrationBuilder.Sql("CREATE UNIQUE INDEX IF NOT EXISTS ix_users_discord_id ON users(discord_id) WHERE discord_id IS NOT NULL;");
+            migrationBuilder.Sql(WhenUsersExists(@"
+                ALTER TABLE users ALTER COLUMN discord_id DROP NOT NULL;
+                UPDATE users SET discord_id = NULL WHERE discord_id = '';
+                CREATE UNIQUE INDEX IF NOT EXISTS ix_users_discord_id ON users(discord_id) WHERE discord_id IS NOT NULL;"));
         }
+
+        private static string WhenUsersExists(string body) => $@"
+            DO $do$
+            BEGIN
+                IF EXISTS (SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+                           WHERE c.relname = 'users' AND c.relkind = 'r' AND n.nspname = current_schema()) THEN
+                    {body}
+                END IF;
+            END $do$;";
 
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)

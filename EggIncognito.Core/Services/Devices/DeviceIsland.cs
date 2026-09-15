@@ -2,7 +2,7 @@ namespace EggIncognito.Core.Services.Devices;
 
 public sealed record DeviceIsland(
     string DeviceId,
-    int UserId,
+    int AndroidUserId,
     string Label,
     bool Provisioned,
     string? EggAccountId,

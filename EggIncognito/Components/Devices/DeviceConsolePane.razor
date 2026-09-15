@@ -1,4 +1,4 @@
-@rendermode @(RenderModes.InteractiveServer)
+﻿@rendermode @(RenderModes.InteractiveServer)
 @inherits SelfCallComponentBase
 @inject IJSRuntime JS
 @inject IWebHostEnvironment Env
@@ -128,14 +128,14 @@
                     <tbody>
                     <tr>
                         <td class="dcon-cur">
-                            @if (_selectedUserId is null) {
+                            @if (_selectedAndroidUserId is null) {
                                 <Icon Name="check" Class="icon-sm text-ok"/>
                             }
                         </td>
                         <td class="dcon-list-title">Device (no island)</td>
                         <td class="font-mono text-muted text-xs">user @IslandScope.Owner</td>
                         <td class="dcon-row-tools">
-                            @if (_selectedUserId is not null) {
+                            @if (_selectedAndroidUserId is not null) {
                                 <button type="button" class="btn-mini" disabled="@_islandBusy"
                                         @onclick="@(() => SwitchIslandAsync(IslandScope.Owner))">
                                     Switch
@@ -144,8 +144,8 @@
                         </td>
                     </tr>
                     @foreach (var island in _islands) {
-                        var current = _selectedUserId == island.UserId;
-                        <tr @key="island.UserId">
+                        var current = _selectedAndroidUserId == island.AndroidUserId;
+                        <tr @key="island.AndroidUserId">
                             <td class="dcon-cur">
                                 @if (current) {
                                     <Icon Name="check" Class="icon-sm text-ok"/>
@@ -154,17 +154,17 @@
                             <td class="dcon-list-title">@IslandLabel(island)</td>
                             <td class="font-mono text-muted text-xs"
                                 title="@(island.Provisioned ? null : "setup wizard not marked complete for this user; interstitials may cover the app")">
-                                user @island.UserId@(island.Provisioned ? "" : ", unprovisioned")
+                                user @island.AndroidUserId@(island.Provisioned ? "" : ", unprovisioned")
                             </td>
                             <td class="dcon-row-tools">
                                 @if (!current) {
                                     <button type="button" class="btn-mini" disabled="@_islandBusy"
-                                            @onclick="@(() => SwitchIslandAsync(island.UserId))">
+                                            @onclick="@(() => SwitchIslandAsync(island.AndroidUserId))">
                                         Switch
                                     </button>
                                 }
                                 <button type="button" class="btn-mini btn-danger" disabled="@_islandBusy"
-                                        @onclick="@(() => RemoveIslandAsync(island.UserId))">
+                                        @onclick="@(() => RemoveIslandAsync(island.AndroidUserId))">
                                     Remove
                                 </button>
                             </td>
@@ -335,7 +335,7 @@
                             Run
                         </button>
                         @if (SelectedIsland() is { } target) {
-                            <span class="text-xs text-muted">to user @target.UserId</span>
+                            <span class="text-xs text-muted">to user @target.AndroidUserId</span>
                         }
                     </div>
                     @if (Chosen() is { Unavailable: { Length: > 0 } why, Available: false }) {
@@ -483,7 +483,7 @@
     }
 
     string CurrentIslandLabel() {
-        return SelectedIsland() is { } island ? $"{IslandLabel(island)}, user {island.UserId}" : "device, no island";
+        return SelectedIsland() is { } island ? $"{IslandLabel(island)}, user {island.AndroidUserId}" : "device, no island";
     }
 
     static readonly int[] Rates = [5, 4, 3, 2, 1];
@@ -525,7 +525,7 @@
     int _shotH;
     int _screenW;
     int _screenH;
-    int? _selectedUserId;
+    int? _selectedAndroidUserId;
     double _videoFps;
     double _videoLatency;
     double _videoKbps;
@@ -622,7 +622,7 @@
         _readiness = cache.Readiness;
         _readinessAt = cache.ReadinessAt;
         _islands = [.. cache.Islands];
-        _selectedUserId = cache.CurrentUserId;
+        _selectedAndroidUserId = cache.CurrentAndroidUserId;
         _screenW = cache.ScreenW;
         _screenH = cache.ScreenH;
     }
@@ -671,7 +671,7 @@
         _islandBusy = false;
         _newIslandOpen = false;
         _newIslandLabel = "";
-        _selectedUserId = null;
+        _selectedAndroidUserId = null;
         _captureKeys = false;
         _args.Clear();
         _bookId = "";
@@ -1177,12 +1177,13 @@
         if (Stale(id)) return;
         _islands = islands;
         if (current is not null)
-            _selectedUserId = current.UserId != IslandScope.Owner && islands.Any(i => i.UserId == current.UserId) ? current.UserId : null;
-        if (_selectedUserId is { } uid && islands.All(i => i.UserId != uid)) _selectedUserId = null;
+            _selectedAndroidUserId = current.AndroidUserId != IslandScope.Owner
+                && islands.Any(i => i.AndroidUserId == current.AndroidUserId) ? current.AndroidUserId : null;
+        if (_selectedAndroidUserId is { } uid && islands.All(i => i.AndroidUserId != uid)) _selectedAndroidUserId = null;
         if (Cache is { } cache) {
             cache.Islands = islands;
             cache.IslandsLoaded = true;
-            cache.CurrentUserId = _selectedUserId;
+            cache.CurrentAndroidUserId = _selectedAndroidUserId;
         }
 
         _islandBusy = false;
@@ -1190,28 +1191,28 @@
     }
 
     IslandRow? SelectedIsland() {
-        return _selectedUserId is { } uid ? _islands.FirstOrDefault(i => i.UserId == uid) : null;
+        return _selectedAndroidUserId is { } uid ? _islands.FirstOrDefault(i => i.AndroidUserId == uid) : null;
     }
 
     static string IslandLabel(IslandRow island) {
-        return string.IsNullOrWhiteSpace(island.Label) ? $"user {island.UserId}" : island.Label;
+        return string.IsNullOrWhiteSpace(island.Label) ? $"user {island.AndroidUserId}" : island.Label;
     }
 
-    async Task SwitchIslandAsync(int userId) {
+    async Task SwitchIslandAsync(int androidUserId) {
         if (_deviceId is not { } id || _islandBusy) return;
-        var previous = _selectedUserId;
-        _selectedUserId = userId == IslandScope.Owner ? null : userId;
+        var previous = _selectedAndroidUserId;
+        _selectedAndroidUserId = androidUserId == IslandScope.Owner ? null : androidUserId;
         _islandBusy = true;
         StateHasChanged();
-        var res = await Client().PostAsync($"/api/devices/{id}/islands/{userId}/switch", null);
+        var res = await Client().PostAsync($"/api/devices/{id}/islands/{androidUserId}/switch", null);
         if (Stale(id)) return;
         _islandBusy = false;
         if (res.IsSuccessStatusCode) {
-            if (Cache is { } cache) cache.CurrentUserId = _selectedUserId;
+            if (Cache is { } cache) cache.CurrentAndroidUserId = _selectedAndroidUserId;
             return;
         }
 
-        _selectedUserId = previous;
+        _selectedAndroidUserId = previous;
         StateHasChanged();
         await Fail(await ReadError(res));
     }
@@ -1252,11 +1253,11 @@
         await LoadIslandsAsync();
     }
 
-    async Task RemoveIslandAsync(int userId) {
+    async Task RemoveIslandAsync(int androidUserId) {
         if (_deviceId is null) return;
         _islandBusy = true;
         StateHasChanged();
-        var res = await Client().DeleteAsync($"/api/devices/{_deviceId}/islands/{userId}");
+        var res = await Client().DeleteAsync($"/api/devices/{_deviceId}/islands/{androidUserId}");
         _islandBusy = false;
         if (!res.IsSuccessStatusCode) {
             await Fail(await ReadError(res));
@@ -1264,7 +1265,7 @@
             return;
         }
 
-        if (_selectedUserId == userId) _selectedUserId = null;
+        if (_selectedAndroidUserId == androidUserId) _selectedAndroidUserId = null;
         await LoadIslandsAsync();
     }
 
@@ -1355,7 +1356,7 @@
 
         var argument = book.Options is { Count: > 0 } ? ArgFor(book) : null;
         var res = await Client().PostAsJsonAsync($"/api/devices/{_deviceId}/cookbooks",
-            new DeviceCookbookRequest(book.Id, argument, _selectedUserId), SelfCallJson.Web);
+            new DeviceCookbookRequest(book.Id, argument, _selectedAndroidUserId), SelfCallJson.Web);
         if (!res.IsSuccessStatusCode) {
             var failed = await ReadError(res);
             _runBusy = false;

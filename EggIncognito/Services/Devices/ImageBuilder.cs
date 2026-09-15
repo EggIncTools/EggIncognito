@@ -305,7 +305,7 @@ public sealed class ImageBuilder(
             if (!string.IsNullOrEmpty(expectedMd5) && !string.Equals(md5, expectedMd5, StringComparison.OrdinalIgnoreCase)) {
                 if (cached is not null) {
                     await Log(buildId, $"{label}: md5 mismatch on download (got {md5}); using cached blob", ct);
-                    return cached.Bytes;
+                    return await blobs.BytesAsync(cached, ct);
                 }
 
                 throw new InvalidOperationException(
@@ -318,7 +318,7 @@ public sealed class ImageBuilder(
         } catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException && !ct.IsCancellationRequested) {
             if (cached is not null) {
                 await Log(buildId, $"{label}: download failed ({ex.Message}); using cached blob", ct);
-                return cached.Bytes;
+                return await blobs.BytesAsync(cached, ct);
             }
 
             throw new InvalidOperationException(

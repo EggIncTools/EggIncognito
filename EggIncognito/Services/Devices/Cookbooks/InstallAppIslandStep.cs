@@ -32,12 +32,12 @@ public sealed class InstallAppIslandStep(
         var target = context.Target;
         if (!Platforms.Matches(target.Platform, Platforms.Android))
             return Skipped(lines, "islands are android-only");
-        if (context.UserId is not { } userId)
+        if (context.AndroidUserId is not { } androidUserId)
             return Failed(lines, "no island selected; this step needs a target island user id");
         if (connections.For(target) is not { } conn)
             return Failed(lines, "no connection for this device");
 
-        string user = IslandScope.User(userId);
+        string user = IslandScope.User(androidUserId);
         var path = await conn.ShellAsync($"pm path {target.Package}", ct);
         if (path.ExitCode == 0 && path.Stdout.Contains("package:", StringComparison.Ordinal)) {
             Add($"{target.Package} is on the device; sharing it into user {user}");
@@ -49,11 +49,11 @@ public sealed class InstallAppIslandStep(
         }
 
         Add($"{target.Package} is not on the device; installing splits into user {user}");
-        return await InstallSplitsAsync(target, userId, lines, Add, ct);
+        return await InstallSplitsAsync(target, androidUserId, lines, Add, ct);
     }
 
     private async Task<CookbookStepResult> InstallSplitsAsync(
-        DeviceTarget target, int userId, List<string> lines, Action<string> add, CancellationToken ct) {
+        DeviceTarget target, int androidUserId, List<string> lines, Action<string> add, CancellationToken ct) {
         var set = await NewestInstallableAsync(target.Package, ct);
         if (set is null)
             return Failed(lines, $"no stored apk for {target.Package}; run install-app on the owner user first");
@@ -70,9 +70,9 @@ public sealed class InstallAppIslandStep(
                 staged.Add(path);
             }
 
-            add($"installing {rows.Count} split(s) of {set.Key} into user {IslandScope.User(userId)}");
+            add($"installing {rows.Count} split(s) of {set.Key} into user {IslandScope.User(androidUserId)}");
             var install = await Adb(target.Target,
-                ["install-multiple", "--user", IslandScope.User(userId), "-r", .. staged], ct);
+                ["install-multiple", "--user", IslandScope.User(androidUserId), "-r", .. staged], ct);
             if (install.ExitCode != 0) {
                 string output = install.Stderr + "\n" + install.Stdout;
                 return Failed(lines, $"install-multiple --user failed: {DeviceParsing.TrimNote(output)}");
@@ -81,7 +81,7 @@ public sealed class InstallAppIslandStep(
             foreach (string path in staged) DeviceShell.TryDelete(path);
         }
 
-        return Ok(lines, $"installed {set.Key} into island {IslandScope.User(userId)}");
+        return Ok(lines, $"installed {set.Key} into island {IslandScope.User(androidUserId)}");
     }
 
     private async Task<ApkVersionSet?> NewestInstallableAsync(string package, CancellationToken ct) {
@@ -91,11 +91,14 @@ public sealed class InstallAppIslandStep(
         return sets.FirstOrDefault(s => s.Installable);
     }
 
-    private async Task<IReadOnlyList<StoredApk>> SplitsAsync(
+    private async Task<IReadOnlyList<CookbookApkSplit>> SplitsAsync(
         string package, string appVersion, string build, CancellationToken ct) {
         using var scope = scopeFactory.CreateScope();
         if (scope.ServiceProvider.GetService(typeof(ApkStore)) is not ApkStore store) return [];
-        return await store.SplitsAsync(Platforms.Android, package, appVersion, build, ct);
+        var rows = await store.SplitsAsync(Platforms.Android, package, appVersion, build, ct);
+        var splits = new List<CookbookApkSplit>(rows.Count);
+        foreach (var row in rows) splits.Add(new CookbookApkSplit(row.Split, await store.BytesAsync(row, ct)));
+        return splits;
     }
 
     private async Task<ProcessResult> Adb(string serial, string[] rest, CancellationToken ct) {
