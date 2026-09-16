@@ -44,6 +44,42 @@ public sealed class IosUiDriver(IDeviceConnectionFactory connections, IosUiDrive
             : DeviceResult<byte[]>.Success(png);
     }
 
+    public async Task<DeviceResult<DeviceScreenState>> ScreenStateAsync(DeviceTarget target, CancellationToken ct) {
+        var reply = await RunAsync(target, "state", ct);
+        return reply.Outcome != DeviceOutcome.Ok
+            ? new DeviceResult<DeviceScreenState>(reply.Outcome, default, reply.Note)
+            : DeviceResult<DeviceScreenState>.Success(ParseScreenState(reply.Value!));
+    }
+
+    public async Task<DeviceResult<string>> FrontmostBundleAsync(DeviceTarget target, CancellationToken ct) {
+        var reply = await RunAsync(target, "frontmost", ct);
+        return reply.Outcome != DeviceOutcome.Ok
+            ? new DeviceResult<string>(reply.Outcome, default, reply.Note)
+            : DeviceResult<string>.Success(ParseFrontmost(reply.Value!));
+    }
+
+    public static DeviceScreenState ParseScreenState(string doneLine) {
+        bool awake = Flag(doneLine, "awake=") is not false;
+        bool locked = Flag(doneLine, "locked=") is true;
+        return new DeviceScreenState(awake, locked);
+    }
+
+    public static string ParseFrontmost(string doneLine) => Token(doneLine, "bundle=") ?? "";
+
+    private static bool? Flag(string line, string key) => Token(line, key) switch {
+        "1" or "true" => true,
+        "0" or "false" => false,
+        _ => null
+    };
+
+    private static string? Token(string line, string key) {
+        foreach (string part in line.Split(' ', StringSplitOptions.RemoveEmptyEntries)) {
+            if (part.StartsWith(key, StringComparison.Ordinal)) return part[key.Length..];
+        }
+
+        return null;
+    }
+
     public async Task<DeviceResult> TapAsync(DeviceTarget target, UiSelector selector, CancellationToken ct) {
         var dump = await DumpAsync(target, ct);
         if (!dump.Ok) return new DeviceResult(dump.Outcome, dump.Note);

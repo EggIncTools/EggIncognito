@@ -177,6 +177,77 @@ public class IosUiDriverTests {
         Assert.Equal("err no-key-window", result.Note);
     }
 
+    [Theory]
+    [InlineData("ok state awake=1 locked=0", true, false)]
+    [InlineData("ok state awake=0 locked=1", false, true)]
+    [InlineData("ok state awake=unknown locked=0", true, false)]
+    [InlineData("ok state awake=1 locked=unknown", true, false)]
+    [InlineData("ok state", true, false)]
+    [InlineData("ok state awake locked", true, false)]
+    public void ParseScreenState_MapsFlagsAndUnknownsConservatively(string done, bool awake, bool locked) {
+        var state = IosUiDriver.ParseScreenState(done);
+
+        Assert.Equal(awake, state.Awake);
+        Assert.Equal(locked, state.Locked);
+    }
+
+    [Fact]
+    public async Task ScreenStateAsync_Success_SendsStateCommandAndParses() {
+        var runner = HappyRunner("ok state awake=0 locked=1");
+        var driver = new IosUiDriver(new FakeConnections(runner), DefaultOptions);
+
+        var result = await driver.ScreenStateAsync(IosTarget, default);
+
+        Assert.True(result.Ok);
+        Assert.False(result.Value.Awake);
+        Assert.True(result.Value.Locked);
+        Assert.Contains(runner.Calls,
+            c => c.Exe == "ssh" && c.Args[^1].Contains("printf %s 'state'", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task ScreenStateAsync_TweakAbsent_ReturnsUnsupported() {
+        var runner = new FakeRunner((_, args) => Presence(args, present: false));
+        var driver = new IosUiDriver(new FakeConnections(runner), DefaultOptions);
+
+        var result = await driver.ScreenStateAsync(IosTarget, default);
+
+        Assert.Equal(DeviceOutcome.Unsupported, result.Outcome);
+        Assert.Contains("egi-uinav tweak not installed", result.Note);
+    }
+
+    [Theory]
+    [InlineData("ok frontmost bundle=com.auxbrain.egginc", "com.auxbrain.egginc")]
+    [InlineData("ok frontmost bundle=", "")]
+    [InlineData("ok frontmost", "")]
+    [InlineData("ok frontmost bundle", "")]
+    public void ParseFrontmost_ReadsBundleOrEmpty(string done, string expected) =>
+        Assert.Equal(expected, IosUiDriver.ParseFrontmost(done));
+
+    [Fact]
+    public async Task FrontmostBundleAsync_Success_SendsFrontmostCommand() {
+        var runner = HappyRunner("ok frontmost bundle=com.auxbrain.egginc");
+        var driver = new IosUiDriver(new FakeConnections(runner), DefaultOptions);
+
+        var result = await driver.FrontmostBundleAsync(IosTarget, default);
+
+        Assert.True(result.Ok);
+        Assert.Equal("com.auxbrain.egginc", result.Value);
+        Assert.Contains(runner.Calls,
+            c => c.Exe == "ssh" && c.Args[^1].Contains("printf %s 'frontmost'", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task FrontmostBundleAsync_ErrLine_ReturnsError() {
+        var runner = new FakeRunner((_, args) => Presence(args, present: true, doneLine: "err frontmost ?"));
+        var driver = new IosUiDriver(new FakeConnections(runner), DefaultOptions);
+
+        var result = await driver.FrontmostBundleAsync(IosTarget, default);
+
+        Assert.Equal(DeviceOutcome.Error, result.Outcome);
+        Assert.Equal("err frontmost ?", result.Note);
+    }
+
     [Fact]
     public async Task LaunchAppAsync_IssuesUiopenCommand() {
         var runner = new FakeRunner((_, _) => new ProcessResult(0, "", ""));

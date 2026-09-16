@@ -767,6 +767,34 @@ public sealed partial class DevicesController(
         return Ok(new { ok = true, stopped, state = watches.State(id) });
     }
 
+    [HttpPost("{id}/ui/watch/client")]
+    [ApiAccess(ApiAccessLevel.Admin)]
+    [EnableRateLimiting("write")]
+    public IActionResult UiWatchClient(string id, [FromQuery] bool on) {
+        if (RequireAdmin() is { } no) return no;
+        if (services.GetService(typeof(PixelWatchService)) is not PixelWatchService watches)
+            return StatusCode(503, new { error = "pixel watch not configured" });
+        watches.SetClientWatching(id, on);
+        return Ok(new { ok = true, client = on, state = watches.State(id) });
+    }
+
+    [HttpPost("{id}/ui/watch/{point}/hit")]
+    [ApiAccess(ApiAccessLevel.Admin)]
+    [EnableRateLimiting("write")]
+    public async Task<IActionResult> UiWatchHit(string id, string point, CancellationToken ct) {
+        if (RequireAdmin() is { } no) return no;
+        if (string.IsNullOrWhiteSpace(point)) return BadRequest(new { error = "point is required" });
+        if (services.GetService(typeof(PixelWatchService)) is not PixelWatchService watches)
+            return StatusCode(503, new { error = "pixel watch not configured" });
+        if (watches.State(id).Points.All(p => p.Id != point))
+            return NotFound(new { error = "unknown watch point" });
+        (IActionResult? err, var platform, var target) = await ResolveUiAsync(id, ct);
+        if (err is not null) return err;
+
+        var r = await watches.HitAsync(platform, target, point, ct);
+        return r.Ok ? Ok(new { ok = true, note = r.Note, state = r.Value }) : UiFailure(r.Outcome, r.Note);
+    }
+
     [HttpPost("{id}/ui/touch")]
     [ApiAccess(ApiAccessLevel.Admin)]
     [EnableRateLimiting("write")]

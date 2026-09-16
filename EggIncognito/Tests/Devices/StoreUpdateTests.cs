@@ -69,7 +69,7 @@ public class StoreUpdateTests {
     private static IosStoreUpdateDriver IosDriver(IosStoreCatalog catalog) =>
         new(new FakeRunner(_ => new ProcessResult(0, "", "")),
             new IosStoreUpdateDriver.Options(null, "22", null, "/var/mobile/trigger", TweakPath, "12345", null),
-            catalog, Recorder(), Activity(), NullLogger<IosStoreUpdateDriver>.Instance);
+            catalog, Recorder(), [], Activity(), NullLogger<IosStoreUpdateDriver>.Instance);
 
     private const string TweakPath = "/Library/MobileSubstrate/DynamicLibraries/eggupdate.dylib";
 
@@ -78,7 +78,7 @@ public class StoreUpdateTests {
             new IosStoreUpdateDriver.Options("phone", "2222", "/keys/phone", "/var/mobile/trigger", TweakPath,
                 "12345", null),
             Catalog(_ => Json("{\"resultCount\":1,\"results\":[{\"version\":\"1.37\"}]}")),
-            Recorder(), Activity(), NullLogger<IosStoreUpdateDriver>.Instance);
+            Recorder(), [], Activity(), NullLogger<IosStoreUpdateDriver>.Instance);
 
     private static HttpResponseMessage Json(string body) =>
         new(HttpStatusCode.OK) { Content = new StringContent(body) };

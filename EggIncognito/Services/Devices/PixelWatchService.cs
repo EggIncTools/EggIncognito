@@ -6,17 +6,25 @@ using SixLabors.ImageSharp.PixelFormats;
 namespace EggIncognito.Services.Devices;
 
 public sealed class PixelWatchService(ILogger<PixelWatchService> logger) : IDisposable {
-    public static readonly TimeSpan Poll = TimeSpan.FromMilliseconds(350);
+    public static readonly TimeSpan Poll = TimeSpan.FromMilliseconds(750);
     public static readonly TimeSpan AfterTap = TimeSpan.FromMilliseconds(700);
     public const int Tolerance = 48;
-    public const int MaxPoints = 8;
+    public const int MaxPoints = 32;
 
     private readonly ConcurrentDictionary<string, Watch> _watches = new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<string, bool> _clientWatching = new(StringComparer.Ordinal);
 
     public event Action<string, PixelWatchState>? Changed;
 
     public PixelWatchState State(string deviceId) =>
         _watches.TryGetValue(deviceId, out var w) ? w.State : PixelWatchState.Empty;
+
+    public bool ClientWatching(string deviceId) => _clientWatching.ContainsKey(deviceId);
+
+    public void SetClientWatching(string deviceId, bool on) {
+        if (on) _clientWatching[deviceId] = true;
+        else _clientWatching.TryRemove(deviceId, out _);
+    }
 
     public async Task<DeviceResult<PixelWatchState>> AddAsync(
         IDevicePlatform platform, DeviceTarget target, int x, int y, CancellationToken ct) {
@@ -44,6 +52,20 @@ public sealed class PixelWatchService(ILogger<PixelWatchService> logger) : IDisp
         return DeviceResult<PixelWatchState>.Success(state);
     }
 
+    public async Task<DeviceResult<PixelWatchState>> HitAsync(
+        IDevicePlatform platform, DeviceTarget target, string pointId, CancellationToken ct) {
+        if (!_watches.TryGetValue(target.Id, out var watch))
+            return DeviceResult<PixelWatchState>.Error("no watch points are armed for this device");
+
+        var point = watch.Snapshot().FirstOrDefault(p => p.Id == pointId);
+        if (point is null) return DeviceResult<PixelWatchState>.Error("unknown watch point");
+        if (Cooling(point)) return DeviceResult<PixelWatchState>.Success(watch.State, "cooling down");
+
+        await TapAsync(platform, watch, point, ct);
+        if (point.Error is { } failed) return DeviceResult<PixelWatchState>.Error(failed);
+        return DeviceResult<PixelWatchState>.Success(watch.State, "tapped");
+    }
+
     public bool Remove(string deviceId, string pointId) {
         if (!_watches.TryGetValue(deviceId, out var watch)) return false;
         bool empty;
@@ -61,10 +83,13 @@ public sealed class PixelWatchService(ILogger<PixelWatchService> logger) : IDisp
 
     public bool StopAll(string deviceId) {
         if (!_watches.TryRemove(deviceId, out var watch)) return false;
+        _clientWatching.TryRemove(deviceId, out _);
         watch.Cts.Cancel();
         Publish(deviceId, PixelWatchState.Empty);
         return true;
     }
+
+    private static bool Cooling(Point p) => p.LastTapAt is { } last && DateTimeOffset.UtcNow - last < AfterTap;
 
     private async Task LoopAsync(IDevicePlatform platform, Watch w) {
         var ct = w.Cts.Token;
@@ -72,6 +97,7 @@ public sealed class PixelWatchService(ILogger<PixelWatchService> logger) : IDisp
             foreach (var p in w.Snapshot()) await TapAsync(platform, w, p, ct);
             while (!ct.IsCancellationRequested) {
                 await Task.Delay(Poll, ct);
+                if (ClientWatching(w.Target.Id)) continue;
                 var points = w.Snapshot();
                 if (points.Count == 0) continue;
 
@@ -82,12 +108,13 @@ public sealed class PixelWatchService(ILogger<PixelWatchService> logger) : IDisp
                     continue;
                 }
 
+                var samples = PixelSampler.SampleMany(png, [.. points.Select(p => (p.X, p.Y))]);
                 bool tapped = false;
-                foreach (var p in points) {
+                for (int i = 0; i < points.Count; i++) {
                     if (ct.IsCancellationRequested) break;
-                    if (PixelSampler.Sample(png, p.X, p.Y) is not { } px) continue;
-                    if (!PixelSampler.Close(px, p.Color, Tolerance)) continue;
-                    await TapAsync(platform, w, p, ct);
+                    if (samples[i] is not { } px) continue;
+                    if (!PixelSampler.Close(px, points[i].Color, Tolerance)) continue;
+                    await TapAsync(platform, w, points[i], ct);
                     tapped = true;
                 }
 

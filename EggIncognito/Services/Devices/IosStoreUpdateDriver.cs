@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using EggIncognito.Core.Services.Devices;
 
 namespace EggIncognito.Services.Devices;
@@ -7,8 +8,13 @@ public sealed class IosStoreUpdateDriver(
     IosStoreUpdateDriver.Options opts,
     IosStoreCatalog catalog,
     KnownVersionRecorder knownVersions,
+    IEnumerable<IDeviceUiDriver> uiDrivers,
     DeviceActivity activity,
     ILogger<IosStoreUpdateDriver> logger) : IStoreUpdateDriver {
+    private readonly IosUiDriver? _ui = uiDrivers.OfType<IosUiDriver>().FirstOrDefault();
+
+    private readonly ConcurrentDictionary<string, string> _entry = new(StringComparer.OrdinalIgnoreCase);
+
     public string Platform => Platforms.Ios;
     public string StoreName => "App Store";
 
@@ -20,6 +26,7 @@ public sealed class IosStoreUpdateDriver(
     public async Task PrepareAsync(DeviceTarget target, CancellationToken ct) {
         if (!SshConfigured) return;
         try {
+            if (await ReadFrontmostAsync(target, ct) is { Length: > 0 } bundle) _entry[target.Id] = bundle;
             await SshAsync("killall -9 AppStore 2>/dev/null || true", ct);
             try {
                 await Task.Delay(TimeSpan.FromSeconds(2), ct);
@@ -65,13 +72,27 @@ public sealed class IosStoreUpdateDriver(
     }
 
     public async Task CleanupAsync(DeviceTarget target, CancellationToken ct) {
+        _entry.TryRemove(target.Id, out string? entry);
         if (!SshConfigured) return;
         if (activity.IsBusy(target.Id)) return;
         try {
             await SshAsync("killall -9 AppStore 2>/dev/null || true", ct);
+            if (Restorable(entry) is { } bundle) await SshAsync($"uiopen --bundleid {bundle}", ct);
         } catch (Exception ex) {
             logger.LogDebug(ex, "ios app-close best-effort failed");
         }
+    }
+
+    private async Task<string?> ReadFrontmostAsync(DeviceTarget target, CancellationToken ct) {
+        if (_ui is null) return null;
+        var front = await _ui.FrontmostBundleAsync(target, ct);
+        return front.Ok ? front.Value : null;
+    }
+
+    private static string? Restorable(string? bundle) {
+        if (string.IsNullOrWhiteSpace(bundle)) return null;
+        if (bundle.Equals("com.apple.springboard", StringComparison.OrdinalIgnoreCase)) return null;
+        return bundle.Equals("com.apple.AppStore", StringComparison.OrdinalIgnoreCase) ? null : bundle;
     }
 
     private async Task<string?> ListenerMissingNoteAsync(CancellationToken ct) {

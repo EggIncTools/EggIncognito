@@ -320,6 +320,7 @@ public static class DeviceServices {
                     ios["AppId"] ?? "993492744", ios["LookupCountry"]),
                 sp.GetRequiredService<IosStoreCatalog>(),
                 sp.GetRequiredService<KnownVersionRecorder>(),
+                sp.GetServices<IDeviceUiDriver>(),
                 sp.GetRequiredService<DeviceActivity>(),
                 sp.GetRequiredService<ILogger<IosStoreUpdateDriver>>()),
             new StoreUpdateOrchestrator.Options(ios.GetValue("PollSeconds", 15), ios.GetValue("PollAttempts", 24)),

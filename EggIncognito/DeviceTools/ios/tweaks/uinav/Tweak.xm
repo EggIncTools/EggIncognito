@@ -6,6 +6,7 @@
 #import <mach/mach_time.h>
 #import <objc/message.h>
 #import <dispatch/dispatch.h>
+#import <notify.h>
 
 static NSString *const kCmdPath = @"/tmp/egi-uinav.cmd";
 static NSString *const kJsonPath = @"/tmp/egi-uinav.json";
@@ -41,6 +42,9 @@ UIImage *_UICreateScreenUIImage(void);
 
 static volatile int32_t gBusy = 0;
 static dispatch_source_t gTimer;
+static BOOL gIsSpringBoard = NO;
+
+static const NSTimeInterval kSpringBoardDeferSeconds = 0.5;
 
 static void writeDone(NSString *status) {
     @try {
@@ -315,6 +319,41 @@ static void doKeyHome(void) {
     }
 }
 
+static bool readNotifyState(const char *key, uint64_t *out) {
+    int token = 0;
+    if (notify_register_check(key, &token) != NOTIFY_STATUS_OK) return false;
+    uint64_t state = 0;
+    int rc = notify_get_state(token, &state);
+    notify_cancel(token);
+    if (rc != NOTIFY_STATUS_OK) return false;
+    *out = state;
+    return true;
+}
+
+static void doState(void) {
+    @try {
+        NSString *awake = @"unknown";
+        NSString *locked = @"unknown";
+        uint64_t v = 0;
+        if (readNotifyState("com.apple.iokit.hid.displayStatus", &v)) awake = v ? @"1" : @"0";
+        else if (readNotifyState("com.apple.springboard.hasBlankedScreen", &v)) awake = v ? @"0" : @"1";
+        if (readNotifyState("com.apple.springboard.lockstate", &v)) locked = v ? @"1" : @"0";
+        writeDone([NSString stringWithFormat:@"ok state awake=%@ locked=%@", awake, locked]);
+    } @catch (NSException *e) {
+        writeDone([NSString stringWithFormat:@"err state %@", e.reason ?: @"?"]);
+    }
+}
+
+static void doFrontmost(void) {
+    @try {
+        NSString *bundle = [[NSBundle mainBundle] bundleIdentifier] ?: @"";
+        if ([bundle caseInsensitiveCompare:@"com.apple.springboard"] == NSOrderedSame) bundle = @"";
+        writeDone([NSString stringWithFormat:@"ok frontmost bundle=%@", bundle]);
+    } @catch (NSException *e) {
+        writeDone([NSString stringWithFormat:@"err frontmost %@", e.reason ?: @"?"]);
+    }
+}
+
 static void dispatchCommand(NSString *line) {
     if (line.length == 0) { writeDone(@"err empty-command"); return; }
     if ([line hasPrefix:@"text "]) {
@@ -329,6 +368,10 @@ static void dispatchCommand(NSString *line) {
     NSString *verb = tok[0];
     if ([verb isEqualToString:@"dump"]) {
         doDump();
+    } else if ([verb isEqualToString:@"state"]) {
+        doState();
+    } else if ([verb isEqualToString:@"frontmost"]) {
+        doFrontmost();
     } else if ([verb isEqualToString:@"tap"]) {
         if (tok.count >= 3) doTap([tok[1] doubleValue], [tok[2] doubleValue]);
         else writeDone(@"err tap-args");
@@ -360,9 +403,18 @@ static void handleOnMain(void) {
     dispatchCommand(line);
 }
 
+static BOOL springBoardShouldDefer(void) {
+    if (!gIsSpringBoard) return NO;
+    NSDictionary *attrs = [[NSFileManager defaultManager] attributesOfItemAtPath:kCmdPath error:nil];
+    NSDate *written = attrs[NSFileModificationDate];
+    if (!written) return YES;
+    return [[NSDate date] timeIntervalSinceDate:written] < kSpringBoardDeferSeconds;
+}
+
 static void pollCommand(void) {
     @try {
         if (![[NSFileManager defaultManager] fileExistsAtPath:kCmdPath]) return;
+        if (springBoardShouldDefer()) return;
         if (!__sync_bool_compare_and_swap(&gBusy, 0, 1)) return;
         dispatch_async(dispatch_get_main_queue(), ^{
             @try {
@@ -390,6 +442,8 @@ static void startWatcher(void) {
 %ctor {
     @autoreleasepool {
         @try {
+            NSString *host = [[NSBundle mainBundle] bundleIdentifier];
+            gIsSpringBoard = [host caseInsensitiveCompare:@"com.apple.springboard"] == NSOrderedSame;
             startWatcher();
         } @catch (__unused NSException *e) {
         }

@@ -409,6 +409,8 @@
     string _stageKey = "";
     string _keysKey = "";
     string _watchKey = "";
+    bool _clientWatching;
+    string? _clientWatchingFor;
     string? _deviceId;
     string? _streamError;
     DeviceConsoleMode _mode = DeviceConsoleMode.Idle;
@@ -852,8 +854,15 @@
     [JSInvokable]
     public async Task OnWatchHit(string pointId) {
         if (_deviceId is null) return;
-        if (_watch.Points.FirstOrDefault(p => p.Id == pointId) is not { } point) return;
-        await TapAsync(point.X, point.Y);
+        if (_watch.Points.All(p => p.Id != pointId)) return;
+        await Client().PostAsync($"/api/devices/{_deviceId}/ui/watch/{pointId}/hit", null);
+    }
+
+    void SetClientWatching(string deviceId, bool on) {
+        if (on == _clientWatching && (!on || deviceId == _clientWatchingFor)) return;
+        _clientWatching = on;
+        _clientWatchingFor = on ? deviceId : null;
+        Watches?.SetClientWatching(deviceId, on);
     }
 
     static (int R, int G, int B)? Rgb(string? hex) {
@@ -1204,11 +1213,13 @@
         _watchKey = desired;
         if (points.Count == 0) {
             await SafeAsync(() => module.InvokeVoidAsync("clearWatchPoints", _canvas).AsTask());
+            if (_clientWatchingFor is { } was) SetClientWatching(was, false);
             return;
         }
 
         await SafeAsync(() => module.InvokeVoidAsync("watchPoints", _canvas, points,
             new { tolerance = WatchTolerance, cooldownMs = WatchCooldownMs }).AsTask());
+        if (_deviceId is { } id) SetClientWatching(id, true);
     }
 
     List<WatchPoint> WatchPayload() {
@@ -1235,6 +1246,7 @@
         if (_module is not { } module) return;
         _watchKey = "";
         await SafeAsync(() => module.InvokeVoidAsync("clearWatchPoints", _canvas).AsTask());
+        if (_clientWatchingFor is { } watching) SetClientWatching(watching, false);
         await HaltAsync(module);
         if (_stageKey.Length > 0) {
             _stageKey = "";
