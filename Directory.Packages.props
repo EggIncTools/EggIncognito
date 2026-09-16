@@ -1,7 +1,7 @@
 <Project>
   <PropertyGroup>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
-    <EggIdentityVersion>2.5.6</EggIdentityVersion>
+    <EggIdentityVersion>2.6.1</EggIdentityVersion>
   </PropertyGroup>
   <ItemGroup>
     <PackageVersion Include="AngleSharp" Version="1.5.2" />
@@ -9,14 +9,12 @@
     <PackageVersion Include="coverlet.collector" Version="6.0.4" />
     <PackageVersion Include="EggIdentity.AdminUi" Version="$(EggIdentityVersion)" />
     <PackageVersion Include="EggIdentity.Bot" Version="$(EggIdentityVersion)" />
-    <PackageVersion Include="EggIdentity.Bot.AdminUi" Version="$(EggIdentityVersion)" />
     <PackageVersion Include="EggIdentity.Client" Version="$(EggIdentityVersion)" />
     <PackageVersion Include="EggIdentity.CodeStyle" Version="$(EggIdentityVersion)" />
     <PackageVersion Include="EggIdentity.Deploy" Version="$(EggIdentityVersion)" />
     <PackageVersion Include="EggIdentity.Deploy.AdminUi" Version="$(EggIdentityVersion)" />
     <PackageVersion Include="EggIdentity.Fallback" Version="$(EggIdentityVersion)" />
     <PackageVersion Include="EggIdentity.Metrics" Version="$(EggIdentityVersion)" />
-    <PackageVersion Include="EggIdentity.Metrics.AdminUi" Version="$(EggIdentityVersion)" />
     <PackageVersion Include="EggIdentity.Settings" Version="$(EggIdentityVersion)" />
     <PackageVersion Include="EggIdentity.Settings.AdminUi" Version="$(EggIdentityVersion)" />
     <PackageVersion Include="EggIdentity.Settings.Api" Version="$(EggIdentityVersion)" />

@@ -1,6 +1,5 @@
 using EggIdentity.Contract;
 using EggIdentity.Metrics;
-using EggIdentity.Metrics.AdminUi;
 
 namespace EggIncognito.Services.Metrics;
 

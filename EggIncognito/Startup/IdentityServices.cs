@@ -1,7 +1,6 @@
 using System.Net.Http.Headers;
 using EggIdentity.Client;
 using EggIdentity.Metrics;
-using EggIdentity.Metrics.AdminUi;
 using EggIncognito.Services;
 using EggIncognito.Services.Auth;
 using EggIncognito.Services.Metrics;

@@ -5,13 +5,12 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="EggIdentity.Bot.AdminUi" />
     <PackageReference Include="EggIdentity.AdminUi" />
+    <PackageReference Include="EggIdentity.Bot" />
     <PackageReference Include="EggIdentity.Deploy" />
     <PackageReference Include="EggIdentity.Deploy.AdminUi" />
     <PackageReference Include="EggIdentity.Fallback" />
     <PackageReference Include="EggIdentity.Metrics" />
-    <PackageReference Include="EggIdentity.Metrics.AdminUi" />
     <PackageReference Include="EggIdentity.Settings" />
     <PackageReference Include="EggIdentity.Settings.AdminUi" />
     <PackageReference Include="EggIdentity.Settings.Api" />
