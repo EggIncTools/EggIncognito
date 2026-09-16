@@ -1,4 +1,4 @@
-﻿@rendermode @(RenderModes.InteractiveServer)
+@rendermode @(RenderModes.InteractiveServer)
 @inherits SelfCallComponentBase
 @inject IJSRuntime JS
 @inject IWebHostEnvironment Env
@@ -35,8 +35,13 @@
                         <span class="dcon-hl dcon-hl-pt dcon-hl-end" style="@PointStyle(hl.X2, hl.Y2)"></span>
                     }
                 }
-                @if (_hasFrame && _watch is { } wp && TapWidth > 0) {
-                    <span class="dcon-hl dcon-hl-pt dcon-hl-watch" style="@PointStyle(wp.X, wp.Y)"></span>
+                @if (_hasFrame && TapWidth > 0) {
+                    @foreach (var wp in _watch.Points) {
+                        <span class="dcon-hl dcon-hl-pt dcon-hl-watch" style="@PointStyle(wp.X, wp.Y)"></span>
+                    }
+                }
+                @if (_watch.Tapping) {
+                    <span class="dcon-tapping" aria-hidden="true"></span>
                 }
             </button>
             @if (!_hasFrame) {
@@ -86,11 +91,17 @@
                 Record
             </button>
             @if (IsAndroid) {
-                <button type="button" class="btn-mini @(_locking || _watch is not null ? "dcon-on" : "")"
-                        title="@WatchTitle()" @onclick="ToggleWatchAsync">
+                <button type="button" class="btn-mini @(_locking || _watch.Points.Count > 0 ? "dcon-on" : "")"
+                        title="@WatchTitle()" @onclick="ToggleLocking">
                     <Icon Name="eye" Class="icon-sm"/>
                     @WatchLabel()
                 </button>
+                @if (_watch.Points.Count > 0) {
+                    <button type="button" class="btn-mini" title="Stop every watch point on this device"
+                            @onclick="StopAllWatchesAsync">
+                        Clear @_watch.Points.Count
+                    </button>
+                }
             }
         </span>
     </div>
@@ -589,7 +600,7 @@
         var next = string.IsNullOrEmpty(DeviceId) ? null : DeviceId;
         if (next != _deviceId) {
             await StopStreamAsync();
-            if (next is not null) _watch = Watches?.Status(next);
+            _watch = next is null ? PixelWatchState.Empty : Watches?.State(next) ?? PixelWatchState.Empty;
             StopRunWatch();
             _deviceId = next;
             _loaded = false;
@@ -656,7 +667,7 @@
         _selectedGesture = null;
         _replaying = false;
         _locking = false;
-        _watch = null;
+        _watch = PixelWatchState.Empty;
         _streamError = null;
         _streamRetried = false;
         _videoFallback = false;
@@ -907,37 +918,39 @@
 
     bool _locking;
     bool _watchSubscribed;
-    PixelWatchStatus? _watch;
+    PixelWatchState _watch = PixelWatchState.Empty;
 
     PixelWatchService? Watches => Services.GetService(typeof(PixelWatchService)) as PixelWatchService;
 
     string WatchLabel() {
-        if (_watch is { } w) return w.Taps == 1 ? "Watching, 1 tap" : $"Watching, {w.Taps} taps";
-        return _locking ? "Tap the button" : "Lock";
+        if (_watch.Points.Count == 0) return _locking ? "Tap the button" : "Lock";
+        int taps = _watch.Points.Sum(p => p.Taps);
+        string points = _watch.Points.Count == 1 ? "1 point" : $"{_watch.Points.Count} points";
+        return _locking ? $"{points}, tap another" : $"{points}, {taps} taps";
     }
 
     string WatchTitle() {
-        if (_watch is { } w) {
-            return w.Error is { } err
-                ? $"Watching {w.X},{w.Y} for {w.Color}; last error: {err}. Click to stop."
-                : $"Watching {w.X},{w.Y} for {w.Color}; taps it whenever that colour returns. Click to stop.";
+        if (_watch.Points.Count == 0) {
+            return _locking
+                ? "Now tap the popup button on the screen; its colour at that point becomes the trigger"
+                : "Lock a point: tap a popup button once and it gets tapped again every time it reappears";
         }
 
-        return _locking
-            ? "Now tap the popup button on the screen; its colour at that point becomes the trigger"
-            : "Lock a point: tap a popup button once and it gets tapped again every time it reappears";
+        var lines = _watch.Points.Select(p => p.Error is { } err
+            ? $"{p.X},{p.Y} for {p.Color} - {p.Taps} taps; last error: {err}"
+            : $"{p.X},{p.Y} for {p.Color} - {p.Taps} taps");
+        string head = _locking ? "Tap another popup button to add a point." : "Click to add another point.";
+        return head + Environment.NewLine + string.Join(Environment.NewLine, lines);
     }
 
-    async Task ToggleWatchAsync() {
-        if (_deviceId is null) return;
-        if (_watch is not null) {
-            var res = await Client().DeleteAsync($"/api/devices/{_deviceId}/ui/watch");
-            if (!res.IsSuccessStatusCode) await Fail(await ReadError(res));
-            _watch = null;
-            return;
-        }
+    void ToggleLocking() => _locking = !_locking;
 
-        _locking = !_locking;
+    async Task StopAllWatchesAsync() {
+        if (_deviceId is null) return;
+        _locking = false;
+        var res = await Client().DeleteAsync($"/api/devices/{_deviceId}/ui/watch");
+        if (!res.IsSuccessStatusCode) await Fail(await ReadError(res));
+        _watch = PixelWatchState.Empty;
     }
 
     async Task LockWatchAsync(int x, int y) {
@@ -949,7 +962,7 @@
             return;
         }
 
-        _watch = await res.Content.ReadFromJsonAsync<PixelWatchStatus>(SelfCallJson.Web);
+        _watch = await res.Content.ReadFromJsonAsync<PixelWatchState>(SelfCallJson.Web) ?? PixelWatchState.Empty;
     }
 
     void SubscribeWatches() {
@@ -958,10 +971,17 @@
         watches.Changed += OnWatchChanged;
     }
 
-    void OnWatchChanged(string deviceId, PixelWatchStatus? status) {
+    void OnWatchChanged(string deviceId, PixelWatchState state) {
         if (_disposed || deviceId != _deviceId) return;
-        _watch = status;
+        bool wasTapping = _watch.Tapping;
+        _watch = state;
+        if (state.Tapping != wasTapping) _ = InvokeAsync(() => BlockStageAsync(state.Tapping));
         _ = InvokeAsync(StateHasChanged);
+    }
+
+    async Task BlockStageAsync(bool blocked) {
+        if (_module is not { } module || _stageKey.Length == 0) return;
+        await SafeAsync(() => module.InvokeVoidAsync("setStageBlocked", _stage, blocked).AsTask());
     }
 
     const int MaxHoldMs = 10_000;

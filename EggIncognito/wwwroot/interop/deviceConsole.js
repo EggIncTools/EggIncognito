@@ -721,6 +721,11 @@ function clearTimers(s) {
 
 function onStageDown(s, ev) {
   if (s.active || (ev.pointerType === "mouse" && ev.button !== 0)) return;
+  if (s.blocked) {
+    ev.preventDefault();
+    return;
+  }
+
   s.active = true;
   s.moved = false;
   s.handled = false;
@@ -817,7 +822,7 @@ export function bindStage(stage, media, dotnet, opts) {
   const o = { threshold: 8, longPressMs: 600, swipeMs: 200, ...(opts || {}) };
   const s = {
     stage, media, dotnet, o,
-    active: false, moved: false, handled: false, holding: false, pid: -1,
+    active: false, moved: false, handled: false, holding: false, blocked: false, pid: -1,
     startX: 0, startY: 0, startNorm: null, lastEv: null,
     timer: 0, raf: 0, line: null
   };
@@ -833,6 +838,14 @@ export function bindStage(stage, media, dotnet, opts) {
   stage.addEventListener("pointercancel", s.onCancel);
   stage.addEventListener("wheel", s.onWheel, { passive: false });
   stageSessions.set(stage, s);
+}
+
+export function setStageBlocked(stage, blocked) {
+  const s = stageSessions.get(stage);
+  if (!s) return;
+  s.blocked = !!blocked;
+  s.stage.classList.toggle("dcon-blocked", s.blocked);
+  if (s.blocked && s.active) onStageCancel(s);
 }
 
 export function unbindStage(stage) {

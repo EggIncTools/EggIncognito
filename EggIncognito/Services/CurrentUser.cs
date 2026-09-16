@@ -23,7 +23,8 @@ public sealed class CurrentUser(IHttpContextAccessor accessor, AuthState authSta
     public string? AvatarUrl => Avatar switch {
         null or "" => null,
         var a when a.StartsWith("http://", StringComparison.Ordinal) ||
-                   a.StartsWith("https://", StringComparison.Ordinal) => a,
+                   a.StartsWith("https://", StringComparison.Ordinal) ||
+                   a.StartsWith("data:", StringComparison.Ordinal) => a,
         var a when a.StartsWith('/') => string.IsNullOrEmpty(authState.IdentityHostUrl)
             ? a
             : $"{authState.IdentityHostUrl.TrimEnd('/')}{a}",

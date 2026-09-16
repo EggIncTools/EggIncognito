@@ -1,3 +1,4 @@
 namespace EggIncognito.Models.Devices;
 
-public sealed record PixelWatchStatus(int X, int Y, string Color, int Taps, DateTimeOffset? LastTapAt, string? Error);
+public sealed record PixelWatchStatus(
+    string Id, int X, int Y, string Color, int Taps, DateTimeOffset? LastTapAt, string? Error);

@@ -727,7 +727,7 @@ public sealed partial class DevicesController(
         (IActionResult? err, var platform, var target) = await ResolveUiAsync(id, ct);
         if (err is not null) return err;
 
-        var r = await watches.StartAsync(platform, target, req.X, req.Y, ct);
+        var r = await watches.AddAsync(platform, target, req.X, req.Y, ct);
         return r.Ok ? Ok(r.Value) : UiFailure(r.Outcome, r.Note);
     }
 
@@ -738,17 +738,18 @@ public sealed partial class DevicesController(
         if (RequireAdmin() is { } no) return no;
         if (services.GetService(typeof(PixelWatchService)) is not PixelWatchService watches)
             return StatusCode(503, new { error = "pixel watch not configured" });
-        return watches.Status(id) is { } status ? Ok(status) : NotFound(new { error = "no watch on this device" });
+        return Ok(watches.State(id));
     }
 
     [HttpDelete("{id}/ui/watch")]
     [ApiAccess(ApiAccessLevel.Admin)]
     [EnableRateLimiting("write")]
-    public IActionResult UiWatchStop(string id) {
+    public IActionResult UiWatchStop(string id, [FromQuery] string? point) {
         if (RequireAdmin() is { } no) return no;
         if (services.GetService(typeof(PixelWatchService)) is not PixelWatchService watches)
             return StatusCode(503, new { error = "pixel watch not configured" });
-        return Ok(new { ok = true, stopped = watches.Stop(id) });
+        bool stopped = string.IsNullOrEmpty(point) ? watches.StopAll(id) : watches.Remove(id, point);
+        return Ok(new { ok = true, stopped, state = watches.State(id) });
     }
 
     [HttpPost("{id}/ui/touch")]
