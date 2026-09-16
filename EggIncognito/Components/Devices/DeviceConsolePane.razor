@@ -973,15 +973,18 @@
 
     void OnWatchChanged(string deviceId, PixelWatchState state) {
         if (_disposed || deviceId != _deviceId) return;
-        bool wasTapping = _watch.Tapping;
         _watch = state;
-        if (state.Tapping != wasTapping) _ = InvokeAsync(() => BlockStageAsync(state.Tapping));
-        _ = InvokeAsync(StateHasChanged);
+        _ = InvokeAsync(async () => {
+            await BlockStageAsync(state.Tapping);
+            StateHasChanged();
+        });
     }
+
+    const int StageBlockMs = 600;
 
     async Task BlockStageAsync(bool blocked) {
         if (_module is not { } module || _stageKey.Length == 0) return;
-        await SafeAsync(() => module.InvokeVoidAsync("setStageBlocked", _stage, blocked).AsTask());
+        await SafeAsync(() => module.InvokeVoidAsync("setStageBlocked", _stage, blocked, StageBlockMs).AsTask());
     }
 
     const int MaxHoldMs = 10_000;

@@ -721,7 +721,7 @@ function clearTimers(s) {
 
 function onStageDown(s, ev) {
   if (s.active || (ev.pointerType === "mouse" && ev.button !== 0)) return;
-  if (s.blocked) {
+  if (Date.now() < s.blockedUntil) {
     ev.preventDefault();
     return;
   }
@@ -822,7 +822,7 @@ export function bindStage(stage, media, dotnet, opts) {
   const o = { threshold: 8, longPressMs: 600, swipeMs: 200, ...(opts || {}) };
   const s = {
     stage, media, dotnet, o,
-    active: false, moved: false, handled: false, holding: false, blocked: false, pid: -1,
+    active: false, moved: false, handled: false, holding: false, blockedUntil: 0, pid: -1,
     startX: 0, startY: 0, startNorm: null, lastEv: null,
     timer: 0, raf: 0, line: null
   };
@@ -840,12 +840,12 @@ export function bindStage(stage, media, dotnet, opts) {
   stageSessions.set(stage, s);
 }
 
-export function setStageBlocked(stage, blocked) {
+export function setStageBlocked(stage, blocked, ms) {
   const s = stageSessions.get(stage);
   if (!s) return;
-  s.blocked = !!blocked;
-  s.stage.classList.toggle("dcon-blocked", s.blocked);
-  if (s.blocked && s.active) onStageCancel(s);
+  s.blockedUntil = blocked ? Date.now() + (ms > 0 ? ms : 600) : 0;
+  s.stage.classList.toggle("dcon-blocked", blocked);
+  if (blocked && s.active) onStageCancel(s);
 }
 
 export function unbindStage(stage) {
