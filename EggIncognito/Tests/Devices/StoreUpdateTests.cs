@@ -28,6 +28,8 @@ public class StoreUpdateTests {
     private static KnownVersionRecorder Recorder() =>
         new(new NullScopeFactory(), NullLogger<KnownVersionRecorder>.Instance);
 
+    private static DeviceActivity Activity() => new(new DeviceClaimRegistry(TimeProvider.System));
+
     private static StoreUpdateOrchestrator Orchestrator(IStoreUpdateDriver driver, int attempts = 3) =>
         new(driver, new StoreUpdateOrchestrator.Options(0, attempts), Recorder(), NullLogger.Instance);
 
@@ -41,7 +43,8 @@ public class StoreUpdateTests {
         var connections = new FakeConnections(runner);
         return new AndroidStoreUpdateDriver(runner, connections,
             new AndroidStoreUpdateDriver.Options("am start {package}", 0, 0),
-            catalog, Recorder(), [new AndroidUiDriver(connections)], NullLogger<AndroidStoreUpdateDriver>.Instance);
+            catalog, Recorder(), [new AndroidUiDriver(connections)], Activity(),
+            NullLogger<AndroidStoreUpdateDriver>.Instance);
     }
 
     private static async Task<UiTree> ParseTreeAsync(string xml) {
@@ -66,7 +69,7 @@ public class StoreUpdateTests {
     private static IosStoreUpdateDriver IosDriver(IosStoreCatalog catalog) =>
         new(new FakeRunner(_ => new ProcessResult(0, "", "")),
             new IosStoreUpdateDriver.Options(null, "22", null, "/var/mobile/trigger", TweakPath, "12345", null),
-            catalog, Recorder(), NullLogger<IosStoreUpdateDriver>.Instance);
+            catalog, Recorder(), Activity(), NullLogger<IosStoreUpdateDriver>.Instance);
 
     private const string TweakPath = "/Library/MobileSubstrate/DynamicLibraries/eggupdate.dylib";
 
@@ -75,7 +78,7 @@ public class StoreUpdateTests {
             new IosStoreUpdateDriver.Options("phone", "2222", "/keys/phone", "/var/mobile/trigger", TweakPath,
                 "12345", null),
             Catalog(_ => Json("{\"resultCount\":1,\"results\":[{\"version\":\"1.37\"}]}")),
-            Recorder(), NullLogger<IosStoreUpdateDriver>.Instance);
+            Recorder(), Activity(), NullLogger<IosStoreUpdateDriver>.Instance);
 
     private static HttpResponseMessage Json(string body) =>
         new(HttpStatusCode.OK) { Content = new StringContent(body) };
@@ -259,7 +262,7 @@ public class StoreUpdateTests {
         var driver = new AndroidStoreUpdateDriver(
             runner, new FakeConnections(runner),
             new AndroidStoreUpdateDriver.Options("am start {package}", 0, 0),
-            NoPlayCatalog(), Recorder(), [ui], logger);
+            NoPlayCatalog(), Recorder(), [ui], Activity(), logger);
 
         var trig = await driver.TriggerInstallAsync(AndroidTarget, null, default);
 
@@ -278,7 +281,7 @@ public class StoreUpdateTests {
         var driver = new AndroidStoreUpdateDriver(
             runner, new FakeConnections(runner),
             new AndroidStoreUpdateDriver.Options("am start {package}", 0, 0),
-            NoPlayCatalog(), Recorder(), [ui], NullLogger<AndroidStoreUpdateDriver>.Instance);
+            NoPlayCatalog(), Recorder(), [ui], Activity(), NullLogger<AndroidStoreUpdateDriver>.Instance);
 
         var trig = await driver.TriggerInstallAsync(AndroidTarget, null, default);
 
@@ -293,7 +296,7 @@ public class StoreUpdateTests {
         var driver = new AndroidStoreUpdateDriver(
             runner, new FakeConnections(runner),
             new AndroidStoreUpdateDriver.Options("am start {package}", 0, 0),
-            NoPlayCatalog(), Recorder(), [], NullLogger<AndroidStoreUpdateDriver>.Instance);
+            NoPlayCatalog(), Recorder(), [], Activity(), NullLogger<AndroidStoreUpdateDriver>.Instance);
 
         var trig = await driver.TriggerInstallAsync(AndroidTarget, null, default);
 

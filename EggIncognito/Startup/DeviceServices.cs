@@ -70,6 +70,7 @@ public static class DeviceServices {
         if (boot.DeviceConfig.Enabled && !borrowing) builder.Services.AddHostedService<DeviceMaintenanceService>();
 
         builder.Services.AddSingleton<DeviceClaimRegistry>();
+        builder.Services.AddSingleton<DeviceActivity>();
         builder.Services.AddSingleton<PixelWatchService>();
         builder.Services.AddHttpClient();
         builder.Services.AddSingleton<IDeviceConnectionFactory, DeviceConnectionFactory>();
@@ -300,6 +301,7 @@ public static class DeviceServices {
                 sp.GetRequiredService<AndroidStoreCatalog>(),
                 sp.GetRequiredService<KnownVersionRecorder>(),
                 sp.GetServices<IDeviceUiDriver>(),
+                sp.GetRequiredService<DeviceActivity>(),
                 sp.GetRequiredService<ILogger<AndroidStoreUpdateDriver>>()),
             new StoreUpdateOrchestrator.Options(pollSeconds, pollAttempts),
             sp.GetRequiredService<KnownVersionRecorder>(),
@@ -318,6 +320,7 @@ public static class DeviceServices {
                     ios["AppId"] ?? "993492744", ios["LookupCountry"]),
                 sp.GetRequiredService<IosStoreCatalog>(),
                 sp.GetRequiredService<KnownVersionRecorder>(),
+                sp.GetRequiredService<DeviceActivity>(),
                 sp.GetRequiredService<ILogger<IosStoreUpdateDriver>>()),
             new StoreUpdateOrchestrator.Options(ios.GetValue("PollSeconds", 15), ios.GetValue("PollAttempts", 24)),
             sp.GetRequiredService<KnownVersionRecorder>(),

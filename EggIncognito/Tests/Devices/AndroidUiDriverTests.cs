@@ -172,11 +172,20 @@ public class AndroidUiDriverTests {
     [Theory]
     [InlineData(DeviceKey.Home, "input keyevent KEYCODE_HOME")]
     [InlineData(DeviceKey.Back, "input keyevent KEYCODE_BACK")]
-    [InlineData(DeviceKey.Wake, "input keyevent KEYCODE_WAKEUP")]
+    [InlineData(DeviceKey.Wake, "input keyevent KEYCODE_WAKEUP; wm dismiss-keyguard")]
     [InlineData(DeviceKey.Sleep, "input keyevent KEYCODE_SLEEP")]
     [InlineData(DeviceKey.Enter, "input keyevent KEYCODE_ENTER")]
     [InlineData(DeviceKey.Recents, "input keyevent KEYCODE_APP_SWITCH")]
     [InlineData(DeviceKey.DismissKeyguard, "wm dismiss-keyguard")]
+    [InlineData(DeviceKey.Delete, "input keyevent KEYCODE_DEL")]
+    [InlineData(DeviceKey.ForwardDelete, "input keyevent KEYCODE_FORWARD_DEL")]
+    [InlineData(DeviceKey.Tab, "input keyevent KEYCODE_TAB")]
+    [InlineData(DeviceKey.Up, "input keyevent KEYCODE_DPAD_UP")]
+    [InlineData(DeviceKey.Down, "input keyevent KEYCODE_DPAD_DOWN")]
+    [InlineData(DeviceKey.Left, "input keyevent KEYCODE_DPAD_LEFT")]
+    [InlineData(DeviceKey.Right, "input keyevent KEYCODE_DPAD_RIGHT")]
+    [InlineData(DeviceKey.PageUp, "input keyevent KEYCODE_PAGE_UP")]
+    [InlineData(DeviceKey.PageDown, "input keyevent KEYCODE_PAGE_DOWN")]
     public async Task KeyAsync_MapsToExpectedCommand(DeviceKey key, string expected) {
         var runner = new FakeRunner(_ => new ProcessResult(0, "", ""));
         var driver = new AndroidUiDriver(new FakeConnections(runner));
@@ -241,6 +250,20 @@ public class AndroidUiDriverTests {
     public void TryParseWmSize_Garbage_ReturnsFalse() {
         Assert.False(AndroidUiDriver.TryParseWmSize("error: no display", out _));
         Assert.False(AndroidUiDriver.TryParseWmSize("", out _));
+    }
+
+    [Theory]
+    [InlineData("  mWakefulness=Awake\n  mDreamingLockscreen=false\n", true, false)]
+    [InlineData("  mWakefulness=Asleep\n  mDreamingLockscreen=true\n", false, true)]
+    [InlineData("  mWakefulness=Dozing\n", false, false)]
+    [InlineData("  mWakefulness=Dreaming\n  mDreamingLockscreen=true\n", false, true)]
+    public void ParseScreenState_ReadsWakefulnessAndLockscreen(string output, bool awake, bool locked) {
+        Assert.Equal(new DeviceScreenState(awake, locked), AndroidUiDriver.ParseScreenState(output));
+    }
+
+    [Fact]
+    public void ParseScreenState_Garbage_IsAsleepAndUnlocked() {
+        Assert.Equal(new DeviceScreenState(false, false), AndroidUiDriver.ParseScreenState(""));
     }
 
     [Fact]

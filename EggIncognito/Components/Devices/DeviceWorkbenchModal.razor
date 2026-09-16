@@ -132,6 +132,10 @@
                             <div class="dwb-capture-bar">
                                 <CaptureControlsPanel View="State.Capture" ReadOnly="true"
                                                       OnViewChanged="StateHasChanged"/>
+                                <label class="settings-check">
+                                    <input type="checkbox" checked="@_autoOffer" @onchange="ToggleAutoOffer"/>
+                                    Offer new captures for review automatically
+                                </label>
                             </div>
                             <div class="dwb-capture-body">
                                 <FlowList Flows="_flows" SelectedId="_selectedFlowId" Connected="_connected"
@@ -309,6 +313,8 @@
 </WorkbenchModal>
 
 @code {
+    const int FlushDebounceMs = 600;
+    const int SettleMs = 500;
 
     [Parameter] public EventCallback OnChanged { get; set; }
 
@@ -345,6 +351,10 @@
     bool _offerBusy;
     readonly HashSet<long> _offered = [];
     ContributePanel? _contribute;
+    bool _autoOffer;
+    bool _flushing;
+    readonly List<long> _autoQueue = [];
+    CancellationTokenSource? _flushTimer;
 
     DeviceRow? Current => _devices.FirstOrDefault(d => d.Id == State.SelectedId);
 
@@ -510,6 +520,7 @@
     void CloseModal() {
         _open = false;
         Unsubscribe();
+        _offered.Clear();
         DetachCapture();
         DisarmDestroy();
         StateHasChanged();
@@ -533,6 +544,7 @@
         _jobs = null;
         _jobsMore = null;
         _jobLines.Clear();
+        _offered.Clear();
         DisarmDestroy();
         DetachCapture();
         if (_devices.All(d => d.Id != id)) await LoadAsync();
@@ -747,13 +759,94 @@
 
             _offered.Add(flow.Id);
             Note($"recorded {flow.Path} to your account", true);
-            await Task.Delay(500);
-            if (_contribute is { } panel) await panel.RefreshAsync();
+            ScheduleFlush();
         }
         finally {
             _offerBusy = false;
             StateHasChanged();
         }
+    }
+
+    void ToggleAutoOffer(ChangeEventArgs e) {
+        _autoOffer = e.Value is true;
+    }
+
+    void AutoOffer(DashboardFlow flow) {
+        if (!_autoOffer || Current is null) return;
+        if (_offered.Contains(flow.Id)) return;
+        if (flow.RequestJsonRaw is null || flow.ResponseJsonRaw is null) return;
+        if (Kinds.For(flow.Path) is null) return;
+
+        _offered.Add(flow.Id);
+        _autoQueue.Add(flow.Id);
+        ScheduleFlush();
+    }
+
+    void ScheduleFlush() {
+        CancelFlush();
+        var cts = new CancellationTokenSource();
+        _flushTimer = cts;
+        var ct = cts.Token;
+        _ = Task.Run(async () => {
+            try {
+                await Task.Delay(FlushDebounceMs, ct);
+            }
+            catch (OperationCanceledException) {
+                return;
+            }
+
+            try {
+                await InvokeAsync(FlushAsync);
+            }
+            catch (ObjectDisposedException) {
+            }
+        }, CancellationToken.None);
+    }
+
+    void CancelFlush() {
+        _flushTimer?.Cancel();
+        _flushTimer?.Dispose();
+        _flushTimer = null;
+    }
+
+    async Task FlushAsync() {
+        if (_disposed) return;
+        if (_flushing) {
+            ScheduleFlush();
+            return;
+        }
+
+        _flushing = true;
+        try {
+            if (_autoQueue.Count > 0 && Current is { } dev && !await SendAutoBatchAsync(dev)) return;
+            await Task.Delay(SettleMs);
+            if (_contribute is { } panel) await panel.RefreshAsync();
+        }
+        finally {
+            _flushing = false;
+            StateHasChanged();
+        }
+    }
+
+    async Task<bool> SendAutoBatchAsync(DeviceRow dev) {
+        long[] batch = [.. _autoQueue];
+        _autoQueue.Clear();
+
+        var res = await Client().PostAsJsonAsync("/api/contributions/offer-batch",
+            new ContributionOfferBatchRequest(dev.Id, batch), SelfCallJson.Web);
+        if (!res.IsSuccessStatusCode) {
+            _autoOffer = false;
+            CancelFlush();
+            foreach (long id in batch) _offered.Remove(id);
+            foreach (long id in _autoQueue) _offered.Remove(id);
+            _autoQueue.Clear();
+            Note($"automatic offering is off: {await ReadError(res)}", false);
+            return false;
+        }
+
+        var body = await ReadBody<ContributionOfferBatchResult>(res);
+        foreach (long id in body?.Missing ?? []) _offered.Remove(id);
+        return true;
     }
 
     Task ProbeNow() {
@@ -808,6 +901,7 @@
 
         Note($"destroyed {instance.InstanceId}", true);
 
+        _offered.Clear();
         DetachCapture();
         State.SelectedId = null;
         _recert = null;
@@ -933,6 +1027,9 @@
         _selectedFlow = null;
         _connected = false;
         _port = 0;
+        _autoOffer = false;
+        _autoQueue.Clear();
+        CancelFlush();
     }
 
     void ApplyEnvelope(CaptureEnvelope env) {
@@ -952,11 +1049,13 @@
         if (_flowIndex.TryGetValue(flow.Id, out var idx)) {
             _flows[idx] = flow;
             if (_selectedFlowId == flow.Id) _selectedFlow = flow;
+            AutoOffer(flow);
             return;
         }
 
         _flowIndex[flow.Id] = _flows.Count;
         _flows.Add(flow);
+        AutoOffer(flow);
     }
 
     void ApplyStats(CaptureStats stats) {

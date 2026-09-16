@@ -22,6 +22,7 @@ public sealed class ContributionsController(
     IServiceProvider services,
     ILogger<ContributionsController> logger) : ControllerBase {
     private const int MaxPageSize = 200;
+    private const int MaxOfferBatch = 5000;
 
     private ContributionStore? Store => services.GetService(typeof(ContributionStore)) as ContributionStore;
 
@@ -108,8 +109,7 @@ public sealed class ContributionsController(
     public IActionResult Offer([FromBody] ContributionOfferRequest body) {
         (var userId, var error) = Me();
         if (error is not null) return error;
-        if (!options.Enabled) return StatusCode(403, new { error = "contributions are disabled" });
-        if (Store is null) return StatusCode(503, new { error = "no database configured" });
+        if (OfferBlocked() is { } blocked) return blocked;
         if (services.GetService(typeof(ContributionRecorder)) is not ContributionRecorder recorder)
             return StatusCode(503, new { error = "contribution recording is off" });
         if (services.GetService(typeof(IDeviceCaptureHubs)) is not IDeviceCaptureHubs captures)
@@ -123,6 +123,45 @@ public sealed class ContributionsController(
 
         recorder.Record(userId, flow);
         return Accepted(new { recorded = true, path = flow.Path });
+    }
+
+    [HttpPost("offer-batch")]
+    [ApiAccess(ApiAccessLevel.Admin)]
+    [EnableRateLimiting("write")]
+    public IActionResult OfferBatch([FromBody] ContributionOfferBatchRequest body) {
+        (var userId, var error) = Me();
+        if (error is not null) return error;
+        if (OfferBlocked() is { } blocked) return blocked;
+        if (services.GetService(typeof(ContributionRecorder)) is not ContributionRecorder recorder)
+            return StatusCode(503, new { error = "contribution recording is off" });
+        if (services.GetService(typeof(IDeviceCaptureHubs)) is not IDeviceCaptureHubs captures)
+            return StatusCode(503, new { error = "device capture is not configured" });
+        if (string.IsNullOrWhiteSpace(body.DeviceId)) return BadRequest(new { error = "deviceId required" });
+        if (body.Ids.Count == 0) return BadRequest(new { error = "no flow ids supplied" });
+        if (body.Ids.Count > MaxOfferBatch) return BadRequest(new { error = "too many flow ids in one offer" });
+
+        var byId = new Dictionary<long, DashboardFlow>();
+        foreach (var f in captures.HubFor(body.DeviceId)?.Snapshot() ?? []) byId[f.Id] = f;
+
+        var missing = new List<long>();
+        int recorded = 0;
+        foreach (long id in body.Ids.Distinct()) {
+            var flow = byId.GetValueOrDefault(id);
+            if (flow is null || kinds.For(flow.Path) is null) {
+                missing.Add(id);
+                continue;
+            }
+
+            recorder.Record(userId, flow);
+            recorded++;
+        }
+
+        return Accepted(new ContributionOfferBatchResult(recorded, missing));
+    }
+
+    private ObjectResult? OfferBlocked() {
+        if (!options.Enabled) return StatusCode(403, new { error = "contributions are disabled" });
+        return Store is null ? StatusCode(503, new { error = "no database configured" }) : null;
     }
 
     [HttpGet("pending")]

@@ -49,11 +49,31 @@ public sealed record UiSelector(UiSelectorBy By, string Value, bool Contains = f
         tree.Nodes().Where(sel.Matches).Skip(sel.Index).FirstOrDefault();
 }
 
-public enum DeviceKey { Home, Back, Wake, Sleep, Enter, DismissKeyguard, Recents, CloseApp }
+public enum DeviceKey {
+    Home,
+    Back,
+    Wake,
+    Sleep,
+    Enter,
+    DismissKeyguard,
+    Recents,
+    CloseApp,
+    Delete,
+    ForwardDelete,
+    Tab,
+    Up,
+    Down,
+    Left,
+    Right,
+    PageUp,
+    PageDown
+}
 
 public enum TouchPhase { Down, Move, Up, Cancel }
 
 public readonly record struct UiScreenSize(int Width, int Height);
+
+public readonly record struct DeviceScreenState(bool Awake, bool Locked);
 
 public interface IDeviceUiDriver {
     string Platform { get; }
@@ -62,6 +82,10 @@ public interface IDeviceUiDriver {
 
     Task<DeviceResult<UiScreenSize>> ScreenSizeAsync(DeviceTarget target, CancellationToken ct) =>
         Task.FromResult(DeviceResult<UiScreenSize>.Unsupported($"{Platform} ui driver: screen size not supported"));
+
+    Task<DeviceResult<DeviceScreenState>> ScreenStateAsync(DeviceTarget target, CancellationToken ct) =>
+        Task.FromResult(DeviceResult<DeviceScreenState>.Unsupported($"{Platform} ui driver: screen state not supported"));
+
     Task<DeviceResult> TapAsync(DeviceTarget target, UiSelector selector, CancellationToken ct);
     Task<DeviceResult> TapPointAsync(DeviceTarget target, int x, int y, CancellationToken ct);
 

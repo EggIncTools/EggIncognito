@@ -138,6 +138,8 @@ export function clear(img) {
 }
 
 const videoSessions = new WeakMap();
+const watchSessions = new WeakMap();
+const WATCH_MIN_MS = 100;
 const CHUNK_US = 33333;
 const PENDING_CAP = 64;
 
@@ -382,6 +384,7 @@ function finish(s, reason, status) {
   closeFrame(s);
   s.pending.clear();
   if (videoSessions.get(s.canvas) === s) videoSessions.delete(s.canvas);
+  watchSessions.delete(s.canvas);
   blank(s.canvas);
   safeInvoke(s, "OnVideoEnded", reason, status || 0);
 }
@@ -410,6 +413,41 @@ function onFrame(s, frame) {
   s.frameArrival = arrival === undefined ? -1 : arrival;
 }
 
+function readPixel(s, fx, fy) {
+  const w = s.canvas.width;
+  const h = s.canvas.height;
+  if (w <= 0 || h <= 0) return null;
+  if (!(fx >= 0) || fx > 1 || !(fy >= 0) || fy > 1) return null;
+  const px = Math.min(w - 1, Math.floor(fx * w));
+  const py = Math.min(h - 1, Math.floor(fy * h));
+  try {
+    const d = s.ctx.getImageData(px, py, 1, 1).data;
+    return [d[0], d[1], d[2]];
+  } catch {
+    return null;
+  }
+}
+
+function near(a, b, tolerance) {
+  return Math.abs(a - b) <= tolerance;
+}
+
+function checkWatch(s, now) {
+  const w = watchSessions.get(s.canvas);
+  if (!w || w.points.length === 0) return;
+  if (now - w.checkedAt < WATCH_MIN_MS) return;
+  w.checkedAt = now;
+  for (const p of w.points) {
+    const until = w.cooldowns.get(p.id) || 0;
+    if (now < until) continue;
+    const px = readPixel(s, p.fx, p.fy);
+    if (!px) continue;
+    if (!near(px[0], p.r, w.tolerance) || !near(px[1], p.g, w.tolerance) || !near(px[2], p.b, w.tolerance)) continue;
+    w.cooldowns.set(p.id, now + w.cooldownMs);
+    safeInvoke(s, "OnWatchHit", p.id);
+  }
+}
+
 function draw(s) {
   s.raf = 0;
   if (s.ended) return;
@@ -427,10 +465,12 @@ function draw(s) {
       s.frameW = w;
       s.frameH = h;
       s.drawn++;
+      const now = performance.now();
       if (s.frameArrival >= 0) {
-        s.latencySum += performance.now() - s.frameArrival;
+        s.latencySum += now - s.frameArrival;
         s.latencyCount++;
       }
+      checkWatch(s, now);
     } catch {
     }
     try {
@@ -637,6 +677,36 @@ export function measureCanvas(canvas) {
     frameW: s ? s.frameW : canvas.width,
     frameH: s ? s.frameH : canvas.height
   };
+}
+
+export function samplePixel(canvas, fx, fy) {
+  if (!canvas) return null;
+  const s = videoSessions.get(canvas);
+  if (!s || s.frameW <= 0) return null;
+  return readPixel(s, fx, fy);
+}
+
+export function watchPoints(canvas, points, opts) {
+  if (!canvas) return false;
+  const list = Array.isArray(points) ? points : [];
+  if (list.length === 0) {
+    watchSessions.delete(canvas);
+    return true;
+  }
+  const o = { tolerance: 48, cooldownMs: 2500, ...(opts || {}) };
+  watchSessions.set(canvas, {
+    points: list.map((p) => ({ id: p.id, fx: p.fx, fy: p.fy, r: p.r, g: p.g, b: p.b })),
+    tolerance: o.tolerance,
+    cooldownMs: o.cooldownMs,
+    cooldowns: new Map(),
+    checkedAt: 0
+  });
+  return true;
+}
+
+export function clearWatchPoints(canvas) {
+  if (!canvas) return;
+  watchSessions.delete(canvas);
 }
 
 const stageSessions = new WeakMap();
@@ -848,8 +918,81 @@ export function setStageBlocked(stage, blocked, ms) {
   if (blocked && s.active) onStageCancel(s);
 }
 
+const keySessions = new WeakMap();
+const KEY_NAMES = {
+  Enter: "enter",
+  Escape: "back",
+  Backspace: "del",
+  Tab: "tab",
+  ArrowUp: "up",
+  ArrowDown: "down",
+  ArrowLeft: "left",
+  ArrowRight: "right",
+  Home: "home",
+  PageUp: "page-up",
+  PageDown: "page-down",
+  Delete: "forward-del"
+};
+
+function isEditable(target) {
+  if (!target || target.nodeType !== 1) return false;
+  if (target.isContentEditable) return true;
+  const tag = target.tagName;
+  return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT";
+}
+
+function repeatAllowed(k, now) {
+  if (now - k.rateAt >= 1000) {
+    k.rateAt = now;
+    k.rateCount = 0;
+  }
+  if (k.rateCount >= k.o.maxRepeatsPerSecond) return false;
+  k.rateCount++;
+  return true;
+}
+
+function onLiveKey(k, ev) {
+  if (ev.ctrlKey || ev.metaKey || ev.altKey) return;
+  if (isEditable(ev.target)) return;
+  const name = KEY_NAMES[ev.key];
+  const printable = !name && typeof ev.key === "string" && ev.key.length === 1;
+  if (!name && !printable) return;
+  ev.preventDefault();
+  if (ev.repeat && !repeatAllowed(k, performance.now())) return;
+  if (printable) {
+    invokeQuiet(k.dotnet, "OnLiveText", ev.key);
+    return;
+  }
+  invokeQuiet(k.dotnet, "OnLiveKey", name);
+}
+
+function detachKeys(stage) {
+  const k = keySessions.get(stage);
+  if (!k) return;
+  document.removeEventListener("keydown", k.onKey, true);
+  keySessions.delete(stage);
+}
+
+export function captureKeys(stage, dotnet, on, opts) {
+  if (!stage) return false;
+  detachKeys(stage);
+  if (!on || !dotnet) return false;
+  const k = {
+    stage,
+    dotnet,
+    o: { maxRepeatsPerSecond: 30, ...(opts || {}) },
+    rateAt: 0,
+    rateCount: 0
+  };
+  k.onKey = (ev) => onLiveKey(k, ev);
+  document.addEventListener("keydown", k.onKey, true);
+  keySessions.set(stage, k);
+  return true;
+}
+
 export function unbindStage(stage) {
   if (!stage) return;
+  detachKeys(stage);
   const s = stageSessions.get(stage);
   if (!s) return;
   stage.removeEventListener("pointerdown", s.onDown);

@@ -1,0 +1,694 @@
+@rendermode @(RenderModes.InteractiveServer)
+@inherits SelfCallComponentBase
+@inject ICurrentUser User
+@inject IServiceProvider Services
+@inject AdminNotifier Notifier
+@inject DeviceWorkbenchState State
+@inject ILogger<DeviceRunModal> Logger
+@using System.Globalization
+@using System.Text
+@using System.Text.Json
+@using EggIncognito.Core.Services.Devices
+@using EggIncognito.Models.Devices
+@using EggIncognito.Services.Devices
+@implements IDisposable
+
+@if (Open) {
+    <ModalShell Title="Workflows" TitleId="deviceRunModalTitle" Width="ModalWidth.Large" CardClass="drm-card" OnClose="OnClose">
+        <div class="modal-body drm">
+            <div class="dwb-bar drm-pick">
+                @if (_books.Count > 0) {
+                    <select class="field-input drm-book" aria-label="Cookbook" value="@_bookId"
+                            disabled="@_runBusy" @onchange="BookChanged">
+                        @if (Workflows() is { Count: > 0 } workflows) {
+                            <optgroup label="workflows">
+                                @foreach (var book in workflows) {
+                                    <option value="@book.Id" disabled="@(!book.Available)" title="@book.Unavailable">@book.Title</option>
+                                }
+                            </optgroup>
+                        }
+                        @if (Steps() is { Count: > 0 } steps) {
+                            <optgroup label="steps">
+                                @foreach (var book in steps) {
+                                    <option value="@book.Id" disabled="@(!book.Available)" title="@book.Unavailable">@book.Title</option>
+                                }
+                            </optgroup>
+                        }
+                    </select>
+                    @if (Chosen() is { Options: { Count: > 0 } options } chosen) {
+                        <select class="field-input drm-arg" aria-label="@(chosen.ArgumentLabel ?? "Option")"
+                                value="@ArgFor(chosen)" disabled="@_runBusy" @onchange="@(e => SetArg(chosen.Id, e))">
+                            @foreach (var option in options) {
+                                <option value="@option.Value" title="@option.Detail">@option.Label</option>
+                            }
+                        </select>
+                    }
+                    <button type="button" class="btn-primary" disabled="@(!CanRun())" @onclick="RunChosenAsync">
+                        <Icon Name="play" Class="icon-sm"/>
+                        Run
+                    </button>
+                    @if (AndroidUserId is { } target) {
+                        <span class="text-xs text-muted">to user @target</span>
+                    }
+                } else {
+                    <span class="text-xs text-muted">@(_booksBusy ? "loading cookbooks" : "no cookbooks for this device")</span>
+                }
+            </div>
+
+            @if (Chosen() is { Unavailable: { Length: > 0 } why, Available: false }) {
+                <div class="text-xs text-muted">@why</div>
+            }
+
+            @if (_runTitle is not null) {
+                <div class="drm-run">
+                    <div class="drm-head">
+                        <span class="drm-title">@_runTitle</span>
+                        <span class="meta-dots">
+                            <span class="font-mono text-muted text-xs">@Line().Elapsed</span>
+                            <span class="dcon-status">
+                                <Icon Name="@Line().Icon" Class="@("icon-sm " + Line().IconClass)"/>
+                                <span>@Line().State</span>
+                            </span>
+                            @if (RunDetail() is { } detail) {
+                                <span class="text-muted text-xs dcon-status-detail">@detail</span>
+                            }
+                        </span>
+                        <span class="drm-head-tools">
+                            @if (!_runDone && !_runReadOnly && _runJobId is not null) {
+                                <button type="button" class="btn-mini btn-danger" disabled="@_stopBusy" @onclick="StopRunAsync">
+                                    @(_stopBusy ? "Stopping..." : "Stop")
+                                </button>
+                            }
+                            <CopyButton GetText="RunReport" Label="Copy report" CopiedLabel="Copied" ShowIcon="false"
+                                        ButtonClass="btn-mini"/>
+                            @if (_runDone) {
+                                <button type="button" class="btn-mini" @onclick="Done">Clear</button>
+                            }
+                        </span>
+                    </div>
+
+                    @if (_steps.Count > 0 || RunNote() is not null) {
+                        <div class="reg-wrap drm-steps">
+                            <table class="data-table dcon-list">
+                                <tbody>
+                                @for (var i = 0; i < _steps.Count; i++) {
+                                    var step = _steps[i];
+                                    <tr @key="i">
+                                        <td class="dcon-cur">
+                                            <Icon Name="@StepIcon(step.Status)" Class="@("icon-sm " + StepIconClass(step.Status))"/>
+                                        </td>
+                                        <td class="dcon-check-label">@step.Title</td>
+                                        <td class="text-muted text-xs dcon-list-title">
+                                            @(step.Status != CookbookStepStatus.Ok && step.Note is { Length: > 0 } note ? note : StepStateWord(step.Status))
+                                        </td>
+                                    </tr>
+                                }
+                                @if (RunNote() is { } runNote) {
+                                    <tr>
+                                        <td class="dcon-cur">
+                                            <Icon Name="@Line().Icon" Class="@("icon-sm " + Line().IconClass)"/>
+                                        </td>
+                                        <td class="dcon-check-label">@_runTitle</td>
+                                        <td class="text-muted text-xs dcon-list-title">@runNote</td>
+                                    </tr>
+                                }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+
+                    <div class="insp-disc drm-disc @(_logOpen ? "" : "collapsed")">
+                        <div class="insp-disc-head">
+                            <button type="button" class="insp-disc-toggle" aria-expanded="@(_logOpen ? "true" : "false")"
+                                    aria-controls="deviceRunLog" @onclick="ToggleLog">
+                                <span class="ep-caret @(_logOpen ? "ep-caret-open" : "")"></span>Log
+                            </button>
+                            <span class="text-muted text-xs">@_runLog.Count @(_runLog.Count == 1 ? "line" : "lines")</span>
+                            <span class="insp-disc-tools">
+                                <button type="button" class="btn-mini" @onclick="ToggleWrap">@(_wrap ? "Nowrap" : "Wrap")</button>
+                            </span>
+                        </div>
+                        <div class="insp-disc-body" id="deviceRunLog">
+                            <div class="reg-wrap drm-log-wrap">
+                                <div class="drm-log @(_wrap ? "" : "drm-log-nowrap")">
+                                    @for (var i = _runLog.Count - 1; i >= 0; i--) {
+                                        <div class="drm-log-line">@_runLog[i]</div>
+                                    }
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+
+            @if (_lastRuns.Count > 0) {
+                <div class="reg-wrap drm-last">
+                    <table class="data-table dcon-list">
+                        <tbody>
+                        @foreach (var job in _lastRuns) {
+                            <tr class="dcon-last-row" @key="job.Id" title="@job.Message" @onclick="@(() => OpenRunAsync(job))">
+                                <td class="dcon-cur">
+                                    <Icon Name="@OutcomeIcon(job.State)" Class="@("icon-sm " + OutcomeIconClass(job.State))"/>
+                                </td>
+                                <td class="font-mono text-muted text-xs">@Stamp(job.LastAt)</td>
+                                <td class="dcon-list-title">@RunTitle(job)</td>
+                                <td class="text-muted text-xs">@(job.Outcome ?? job.State)</td>
+                            </tr>
+                        }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    </ModalShell>
+}
+
+@code {
+
+    [Parameter] public string? DeviceId { get; set; }
+
+    [Parameter] public bool Active { get; set; }
+
+    [Parameter] public bool Open { get; set; }
+
+    [Parameter] public int? AndroidUserId { get; set; }
+
+    [Parameter] public EventCallback OnClose { get; set; }
+
+    [Parameter] public EventCallback OnOpenRequested { get; set; }
+
+    [Parameter] public EventCallback<DeviceNotice> OnNotice { get; set; }
+
+    [Parameter] public EventCallback OnChanged { get; set; }
+
+    [Parameter] public EventCallback<DeviceRunLine?> OnRunChanged { get; set; }
+
+    static readonly string[] JobIdNames = ["jobId", "JobId", "runId", "RunId", "id", "Id"];
+    const int LastRunCount = 5;
+    const int LastRunPage = 25;
+
+    bool _disposed;
+    bool _isAdmin;
+    bool _loaded;
+    bool _booksBusy;
+    bool _runBusy;
+    bool _runDone;
+    bool _runOk;
+    bool _runCancelled;
+    bool _runReadOnly;
+    bool _stopBusy;
+    bool _refreshing;
+    bool _logOpen;
+    bool _wrap = true;
+    string _bookId = "";
+    string? _deviceId;
+    string? _runTitle;
+    string? _runNote;
+    string? _runFailedStepTitle;
+    long? _runJobId;
+    DateTimeOffset? _runStartedAt;
+    DateTimeOffset? _runFinishedAt;
+
+    List<DeviceCookbookInfo> _books = [];
+    List<JobGroupRow> _lastRuns = [];
+    List<string> _runLog = [];
+    List<CookbookStepResult> _steps = [];
+    readonly Dictionary<string, string> _args = [];
+
+    IDisposable? _topics;
+    Timer? _tick;
+
+    DeviceConsoleCache? Cache => _deviceId is { } id ? State.ConsoleFor(id) : null;
+
+    DeviceCookbookFeed? CookbookFeed => Services.GetService(typeof(DeviceCookbookFeed)) as DeviceCookbookFeed;
+
+    DeviceJobFeed? JobFeed => Services.GetService(typeof(DeviceJobFeed)) as DeviceJobFeed;
+
+    DeviceCookbookRunner? Runner => Services.GetService(typeof(DeviceCookbookRunner)) as DeviceCookbookRunner;
+
+    protected override void OnInitialized() {
+        base.OnInitialized();
+        _isAdmin = User.IsAtLeast(UserRole.Admin);
+    }
+
+    protected override async Task OnParametersSetAsync() {
+        var next = string.IsNullOrEmpty(DeviceId) ? null : DeviceId;
+        if (next != _deviceId) {
+            StopRunWatch();
+            ResetRun();
+            _books = [];
+            _lastRuns = [];
+            _args.Clear();
+            _bookId = "";
+            _deviceId = next;
+            _loaded = false;
+            if (Cache is { } cache) {
+                _books = [.. cache.Cookbooks];
+                SeedCookbookDefaults();
+            }
+
+            await PublishAsync();
+        }
+
+        if (!Active || _deviceId is null) {
+            StopRunWatch();
+            StopTick();
+            return;
+        }
+
+        if (!_loaded) {
+            _loaded = true;
+            _ = RefreshAllAsync();
+            return;
+        }
+
+        if (_runJobId is not null && !_runDone && !_runReadOnly) StartRunWatch();
+    }
+
+    async Task RefreshAllAsync() {
+        var id = _deviceId;
+        if (id is null) return;
+        try {
+            await Task.WhenAll(LoadCookbooksAsync(), LoadLastRunsAsync(), CheckRunningAsync());
+        }
+        catch (Exception ex) when (ex is HttpRequestException or JsonException or TaskCanceledException or InvalidOperationException) {
+            Logger.LogDebug(ex, "device run refresh failed for {DeviceId}", id);
+        }
+
+        if (!_disposed) await InvokeAsync(StateHasChanged);
+    }
+
+    bool Stale(string id) {
+        return _disposed || _deviceId != id;
+    }
+
+    void ResetRun() {
+        StopTick();
+        _runTitle = null;
+        _runJobId = null;
+        _runNote = null;
+        _runFailedStepTitle = null;
+        _runStartedAt = null;
+        _runFinishedAt = null;
+        _runLog = [];
+        _steps = [];
+        _runBusy = false;
+        _runDone = false;
+        _runOk = false;
+        _runCancelled = false;
+        _runReadOnly = false;
+        _stopBusy = false;
+        _logOpen = false;
+    }
+
+    DeviceRunLine Line() {
+        return new DeviceRunLine(_runTitle ?? "run", _runStartedAt, _runFinishedAt, _runDone, _runOk, _runCancelled);
+    }
+
+    Task PublishAsync() {
+        if (!OnRunChanged.HasDelegate) return Task.CompletedTask;
+        return OnRunChanged.InvokeAsync(_runTitle is null ? null : Line());
+    }
+
+    async Task LoadCookbooksAsync() {
+        if (_deviceId is not { } id) return;
+        _booksBusy = true;
+        StateHasChanged();
+        var books = _isAdmin && Runner is { } runner
+            ? [.. await runner.DescribeAsync(id, CancellationToken.None)]
+            : await Client().ListAsync<DeviceCookbookInfo>($"/api/devices/{id}/cookbooks", Logger);
+        if (Stale(id)) return;
+        _books = books;
+        SeedCookbookDefaults();
+        if (Cache is { } cache) cache.Cookbooks = books;
+        _booksBusy = false;
+        StateHasChanged();
+    }
+
+    void SeedCookbookDefaults() {
+        foreach (var book in _books) {
+            if (book.Options is not { Count: > 0 } options || _args.ContainsKey(book.Id)) continue;
+            _args[book.Id] = (options.FirstOrDefault(o => o.Recommended) ?? options[0]).Value;
+        }
+
+        if (_books.All(b => b.Id != _bookId)) {
+            _bookId = (Workflows().FirstOrDefault(b => b.Available) ?? _books.FirstOrDefault(b => b.Available))?.Id ?? "";
+        }
+    }
+
+    async Task LoadLastRunsAsync() {
+        if (_deviceId is not { } id || !_isAdmin || JobFeed is not { } feed) return;
+        var page = await feed.PageAsync(id, LastRunPage, null, CancellationToken.None);
+        if (Stale(id)) return;
+        _lastRuns = [.. page.Rows.Where(j => j.Kind == DeviceJobKinds.Cookbook).Take(LastRunCount)];
+    }
+
+    List<DeviceCookbookInfo> Workflows() {
+        return [.. _books.Where(b => string.Equals(b.Group, CookbookGroups.Workflow, StringComparison.OrdinalIgnoreCase))];
+    }
+
+    List<DeviceCookbookInfo> Steps() {
+        return [.. _books.Where(b => !string.Equals(b.Group, CookbookGroups.Workflow, StringComparison.OrdinalIgnoreCase))];
+    }
+
+    DeviceCookbookInfo? Chosen() {
+        return _books.FirstOrDefault(b => b.Id == _bookId);
+    }
+
+    bool CanRun() {
+        return !_runBusy && Chosen() is { Available: true };
+    }
+
+    void BookChanged(ChangeEventArgs e) {
+        _bookId = e.Value?.ToString() ?? "";
+    }
+
+    string ArgFor(DeviceCookbookInfo book) {
+        if (_args.TryGetValue(book.Id, out var chosen)) return chosen;
+        if (book.Options is not { Count: > 0 } options) return "";
+        return (options.FirstOrDefault(o => o.Recommended) ?? options[0]).Value;
+    }
+
+    void SetArg(string bookId, ChangeEventArgs e) {
+        _args[bookId] = e.Value?.ToString() ?? "";
+    }
+
+    Task RunChosenAsync() {
+        return Chosen() is { Available: true } book ? RunCookbookAsync(book) : Task.CompletedTask;
+    }
+
+    async Task RunCookbookAsync(DeviceCookbookInfo book) {
+        if (_deviceId is null || _runBusy) return;
+        StopRunWatch();
+        ResetRun();
+        _runBusy = true;
+        _runTitle = book.Title;
+        _runStartedAt = DateTimeOffset.UtcNow;
+        await PublishAsync();
+        StateHasChanged();
+
+        var argument = book.Options is { Count: > 0 } ? ArgFor(book) : null;
+        var res = await Client().PostAsJsonAsync($"/api/devices/{_deviceId}/cookbooks",
+            new DeviceCookbookRequest(book.Id, argument, AndroidUserId), SelfCallJson.Web);
+        if (!res.IsSuccessStatusCode) {
+            var failed = await ReadError(res);
+            _runBusy = false;
+            _runDone = true;
+            _runNote = failed;
+            _runFinishedAt = DateTimeOffset.UtcNow;
+            await PublishAsync();
+            await Fail(failed);
+            return;
+        }
+
+        _runJobId = await ReadJobId(res);
+        if (_runJobId is null) {
+            _runBusy = false;
+            _runDone = true;
+            _runNote = "run started but no job id came back";
+            _runFinishedAt = DateTimeOffset.UtcNow;
+            await PublishAsync();
+            return;
+        }
+
+        StartTick();
+        StartRunWatch();
+        await RefreshRunAsync();
+    }
+
+    async Task CheckRunningAsync() {
+        if (_deviceId is not { } id) return;
+        var status = await Client().OneAsync<CookbookRunningInfo>($"/api/devices/{id}/cookbooks/running", Logger);
+        if (status is not { Running: true, JobId: { } jobId } || Stale(id)) return;
+
+        StopRunWatch();
+        ResetRun();
+        _runBusy = true;
+        _runTitle = await TitleForJobAsync(jobId) ?? "cookbook";
+        _runJobId = jobId;
+        StartTick();
+        StartRunWatch();
+        await RefreshRunAsync();
+        StateHasChanged();
+    }
+
+    async Task OpenRunAsync(JobGroupRow job) {
+        if (_deviceId is null || _runBusy) return;
+        StopRunWatch();
+        ResetRun();
+        _runReadOnly = true;
+        _runJobId = job.Id;
+        _runTitle = RunTitle(job);
+        _runStartedAt = job.StartedAt;
+        _runFinishedAt = job.FinishedAt;
+        await RefreshRunAsync();
+        if (!_runDone) {
+            _runDone = true;
+            _runOk = string.Equals(job.State, "succeeded", StringComparison.OrdinalIgnoreCase);
+            _runCancelled = string.Equals(job.State, "cancelled", StringComparison.OrdinalIgnoreCase);
+            _runNote ??= job.Message;
+        }
+
+        await PublishAsync();
+        if (!Open && OnOpenRequested.HasDelegate) await OnOpenRequested.InvokeAsync();
+    }
+
+    async Task StopRunAsync() {
+        if (_deviceId is null || _runJobId is null || _stopBusy) return;
+        _stopBusy = true;
+        StateHasChanged();
+
+        var res = await Client().PostAsync($"/api/devices/{_deviceId}/cookbooks/stop", null);
+        _stopBusy = false;
+        if ((int)res.StatusCode == 409) await RefreshRunAsync();
+        else if (!res.IsSuccessStatusCode) await Fail(await ReadError(res));
+        StateHasChanged();
+    }
+
+    void OnTopic(string topic) {
+        if (_disposed || topic != AdminTopics.DeviceStatus) return;
+        _ = InvokeAsync(RefreshRunAsync);
+    }
+
+    async Task RefreshRunAsync() {
+        if (_disposed || !Active || _deviceId is null || _runJobId is null) {
+            StopRunWatch();
+            return;
+        }
+
+        if (_refreshing || !_isAdmin || CookbookFeed is not { } feed) return;
+        _refreshing = true;
+        try {
+            if (await feed.RunAsync(_deviceId, _runJobId.Value, CancellationToken.None) is not { } status) {
+                StopRunWatch();
+                StopTick();
+                _runBusy = false;
+                _runDone = true;
+                _runNote = "run fell out of the job history window";
+                _runFinishedAt ??= DateTimeOffset.UtcNow;
+                await PublishAsync();
+                StateHasChanged();
+                return;
+            }
+
+            if (status.Log is { } log) _runLog = [.. log];
+            if (status.Steps is { } steps) _steps = [.. steps];
+            _runNote = status.Note ?? _runNote;
+            _runFailedStepTitle = status.FailedStepTitle ?? _runFailedStepTitle;
+            _runStartedAt = status.StartedAt ?? _runStartedAt;
+            _runFinishedAt = status.FinishedAt ?? _runFinishedAt;
+            if (status.Finished) {
+                var wasLive = !_runDone && !_runReadOnly;
+                _runDone = true;
+                _runOk = status.Succeeded;
+                _runCancelled = status.Cancelled;
+                _runBusy = false;
+                StopRunWatch();
+                StopTick();
+                if (wasLive) await AfterRunAsync();
+            }
+
+            await PublishAsync();
+            StateHasChanged();
+        }
+        finally {
+            _refreshing = false;
+        }
+    }
+
+    async Task AfterRunAsync() {
+        await Task.WhenAll(LoadCookbooksAsync(), LoadLastRunsAsync());
+        if (OnChanged.HasDelegate) await OnChanged.InvokeAsync();
+    }
+
+    async Task<string?> TitleForJobAsync(long jobId) {
+        if (_deviceId is null || !_isAdmin || JobFeed is not { } feed) return null;
+        var page = await feed.PageAsync(_deviceId, LastRunPage, null, CancellationToken.None);
+        return page.Rows.FirstOrDefault(j => j.Id == jobId)?.Cookbook;
+    }
+
+    static string RunTitle(JobGroupRow job) {
+        return job.Cookbook ?? job.Message ?? "cookbook";
+    }
+
+    string? RunNote() {
+        if (_steps.Count > 0 || !_runDone || _runOk || _runCancelled) return null;
+        return _runNote is { Length: > 0 } note ? note : null;
+    }
+
+    string? RunDetail() {
+        if (!_runDone) return _steps.Count > 0 ? $"{_steps.Count} steps so far" : null;
+        if (_runOk || _runCancelled) return null;
+        if (_runFailedStepTitle is { Length: > 0 } at) return $"at {at}";
+        return _runNote;
+    }
+
+    async Task Done() {
+        ResetRun();
+        await PublishAsync();
+    }
+
+    void ToggleLog() {
+        _logOpen = !_logOpen;
+    }
+
+    void ToggleWrap() {
+        _wrap = !_wrap;
+    }
+
+    void StartRunWatch() {
+        _topics ??= Notifier.Subscribe(OnTopic);
+    }
+
+    void StopRunWatch() {
+        _topics?.Dispose();
+        _topics = null;
+    }
+
+    void StartTick() {
+        _tick ??= new Timer(Tick, null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
+    }
+
+    void StopTick() {
+        _tick?.Dispose();
+        _tick = null;
+    }
+
+    void Tick(object? state) {
+        if (_disposed || _runDone) return;
+        _ = InvokeAsync(async () => {
+            await PublishAsync();
+            StateHasChanged();
+        });
+    }
+
+    static string Stamp(DateTimeOffset at) {
+        return at.ToLocalTime().ToString("HH:mm:ss", CultureInfo.InvariantCulture);
+    }
+
+    static string OutcomeIcon(string state) {
+        return state.ToLowerInvariant() switch {
+            "succeeded" => "circle-check",
+            "failed" => "circle-x",
+            "running" => "play",
+            _ => "circle"
+        };
+    }
+
+    static string OutcomeIconClass(string state) {
+        return state.ToLowerInvariant() switch {
+            "succeeded" => "text-ok",
+            "failed" => "text-err",
+            _ => "text-muted"
+        };
+    }
+
+    static string StepIcon(CookbookStepStatus status) {
+        return status switch {
+            CookbookStepStatus.Ok => "circle-check",
+            CookbookStepStatus.Skipped => "circle",
+            _ => "circle-x"
+        };
+    }
+
+    static string StepIconClass(CookbookStepStatus status) {
+        return status switch {
+            CookbookStepStatus.Ok => "text-ok",
+            CookbookStepStatus.Skipped => "text-muted",
+            _ => "text-err"
+        };
+    }
+
+    static string StepStateWord(CookbookStepStatus status) {
+        return status switch {
+            CookbookStepStatus.Ok => "done",
+            CookbookStepStatus.Skipped => "skipped",
+            _ => "failed"
+        };
+    }
+
+    string RunReport() {
+        var sb = new StringBuilder();
+        sb.Append(_runTitle ?? "run").Append(' ').Append(Line().State);
+        if (_runDone && !_runOk && !_runCancelled && _runFailedStepTitle is { Length: > 0 } failedAt) sb.Append(" at ").Append(failedAt);
+        if (_runDone && !_runOk && _runNote is { Length: > 0 } runNote) sb.Append(", ").Append(runNote);
+        sb.AppendLine();
+        foreach (var step in _steps) {
+            sb.Append("- ").Append(step.Title).Append(": ").Append(StepStateWord(step.Status));
+            if (step.Note is { Length: > 0 } note) sb.Append(" (").Append(note).Append(')');
+            sb.AppendLine();
+        }
+
+        if (_runLog.Count > 0) {
+            sb.AppendLine();
+            foreach (var line in _runLog) sb.AppendLine(line);
+        }
+
+        return sb.ToString();
+    }
+
+    Task Fail(string text) {
+        return OnNotice.InvokeAsync(new DeviceNotice(text, StatusNoteKind.Error));
+    }
+
+    static async Task<long?> ReadJobId(HttpResponseMessage resp) {
+        try {
+            var body = await resp.Content.ReadFromJsonAsync<JsonElement>();
+            if (body.ValueKind != JsonValueKind.Object) return null;
+            foreach (var name in JobIdNames) {
+                if (!body.TryGetProperty(name, out var value)) continue;
+                var text = value.ValueKind switch {
+                    JsonValueKind.String => value.GetString(),
+                    JsonValueKind.Number => value.GetRawText(),
+                    _ => null
+                };
+                if (long.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var id)) return id;
+            }
+        }
+        catch (Exception ex) when (ex is JsonException or HttpRequestException or NotSupportedException) {
+            return null;
+        }
+
+        return null;
+    }
+
+    static async Task<string> ReadError(HttpResponseMessage resp) {
+        try {
+            var body = await resp.Content.ReadFromJsonAsync<JsonElement>();
+            if (body.ValueKind == JsonValueKind.Object && body.TryGetProperty("error", out var e))
+                return e.GetString() ?? $"failed [{(int)resp.StatusCode}]";
+        }
+        catch (Exception ex) when (ex is JsonException or HttpRequestException or NotSupportedException) {
+            return $"failed [{(int)resp.StatusCode}]";
+        }
+
+        return $"failed [{(int)resp.StatusCode}]";
+    }
+
+    public void Dispose() {
+        _disposed = true;
+        StopTick();
+        StopRunWatch();
+    }
+
+}

@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using EggIncognito.Core.Services.Devices;
 
 namespace EggIncognito.Services.Devices;
@@ -9,8 +10,11 @@ public sealed class AndroidStoreUpdateDriver(
     AndroidStoreCatalog catalog,
     KnownVersionRecorder knownVersions,
     IEnumerable<IDeviceUiDriver> uiDrivers,
+    DeviceActivity activity,
     ILogger<AndroidStoreUpdateDriver> logger) : IStoreUpdateDriver {
     private readonly IDeviceUiDriver? _ui = uiDrivers.FirstOrDefault(u => Platforms.Matches(u.Platform, Platforms.Android));
+
+    private readonly ConcurrentDictionary<string, EntryState> _entry = new(StringComparer.OrdinalIgnoreCase);
 
     public string Platform => Platforms.Android;
     public string StoreName => "Play";
@@ -23,11 +27,18 @@ public sealed class AndroidStoreUpdateDriver(
     public async Task PrepareAsync(DeviceTarget target, CancellationToken ct) {
         try {
             var conn = connections.For(target)!;
+            _entry[target.Id] = await ReadEntryStateAsync(conn, ct);
             await conn.ShellAsync("input keyevent KEYCODE_WAKEUP", ct);
             await conn.ShellAsync("wm dismiss-keyguard", ct);
         } catch (Exception ex) {
             logger.LogDebug(ex, "device {Id} wake best-effort failed", target.Id);
         }
+    }
+
+    private static async Task<EntryState> ReadEntryStateAsync(IDeviceConnection conn, CancellationToken ct) {
+        var state = await conn.ShellAsync(AndroidUiDriver.ScreenStateCommand, ct);
+        var front = await DeviceForeground.ReadAsync(conn, ct);
+        return new EntryState(AndroidUiDriver.ParseScreenState(state.Stdout).Awake, front.Package);
     }
 
     public async Task<StoreProbeOutcome> ProbeStoreAsync(
@@ -112,14 +123,32 @@ public sealed class AndroidStoreUpdateDriver(
     }
 
     public async Task CleanupAsync(DeviceTarget target, CancellationToken ct) {
+        _entry.TryRemove(target.Id, out var entry);
+        bool busy = activity.IsBusy(target.Id);
         try {
             var conn = connections.For(target)!;
-            await conn.ShellAsync("input keyevent KEYCODE_HOME", ct);
+            if (Restorable(entry.Package) is { } pkg)
+                await conn.ShellAsync($"monkey -p {pkg} -c android.intent.category.LAUNCHER 1", ct);
+            else if (!busy)
+                await conn.ShellAsync("input keyevent KEYCODE_HOME", ct);
+
+            if (busy) return;
+            if (entry.Awake) return;
             await conn.ShellAsync("input keyevent KEYCODE_SLEEP", ct);
         } catch (Exception ex) {
-            logger.LogDebug(ex, "device {Id} screen-sleep best-effort failed", target.Id);
+            logger.LogDebug(ex, "device {Id} screen-restore best-effort failed", target.Id);
         }
     }
+
+    private static string? Restorable(string? package) {
+        if (string.IsNullOrWhiteSpace(package)) return null;
+        if (package.Equals(DeviceForeground.PlayStorePackage, StringComparison.OrdinalIgnoreCase)) return null;
+        if (package.Equals("com.android.systemui", StringComparison.OrdinalIgnoreCase)) return null;
+        if (package.Contains("launcher", StringComparison.OrdinalIgnoreCase)) return null;
+        return package;
+    }
+
+    private readonly record struct EntryState(bool Awake, string? Package);
 
     private async Task<UiTree?> DumpAsync(DeviceTarget target, CancellationToken ct) {
         if (_ui is null) return null;

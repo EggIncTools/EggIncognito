@@ -11,7 +11,16 @@ public static class DeviceKeyNames {
         ["wake"] = DeviceKey.Wake,
         ["sleep"] = DeviceKey.Sleep,
         ["dismiss-keyguard"] = DeviceKey.DismissKeyguard,
-        ["close-app"] = DeviceKey.CloseApp
+        ["close-app"] = DeviceKey.CloseApp,
+        ["del"] = DeviceKey.Delete,
+        ["forward-del"] = DeviceKey.ForwardDelete,
+        ["tab"] = DeviceKey.Tab,
+        ["up"] = DeviceKey.Up,
+        ["down"] = DeviceKey.Down,
+        ["left"] = DeviceKey.Left,
+        ["right"] = DeviceKey.Right,
+        ["page-up"] = DeviceKey.PageUp,
+        ["page-down"] = DeviceKey.PageDown
     };
 
     public static IReadOnlyCollection<string> All => ByName.Keys;

@@ -9,6 +9,10 @@ namespace EggIncognito.Services.Devices;
 public sealed class AndroidUiDriver(IDeviceConnectionFactory connections) : IDeviceUiDriver {
     private const string ShellSpecials = "`()<>|;&*\\~\"'$";
 
+    public const string ScreenStateCommand =
+        "dumpsys power 2>/dev/null | grep -E \"mWakefulness|mHoldingDisplaySuspendBlocker\"; "
+        + "dumpsys window 2>/dev/null | grep -E \"mDreamingLockscreen\"";
+
     public string Platform => Platforms.Android;
 
     public async Task<DeviceResult<UiTree>> DumpAsync(DeviceTarget target, CancellationToken ct) {
@@ -67,6 +71,36 @@ public sealed class AndroidUiDriver(IDeviceConnectionFactory connections) : IDev
         return TryParseWmSize(r.Stdout, out var size)
             ? DeviceResult<UiScreenSize>.Success(size)
             : DeviceResult<UiScreenSize>.Error("wm size gave no WxH");
+    }
+
+    public async Task<DeviceResult<DeviceScreenState>> ScreenStateAsync(DeviceTarget target, CancellationToken ct) {
+        var conn = connections.For(target)!;
+        var r = await conn.ShellAsync(ScreenStateCommand, ct);
+        if (r.ExitCode != 0 && string.IsNullOrWhiteSpace(r.Stdout))
+            return DeviceResult<DeviceScreenState>.Unreachable(DeviceParsing.TrimNote(r.Stderr + r.Stdout));
+        return DeviceResult<DeviceScreenState>.Success(ParseScreenState(r.Stdout));
+    }
+
+    public static DeviceScreenState ParseScreenState(string output) {
+        bool awake = false;
+        bool locked = false;
+        foreach (string raw in output.Split('\n')) {
+            string line = raw.Trim();
+            if (Value(line, "mWakefulness=") is { } wake)
+                awake = wake.Equals("Awake", StringComparison.OrdinalIgnoreCase);
+            if (Value(line, "mDreamingLockscreen=") is { } lockscreen)
+                locked = lockscreen.Equals("true", StringComparison.OrdinalIgnoreCase);
+        }
+
+        return new DeviceScreenState(awake, locked);
+    }
+
+    private static string? Value(string line, string key) {
+        int at = line.IndexOf(key, StringComparison.Ordinal);
+        if (at < 0) return null;
+        string rest = line[(at + key.Length)..];
+        int end = rest.IndexOfAny([' ', '\t', ',', ')']);
+        return (end < 0 ? rest : rest[..end]).Trim();
     }
 
     public static bool TryParseWmSize(string output, out UiScreenSize size) {
@@ -139,12 +173,21 @@ public sealed class AndroidUiDriver(IDeviceConnectionFactory connections) : IDev
         string cmd = key switch {
             DeviceKey.Home => "input keyevent KEYCODE_HOME",
             DeviceKey.Back => "input keyevent KEYCODE_BACK",
-            DeviceKey.Wake => "input keyevent KEYCODE_WAKEUP",
+            DeviceKey.Wake => "input keyevent KEYCODE_WAKEUP; wm dismiss-keyguard",
             DeviceKey.Sleep => "input keyevent KEYCODE_SLEEP",
             DeviceKey.Enter => "input keyevent KEYCODE_ENTER",
             DeviceKey.Recents => "input keyevent KEYCODE_APP_SWITCH",
             DeviceKey.DismissKeyguard => "wm dismiss-keyguard",
             DeviceKey.CloseApp => $"am force-stop {target.Package}; " + DeviceForeground.CloseForegroundCommand,
+            DeviceKey.Delete => "input keyevent KEYCODE_DEL",
+            DeviceKey.ForwardDelete => "input keyevent KEYCODE_FORWARD_DEL",
+            DeviceKey.Tab => "input keyevent KEYCODE_TAB",
+            DeviceKey.Up => "input keyevent KEYCODE_DPAD_UP",
+            DeviceKey.Down => "input keyevent KEYCODE_DPAD_DOWN",
+            DeviceKey.Left => "input keyevent KEYCODE_DPAD_LEFT",
+            DeviceKey.Right => "input keyevent KEYCODE_DPAD_RIGHT",
+            DeviceKey.PageUp => "input keyevent KEYCODE_PAGE_UP",
+            DeviceKey.PageDown => "input keyevent KEYCODE_PAGE_DOWN",
             _ => throw new ArgumentOutOfRangeException(nameof(key), key, "unhandled DeviceKey")
         };
         return RunAsync(target, cmd, ct);

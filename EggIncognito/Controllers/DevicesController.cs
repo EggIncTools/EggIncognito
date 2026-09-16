@@ -569,6 +569,21 @@ public sealed partial class DevicesController(
         return Ok(new UiScreenInfo(size.Value.Width, size.Value.Height));
     }
 
+    [HttpGet("{id}/ui/state")]
+    [ApiAccess(ApiAccessLevel.Admin)]
+    [EnableRateLimiting("read")]
+    public async Task<IActionResult> UiState(string id, CancellationToken ct) {
+        if (RequireAdmin() is { } no) return no;
+        (IActionResult? err, var platform, var target) = await ResolveUiAsync(id, ct);
+        if (err is not null) return err;
+
+        var state = await platform.ScreenStateAsync(target, ct);
+        if (!state.Ok) return UiFailure(state.Outcome, state.Note);
+
+        Response.Headers.CacheControl = "no-store";
+        return Ok(new UiStateInfo(state.Value.Awake, state.Value.Locked));
+    }
+
     [HttpGet("{id}/ui/stream")]
     [ApiAccess(ApiAccessLevel.Admin)]
     [DisableRateLimiting]

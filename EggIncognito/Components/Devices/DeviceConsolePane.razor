@@ -2,13 +2,10 @@
 @inherits SelfCallComponentBase
 @inject IJSRuntime JS
 @inject IWebHostEnvironment Env
-@inject ICurrentUser User
 @inject IServiceProvider Services
-@inject AdminNotifier Notifier
 @inject DeviceWorkbenchState State
 @inject ILogger<DeviceConsolePane> Logger
 @using System.Globalization
-@using System.Text
 @using System.Text.Json
 @using EggIncognito.Core.Services.Devices
 @using EggIncognito.Models.Devices
@@ -44,7 +41,26 @@
                     <span class="dcon-tapping" aria-hidden="true"></span>
                 }
             </button>
-            @if (!_hasFrame) {
+            @if (IsAndroid) {
+                <div class="dcon-nav" role="group" aria-label="Device navigation">
+                    <button type="button" class="dcon-nav-btn" aria-label="Back" @onclick="@(() => KeyAsync("back"))">
+                        <span class="dcon-nav-back" aria-hidden="true"></span>
+                    </button>
+                    <button type="button" class="dcon-nav-btn" aria-label="Home" @onclick="@(() => KeyAsync("home"))">
+                        <span class="dcon-nav-home" aria-hidden="true"></span>
+                    </button>
+                    <button type="button" class="dcon-nav-btn" aria-label="Recents" @onclick="@(() => KeyAsync("recents"))">
+                        <span class="dcon-nav-recents" aria-hidden="true"></span>
+                    </button>
+                </div>
+            }
+            @if (Asleep) {
+                <button type="button" class="dcon-wake" disabled="@_waking" @onclick="WakeAsync">
+                    <Icon Name="power" Class="icon-md"/>
+                    <span>@(_waking ? "Waking..." : "Click to wake")</span>
+                    <span class="text-muted dcon-stage-reason">@AsleepReason()</span>
+                </button>
+            } else if (!_hasFrame) {
                 <span class="dcon-stage-empty">
                     <Icon Name="@StreamIcon()" Class="@("icon-sm " + StreamIconClass())"/>
                     <span>@StageEmptyText()</span>
@@ -57,6 +73,13 @@
     </div>
 
     <div class="dcon-side">
+    @if (Actions is not null) {
+        <div class="dwb-bar dcon-actions">
+            <span class="dwb-bar-group">@Actions</span>
+        </div>
+        @ActionNotes
+    }
+
     <div class="dwb-bar">
         <span class="dwb-bar-group">
             <span class="dcon-k">Stream</span>
@@ -106,13 +129,27 @@
         </span>
     </div>
 
-    @if (Actions is not null) {
-        <DeviceSection Title="Actions" Open="@State.IsOpen(DeviceWorkbenchState.SectionActions)"
-                       OpenChanged="@(o => State.SetOpen(DeviceWorkbenchState.SectionActions, o))">
-            <Tools>@Actions</Tools>
-            <ChildContent>@ActionNotes</ChildContent>
-        </DeviceSection>
-    }
+    <div class="dwb-bar">
+        <span class="dwb-bar-group">
+            <span class="dcon-k">Workflows</span>
+            @if (_runLine is { } run) {
+                <span class="dcon-run-title">@run.Title</span>
+                <span class="font-mono text-muted text-xs">@run.Elapsed</span>
+                <span class="dcon-status">
+                    <Icon Name="@run.Icon" Class="@("icon-sm " + run.IconClass)"/>
+                    <span>@run.State</span>
+                </span>
+            } else {
+                <span class="text-muted text-xs">nothing running</span>
+            }
+        </span>
+        <span class="dwb-bar-group">
+            <button type="button" class="btn-mini" @onclick="OpenRunModal">
+                <Icon Name="play" Class="icon-sm"/>
+                @(_runLine is null ? "Open" : "Show run")
+            </button>
+        </span>
+    </div>
 
     @if (IsAndroid) {
         <DeviceSection Title="Island" Open="@State.IsOpen(DeviceWorkbenchState.SectionIsland)"
@@ -202,78 +239,35 @@
     <DeviceSection Title="Input" Open="@State.IsOpen(DeviceWorkbenchState.SectionInput)"
                    OpenChanged="@(o => State.SetOpen(DeviceWorkbenchState.SectionInput, o))">
         <Tools>
-            <button type="button" class="btn-mini" @onclick="@(() => KeyAsync("back"))">Back</button>
-            <button type="button" class="btn-mini" @onclick="@(() => KeyAsync("home"))">Home</button>
-            <button type="button" class="btn-mini" @onclick="@(() => KeyAsync("recents"))">Recents</button>
-            <button type="button" class="btn-mini" @onclick="@(() => KeyAsync("enter"))">Enter</button>
-            <button type="button" class="btn-mini" @onclick="@(() => KeyAsync("wake"))">Wake</button>
-            <button type="button" class="btn-mini" @onclick="@(() => KeyAsync("close-app"))">Close app</button>
-        </Tools>
-        <ChildContent>
-        <div class="dcon-typing">
-            <input class="field-input font-mono" placeholder="@(_captureKeys ? "capturing keys live" : "text for the focused field")"
-                   aria-label="Text and hardware keys" @bind="_text" @bind:event="oninput"
-                   @onkeydown="TextKeyAsync" @onkeydown:preventDefault="_captureKeys"/>
             <button type="button" class="btn-mini @(_captureKeys ? "dcon-on" : "")" @onclick="ToggleCapture"
-                    title="Send each keystroke live: printable keys as text, Enter and Escape as device keys">
+                    title="Send every keystroke to the device as you type">
                 <Icon Name="@(_captureKeys ? "circle-check" : "circle")" Class="icon-sm"/>
                 Live keys
             </button>
-            <button type="button" class="btn-mini" disabled="@(_captureKeys || _text.Length == 0)" @onclick="SendTextAsync">
-                <Icon Name="send" Class="icon-sm"/>
-                Send
-            </button>
-        </div>
+            <button type="button" class="btn-mini" @onclick="@(() => KeyAsync("enter"))">Enter</button>
+        </Tools>
+        <ChildContent>
+        @if (_captureKeys) {
+            <div class="dcon-status text-xs">
+                <Icon Name="circle-check" Class="icon-sm text-accent"/>
+                <span class="text-muted">Keys go to the device as you type, anywhere on this page. Ctrl, Alt and Cmd shortcuts still reach the browser.</span>
+            </div>
+        } else {
+            <div class="dcon-typing">
+                <input class="field-input font-mono" placeholder="paste or type a whole string"
+                       aria-label="Text to send" @bind="_text" @bind:event="oninput" @onkeydown="TextKeyAsync"/>
+                <button type="button" class="btn-mini" disabled="@(_text.Length == 0)" @onclick="SendTextAsync">
+                    <Icon Name="send" Class="icon-sm"/>
+                    Send
+                </button>
+            </div>
+        }
         </ChildContent>
     </DeviceSection>
 
-    <div class="dcon-activity @(ActivityOpen ? "" : "dcon-activity-closed")">
-        <div class="dcon-activity-head">
-            <button type="button" class="dcon-sec-toggle" aria-expanded="@(ActivityOpen ? "true" : "false")" @onclick="ToggleActivity">
-                <span class="ep-caret @(ActivityOpen ? "ep-caret-open" : "")"></span>
-            </button>
-            @if (_mode == DeviceConsoleMode.Idle) {
-                <span class="dcon-activity-title">
-                    <span class="dcon-k">Readiness</span>
-                    <span class="dcon-status">
-                        <Icon Name="@ReadinessIcon()" Class="@("icon-sm " + ReadinessIconClass())"/>
-                        <span>@ReadinessLabel()</span>
-                    </span>
-                    @if (_readinessAt is { } probedAt) {
-                        <span class="text-muted text-xs">probed @Stamp(probedAt)</span>
-                    }
-                </span>
-                <span class="dcon-activity-tools">
-                    <button type="button" class="btn-mini" disabled="@_readinessBusy" @onclick="LoadReadinessAsync">
-                        <Icon Name="refresh-cw" Class="icon-sm"/>
-                        @(_readinessBusy ? "Probing..." : "Probe")
-                    </button>
-                </span>
-            } else if (_mode == DeviceConsoleMode.Running) {
-                <span class="dcon-activity-title">
-                    <span class="dcon-run-title">@_runTitle</span>
-                    <span class="meta-dots">
-                        <span class="font-mono text-muted">@Elapsed()</span>
-                        <span class="dcon-status">
-                            <Icon Name="@RunIcon()" Class="@("icon-sm " + RunIconClass())"/>
-                            <span>@RunStateLine()</span>
-                        </span>
-                    </span>
-                </span>
-                <span class="dcon-activity-tools">
-                    @if (!_runDone && !_runReadOnly && _runJobId is not null) {
-                        <button type="button" class="btn-mini btn-danger" disabled="@_stopBusy" @onclick="StopRunAsync">
-                            @(_stopBusy ? "Stopping..." : "Stop")
-                        </button>
-                    }
-                    <CopyButton GetText="RunReport" Label="Copy" CopiedLabel="Copied" ShowIcon="false"
-                                ButtonClass="btn-mini"/>
-                    <button type="button" class="btn-mini" @onclick="ToggleWrap">@(_wrap ? "Nowrap" : "Wrap")</button>
-                    @if (_runDone) {
-                        <button type="button" class="btn-mini" @onclick="Done">Done</button>
-                    }
-                </span>
-            } else {
+    @if (_mode == DeviceConsoleMode.Record) {
+        <div class="dcon-activity">
+            <div class="dcon-activity-head">
                 <span class="dcon-activity-title">
                     <span class="dcon-k">Record</span>
                     <span class="text-muted text-xs">@_recorded.Count @(_recorded.Count == 1 ? "step" : "steps")</span>
@@ -288,130 +282,8 @@
                     <button type="button" class="btn-mini" disabled="@(_recorded.Count == 0)" @onclick="ClearRecorded">Clear</button>
                     <button type="button" class="btn-mini" @onclick="CloseRecord">Close</button>
                 </span>
-            }
-        </div>
-
-        @if (ActivityOpen) {
-        <div class="dcon-activity-body">
-            @if (_mode == DeviceConsoleMode.Idle) {
-                <div class="reg-wrap">
-                    <table class="data-table dcon-list">
-                        <tbody>
-                        @foreach (var (label, check) in ReadinessRows()) {
-                            <tr>
-                                <td class="dcon-cur">
-                                    <Icon Name="@CheckIcon(check)" Class="@("icon-sm " + CheckIconClass(check))"/>
-                                </td>
-                                <td class="dcon-check-label">@label</td>
-                                <td class="text-muted text-xs dcon-list-title" title="@CheckDetail(check)">@CheckDetail(check)</td>
-                            </tr>
-                        }
-                        </tbody>
-                    </table>
-                </div>
-
-                @if (_books.Count > 0) {
-                    <div class="dcon-run-row">
-                        <select class="field-input dcon-pick" aria-label="Cookbook" value="@_bookId"
-                                disabled="@_runBusy" @onchange="BookChanged">
-                            @if (Workflows() is { Count: > 0 } workflows) {
-                                <optgroup label="workflows">
-                                    @foreach (var book in workflows) {
-                                        <option value="@book.Id" disabled="@(!book.Available)" title="@book.Unavailable">
-                                            @book.Title
-                                        </option>
-                                    }
-                                </optgroup>
-                            }
-                            @if (Steps() is { Count: > 0 } steps) {
-                                <optgroup label="steps">
-                                    @foreach (var book in steps) {
-                                        <option value="@book.Id" disabled="@(!book.Available)" title="@book.Unavailable">
-                                            @book.Title
-                                        </option>
-                                    }
-                                </optgroup>
-                            }
-                        </select>
-                        @if (Chosen() is { Options: { Count: > 0 } options } chosen) {
-                            <select class="field-input dcon-pick" aria-label="@(chosen.ArgumentLabel ?? "Option")"
-                                    value="@ArgFor(chosen)" disabled="@_runBusy" @onchange="@(e => SetArg(chosen.Id, e))">
-                                @foreach (var option in options) {
-                                    <option value="@option.Value" title="@option.Detail">@option.Label</option>
-                                }
-                            </select>
-                        }
-                        <button type="button" class="btn-primary" disabled="@(!CanRun())" @onclick="RunChosenAsync">
-                            <Icon Name="play" Class="icon-sm"/>
-                            Run
-                        </button>
-                        @if (SelectedIsland() is { } target) {
-                            <span class="text-xs text-muted">to user @target.AndroidUserId</span>
-                        }
-                    </div>
-                    @if (Chosen() is { Unavailable: { Length: > 0 } why, Available: false }) {
-                        <div class="text-xs text-muted">@why</div>
-                    }
-                } else if (!_booksBusy) {
-                    <div class="text-xs text-muted">no cookbooks for this device</div>
-                }
-
-                @if (_lastRuns.Count > 0) {
-                    <div class="reg-wrap">
-                        <table class="data-table dcon-list dcon-last">
-                            <tbody>
-                            @foreach (var job in _lastRuns) {
-                                <tr class="dcon-last-row" @key="job.Id" title="@job.Message" @onclick="@(() => OpenRunAsync(job))">
-                                    <td class="dcon-cur">
-                                        <Icon Name="@OutcomeIcon(job.State)" Class="@("icon-sm " + OutcomeIconClass(job.State))"/>
-                                    </td>
-                                    <td class="font-mono text-muted text-xs">@Stamp(job.LastAt)</td>
-                                    <td class="dcon-list-title">@RunTitle(job)</td>
-                                    <td class="text-muted text-xs">@(job.Outcome ?? job.State)</td>
-                                </tr>
-                            }
-                            </tbody>
-                        </table>
-                    </div>
-                }
-            } else if (_mode == DeviceConsoleMode.Running) {
-                @if (_steps.Count > 0 || RunNote() is not null) {
-                    <div class="reg-wrap">
-                        <table class="data-table dcon-list">
-                            <tbody>
-                            @foreach (var step in _steps) {
-                                <tr>
-                                    <td class="dcon-cur">
-                                        <Icon Name="@StepIcon(step.Status)" Class="@("icon-sm " + StepIconClass(step.Status))"/>
-                                    </td>
-                                    <td class="dcon-check-label">@step.Title</td>
-                                    <td class="text-muted text-xs dcon-list-title">
-                                        @(step.Status != CookbookStepStatus.Ok && step.Note is { Length: > 0 } stepNote ? stepNote : StepStateWord(step.Status))
-                                    </td>
-                                </tr>
-                            }
-                            @if (RunNote() is { } runNote) {
-                                <tr>
-                                    <td class="dcon-cur">
-                                        <Icon Name="@RunIcon()" Class="@("icon-sm " + RunIconClass())"/>
-                                    </td>
-                                    <td class="dcon-check-label">@(_runTitle ?? "run")</td>
-                                    <td class="text-muted text-xs dcon-list-title">@runNote</td>
-                                </tr>
-                            }
-                            </tbody>
-                        </table>
-                    </div>
-                }
-
-                <div class="reg-wrap dcon-log-wrap">
-                    <div class="dcon-log @(_wrap ? "" : "dcon-log-nowrap")">
-                        @for (var i = _runLog.Count - 1; i >= 0; i--) {
-                            <div class="dcon-log-line">@_runLog[i]</div>
-                        }
-                    </div>
-                </div>
-            } else {
+            </div>
+            <div class="dcon-activity-body">
                 @if (_recorded.Count == 0) {
                     <div class="dcon-status text-xs">
                         <Icon Name="circle" Class="icon-sm text-muted"/>
@@ -456,14 +328,17 @@
                         </div>
                     </div>
                 }
-            }
+            </div>
         </div>
-        }
-    </div>
+    }
 
     @Sections
     </div>
     </div>
+
+    <DeviceRunModal DeviceId="@_deviceId" Active="@Active" Open="@RunModalOpen" AndroidUserId="@_selectedAndroidUserId"
+                    OnClose="CloseRunModal" OnOpenRequested="OpenRunModal" OnNotice="OnNotice"
+                    OnChanged="AfterRunAsync" OnRunChanged="RunLineChanged"/>
     </div>
 }
 
@@ -487,26 +362,19 @@
 
     [Parameter] public RenderFragment? Sections { get; set; }
 
-    bool ActivityOpen => State.IsOpen(DeviceWorkbenchState.SectionActivity);
-
-    void ToggleActivity() {
-        State.SetOpen(DeviceWorkbenchState.SectionActivity, !ActivityOpen);
-    }
-
     string CurrentIslandLabel() {
         return SelectedIsland() is { } island ? $"{IslandLabel(island)}, user {island.AndroidUserId}" : "device, no island";
     }
 
     static readonly int[] Rates = [5, 4, 3, 2, 1];
-    static readonly string[] JobIdNames = ["jobId", "JobId", "runId", "RunId", "id", "Id"];
-    const int LastRunCount = 5;
-    const int LastRunPage = 25;
     const int StreamBusyStatus = 409;
+    const int WatchTolerance = 48;
+    const int WatchCooldownMs = 2500;
     static readonly TimeSpan StreamRetryDelay = TimeSpan.FromSeconds(1);
     static readonly TimeSpan VideoReprobeDelay = TimeSpan.FromSeconds(20);
+    static readonly TimeSpan UiPollInterval = TimeSpan.FromSeconds(5);
 
     bool _disposed;
-    bool _isAdmin;
     bool _loaded;
     bool _live;
     bool _hasFrame;
@@ -518,19 +386,12 @@
     int _videoReprobe;
     bool? _videoSupported;
     bool _replaying;
-    bool _booksBusy;
-    bool _readinessBusy;
-    bool _runBusy;
-    bool _runDone;
-    bool _runOk;
-    bool _runCancelled;
-    bool _runReadOnly;
-    bool _stopBusy;
-    bool _refreshing;
-    bool _wrap = true;
     bool _captureKeys;
     bool _islandBusy;
     bool _newIslandOpen;
+    bool _uiProbed;
+    bool _uiBusy;
+    bool _waking;
     int _fps = 3;
     int _shotW;
     int _shotH;
@@ -546,41 +407,23 @@
     string _newIslandLabel = "";
     string _streamKey = "";
     string _stageKey = "";
-    string _bookId = "";
+    string _keysKey = "";
+    string _watchKey = "";
     string? _deviceId;
     string? _streamError;
-    string? _runTitle;
-    string? _runNote;
-    string? _runFailedStepTitle;
-    long? _runJobId;
-    DateTimeOffset? _runStartedAt;
-    DateTimeOffset? _runFinishedAt;
-    DateTimeOffset? _readinessAt;
     DeviceConsoleMode _mode = DeviceConsoleMode.Idle;
-
+    UiStateInfo? _uiState;
+    DeviceRunLine? _runLine;
     List<RecordedGesture> _recorded = [];
-    List<DeviceCookbookInfo> _books = [];
-    List<JobGroupRow> _lastRuns = [];
-    List<string> _runLog = [];
-    List<CookbookStepResult> _steps = [];
     List<IslandRow> _islands = [];
-    readonly Dictionary<string, string> _args = [];
     RecordedGesture? _selectedGesture;
-    DeviceReadiness? _readiness;
 
     ElementReference _img;
     ElementReference _canvas;
     ElementReference _stage;
     IJSObjectReference? _module;
     DotNetObjectReference<DeviceConsolePane>? _self;
-    IDisposable? _topics;
-    Timer? _tick;
-
-    DeviceCookbookFeed? CookbookFeed => Services.GetService(typeof(DeviceCookbookFeed)) as DeviceCookbookFeed;
-
-    DeviceJobFeed? JobFeed => Services.GetService(typeof(DeviceJobFeed)) as DeviceJobFeed;
-
-    DeviceCookbookRunner? Runner => Services.GetService(typeof(DeviceCookbookRunner)) as DeviceCookbookRunner;
+    Timer? _uiPoll;
 
     bool IsAndroid => string.Equals(Platform, "android", StringComparison.OrdinalIgnoreCase);
 
@@ -588,12 +431,11 @@
 
     int TapHeight => _screenH > 0 ? _screenH : _shotH;
 
-    DeviceConsoleCache? Cache => _deviceId is { } id ? State.ConsoleFor(id) : null;
+    bool Asleep => _uiProbed && _uiState is { } s && (!s.Awake || s.Locked);
 
-    protected override void OnInitialized() {
-        base.OnInitialized();
-        _isAdmin = User.IsAtLeast(UserRole.Admin);
-    }
+    bool RunModalOpen => State.RunModalFor == _deviceId && _deviceId is not null;
+
+    DeviceConsoleCache? Cache => _deviceId is { } id ? State.ConsoleFor(id) : null;
 
     protected override async Task OnParametersSetAsync() {
         SubscribeWatches();
@@ -601,7 +443,6 @@
         if (next != _deviceId) {
             await StopStreamAsync();
             _watch = next is null ? PixelWatchState.Empty : Watches?.State(next) ?? PixelWatchState.Empty;
-            StopRunWatch();
             _deviceId = next;
             _loaded = false;
             ResetDevice();
@@ -612,26 +453,19 @@
 
         if (!Active) {
             await StopStreamAsync();
-            StopRunWatch();
-            StopTick();
+            StopUiPoll();
             return;
         }
 
         if (_deviceId is null) return;
+        StartUiPoll();
         if (!_loaded) {
             _loaded = true;
             _ = RefreshAllAsync();
-            return;
         }
-
-        if (_runJobId is not null && !_runDone && !_runReadOnly) StartRunWatch();
     }
 
     void PaintFromCache(DeviceConsoleCache cache) {
-        _books = [.. cache.Cookbooks];
-        SeedCookbookDefaults();
-        _readiness = cache.Readiness;
-        _readinessAt = cache.ReadinessAt;
         _islands = [.. cache.Islands];
         _selectedAndroidUserId = cache.CurrentAndroidUserId;
         _screenW = cache.ScreenW;
@@ -642,15 +476,9 @@
         var id = _deviceId;
         if (id is null) return;
         try {
-            await Task.WhenAll(
-                LoadCookbooksAsync(),
-                LoadScreenAsync(),
-                LoadReadinessAsync(),
-                LoadLastRunsAsync(),
-                LoadIslandsAsync(),
-                CheckRunningAsync());
+            await Task.WhenAll(LoadScreenAsync(), LoadIslandsAsync(), PollUiStateAsync());
         }
-        catch (Exception ex) when (ex is HttpRequestException or JsonException or TaskCanceledException or InvalidOperationException) {
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or InvalidOperationException) {
             Logger.LogDebug(ex, "device console refresh failed for {DeviceId}", id);
         }
 
@@ -668,6 +496,7 @@
         _replaying = false;
         _locking = false;
         _watch = PixelWatchState.Empty;
+        _watchKey = "";
         _streamError = null;
         _streamRetried = false;
         _videoFallback = false;
@@ -676,40 +505,17 @@
         _shotW = _shotH = 0;
         _screenW = _screenH = 0;
         _videoFps = _videoLatency = _videoKbps = _jpegFps = 0;
-        _books = [];
-        _lastRuns = [];
         _islands = [];
         _islandBusy = false;
         _newIslandOpen = false;
         _newIslandLabel = "";
         _selectedAndroidUserId = null;
         _captureKeys = false;
-        _args.Clear();
-        _bookId = "";
-        _readiness = null;
-        _readinessAt = null;
-        _readinessBusy = false;
-        _booksBusy = false;
+        _uiState = null;
+        _uiProbed = false;
+        _waking = false;
+        _runLine = null;
         _mode = DeviceConsoleMode.Idle;
-        ResetRun();
-    }
-
-    void ResetRun() {
-        StopTick();
-        _runTitle = null;
-        _runJobId = null;
-        _runNote = null;
-        _runFailedStepTitle = null;
-        _runStartedAt = null;
-        _runFinishedAt = null;
-        _runLog = [];
-        _steps = [];
-        _runBusy = false;
-        _runDone = false;
-        _runOk = false;
-        _runCancelled = false;
-        _runReadOnly = false;
-        _stopBusy = false;
     }
 
     bool RecomputeVideo() {
@@ -717,6 +523,73 @@
         if (next == _useVideo) return false;
         _useVideo = next;
         return true;
+    }
+
+    void OpenRunModal() {
+        State.RunModalFor = _deviceId;
+    }
+
+    void CloseRunModal() {
+        State.RunModalFor = null;
+    }
+
+    void RunLineChanged(DeviceRunLine? line) {
+        _runLine = line;
+        StateHasChanged();
+    }
+
+    async Task AfterRunAsync() {
+        await Task.WhenAll(LoadScreenAsync(), LoadIslandsAsync());
+        if (OnChanged.HasDelegate) await OnChanged.InvokeAsync();
+    }
+
+    void StartUiPoll() {
+        _uiPoll ??= new Timer(_ => _ = InvokeAsync(PollUiStateAsync), null, TimeSpan.Zero, UiPollInterval);
+    }
+
+    void StopUiPoll() {
+        _uiPoll?.Dispose();
+        _uiPoll = null;
+    }
+
+    async Task PollUiStateAsync() {
+        if (_disposed || !Active || _uiBusy || _deviceId is not { } id) return;
+        _uiBusy = true;
+        try {
+            var state = await Client().OneAsync<UiStateInfo>($"/api/devices/{id}/ui/state", Logger);
+            if (Stale(id)) return;
+            _uiState = state;
+            _uiProbed = true;
+            StateHasChanged();
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException) {
+            Logger.LogDebug(ex, "ui state poll failed for {DeviceId}", id);
+        }
+        finally {
+            _uiBusy = false;
+        }
+    }
+
+    string AsleepReason() {
+        if (_uiState is not { } s) return "";
+        if (s.Locked && !s.Awake) return "screen off and locked";
+        return s.Locked ? "locked" : "screen off";
+    }
+
+    async Task WakeAsync() {
+        if (_deviceId is null || _waking) return;
+        _waking = true;
+        StateHasChanged();
+        await KeyAsync("wake");
+        await PollUiStateAsync();
+        if (!Asleep) {
+            ClearStreamError();
+            RetryVideo();
+            _live = true;
+        }
+
+        _waking = false;
+        StateHasChanged();
     }
 
     string StreamIcon() {
@@ -820,7 +693,7 @@
 
     void CloseRecord() {
         _selectedGesture = null;
-        _mode = _runJobId is not null ? DeviceConsoleMode.Running : DeviceConsoleMode.Idle;
+        _mode = DeviceConsoleMode.Idle;
     }
 
     void Record(RecordedGesture gesture) {
@@ -877,21 +750,17 @@
     };
 
     string PointStyle(int x, int y) {
+        var (fx, fy) = Fraction(x, y);
+        if (fx < 0) return "display:none";
+        return string.Create(CultureInfo.InvariantCulture, $"left:{100.0 * fx:0.###}%;top:{100.0 * fy:0.###}%");
+    }
+
+    (double Fx, double Fy) Fraction(int x, int y) {
         var width = TapWidth;
         var height = TapHeight;
-        if (width <= 0 || height <= 0) return "display:none";
+        if (width <= 0 || height <= 0) return (-1, -1);
         var (ox, oy, cw, ch) = ContentRect(width, height);
-        return string.Create(CultureInfo.InvariantCulture,
-            $"left:{100.0 * (ox + cw * x / width):0.###}%;top:{100.0 * (oy + ch * y / height):0.###}%");
-    }
-
-    void Done() {
-        ResetRun();
-        _mode = DeviceConsoleMode.Idle;
-    }
-
-    void ToggleWrap() {
-        _wrap = !_wrap;
+        return (ox + cw * x / width, oy + ch * y / height);
     }
 
     const int DragThresholdPx = 8;
@@ -978,6 +847,21 @@
             await BlockStageAsync(state.Tapping);
             StateHasChanged();
         });
+    }
+
+    [JSInvokable]
+    public async Task OnWatchHit(string pointId) {
+        if (_deviceId is null) return;
+        if (_watch.Points.FirstOrDefault(p => p.Id == pointId) is not { } point) return;
+        await TapAsync(point.X, point.Y);
+    }
+
+    static (int R, int G, int B)? Rgb(string? hex) {
+        if (hex is not { Length: 7 } h || h[0] != '#') return null;
+        if (!int.TryParse(h.AsSpan(1, 2), NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var r)) return null;
+        if (!int.TryParse(h.AsSpan(3, 2), NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var g)) return null;
+        if (!int.TryParse(h.AsSpan(5, 2), NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var b)) return null;
+        return (r, g, b);
     }
 
     const int StageBlockMs = 600;
@@ -1079,31 +963,21 @@
     }
 
     async Task TextKeyAsync(KeyboardEventArgs e) {
-        if (_captureKeys) {
-            await CaptureKeyAsync(e);
-            return;
-        }
-
         if (e.Key == "Enter") await SendTextAsync();
         else if (e.Key == "Escape") await KeyAsync("back");
     }
 
-    async Task CaptureKeyAsync(KeyboardEventArgs e) {
-        if (_deviceId is null) return;
-        if (e.Key == "Enter") {
-            await KeyAsync("enter");
-            return;
-        }
-
-        if (e.Key == "Escape") {
-            await KeyAsync("back");
-            return;
-        }
-
-        if (e.Key.Length != 1) return;
+    [JSInvokable]
+    public async Task OnLiveText(string ch) {
+        if (_deviceId is null || ch.Length == 0) return;
         var res = await Client().PostAsJsonAsync($"/api/devices/{_deviceId}/ui/text",
-            new UiTextRequest(e.Key), SelfCallJson.Web);
+            new UiTextRequest(ch), SelfCallJson.Web);
         if (!res.IsSuccessStatusCode) await Fail(await ReadError(res));
+    }
+
+    [JSInvokable]
+    public Task OnLiveKey(string name) {
+        return KeyAsync(name);
     }
 
     async Task SendTextAsync() {
@@ -1125,32 +999,6 @@
         if (!res.IsSuccessStatusCode) await Fail(await ReadError(res));
     }
 
-    async Task LoadCookbooksAsync() {
-        if (_deviceId is not { } id) return;
-        _booksBusy = true;
-        StateHasChanged();
-        var books = _isAdmin && Runner is { } runner
-            ? [.. await runner.DescribeAsync(id, CancellationToken.None)]
-            : await Client().ListAsync<DeviceCookbookInfo>($"/api/devices/{id}/cookbooks", Logger);
-        if (Stale(id)) return;
-        _books = books;
-        SeedCookbookDefaults();
-        if (Cache is { } cache) cache.Cookbooks = books;
-        _booksBusy = false;
-        StateHasChanged();
-    }
-
-    void SeedCookbookDefaults() {
-        foreach (var book in _books) {
-            if (book.Options is not { Count: > 0 } options || _args.ContainsKey(book.Id)) continue;
-            _args[book.Id] = (options.FirstOrDefault(o => o.Recommended) ?? options[0]).Value;
-        }
-
-        if (_books.All(b => b.Id != _bookId)) {
-            _bookId = (Workflows().FirstOrDefault(b => b.Available) ?? _books.FirstOrDefault(b => b.Available))?.Id ?? "";
-        }
-    }
-
     async Task LoadScreenAsync() {
         if (_deviceId is not { } id || !IsAndroid) return;
         if (await Client().OneAsync<UiScreenInfo>($"/api/devices/{id}/ui/screen", Logger) is not { Width: > 0, Height: > 0 } screen) return;
@@ -1161,32 +1009,6 @@
             cache.ScreenW = screen.Width;
             cache.ScreenH = screen.Height;
         }
-    }
-
-    async Task LoadReadinessAsync() {
-        if (_deviceId is not { } id || _readinessBusy) return;
-        _readinessBusy = true;
-        StateHasChanged();
-        var readiness = await Client().OneAsync<DeviceReadiness>($"/api/devices/{id}/readiness", Logger);
-        if (Stale(id)) return;
-        if (readiness is not null) {
-            _readiness = readiness;
-            _readinessAt = DateTimeOffset.UtcNow;
-            if (Cache is { } cache) {
-                cache.Readiness = readiness;
-                cache.ReadinessAt = _readinessAt;
-            }
-        }
-
-        _readinessBusy = false;
-        StateHasChanged();
-    }
-
-    async Task LoadLastRunsAsync() {
-        if (_deviceId is not { } id || !_isAdmin || JobFeed is not { } feed) return;
-        var page = await feed.PageAsync(id, LastRunPage, null, CancellationToken.None);
-        if (Stale(id)) return;
-        _lastRuns = [.. page.Rows.Where(j => j.Kind == DeviceJobKinds.Cookbook).Take(LastRunCount)];
     }
 
     async Task LoadIslandsAsync() {
@@ -1292,367 +1114,8 @@
         await LoadIslandsAsync();
     }
 
-    IEnumerable<(string Label, ReadinessCheck? Check)> ReadinessRows() {
-        yield return ("installed", _readiness?.Installed);
-        yield return ("capture CA", _readiness?.CaptureCa);
-        yield return ("Play services", _readiness?.GooglePlay);
-        yield return ("root", _readiness?.Rooted);
-        yield return ("integrity chain", _readiness?.IntegrityModule);
-        yield return ("launched", _readiness?.Launched);
-        yield return ("proxy", _readiness?.ProxyReachable);
-    }
-
-    static string CheckIcon(ReadinessCheck? check) {
-        return check is null ? "circle" : check.Ok ? "circle-check" : "circle-x";
-    }
-
-    static string CheckIconClass(ReadinessCheck? check) {
-        return check is null ? "text-muted" : check.Ok ? "text-ok" : "text-err";
-    }
-
-    string CheckDetail(ReadinessCheck? check) {
-        if (check is null) return _readinessBusy ? "probing" : "not probed";
-        if (check.Note is { Length: > 0 } note) return note;
-        return check.Ok ? "ok" : "failed";
-    }
-
-    string ReadinessIcon() {
-        if (_readiness is null) return "circle";
-        return ReadinessRows().All(r => r.Check is { Ok: true }) ? "circle-check" : "circle-x";
-    }
-
-    string ReadinessIconClass() {
-        if (_readiness is null) return "text-muted";
-        return ReadinessRows().All(r => r.Check is { Ok: true }) ? "text-ok" : "text-err";
-    }
-
-    string ReadinessLabel() {
-        if (_readiness is null) return _readinessBusy ? "probing" : "not probed";
-        var rows = ReadinessRows().ToList();
-        var ok = rows.Count(r => r.Check is { Ok: true });
-        return ok == rows.Count ? "ready" : $"{ok} of {rows.Count} ready";
-    }
-
-    List<DeviceCookbookInfo> Workflows() {
-        return [.. _books.Where(b => string.Equals(b.Group, CookbookGroups.Workflow, StringComparison.OrdinalIgnoreCase))];
-    }
-
-    List<DeviceCookbookInfo> Steps() {
-        return [.. _books.Where(b => !string.Equals(b.Group, CookbookGroups.Workflow, StringComparison.OrdinalIgnoreCase))];
-    }
-
-    DeviceCookbookInfo? Chosen() {
-        return _books.FirstOrDefault(b => b.Id == _bookId);
-    }
-
-    bool CanRun() {
-        return !_runBusy && Chosen() is { Available: true };
-    }
-
-    void BookChanged(ChangeEventArgs e) {
-        _bookId = e.Value?.ToString() ?? "";
-    }
-
-    string ArgFor(DeviceCookbookInfo book) {
-        if (_args.TryGetValue(book.Id, out var chosen)) return chosen;
-        if (book.Options is not { Count: > 0 } options) return "";
-        return (options.FirstOrDefault(o => o.Recommended) ?? options[0]).Value;
-    }
-
-    void SetArg(string bookId, ChangeEventArgs e) {
-        _args[bookId] = e.Value?.ToString() ?? "";
-    }
-
-    Task RunChosenAsync() {
-        return Chosen() is { Available: true } book ? RunCookbookAsync(book) : Task.CompletedTask;
-    }
-
-    async Task RunCookbookAsync(DeviceCookbookInfo book) {
-        if (_deviceId is null || _runBusy) return;
-        StopRunWatch();
-        ResetRun();
-        _runBusy = true;
-        _runTitle = book.Title;
-        _runStartedAt = DateTimeOffset.UtcNow;
-        _mode = DeviceConsoleMode.Running;
-        StateHasChanged();
-
-        var argument = book.Options is { Count: > 0 } ? ArgFor(book) : null;
-        var res = await Client().PostAsJsonAsync($"/api/devices/{_deviceId}/cookbooks",
-            new DeviceCookbookRequest(book.Id, argument, _selectedAndroidUserId), SelfCallJson.Web);
-        if (!res.IsSuccessStatusCode) {
-            var failed = await ReadError(res);
-            _runBusy = false;
-            _runDone = true;
-            _runNote = failed;
-            _runFinishedAt = DateTimeOffset.UtcNow;
-            await Fail(failed);
-            return;
-        }
-
-        _runJobId = await ReadJobId(res);
-        if (_runJobId is null) {
-            _runBusy = false;
-            _runDone = true;
-            _runNote = "run started but no job id came back";
-            _runFinishedAt = DateTimeOffset.UtcNow;
-            return;
-        }
-
-        StartTick();
-        StartRunWatch();
-        await RefreshRunAsync();
-    }
-
-    async Task CheckRunningAsync() {
-        if (_deviceId is not { } id) return;
-        var status = await Client().OneAsync<CookbookRunningInfo>($"/api/devices/{id}/cookbooks/running", Logger);
-        if (status is not { Running: true, JobId: { } jobId } || Stale(id)) return;
-
-        StopRunWatch();
-        ResetRun();
-        _runBusy = true;
-        _runTitle = await TitleForJobAsync(jobId) ?? "cookbook";
-        _runJobId = jobId;
-        _mode = DeviceConsoleMode.Running;
-        StartTick();
-        StartRunWatch();
-        await RefreshRunAsync();
-        StateHasChanged();
-    }
-
-    async Task OpenRunAsync(JobGroupRow job) {
-        if (_deviceId is null || _runBusy) return;
-        StopRunWatch();
-        ResetRun();
-        _runReadOnly = true;
-        _runJobId = job.Id;
-        _runTitle = RunTitle(job);
-        _runStartedAt = job.StartedAt;
-        _runFinishedAt = job.FinishedAt;
-        _mode = DeviceConsoleMode.Running;
-        await RefreshRunAsync();
-        if (!_runDone) {
-            _runDone = true;
-            _runOk = string.Equals(job.State, "succeeded", StringComparison.OrdinalIgnoreCase);
-            _runCancelled = string.Equals(job.State, "cancelled", StringComparison.OrdinalIgnoreCase);
-            _runNote ??= job.Message;
-        }
-    }
-
-    async Task StopRunAsync() {
-        if (_deviceId is null || _runJobId is null || _stopBusy) return;
-        _stopBusy = true;
-        StateHasChanged();
-
-        var res = await Client().PostAsync($"/api/devices/{_deviceId}/cookbooks/stop", null);
-        _stopBusy = false;
-        if ((int)res.StatusCode == 409) await RefreshRunAsync();
-        else if (!res.IsSuccessStatusCode) await Fail(await ReadError(res));
-        StateHasChanged();
-    }
-
-    void OnTopic(string topic) {
-        if (_disposed || topic != AdminTopics.DeviceStatus) return;
-        _ = InvokeAsync(RefreshRunAsync);
-    }
-
-    async Task RefreshRunAsync() {
-        if (_disposed || !Active || _deviceId is null || _runJobId is null) {
-            StopRunWatch();
-            return;
-        }
-
-        if (_refreshing || !_isAdmin || CookbookFeed is not { } feed) return;
-        _refreshing = true;
-        try {
-            if (await feed.RunAsync(_deviceId, _runJobId.Value, CancellationToken.None) is not { } status) {
-                StopRunWatch();
-                StopTick();
-                _runBusy = false;
-                _runDone = true;
-                _runNote = "run fell out of the job history window";
-                _runFinishedAt ??= DateTimeOffset.UtcNow;
-                StateHasChanged();
-                return;
-            }
-
-            if (status.Log is { } log) _runLog = [.. log];
-            if (status.Steps is { } steps) _steps = [.. steps];
-            _runNote = status.Note ?? _runNote;
-            _runFailedStepTitle = status.FailedStepTitle ?? _runFailedStepTitle;
-            _runStartedAt = status.StartedAt ?? _runStartedAt;
-            _runFinishedAt = status.FinishedAt ?? _runFinishedAt;
-            if (status.Finished) {
-                var wasLive = !_runDone && !_runReadOnly;
-                _runDone = true;
-                _runOk = status.Succeeded;
-                _runCancelled = status.Cancelled;
-                _runBusy = false;
-                StopRunWatch();
-                StopTick();
-                if (wasLive) await AfterRunAsync();
-            }
-
-            StateHasChanged();
-        }
-        finally {
-            _refreshing = false;
-        }
-    }
-
-    async Task AfterRunAsync() {
-        await Task.WhenAll(LoadCookbooksAsync(), LoadReadinessAsync(), LoadLastRunsAsync(), LoadIslandsAsync());
-        if (OnChanged.HasDelegate) await OnChanged.InvokeAsync();
-    }
-
-    async Task<string?> TitleForJobAsync(long jobId) {
-        if (_deviceId is null || !_isAdmin || JobFeed is not { } feed) return null;
-        var page = await feed.PageAsync(_deviceId, LastRunPage, null, CancellationToken.None);
-        return page.Rows.FirstOrDefault(j => j.Id == jobId)?.Cookbook;
-    }
-
-    static string RunTitle(JobGroupRow job) {
-        return job.Cookbook ?? job.Message ?? "cookbook";
-    }
-
-    string? RunNote() {
-        if (_steps.Count > 0 || !_runDone || _runOk || _runCancelled) return null;
-        return _runNote is { Length: > 0 } note ? note : null;
-    }
-
-    void StartRunWatch() {
-        _topics ??= Notifier.Subscribe(OnTopic);
-    }
-
-    void StopRunWatch() {
-        _topics?.Dispose();
-        _topics = null;
-    }
-
-    void StartTick() {
-        _tick ??= new Timer(Tick, null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
-    }
-
-    void StopTick() {
-        _tick?.Dispose();
-        _tick = null;
-    }
-
-    void Tick(object? state) {
-        if (_disposed || _runDone || _mode != DeviceConsoleMode.Running) return;
-        _ = InvokeAsync(StateHasChanged);
-    }
-
-    string Elapsed() {
-        if (_runStartedAt is not { } started) return "0:00";
-        var span = (_runFinishedAt ?? DateTimeOffset.UtcNow) - started;
-        if (span < TimeSpan.Zero) span = TimeSpan.Zero;
-        return span.TotalHours >= 1
-            ? string.Create(CultureInfo.InvariantCulture, $"{(int)span.TotalHours}:{span.Minutes:00}:{span.Seconds:00}")
-            : string.Create(CultureInfo.InvariantCulture, $"{span.Minutes}:{span.Seconds:00}");
-    }
-
-    static string Stamp(DateTimeOffset at) {
-        return at.ToLocalTime().ToString("HH:mm:ss", CultureInfo.InvariantCulture);
-    }
-
-    static string OutcomeIcon(string state) {
-        return state.ToLowerInvariant() switch {
-            "succeeded" => "circle-check",
-            "failed" => "circle-x",
-            "running" => "play",
-            _ => "circle"
-        };
-    }
-
-    static string OutcomeIconClass(string state) {
-        return state.ToLowerInvariant() switch {
-            "succeeded" => "text-ok",
-            "failed" => "text-err",
-            _ => "text-muted"
-        };
-    }
-
-    string RunIcon() {
-        return !_runDone ? "play" : _runCancelled ? "circle" : _runOk ? "circle-check" : "circle-x";
-    }
-
-    string RunIconClass() {
-        return !_runDone ? "text-accent" : _runCancelled ? "text-muted" : _runOk ? "text-ok" : "text-err";
-    }
-
-    string RunStateLine() {
-        return !_runDone ? "running" : _runCancelled ? "stopped" : _runOk ? "done" : "failed";
-    }
-
-    static string StepIcon(CookbookStepStatus status) {
-        return status switch {
-            CookbookStepStatus.Ok => "circle-check",
-            CookbookStepStatus.Skipped => "circle",
-            _ => "circle-x"
-        };
-    }
-
-    static string StepIconClass(CookbookStepStatus status) {
-        return status switch {
-            CookbookStepStatus.Ok => "text-ok",
-            CookbookStepStatus.Skipped => "text-muted",
-            _ => "text-err"
-        };
-    }
-
-    static string StepStateWord(CookbookStepStatus status) {
-        return status switch {
-            CookbookStepStatus.Ok => "done",
-            CookbookStepStatus.Skipped => "skipped",
-            _ => "failed"
-        };
-    }
-
-    string RunReport() {
-        var sb = new StringBuilder();
-        sb.Append(_runTitle ?? "run").Append(' ').Append(RunStateLine());
-        if (_runDone && !_runOk && !_runCancelled && _runFailedStepTitle is { Length: > 0 } failedAt) sb.Append(" at ").Append(failedAt);
-        if (_runDone && !_runOk && _runNote is { Length: > 0 } runNote) sb.Append(", ").Append(runNote);
-        sb.AppendLine();
-        foreach (var step in _steps) {
-            sb.Append("- ").Append(step.Title).Append(": ").Append(StepStateWord(step.Status));
-            if (step.Note is { Length: > 0 } note) sb.Append(" (").Append(note).Append(')');
-            sb.AppendLine();
-        }
-
-        if (_runLog.Count > 0) {
-            sb.AppendLine();
-            foreach (var line in _runLog) sb.AppendLine(line);
-        }
-
-        return sb.ToString();
-    }
-
     Task Fail(string text) {
         return OnNotice.InvokeAsync(new DeviceNotice(text, StatusNoteKind.Error));
-    }
-
-    static async Task<long?> ReadJobId(HttpResponseMessage resp) {
-        try {
-            var body = await resp.Content.ReadFromJsonAsync<JsonElement>();
-            if (body.ValueKind != JsonValueKind.Object) return null;
-            foreach (var name in JobIdNames) {
-                if (!body.TryGetProperty(name, out var value)) continue;
-                var text = value.ValueKind switch {
-                    JsonValueKind.String => value.GetString(),
-                    JsonValueKind.Number => value.GetRawText(),
-                    _ => null
-                };
-                if (long.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var id)) return id;
-            }
-        }
-        catch (Exception ex) when (ex is JsonException or HttpRequestException or NotSupportedException) {
-            return null;
-        }
-
-        return null;
     }
 
     static async Task<string> ReadError(HttpResponseMessage resp) {
@@ -1682,6 +1145,8 @@
 
         await SyncStreamAsync(module);
         await SyncStageAsync(module);
+        await SyncKeysAsync(module);
+        await SyncWatchAsync(module);
     }
 
     async Task SyncStreamAsync(IJSObjectReference module) {
@@ -1716,11 +1181,46 @@
         if (desired == _stageKey) return;
         if (_stageKey.Length > 0) await SafeAsync(() => module.InvokeVoidAsync("unbindStage", _stage).AsTask());
         _stageKey = desired;
+        _keysKey = "";
         if (desired.Length == 0) return;
 
         var media = _useVideo ? _canvas : _img;
         await SafeAsync(() => module.InvokeVoidAsync("bindStage", _stage, media, Ref(),
             new { threshold = DragThresholdPx, longPressMs = LongPressMs, swipeMs = 200 }).AsTask());
+    }
+
+    async Task SyncKeysAsync(IJSObjectReference module) {
+        var desired = _captureKeys && Active && _deviceId is not null && _stageKey.Length > 0 ? $"{_deviceId}|k" : "";
+        if (desired == _keysKey) return;
+        _keysKey = desired;
+        await SafeAsync(() => module.InvokeVoidAsync("captureKeys", _stage, Ref(), desired.Length > 0, null).AsTask());
+    }
+
+    async Task SyncWatchAsync(IJSObjectReference module) {
+        var points = _useVideo && _hasFrame && TapWidth > 0 ? WatchPayload() : [];
+        var desired = string.Join(";", points.Select(p => string.Create(CultureInfo.InvariantCulture,
+            $"{p.Id} {p.Fx:0.####} {p.Fy:0.####} {p.R} {p.G} {p.B}")));
+        if (desired == _watchKey) return;
+        _watchKey = desired;
+        if (points.Count == 0) {
+            await SafeAsync(() => module.InvokeVoidAsync("clearWatchPoints", _canvas).AsTask());
+            return;
+        }
+
+        await SafeAsync(() => module.InvokeVoidAsync("watchPoints", _canvas, points,
+            new { tolerance = WatchTolerance, cooldownMs = WatchCooldownMs }).AsTask());
+    }
+
+    List<WatchPoint> WatchPayload() {
+        List<WatchPoint> list = [];
+        foreach (var point in _watch.Points) {
+            if (Rgb(point.Color) is not { } rgb) continue;
+            var (fx, fy) = Fraction(point.X, point.Y);
+            if (fx < 0) continue;
+            list.Add(new WatchPoint(point.Id, fx, fy, rgb.R, rgb.G, rgb.B));
+        }
+
+        return list;
     }
 
     async Task HaltAsync(IJSObjectReference module) {
@@ -1733,9 +1233,12 @@
         _streamKey = "";
         _hasFrame = false;
         if (_module is not { } module) return;
+        _watchKey = "";
+        await SafeAsync(() => module.InvokeVoidAsync("clearWatchPoints", _canvas).AsTask());
         await HaltAsync(module);
         if (_stageKey.Length > 0) {
             _stageKey = "";
+            _keysKey = "";
             await SafeAsync(() => module.InvokeVoidAsync("unbindStage", _stage).AsTask());
         }
     }
@@ -1805,6 +1308,8 @@
         _streamKey = "";
         _streamOnVideo = false;
         _hasFrame = false;
+        _watchKey = "";
+        _ = InvokeAsync(PollUiStateAsync);
         if (status == StreamBusyStatus && !_streamRetried && _live) {
             _streamRetried = true;
             await Task.Delay(StreamRetryDelay);
@@ -1866,9 +1371,9 @@
     public async ValueTask DisposeAsync() {
         _disposed = true;
         if (_watchSubscribed && Watches is { } watches) watches.Changed -= OnWatchChanged;
-        StopTick();
-        StopRunWatch();
+        StopUiPoll();
         if (_module is { } module) {
+            await SafeAsync(() => module.InvokeVoidAsync("clearWatchPoints", _canvas).AsTask());
             if (_stageKey.Length > 0) await SafeAsync(() => module.InvokeVoidAsync("unbindStage", _stage).AsTask());
             await HaltAsync(module);
         }

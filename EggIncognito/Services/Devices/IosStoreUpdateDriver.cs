@@ -7,6 +7,7 @@ public sealed class IosStoreUpdateDriver(
     IosStoreUpdateDriver.Options opts,
     IosStoreCatalog catalog,
     KnownVersionRecorder knownVersions,
+    DeviceActivity activity,
     ILogger<IosStoreUpdateDriver> logger) : IStoreUpdateDriver {
     public string Platform => Platforms.Ios;
     public string StoreName => "App Store";
@@ -65,6 +66,7 @@ public sealed class IosStoreUpdateDriver(
 
     public async Task CleanupAsync(DeviceTarget target, CancellationToken ct) {
         if (!SshConfigured) return;
+        if (activity.IsBusy(target.Id)) return;
         try {
             await SshAsync("killall -9 AppStore 2>/dev/null || true", ct);
         } catch (Exception ex) {

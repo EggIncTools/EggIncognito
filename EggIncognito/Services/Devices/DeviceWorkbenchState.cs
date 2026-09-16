@@ -5,10 +5,8 @@ using EggIncognito.Models.Devices;
 namespace EggIncognito.Services.Devices;
 
 public sealed class DeviceWorkbenchState : WorkbenchStateBase {
-    public const string SectionActions = "actions";
     public const string SectionIsland = "island";
     public const string SectionInput = "input";
-    public const string SectionActivity = "activity";
     public const string SectionCapture = "capture";
     public const string SectionJobs = "jobs";
     public const string SectionBinaries = "binaries";
@@ -17,8 +15,9 @@ public sealed class DeviceWorkbenchState : WorkbenchStateBase {
 
     public string? SelectedId { get; set; }
     public bool FleetOpen { get; set; }
+    public string? RunModalFor { get; set; }
     public HashSet<long> Expanded { get; } = [];
-    public HashSet<string> Open { get; } = [SectionActions, SectionInput, SectionActivity];
+    public HashSet<string> Open { get; } = [SectionInput];
     public CaptureViewState Capture { get; } = new();
     public Dictionary<string, DeviceConsoleCache> Console { get; } = [with(StringComparer.Ordinal)];
 
