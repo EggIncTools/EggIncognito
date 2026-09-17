@@ -1,6 +1,5 @@
 using System.IO.Pipelines;
 using System.Net.Http.Headers;
-using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
 
@@ -121,8 +120,9 @@ public sealed class BridgeProcessRunner(IHttpClientFactory httpFactory, DeviceTr
     private static string WriteOutputs(ExecPlan plan, BridgeExecResult body) {
         if (plan.Outputs.Count == 0) return "";
 
-        var returned = new Dictionary<string, string>(StringComparer.Ordinal);
-        foreach (var o in body.Outputs ?? []) returned[o.Name] = o.Base64;
+        var returned = (body.Outputs ?? [])
+            .GroupBy(o => o.Name, StringComparer.Ordinal)
+            .ToDictionary(g => g.Key, g => g.Last().Base64, StringComparer.Ordinal);
 
         var failures = new List<string>();
         foreach (var output in plan.Outputs) {

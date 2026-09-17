@@ -612,7 +612,6 @@
         _filterOpen = false;
         _menu = null;
         if (!was) return;
-        StateHasChanged();
         if (OnClosed.HasDelegate) _ = OnClosed.InvokeAsync();
     }
 
@@ -631,19 +630,41 @@
 
     protected override async Task OnAfterRenderAsync(bool firstRender) {
         if (!_open || _dropWired) return;
-        var mod = await StripModule();
-        var body = await mod.InvokeAsync<bool>("wireDrop", "wbDrop", "wbFile");
-        var rail = await mod.InvokeAsync<bool>("wireDrop", "wbRailDrop", "wbFile");
-        _dropWired = body && rail;
+        try {
+            var mod = await StripModule();
+            if (mod is null) return;
+            var body = await mod.InvokeAsync<bool>("wireDrop", "wbDrop", "wbFile");
+            var rail = await mod.InvokeAsync<bool>("wireDrop", "wbRailDrop", "wbFile");
+            _dropWired = body && rail;
+        }
+        catch (JSDisconnectedException ex) {
+            Logger.LogDebug(ex, "drop wiring skipped, the circuit is already gone");
+        }
     }
 
-    async Task<IJSObjectReference> StripModule() {
-        return _strip ??= await JS.InvokeAsync<IJSObjectReference>("import", InteropAsset.Url(Env, "./interop/protoStrip.js"));
+    async Task<IJSObjectReference?> StripModule() {
+        if (_strip is not null) return _strip;
+        try {
+            return _strip = await JS.InvokeAsync<IJSObjectReference>("import", InteropAsset.Url(Env, "./interop/protoStrip.js"));
+        }
+        catch (JSDisconnectedException ex) {
+            Logger.LogDebug(ex, "proto strip module import skipped, the circuit is already gone");
+            return null;
+        }
     }
 
     async Task OnFilesSelected(InputFileChangeEventArgs e) {
-        var mod = await StripModule();
-        var stashed = await mod.InvokeAsync<List<StashedFile>>("stashFiles", "wbFile");
+        List<StashedFile> stashed;
+        try {
+            var mod = await StripModule();
+            if (mod is null) return;
+            stashed = await mod.InvokeAsync<List<StashedFile>>("stashFiles", "wbFile");
+        }
+        catch (JSDisconnectedException ex) {
+            Logger.LogDebug(ex, "file stash skipped, the circuit is already gone");
+            return;
+        }
+
         if (!_open) _dropWired = false;
         _open = true;
         foreach (var s in stashed) {
@@ -671,8 +692,10 @@
             _selfRef ??= DotNetObjectReference.Create(this);
             var mod = await StripModule();
             using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(15));
-            var r = await mod.InvokeAsync<ExtractResult>("analyzeStored", cts.Token,
-                [entry.Token, "/api/tools/extract-proto", _selfRef]);
+            var r = mod is null
+                ? null
+                : await mod.InvokeAsync<ExtractResult>("analyzeStored", cts.Token,
+                    [entry.Token, "/api/tools/extract-proto", _selfRef]);
             if (r is null or { Ok: false }) {
                 await InvokeAsync(() => {
                     entry.Status = "error";
@@ -740,6 +763,7 @@
     async Task DiscardToken(int token) {
         try {
             var mod = await StripModule();
+            if (mod is null) return;
             await mod.InvokeVoidAsync("discard", token);
         }
         catch (Exception ex) when (ex is JSDisconnectedException or JSException or ObjectDisposedException) {

@@ -70,7 +70,6 @@ public static class Arm64SymbolicExecutor {
                 st.SetScalar(cd.Name, st.Scalar(cs2.Name));
                 break;
             case Arm64InstructionId.ARM64_INS_FMADD when ops.Length == 4 && ops[0].Register is { } md:
-
                 st.SetScalar(md.Name, new Binary(BinOp.Add, st.Scalar(RegName(ops, 3)),
                     new Binary(BinOp.Mul, st.Scalar(RegName(ops, 1)), st.Scalar(RegName(ops, 2)))));
                 break;

@@ -4,6 +4,7 @@
 @inject IWebHostEnvironment HostEnv
 @inject ToastService Toasts
 @inject NavigationManager Nav
+@inject ILogger<ThemePicker> Logger
 @using System.Text
 @using System.Text.Json
 @using EggIdentity.Styles.Theming
@@ -109,9 +110,16 @@
         }
 
         if (_prefs is null || _preview is null) return;
-        await _prefs.InvokeVoidAsync("set", "theme.model", preset.ToJson());
-        await _prefs.InvokeVoidAsync("set", "theme.active", "1");
-        await _preview.InvokeVoidAsync("applyTokens", TokenCssMap(preset));
+        try {
+            await _prefs.InvokeVoidAsync("set", "theme.model", preset.ToJson());
+            await _prefs.InvokeVoidAsync("set", "theme.active", "1");
+            await _preview.InvokeVoidAsync("applyTokens", TokenCssMap(preset));
+        }
+        catch (JSDisconnectedException ex) {
+            Logger.LogDebug(ex, "theme preset apply skipped, the circuit is already gone");
+            return;
+        }
+
         Toasts.Push(StatusNoteKind.Ok, $"{preset.Name} applied in this browser");
     }
 
@@ -137,9 +145,16 @@
 
     async Task ResetLocalAsync() {
         if (_prefs is null || _preview is null) return;
-        await _prefs.InvokeVoidAsync("remove", "theme.model");
-        await _prefs.InvokeVoidAsync("remove", "theme.active");
-        await _preview.InvokeVoidAsync("clearTokens", ThemeTokens.Settable);
+        try {
+            await _prefs.InvokeVoidAsync("remove", "theme.model");
+            await _prefs.InvokeVoidAsync("remove", "theme.active");
+            await _preview.InvokeVoidAsync("clearTokens", ThemeTokens.Settable);
+        }
+        catch (JSDisconnectedException ex) {
+            Logger.LogDebug(ex, "theme reset skipped, the circuit is already gone");
+            return;
+        }
+
         Toasts.Push(StatusNoteKind.Ok, "reset to the shipped default");
     }
 

@@ -11,7 +11,7 @@ function resolveAddParticle() {
         const m = Process.getModuleByName(MODULE);
         if (m) return m.base.add(ptr(ADDR_OFFSET));
     }
-   
+
     let p = null;
     try {
         p = Module.findGlobalExportByName(SYMBOL);

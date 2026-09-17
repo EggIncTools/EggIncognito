@@ -10,7 +10,7 @@ public static class TriggerListener {
         builder.WebHost.UseUrls(urls);
         builder.Logging.ClearProviders();
         var app = builder.Build();
-        app.MapPost("/resync", async (HttpContext ctx) => {
+        app.MapPost("/resync", async ctx => {
             var force = await ReadForce(ctx);
             string? auth = ctx.Request.Headers.Authorization;
             var results = handler.HandleAll(auth, force);
@@ -36,7 +36,7 @@ public static class TriggerListener {
                 ctx.Response.StatusCode = r.Status;
                 await ctx.Response.WriteAsJsonAsync(r.Status == 200 ? r.Body! : new { device = r.DeviceId, error = r.Error });
             });
-            app.MapPost("/devices/probe-all", async (HttpContext ctx) => {
+            app.MapPost("/devices/probe-all", async ctx => {
                 string? auth = ctx.Request.Headers.Authorization;
                 var r = await probe.ProbeAllAsync(auth, "agent");
                 ctx.Response.StatusCode = r.Status;
@@ -51,7 +51,7 @@ public static class TriggerListener {
                 ctx.Response.StatusCode = r.Status;
                 await ctx.Response.WriteAsJsonAsync(r.Body ?? new { device = r.DeviceId, error = r.Error });
             });
-            app.MapPost("/devices/poke-all", async (HttpContext ctx) => {
+            app.MapPost("/devices/poke-all", async ctx => {
                 var force = await ReadForce(ctx);
                 string? auth = ctx.Request.Headers.Authorization;
                 var r = await harvest.PokeAllAsync(auth, force);
@@ -67,7 +67,7 @@ public static class TriggerListener {
         }
 
         if (extract is not null) {
-            app.MapPost("/extract", async (HttpContext ctx) => {
+            app.MapPost("/extract", async ctx => {
                 var body = await ReadExtractBody(ctx);
                 string? auth = ctx.Request.Headers.Authorization;
                 var r = await extract.HandleAsync(auth, body?.AppVersion);

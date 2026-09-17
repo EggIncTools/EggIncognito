@@ -1,11 +1,11 @@
 <Project>
   <PropertyGroup>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
-    <EggIdentityVersion>2.6.1</EggIdentityVersion>
+    <EggIdentityVersion>3.0.2</EggIdentityVersion>
   </PropertyGroup>
   <ItemGroup>
-    <PackageVersion Include="AngleSharp" Version="1.5.2" />
-    <PackageVersion Include="bunit" Version="2.7.2" />
+    <PackageVersion Include="AngleSharp" Version="1.8.1" />
+    <PackageVersion Include="bunit" Version="2.11.3" />
     <PackageVersion Include="coverlet.collector" Version="6.0.4" />
     <PackageVersion Include="EggIdentity.AdminUi" Version="$(EggIdentityVersion)" />
     <PackageVersion Include="EggIdentity.Bot" Version="$(EggIdentityVersion)" />

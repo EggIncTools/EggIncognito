@@ -257,7 +257,6 @@
     async Task CloseAsync() {
         _open = false;
         await WriteHash(true, true);
-        StateHasChanged();
     }
 
     async Task LoadSources() {
@@ -275,7 +274,6 @@
     void ReloadRouteSummary() {
         _routeSummary = null;
         LoadRouteSummary();
-        StateHasChanged();
     }
 
     void OnRailFilter(string value) {

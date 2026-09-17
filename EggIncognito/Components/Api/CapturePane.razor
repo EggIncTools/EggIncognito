@@ -279,7 +279,6 @@
         }
         finally {
             _toggleBusy = false;
-            StateHasChanged();
         }
     }
 
@@ -323,7 +322,6 @@
         await InvokeVoid("setAutoScroll", _view.AutoScroll);
         await InvokeVoid("setCompareToKnown", _view.CompareToKnown);
         await InvokeVoid("setDefaultFormat", _view.DefaultFormat);
-        StateHasChanged();
     }
 
     bool SetupExpanded => _setupTouched ? _view.SetupExpanded : _view.SetupExpanded && !_connected;
@@ -332,7 +330,6 @@
         _setupTouched = true;
         _view.SetupExpanded = expanded;
         await InvokeVoid("setSetupExpanded", expanded);
-        StateHasChanged();
     }
 
     void PushNotice(CaptureEvent ev) {

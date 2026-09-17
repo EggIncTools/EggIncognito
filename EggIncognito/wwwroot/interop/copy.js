@@ -1,4 +1,3 @@
-
 export async function writeText(text) {
   try {
     await navigator.clipboard.writeText(text);

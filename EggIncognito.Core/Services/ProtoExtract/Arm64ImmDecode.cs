@@ -155,7 +155,8 @@ public static class Arm64Bits {
             if (!im.TryWord(cursor, out uint next)) break;
             if ((next & 0x7F800000) != 0x72800000) break;
             if ((int)(next & 0x1F) != rd) break;
-            if (((next >> 31) != 0) != is64) break;
+            bool sf = (next >> 31) != 0;
+            if (sf != is64) break;
             bits = Merge(bits, next);
             cursor += 4;
         }

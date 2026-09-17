@@ -301,9 +301,8 @@
                     <div class="reg-wrap dcon-tree">
                         <table class="data-table dcon-list">
                             <tbody>
-                            @for (var i = 0; i < _recorded.Count; i++) {
-                                var index = i;
-                                var g = _recorded[i];
+                            @foreach (var index in Enumerable.Range(0, _recorded.Count)) {
+                                var g = _recorded[index];
                                 <tr @key="index" class="dcon-node @(ReferenceEquals(_selectedGesture, g) ? "dcon-node-on" : "")"
                                     @onclick="@(() => SelectGesture(g))">
                                     <td class="dcon-cur text-muted">@(index + 1)</td>
@@ -573,7 +572,6 @@
 
     void RunLineChanged(DeviceRunLine? line) {
         _runLine = line;
-        StateHasChanged();
     }
 
     async Task AfterRunAsync() {
@@ -617,7 +615,6 @@
     async Task WakeAsync() {
         if (_deviceId is null || _waking) return;
         _waking = true;
-        StateHasChanged();
         await KeyAsync("wake");
         await PollUiStateAsync();
         if (!Asleep) {
@@ -627,7 +624,6 @@
         }
 
         _waking = false;
-        StateHasChanged();
     }
 
     string StreamIcon() {
@@ -929,7 +925,7 @@
 
     async Task BlockStageAsync(bool blocked) {
         if (_module is not { } module || _stageKey.Length == 0) return;
-        await SafeAsync(() => module.InvokeVoidAsync("setStageBlocked", _stage, blocked, StageBlockMs).AsTask());
+        await SafeAsync(module, "setStageBlocked", _stage, blocked, StageBlockMs);
     }
 
     const int MaxHoldMs = 10_000;
@@ -1075,7 +1071,6 @@
     async Task LoadIslandsAsync() {
         if (_deviceId is not { } id || !IsAndroid) return;
         _islandBusy = true;
-        StateHasChanged();
         var islandsTask = Client().ListAsync<IslandRow>($"/api/devices/{id}/islands", Logger);
         var currentTask = Client().OneAsync<IslandCurrent>($"/api/devices/{id}/islands/current", Logger);
         var islands = await islandsTask;
@@ -1093,7 +1088,6 @@
         }
 
         _islandBusy = false;
-        StateHasChanged();
     }
 
     IslandRow? SelectedIsland() {
@@ -1144,7 +1138,6 @@
         var label = _newIslandLabel.Trim();
         if (label.Length == 0) return;
         _islandBusy = true;
-        StateHasChanged();
         var res = await Client().PostAsJsonAsync($"/api/devices/{_deviceId}/islands",
             new NewIslandRequest(label), SelfCallJson.Web);
         _islandBusy = false;
@@ -1197,7 +1190,7 @@
         if (await ModuleAsync() is not { } module) return;
 
         if (_videoSupported is null) {
-            _videoSupported = await SafeValueAsync(() => module.InvokeAsync<bool>("supportsVideo").AsTask());
+            _videoSupported = await SafeValueAsync<bool>(module, "supportsVideo");
             await Vis.ListenAsync(OnVisibilityAsync);
             _visible = await Vis.IsVisibleAsync();
             if (RecomputeVideo()) {
@@ -1229,8 +1222,8 @@
             _streamOnVideo = _useVideo;
             _videoKey = _useVideo ? video : "";
             var started = _useVideo
-                ? await SafeValueAsync(() => module.InvokeAsync<bool>("startVideo", _canvas, VideoUrl(), Ref(), new { maxQueue = 4, key = video, token = desired }).AsTask())
-                : await SafeValueAsync(() => module.InvokeAsync<bool>("start", _img, StreamUrl(), ScreenshotUrl(), Ref()).AsTask());
+                ? await SafeValueAsync<bool>(module, "startVideo", _canvas, VideoUrl(), Ref(), new { maxQueue = 4, key = video, token = desired })
+                : await SafeValueAsync<bool>(module, "start", _img, StreamUrl(), ScreenshotUrl(), Ref());
             if (!started && _streamKey == desired) {
                 await StreamEndedAsync(_useVideo
                     ? "the browser could not start the video decoder"
@@ -1248,20 +1241,20 @@
             ? ""
             : $"{_deviceId}|{(_useVideo ? "v" : "j")}|{_stage.Id}|{media.Id}";
         if (desired == _stageKey) return;
-        if (_stageKey.Length > 0) await SafeAsync(() => module.InvokeVoidAsync("unbindStage", _stage).AsTask());
+        if (_stageKey.Length > 0) await SafeAsync(module, "unbindStage", _stage);
         _stageKey = desired;
         _keysKey = "";
         if (desired.Length == 0) return;
 
-        await SafeAsync(() => module.InvokeVoidAsync("bindStage", _stage, media, Ref(),
-            new { threshold = DragThresholdPx, longPressMs = LongPressMs, swipeMs = 200 }).AsTask());
+        await SafeAsync(module, "bindStage", _stage, media, Ref(),
+            new { threshold = DragThresholdPx, longPressMs = LongPressMs, swipeMs = 200 });
     }
 
     async Task SyncKeysAsync(IJSObjectReference module) {
         var desired = _captureKeys && Active && _deviceId is not null && _stageKey.Length > 0 ? $"{_deviceId}|k" : "";
         if (desired == _keysKey) return;
         _keysKey = desired;
-        await SafeAsync(() => module.InvokeVoidAsync("captureKeys", _stage, Ref(), desired.Length > 0, null).AsTask());
+        await SafeAsync(module, "captureKeys", _stage, Ref(), desired.Length > 0, null);
     }
 
     async Task SyncWatchAsync(IJSObjectReference module) {
@@ -1271,13 +1264,13 @@
         if (desired == _watchKey) return;
         _watchKey = desired;
         if (points.Count == 0) {
-            await SafeAsync(() => module.InvokeVoidAsync("clearWatchPoints", _canvas).AsTask());
+            await SafeAsync(module, "clearWatchPoints", _canvas);
             if (_clientWatchingFor is { } was) SetClientWatching(was, false);
             return;
         }
 
-        await SafeAsync(() => module.InvokeVoidAsync("watchPoints", _canvas, points,
-            new { tolerance = WatchTolerance, cooldownMs = WatchCooldownMs }).AsTask());
+        await SafeAsync(module, "watchPoints", _canvas, points,
+            new { tolerance = WatchTolerance, cooldownMs = WatchCooldownMs });
         if (_deviceId is { } id) SetClientWatching(id, true);
     }
 
@@ -1295,9 +1288,9 @@
 
     async Task HaltAsync(IJSObjectReference module) {
         if (_streamOnVideo || _videoKey.Length > 0)
-            await SafeAsync(() => module.InvokeVoidAsync("stopVideo", _canvas, _videoKey).AsTask());
+            await SafeAsync(module, "stopVideo", _canvas, _videoKey);
         else if (!string.IsNullOrEmpty(_img.Id))
-            await SafeAsync(() => module.InvokeVoidAsync("stop", _img).AsTask());
+            await SafeAsync(module, "stop", _img);
         _streamOnVideo = false;
         _videoKey = "";
     }
@@ -1307,13 +1300,13 @@
         _hasFrame = false;
         if (_module is not { } module) return;
         _watchKey = "";
-        await SafeAsync(() => module.InvokeVoidAsync("clearWatchPoints", _canvas).AsTask());
+        await SafeAsync(module, "clearWatchPoints", _canvas);
         if (_clientWatchingFor is { } watching) SetClientWatching(watching, false);
         await HaltAsync(module);
         if (_stageKey.Length > 0) {
             _stageKey = "";
             _keysKey = "";
-            await SafeAsync(() => module.InvokeVoidAsync("unbindStage", _stage).AsTask());
+            await SafeAsync(module, "unbindStage", _stage);
         }
     }
 
@@ -1465,18 +1458,18 @@
         }
     }
 
-    async Task SafeAsync(Func<Task> call) {
+    async Task SafeAsync(IJSObjectReference module, string identifier, params object?[] args) {
         try {
-            await call();
+            await module.InvokeVoidAsync(identifier, args);
         }
         catch (Exception ex) when (ex is JSDisconnectedException or JSException or ObjectDisposedException) {
             Logger.LogDebug(ex, "device console interop call failed");
         }
     }
 
-    async Task<T?> SafeValueAsync<T>(Func<Task<T>> call) {
+    async Task<T?> SafeValueAsync<T>(IJSObjectReference module, string identifier, params object?[] args) {
         try {
-            return await call();
+            return await module.InvokeAsync<T>(identifier, args);
         }
         catch (Exception ex) when (ex is JSDisconnectedException or JSException or ObjectDisposedException) {
             Logger.LogDebug(ex, "device console interop call failed");
@@ -1489,8 +1482,8 @@
         if (_watchSubscribed && Watches is { } watches) watches.Changed -= OnWatchChanged;
         StopUiPoll();
         if (_module is { } module) {
-            await SafeAsync(() => module.InvokeVoidAsync("clearWatchPoints", _canvas).AsTask());
-            if (_stageKey.Length > 0) await SafeAsync(() => module.InvokeVoidAsync("unbindStage", _stage).AsTask());
+            await SafeAsync(module, "clearWatchPoints", _canvas);
+            if (_stageKey.Length > 0) await SafeAsync(module, "unbindStage", _stage);
             await HaltAsync(module);
         }
 

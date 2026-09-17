@@ -4,17 +4,15 @@
 @using FilterOption = EggIncognito.Services.Protos.FilterOption
 @using FilterValueKind = EggIncognito.Services.Protos.FilterValueKind
 <div class="pwb-fil">
-    @for (var g = 0; g < _groups.Count; g++) {
-        var groupIndex = g;
-        var group = _groups[g];
+    @foreach (var groupIndex in Enumerable.Range(0, _groups.Count)) {
+        var group = _groups[groupIndex];
         if (groupIndex > 0) {
             <div class="pwb-fil-or"><span class="pwb-fil-arrow">&rarr;</span> OR</div>
         }
 
         <div class="@(groupIndex > 0 ? "pwb-fil-group pwb-fil-sub" : "pwb-fil-group")">
-            @for (var r = 0; r < group.Rows.Count; r++) {
-                var rowIndex = r;
-                var row = group.Rows[r];
+            @foreach (var rowIndex in Enumerable.Range(0, group.Rows.Count)) {
+                var row = group.Rows[rowIndex];
                 var def = RegistryFilter.Field(row.Field);
                 if (rowIndex > 0) {
                     <div class="pwb-fil-and">AND</div>

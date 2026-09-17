@@ -386,7 +386,7 @@ public sealed class PeriodicalsController(
     private string FixturePath(string route) {
         string[] parts = route.Split('/', StringSplitOptions.RemoveEmptyEntries);
         string file = parts[^1] + ".json";
-        return Path.Combine(DefaultsDir, Path.Combine(parts[..^1]), file);
+        return Path.Combine([DefaultsDir, .. parts[..^1], file]);
     }
 
     private static string DimensionName(int code) =>

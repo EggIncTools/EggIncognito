@@ -523,7 +523,6 @@
         _offered.Clear();
         DetachCapture();
         DisarmDestroy();
-        StateHasChanged();
     }
 
     void Unsubscribe() {
@@ -596,7 +595,6 @@
     async Task ReloadDevices() {
         await LoadAsync();
         if (OnChanged.HasDelegate) await OnChanged.InvokeAsync();
-        StateHasChanged();
     }
 
     async Task LoadForDeviceAsync() {

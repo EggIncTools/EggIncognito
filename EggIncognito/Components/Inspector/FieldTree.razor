@@ -29,8 +29,7 @@
             </div>
             @if (node.IsRepeated) {
                 <div class="repeated-items">
-                    @for (var i = 0; i < node.Items.Count; i++) {
-                        var idx = i;
+                    @foreach (var idx in Enumerable.Range(0, node.Items.Count)) {
                         <div class="repeated-item">
                             <input class="field-input"
                                    value="@node.Items[idx]" @attributes="InputAttrs.NoAutofill"

@@ -1,4 +1,3 @@
-
 function pin(el, left, top) {
   el.style.transform = 'none';
   el.style.right = 'auto';

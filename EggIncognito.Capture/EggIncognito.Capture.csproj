@@ -1,9 +1,5 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
-    <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" />
-  </ItemGroup>
-
-  <ItemGroup>
     <ProjectReference Include="..\EggIncognito.Core\EggIncognito.Core.csproj" />
   </ItemGroup>
 </Project>

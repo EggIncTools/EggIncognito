@@ -29,7 +29,6 @@ public enum DocSubjectKind {
 }
 
 public static class InspectorTargets {
-    private const string LegacyMock = "mock";
     private const string LegacyReal = "real";
     private const string LegacyCustom = "custom";
 

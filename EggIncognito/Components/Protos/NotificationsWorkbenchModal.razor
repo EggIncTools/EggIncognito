@@ -508,7 +508,6 @@
         _confirmDelete = false;
         _confirmTest = false;
         await WriteHash(true, true);
-        StateHasChanged();
     }
 
     void Note(string text, bool ok) {
@@ -554,7 +553,12 @@
     async Task WriteHash(bool push = false, bool clear = false) {
         if (!_hashWired || _nav is null) return;
         var hash = clear ? "" : State.Hash() ?? "";
-        await _nav.InvokeVoidAsync(push ? "push" : "write", hash);
+        try {
+            await _nav.InvokeVoidAsync(push ? "push" : "write", hash);
+        }
+        catch (JSDisconnectedException ex) {
+            Logger.LogDebug(ex, "hash write skipped, the circuit is already gone");
+        }
     }
 
     async Task LoadAll() {

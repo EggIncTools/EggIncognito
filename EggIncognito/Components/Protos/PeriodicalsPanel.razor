@@ -157,8 +157,7 @@
                         </tr>
                         </thead>
                         <tbody>
-                        @for (var ix = 0; ix < goalCount; ix++) {
-                            var goalIx = ix;
+                        @foreach (var goalIx in Enumerable.Range(0, goalCount)) {
                             <tr>
                                 <td class="mono text-xs text-muted">@(goalIx + 1)</td>
                                 @foreach (var g in grades) {
@@ -459,8 +458,13 @@
 
     protected override async Task OnAfterRenderAsync(bool firstRender) {
         if (!firstRender || _images is not null) return;
-        _images = await JS.InvokeAsync<IJSObjectReference>("import", InteropAsset.Url(Env, "./interop/imgFallback.js"));
-        await _images.InvokeVoidAsync("wire");
+        try {
+            _images = await JS.InvokeAsync<IJSObjectReference>("import", InteropAsset.Url(Env, "./interop/imgFallback.js"));
+            await _images.InvokeVoidAsync("wire");
+        }
+        catch (JSDisconnectedException ex) {
+            Logger.LogDebug(ex, "image fallback wiring skipped, the circuit is already gone");
+        }
     }
 
     public async ValueTask DisposeAsync() {

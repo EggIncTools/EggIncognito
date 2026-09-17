@@ -20,15 +20,10 @@ public sealed class AuxbrainSurface {
             _entries.Value.Select(e => e.Namespace).ToHashSet(StringComparer.Ordinal));
         _openApiJson = new Lazy<string>(() => OpenApiBuilder.BuildJson(_entries.Value, reflection));
 
-        _aliases = new Lazy<IReadOnlyDictionary<string, RouteInfo>>(() => {
-            var map = new Dictionary<string, RouteInfo>(StringComparer.Ordinal);
-            foreach (var r in routes.All()) {
-                foreach (string a in r.Aliases)
-                    map[a] = r;
-            }
-
-            return map;
-        });
+        _aliases = new Lazy<IReadOnlyDictionary<string, RouteInfo>>(() => routes.All()
+            .SelectMany(r => r.Aliases, (r, a) => (Alias: a, Route: r))
+            .GroupBy(x => x.Alias, StringComparer.Ordinal)
+            .ToDictionary(g => g.Key, g => g.Last().Route, StringComparer.Ordinal));
     }
 
     public IReadOnlyList<AuxbrainEntry> Entries => _entries.Value;

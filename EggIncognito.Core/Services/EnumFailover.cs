@@ -81,9 +81,10 @@ public sealed class EnumFailover(ILastKnownProtoSource source, ILogger<EnumFailo
                 }
             }
 
-            var final = new Dictionary<string, IReadOnlyDictionary<int, string>>(StringComparer.Ordinal);
-            foreach (var (enumName, members) in merged) final[enumName] = members;
-            _map = final;
+            _map = merged.ToDictionary(
+                kv => kv.Key,
+                kv => (IReadOnlyDictionary<int, string>)kv.Value,
+                StringComparer.Ordinal);
             _staleKey = key;
         }
     }

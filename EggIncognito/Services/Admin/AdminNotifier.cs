@@ -23,7 +23,7 @@ public static class AdminTopics {
 }
 
 public sealed class AdminNotifier {
-    private readonly object _gate = new();
+    private readonly Lock _gate = new();
     private event Action<string>? Changed;
 
     public IDisposable Subscribe(Action<string> handler) {

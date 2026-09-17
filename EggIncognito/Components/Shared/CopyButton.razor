@@ -43,7 +43,6 @@
             if (ResetDelayMs > 0) {
                 await Task.Delay(ResetDelayMs);
                 _copied = false;
-                StateHasChanged();
             }
         }
         catch (Exception ex) when (ex is JSDisconnectedException or JSException or ObjectDisposedException) {

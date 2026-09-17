@@ -529,13 +529,11 @@
     async Task StopRunAsync() {
         if (_deviceId is null || _runJobId is null || _stopBusy) return;
         _stopBusy = true;
-        StateHasChanged();
 
         var res = await Client().PostAsync($"/api/devices/{_deviceId}/cookbooks/stop", null);
         _stopBusy = false;
         if ((int)res.StatusCode == 409) await RefreshRunAsync();
         else if (!res.IsSuccessStatusCode) await Fail(await ReadError(res));
-        StateHasChanged();
     }
 
     void OnTopic(string topic) {

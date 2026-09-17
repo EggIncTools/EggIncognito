@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+FROM mcr.microsoft.com/dotnet/sdk:11.0.100-rc.1 AS build
 WORKDIR /src
 ENV NUGET_PACKAGES=/root/.nuget/packages
 
@@ -28,7 +28,7 @@ RUN set -eux; \
     [ -n "$APP_VERSION" ] && STAMP="$STAMP -p:MinVerVersionOverride=$APP_VERSION"; \
     dotnet publish EggIncognito.Runner/EggIncognito.Runner.csproj -c Release -o /app/publish $STAMP
 
-FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
+FROM mcr.microsoft.com/dotnet/aspnet:11.0.0-rc.1 AS runtime
 RUN apt-get update \
     && apt-get install -y --no-install-recommends adb ideviceinstaller openssh-client \
     && rm -rf /var/lib/apt/lists/*

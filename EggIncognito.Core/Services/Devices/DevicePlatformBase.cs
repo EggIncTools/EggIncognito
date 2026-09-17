@@ -1,4 +1,3 @@
-
 namespace EggIncognito.Core.Services.Devices;
 
 public abstract class DevicePlatformBase : IDevicePlatform {

@@ -300,7 +300,6 @@
 
     async Task RefreshBinary() {
         _refreshing = true;
-        StateHasChanged();
         try {
             var res = await Client().PostAsync("/api/admin/routes/binary/refresh", null);
             if (res.StatusCode == HttpStatusCode.ServiceUnavailable) {

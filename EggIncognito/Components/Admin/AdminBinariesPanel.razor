@@ -138,7 +138,6 @@
         if (Api is null) return;
         _busy = true;
         _notice?.Say("queued a harvest on the device agent...");
-        StateHasChanged();
         var res = await Api.PostAsync("/api/devices/poke-all");
         _notice?.Result(res.Ok, res.Ok
             ? "harvest queued; binaries land here once the agent finishes"
@@ -177,7 +176,6 @@
     async Task UploadRef() {
         _refBusy = true;
         _notice?.Say("uploading...");
-        StateHasChanged();
         try {
             _upload ??= await Js.InvokeAsync<IJSObjectReference>(
                 "import", InteropAsset.Url(Env, "./interop/fileUpload.js"));

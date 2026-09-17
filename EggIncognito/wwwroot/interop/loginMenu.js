@@ -1,10 +1,8 @@
-
 const GAP = 6;
 const WIDTH = 200;
 let active = null;
 
 function place(button, menu, placement) {
- 
   menu.style.boxSizing = "border-box";
   menu.style.width = `${WIDTH}px`;
   menu.style.maxWidth = "none";
@@ -21,14 +19,12 @@ function place(button, menu, placement) {
   let top, left;
 
   if (vert === "side") {
-   
     let toRight = placement === "Right";
     if (toRight && b.right + GAP + mw > vw && b.left - GAP - mw >= GAP) toRight = false;
     if (!toRight && b.left - GAP - mw < GAP && b.right + GAP + mw <= vw) toRight = true;
     left = toRight ? b.right + GAP : b.left - GAP - mw;
     top = b.top;
   } else {
-   
     let below = vert === "bottom";
     if (below && b.bottom + GAP + mh > vh && b.top - GAP - mh >= GAP) below = false;
     if (!below && b.top - GAP - mh < GAP && b.bottom + GAP + mh <= vh) below = true;

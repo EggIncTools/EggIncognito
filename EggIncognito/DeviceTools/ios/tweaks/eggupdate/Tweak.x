@@ -7,7 +7,7 @@
 #import <dlfcn.h>
 
 static NSString *const kTriggerPath = @"/var/mobile/eggupdate.trigger";
-static NSString *const kLogPath     = @"/var/mobile/eggupdate.log";
+static NSString *const kLogPath = @"/var/mobile/eggupdate.log";
 static const long long kEggIncAdamId = 993492744;
 
 #ifndef EGGUPDATE_ARMED
@@ -35,7 +35,6 @@ static void dumpAllMethods(id obj, NSString *label) {
     free(methods);
 }
 
-
 static void dumpAllIvars(id obj, NSString *label) {
     if (!obj) { egglog(@"  %@ ivars = nil", label); return; }
     Class c = object_getClass(obj);
@@ -45,7 +44,6 @@ static void dumpAllIvars(id obj, NSString *label) {
     for (unsigned int i = 0; i < n; i++) {
         const char *name = ivar_getName(ivars[i]);
         const char *type = ivar_getTypeEncoding(ivars[i]);
-       
         if (type && type[0] == '@') {
             @try {
                 id v = object_getIvar(obj, ivars[i]);
@@ -58,7 +56,6 @@ static void dumpAllIvars(id obj, NSString *label) {
     free(ivars);
 }
 
-
 static void fetchUpdatesThen(void (^then)(id eggUpdate, NSArray *allUpdates)) {
     Class ASDUpdatesService = NSClassFromString(@"ASDUpdatesService");
     if (!ASDUpdatesService) { egglog(@"ASDUpdatesService not found in this process"); then(nil, nil); return; }
@@ -66,11 +63,8 @@ static void fetchUpdatesThen(void (^then)(id eggUpdate, NSArray *allUpdates)) {
     id svc = ((id(*)(id, SEL))objc_msgSend)(ASDUpdatesService, sel_registerName("defaultService"));
     if (!svc) { egglog(@"ASDUpdatesService defaultService = nil"); then(nil, nil); return; }
 
-   
     dumpAllMethods(svc, @"ASDUpdatesService");
 
-   
-   
     if ([svc respondsToSelector:sel_registerName("hasEntitlement")]) {
         BOOL ent = ((BOOL(*)(id, SEL))objc_msgSend)(svc, sel_registerName("hasEntitlement"));
         egglog(@"ASDUpdatesService hasEntitlement = %d", ent);
@@ -87,9 +81,6 @@ static void fetchUpdatesThen(void (^then)(id eggUpdate, NSArray *allUpdates)) {
         return;
     }
 
-   
-   
-   
     void (^readUpdates)(void) = ^{
         egglog(@"phase 1: getUpdatesWithCompletionBlock: ...");
         void (^completion)(id) = ^(id updates) {
@@ -112,9 +103,6 @@ static void fetchUpdatesThen(void (^then)(id eggUpdate, NSArray *allUpdates)) {
         ((void(*)(id, SEL, id))objc_msgSend)(svc, getSel, completion);
     };
 
-   
-   
-   
     SEL reloadSel = sel_registerName("reloadFromServerWithCompletionBlock:");
     if ([svc respondsToSelector:reloadSel]) {
         egglog(@"phase 0: reloadFromServerWithCompletionBlock: ...");
@@ -138,26 +126,17 @@ static void installUpdate(id eggUpdate) {
     dumpAllMethods(eggUpdate, @"eggUpdate");
 
 #if EGGUPDATE_ARMED
-   
-   
-   
-   
-   
-   
     egglog(@"EGGUPDATE_ARMED set but no confirmed install selector wired yet; aborting install");
 #else
     egglog(@"EGGUPDATE_ARMED=0; phase-2 install withheld (safe). Re-build with -DEGGUPDATE_ARMED=1 after confirming selector.");
 #endif
 }
 
-
-
 __attribute__((unused)) static void probeServiceBroker(void) {
     Class Broker = NSClassFromString(@"ASDServiceBroker");
     if (!Broker) { egglog(@"ASDServiceBroker not found in this process"); return; }
     egglog(@"ASDServiceBroker found; enumerating");
 
-   
     id broker = nil;
     const char *accessors[] = {"sharedInstance", "defaultBroker", "sharedBroker", "broker"};
     for (unsigned int ai = 0; ai < sizeof(accessors)/sizeof(accessors[0]); ai++) {
@@ -178,12 +157,6 @@ __attribute__((unused)) static void probeServiceBroker(void) {
     if (!broker) { egglog(@"  could not obtain an ASDServiceBroker instance"); return; }
     dumpAllMethods(broker, @"ASDServiceBroker");
 
-   
-   
-   
-   
-   
-   
     SEL syncSel = sel_registerName("getUpdatesServiceWithError:");
     id brokerSvc = nil;
     if ([broker respondsToSelector:syncSel]) {
@@ -195,15 +168,8 @@ __attribute__((unused)) static void probeServiceBroker(void) {
     }
     if (!brokerSvc) { egglog(@"  broker did not vend an updates service synchronously"); return; }
 
-   
-   
-   
-   
-   
-   
     dumpAllIvars(brokerSvc, @"broker-vended distant object");
     @try {
-       
         id conn = nil;
         if ([brokerSvc respondsToSelector:sel_registerName("_connection")])
             conn = ((id(*)(id, SEL))objc_msgSend)(brokerSvc, sel_registerName("_connection"));
@@ -211,16 +177,10 @@ __attribute__((unused)) static void probeServiceBroker(void) {
         if (conn) dumpAllIvars(conn, @"entitled NSXPCConnection");
     } @catch (NSException *e) { egglog(@"  _connection probe threw %@", e.reason); }
 
-   
     Class ASDU = NSClassFromString(@"ASDUpdatesService");
     id localSvc = ASDU ? ((id(*)(id, SEL))objc_msgSend)(ASDU, sel_registerName("defaultService")) : nil;
     dumpAllIvars(localSvc, @"local ASDUpdatesService singleton");
 
-   
-   
-   
-   
-   
     if (localSvc) {
         Ivar entIvar = class_getInstanceVariable(ASDU, "_hasUpdatesEntitlement");
         if (entIvar) {
@@ -260,11 +220,8 @@ __attribute__((unused)) static void probeServiceBroker(void) {
         }
     }
 
-   
-   
-   
     SEL reloadSel = sel_registerName("reloadFromServerWithCompletionBlock:");
-    SEL getSel    = sel_registerName("getUpdatesWithCompletionBlock:");
+    SEL getSel = sel_registerName("getUpdatesWithCompletionBlock:");
     void (^readVia)(void) = ^{
         egglog(@"  [broker-svc] phase 1: getUpdatesWithCompletionBlock: ...");
         void (^cb)(id) = ^(id updates) {
@@ -310,7 +267,6 @@ static void logUpdateList(NSString *tag, id updates) {
     }
 }
 
-
 static void readerSync(id svc, const char *selName) {
     SEL s = sel_registerName(selName);
     if (![svc respondsToSelector:s]) { egglog(@"  %s: not responded", selName); return; }
@@ -334,7 +290,6 @@ __attribute__((unused)) static void probeModernUpdates(void) {
             egglog(@"probeModern: hasEntitlement=%d (this process)",
                    ((BOOL(*)(id, SEL))objc_msgSend)(svc, sel_registerName("hasEntitlement")));
 
-           
             SEL modSel = sel_registerName("shouldUseModernUpdatesWithCompletionBlock:");
             if ([svc respondsToSelector:modSel]) {
                 dispatch_semaphore_t sm = dispatch_semaphore_create(0);
@@ -344,7 +299,6 @@ __attribute__((unused)) static void probeModernUpdates(void) {
                 @catch (NSException *e) { egglog(@"  shouldUseModernUpdates threw %@", e.reason); }
             }
 
-           
             SEL bgReload = sel_registerName("reloadFromServerInBackgroundWithCompletionBlock:");
             if ([svc respondsToSelector:bgReload]) {
                 egglog(@"  reloadFromServerInBackground ...");
@@ -365,7 +319,6 @@ __attribute__((unused)) static void probeModernUpdates(void) {
         }
     });
 }
-
 
 static void dumpProtocolMethods(Protocol *p, NSString *label) {
     if (!p) { egglog(@"  %@ protocol = nil", label); return; }
@@ -399,7 +352,6 @@ static void probeRemoteProtocol(void) {
     }
     if (!svc) { egglog(@"remoteProto: no distant object"); return; }
 
-   
     Ivar ri = class_getInstanceVariable(object_getClass(svc), "_remoteInterface");
     id iface = ri ? object_getIvar(svc, ri) : nil;
     egglog(@"  _remoteInterface = %@ (class %@)", iface, iface ? NSStringFromClass([iface class]) : @"nil");
@@ -407,7 +359,6 @@ static void probeRemoteProtocol(void) {
         Protocol *p = ((Protocol*(*)(id, SEL))objc_msgSend)(iface, sel_registerName("protocol"));
         dumpProtocolMethods(p, @"updates-service remote");
     }
-   
     dumpAllMethods(svc, @"distant-object proxy");
 }
 
@@ -422,7 +373,6 @@ static void probeEntitledRemote(void) {
             id svc = ((id(*)(id, SEL, NSError**))objc_msgSend)(broker, sel_registerName("getUpdatesServiceWithError:"), &verr);
             if (!svc) { egglog(@"entitledRemote: vend failed err=%@", verr); return; }
 
-           
             id proxy = svc;
             SEL ehSel = sel_registerName("remoteObjectProxyWithErrorHandler:");
             if ([svc respondsToSelector:ehSel]) {
@@ -431,7 +381,6 @@ static void probeEntitledRemote(void) {
                 @catch (NSException *ex) { egglog(@"  proxyWithErrorHandler threw %@", ex.reason); proxy = svc; }
             }
 
-           
             dispatch_semaphore_t s1 = dispatch_semaphore_create(0);
             void (^reloadReply)(id, id) = ^(id a, id b) {
                 egglog(@"  [entitled] reload reply a=%@ b=%@", a, b); dispatch_semaphore_signal(s1);
@@ -442,7 +391,6 @@ static void probeEntitledRemote(void) {
                        egglog(@"  [entitled] reload TIMEOUT"); }
             @catch (NSException *ex) { egglog(@"  [entitled] reload threw %@", ex.reason); }
 
-           
             dispatch_semaphore_t s2 = dispatch_semaphore_create(0);
             void (^getReply)(id) = ^(id updates) {
                 @autoreleasepool { logUpdateList(@"entitled getUpdates", updates); dispatch_semaphore_signal(s2); }
@@ -453,7 +401,6 @@ static void probeEntitledRemote(void) {
                        egglog(@"  [entitled] getUpdates TIMEOUT"); }
             @catch (NSException *ex) { egglog(@"  [entitled] getUpdates threw %@", ex.reason); }
 
-           
             dispatch_semaphore_t s3 = dispatch_semaphore_create(0);
             void (^metaReply)(id) = ^(id meta) {
                 egglog(@"  [entitled] egginc metadata = %@ (class %@)", meta, meta ? NSStringFromClass([meta class]) : @"nil");
@@ -470,7 +417,6 @@ static void probeEntitledRemote(void) {
         }
     });
 }
-
 
 static void dumpClassFull(const char *clsName) {
     Class c = NSClassFromString([NSString stringWithUTF8String:clsName]);
@@ -501,7 +447,7 @@ static void lockScreenViaSpringBoardServices(void) {
     if (!h) { egglog(@"  [lock] dlopen SpringBoardServices failed (%s)", dlerror()); return; }
     void (*lockFn)(void) = (void(*)(void))dlsym(h, "SBSLockDevice");
     if (lockFn) { egglog(@"  [lock] SBSLockDevice()"); lockFn(); }
-    else        { egglog(@"  [lock] SBSLockDevice symbol not found (%s)", dlerror()); }
+    else { egglog(@"  [lock] SBSLockDevice symbol not found (%s)", dlerror()); }
 }
 
 static void firePurchaseUpdate(void) {
@@ -511,7 +457,6 @@ static void firePurchaseUpdate(void) {
             Class SSPurchaseRequest = NSClassFromString(@"SSPurchaseRequest");
             if (!SSPurchase || !SSPurchaseRequest) { egglog(@"  purchase classes missing"); return; }
 
-           
             NSString *bp = [NSString stringWithFormat:
                 @"productType=C&salableAdamId=%lld&pricingParameters=STDRDL&pg=default&price=0&hasBeenAuthedForBuy=true",
                 kEggIncAdamId];
@@ -543,11 +488,6 @@ static void firePurchaseUpdate(void) {
             @catch (NSException *ex) { egglog(@"  [PURCHASE] start threw %@", ex.reason); }
             egglog(@"  [PURCHASE] done");
 
-           
-           
-           
-           
-           
             lockScreenViaSpringBoardServices();
         }
     });
@@ -569,9 +509,6 @@ static void onTrigger(void) {
         fetchUpdatesThen(^(id eggUpdate, NSArray *all) {
             installUpdate(eggUpdate);
         });
-       
-       
-       
         CFRunLoopRunInMode(kCFRunLoopDefaultMode, 52.0, false);
         egglog(@"onTrigger runloop spin done");
     }
@@ -588,11 +525,6 @@ static void installTriggerWatch(void) {
     dispatch_source_set_cancel_handler(gSource, ^{ close(fd); });
     dispatch_resume(gSource);
     egglog(@"trigger watch armed on %@", kTriggerPath);
-
-   
-   
-   
-   
 }
 
 static void installInstallObserver(void) {
@@ -602,7 +534,6 @@ static void installInstallObserver(void) {
         egglog(@"SBInstalledApplicationsDidChange");
     }];
 }
-
 
 static NSString *const kArmPath = @"/var/mobile/eggupdate.armed";
 
@@ -624,8 +555,6 @@ static void runIfArmed(void) {
                [[NSProcessInfo processInfo] processName], getpid(), EGGUPDATE_ARMED);
         installTriggerWatch();
         installInstallObserver();
-       
-       
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.0 * NSEC_PER_SEC)),
                        dispatch_get_main_queue(), ^{ runIfArmed(); });
     }

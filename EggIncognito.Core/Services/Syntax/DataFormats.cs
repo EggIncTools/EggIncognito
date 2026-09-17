@@ -126,7 +126,7 @@ public static partial class DataFormats {
         string[] split = xml.Replace("><", ">\n<").Split('\n');
         foreach (string node in split) {
             if (ClosingTagRegex().IsMatch(node)) depth--;
-            sb.Append(new string(' ', Math.Max(0, depth) * 2)).Append(node).Append('\n');
+            sb.Append(' ', Math.Max(0, depth) * 2).Append(node).Append('\n');
             if (OpeningTagRegex().IsMatch(node)
                 && !SelfContainedTagRegex().IsMatch(node)) {
                 depth++;

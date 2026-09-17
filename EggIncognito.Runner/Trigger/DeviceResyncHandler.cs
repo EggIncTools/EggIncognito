@@ -32,8 +32,6 @@ public sealed class DeviceResyncHandler {
 
     public IReadOnlyList<DeviceResyncResult> HandleAll(string? authorizationHeader, bool force) {
         if (!BearerAuth.Matches(authorizationHeader, _secret)) return [new DeviceResyncResult(401, null, null, "unauthorized")];
-        var results = new List<DeviceResyncResult>();
-        foreach (var id in _runners.Keys) results.Add(HandleOne(authorizationHeader, id, force));
-        return results;
+        return [.. _runners.Keys.Select(id => HandleOne(authorizationHeader, id, force))];
     }
 }

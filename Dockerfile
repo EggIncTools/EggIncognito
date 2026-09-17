@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+FROM mcr.microsoft.com/dotnet/sdk:11.0.100-rc.1 AS build
 WORKDIR /src
 ENV NUGET_PACKAGES=/root/.nuget/packages
 
@@ -43,7 +43,7 @@ RUN set -eux; \
     grep -q "btn-primary" /app/publish/wwwroot/styles.css; \
     test -s /app/publish/wwwroot/_framework/blazor.web.js
 
-FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
+FROM mcr.microsoft.com/dotnet/aspnet:11.0.0-rc.1 AS runtime
 RUN apt-get update \
     && apt-get install -y --no-install-recommends libgssapi-krb5-2 iproute2 adb ideviceinstaller openssh-client \
     && rm -rf /var/lib/apt/lists/*

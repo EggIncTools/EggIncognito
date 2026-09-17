@@ -155,8 +155,7 @@
         <div class="designer-section-head">Farm state</div>
         <div class="designer-section-body flex flex-col gap-3 text-xs">
             <div class="picker-group-title">Hab slots</div>
-            @for (var i = 0; i < FarmState.HabSlots; i++) {
-                var slot = i;
+            @foreach (var slot in Enumerable.Range(0, FarmState.HabSlots)) {
                 <label class="light-field">
                     <span>Slot @slot</span>
                     <select class="reg-filter-input w-full" value="@HabTier(slot)" @onchange="e => SetHab(slot, e)">
@@ -625,7 +624,6 @@
         _namePromptOpen = false;
         _gifOpen = false;
         await TeardownAsync();
-        StateHasChanged();
     }
 
     async Task TeardownAsync() {
@@ -1198,17 +1196,39 @@
     }
 
     async Task PushLighting() {
-        if (_mod is not null) await _mod.InvokeVoidAsync("setLighting", LightingPayload());
+        if (_mod is not null) {
+            try {
+                await _mod.InvokeVoidAsync("setLighting", LightingPayload());
+            }
+            catch (JSDisconnectedException ex) {
+                Logger.LogDebug(ex, "lighting push skipped, the circuit is already gone");
+            }
+        }
+
         Autosave();
     }
 
     async Task ApplyBackground() {
-        if (_mod is not null) await _mod.InvokeVoidAsync("setBackground", _bgTransparent ? null : _bgColor);
+        if (_mod is not null) {
+            try {
+                await _mod.InvokeVoidAsync("setBackground", _bgTransparent ? null : _bgColor);
+            }
+            catch (JSDisconnectedException ex) {
+                Logger.LogDebug(ex, "background apply skipped, the circuit is already gone");
+            }
+        }
+
         Autosave();
     }
 
     async Task FocusPlacement(string key) {
-        if (_mod is not null) await _mod.InvokeVoidAsync("focusOn", key);
+        if (_mod is null) return;
+        try {
+            await _mod.InvokeVoidAsync("focusOn", key);
+        }
+        catch (JSDisconnectedException ex) {
+            Logger.LogDebug(ex, "focus skipped, the circuit is already gone");
+        }
     }
 
     async Task ApplyCamera() {
@@ -1231,7 +1251,13 @@
     }
 
     async Task ResetView() {
-        if (_mod is not null) await _mod.InvokeVoidAsync("resetView");
+        if (_mod is null) return;
+        try {
+            await _mod.InvokeVoidAsync("resetView");
+        }
+        catch (JSDisconnectedException ex) {
+            Logger.LogDebug(ex, "view reset skipped, the circuit is already gone");
+        }
     }
 
     async Task RefreshAnimatedFlag() {
@@ -1257,7 +1283,6 @@
         _recording = true;
         _recordStage = "capturing";
         _recordFraction = 0;
-        StateHasChanged();
         try {
             var opts = new { fps = _gifFps, maxWidth = _gifMaxWidth, fallbackColor = "#1a1a1f" };
             await _recorder.InvokeVoidAsync("record", _selfRef, opts);
@@ -1269,13 +1294,11 @@
         finally {
             _recording = false;
             _recordStage = "";
-            StateHasChanged();
         }
     }
 
     void OnDesignNameInput(ChangeEventArgs e) {
         _designName = e.Value?.ToString() ?? "";
-        StateHasChanged();
     }
 
     void ToggleFileMenu() {
@@ -1310,7 +1333,13 @@
     async Task MenuTogglePlaying() {
         CloseMenus();
         _playing = !_playing;
-        if (_mod is not null) await _mod.InvokeVoidAsync("setPlaying", _playing);
+        if (_mod is null) return;
+        try {
+            await _mod.InvokeVoidAsync("setPlaying", _playing);
+        }
+        catch (JSDisconnectedException ex) {
+            Logger.LogDebug(ex, "play toggle skipped, the circuit is already gone");
+        }
     }
 
     async Task MenuNew() {
@@ -1567,7 +1596,13 @@
 
         if (rec is null || string.IsNullOrEmpty(rec.Json)) return false;
         if (!AutosaveRecency.IsFresh(rec.SavedAt, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds())) {
-            await _autosave.InvokeVoidAsync("clear");
+            try {
+                await _autosave.InvokeVoidAsync("clear");
+            }
+            catch (JSDisconnectedException ex) {
+                Logger.LogDebug(ex, "stale autosave clear skipped, the circuit is already gone");
+            }
+
             return false;
         }
 
@@ -1584,7 +1619,14 @@
             Logger.LogWarning(ex, "the autosaved farm design could not be parsed and was discarded");
         }
         finally {
-            if (_autosave is not null) await _autosave.InvokeVoidAsync("clear");
+            if (_autosave is not null) {
+                try {
+                    await _autosave.InvokeVoidAsync("clear");
+                }
+                catch (JSDisconnectedException ex) {
+                    Logger.LogDebug(ex, "autosave clear skipped, the circuit is already gone");
+                }
+            }
         }
 
         return restored;
@@ -1624,7 +1666,6 @@
 
     void DismissFatal() {
         _fatalError = "";
-        StateHasChanged();
     }
 
     IEnumerable<KeyValuePair<string, int>> OriginCounts() {

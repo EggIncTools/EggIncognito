@@ -98,12 +98,11 @@ public static class MyersDiff {
         var v = new int[(2 * max) + 1];
         var trace = new List<int[]>();
 
-        for (int d = 0; d <= max; d++) {
+    search: for (int d = 0; d <= max; d++) {
             var snapshot = new int[(2 * d) + 1];
             Array.Copy(v, offset - d, snapshot, 0, snapshot.Length);
             trace.Add(snapshot);
 
-            bool reached = false;
             for (int k = -d; k <= d; k += 2) {
                 int x = k == -d || (k != d && v[offset + k - 1] < v[offset + k + 1])
                     ? v[offset + k + 1]
@@ -115,13 +114,8 @@ public static class MyersDiff {
                 }
 
                 v[offset + k] = x;
-                if (x >= n && y >= m) {
-                    reached = true;
-                    break;
-                }
+                if (x >= n && y >= m) break search;
             }
-
-            if (reached) break;
         }
 
         var script = new List<DiffOpKind>();

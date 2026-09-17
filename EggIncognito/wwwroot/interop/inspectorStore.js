@@ -1,4 +1,3 @@
-
 import { get as getRaw, set as setRaw } from "./uiPrefs.js";
 
 const SALT_KEY = "inspector.salt";

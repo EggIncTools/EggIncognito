@@ -44,9 +44,9 @@ internal sealed class TtlSnapshotCache<T>(
     }
 
     private Dictionary<string, T> ToOrdinalDict(IReadOnlyList<T> source) {
-        var result = new Dictionary<string, T>(source.Count, StringComparer.Ordinal);
-        foreach (var item in source) result[keyOf(item)] = item;
-        return result;
+        return source
+            .GroupBy(keyOf, StringComparer.Ordinal)
+            .ToDictionary(g => g.Key, g => g.Last(), StringComparer.Ordinal);
     }
 }
 

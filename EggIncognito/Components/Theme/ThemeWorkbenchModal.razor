@@ -6,6 +6,7 @@
 @inject IWebHostEnvironment HostEnv
 @inject ToastService Toasts
 @inject NavigationManager Nav
+@inject ILogger<ThemeWorkbenchModal> Logger
 @using System.Globalization
 @using System.Text
 @using System.Text.Json
@@ -364,23 +365,42 @@
     async Task ExportAsync() {
         if (_download is null) return;
         var model = State.Draft.ToModel();
-        await _download.InvokeVoidAsync("text", $"egi-theme-{model.Slug}.json", model.ToJson());
+        try {
+            await _download.InvokeVoidAsync("text", $"egi-theme-{model.Slug}.json", model.ToJson());
+        }
+        catch (JSDisconnectedException ex) {
+            Logger.LogDebug(ex, "theme export skipped, the circuit is already gone");
+        }
     }
 
     async Task ApplyLocallyAsync() {
         if (_prefs is null || _preview is null) return;
         var model = State.Draft.ToModel() with { Css = "" };
-        await _prefs.InvokeVoidAsync("set", "theme.model", model.ToJson());
-        await _prefs.InvokeVoidAsync("set", "theme.active", "1");
-        await _preview.InvokeVoidAsync("applyTokens", TokenCssMap(model));
+        try {
+            await _prefs.InvokeVoidAsync("set", "theme.model", model.ToJson());
+            await _prefs.InvokeVoidAsync("set", "theme.active", "1");
+            await _preview.InvokeVoidAsync("applyTokens", TokenCssMap(model));
+        }
+        catch (JSDisconnectedException ex) {
+            Logger.LogDebug(ex, "theme apply skipped, the circuit is already gone");
+            return;
+        }
+
         SetStatus("applied in this browser", true);
     }
 
     async Task ClearLocalAsync() {
         if (_prefs is null || _preview is null) return;
-        await _prefs.InvokeVoidAsync("remove", "theme.model");
-        await _prefs.InvokeVoidAsync("remove", "theme.active");
-        await _preview.InvokeVoidAsync("clearTokens", ThemeTokens.Settable);
+        try {
+            await _prefs.InvokeVoidAsync("remove", "theme.model");
+            await _prefs.InvokeVoidAsync("remove", "theme.active");
+            await _preview.InvokeVoidAsync("clearTokens", ThemeTokens.Settable);
+        }
+        catch (JSDisconnectedException ex) {
+            Logger.LogDebug(ex, "theme reset skipped, the circuit is already gone");
+            return;
+        }
+
         SetStatus("reset", true);
     }
 

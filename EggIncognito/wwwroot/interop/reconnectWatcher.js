@@ -1,4 +1,3 @@
-
 (function () {
   const VERSION_URL = '/api/app/version';
   const POLL_MS = 2000;

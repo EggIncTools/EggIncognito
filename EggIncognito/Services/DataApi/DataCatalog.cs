@@ -178,7 +178,7 @@ public sealed class DataCatalog {
     internal static string FixturePath(IServiceProvider services, string route) {
         string[] parts = route.Split('/', StringSplitOptions.RemoveEmptyEntries);
         string file = parts[^1] + ".json";
-        return Path.Combine(DefaultsDir(services), Path.Combine(parts[..^1]), file);
+        return Path.Combine([DefaultsDir(services), .. parts[..^1], file]);
     }
 
     private static DataPayload? FixtureJson(IServiceProvider services, string route) {

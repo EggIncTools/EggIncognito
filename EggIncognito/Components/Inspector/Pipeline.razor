@@ -2,8 +2,7 @@
     <div class="muted">@Empty</div>
 } else {
     <div class="stage-list">
-        @for (var i = 0; i < Stages.Count; i++) {
-            var idx = i;
+        @foreach (var idx in Enumerable.Range(0, Stages.Count)) {
             var s = Stages[idx];
             var open = _open.Contains(idx);
             <div class="stage @(s.Skipped ? "skipped" : "") @(s.Role is not null ? $"role-{s.Role}" : "")">

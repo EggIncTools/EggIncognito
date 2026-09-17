@@ -213,9 +213,8 @@ public sealed partial class DockerEngineClient : IDisposable {
 
         try {
             using var doc = JsonDocument.Parse(res.Value ?? "[]");
-            var list = new List<DockerContainer>();
-            foreach (var el in doc.RootElement.EnumerateArray()) list.Add(ReadSummary(el));
-            return DeviceResult<IReadOnlyList<DockerContainer>>.Success(list);
+            return DeviceResult<IReadOnlyList<DockerContainer>>.Success(
+                [.. doc.RootElement.EnumerateArray().Select(ReadSummary)]);
         } catch (JsonException ex) {
             return DeviceResult<IReadOnlyList<DockerContainer>>.Error($"unreadable container list: {ex.Message}");
         }
@@ -506,9 +505,9 @@ public sealed partial class DockerEngineClient : IDisposable {
 
     private static Dictionary<string, string> Labels(JsonElement el) {
         if (el.ValueKind != JsonValueKind.Object) return [with(StringComparer.Ordinal)];
-        var map = new Dictionary<string, string>(StringComparer.Ordinal);
-        foreach (var p in el.EnumerateObject()) map[p.Name] = p.Value.GetString() ?? "";
-        return map;
+        return el.EnumerateObject()
+            .GroupBy(p => p.Name, StringComparer.Ordinal)
+            .ToDictionary(g => g.Key, g => g.Last().Value.GetString() ?? "", StringComparer.Ordinal);
     }
 
     private async Task<DeviceResult<string>> SendAsync(

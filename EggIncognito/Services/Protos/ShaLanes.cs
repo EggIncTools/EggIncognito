@@ -88,20 +88,16 @@ public static class ShaLanes {
     private static List<List<int>> GroupIndexes(IReadOnlyList<VersionKey> keys) {
         var groups = new List<List<int>>();
         var leaders = new List<VersionKey>();
-        for (var ix = 0; ix < keys.Count; ix++) {
+    scan: for (var ix = 0; ix < keys.Count; ix++) {
             VersionKey key = keys[ix];
             if (string.IsNullOrWhiteSpace(key.ProtoSha)) continue;
 
-            var joined = false;
             for (var g = 0; g < leaders.Count; g++) {
                 if (!ProtoVersionTranslator.SharesProtoSha(leaders[g], key)) continue;
 
                 groups[g].Add(ix);
-                joined = true;
-                break;
+                continue scan;
             }
-
-            if (joined) continue;
 
             leaders.Add(key);
             groups.Add([ix]);
