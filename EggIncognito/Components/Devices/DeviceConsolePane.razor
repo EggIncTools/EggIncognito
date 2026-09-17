@@ -41,17 +41,25 @@
                     <span class="dcon-tapping" aria-hidden="true"></span>
                 }
             </button>
-            @if (IsAndroid) {
+            @if (ShowNavBar) {
                 <div class="dcon-nav" role="group" aria-label="Device navigation">
-                    <button type="button" class="dcon-nav-btn" aria-label="Back" @onclick="@(() => KeyAsync("back"))">
-                        <span class="dcon-nav-back" aria-hidden="true"></span>
-                    </button>
-                    <button type="button" class="dcon-nav-btn" aria-label="Home" @onclick="@(() => KeyAsync("home"))">
-                        <span class="dcon-nav-home" aria-hidden="true"></span>
-                    </button>
-                    <button type="button" class="dcon-nav-btn" aria-label="Recents" @onclick="@(() => KeyAsync("recents"))">
-                        <span class="dcon-nav-recents" aria-hidden="true"></span>
-                    </button>
+                    @if (GestureNav) {
+                        <button type="button" class="dcon-nav-btn dcon-nav-pill" aria-label="Home"
+                                @onclick="@(() => KeyAsync("home"))">
+                            <span class="dcon-nav-handle" aria-hidden="true"></span>
+                        </button>
+                    } else {
+                        <button type="button" class="dcon-nav-btn" aria-label="Recents"
+                                @onclick="@(() => KeyAsync("recents"))">
+                            <span class="dcon-nav-recents" aria-hidden="true"></span>
+                        </button>
+                        <button type="button" class="dcon-nav-btn" aria-label="Home" @onclick="@(() => KeyAsync("home"))">
+                            <span class="dcon-nav-home" aria-hidden="true"></span>
+                        </button>
+                        <button type="button" class="dcon-nav-btn" aria-label="Back" @onclick="@(() => KeyAsync("back"))">
+                            <span class="dcon-nav-back" aria-hidden="true"></span>
+                        </button>
+                    }
                 </div>
             }
             @if (Asleep) {
@@ -144,7 +152,7 @@
             }
         </span>
         <span class="dwb-bar-group">
-            <button type="button" class="btn-mini" @onclick="OpenRunModal">
+            <button type="button" class="btn-mini" @onclick="OpenRunPanel">
                 <Icon Name="play" Class="icon-sm"/>
                 @(_runLine is null ? "Open" : "Show run")
             </button>
@@ -335,11 +343,11 @@
     @Sections
     </div>
     </div>
-
-    <DeviceRunModal DeviceId="@_deviceId" Active="@Active" Open="@RunModalOpen" AndroidUserId="@_selectedAndroidUserId"
-                    OnClose="CloseRunModal" OnOpenRequested="OpenRunModal" OnNotice="OnNotice"
-                    OnChanged="AfterRunAsync" OnRunChanged="RunLineChanged"/>
     </div>
+
+    <DeviceRunPanel DeviceId="@_deviceId" Active="@Active" Open="@RunPanelOpen" AndroidUserId="@_selectedAndroidUserId"
+                    OnClose="CloseRunPanel" OnOpenRequested="OpenRunPanel" OnNotice="OnNotice"
+                    OnChanged="AfterRunAsync" OnRunChanged="RunLineChanged"/>
 }
 
 @code {
@@ -402,10 +410,20 @@
     double _videoLatency;
     double _videoKbps;
     double _jpegFps;
+    int _videoDecoded;
+    int _videoDrawn;
+    int _dropQueue;
+    int _dropKey;
+    int _dropError;
+    int _queueDepth;
+    int _sinceDrawnMs;
+    int _videoRestarts;
+    DateTimeOffset _restartWindowAt;
     StreamQuality _quality = StreamQuality.Balanced;
     string _text = "";
     string _newIslandLabel = "";
     string _streamKey = "";
+    string _videoKey = "";
     string _stageKey = "";
     string _keysKey = "";
     string _watchKey = "";
@@ -426,6 +444,19 @@
     IJSObjectReference? _module;
     DotNetObjectReference<DeviceConsolePane>? _self;
     Timer? _uiPoll;
+    PageVisibility? _vis;
+    bool _visible = true;
+
+    PageVisibility Vis => _vis ??= new PageVisibility(JS, Env);
+
+    bool StreamWhileHidden => _watch.Points.Count > 0;
+
+    async Task OnVisibilityAsync(bool visible) {
+        if (_disposed || visible == _visible) return;
+        _visible = visible;
+        if (!visible && !StreamWhileHidden) ResetVideoHealth();
+        await InvokeAsync(StateHasChanged);
+    }
 
     bool IsAndroid => string.Equals(Platform, "android", StringComparison.OrdinalIgnoreCase);
 
@@ -435,7 +466,11 @@
 
     bool Asleep => _uiProbed && _uiState is { } s && (!s.Awake || s.Locked);
 
-    bool RunModalOpen => State.RunModalFor == _deviceId && _deviceId is not null;
+    bool RunPanelOpen => State.RunPanelFor == _deviceId && _deviceId is not null;
+
+    bool ShowNavBar => IsAndroid && _uiProbed && _uiState?.NavMode is not (0 or 1);
+
+    bool GestureNav => _uiState?.NavMode is 2;
 
     DeviceConsoleCache? Cache => _deviceId is { } id ? State.ConsoleFor(id) : null;
 
@@ -507,6 +542,7 @@
         _shotW = _shotH = 0;
         _screenW = _screenH = 0;
         _videoFps = _videoLatency = _videoKbps = _jpegFps = 0;
+        ResetVideoHealth();
         _islands = [];
         _islandBusy = false;
         _newIslandOpen = false;
@@ -527,12 +563,12 @@
         return true;
     }
 
-    void OpenRunModal() {
-        State.RunModalFor = _deviceId;
+    void OpenRunPanel() {
+        State.RunPanelFor = _deviceId;
     }
 
-    void CloseRunModal() {
-        State.RunModalFor = null;
+    void CloseRunPanel() {
+        State.RunPanelFor = null;
     }
 
     void RunLineChanged(DeviceRunLine? line) {
@@ -596,7 +632,7 @@
 
     string StreamIcon() {
         if (_streamError is not null) return "circle-x";
-        if (!_live) return "pause";
+        if (!_live || (!_visible && !StreamWhileHidden)) return "pause";
         return _hasFrame ? "circle-check" : "circle";
     }
 
@@ -608,6 +644,7 @@
     string StreamLabel() {
         if (_streamError is not null) return "ended";
         if (!_live) return "paused";
+        if (!_visible && !StreamWhileHidden) return "backgrounded";
         return _hasFrame ? "live" : "connecting";
     }
 
@@ -618,12 +655,27 @@
             return string.Create(CultureInfo.InvariantCulture,
                 $"{_jpegFps:0.#} of {_fps} fps, {_shotW}x{_shotH}");
         return string.Create(CultureInfo.InvariantCulture,
-            $"{_videoFps:0} fps, {_videoLatency:0} ms, {_shotW}x{_shotH}, {_videoKbps / 1000:0.0} Mbps");
+            $"{_videoFps:0} fps, {_videoLatency:0} ms, {_shotW}x{_shotH}, {_videoKbps / 1000:0.0} Mbps{VideoHealth()}");
+    }
+
+    string VideoHealth() {
+        if (_videoDrawn > 0 && _dropQueue + _dropKey + _dropError == 0 && _queueDepth <= 1) return "";
+        List<string> parts = [];
+        if (_videoDecoded != _videoDrawn) parts.Add(string.Create(CultureInfo.InvariantCulture, $"{_videoDrawn} of {_videoDecoded} drawn"));
+        if (_dropQueue > 0) parts.Add(string.Create(CultureInfo.InvariantCulture, $"{_dropQueue} dropped, queue deep"));
+        if (_dropKey > 0) parts.Add(string.Create(CultureInfo.InvariantCulture, $"{_dropKey} dropped, awaiting keyframe"));
+        if (_dropError > 0) parts.Add(string.Create(CultureInfo.InvariantCulture, $"{_dropError} dropped, decoder error"));
+        if (_queueDepth > 1) parts.Add(string.Create(CultureInfo.InvariantCulture, $"queue {_queueDepth}"));
+        if (_sinceDrawnMs >= 1000) parts.Add(string.Create(CultureInfo.InvariantCulture, $"nothing drawn for {_sinceDrawnMs / 1000.0:0.#}s"));
+        if (_videoRestarts > 0 && DateTimeOffset.UtcNow - _restartWindowAt < TimeSpan.FromMinutes(1))
+            parts.Add(_videoRestarts == 1 ? "1 restart" : string.Create(CultureInfo.InvariantCulture, $"{_videoRestarts} restarts"));
+        return parts.Count == 0 ? "" : " - " + string.Join(", ", parts);
     }
 
     string StageEmptyText() {
         if (_streamError is not null) return "no picture";
-        return _live ? "waiting for the first frame" : "paused";
+        if (!_live) return "paused";
+        return _visible || StreamWhileHidden ? "waiting for the first frame" : "paused, this tab is in the background";
     }
 
     async Task ToggleStreamAsync() {
@@ -1146,6 +1198,8 @@
 
         if (_videoSupported is null) {
             _videoSupported = await SafeValueAsync(() => module.InvokeAsync<bool>("supportsVideo").AsTask());
+            await Vis.ListenAsync(OnVisibilityAsync);
+            _visible = await Vis.IsVisibleAsync();
             if (RecomputeVideo()) {
                 StateHasChanged();
                 return;
@@ -1160,8 +1214,10 @@
 
     async Task SyncStreamAsync(IJSObjectReference module) {
         if (_syncing) return;
-        var wanted = _live && Active && _deviceId is not null && _streamError is null;
-        var desired = !wanted ? "" : _useVideo ? $"{_deviceId}|video|{_quality}" : $"{_deviceId}|jpeg|{_fps}";
+        var wanted = _live && Active && _deviceId is not null && _streamError is null && (_visible || StreamWhileHidden);
+        var video = $"{_deviceId}|video|{_quality}";
+        if (wanted && _useVideo && string.IsNullOrEmpty(_canvas.Id)) return;
+        var desired = !wanted ? "" : _useVideo ? $"{video}|{_canvas.Id}" : $"{_deviceId}|jpeg|{_fps}";
         if (desired == _streamKey) return;
 
         _syncing = true;
@@ -1171,8 +1227,9 @@
             if (desired.Length == 0) return;
 
             _streamOnVideo = _useVideo;
+            _videoKey = _useVideo ? video : "";
             var started = _useVideo
-                ? await SafeValueAsync(() => module.InvokeAsync<bool>("startVideo", _canvas, VideoUrl(), Ref(), new { maxQueue = 4 }).AsTask())
+                ? await SafeValueAsync(() => module.InvokeAsync<bool>("startVideo", _canvas, VideoUrl(), Ref(), new { maxQueue = 4, key = video, token = desired }).AsTask())
                 : await SafeValueAsync(() => module.InvokeAsync<bool>("start", _img, StreamUrl(), ScreenshotUrl(), Ref()).AsTask());
             if (!started && _streamKey == desired) {
                 await StreamEndedAsync(_useVideo
@@ -1186,14 +1243,16 @@
     }
 
     async Task SyncStageAsync(IJSObjectReference module) {
-        var desired = _deviceId is null || !Active ? "" : _useVideo ? $"{_deviceId}|v" : $"{_deviceId}|j";
+        var media = _useVideo ? _canvas : _img;
+        var desired = _deviceId is null || !Active || string.IsNullOrEmpty(media.Id) || string.IsNullOrEmpty(_stage.Id)
+            ? ""
+            : $"{_deviceId}|{(_useVideo ? "v" : "j")}|{_stage.Id}|{media.Id}";
         if (desired == _stageKey) return;
         if (_stageKey.Length > 0) await SafeAsync(() => module.InvokeVoidAsync("unbindStage", _stage).AsTask());
         _stageKey = desired;
         _keysKey = "";
         if (desired.Length == 0) return;
 
-        var media = _useVideo ? _canvas : _img;
         await SafeAsync(() => module.InvokeVoidAsync("bindStage", _stage, media, Ref(),
             new { threshold = DragThresholdPx, longPressMs = LongPressMs, swipeMs = 200 }).AsTask());
     }
@@ -1206,8 +1265,8 @@
     }
 
     async Task SyncWatchAsync(IJSObjectReference module) {
-        var points = _useVideo && _hasFrame && TapWidth > 0 ? WatchPayload() : [];
-        var desired = string.Join(";", points.Select(p => string.Create(CultureInfo.InvariantCulture,
+        var points = _useVideo && _hasFrame && TapWidth > 0 && !string.IsNullOrEmpty(_canvas.Id) ? WatchPayload() : [];
+        var desired = points.Count == 0 ? "" : _canvas.Id + "|" + string.Join(";", points.Select(p => string.Create(CultureInfo.InvariantCulture,
             $"{p.Id} {p.Fx:0.####} {p.Fy:0.####} {p.R} {p.G} {p.B}")));
         if (desired == _watchKey) return;
         _watchKey = desired;
@@ -1235,9 +1294,12 @@
     }
 
     async Task HaltAsync(IJSObjectReference module) {
-        if (_streamOnVideo) await SafeAsync(() => module.InvokeVoidAsync("stopVideo", _canvas).AsTask());
-        else await SafeAsync(() => module.InvokeVoidAsync("stop", _img).AsTask());
+        if (_streamOnVideo || _videoKey.Length > 0)
+            await SafeAsync(() => module.InvokeVoidAsync("stopVideo", _canvas, _videoKey).AsTask());
+        else if (!string.IsNullOrEmpty(_img.Id))
+            await SafeAsync(() => module.InvokeVoidAsync("stop", _img).AsTask());
         _streamOnVideo = false;
+        _videoKey = "";
     }
 
     async Task StopStreamAsync() {
@@ -1298,26 +1360,68 @@
     }
 
     [JSInvokable]
-    public Task OnVideoStats(double fps, double latencyMs, int frameW, int frameH, double kbps) {
-        _videoFps = fps;
-        _videoLatency = latencyMs;
-        _videoKbps = kbps;
-        _shotW = frameW;
-        _shotH = frameH;
-        _hasFrame = frameW > 0;
-        if (_hasFrame) _streamRetried = false;
+    public Task OnVideoStats(VideoStats stats) {
+        if (stats.Token != _streamKey) return Task.CompletedTask;
+        _videoFps = stats.Fps;
+        _videoLatency = stats.LatencyMs;
+        _videoKbps = stats.Kbps;
+        _videoDecoded = stats.Decoded;
+        _videoDrawn = stats.Drawn;
+        _dropQueue = stats.DropQueue;
+        _dropKey = stats.DropKey;
+        _dropError = stats.DropError;
+        _queueDepth = stats.Queue;
+        _sinceDrawnMs = stats.SinceDrawnMs;
+        if (stats.FrameW > 0) {
+            _shotW = stats.FrameW;
+            _shotH = stats.FrameH;
+            _hasFrame = true;
+            _streamRetried = false;
+        }
+
         return InvokeAsync(StateHasChanged);
     }
 
+    public sealed record VideoStats(string Token, double Fps, double LatencyMs, int FrameW, int FrameH, double Kbps,
+        int Decoded, int Drawn, int DropQueue, int DropKey, int DropError, int Queue, int SinceDrawnMs);
+
     [JSInvokable]
-    public Task OnVideoEnded(string reason, int status) {
+    public Task OnVideoEnded(string token, string reason, int status, bool retryable) {
         if (string.Equals(reason, "stopped", StringComparison.OrdinalIgnoreCase)) return Task.CompletedTask;
+        if (token != _streamKey) return Task.CompletedTask;
+        if (retryable && RestartVideo()) return InvokeAsync(StateHasChanged);
         return StreamEndedAsync(string.IsNullOrWhiteSpace(reason) ? "the server closed the stream" : reason, status);
+    }
+
+    void ResetVideoHealth() {
+        _videoDecoded = _videoDrawn = _dropQueue = _dropKey = _dropError = _queueDepth = 0;
+        _sinceDrawnMs = -1;
+        _videoRestarts = 0;
+        _restartWindowAt = default;
+    }
+
+    const int MaxRestartsPerMinute = 4;
+
+    bool RestartVideo() {
+        if (!_live || !_streamOnVideo || _deviceId is null) return false;
+        var now = DateTimeOffset.UtcNow;
+        if (now - _restartWindowAt > TimeSpan.FromMinutes(1)) {
+            _restartWindowAt = now;
+            _videoRestarts = 0;
+        }
+
+        if (++_videoRestarts > MaxRestartsPerMinute) return false;
+        _streamKey = "";
+        _videoKey = "";
+        _streamOnVideo = false;
+        _watchKey = "";
+        return true;
     }
 
     async Task StreamEndedAsync(string reason, int status) {
         bool videoNeverDrew = _streamOnVideo && _shotW == 0;
         _streamKey = "";
+        _videoKey = "";
         _streamOnVideo = false;
         _hasFrame = false;
         _watchKey = "";
@@ -1390,6 +1494,7 @@
             await HaltAsync(module);
         }
 
+        if (_vis is { } vis) await vis.DisposeAsync();
         await _module.DisposeModuleQuietAsync(logger: Logger);
         _self?.Dispose();
         _self = null;

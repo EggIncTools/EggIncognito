@@ -8,10 +8,12 @@ namespace EggIncognito.Services.Devices;
 
 public sealed class AndroidUiDriver(IDeviceConnectionFactory connections) : IDeviceUiDriver {
     private const string ShellSpecials = "`()<>|;&*\\~\"'$";
+    private const string ShellBreaks = "\n\r";
 
     public const string ScreenStateCommand =
         "dumpsys power 2>/dev/null | grep -E \"mWakefulness|mHoldingDisplaySuspendBlocker\"; "
-        + "dumpsys window 2>/dev/null | grep -E \"mDreamingLockscreen\"";
+        + "dumpsys window 2>/dev/null | grep -E \"mDreamingLockscreen\"; "
+        + "echo navmode=$(settings get secure navigation_mode 2>/dev/null)";
 
     public string Platform => Platforms.Android;
 
@@ -84,15 +86,18 @@ public sealed class AndroidUiDriver(IDeviceConnectionFactory connections) : IDev
     public static DeviceScreenState ParseScreenState(string output) {
         bool awake = false;
         bool locked = false;
+        int? navMode = null;
         foreach (string raw in output.Split('\n')) {
             string line = raw.Trim();
             if (Value(line, "mWakefulness=") is { } wake)
                 awake = wake.Equals("Awake", StringComparison.OrdinalIgnoreCase);
             if (Value(line, "mDreamingLockscreen=") is { } lockscreen)
                 locked = lockscreen.Equals("true", StringComparison.OrdinalIgnoreCase);
+            if (Value(line, "navmode=") is { } nav && int.TryParse(nav, out int mode))
+                navMode = mode;
         }
 
-        return new DeviceScreenState(awake, locked);
+        return new DeviceScreenState(awake, locked, navMode);
     }
 
     private static string? Value(string line, string key) {
@@ -224,6 +229,8 @@ public sealed class AndroidUiDriver(IDeviceConnectionFactory connections) : IDev
     private static string EscapeInputText(string text) {
         var sb = new StringBuilder(text.Length);
         foreach (char c in text) {
+            if (ShellBreaks.Contains(c)) continue;
+            if (char.IsControl(c)) continue;
             if (c == ' ') {
                 sb.Append("%s");
                 continue;

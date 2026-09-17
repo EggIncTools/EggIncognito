@@ -105,7 +105,9 @@
                 builder.AddAttribute(seq++, "class", "hex-error");
                 builder.AddContent(seq++, pair);
                 builder.CloseElement();
-            } else builder.AddContent(seq++, pair);
+            } else {
+                builder.AddContent(seq++, pair);
+            }
 
             builder.AddContent(seq++, " ");
         }

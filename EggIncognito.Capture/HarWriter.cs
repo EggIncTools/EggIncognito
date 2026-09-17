@@ -1,10 +1,11 @@
 using System.Text;
 using System.Text.Json;
+using EggIncognito.Core.Services;
 
 namespace EggIncognito.Capture;
 
 public sealed class HarWriter {
-    private static readonly JsonSerializerOptions IndentedJson = new() { WriteIndented = true };
+    private static readonly JsonSerializerOptions IndentedJson = JsonPresets.Indented;
     private readonly List<object> _entries = [];
 
     private readonly Lock _gate = new();

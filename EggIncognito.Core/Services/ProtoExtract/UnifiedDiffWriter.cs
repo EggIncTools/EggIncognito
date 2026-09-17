@@ -119,9 +119,7 @@ public static class UnifiedDiffWriter {
                 if (bTruncated && entry.BIndex == b.Count - 1) output.Add(NoNewlineMarker);
             } else {
                 output.Add(" " + entry.Text);
-                if ((aTruncated && entry.AIndex == a.Count - 1) || (bTruncated && entry.BIndex == b.Count - 1)) {
-                    output.Add(NoNewlineMarker);
-                }
+                if ((aTruncated && entry.AIndex == a.Count - 1) || (bTruncated && entry.BIndex == b.Count - 1)) output.Add(NoNewlineMarker);
             }
         }
     }
@@ -144,17 +142,11 @@ public static class UnifiedDiffWriter {
         var entries = new List<Entry>(a.Count + b.Count);
         foreach (var op in ops) {
             if (op.Kind == DiffOpKind.Equal) {
-                for (int i = 0; i < op.ALength; i++) {
-                    entries.Add(new Entry(LineKind.Context, op.AStart + i, op.BStart + i, a[op.AStart + i]));
-                }
+                for (int i = 0; i < op.ALength; i++) entries.Add(new Entry(LineKind.Context, op.AStart + i, op.BStart + i, a[op.AStart + i]));
             } else if (op.Kind == DiffOpKind.Delete) {
-                for (int i = 0; i < op.ALength; i++) {
-                    entries.Add(new Entry(LineKind.Delete, op.AStart + i, -1, a[op.AStart + i]));
-                }
+                for (int i = 0; i < op.ALength; i++) entries.Add(new Entry(LineKind.Delete, op.AStart + i, -1, a[op.AStart + i]));
             } else {
-                for (int i = 0; i < op.BLength; i++) {
-                    entries.Add(new Entry(LineKind.Insert, -1, op.BStart + i, b[op.BStart + i]));
-                }
+                for (int i = 0; i < op.BLength; i++) entries.Add(new Entry(LineKind.Insert, -1, op.BStart + i, b[op.BStart + i]));
             }
         }
 

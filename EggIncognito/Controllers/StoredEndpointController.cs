@@ -26,6 +26,7 @@ public sealed class StoredEndpointController(ICurrentUser currentUser, IServiceP
             : StatusCode(403, new { error = "contributor role required to write to the shared store" });
 
     [HttpPost("endpoint")]
+    [ApiAccess(ApiAccessLevel.Contributor)]
     public async Task<IActionResult> UpsertEndpointAsync([FromBody] UpsertEndpoint body,
         [FromServices] IRouteCatalog routes) {
         if (RequireContributor() is { } no) return no;
@@ -55,6 +56,7 @@ public sealed class StoredEndpointController(ICurrentUser currentUser, IServiceP
     }
 
     [HttpPost("route")]
+    [ApiAccess(ApiAccessLevel.Contributor)]
     public async Task<IActionResult> AddRouteAsync([FromBody] AddRoute body, [FromServices] RouteCatalog yamlRoutes) {
         if (RequireContributor() is { } no) return no;
         var db = Db;
@@ -89,7 +91,7 @@ public sealed class StoredEndpointController(ICurrentUser currentUser, IServiceP
         var db = Db;
         if (db is null) return Ok(Array.Empty<object>());
         var rows = await db.StoredEndpoints.AsNoTracking()
-            .Select(e => new { e.Id, e.Path, e.Eid, e.ResponseType, e.UpdatedAt }).ToListAsync();
+            .Select(e => new { e.Id, e.Path, e.ResponseType, e.UpdatedAt }).ToListAsync();
         return Ok(rows);
     }
 

@@ -155,8 +155,3 @@ public static class ArchiveProtoExtractor {
         }
     }
 }
-
-public static class ApkProtoExtractor {
-    public static DescriptorProtoCarver.ExtractResult Extract(byte[] archiveZipBytes) =>
-        ArchiveProtoExtractor.Extract(archiveZipBytes);
-}

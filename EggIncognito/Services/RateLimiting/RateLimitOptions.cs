@@ -18,7 +18,6 @@ public sealed record RateLimitOptions(
             ["Keyed"] = new(600, 60, 6)
         },
         new Dictionary<string, RateLimit> {
-            ["Global"] = new(300, 60, 6),
             ["Egress"] = new(10, 60, 6),
             ["Write"] = new(60, 60, 6),
             ["Read"] = new(120, 60, 6),

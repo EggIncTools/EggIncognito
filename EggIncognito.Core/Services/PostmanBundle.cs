@@ -4,7 +4,7 @@ using System.Text.Json.Nodes;
 namespace EggIncognito.Core.Services;
 
 public static class PostmanBundle {
-    private static readonly JsonSerializerOptions IndentedJson = new() { WriteIndented = true };
+    private static readonly JsonSerializerOptions IndentedJson = JsonPresets.Indented;
 
     private static readonly string[] PreRequest = [
         "const userId = pm.collectionVariables.get('userId') || '';",

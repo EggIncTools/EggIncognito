@@ -1,7 +1,6 @@
 using System.Globalization;
 using System.Text;
 using System.Text.Json;
-using System.Text.Json.Serialization;
 using EggIncognito.Core.Services;
 using EggIncognito.Core.Services.Assets;
 using EggIncognito.Data.Services;
@@ -31,10 +30,7 @@ public sealed class PeriodicalsController(
     DataCatalog catalog,
     IServiceProvider services,
     ILogger<PeriodicalsController> logger) : ControllerBase {
-    private static readonly JsonSerializerOptions ProvenanceJson = new() {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
-    };
+    private static readonly JsonSerializerOptions ProvenanceJson = JsonPresets.CamelSkipNull;
 
     private static readonly Dictionary<int, string> DimNames =
         ColleggtibleCatalog.DimensionCodes.ToDictionary(kv => kv.Value, kv => kv.Key);

@@ -37,6 +37,8 @@ public sealed class ProtoFeedController(IServiceProvider services, IHttpClientFa
     [HttpPost]
     [EnableRateLimiting("write")]
     public async Task<IActionResult> Create([FromBody] FeedCreateReq req, CancellationToken ct) {
+        var owner = OwnerUserId;
+        if (owner is null) return Unauthorized(new { error = "log in to manage subscriptions" });
         if (Store is null) return StatusCode(503, new { error = "no database configured" });
         if (string.IsNullOrWhiteSpace(req.WebhookUrl) ||
             !Uri.TryCreate(req.WebhookUrl, UriKind.Absolute, out var webhook) ||
@@ -62,8 +64,7 @@ public sealed class ProtoFeedController(IServiceProvider services, IHttpClientFa
             Filters = FeedEventKinds.NormalizeFilters(kind, req.Filters),
             Label = req.Label,
             MessageTemplate = string.IsNullOrWhiteSpace(req.MessageTemplate) ? null : req.MessageTemplate,
-            OwnerUserId = (services.GetService(typeof(ICurrentUser))
-                as ICurrentUser)?.UserId
+            OwnerUserId = owner.Value
         }, ct);
         FeedSubscriptionNotify.Changed(services);
         return Ok(new { sub.Id, sub.EventKind, sub.Platforms, sub.Trigger });

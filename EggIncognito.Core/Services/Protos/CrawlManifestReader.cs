@@ -5,7 +5,7 @@ using System.Text.Json;
 namespace EggIncognito.Core.Services.Protos;
 
 public static class CrawlManifestReader {
-    private static readonly JsonSerializerOptions ManifestJsonOptions = new(JsonSerializerDefaults.Web);
+    private static readonly JsonSerializerOptions ManifestJsonOptions = JsonPresets.Web;
 
     private static int ConfidenceRank(string? c) => c switch {
         "version-file" => 3,

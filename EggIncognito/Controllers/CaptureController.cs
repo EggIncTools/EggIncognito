@@ -28,7 +28,7 @@ public sealed class CaptureController(
     HostedCaptureOptions hostedOptions,
     ILogger<CaptureController> logger,
     IServiceProvider services) : ControllerBase {
-    private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
+    private static readonly JsonSerializerOptions Json = JsonPresets.Web;
 
     private CaptureCredentialStore? Credentials =>
         services.GetService(typeof(CaptureCredentialStore)) as CaptureCredentialStore;

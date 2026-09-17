@@ -42,10 +42,11 @@ public sealed class DocsController(ICurrentUser currentUser, IServiceProvider se
         if (db is null) return Ok(new DocResult(null));
         var doc = await db.Docs.AsNoTracking()
             .FirstOrDefaultAsync(d => d.SubjectKind == kind && d.SubjectKey == key);
-        return Ok(doc is null ? new DocResult(null) : new DocResult(doc.BodyMd, doc.UpdatedAt, doc.OwnerUserId));
+        return Ok(doc is null ? new DocResult(null) : new DocResult(doc.BodyMd, doc.UpdatedAt));
     }
 
     [HttpPost("doc")]
+    [ApiAccess(ApiAccessLevel.Contributor)]
     public async Task<IActionResult> UpsertDocAsync([FromBody] UpsertDoc body) {
         if (RequireContributor() is { } no) return no;
         if (!ValidKind(body.SubjectKind)) return BadRequest(new { error = "invalid subject kind" });
@@ -101,6 +102,7 @@ public sealed class DocsController(ICurrentUser currentUser, IServiceProvider se
     }
 
     [HttpPost("subject-tags")]
+    [ApiAccess(ApiAccessLevel.Contributor)]
     public async Task<IActionResult> SetSubjectTagsAsync([FromBody] SetSubjectTags body) {
         if (RequireContributor() is { } no) return no;
         if (!TaggableKind(body.SubjectKind)) return BadRequest(new { error = "tags apply to endpoints only" });
@@ -162,6 +164,7 @@ public sealed class DocsController(ICurrentUser currentUser, IServiceProvider se
     };
 
     [HttpPost("image")]
+    [ApiAccess(ApiAccessLevel.Contributor)]
     [RequestSizeLimit(MaxImageBytes + 64 * 1024)]
     public async Task<IActionResult> UploadImageAsync(IFormFile? file) {
         if (RequireContributor() is { } no) return no;

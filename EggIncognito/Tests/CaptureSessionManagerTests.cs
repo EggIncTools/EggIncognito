@@ -7,16 +7,7 @@ public sealed class CaptureSessionManagerTests : IDisposable {
 
     public void Dispose() => _tmp.Dispose();
 
-    internal static string RealContentRoot() {
-        var dir = new DirectoryInfo(AppContext.BaseDirectory);
-        while (dir is not null) {
-            string candidate = Path.Combine(dir.FullName, "EggIncognito", "RouteMap", "routes.yaml");
-            if (File.Exists(candidate)) return Path.Combine(dir.FullName, "EggIncognito");
-            dir = dir.Parent;
-        }
-
-        throw new InvalidOperationException("Could not locate the EggIncognito project content root.");
-    }
+    internal static string RealContentRoot() => TestPaths.WebProjectDir();
 
     internal static CaptureSession NewSession(TempDir tmp, int port, FakeCaptureProxy? fake = null,
         CaptureTier tier = CaptureTier.Full) {

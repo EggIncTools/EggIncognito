@@ -581,7 +581,7 @@ public sealed partial class DevicesController(
         if (!state.Ok) return UiFailure(state.Outcome, state.Note);
 
         Response.Headers.CacheControl = "no-store";
-        return Ok(new UiStateInfo(state.Value.Awake, state.Value.Locked));
+        return Ok(new UiStateInfo(state.Value.Awake, state.Value.Locked, state.Value.NavMode));
     }
 
     [HttpGet("{id}/ui/stream")]

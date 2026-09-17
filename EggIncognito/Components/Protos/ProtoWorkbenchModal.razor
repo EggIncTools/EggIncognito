@@ -771,9 +771,7 @@
     async Task Remove(StagedEntry e) {
         var sref = SessionRef(e);
         State.Entries.Remove(e);
-        foreach (var k in State.GroupWinners.Where(kv => kv.Value == e.Id).Select(kv => kv.Key).ToList()) {
-            State.GroupWinners.Remove(k);
-        }
+        foreach (var k in State.GroupWinners.Where(kv => kv.Value == e.Id).Select(kv => kv.Key).ToList()) State.GroupWinners.Remove(k);
 
         if (State.SelectedId == e.Id) State.SelectedId = State.Entries.FirstOrDefault()?.Id;
         if (sref is not null) {
@@ -865,9 +863,7 @@
     }
 
     void Invalidate(string key) {
-        foreach (var k in State.GroupStatuses.Keys.Where(k => k.StartsWith(key + "|", StringComparison.Ordinal)).ToList()) {
-            State.GroupStatuses.Remove(k);
-        }
+        foreach (var k in State.GroupStatuses.Keys.Where(k => k.StartsWith(key + "|", StringComparison.Ordinal)).ToList()) State.GroupStatuses.Remove(k);
     }
 
     async Task CheckGroups() {
@@ -900,9 +896,7 @@
     }
 
     async Task OfferAll(List<OfferGroup> groups) {
-        foreach (var g in groups.Where(CanOffer).ToList()) {
-            await Offer(g);
-        }
+        foreach (var g in groups.Where(CanOffer).ToList()) await Offer(g);
     }
 
     async Task Offer(OfferGroup g) {
@@ -977,9 +971,7 @@
         var lines = new List<ConditionLine>();
         for (var g = 0; g < State.Query.Groups.Count; g++) {
             var conditions = State.Query.Groups[g].Conditions;
-            for (var i = 0; i < conditions.Count; i++) {
-                lines.Add(new ConditionLine(g, i, ConditionText(conditions[i])));
-            }
+            for (var i = 0; i < conditions.Count; i++) lines.Add(new ConditionLine(g, i, ConditionText(conditions[i])));
         }
 
         return lines;
@@ -1618,9 +1610,7 @@
         var key = CacheKey(value);
         if (_legacy.ContainsKey(key)) return Task.CompletedTask;
         if (ShaOf(value) is not { Length: > 0 } stored) return Task.CompletedTask;
-        if (!State.CanonicalShas.TryGetValue(key, out var canonical) || canonical is not { Length: > 0 }) {
-            return Task.CompletedTask;
-        }
+        if (!State.CanonicalShas.TryGetValue(key, out var canonical) || canonical is not { Length: > 0 }) return Task.CompletedTask;
 
         _legacy[key] = !SameSha(canonical, stored);
         StateHasChanged();
@@ -1705,9 +1695,7 @@
 
     static string SafeName(string value) {
         var sb = new StringBuilder(value.Length);
-        foreach (var c in value) {
-            sb.Append(char.IsAsciiLetterOrDigit(c) || c is '.' or '-' or '_' ? c : '-');
-        }
+        foreach (var c in value) sb.Append(char.IsAsciiLetterOrDigit(c) || c is '.' or '-' or '_' ? c : '-');
 
         return sb.Length == 0 ? "proto" : sb.ToString();
     }

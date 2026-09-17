@@ -8,18 +8,7 @@ public sealed class EggIncApiFactory : EgiTestFactory {
     protected override void Configure(IWebHostBuilder builder) {
         builder.UseEnvironment("Testing");
         builder.UseSetting("RateLimiting:Enabled", "true");
-        builder.UseSetting("EndpointsPath", FindEndpointsPath());
-    }
-
-    private static string FindEndpointsPath() {
-        var dir = new DirectoryInfo(AppContext.BaseDirectory);
-        while (dir is not null) {
-            if (dir.GetFiles("*.slnx").Length > 0 || dir.GetFiles("*.sln").Length > 0)
-                return Path.Combine(dir.FullName, "EggIncognito", "Tests", "TestFixtures");
-            dir = dir.Parent;
-        }
-
-        return Path.Combine(AppContext.BaseDirectory, "TestFixtures");
+        builder.UseSetting("EndpointsPath", TestPaths.FixturesDir());
     }
 }
 

@@ -1,4 +1,5 @@
 using System.Text.Json;
+using EggIncognito.Core.Services;
 using EggIncognito.Data.Services;
 using EggIncognito.Models.Contracts;
 using Ei;
@@ -15,7 +16,7 @@ public sealed class ContractBackfill(
     public const string DefaultCarpetUrl =
         "https://raw.githubusercontent.com/carpetsage/egg/master/periodicals/data/contracts.json";
 
-    private static readonly JsonSerializerOptions CarpetJson = new(JsonSerializerDefaults.Web);
+    private static readonly JsonSerializerOptions CarpetJson = JsonPresets.Web;
 
     public async Task<ContractBackfillResult> SweepSnapshotsAsync(CancellationToken ct = default) {
         int inserted = 0, updated = 0, scanned = 0, skipped = 0;

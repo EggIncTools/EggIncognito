@@ -8,6 +8,13 @@ internal sealed class TtlSnapshotCache<T>(
     TimeSpan ttl,
     TimeProvider? time = null,
     ILogger? logger = null) {
+    public TtlSnapshotCache(
+        Func<IReadOnlyDictionary<string, T>> fetchMap,
+        Func<T, string> keyOf,
+        TimeSpan ttl,
+        TimeProvider? time = null,
+        ILogger? logger = null) : this(() => fetchMap().Values.ToList(), keyOf, ttl, time, logger) { }
+
     private readonly TimeProvider _time = time ?? TimeProvider.System;
     private readonly Lock _lock = new();
     private IReadOnlyDictionary<string, T> _snapshot = new Dictionary<string, T>(StringComparer.Ordinal);

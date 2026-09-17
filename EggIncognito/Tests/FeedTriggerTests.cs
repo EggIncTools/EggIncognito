@@ -1,4 +1,5 @@
 using EggIncognito.Core.Services.ProtoExtract;
+using EggIncognito.Data.Models;
 using EggIncognito.Services.Feed;
 
 namespace EggIncognito.Tests;
@@ -36,6 +37,13 @@ public class FeedTriggerTests {
             ["android"], "android"));
         Assert.False(FeedTrigger.Matches(FeedEventKinds.TriggerSuspect, true, false, VersionDelta.Forward, false,
             ["android"], "android"));
+    }
+
+    [Fact]
+    public void SubscriptionDefaults_MatchDeclaredEventKind() {
+        var sub = new FeedSubscription();
+        Assert.Equal(FeedEventKinds.ProtoBuild, sub.EventKind);
+        Assert.Equal(FeedEventKinds.Proto.DefaultTrigger, sub.Trigger);
     }
 
     [Fact]

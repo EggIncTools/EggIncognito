@@ -12,7 +12,7 @@ public static class OpenApiBuilder {
         "request to be wrapped in a signed AuthenticatedMessage on routes marked " +
         "x-eggincognito-request-wrapped. Build, sign, and decode requests interactively at /protos#api.";
 
-    private static readonly JsonSerializerOptions IndentedJson = new() { WriteIndented = true };
+    private static readonly JsonSerializerOptions IndentedJson = JsonPresets.Indented;
 
     public static string BuildJson(IReadOnlyList<AuxbrainEntry> entries, IProtoReflection reflection) {
         var components = new SortedDictionary<string, JsonObject>(StringComparer.Ordinal);

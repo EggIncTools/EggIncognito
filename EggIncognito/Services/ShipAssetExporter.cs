@@ -1,13 +1,14 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using EggIncognito.Core;
+using EggIncognito.Core.Services;
 using EggIncognito.Core.Services.Assets;
 using EggIncognito.Core.Services.ProtoExtract;
 
 namespace EggIncognito.Services;
 
 public static class ShipAssetExporter {
-    private static readonly JsonSerializerOptions ManifestJson = new() { WriteIndented = true };
+    private static readonly JsonSerializerOptions ManifestJson = JsonPresets.Indented;
 
     public static Result Build(RpoAssetExtractor.ExtractResult extract, string? generatedFromBuild,
         GltfAnimator.Options? animate = null) {

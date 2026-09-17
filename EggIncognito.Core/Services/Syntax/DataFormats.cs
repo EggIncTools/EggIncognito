@@ -55,7 +55,7 @@ public static partial class DataFormats {
     }
 
     private static string Reserialize(JsonNode? value) =>
-        value?.ToJsonString(new JsonSerializerOptions { WriteIndented = true }) ?? "null";
+        value?.ToJsonString(JsonPresets.Indented) ?? "null";
 
     public static string ToYaml(JsonNode? value, int indent) {
         string pad = new(' ', indent * 2);
@@ -166,12 +166,9 @@ public static partial class DataFormats {
 
     public static byte[] BytesFromBase64(string? b64) {
         if (string.IsNullOrEmpty(b64)) return [];
-        string s = b64.Trim().Replace(' ', '+');
-        int pad = s.Length % 4;
-        if (pad != 0) s += new string('=', 4 - pad);
         try {
-            return Convert.FromBase64String(s);
-        } catch {
+            return ProtoFraming.FromBase64Loose(b64);
+        } catch (FormatException) {
             return [];
         }
     }

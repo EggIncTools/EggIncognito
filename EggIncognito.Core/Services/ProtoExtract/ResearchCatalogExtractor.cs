@@ -250,9 +250,7 @@ public static class ResearchCatalogExtractor {
 
         void ClobberPair(string reg) {
             Clobber(reg);
-            if (reg.Length >= 2 && reg[0] is 'w' or 'x') {
-                Clobber((reg[0] == 'w' ? "x" : "w") + reg[1..]);
-            }
+            if (reg.Length >= 2 && reg[0] is 'w' or 'x') Clobber((reg[0] == 'w' ? "x" : "w") + reg[1..]);
         }
 
         RegVal? Get(string reg) {
@@ -1142,9 +1140,7 @@ public static class ResearchCatalogExtractor {
         ulong commonEnd = main.Start + (ulong)((commonCount - 1) * stride);
         var epic = runs.Where(r => r.Start != main.Start && r.Start > commonEnd).OrderByDescending(r => r.Len)
             .FirstOrDefault();
-        if (epic.Len == 0) {
-            epic = runs.Where(r => r.Start != main.Start).OrderByDescending(r => r.Len).FirstOrDefault();
-        }
+        if (epic.Len == 0) epic = runs.Where(r => r.Start != main.Start).OrderByDescending(r => r.Len).FirstOrDefault();
 
         if (epic.Len == 0) return false;
         epicBase = epic.Start - IdOffset;

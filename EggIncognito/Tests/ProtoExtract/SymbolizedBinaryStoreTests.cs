@@ -37,6 +37,14 @@ public sealed class SymbolizedBinaryStoreTests : IDisposable {
         Assert.Contains("no symbolized", r.Diagnostics, StringComparison.OrdinalIgnoreCase);
     }
 
+    [Fact]
+    public void ListVersions_SortsNewestFirst_NonNumericLast() {
+        string dir = MakeDir(("a.ipa", "1.35.7", BigBinary()), ("b.ipa", "1.36.0", BigBinary()),
+            ("c.ipa", "abc", BigBinary()));
+        var store = new SymbolizedBinaryStore(dir, b => b.Length >= 200);
+        Assert.Equal(["1.36.0", "1.35.7", "abc"], store.ListVersions());
+    }
+
     private static byte[] BigBinary() => new byte[200];
 
     private string MakeDir(params (string name, string version, byte[] exec)[] ipas) {

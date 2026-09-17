@@ -18,5 +18,3 @@ Image: `ghcr.io/egginctools/eggincognito-runner:latest`, built by the release wo
 | `RUNNER_TRIGGER_SECRET` | bearer for the resync/extract/probe routes |
 | `RUNNER_TRIGGER_URLS` | listener bind |
 | `ConnectionStrings__Postgres` | optional; when set the runner owns device probing against the shared DB |
-
-clientVersion is extracted in-process from the device binary itself: a deterministic 1-instruction constant, verified across the full APK corpus plus iOS.

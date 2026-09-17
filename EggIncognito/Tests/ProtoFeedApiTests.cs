@@ -27,15 +27,29 @@ public class ProtoFeedApiTests {
 
     [Fact]
     public async Task Create_NoStore_Returns503() {
-        var c = Controller(new MapServices([]), _ => new HttpResponseMessage(HttpStatusCode.OK));
+        var services = new MapServices(new Dictionary<Type, object?> {
+            [typeof(ICurrentUser)] = new StubUser("42")
+        });
+        var c = Controller(services, _ => new HttpResponseMessage(HttpStatusCode.OK));
         var r = await c.Create(new FeedCreateReq(
             "https://discord.com/api/webhooks/1/abc", null, null, null, null), CancellationToken.None);
         Assert.Equal(503, Status(r));
     }
 
     [Fact]
+    public async Task Create_Anon_Returns401() {
+        var c = Controller(new MapServices([]), _ => new HttpResponseMessage(HttpStatusCode.OK));
+        var r = await c.Create(new FeedCreateReq(
+            "https://discord.com/api/webhooks/1/abc", null, null, null, null), CancellationToken.None);
+        Assert.Equal(401, Status(r));
+    }
+
+    [Fact]
     public async Task Create_BadUrl_Returns400() {
-        var services = new MapServices(new Dictionary<Type, object?> { [typeof(FeedSubscriptionStore)] = UnconnectedStore() });
+        var services = new MapServices(new Dictionary<Type, object?> {
+            [typeof(FeedSubscriptionStore)] = UnconnectedStore(),
+            [typeof(ICurrentUser)] = new StubUser("42")
+        });
         var c = Controller(services, _ => new HttpResponseMessage(HttpStatusCode.OK));
         var r = await c.Create(new FeedCreateReq(
             "https://evil.example.com/hook", null, null, null, null), CancellationToken.None);
@@ -45,7 +59,10 @@ public class ProtoFeedApiTests {
 
     [Fact]
     public async Task Create_EmptyUrl_Returns400() {
-        var services = new MapServices(new Dictionary<Type, object?> { [typeof(FeedSubscriptionStore)] = UnconnectedStore() });
+        var services = new MapServices(new Dictionary<Type, object?> {
+            [typeof(FeedSubscriptionStore)] = UnconnectedStore(),
+            [typeof(ICurrentUser)] = new StubUser("42")
+        });
         var c = Controller(services, _ => new HttpResponseMessage(HttpStatusCode.OK));
         var r = await c.Create(new FeedCreateReq("", null, null, null, null), CancellationToken.None);
         Assert.IsType<BadRequestObjectResult>(r);

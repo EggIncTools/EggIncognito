@@ -4,19 +4,8 @@ using EggIncognito.RouteGenerator;
 namespace EggIncognito.Tests;
 
 public sealed class AuxbrainPathParityTests {
-    private static string RepoRoot() {
-        var dir = new DirectoryInfo(AppContext.BaseDirectory);
-        while (dir is not null) {
-            if (dir.GetFiles("*.slnx").Length > 0 || dir.GetFiles("*.sln").Length > 0)
-                return dir.FullName;
-            dir = dir.Parent;
-        }
-
-        return Directory.GetCurrentDirectory();
-    }
-
     private static string RouteMapFile(string name) =>
-        Path.Combine(RepoRoot(), "EggIncognito", "RouteMap", name);
+        Path.Combine(TestPaths.WebProjectDir(), "RouteMap", name);
 
     [Fact]
     public void Aliases_ParsedByCatalog_IgnoredByGenerator() {
@@ -83,7 +72,7 @@ public sealed class AuxbrainPathParityTests {
 
     [Fact]
     public void RenamedEndpointJson_LoadsUnderNewPath() {
-        var src = new FileEndpointSource(Path.Combine(RepoRoot(), "EggIncognito", "Endpoints"));
+        var src = new FileEndpointSource(Path.Combine(TestPaths.WebProjectDir(), "Endpoints"));
         Assert.NotNull(src.Lookup("ei/update_coop_status", null));
     }
 }

@@ -26,6 +26,7 @@ public sealed class ProtoRegistryController(IServiceProvider services, ICurrentU
         user.IsAtLeast(role) ? null : StatusCode(403, new { error = $"{UserRoles.ToName(role)}+ only" });
 
     [HttpPost]
+    [ApiAccess(ApiAccessLevel.Contributor)]
     public async Task<IActionResult> Save([FromBody] SaveRequest req, CancellationToken ct) {
         if (Require(UserRole.Contributor) is { } no) return no;
         if (Store is not { } store) return StatusCode(503, new { error = NoDb });
@@ -55,6 +56,7 @@ public sealed class ProtoRegistryController(IServiceProvider services, ICurrentU
     }
 
     [HttpPatch("{platform}/{build}")]
+    [ApiAccess(ApiAccessLevel.Contributor)]
     public async Task<IActionResult> Edit(string platform, string build, [FromBody] EditRequest req,
         CancellationToken ct) {
         if (Require(UserRole.Contributor) is { } no) return no;
@@ -70,6 +72,7 @@ public sealed class ProtoRegistryController(IServiceProvider services, ICurrentU
     }
 
     [HttpPost("{platform}/{build}/proto")]
+    [ApiAccess(ApiAccessLevel.Contributor)]
     public async Task<IActionResult> SetProto(string platform, string build, [FromBody] SetProtoRequest req,
         CancellationToken ct) {
         if (Require(UserRole.Contributor) is { } no) return no;
@@ -80,6 +83,7 @@ public sealed class ProtoRegistryController(IServiceProvider services, ICurrentU
     }
 
     [HttpDelete("{platform}/{build}")]
+    [ApiAccess(ApiAccessLevel.Admin)]
     public async Task<IActionResult> Delete(string platform, string build, CancellationToken ct) {
         if (Require(UserRole.Admin) is { } no) return no;
         if (Store is not { } store) return StatusCode(503, new { error = NoDb });
@@ -88,6 +92,7 @@ public sealed class ProtoRegistryController(IServiceProvider services, ICurrentU
     }
 
     [HttpPost("delete")]
+    [ApiAccess(ApiAccessLevel.Admin)]
     public async Task<IActionResult> BulkDelete([FromBody] BulkDeleteRequest req, CancellationToken ct) {
         if (Require(UserRole.Admin) is { } no) return no;
         if (Store is not { } store) return StatusCode(503, new { error = NoDb });
@@ -109,6 +114,7 @@ public sealed class ProtoRegistryController(IServiceProvider services, ICurrentU
     }
 
     [HttpPost("merge")]
+    [ApiAccess(ApiAccessLevel.Admin)]
     public async Task<IActionResult> Merge([FromBody] MergeRequest req, CancellationToken ct) {
         if (Require(UserRole.Admin) is { } no) return no;
         if (Store is not { } store) return StatusCode(503, new { error = NoDb });
@@ -120,6 +126,7 @@ public sealed class ProtoRegistryController(IServiceProvider services, ICurrentU
     }
 
     [HttpPost("sha-order")]
+    [ApiAccess(ApiAccessLevel.Admin)]
     public async Task<IActionResult> SetShaOrder([FromBody] ShaOrderRequest req, CancellationToken ct) {
         if (Require(UserRole.Admin) is { } no) return no;
         if (Store is not { } store) return StatusCode(503, new { error = NoDb });
@@ -139,6 +146,7 @@ public sealed class ProtoRegistryController(IServiceProvider services, ICurrentU
     }
 
     [HttpPost("{platform}/{build}/restore")]
+    [ApiAccess(ApiAccessLevel.Admin)]
     public async Task<IActionResult> Restore(string platform, string build, CancellationToken ct) {
         if (Require(UserRole.Admin) is { } no) return no;
         if (Store is not { } store) return StatusCode(503, new { error = NoDb });
@@ -159,6 +167,7 @@ public sealed class ProtoRegistryController(IServiceProvider services, ICurrentU
     }
 
     [HttpPost("/api/protos/staged/offer")]
+    [ApiAccess(ApiAccessLevel.Authenticated)]
     public async Task<IActionResult> StagedOffer([FromBody] OfferRequest req, CancellationToken ct) {
         if (StagedStore is not { } s) return StatusCode(503, new { error = NoDb });
         if (string.IsNullOrEmpty(req.ProtoSha) || string.IsNullOrEmpty(req.ProtoText))
@@ -177,6 +186,7 @@ public sealed class ProtoRegistryController(IServiceProvider services, ICurrentU
     }
 
     [HttpGet("/api/protos/staged")]
+    [ApiAccess(ApiAccessLevel.Contributor)]
     public async Task<IActionResult> StagedList(CancellationToken ct) {
         if (Require(UserRole.Contributor) is { } no) return no;
         if (StagedStore is not { } s) return Ok(Array.Empty<object>());
@@ -199,6 +209,7 @@ public sealed class ProtoRegistryController(IServiceProvider services, ICurrentU
     }
 
     [HttpGet("/api/protos/staged/{id:int}/proto")]
+    [ApiAccess(ApiAccessLevel.Contributor)]
     public async Task<IActionResult> StagedProto(int id, CancellationToken ct) {
         if (Require(UserRole.Contributor) is { } no) return no;
         if (StagedStore is not { } s) return StatusCode(503, new { error = NoDb });
@@ -208,6 +219,7 @@ public sealed class ProtoRegistryController(IServiceProvider services, ICurrentU
     }
 
     [HttpPost("/api/protos/staged/{id:int}/approve")]
+    [ApiAccess(ApiAccessLevel.Contributor)]
     public async Task<IActionResult> StagedApprove(int id, [FromBody] ApproveRequest req, CancellationToken ct) {
         if (Require(UserRole.Contributor) is { } no) return no;
         if (StagedStore is not { } s) return StatusCode(503, new { error = NoDb });
@@ -222,6 +234,7 @@ public sealed class ProtoRegistryController(IServiceProvider services, ICurrentU
     }
 
     [HttpPost("/api/protos/staged/{id:int}/reject")]
+    [ApiAccess(ApiAccessLevel.Contributor)]
     public async Task<IActionResult> StagedReject(int id, [FromBody] RejectRequest req, CancellationToken ct) {
         if (Require(UserRole.Contributor) is { } no) return no;
         if (StagedStore is not { } s) return StatusCode(503, new { error = NoDb });
@@ -230,6 +243,7 @@ public sealed class ProtoRegistryController(IServiceProvider services, ICurrentU
     }
 
     [HttpPost("/api/protos/staged/bulk-approve")]
+    [ApiAccess(ApiAccessLevel.Contributor)]
     public async Task<IActionResult> StagedBulkApprove([FromBody] BulkApproveRequest req, CancellationToken ct) {
         if (Require(UserRole.Contributor) is { } no) return no;
         if (StagedStore is not { } s) return StatusCode(503, new { error = NoDb });
@@ -242,6 +256,7 @@ public sealed class ProtoRegistryController(IServiceProvider services, ICurrentU
     }
 
     [HttpPost("/api/protos/staged/bulk-reject")]
+    [ApiAccess(ApiAccessLevel.Contributor)]
     public async Task<IActionResult> StagedBulkReject([FromBody] BulkRejectRequest req, CancellationToken ct) {
         if (Require(UserRole.Contributor) is { } no) return no;
         if (StagedStore is not { } s) return StatusCode(503, new { error = NoDb });
@@ -251,6 +266,7 @@ public sealed class ProtoRegistryController(IServiceProvider services, ICurrentU
     }
 
     [HttpPost("/api/protos/staged/import-crawl")]
+    [ApiAccess(ApiAccessLevel.Admin)]
     public async Task<IActionResult> ImportCrawl(IFormFile file, CancellationToken ct) {
         if (Require(UserRole.Admin) is { } no) return no;
         if (StagedStore is not { } s) return StatusCode(503, new { error = NoDb });

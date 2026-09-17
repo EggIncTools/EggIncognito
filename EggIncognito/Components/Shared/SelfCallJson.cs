@@ -1,9 +1,10 @@
 using System.Text.Json;
+using EggIncognito.Core.Services;
 
 namespace EggIncognito.Components.Shared;
 
 public static class SelfCallJson {
-    public static readonly JsonSerializerOptions Web = new(JsonSerializerDefaults.Web);
+    public static readonly JsonSerializerOptions Web = JsonPresets.Web;
 
     public static async Task<List<T>> ListAsync<T>(this HttpClient client, string url, ILogger? log = null,
         CancellationToken ct = default) =>

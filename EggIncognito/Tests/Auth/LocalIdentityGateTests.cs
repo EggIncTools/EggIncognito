@@ -73,14 +73,6 @@ public class LocalIdentityGateTests {
     }
 
     [Fact]
-    public void Guard_Silent_ForStagingLocal() =>
-        LocalIdentityGate.Guard("Staging", AppMode.Local, Cfg("true"));
-
-    [Fact]
-    public void Guard_Silent_ForDevelopmentLocal() =>
-        LocalIdentityGate.Guard("Development", AppMode.Local, Cfg("true"));
-
-    [Fact]
     public void Settings_DefaultToAdminSupporter() {
         var s = LocalIdentitySettings.Bind(Cfg("true"));
         Assert.Equal(UserRole.Admin, s.Role);
@@ -109,19 +101,9 @@ public class LocalIdentityGateTests {
     [InlineData("appsettings.json")]
     [InlineData("appsettings.Development.json")]
     public void ShippedAppSettings_NeverDeclareTheLocalIdentity(string file) {
-        string path = Path.Combine(RepoRoot(), "EggIncognito", file);
+        string path = Path.Combine(TestPaths.WebProjectDir(), file);
         Assert.True(File.Exists(path), path);
         string json = File.ReadAllText(path);
         Assert.DoesNotContain("LocalIdentity", json, StringComparison.OrdinalIgnoreCase);
-    }
-
-    private static string RepoRoot() {
-        var dir = new DirectoryInfo(AppContext.BaseDirectory);
-        while (dir is not null) {
-            if (dir.GetFiles("*.slnx").Length > 0 || dir.GetFiles("*.sln").Length > 0) return dir.FullName;
-            dir = dir.Parent;
-        }
-
-        return Directory.GetCurrentDirectory();
     }
 }

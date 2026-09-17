@@ -1,7 +1,7 @@
 const sessions = new Map();
 const FIRST_FRAME_MS = 8000;
 const STALL_MS = 8000;
-const VIDEO_STALL_MS = 600000;
+const VIDEO_STALL_MS = 30000;
 
 function detach(img) {
   const s = sessions.get(img);
@@ -138,10 +138,13 @@ export function clear(img) {
 }
 
 const videoSessions = new WeakMap();
+const liveVideos = new Map();
 const watchSessions = new WeakMap();
 const WATCH_MIN_MS = 100;
 const CHUNK_US = 33333;
 const PENDING_CAP = 64;
+const DECODER_ERROR_LIMIT = 5;
+let videoSeq = 0;
 
 export function supportsVideo() {
   return typeof window !== "undefined" && typeof window.VideoDecoder === "function" && typeof window.EncodedVideoChunk === "function";
@@ -336,15 +339,6 @@ function safeInvoke(s, method, ...args) {
   }
 }
 
-function closeFrame(s) {
-  if (!s.frame) return;
-  try {
-    s.frame.close();
-  } catch {
-  }
-  s.frame = null;
-}
-
 function closeDecoder(s) {
   const d = s.decoder;
   s.decoder = null;
@@ -355,14 +349,18 @@ function closeDecoder(s) {
   }
 }
 
-function finish(s, reason, status) {
+function blank(canvas) {
+  if (!canvas) return;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
+  ctx.fillStyle = "#000";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+}
+
+function finish(s, reason, status, retryable) {
   if (s.ended) return;
   s.ended = true;
   s.stopped = true;
-  if (s.raf) {
-    cancelAnimationFrame(s.raf);
-    s.raf = 0;
-  }
   if (s.statsTimer) {
     clearInterval(s.statsTimer);
     s.statsTimer = 0;
@@ -381,36 +379,34 @@ function finish(s, reason, status) {
     }
   }
   closeDecoder(s);
-  closeFrame(s);
   s.pending.clear();
+  s.scratch = null;
+  s.scratchCtx = null;
   if (videoSessions.get(s.canvas) === s) videoSessions.delete(s.canvas);
-  watchSessions.delete(s.canvas);
-  blank(s.canvas);
-  safeInvoke(s, "OnVideoEnded", reason, status || 0);
+  if (liveVideos.get(s.key) === s) liveVideos.delete(s.key);
+  if (s.canvas && s.canvas.isConnected) blank(s.canvas);
+  safeInvoke(s, "OnVideoEnded", s.token, reason, status || 0, retryable === true);
 }
 
-function blank(canvas) {
-  if (!canvas) return;
-  const ctx = canvas.getContext("2d");
-  if (!ctx) return;
-  ctx.fillStyle = "#000";
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-}
-
-function onFrame(s, frame) {
-  if (s.ended) {
-    try {
-      frame.close();
-    } catch {
-    }
-    return;
+function sweepOrphans(keep) {
+  for (const s of [...liveVideos.values()]) {
+    if (s === keep || s.ended) continue;
+    if (!s.canvas || s.canvas.isConnected) continue;
+    finish(s, "the canvas was replaced", 0, true);
   }
-  closeFrame(s);
-  s.frame = frame;
-  s.lastFrameAt = performance.now();
-  const arrival = s.pending.get(frame.timestamp);
-  s.pending.delete(frame.timestamp);
-  s.frameArrival = arrival === undefined ? -1 : arrival;
+}
+
+function scratchFor(s, w, h) {
+  if (!s.scratch) {
+    s.scratch = document.createElement("canvas");
+    s.scratch.width = Math.max(1, w);
+    s.scratch.height = Math.max(1, h);
+    s.scratchCtx = s.scratch.getContext("2d", { alpha: false, willReadFrequently: true });
+  } else if (s.scratch.width < w || s.scratch.height < h) {
+    s.scratch.width = Math.max(s.scratch.width, w);
+    s.scratch.height = Math.max(s.scratch.height, h);
+  }
+  return s.scratchCtx;
 }
 
 function readPixel(s, fx, fy) {
@@ -420,8 +416,11 @@ function readPixel(s, fx, fy) {
   if (!(fx >= 0) || fx > 1 || !(fy >= 0) || fy > 1) return null;
   const px = Math.min(w - 1, Math.floor(fx * w));
   const py = Math.min(h - 1, Math.floor(fy * h));
+  const ctx = scratchFor(s, 1, 1);
+  if (!ctx) return null;
   try {
-    const d = s.ctx.getImageData(px, py, 1, 1).data;
+    ctx.drawImage(s.canvas, px, py, 1, 1, 0, 0, 1, 1);
+    const d = ctx.getImageData(0, 0, 1, 1).data;
     return [d[0], d[1], d[2]];
   } catch {
     return null;
@@ -432,76 +431,148 @@ function near(a, b, tolerance) {
   return Math.abs(a - b) <= tolerance;
 }
 
-function checkWatch(s, now) {
+function checkWatch(s, frame, fw, fh, now) {
   const w = watchSessions.get(s.canvas);
   if (!w || w.points.length === 0) return;
   if (now - w.checkedAt < WATCH_MIN_MS) return;
   w.checkedAt = now;
+  const due = [];
   for (const p of w.points) {
-    const until = w.cooldowns.get(p.id) || 0;
-    if (now < until) continue;
-    const px = readPixel(s, p.fx, p.fy);
-    if (!px) continue;
-    if (!near(px[0], p.r, w.tolerance) || !near(px[1], p.g, w.tolerance) || !near(px[2], p.b, w.tolerance)) continue;
+    if (now < (w.cooldowns.get(p.id) || 0)) continue;
+    if (!(p.fx >= 0) || p.fx > 1 || !(p.fy >= 0) || p.fy > 1) continue;
+    due.push(p);
+  }
+  if (due.length === 0) return;
+  const ctx = scratchFor(s, due.length, 1);
+  if (!ctx) return;
+  let data;
+  try {
+    for (let i = 0; i < due.length; i++) {
+      const sx = Math.min(fw - 1, Math.floor(due[i].fx * fw));
+      const sy = Math.min(fh - 1, Math.floor(due[i].fy * fh));
+      ctx.drawImage(frame, sx, sy, 1, 1, i, 0, 1, 1);
+    }
+    data = ctx.getImageData(0, 0, due.length, 1).data;
+  } catch {
+    return;
+  }
+  for (let i = 0; i < due.length; i++) {
+    const p = due[i];
+    const o = i * 4;
+    if (!near(data[o], p.r, w.tolerance) || !near(data[o + 1], p.g, w.tolerance) || !near(data[o + 2], p.b, w.tolerance)) continue;
     w.cooldowns.set(p.id, now + w.cooldownMs);
     safeInvoke(s, "OnWatchHit", p.id);
   }
 }
 
-function draw(s) {
-  s.raf = 0;
-  if (s.ended) return;
-  const frame = s.frame;
-  if (frame) {
-    s.frame = null;
-    const w = frame.displayWidth || frame.codedWidth;
-    const h = frame.displayHeight || frame.codedHeight;
+function paint(s, frame, arrival) {
+  const w = frame.displayWidth || frame.codedWidth;
+  const h = frame.displayHeight || frame.codedHeight;
+  if (w <= 0 || h <= 0) return;
+  try {
+    if (s.canvas.width !== w || s.canvas.height !== h) {
+      s.canvas.width = w;
+      s.canvas.height = h;
+    }
+    s.ctx.drawImage(frame, 0, 0, w, h);
+  } catch {
+    return;
+  }
+  s.frameW = w;
+  s.frameH = h;
+  s.drawn++;
+  const now = performance.now();
+  s.lastFrameAt = now;
+  if (arrival >= 0) {
+    s.latencySum += now - arrival;
+    s.latencyCount++;
+  }
+  checkWatch(s, frame, w, h, now);
+}
+
+function onFrame(s, frame) {
+  if (s.ended) {
     try {
-      if (s.canvas.width !== w || s.canvas.height !== h) {
-        s.canvas.width = w;
-        s.canvas.height = h;
-      }
-      s.ctx.drawImage(frame, 0, 0, w, h);
-      s.frameW = w;
-      s.frameH = h;
-      s.drawn++;
-      const now = performance.now();
-      if (s.frameArrival >= 0) {
-        s.latencySum += now - s.frameArrival;
-        s.latencyCount++;
-      }
-      checkWatch(s, now);
+      frame.close();
     } catch {
     }
+    return;
+  }
+  s.decoded++;
+  const arrival = s.pending.get(frame.timestamp);
+  s.pending.delete(frame.timestamp);
+  try {
+    paint(s, frame, arrival === undefined ? -1 : arrival);
+  } finally {
     try {
       frame.close();
     } catch {
     }
   }
-  s.raf = requestAnimationFrame(() => draw(s));
+}
+
+function queueDepth(s) {
+  const d = s.decoder;
+  return d && d.state === "configured" ? d.decodeQueueSize : 0;
 }
 
 function tickStats(s) {
   if (s.ended) return;
+  if (s.canvas && !s.canvas.isConnected) {
+    finish(s, "the canvas was replaced", 0, true);
+    return;
+  }
   const now = performance.now();
   if (s.lastFrameAt === 0 && now - s.startedAt > FIRST_FRAME_MS) {
-    finish(s, "no first frame within " + Math.round(FIRST_FRAME_MS / 1000) + "s", 0);
+    finish(s, "no first frame within " + Math.round(FIRST_FRAME_MS / 1000) + "s", 0, false);
     return;
   }
   if (s.lastFrameAt > 0 && now - s.lastFrameAt > VIDEO_STALL_MS) {
-    finish(s, "no frames for " + Math.round(VIDEO_STALL_MS / 1000) + "s", 0);
+    finish(s, "no frames for " + Math.round(VIDEO_STALL_MS / 1000) + "s", 0, true);
     return;
   }
   const dt = Math.max(1, now - s.statsAt);
-  const fps = Math.round((s.drawn * 1000) / dt);
-  const latency = s.latencyCount > 0 ? Math.round(s.latencySum / s.latencyCount) : 0;
-  const kbps = Math.round((s.bytesSince * 8) / dt);
+  const stats = {
+    token: s.token,
+    fps: Math.round((s.drawn * 1000) / dt),
+    latencyMs: s.latencyCount > 0 ? Math.round(s.latencySum / s.latencyCount) : 0,
+    frameW: s.frameW,
+    frameH: s.frameH,
+    kbps: Math.round((s.bytesSince * 8) / dt),
+    decoded: s.decoded,
+    drawn: s.drawn,
+    dropQueue: s.dropQueue,
+    dropKey: s.dropKey,
+    dropError: s.dropError,
+    queue: queueDepth(s),
+    sinceDrawnMs: s.lastFrameAt > 0 ? Math.round(now - s.lastFrameAt) : -1
+  };
   s.statsAt = now;
+  s.decoded = 0;
   s.drawn = 0;
+  s.dropQueue = 0;
+  s.dropKey = 0;
+  s.dropError = 0;
   s.latencySum = 0;
   s.latencyCount = 0;
   s.bytesSince = 0;
-  safeInvoke(s, "OnVideoStats", fps, latency, s.frameW, s.frameH, kbps);
+  safeInvoke(s, "OnVideoStats", stats);
+}
+
+function decoderFailed(s, message) {
+  if (s.ended) return;
+  s.dropError++;
+  s.decoderErrors++;
+  if (s.decoderErrors > DECODER_ERROR_LIMIT) {
+    finish(s, "decoder error: " + message, 0, true);
+    return;
+  }
+  closeDecoder(s);
+  s.codec = null;
+  s.needKey = true;
+  s.backlog = false;
+  s.pending.clear();
+  if (s.sps) configure(s);
 }
 
 function configure(s) {
@@ -519,27 +590,37 @@ function configure(s) {
   try {
     const d = new VideoDecoder({
       output: (frame) => onFrame(s, frame),
-      error: (e) => finish(s, "decoder error: " + (e && e.message ? e.message : String(e)), 0)
+      error: (e) => decoderFailed(s, e && e.message ? e.message : String(e))
     });
     d.configure({ codec: info.codec, optimizeForLatency: true });
     s.decoder = d;
     s.needKey = true;
   } catch (e) {
-    finish(s, "decoder error: " + (e && e.message ? e.message : String(e)), 0);
+    finish(s, "decoder error: " + errText(e), 0, false);
   }
 }
 
 function submit(s, nal, isKey, now) {
   const d = s.decoder;
-  if (!d || d.state !== "configured") return;
+  if (!d || d.state !== "configured") {
+    s.dropError++;
+    return;
+  }
   if (isKey) {
-    if (!s.sps || !s.pps) return;
+    if (!s.sps || !s.pps) {
+      s.dropKey++;
+      return;
+    }
     s.needKey = false;
   } else if (s.needKey) {
+    s.dropKey++;
     return;
-  } else if (d.decodeQueueSize > s.opts.maxQueue) {
-    s.needKey = true;
+  } else if (s.backlog ? d.decodeQueueSize > 1 : d.decodeQueueSize > s.opts.maxQueue) {
+    s.backlog = true;
+    s.dropQueue++;
     return;
+  } else {
+    s.backlog = false;
   }
   const data = isKey ? annexB([s.sps, s.pps, nal]) : annexB([nal]);
   const timestamp = s.ts;
@@ -548,9 +629,9 @@ function submit(s, nal, isKey, now) {
   while (s.pending.size > PENDING_CAP) s.pending.delete(s.pending.keys().next().value);
   try {
     d.decode(new EncodedVideoChunk({ type: isKey ? "key" : "delta", timestamp, data }));
-  } catch {
+  } catch (e) {
     s.pending.delete(timestamp);
-    s.needKey = true;
+    decoderFailed(s, errText(e));
   }
 }
 
@@ -612,37 +693,51 @@ async function pump(s) {
     reason = aborted ? "stopped" : errText(e);
     status = typeof e?.status === "number" ? e.status : 0;
   }
-  finish(s, s.stopped ? "stopped" : reason, status);
+  finish(s, s.stopped ? "stopped" : reason, status, false);
 }
 
 export function startVideo(canvas, url, dotnet, opts) {
   if (!canvas || !supportsVideo()) return false;
-  stopVideo(canvas);
+  const o = Object.assign({ maxQueue: 4, key: "", token: "" }, opts || {});
+  const key = o.key || url;
+  const onCanvas = videoSessions.get(canvas);
+  if (onCanvas) finish(onCanvas, "stopped", 0, false);
+  const onKey = liveVideos.get(key);
+  if (onKey) finish(onKey, "stopped", 0, false);
+  sweepOrphans(null);
   const ctx = canvas.getContext("2d", { alpha: false, desynchronized: true });
   if (!ctx) return false;
   const s = {
+    id: ++videoSeq,
+    key,
+    token: o.token,
     canvas,
     ctx,
+    scratch: null,
+    scratchCtx: null,
     url,
     dotnet,
-    opts: Object.assign({ maxQueue: 4 }, opts || {}),
+    opts: o,
     ctrl: new AbortController(),
     reader: null,
     decoder: null,
+    decoderErrors: 0,
     sps: null,
     pps: null,
     codec: null,
     width: 0,
     height: 0,
     needKey: true,
+    backlog: false,
     ts: 0,
     pending: new Map(),
-    frame: null,
-    frameArrival: -1,
     frameW: 0,
     frameH: 0,
-    raf: 0,
+    decoded: 0,
     drawn: 0,
+    dropQueue: 0,
+    dropKey: 0,
+    dropError: 0,
     latencySum: 0,
     latencyCount: 0,
     bytesSince: 0,
@@ -654,18 +749,18 @@ export function startVideo(canvas, url, dotnet, opts) {
     ended: false
   };
   videoSessions.set(canvas, s);
+  liveVideos.set(key, s);
   s.statsTimer = setInterval(() => tickStats(s), 1000);
-  s.raf = requestAnimationFrame(() => draw(s));
   pump(s);
   return true;
 }
 
-export function stopVideo(canvas) {
-  if (!canvas) return;
-  const s = videoSessions.get(canvas);
-  if (!s) return;
-  s.stopped = true;
-  finish(s, "stopped", 0);
+export function stopVideo(canvas, key) {
+  const onCanvas = canvas ? videoSessions.get(canvas) : null;
+  if (onCanvas) finish(onCanvas, "stopped", 0, false);
+  const onKey = key ? liveVideos.get(key) : null;
+  if (onKey) finish(onKey, "stopped", 0, false);
+  sweepOrphans(null);
 }
 
 export function measureCanvas(canvas) {
@@ -919,6 +1014,7 @@ export function setStageBlocked(stage, blocked, ms) {
 }
 
 const keySessions = new WeakMap();
+const liveKeys = new Set();
 const KEY_NAMES = {
   Enter: "enter",
   Escape: "back",
@@ -966,11 +1062,16 @@ function onLiveKey(k, ev) {
   invokeQuiet(k.dotnet, "OnLiveKey", name);
 }
 
-function detachKeys(stage) {
-  const k = keySessions.get(stage);
-  if (!k) return;
+function dropKeys(k) {
   document.removeEventListener("keydown", k.onKey, true);
-  keySessions.delete(stage);
+  liveKeys.delete(k);
+  if (keySessions.get(k.stage) === k) keySessions.delete(k.stage);
+}
+
+function detachKeys(stage) {
+  for (const k of [...liveKeys]) {
+    if (k.stage === stage || !k.stage.isConnected) dropKeys(k);
+  }
 }
 
 export function captureKeys(stage, dotnet, on, opts) {
@@ -987,6 +1088,7 @@ export function captureKeys(stage, dotnet, on, opts) {
   k.onKey = (ev) => onLiveKey(k, ev);
   document.addEventListener("keydown", k.onKey, true);
   keySessions.set(stage, k);
+  liveKeys.add(k);
   return true;
 }
 
@@ -995,6 +1097,7 @@ export function unbindStage(stage) {
   detachKeys(stage);
   const s = stageSessions.get(stage);
   if (!s) return;
+  stageSessions.delete(stage);
   stage.removeEventListener("pointerdown", s.onDown);
   stage.removeEventListener("pointermove", s.onMove);
   stage.removeEventListener("pointerup", s.onUp);
@@ -1003,5 +1106,4 @@ export function unbindStage(stage) {
   stage.style.touchAction = "";
   clearTimers(s);
   clearLine(s);
-  stageSessions.delete(stage);
 }

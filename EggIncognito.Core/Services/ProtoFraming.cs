@@ -5,6 +5,8 @@ using Google.Protobuf;
 namespace EggIncognito.Core.Services;
 
 public static class ProtoFraming {
+    public const int MaxInflatedBytes = 64 * 1024 * 1024;
+
     public static byte[] FromBase64Loose(string s) {
         s = s.Trim().Replace(' ', '+');
         int pad = s.Length % 4;
@@ -25,7 +27,15 @@ public static class ProtoFraming {
         using var input = new MemoryStream(compressed);
         using var decompressor = wrap(input);
         using var output = new MemoryStream();
-        decompressor.CopyTo(output);
+        byte[] buffer = new byte[81920];
+        long total = 0;
+        int read;
+        while ((read = decompressor.Read(buffer)) > 0) {
+            total += read;
+            if (total > MaxInflatedBytes) throw new InvalidDataException("decompressed payload exceeds 64 MiB");
+            output.Write(buffer, 0, read);
+        }
+
         return output.ToArray();
     }
 
@@ -47,7 +57,7 @@ public static class ProtoFraming {
             var outer = AuthenticatedMessage.Parser.ParseFrom(bytes);
             return outer.Message.Length == 0 ? null :
                 outer.Compressed ? Decompress(outer.Message.ToByteArray()) : outer.Message.ToByteArray();
-        } catch (InvalidProtocolBufferException) {
+        } catch (Exception ex) when (ex is InvalidProtocolBufferException or InvalidDataException) {
             return null;
         }
     }

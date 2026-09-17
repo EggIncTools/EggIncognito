@@ -1540,7 +1540,9 @@
         if (res.IsSuccessStatusCode) {
             await NewDesign();
             await RefreshDesigns();
-        } else Fail($"delete failed: HTTP {(int)res.StatusCode}");
+        } else {
+            Fail($"delete failed: HTTP {(int)res.StatusCode}");
+        }
     }
 
     async Task RefreshDesigns() {

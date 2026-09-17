@@ -76,10 +76,8 @@
         try {
             using var client = Client();
             var resp = await client.GetFromJsonAsync<ThemeListResponse>("/api/theme");
-            foreach (var row in resp?.Themes ?? []) {
-                _themes.Add(new ThemeRow(row.Slug ?? "", row.Name ?? "", row.IsActive));
-                if (row.IsActive) _activeSlug = row.Slug ?? "";
-            }
+            _themes.AddRange(resp?.Themes ?? []);
+            _activeSlug = _themes.FirstOrDefault(t => t.IsActive)?.Slug ?? "";
         }
         catch (HttpRequestException) {
         }
@@ -103,7 +101,9 @@
             if (activate.IsSuccessStatusCode) {
                 Toasts.Push(StatusNoteKind.Ok, $"{preset.Name} active; reload to apply everywhere", "Reload", Reload);
                 await LoadThemesAsync();
-            } else Toasts.Push(StatusNoteKind.Error, "preset failed validation");
+            } else {
+                Toasts.Push(StatusNoteKind.Error, "preset failed validation");
+            }
 
             return;
         }

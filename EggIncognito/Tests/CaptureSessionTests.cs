@@ -10,22 +10,11 @@ public sealed class CaptureSessionTests : IDisposable {
     private CaptureSession NewSession(out FakeCaptureProxy fake) {
         var f = new FakeCaptureProxy();
         fake = f;
-        string contentRoot = RealContentRoot();
+        string contentRoot = TestPaths.WebProjectDir();
         string tmp = _tmp.CreateSubdir();
         var opts = new CaptureSessionOptions(18080, null, null,
             false, false, tmp, Path.Combine(tmp, "ca.cer"));
         return new CaptureSession(contentRoot, opts, _ => f);
-    }
-
-    private static string RealContentRoot() {
-        var dir = new DirectoryInfo(AppContext.BaseDirectory);
-        while (dir is not null) {
-            string candidate = Path.Combine(dir.FullName, "EggIncognito", "RouteMap", "routes.yaml");
-            if (File.Exists(candidate)) return Path.Combine(dir.FullName, "EggIncognito");
-            dir = dir.Parent;
-        }
-
-        throw new InvalidOperationException("Could not locate the EggIncognito project content root.");
     }
 
     [Fact]

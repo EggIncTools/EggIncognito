@@ -181,9 +181,7 @@
             var open = needle.Length > 0 || _endpoints.IsOpen(group.Key);
             rows.Add(new DocRailRow(group.Key, null, group.Key + "/", 0, true, open, false));
             if (!open) continue;
-            foreach (var e in group) {
-                rows.Add(new DocRailRow(e.Key, e, RouteNamespaces.LocalPath(e.Key), 0, false, false, Locked(e.Key)));
-            }
+            foreach (var e in group) rows.Add(new DocRailRow(e.Key, e, RouteNamespaces.LocalPath(e.Key), 0, false, false, Locked(e.Key)));
         }
 
         return rows;

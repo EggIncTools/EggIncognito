@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using EggIncognito.Core.Services;
 using EggIncognito.Data.Models;
 using EggIncognito.Data.Services;
 using Microsoft.EntityFrameworkCore;
@@ -7,7 +8,7 @@ using Microsoft.EntityFrameworkCore;
 namespace EggIncognito.Services.DataApi;
 
 public static class ArtifactObservationSource {
-    private static readonly JsonSerializerOptions IndentedJson = new() { WriteIndented = true };
+    private static readonly JsonSerializerOptions IndentedJson = JsonPresets.Indented;
     private static readonly Lock Gate = new();
     private static (int Count, long MaxId, int Contributed, long ContributedMaxId) _stamp = (-1, -1, -1, -1);
     private static string? _cached;

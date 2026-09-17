@@ -1,11 +1,12 @@
 using EggIdentity.UI;
+using EggIncognito.Services.Feed;
 
 namespace EggIncognito.Services.Notifications;
 
 public sealed class NotificationDraft {
     public string Url { get; set; } = "";
-    public string EventKind { get; set; } = "proto_build";
-    public string Trigger { get; set; } = "version_up";
+    public string EventKind { get; set; } = FeedEventKinds.ProtoBuild;
+    public string Trigger { get; set; } = FeedEventKinds.Proto.DefaultTrigger;
     public bool Android { get; set; } = true;
     public bool Ios { get; set; } = true;
     public bool Active { get; set; } = true;
@@ -30,8 +31,8 @@ public sealed class NotificationsWorkbenchState : WorkbenchStateBase {
 
     public void ResetNew() {
         NewDraft.Url = "";
-        NewDraft.EventKind = "proto_build";
-        NewDraft.Trigger = "version_up";
+        NewDraft.EventKind = FeedEventKinds.ProtoBuild;
+        NewDraft.Trigger = FeedEventKinds.Proto.DefaultTrigger;
         NewDraft.Android = true;
         NewDraft.Ios = true;
         NewDraft.Active = true;

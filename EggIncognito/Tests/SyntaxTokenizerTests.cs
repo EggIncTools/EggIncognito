@@ -255,14 +255,10 @@ public class SyntaxTokenizerTests {
         var backward = new HighlightedText(source, SyntaxHighlighter.Tokenizer("csharp"));
 
         var forwardKinds = new List<TokenKind>();
-        for (int i = 0; i < forward.LineCount; i++) {
-            forwardKinds.AddRange(forward.TokensFor(i).Select(t => t.Kind));
-        }
+        for (int i = 0; i < forward.LineCount; i++) forwardKinds.AddRange(forward.TokensFor(i).Select(t => t.Kind));
 
         var backwardKinds = new List<List<TokenKind>>();
-        for (int i = backward.LineCount - 1; i >= 0; i--) {
-            backwardKinds.Insert(0, [.. backward.TokensFor(i).Select(t => t.Kind)]);
-        }
+        for (int i = backward.LineCount - 1; i >= 0; i--) backwardKinds.Insert(0, [.. backward.TokensFor(i).Select(t => t.Kind)]);
 
         List<TokenKind> flattened = [.. backwardKinds.SelectMany(x => x)];
         Assert.Equal(forwardKinds, flattened);
@@ -272,9 +268,7 @@ public class SyntaxTokenizerTests {
     [Fact]
     public void UnterminatedBlockComment_DoesNotThrowAndCarriesState() {
         var doc = SyntaxHighlighter.Highlight("/* open\nstill open\nand still", "csharp");
-        for (int i = 0; i < doc.LineCount; i++) {
-            Assert.All(doc.TokensFor(i), t => Assert.Equal(TokenKind.Comment, t.Kind));
-        }
+        for (int i = 0; i < doc.LineCount; i++) Assert.All(doc.TokensFor(i), t => Assert.Equal(TokenKind.Comment, t.Kind));
     }
 
     private sealed class ThrowingTokenizer : ISyntaxTokenizer {

@@ -191,9 +191,7 @@ public sealed class FarmAssetCatalog {
     private void Append(List<FarmMeshPiece> into, HashSet<string> seen, AssetType type, string? shellIdentifier) {
         if (AppendFrom(into, seen, type, shellIdentifier)) return;
         if (AppendFrom(into, seen, type, DefaultShellFor(type))) return;
-        if (_baseStems.TryGetValue(type, out string? stem) && seen.Add(stem)) {
-            into.Add(new FarmMeshPiece(type, stem, stem, null, null, null));
-        }
+        if (_baseStems.TryGetValue(type, out string? stem) && seen.Add(stem)) into.Add(new FarmMeshPiece(type, stem, stem, null, null, null));
     }
 
     private bool AppendFrom(List<FarmMeshPiece> into, HashSet<string> seen, AssetType type, string? shellIdentifier) {
@@ -232,9 +230,7 @@ public sealed class FarmAssetCatalog {
 
     private static void AddVote(Dictionary<AssetType, Dictionary<string, int>> votes, AssetType type, string stem) {
         if (stem.Length == 0) return;
-        if (!votes.TryGetValue(type, out var counts)) {
-            votes[type] = counts = [with(StringComparer.Ordinal)];
-        }
+        if (!votes.TryGetValue(type, out var counts)) votes[type] = counts = [with(StringComparer.Ordinal)];
 
         counts[stem] = counts.GetValueOrDefault(stem) + 1;
     }

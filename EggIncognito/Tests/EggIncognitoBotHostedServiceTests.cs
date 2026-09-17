@@ -12,6 +12,7 @@ public class EggIncognitoBotHostedServiceTests {
         var svc = new EggIncognitoBotHostedService(cfg, NullLogger<EggIncognitoBotHostedService>.Instance);
 
         await svc.StartAsync(CancellationToken.None);
+        Assert.Null(svc.Bot);
         await svc.StopAsync(CancellationToken.None);
     }
 }

@@ -23,14 +23,7 @@ public class ApiAccessGuardTests {
         OpCodes.Brtrue.Value
     ];
 
-    private static readonly HashSet<string> FloorMismatchBaseline = [
-        "ApiKeysController",
-        "CaptureController",
-        "ConfigController",
-        "DocsController",
-        "ProtoRegistryController",
-        "StoredEndpointController"
-    ];
+    private static readonly HashSet<string> FloorMismatchBaseline = ["CaptureController"];
 
     private static readonly int IsAtLeastToken =
         typeof(ICurrentUser).GetMethod(nameof(ICurrentUser.IsAtLeast))!.MetadataToken;

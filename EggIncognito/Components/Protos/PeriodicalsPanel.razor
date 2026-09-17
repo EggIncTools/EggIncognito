@@ -242,9 +242,7 @@
     protected override async Task OnInitializedAsync() {
         try {
             var fetched = await Client().GetFromJsonAsync<PeriodicalsSummary>("/api/periodicals/summary", JsonOpts);
-            if (fetched is not null) {
-                _summary = fetched;
-            }
+            if (fetched is not null) _summary = fetched;
         }
         catch (Exception ex) {
             Logger.LogWarning(ex, "the periodicals summary could not be loaded");
@@ -448,9 +446,7 @@
 
     static string Pretty(string raw) {
         var words = raw.Replace('-', '_').Split('_', StringSplitOptions.RemoveEmptyEntries);
-        if (words.Length > 1 || raw.Contains('_')) {
-            return string.Join(' ', words.Select(w => w.Length > 0 ? char.ToUpperInvariant(w[0]) + w[1..].ToLowerInvariant() : w));
-        }
+        if (words.Length > 1 || raw.Contains('_')) return string.Join(' ', words.Select(w => w.Length > 0 ? char.ToUpperInvariant(w[0]) + w[1..].ToLowerInvariant() : w));
 
         var sb = new StringBuilder();
         foreach (var ch in raw) {

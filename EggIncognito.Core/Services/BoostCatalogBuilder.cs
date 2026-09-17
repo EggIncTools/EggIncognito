@@ -1,17 +1,10 @@
-using System.Text.Encodings.Web;
 using System.Text.Json;
-using System.Text.Json.Serialization;
 using EggIncognito.Core.Services.ProtoExtract;
 
 namespace EggIncognito.Core.Services;
 
 public static class BoostCatalogBuilder {
-    public static readonly JsonSerializerOptions CamelJson = new() {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        WriteIndented = true,
-        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
-        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
-    };
+    public static readonly JsonSerializerOptions CamelJson = JsonPresets.CamelIndentedRelaxed;
 
     public static BuildResult Build(byte[] bin, IReadOnlyList<MachoSymbols.Symbol> syms,
         IReadOnlyList<MachoSections.Section> sections, string configJson, string binaryVersion) {

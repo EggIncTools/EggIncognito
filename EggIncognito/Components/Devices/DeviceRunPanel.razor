@@ -1,21 +1,30 @@
 @rendermode @(RenderModes.InteractiveServer)
 @inherits SelfCallComponentBase
 @inject ICurrentUser User
+@inject IJSRuntime JS
+@inject IWebHostEnvironment Env
 @inject IServiceProvider Services
 @inject AdminNotifier Notifier
 @inject DeviceWorkbenchState State
-@inject ILogger<DeviceRunModal> Logger
+@inject ILogger<DeviceRunPanel> Logger
 @using System.Globalization
 @using System.Text
 @using System.Text.Json
 @using EggIncognito.Core.Services.Devices
 @using EggIncognito.Models.Devices
 @using EggIncognito.Services.Devices
-@implements IDisposable
+@implements IAsyncDisposable
 
 @if (Open) {
-    <ModalShell Title="Workflows" TitleId="deviceRunModalTitle" Width="ModalWidth.Large" CardClass="drm-card" OnClose="OnClose">
-        <div class="modal-body drm">
+    <div class="drp" popover="manual" role="dialog" aria-labelledby="deviceRunPanelTitle" tabindex="-1"
+         @ref="_card" @onkeydown="PanelKeyDown">
+        <div class="drp-head" @ref="_handle">
+            <h3 class="drp-title" id="deviceRunPanelTitle">Workflows</h3>
+            <button type="button" class="reg-edit-btn drp-close" aria-label="Close workflows" @onclick="CloseAsync">
+                <Icon Name="x"/>
+            </button>
+        </div>
+        <div class="drp-body drm">
             <div class="dwb-bar drm-pick">
                 @if (_books.Count > 0) {
                     <select class="field-input drm-book" aria-label="Cookbook" value="@_bookId"
@@ -160,7 +169,7 @@
                 </div>
             }
         </div>
-    </ModalShell>
+    </div>
 }
 
 @code {
@@ -218,6 +227,13 @@
     IDisposable? _topics;
     Timer? _tick;
 
+    ElementReference _card;
+    ElementReference _handle;
+    IJSObjectReference? _dragMod;
+    IJSObjectReference? _drag;
+    DotNetObjectReference<DeviceRunPanel>? _self;
+    bool _wasOpen;
+
     DeviceConsoleCache? Cache => _deviceId is { } id ? State.ConsoleFor(id) : null;
 
     DeviceCookbookFeed? CookbookFeed => Services.GetService(typeof(DeviceCookbookFeed)) as DeviceCookbookFeed;
@@ -229,6 +245,63 @@
     protected override void OnInitialized() {
         base.OnInitialized();
         _isAdmin = User.IsAtLeast(UserRole.Admin);
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender) {
+        if (Open && !_wasOpen) {
+            _wasOpen = true;
+            await AttachDragAsync();
+            await FocusPanelAsync();
+            return;
+        }
+
+        if (!Open && _wasOpen) {
+            _wasOpen = false;
+            await DetachDragAsync();
+        }
+    }
+
+    async Task AttachDragAsync() {
+        try {
+            _dragMod ??= await JS.InvokeAsync<IJSObjectReference>("import", InteropAsset.Url(Env, "./interop/popoverDrag.js"));
+            await _dragMod.InvokeVoidAsync("place", _card, State.RunPanelLeft, State.RunPanelTop,
+                State.RunPanelWidth, State.RunPanelHeight);
+            _self ??= DotNetObjectReference.Create(this);
+            _drag = await _dragMod.InvokeAsync<IJSObjectReference>("makeDraggable", _card, _handle, _self);
+        }
+        catch (Exception ex) when (ex is JSDisconnectedException or JSException or ObjectDisposedException) {
+            Logger.LogDebug(ex, "run panel drag unavailable");
+        }
+    }
+
+    async Task DetachDragAsync() {
+        await _drag.DisposeModuleQuietAsync("dispose", Logger);
+        _drag = null;
+    }
+
+    async Task FocusPanelAsync() {
+        try {
+            await _card.FocusAsync();
+        }
+        catch (Exception ex) when (ex is JSDisconnectedException or JSException or ObjectDisposedException) {
+            Logger.LogDebug(ex, "run panel focus failed");
+        }
+    }
+
+    [JSInvokable]
+    public void OnFloatChanged(double left, double top, double width, double height) {
+        State.RunPanelLeft = left;
+        State.RunPanelTop = top;
+        State.RunPanelWidth = width;
+        State.RunPanelHeight = height;
+    }
+
+    Task PanelKeyDown(KeyboardEventArgs e) {
+        return e.Key == "Escape" ? CloseAsync() : Task.CompletedTask;
+    }
+
+    Task CloseAsync() {
+        return OnClose.InvokeAsync();
     }
 
     protected override async Task OnParametersSetAsync() {
@@ -685,10 +758,15 @@
         return $"failed [{(int)resp.StatusCode}]";
     }
 
-    public void Dispose() {
+    public async ValueTask DisposeAsync() {
         _disposed = true;
         StopTick();
         StopRunWatch();
+        await DetachDragAsync();
+        await _dragMod.DisposeModuleQuietAsync(logger: Logger);
+        _dragMod = null;
+        _self?.Dispose();
+        _self = null;
     }
 
 }

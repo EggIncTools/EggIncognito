@@ -6,15 +6,11 @@ public static class DeviceJobKinds {
     public const string Probe = "probe";
     public const string StoreCheck = "store_check";
     public const string Harvest = "harvest";
-    public const string RegistrySave = "registry_save";
-    public const string RestartApp = "restart_app";
-    public const string Poke = "poke";
     public const string Recert = "recert";
     public const string Cookbook = "cookbook";
 }
 
 public static class DeviceJobStates {
-    public const string Queued = "queued";
     public const string Running = "running";
     public const string Succeeded = "succeeded";
     public const string Failed = "failed";

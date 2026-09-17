@@ -101,13 +101,9 @@ public static class ProtoDiff {
             DiffScope(om.Children, nm.Children, entries);
         }
 
-        foreach (var om in remainingOld) {
-            entries.Add(new MessageDiff(MessageDiffKind.Removed, om.Path, null, [], [], om.BodyLines));
-        }
+        foreach (var om in remainingOld) entries.Add(new MessageDiff(MessageDiffKind.Removed, om.Path, null, [], [], om.BodyLines));
 
-        foreach (var nm in remainingNew) {
-            entries.Add(new MessageDiff(MessageDiffKind.Added, null, nm.Path, [], [], nm.BodyLines));
-        }
+        foreach (var nm in remainingNew) entries.Add(new MessageDiff(MessageDiffKind.Added, null, nm.Path, [], [], nm.BodyLines));
     }
 
     private static double Similarity(ProtoMessage a, ProtoMessage b) {

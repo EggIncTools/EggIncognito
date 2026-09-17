@@ -1,6 +1,5 @@
 using System.Text;
 using System.Text.Json;
-using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using EggIdentity.Client;
 using EggIdentity.Contract;
@@ -31,10 +30,7 @@ public sealed partial class AdminController(ICurrentUser currentUser, IServicePr
     [GeneratedRegex("^[a-z0-9_-]{1,64}$")]
     private static partial Regex IconNameRegex();
 
-    private static readonly JsonSerializerOptions ProvenanceJson = new() {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
-    };
+    private static readonly JsonSerializerOptions ProvenanceJson = JsonPresets.CamelSkipNull;
 
     private EggIncognitoDbContext? Db => services.GetService(typeof(EggIncognitoDbContext)) as EggIncognitoDbContext;
     private IdentityApiClient? Identity => services.GetService(typeof(IdentityApiClient)) as IdentityApiClient;

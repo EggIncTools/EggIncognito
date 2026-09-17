@@ -1,7 +1,6 @@
 namespace EggIncognito.Services.Admin;
 
 public static class AdminTopics {
-    public const string Traffic = "traffic";
     public const string Users = "users";
     public const string Notifications = "notifications";
     public const string ThemePolicy = "theme-policy";
@@ -15,9 +14,7 @@ public static class AdminTopics {
     public const string Contributions = "contributions";
     public const string Sessions = "sessions";
     public const string Console = "console";
-    public const string BotConfig = "bot-config";
     public const string Maintenance = "maintenance";
-    public const string Deploy = "deploy";
     public const string VirtualDevices = "virtual-devices";
     public const string ImageBuilds = "image-builds";
     public const string DeviceStatus = "device-status";

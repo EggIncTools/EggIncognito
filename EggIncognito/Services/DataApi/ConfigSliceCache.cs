@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using EggIncognito.Core.Services;
 
 namespace EggIncognito.Services.DataApi;
 
@@ -8,7 +9,7 @@ public sealed class ConfigSliceCache {
         "items", "shells", "shellSets", "shellObjects", "shellGroups", "decorators"
     ];
 
-    private static readonly JsonSerializerOptions IndentedJson = new() { WriteIndented = true };
+    private static readonly JsonSerializerOptions IndentedJson = JsonPresets.Indented;
 
     private readonly Lock _lock = new();
     private string? _cachedPath;

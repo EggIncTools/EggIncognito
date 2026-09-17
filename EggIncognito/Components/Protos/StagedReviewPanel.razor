@@ -209,7 +209,9 @@
                 if (r is null) Ok("approved");
                 else if (r.Failed > 0) Err(BulkSummary(r));
                 else Ok(BulkSummary(r));
-            } else Err($"bulk approve failed ({(int)resp.StatusCode})");
+            } else {
+                Err($"bulk approve failed ({(int)resp.StatusCode})");
+            }
         }
         catch (Exception ex) {
             Err($"bulk approve error: {ex.Message}");
@@ -232,7 +234,9 @@
             if (resp.IsSuccessStatusCode) {
                 var r = await resp.Content.ReadFromJsonAsync<Models.Staging.BulkRejectResp>(JsonOpts);
                 Ok(r is null ? "rejected" : $"rejected {r.Rejected}");
-            } else Err($"bulk reject failed ({(int)resp.StatusCode})");
+            } else {
+                Err($"bulk reject failed ({(int)resp.StatusCode})");
+            }
         }
         catch (Exception ex) {
             Err($"bulk reject error: {ex.Message}");

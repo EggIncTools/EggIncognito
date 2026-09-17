@@ -47,9 +47,7 @@ public static class SideBySideDiffBuilder {
             }
 
             if (op.Kind == DiffOpKind.Insert) {
-                for (int k = 0; k < op.BLength; k++) {
-                    rows.Add(new DiffRow(DiffRowKind.Added, null, null, ++rightNo, b[op.BStart + k], NoInk, NoInk));
-                }
+                for (int k = 0; k < op.BLength; k++) rows.Add(new DiffRow(DiffRowKind.Added, null, null, ++rightNo, b[op.BStart + k], NoInk, NoInk));
 
                 continue;
             }
@@ -70,13 +68,9 @@ public static class SideBySideDiffBuilder {
                 rows.Add(new DiffRow(DiffRowKind.Changed, ++leftNo, left, ++rightNo, right, leftInk, rightInk));
             }
 
-            for (int k = paired; k < op.ALength; k++) {
-                rows.Add(new DiffRow(DiffRowKind.Removed, ++leftNo, a[op.AStart + k], null, null, NoInk, NoInk));
-            }
+            for (int k = paired; k < op.ALength; k++) rows.Add(new DiffRow(DiffRowKind.Removed, ++leftNo, a[op.AStart + k], null, null, NoInk, NoInk));
 
-            for (int k = paired; k < inserted; k++) {
-                rows.Add(new DiffRow(DiffRowKind.Added, null, null, ++rightNo, b[insertStart + k], NoInk, NoInk));
-            }
+            for (int k = paired; k < inserted; k++) rows.Add(new DiffRow(DiffRowKind.Added, null, null, ++rightNo, b[insertStart + k], NoInk, NoInk));
         }
 
         return new SideBySideResult(rows, FindHunkStarts(rows));

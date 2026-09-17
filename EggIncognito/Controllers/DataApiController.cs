@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using EggIncognito.Core.Services;
 using EggIncognito.Services;
 using EggIncognito.Services.Auth;
 using EggIncognito.Services.DataApi;
@@ -122,7 +123,7 @@ public sealed class DataApiController(DataCatalog catalog, ICurrentUser currentU
         return File(bytes, payload.ContentType);
     }
 
-    private static readonly JsonSerializerOptions IndentedJson = new() { WriteIndented = true };
+    private static readonly JsonSerializerOptions IndentedJson = JsonPresets.Indented;
 
     private static byte[] StripMeta(byte[] bytes) {
         try {

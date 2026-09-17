@@ -9,7 +9,7 @@ public sealed class FeedSubscription {
     [Column("target_url")] public string TargetUrl { get; set; } = "";
     [Column("event_kind")] public string EventKind { get; set; } = "proto_build";
     [Column("platforms")] public string[] Platforms { get; set; } = ["android", "ios"];
-    [Column("trigger")] public string Trigger { get; set; } = "proto_changed";
+    [Column("trigger")] public string Trigger { get; set; } = "version_up";
     [Column("filters")] public string[] Filters { get; set; } = [];
     [Column("secret")] public string? Secret { get; set; }
     [Column("label")] public string? Label { get; set; }

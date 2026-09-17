@@ -1,6 +1,13 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
     <ProjectReference Include="..\EggIncognito.Runner.csproj" />
-    <ProjectReference Include="..\..\EggIncognito.Core\EggIncognito.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="..\..\EggIncognito\Tests\TempDir.cs" Link="TempDir.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="EggIncognito.Tests" />
   </ItemGroup>
 </Project>

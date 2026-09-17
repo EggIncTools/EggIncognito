@@ -73,7 +73,7 @@ public enum TouchPhase { Down, Move, Up, Cancel }
 
 public readonly record struct UiScreenSize(int Width, int Height);
 
-public readonly record struct DeviceScreenState(bool Awake, bool Locked);
+public readonly record struct DeviceScreenState(bool Awake, bool Locked, int? NavMode = null);
 
 public interface IDeviceUiDriver {
     string Platform { get; }

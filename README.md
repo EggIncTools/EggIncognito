@@ -27,17 +27,6 @@ Listens on `http://localhost:5080`. Point your Egg, Inc. client at that address.
 
 ## Responses
 
-Endpoint files on disk, grouped by API namespace, keyed by API path:
-
-```
-Endpoints/
-  default/
-    ei/first_contact_secure.json
-  eids/
-    EI0000000000000001/
-      ei/first_contact_secure.json
-```
-
 Per-EID endpoint wins, default is the fallback. Files are protobuf JSON in camelCase; an empty or missing file returns all-default field values. With Postgres configured, stored rows overlay the file defaults.
 
 ## Capture
@@ -52,12 +41,6 @@ The app embeds a TLS-intercepting proxy that records real game traffic into reus
 - [EggIncognito.Data](EggIncognito.Data/README.md) - the optional Postgres layer.
 - [EggIncognito.Bot](EggIncognito.Bot/README.md) - the optional Discord bot.
 - [EggIncognito.RouteGenerator](EggIncognito.RouteGenerator/README.md) - the controller source generator.
-- EggIncognito.GameData - data-free game-data catalogs and effect folding, published as a package.
-- EggIncognito.Protos - the content-only `ei.proto` package; EggLedger builds against it.
-- EggIncognito.Runner - the device-farm agent.
-- EggIncognito.CssBuild - the build-time stylesheet compiler.
-- EggIncognito.FixtureSync - build-time refresh of the checked-in wire fixtures from a prod instance; runs only when `EGI_PROD_URL` and `EGI_PROD_API_KEY` are set.
-- EggIncognito.RelayAgent - the host-side sidecar for hosted capture routing.
 
 ## HTTPS (optional)
 

@@ -9,7 +9,7 @@ public sealed class RateLimitSettingsProvider : ISettingsProvider {
         """{"Anon":{"PermitLimit":30,"WindowSeconds":60,"SegmentsPerWindow":6},"Viewer":{"PermitLimit":120,"WindowSeconds":60,"SegmentsPerWindow":6},"Contributor":{"PermitLimit":600,"WindowSeconds":60,"SegmentsPerWindow":6},"Supporter":{"PermitLimit":1200,"WindowSeconds":60,"SegmentsPerWindow":6},"Keyed":{"PermitLimit":600,"WindowSeconds":60,"SegmentsPerWindow":6}}""";
 
     private const string PolicyDefaults =
-        """{"Global":{"PermitLimit":300,"WindowSeconds":60,"SegmentsPerWindow":6},"Egress":{"PermitLimit":10,"WindowSeconds":60,"SegmentsPerWindow":6},"Write":{"PermitLimit":60,"WindowSeconds":60,"SegmentsPerWindow":6},"Read":{"PermitLimit":120,"WindowSeconds":60,"SegmentsPerWindow":6},"Fetch":{"PermitLimit":300,"WindowSeconds":60,"SegmentsPerWindow":6},"Data":{"PermitLimit":600,"WindowSeconds":60,"SegmentsPerWindow":6},"DataAnon":{"PermitLimit":30,"WindowSeconds":60,"SegmentsPerWindow":6}}""";
+        """{"Egress":{"PermitLimit":10,"WindowSeconds":60,"SegmentsPerWindow":6},"Write":{"PermitLimit":60,"WindowSeconds":60,"SegmentsPerWindow":6},"Read":{"PermitLimit":120,"WindowSeconds":60,"SegmentsPerWindow":6},"Fetch":{"PermitLimit":300,"WindowSeconds":60,"SegmentsPerWindow":6},"Data":{"PermitLimit":600,"WindowSeconds":60,"SegmentsPerWindow":6},"DataAnon":{"PermitLimit":30,"WindowSeconds":60,"SegmentsPerWindow":6}}""";
 
     private const string ShapeNote =
         "Object of bucket name to {PermitLimit, WindowSeconds, SegmentsPerWindow}. "

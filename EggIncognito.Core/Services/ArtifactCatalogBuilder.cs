@@ -1,17 +1,10 @@
-using System.Text.Encodings.Web;
 using System.Text.Json;
-using System.Text.Json.Serialization;
 using Ei;
 
 namespace EggIncognito.Core.Services;
 
 public static class ArtifactCatalogBuilder {
-    public static readonly JsonSerializerOptions CamelJson = new() {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        WriteIndented = true,
-        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
-        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
-    };
+    public static readonly JsonSerializerOptions CamelJson = JsonPresets.CamelIndentedRelaxed;
 
     public static BuildResult Build(ArtifactsConfigurationResponse cfg, string gameVersion) {
         var rows = new List<ArtifactCatalogBuildRow>();

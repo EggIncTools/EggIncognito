@@ -5,7 +5,7 @@ using EggIncognito.Core.Services.ProtoExtract;
 namespace EggIncognito.Core.Services;
 
 public static class GameDataDocBuilders {
-    private static readonly JsonSerializerOptions CamelJson = BoostCatalogBuilder.CamelJson;
+    private static readonly JsonSerializerOptions CamelJson = JsonPresets.CamelIndentedRelaxed;
 
     public sealed record DocResult(string Json, int Count, IReadOnlyList<string> Skipped);
 

@@ -44,6 +44,7 @@ public sealed class ConfigController(
     }
 
     [HttpPost("{platform}/ingest")]
+    [ApiAccess(ApiAccessLevel.Admin)]
     [EnableRateLimiting("write")]
     public async Task<IActionResult> Ingest(string platform, [FromBody] IngestRequest body, CancellationToken ct) {
         if (RequireAdmin() is { } no) return no;
@@ -86,6 +87,7 @@ public sealed class ConfigController(
     }
 
     [HttpPost("{platform}/ingest-json")]
+    [ApiAccess(ApiAccessLevel.Admin)]
     [EnableRateLimiting("write")]
     public async Task<IActionResult> IngestJson(string platform, [FromBody] IngestJsonRequest body,
         CancellationToken ct) {
@@ -106,6 +108,7 @@ public sealed class ConfigController(
     }
 
     [HttpPost("{platform}/refresh-live")]
+    [ApiAccess(ApiAccessLevel.Admin)]
     [EnableRateLimiting("egress")]
     public async Task<IActionResult>
         RefreshLive(string platform, [FromBody] RefreshRequest? body, CancellationToken ct) {
@@ -146,6 +149,7 @@ public sealed class ConfigController(
     }
 
     [HttpPost("refresh-endpoints")]
+    [ApiAccess(ApiAccessLevel.Admin)]
     [EnableRateLimiting("egress")]
     public async Task<IActionResult> RefreshEndpoints([FromBody] RefreshEndpointsRequest? body, CancellationToken ct) {
         if (RequireAdmin() is { } no) return no;

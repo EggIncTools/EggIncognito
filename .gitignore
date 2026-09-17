@@ -31,3 +31,4 @@ EggIncognito/wwwroot/styles.css
 scratch/
 EggIncognito/DeviceTools/ios/tweaks/*/.theos/
 EggIncognito/DeviceTools/ios/tweaks/*/packages/
+.playwright-mcp/

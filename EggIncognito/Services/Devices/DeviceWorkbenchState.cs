@@ -15,7 +15,11 @@ public sealed class DeviceWorkbenchState : WorkbenchStateBase {
 
     public string? SelectedId { get; set; }
     public bool FleetOpen { get; set; }
-    public string? RunModalFor { get; set; }
+    public string? RunPanelFor { get; set; }
+    public double? RunPanelLeft { get; set; }
+    public double? RunPanelTop { get; set; }
+    public double? RunPanelWidth { get; set; }
+    public double? RunPanelHeight { get; set; }
     public HashSet<long> Expanded { get; } = [];
     public HashSet<string> Open { get; } = [SectionInput];
     public CaptureViewState Capture { get; } = new();
