@@ -177,8 +177,22 @@ public sealed class IosPlatform(
         return map;
     }
 
-    public override Task<DeviceProbeResult> ProbeAsync(DeviceTarget target, CancellationToken ct) =>
-        new IosDeviceProbe(runner, target.Target, target.Package).ProbeAsync(ct);
+    public override async Task<DeviceProbeResult> ProbeAsync(DeviceTarget target, CancellationToken ct) {
+        var usbmux = await new IosDeviceProbe(runner, target.Target, target.Package).ProbeAsync(ct);
+        if (usbmux.Reachable) return usbmux;
+        if (connections.Ios(target.Target) is not { } conn) {
+            WarnNoSshOnce();
+            return usbmux;
+        }
+
+        var ssh = await new IosSshVersionProbe(conn, target.Package).ProbeAsync(ct);
+        if (!ssh.Reachable) return usbmux;
+
+        logger.LogWarning(
+            "device probe: {Id} usbmux unreachable ({Note}), fell back to ssh -> installed {App}",
+            target.Id, usbmux.Note, ssh.InstalledAppVersion ?? "?");
+        return ssh;
+    }
 
     public override async Task<DeviceResult> RestartAppAsync(DeviceTarget target, CancellationToken ct) {
         if (string.IsNullOrEmpty(config.IosSshHost) || string.IsNullOrEmpty(config.IosSshKeyPath)) {

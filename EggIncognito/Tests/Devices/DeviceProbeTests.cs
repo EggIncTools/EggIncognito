@@ -77,6 +77,48 @@ public class DeviceProbeTests {
         Assert.False(r.Reachable);
     }
 
+    private static IosSshVersionProbe SshProbe(IProcessRunner runner) =>
+        new(new SshDeviceConnection(runner, new SshEndpoint("192.168.1.175", "2222", "/k")),
+            "com.auxbrain.egginc");
+
+    [Fact]
+    public async Task IosSsh_ReadsVersionAndBuildFromPlutil() {
+        var runner = new FakeRunner((exe, args) => {
+            Assert.Equal("ssh", exe);
+            Assert.Contains("CFBundleShortVersionString", args[^1]);
+            Assert.Contains("CFBundleVersion", args[^1]);
+            return new ProcessResult(0, "1.37.2\n1.37.2.1\n", "");
+        });
+        var r = await SshProbe(runner).ProbeAsync(default);
+        Assert.True(r.Reachable);
+        Assert.Equal("1.37.2", r.InstalledAppVersion);
+        Assert.Equal("1.37.2.1", r.InstalledBuild);
+        Assert.NotNull(r.Note);
+    }
+
+    [Fact]
+    public async Task IosSsh_AppDirMissing_ReachableButNoVersion() {
+        var runner = new FakeRunner((_, _) => new ProcessResult(3, "", ""));
+        var r = await SshProbe(runner).ProbeAsync(default);
+        Assert.True(r.Reachable);
+        Assert.Null(r.InstalledAppVersion);
+    }
+
+    [Fact]
+    public async Task IosSsh_SshFails_NotReachable() {
+        var runner = new FakeRunner((_, _) => new ProcessResult(255, "", "connection refused"));
+        var r = await SshProbe(runner).ProbeAsync(default);
+        Assert.False(r.Reachable);
+    }
+
+    [Fact]
+    public async Task IosSsh_BuildAbsent_StillReturnsAppVersion() {
+        var runner = new FakeRunner((_, _) => new ProcessResult(0, "1.37.2\n\n", ""));
+        var r = await SshProbe(runner).ProbeAsync(default);
+        Assert.Equal("1.37.2", r.InstalledAppVersion);
+        Assert.Null(r.InstalledBuild);
+    }
+
     private sealed class FakeRunner(Func<string, string[], ProcessResult> fn) : IProcessRunner {
         public Task<ProcessResult> RunAsync(string exe, string[] args, CancellationToken ct) =>
             Task.FromResult(fn(exe, args));

@@ -199,4 +199,44 @@ public class FarmPlacementExtractorTests {
         Near(-18.0, x2);
         Near(0.0, x3);
     }
+
+    private static byte[] WithFunctionCleared(byte[] bin, string needle) {
+        var copy = (byte[])bin.Clone();
+        Assert.True(MachoSymbols.TryFindFunc(MachoSymbols.Read(copy), [needle], out var fn));
+        Assert.True(MachoSections.TryVaToFileOffset(MachoSections.Read(copy), fn.Start, out int at, out _));
+        Array.Clear(copy, at, (int)(fn.End - fn.Start));
+        return copy;
+    }
+
+    [Fact]
+    public void Extract_OneWreckedFunction_ReportsOnlyItsOwnFields() {
+        if (!BinaryFixture.TryLoad(out var bin)) return;
+        var r = Extract(WithFunctionCleared(bin, "FarmScene10updateSilo"));
+        Assert.False(r.Ok);
+        Assert.All(r.Missing, m => Assert.StartsWith("silo", m, StringComparison.Ordinal));
+        Assert.Contains("unreadable fields", r.Diagnostics);
+    }
+
+    [Fact]
+    public void Extract_WidespreadLocatorFailure_SaysBinaryNotRecognised() {
+        if (!BinaryFixture.TryLoad(out var bin)) return;
+        var wrecked = WithFunctionCleared(bin, "FarmScene10updateSilo");
+        wrecked = WithFunctionCleared(wrecked, "FarmScene16updateTrophyCase");
+        wrecked = WithFunctionCleared(wrecked, "VehicleManager6update");
+
+        var r = Extract(wrecked);
+        Assert.False(r.Ok);
+        Assert.True(r.Missing.Count >= 8, $"expected a wrong-build-sized miss list, got {r.Missing.Count}");
+        Assert.Contains("not recognised", r.Diagnostics);
+        Assert.DoesNotContain("unreadable fields", r.Diagnostics);
+    }
+
+    [Fact]
+    public void Extract_NoPlacementSymbols_BailsBeforeReadingAnyLocator() {
+        if (!BinaryFixture.TryLoad(out var bin)) return;
+        var r = FarmPlacementExtractor.Extract(bin[..0x40_000], [], [], [], "truncated");
+        Assert.False(r.Ok);
+        Assert.Empty(r.Missing);
+        Assert.Contains("not found by symbol", r.Diagnostics);
+    }
 }

@@ -34,7 +34,9 @@ public abstract class JsonListStore<T>(string capturePath, string fileName) {
     private void TryWrite(List<T> rows) {
         try {
             Directory.CreateDirectory(capturePath);
-            File.WriteAllText(FilePath, JsonSerializer.Serialize(rows, Json));
+            string tmp = FilePath + ".tmp";
+            File.WriteAllText(tmp, JsonSerializer.Serialize(rows, Json));
+            File.Move(tmp, FilePath, true);
         } catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException) {
             CaptureDiagnostics.Failed("store write", FilePath, ex);
         }

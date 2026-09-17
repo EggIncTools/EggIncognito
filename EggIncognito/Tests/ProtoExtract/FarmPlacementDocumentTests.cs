@@ -90,8 +90,8 @@ public class FarmPlacementDocumentTests {
         },
         BinaryVersion = Version,
         Provenance = new Dictionary<string, PlacementProvenance>(StringComparer.Ordinal) {
-            ["habRow"] = PlacementProvenance.FromBinary("GameController::getHabPosition 0x10040593c"),
-            ["road"] = PlacementProvenance.FromBinary("VehicleManager::update 0x1008d6d58")
+            ["habRow"] = PlacementProvenance.FromBinary("GameController::getHabPosition"),
+            ["road"] = PlacementProvenance.FromBinary("VehicleManager::update")
         }
     };
 
