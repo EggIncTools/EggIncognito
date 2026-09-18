@@ -71,10 +71,7 @@ public static class ProtoEnumIndex {
     private static string FullName(string? package, List<Frame> stack) {
         var parts = new List<string>();
         if (!string.IsNullOrEmpty(package)) parts.Add(package);
-        foreach (var frame in stack) {
-            if (!string.IsNullOrEmpty(frame.Name)) parts.Add(frame.Name);
-        }
-
+        parts.AddRange(stack.Select(f => f.Name).Where(n => !string.IsNullOrEmpty(n))!);
         return string.Join(".", parts);
     }
 

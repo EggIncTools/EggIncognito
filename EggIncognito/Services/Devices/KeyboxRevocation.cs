@@ -34,11 +34,10 @@ public static partial class KeyboxRevocation {
             using var stream = await http.GetStreamAsync(StatusUrl, ct);
             using var doc = await JsonDocument.ParseAsync(stream, cancellationToken: ct);
             if (!doc.RootElement.TryGetProperty("entries", out var entries)) return ([], "status list has no entries");
-            var revoked = new List<string>();
-            foreach (string serial in serials) {
-                if (entries.TryGetProperty(serial, out var entry)) revoked.Add($"{serial} ({entry})");
-            }
-
+            var revoked = serials
+                .Select(s => entries.TryGetProperty(s, out var entry) ? $"{s} ({entry})" : null)
+                .OfType<string>()
+                .ToList();
             return (revoked, null);
         } catch (Exception ex) when (ex is HttpRequestException or JsonException or TaskCanceledException) {
             return ([], $"could not fetch the attestation status list: {ex.Message}");

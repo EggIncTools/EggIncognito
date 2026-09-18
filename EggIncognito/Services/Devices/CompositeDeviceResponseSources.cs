@@ -7,11 +7,7 @@ public sealed class CompositeDeviceResponseSources(IEnumerable<IDeviceResponseSo
     private readonly IDeviceResponseSources[] _inner = [.. inner];
 
     public ICaptureResponseSource? For(string deviceId) {
-        var sources = new List<ICaptureResponseSource>();
-        foreach (var candidate in _inner) {
-            if (candidate.For(deviceId) is { } source) sources.Add(source);
-        }
-
+        var sources = _inner.Select(c => c.For(deviceId)).OfType<ICaptureResponseSource>().ToList();
         return sources.Count switch {
             0 => null,
             1 => sources[0],

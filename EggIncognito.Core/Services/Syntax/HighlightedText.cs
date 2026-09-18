@@ -69,13 +69,9 @@ public sealed class HighlightedText {
 
     public List<Span> SpansFor(int index) {
         var tokens = TokensFor(index);
-        var spans = new List<Span>(tokens.Count);
-        foreach (var t in tokens) {
-            if (t.Length <= 0) continue;
-            spans.Add(new Span(t.Start, t.Length, TokenClasses.For(t.Kind)));
-        }
-
-        return spans;
+        return [.. tokens
+            .Where(t => t.Length > 0)
+            .Select(t => new Span(t.Start, t.Length, TokenClasses.For(t.Kind)))];
     }
 
     private static string[] SplitLines(string text) {

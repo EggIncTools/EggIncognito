@@ -121,25 +121,22 @@ public static class ArtifactObservationSource {
                 }
             }
 
-            var byproducts = new JsonArray();
-            foreach ((string key, (int occurrences, int total)) in frequency.OrderByDescending(f => f.Value.Total)) {
-                byproducts.Add(new JsonObject {
-                    ["byproduct"] = key,
-                    ["occurrences"] = occurrences,
-                    ["totalCount"] = total
-                });
-            }
+            var byproducts = new JsonArray([.. frequency
+                .OrderByDescending(f => f.Value.Total)
+                .Select(f => (JsonNode)new JsonObject {
+                    ["byproduct"] = f.Key,
+                    ["occurrences"] = f.Value.Occurrences,
+                    ["totalCount"] = f.Value.Total
+                })]);
 
-            var rarityOutcomes = new JsonArray();
-            foreach (var outcome in group
-                         .Where(g => g.RarityAchieved is not null)
-                         .GroupBy(g => g.RarityAchieved!, StringComparer.Ordinal)
-                         .OrderByDescending(g => g.Count())) {
-                rarityOutcomes.Add(new JsonObject {
+            var rarityOutcomes = new JsonArray([.. group
+                .Where(g => g.RarityAchieved is not null)
+                .GroupBy(g => g.RarityAchieved!, StringComparer.Ordinal)
+                .OrderByDescending(g => g.Count())
+                .Select(outcome => (JsonNode)new JsonObject {
                     ["rarity"] = outcome.Key,
                     ["count"] = outcome.Count()
-                });
-            }
+                })]);
 
             double[] goldenEggs = [.. group.Select(g => g.GoldenEggs)];
             double[] pricesPaid = [.. group.Where(g => g.GoldPricePaid is not null).Select(g => g.GoldPricePaid!.Value)];

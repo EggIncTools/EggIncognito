@@ -39,7 +39,7 @@ public class DeviceProbeTests {
         var runner = new FakeRunner((exe, args) => {
             Assert.Equal("ideviceinstaller", exe);
             Assert.Contains("3489c6b0", args);
-            Assert.Contains("-l", args);
+            Assert.Contains("list", args);
             return new ProcessResult(0, Plist, "");
         });
         var probe = new IosDeviceProbe(runner, "3489c6b0", "com.auxbrain.egginc");
@@ -77,6 +77,35 @@ public class DeviceProbeTests {
         Assert.False(r.Reachable);
     }
 
+    [Fact]
+    public async Task Ios_OldFlagSyntax_FallsBackToSubcommand() {
+        var seen = new List<string>();
+        var runner = new FakeRunner((_, args) => {
+            seen.Add(string.Join(' ', args));
+            return args.Contains("--xml")
+                ? new ProcessResult(1, "", "ideviceinstaller: invalid option -- 'x'")
+                : new ProcessResult(0, Plist, "");
+        });
+        var probe = new IosDeviceProbe(runner, "3489c6b0", "com.auxbrain.egginc");
+        var r = await probe.ProbeAsync(default);
+        Assert.True(r.Reachable);
+        Assert.Equal("1.35.8", r.InstalledAppVersion);
+        Assert.True(seen.Count > 1);
+    }
+
+    [Fact]
+    public async Task Ios_RealFailure_DoesNotKeepRetrying() {
+        int calls = 0;
+        var runner = new FakeRunner((_, _) => {
+            calls++;
+            return new ProcessResult(1, "", "No device found.");
+        });
+        var probe = new IosDeviceProbe(runner, "3489c6b0", "com.auxbrain.egginc");
+        var r = await probe.ProbeAsync(default);
+        Assert.False(r.Reachable);
+        Assert.Equal(1, calls);
+    }
+
     private static IosSshVersionProbe SshProbe(IProcessRunner runner) =>
         new(new SshDeviceConnection(runner, new SshEndpoint("192.168.1.175", "2222", "/k")),
             "com.auxbrain.egginc");
@@ -109,6 +138,18 @@ public class DeviceProbeTests {
         var runner = new FakeRunner((_, _) => new ProcessResult(255, "", "connection refused"));
         var r = await SshProbe(runner).ProbeAsync(default);
         Assert.False(r.Reachable);
+    }
+
+    [Fact]
+    public async Task IosSsh_ProbeUsesBinpackPlutilAndGrepFallbacks() {
+        string script = "";
+        var runner = new FakeRunner((_, args) => {
+            script = args[^1];
+            return new ProcessResult(0, "1.37.2\n1.37.2.1\n", "");
+        });
+        await SshProbe(runner).ProbeAsync(default);
+        Assert.Contains(DeviceShell.BinpackPlutil, script, StringComparison.Ordinal);
+        Assert.Contains("grep -a -A1 '<key>CFBundleShortVersionString</key>'", script, StringComparison.Ordinal);
     }
 
     [Fact]

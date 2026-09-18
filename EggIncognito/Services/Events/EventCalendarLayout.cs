@@ -116,9 +116,7 @@ public static class EventCalendarLayout {
     }
 
     private static List<IReadOnlyList<EventCalendarBar>> Lanes(List<EventCalendarBar> bars) {
-        var lanes = new List<IReadOnlyList<EventCalendarBar>>();
-        foreach (var lane in bars.GroupBy(b => b.Lane).OrderBy(g => g.Key)) lanes.Add([.. lane]);
-        return lanes;
+        return [.. bars.GroupBy(b => b.Lane).OrderBy(g => g.Key).Select(lane => (IReadOnlyList<EventCalendarBar>)[.. lane])];
     }
 
     private static int AssignLane(List<double> laneRights, double left, double right, double gap) {

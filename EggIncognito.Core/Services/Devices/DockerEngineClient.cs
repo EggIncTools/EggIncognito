@@ -288,8 +288,7 @@ public sealed partial class DockerEngineClient : IDisposable {
 
         try {
             using var doc = JsonDocument.Parse(res.Value ?? "[]");
-            var list = new List<DockerImage>();
-            foreach (var el in doc.RootElement.EnumerateArray()) list.Add(ReadImage(el));
+            List<DockerImage> list = [.. doc.RootElement.EnumerateArray().Select(ReadImage)];
             return DeviceResult<IReadOnlyList<DockerImage>>.Success(list);
         } catch (JsonException ex) {
             return DeviceResult<IReadOnlyList<DockerImage>>.Error($"unreadable image list: {ex.Message}");

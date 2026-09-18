@@ -419,7 +419,6 @@ html { color-scheme: dark; scrollbar-gutter: stable; }
 .status-note-x:hover { @apply text-fg; }
 .status-note-x:focus-visible { outline: 1px solid currentColor; outline-offset: 1px; }
 
-
 .diff-add { @apply text-ok; }
 .diff-del { @apply text-err; }
 .outcome-text { @apply inline-flex items-center gap-1 text-muted; }

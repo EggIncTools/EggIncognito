@@ -523,8 +523,7 @@
         if (string.IsNullOrEmpty(text) || index < 0) return TextSpans.Empty;
         IReadOnlyList<Span> spans = doc.SpansFor(index);
         if (ink is null || ink.Count == 0) return spans;
-        var over = new List<Span>(ink.Count);
-        foreach (var s in ink) over.Add(new Span(s.Start, s.Length, inkClass));
+        List<Span> over = [.. ink.Select(s => new Span(s.Start, s.Length, inkClass))];
         return TextSpans.Layer(spans, over, text.Length);
     }
 

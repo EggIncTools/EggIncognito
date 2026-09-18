@@ -18,10 +18,9 @@ public sealed class IosSshVersionProbe(SshDeviceConnection conn, string bundleId
             : new DeviceProbeResult(true, app, build, "read over ssh; usbmux did not answer");
     }
 
-    private const string Read =
-        "for k in CFBundleShortVersionString CFBundleVersion; do " +
-        "v=$(plutil -key \"$k\" \"$app/Info.plist\" 2>/dev/null " +
-        "|| defaults read \"$app/Info\" \"$k\" 2>/dev/null); echo \"$v\"; done";
+    private static readonly string Read =
+        $"v=$({DeviceShell.ReadPlistKey("CFBundleShortVersionString")}); echo \"$v\"; " +
+        $"v=$({DeviceShell.ReadPlistKey("CFBundleVersion")}); echo \"$v\";";
 
     private static (string? App, string? Build) Parse(string stdout) {
         string[] lines = stdout.Split('\n', StringSplitOptions.TrimEntries);

@@ -43,20 +43,16 @@ public sealed record ProtoBuildEvent(
     public IReadOnlyList<string> BlockedBy(FeedSubscription sub) {
         if (sub.Trigger == FeedEventKinds.TriggerSuspect) return [];
 
-        var blocked = new List<string>();
-        foreach (string filter in sub.Filters) {
-            bool fails = filter switch {
-                FeedEventKinds.FilterRequireClientVersion =>
-                    FlawList.Contains(ProtoVersionQuality.FlawNoClientVersion),
-                FeedEventKinds.FilterRequireProto =>
-                    FlawList.Contains(ProtoVersionQuality.FlawNoProto),
-                FeedEventKinds.FilterSaneBuild =>
-                    FlawList.Contains(ProtoVersionQuality.FlawBuildPlatformMismatch),
-                FeedEventKinds.FilterKnownDelta => Delta == VersionDelta.Unknown,
-                _ => false
-            };
-            if (fails) blocked.Add(filter);
-        }
+        List<string> blocked = [.. sub.Filters.Where(filter => filter switch {
+            FeedEventKinds.FilterRequireClientVersion =>
+                FlawList.Contains(ProtoVersionQuality.FlawNoClientVersion),
+            FeedEventKinds.FilterRequireProto =>
+                FlawList.Contains(ProtoVersionQuality.FlawNoProto),
+            FeedEventKinds.FilterSaneBuild =>
+                FlawList.Contains(ProtoVersionQuality.FlawBuildPlatformMismatch),
+            FeedEventKinds.FilterKnownDelta => Delta == VersionDelta.Unknown,
+            _ => false
+        })];
 
         return blocked;
     }
@@ -90,17 +86,11 @@ public sealed record ConfigChangedEvent(
         || string.Equals(sub.Trigger, Feed, StringComparison.Ordinal);
 
     public IReadOnlyList<string> BlockedBy(FeedSubscription sub) {
-        var blocked = new List<string>();
-        foreach (string filter in sub.Filters) {
-            bool fails = filter switch {
-                FeedEventKinds.FilterRequireAspects => Changed.Count == 0,
-                FeedEventKinds.FilterRequireIds => Added.Count == 0 && Removed.Count == 0,
-                _ => false
-            };
-            if (fails) blocked.Add(filter);
-        }
-
-        return blocked;
+        return [.. sub.Filters.Where(filter => filter switch {
+            FeedEventKinds.FilterRequireAspects => Changed.Count == 0,
+            FeedEventKinds.FilterRequireIds => Added.Count == 0 && Removed.Count == 0,
+            _ => false
+        })];
     }
 
     public string BuildBody(string? messageTemplate) =>

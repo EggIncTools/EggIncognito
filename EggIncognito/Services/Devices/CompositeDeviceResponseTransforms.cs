@@ -7,11 +7,7 @@ public sealed class CompositeDeviceResponseTransforms(IEnumerable<IDeviceRespons
     private readonly IDeviceResponseTransforms[] _inner = [.. inner];
 
     public ICaptureResponseTransform? For(string deviceId) {
-        var transforms = new List<ICaptureResponseTransform>();
-        foreach (var candidate in _inner) {
-            if (candidate.For(deviceId) is { } transform) transforms.Add(transform);
-        }
-
+        var transforms = _inner.Select(c => c.For(deviceId)).OfType<ICaptureResponseTransform>().ToList();
         return transforms.Count switch {
             0 => null,
             1 => transforms[0],

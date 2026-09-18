@@ -18,14 +18,10 @@ public static partial class DeviceParsing {
     }
 
     public static IReadOnlyList<string> ApkPaths(string pmPathOutput) {
-        var list = new List<string>();
-        foreach (string raw in pmPathOutput.Split('\n')) {
-            string line = raw.Trim();
-            if (line.StartsWith("package:", StringComparison.Ordinal))
-                list.Add(line["package:".Length..].Trim());
-        }
-
-        return list;
+        return [.. pmPathOutput.Split('\n')
+            .Select(raw => raw.Trim())
+            .Where(line => line.StartsWith("package:", StringComparison.Ordinal))
+            .Select(line => line["package:".Length..].Trim())];
     }
 
     public static string? SelectArmSplit(string pmPathOutput) {
@@ -44,14 +40,9 @@ public static partial class DeviceParsing {
     }
 
     public static IReadOnlyList<string> SelectConfigSplits(string pmPathOutput) {
-        var list = new List<string>();
-        foreach (string p in ApkPaths(pmPathOutput)) {
-            string name = p[(p.LastIndexOf('/') + 1)..];
-            if (name.StartsWith("split_config.", StringComparison.OrdinalIgnoreCase))
-                list.Add(p);
-        }
-
-        return list;
+        return [.. ApkPaths(pmPathOutput)
+            .Where(p => p[(p.LastIndexOf('/') + 1)..]
+                .StartsWith("split_config.", StringComparison.OrdinalIgnoreCase))];
     }
 
     public static string SplitNameFromPath(string apkPath) {

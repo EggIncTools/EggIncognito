@@ -9,12 +9,9 @@ public static class ContractMapper {
     public static IReadOnlyList<ContractObservation> FromPeriodicals(
         PeriodicalsResponse response, DateTimeOffset seenAt) {
         if (response.Contracts is null) return [];
-        var list = new List<ContractObservation>();
-        foreach (var c in response.Contracts.Contracts) {
-            var obs = FromProto(c, ContractSources.Device, seenAt);
-            if (obs is not null) list.Add(obs);
-        }
-        return list;
+        return [.. response.Contracts.Contracts
+            .Select(c => FromProto(c, ContractSources.Device, seenAt))
+            .OfType<ContractObservation>()];
     }
 
     public static IReadOnlyList<ContractObservation> FromCarpet(IReadOnlyList<CarpetContract> rows) {

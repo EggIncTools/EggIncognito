@@ -5,7 +5,7 @@ public sealed class IosBinaryPuller(SshDeviceConnection conn) {
         var locate = await conn.ShellAsync(
             $"for app in /private/var/containers/Bundle/Application/*/*.app; do " +
             $"if grep -qa {DeviceShell.Quote(bundleId)} \"$app/Info.plist\" 2>/dev/null; then " +
-            $"exe=$(plutil -key CFBundleExecutable \"$app/Info.plist\" 2>/dev/null || defaults read \"$app/Info\" CFBundleExecutable 2>/dev/null); " +
+            $"exe=$({DeviceShell.ReadPlistKey("CFBundleExecutable")}); " +
             $"if [ -n \"$exe\" ] && [ -f \"$app/$exe\" ]; then echo \"$app/$exe\"; break; fi; " +
             $"base=$(basename \"$app\" .app); [ -f \"$app/$base\" ] && echo \"$app/$base\" && break; " +
             $"fi; done", ct);

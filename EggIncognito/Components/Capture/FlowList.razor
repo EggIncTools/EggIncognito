@@ -247,11 +247,8 @@
 
     IEnumerable<string> SeenTypes() {
         var set = new SortedSet<string>(StringComparer.Ordinal);
-        foreach (var f in Flows) {
-            if (!string.IsNullOrEmpty(f.RequestType)) set.Add(f.RequestType);
-            if (!string.IsNullOrEmpty(f.ResponseType)) set.Add(f.ResponseType);
-        }
-
+        set.UnionWith(Flows.SelectMany(f => new[] { f.RequestType, f.ResponseType })
+            .Where(t => !string.IsNullOrEmpty(t))!);
         return set;
     }
 

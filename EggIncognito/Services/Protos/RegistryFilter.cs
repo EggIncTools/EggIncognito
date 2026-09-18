@@ -151,12 +151,10 @@ public static class RegistryFilter {
     }
 
     public static RegistryQuery Prune(RegistryQuery query) {
-        var groups = new List<FilterGroup>();
-        foreach (FilterGroup group in query.Groups) {
-            var kept = group.Conditions.Where(c => c.Complete).ToList();
-            if (kept.Count > 0) groups.Add(new FilterGroup(kept));
-        }
-
+        List<FilterGroup> groups = [.. query.Groups
+            .Select(group => group.Conditions.Where(c => c.Complete).ToList())
+            .Where(kept => kept.Count > 0)
+            .Select(kept => new FilterGroup(kept))];
         return query with { Groups = groups };
     }
 

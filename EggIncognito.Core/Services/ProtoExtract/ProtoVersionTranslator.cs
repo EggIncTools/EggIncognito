@@ -41,9 +41,7 @@ public static class ProtoVersionTranslator {
         }
 
         platforms.Sort(ComparePlatforms);
-        var links = new List<VersionLink<T>>(platforms.Count);
-        foreach (string platform in platforms) links.Add(Translate(row, platform, rows, key));
-        return links;
+        return [.. platforms.Select(platform => Translate(row, platform, rows, key))];
     }
 
     public static bool SharesProtoSha(VersionKey x, VersionKey y) => SameText(x.ProtoSha, y.ProtoSha);

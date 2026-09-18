@@ -63,8 +63,7 @@ public sealed class FakeDeviceAgent(
         if (targets.Count == 0) return Task.FromResult(false);
 
         foreach (var fake in targets) {
-            var run = fake;
-            _ = Task.Run(() => PassAsync(run, force, CancellationToken.None), CancellationToken.None);
+            _ = Task.Run(() => PassAsync(fake, force, CancellationToken.None), CancellationToken.None);
         }
 
         return Task.FromResult(true);
