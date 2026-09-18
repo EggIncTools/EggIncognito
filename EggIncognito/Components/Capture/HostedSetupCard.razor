@@ -86,8 +86,7 @@
                 _proxyHost = doc.RootElement.GetProperty("host").GetString();
                 StateHasChanged();
             }
-        }
-        catch {
+        } catch {
             /* address unavailable (no session / prerender); the placeholder stays */
         }
 
@@ -100,8 +99,7 @@
                 _caDmFailed = true;
                 StateHasChanged();
             }
-        }
-        catch {
+        } catch {
             /* status unavailable (no session / prerender); the download button stays the fallback */
         }
     }
@@ -110,8 +108,7 @@
         try {
             using var doc = JsonDocument.Parse(body);
             return !doc.RootElement.TryGetProperty("sent", out var s) || s.GetBoolean();
-        }
-        catch (JsonException) {
+        } catch (JsonException) {
             return true;
         }
     }
@@ -120,8 +117,7 @@
         try {
             using var doc = JsonDocument.Parse(body);
             return doc.RootElement.TryGetProperty("error", out var e) ? e.GetString() ?? "" : "";
-        }
-        catch (JsonException) {
+        } catch (JsonException) {
             return "";
         }
     }
@@ -141,8 +137,7 @@
                 _caDmFailed = true;
                 Toasts.Push(StatusNoteKind.Error, "Discord refused the DM. Allow member DMs, then try again.");
             }
-        }
-        catch (Exception ex) {
+        } catch (Exception ex) {
             Toasts.Push(StatusNoteKind.Error, $"Setup DM failed: {ex.Message}");
         }
 
@@ -162,8 +157,7 @@
             } else {
                 Toasts.Push(StatusNoteKind.Error, $"New address failed (HTTP {(int)res.StatusCode}).");
             }
-        }
-        catch (Exception ex) {
+        } catch (Exception ex) {
             Toasts.Push(StatusNoteKind.Error, $"New address failed: {ex.Message}");
         }
 

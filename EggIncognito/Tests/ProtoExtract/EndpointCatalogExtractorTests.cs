@@ -92,8 +92,7 @@ public class EndpointCatalogExtractorTests {
         Assert.Equal("ConfigRequest", e.RequestType);
     }
 
-    private static readonly string[] VerifiedDriftPaths =
-    [
+    private static readonly string[] VerifiedDriftPaths = [
         "ei_i18n/get_translation_pack",
         "ei_i18n/get_translations",
     ];

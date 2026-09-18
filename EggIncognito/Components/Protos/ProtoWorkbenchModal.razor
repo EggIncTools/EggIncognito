@@ -636,8 +636,7 @@
             var body = await mod.InvokeAsync<bool>("wireDrop", "wbDrop", "wbFile");
             var rail = await mod.InvokeAsync<bool>("wireDrop", "wbRailDrop", "wbFile");
             _dropWired = body && rail;
-        }
-        catch (JSDisconnectedException ex) {
+        } catch (JSDisconnectedException ex) {
             Logger.LogDebug(ex, "drop wiring skipped, the circuit is already gone");
         }
     }
@@ -646,8 +645,7 @@
         if (_strip is not null) return _strip;
         try {
             return _strip = await JS.InvokeAsync<IJSObjectReference>("import", InteropAsset.Url(Env, "./interop/protoStrip.js"));
-        }
-        catch (JSDisconnectedException ex) {
+        } catch (JSDisconnectedException ex) {
             Logger.LogDebug(ex, "proto strip module import skipped, the circuit is already gone");
             return null;
         }
@@ -659,8 +657,7 @@
             var mod = await StripModule();
             if (mod is null) return;
             stashed = await mod.InvokeAsync<List<StashedFile>>("stashFiles", "wbFile");
-        }
-        catch (JSDisconnectedException ex) {
+        } catch (JSDisconnectedException ex) {
             Logger.LogDebug(ex, "file stash skipped, the circuit is already gone");
             return;
         }
@@ -679,8 +676,7 @@
     async Task ProcessAsync(StagedEntry entry) {
         try {
             await _gate.WaitAsync();
-        }
-        catch (ObjectDisposedException) {
+        } catch (ObjectDisposedException) {
             return;
         }
 
@@ -725,19 +721,16 @@
             }
 
             await AfterDone(entry);
-        }
-        catch (Exception ex) {
+        } catch (Exception ex) {
             await InvokeAsync(() => {
                 entry.Status = "error";
                 entry.Error = ex.Message;
                 StateHasChanged();
             });
-        }
-        finally {
+        } finally {
             try {
                 _gate.Release();
-            }
-            catch (ObjectDisposedException ex) {
+            } catch (ObjectDisposedException ex) {
                 Logger.LogDebug(ex, "analysis gate was disposed before the slot was released");
             }
 
@@ -765,8 +758,7 @@
             var mod = await StripModule();
             if (mod is null) return;
             await mod.InvokeVoidAsync("discard", token);
-        }
-        catch (Exception ex) when (ex is JSDisconnectedException or JSException or ObjectDisposedException) {
+        } catch (Exception ex) when (ex is JSDisconnectedException or JSException or ObjectDisposedException) {
             Logger.LogDebug(ex, "stashed upload {Token} could not be discarded", token);
         }
     }
@@ -905,8 +897,7 @@
                 await InvokeAsync(() => State.GroupStatuses[sk] = r is not null
                     ? new GroupStatus(r.KnownCombination, r.Pending, false, false, r.InRegistry)
                     : new GroupStatus(false, false, false, true));
-            }
-            finally {
+            } finally {
                 await InvokeAsync(() => _checking.Remove(sk));
             }
         }
@@ -946,11 +937,9 @@
                 if (g.StatusKey is { } sk) State.GroupStatuses[sk] = StatusOf(outcome?.Result);
             });
             await OnChanged.InvokeAsync();
-        }
-        catch (Exception ex) {
+        } catch (Exception ex) {
             Logger.LogWarning(ex, "offering the extracted proto for {Platform} failed", g.Platform);
-        }
-        finally {
+        } finally {
             _offerBusy = false;
         }
     }
@@ -1188,8 +1177,7 @@
     async Task<bool> PostJson(string url, object body) {
         try {
             return (await Client().PostAsJsonAsync(url, body, SelfCallJson.Web)).IsSuccessStatusCode;
-        }
-        catch (HttpRequestException) {
+        } catch (HttpRequestException) {
             return false;
         }
     }
@@ -1315,8 +1303,7 @@
                 }
             });
             return body;
-        }
-        catch (Exception ex) {
+        } catch (Exception ex) {
             Logger.LogWarning(ex, "proto text for {Platform} {Build} could not be loaded", value.Platform, value.Build);
             await InvokeAsync(() => State.TextCache[key] = MissingText);
             return null;
@@ -1343,8 +1330,7 @@
             var body = await resp.Content.ReadAsStringAsync();
             await InvokeAsync(() => State.TextCache[key] = body);
             return body;
-        }
-        catch (Exception ex) {
+        } catch (Exception ex) {
             Logger.LogWarning(ex, "raw proto text for {Platform} {Build} could not be loaded", value.Platform, value.Build);
             await InvokeAsync(() => State.TextCache[key] = MissingText);
             return null;
@@ -1528,11 +1514,9 @@
             if (element is not null) {
                 await element.InvokeVoidAsync("scrollTo", new { top = row * CodeMetrics.RowHeightPx, left = 0 });
             }
-        }
-        catch (Exception ex) when (ex is JSDisconnectedException or JSException or ObjectDisposedException) {
+        } catch (Exception ex) when (ex is JSDisconnectedException or JSException or ObjectDisposedException) {
             Logger.LogDebug(ex, "hunk scroll failed");
-        }
-        finally {
+        } finally {
             await element.DisposeModuleQuietAsync(logger: Logger);
         }
     }
@@ -1751,8 +1735,7 @@
         try {
             _download ??= await JS.InvokeAsync<IJSObjectReference>("import", InteropAsset.Url(Env, "./interop/download.js"));
             await _download.InvokeVoidAsync("text", fileName, content);
-        }
-        catch (Exception ex) when (ex is JSDisconnectedException or JSException or ObjectDisposedException) {
+        } catch (Exception ex) when (ex is JSDisconnectedException or JSException or ObjectDisposedException) {
             Logger.LogDebug(ex, "download of {FileName} failed", fileName);
         }
     }

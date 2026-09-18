@@ -118,8 +118,7 @@
     public async Task Load() {
         try {
             _rows = await Client().GetFromJsonAsync<List<Models.Staging.StagedRow>>("/api/protos/staged", JsonOpts) ?? [];
-        }
-        catch {
+        } catch {
             _rows = [];
         }
 
@@ -166,11 +165,9 @@
             var resp = await Client().PostAsJsonAsync($"/api/protos/staged/{r.Id}/approve", ApproveBody(r), JsonOpts);
             if (resp.IsSuccessStatusCode) Ok("approved");
             else Err($"approve failed ({(int)resp.StatusCode})");
-        }
-        catch (Exception ex) {
+        } catch (Exception ex) {
             Err($"approve error: {ex.Message}");
-        }
-        finally {
+        } finally {
             _busy = false;
         }
 
@@ -184,11 +181,9 @@
             var resp = await Client().PostAsJsonAsync($"/api/protos/staged/{r.Id}/reject", new { note = (string?)null }, JsonOpts);
             if (resp.IsSuccessStatusCode) Ok("rejected");
             else Err($"reject failed ({(int)resp.StatusCode})");
-        }
-        catch (Exception ex) {
+        } catch (Exception ex) {
             Err($"reject error: {ex.Message}");
-        }
-        finally {
+        } finally {
             _busy = false;
         }
 
@@ -212,11 +207,9 @@
             } else {
                 Err($"bulk approve failed ({(int)resp.StatusCode})");
             }
-        }
-        catch (Exception ex) {
+        } catch (Exception ex) {
             Err($"bulk approve error: {ex.Message}");
-        }
-        finally {
+        } finally {
             _busy = false;
         }
 
@@ -237,11 +230,9 @@
             } else {
                 Err($"bulk reject failed ({(int)resp.StatusCode})");
             }
-        }
-        catch (Exception ex) {
+        } catch (Exception ex) {
             Err($"bulk reject error: {ex.Message}");
-        }
-        finally {
+        } finally {
             _busy = false;
         }
 
@@ -278,8 +269,7 @@
         try {
             _copy ??= await JS.InvokeAsync<IJSObjectReference>("import", InteropAsset.Url(Env, "./interop/copy.js"));
             await _copy.InvokeAsync<bool>("writeText", MissingReport(rows));
-        }
-        catch (Exception ex) {
+        } catch (Exception ex) {
             Err($"copy failed (rows kept): {ex.Message}");
             _busy = false;
             StateHasChanged();
@@ -291,11 +281,9 @@
                 new { ids = rows.Select(r => r.Id).ToList(), note = "set aside: missing version data (copied for audit)" }, JsonOpts);
             var n = resp.IsSuccessStatusCode ? (await resp.Content.ReadFromJsonAsync<Models.Staging.BulkRejectResp>(JsonOpts))?.Rejected ?? 0 : 0;
             Ok($"copied {rows.Count} to clipboard, set aside {n} (returns if re-surfaced with more data)");
-        }
-        catch (Exception ex) {
+        } catch (Exception ex) {
             Err($"copied, but clear failed: {ex.Message}");
-        }
-        finally {
+        } finally {
             _busy = false;
         }
 

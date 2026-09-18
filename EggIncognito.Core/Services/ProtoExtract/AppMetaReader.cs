@@ -9,10 +9,12 @@ public static class AppMetaReader {
         if (meta[0] == 0x03 && meta[1] == 0x00)
             return (ApkVersionCode.ReadVersionName(meta), ApkVersionCode.ParseAxml(meta));
         string text = Encoding.UTF8.GetString(meta);
-        return (PlistShortVersion(text), null);
+        return (PlistShortVersion(text), PlistBundleVersion(text));
     }
 
     public static string? PlistShortVersion(string plistXml) => PlistString(plistXml, "CFBundleShortVersionString");
+
+    public static string? PlistBundleVersion(string plistXml) => PlistString(plistXml, "CFBundleVersion");
 
     private static string? PlistString(string plistXml, string key) {
         string keyTag = $"<key>{key}</key>";

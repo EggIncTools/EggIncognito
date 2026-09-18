@@ -655,8 +655,7 @@
         if (_gifOpen && _gifDragHandle is null && _popoverDragMod is not null) {
             try {
                 _gifDragHandle = await _popoverDragMod.InvokeAsync<IJSObjectReference>("makeDraggable", _gifPopoverRef, _gifPopoverHeadRef);
-            }
-            catch (Exception ex) when (ex is JSDisconnectedException or JSException or ObjectDisposedException) {
+            } catch (Exception ex) when (ex is JSDisconnectedException or JSException or ObjectDisposedException) {
                 Logger.LogDebug(ex, "GIF popover drag handle could not be created");
             }
         } else if (!_gifOpen && _gifDragHandle is not null) {
@@ -689,14 +688,12 @@
             await RefreshDesigns();
             try {
                 _appVersion = (await Client().GetFromJsonAsync<AppVersionDto>("/api/app/version"))?.Version ?? "";
-            }
-            catch {
+            } catch {
                 _appVersion = "";
             }
 
             if (!await TryRestoreAutosave()) await ApplyLayout(false);
-        }
-        catch (Exception ex) {
+        } catch (Exception ex) {
             FatalError($"3D init failed: {ex.Message}");
         }
     }
@@ -706,8 +703,7 @@
             var res = await Client().GetFromJsonAsync<CatalogResult>($"/api/farm/catalog?platform={MeshPlatform}");
             _catalogElements = res?.Elements?.ToList() ?? [];
             if (res is { Ok: false }) Fail(res.Diagnostics ?? "no asset catalog stored");
-        }
-        catch {
+        } catch {
             _catalogElements = [];
         }
     }
@@ -717,8 +713,7 @@
             var res = await Client().GetFromJsonAsync<ShowcaseResult>("/api/farm/showcase");
             _presets = res?.Presets?.ToList() ?? [];
             _showcaseDiagnostics = res is { Ok: false } ? res.Diagnostics : null;
-        }
-        catch (Exception ex) {
+        } catch (Exception ex) {
             _presets = [];
             _showcaseDiagnostics = ex.Message;
         }
@@ -728,8 +723,7 @@
         try {
             _chickens = (await Client().GetFromJsonAsync<ShellObjResult>($"/api/shells/objects?platform={MeshPlatform}&type=chicken"))?.Objects?.ToList() ?? [];
             _hats = (await Client().GetFromJsonAsync<ShellObjResult>($"/api/shells/objects?platform={MeshPlatform}&type=hat"))?.Objects?.ToList() ?? [];
-        }
-        catch {
+        } catch {
             _chickens = [];
             _hats = [];
         }
@@ -739,8 +733,7 @@
         try {
             var res = await Client().GetFromJsonAsync<ShellSetsResult>($"/api/shells/sets?platform={MeshPlatform}");
             _decorators = res?.Decorators?.ToList() ?? [];
-        }
-        catch {
+        } catch {
             _decorators = [];
         }
     }
@@ -799,14 +792,11 @@
             await _mod.InvokeVoidAsync("setPlaying", ct, _playing);
             await RefreshAnimatedFlag();
             Status($"Placed {farm?.Loaded ?? 0} of {_placements.Length} slots.");
-        }
-        catch (OperationCanceledException ex) {
+        } catch (OperationCanceledException ex) {
             Logger.LogDebug(ex, "farm layout build was superseded by a newer request");
-        }
-        catch (Exception ex) {
+        } catch (Exception ex) {
             await LayoutGone(ex.Message);
-        }
-        finally {
+        } finally {
             _busy = false;
             Autosave();
             StateHasChanged();
@@ -825,8 +815,7 @@
         if (_mod is null) return;
         try {
             await _mod.InvokeVoidAsync("clearFarm");
-        }
-        catch (Exception ex) when (ex is JSDisconnectedException or JSException or ObjectDisposedException) {
+        } catch (Exception ex) when (ex is JSDisconnectedException or JSException or ObjectDisposedException) {
             Logger.LogDebug(ex, "could not clear the farm scene");
         }
     }
@@ -1199,8 +1188,7 @@
         if (_mod is not null) {
             try {
                 await _mod.InvokeVoidAsync("setLighting", LightingPayload());
-            }
-            catch (JSDisconnectedException ex) {
+            } catch (JSDisconnectedException ex) {
                 Logger.LogDebug(ex, "lighting push skipped, the circuit is already gone");
             }
         }
@@ -1212,8 +1200,7 @@
         if (_mod is not null) {
             try {
                 await _mod.InvokeVoidAsync("setBackground", _bgTransparent ? null : _bgColor);
-            }
-            catch (JSDisconnectedException ex) {
+            } catch (JSDisconnectedException ex) {
                 Logger.LogDebug(ex, "background apply skipped, the circuit is already gone");
             }
         }
@@ -1225,8 +1212,7 @@
         if (_mod is null) return;
         try {
             await _mod.InvokeVoidAsync("focusOn", key);
-        }
-        catch (JSDisconnectedException ex) {
+        } catch (JSDisconnectedException ex) {
             Logger.LogDebug(ex, "focus skipped, the circuit is already gone");
         }
     }
@@ -1244,8 +1230,7 @@
             _cameraLocator = shot.Locator;
             float[] focus = shot.Focus is { } f ? [f.X, f.Y, f.Z] : [0f, 0f, 0f];
             if (_mod is not null) await _mod.InvokeVoidAsync("setCamera", focus, shot.Distance, shot.Height);
-        }
-        catch (Exception ex) {
+        } catch (Exception ex) {
             Fail(ex.Message);
         }
     }
@@ -1254,8 +1239,7 @@
         if (_mod is null) return;
         try {
             await _mod.InvokeVoidAsync("resetView");
-        }
-        catch (JSDisconnectedException ex) {
+        } catch (JSDisconnectedException ex) {
             Logger.LogDebug(ex, "view reset skipped, the circuit is already gone");
         }
     }
@@ -1264,8 +1248,7 @@
         if (_mod is null) return;
         try {
             _anyAnimated = await _mod.InvokeAsync<bool>("anyAnimated");
-        }
-        catch {
+        } catch {
             _anyAnimated = false;
         }
     }
@@ -1287,11 +1270,9 @@
             var opts = new { fps = _gifFps, maxWidth = _gifMaxWidth, fallbackColor = "#1a1a1f" };
             await _recorder.InvokeVoidAsync("record", _selfRef, opts);
             Status("GIF downloaded.");
-        }
-        catch (Exception ex) {
+        } catch (Exception ex) {
             Fail($"record failed: {ex.Message}");
-        }
-        finally {
+        } finally {
             _recording = false;
             _recordStage = "";
         }
@@ -1336,8 +1317,7 @@
         if (_mod is null) return;
         try {
             await _mod.InvokeVoidAsync("setPlaying", _playing);
-        }
-        catch (JSDisconnectedException ex) {
+        } catch (JSDisconnectedException ex) {
             Logger.LogDebug(ex, "play toggle skipped, the circuit is already gone");
         }
     }
@@ -1436,15 +1416,13 @@
             if (payload.FarmConfig is { } config) {
                 try {
                     HydrateFromConfig(ShellDB.Types.FarmConfiguration.Parser.ParseJson(config.ToJsonString()));
-                }
-                catch (InvalidProtocolBufferException) {
+                } catch (InvalidProtocolBufferException) {
                     Fail("saved farm configuration is not a valid ShellDB.FarmConfiguration");
                 }
             }
 
             await ApplyBackground();
-        }
-        finally {
+        } finally {
             _suppressAutosave = false;
         }
 
@@ -1474,8 +1452,7 @@
         if (_autosave is not null) {
             try {
                 await _autosave.InvokeVoidAsync("clear");
-            }
-            catch (Exception ex) when (ex is JSDisconnectedException or JSException or ObjectDisposedException) {
+            } catch (Exception ex) when (ex is JSDisconnectedException or JSException or ObjectDisposedException) {
                 Logger.LogDebug(ex, "could not clear the farm autosave after save");
             }
         }
@@ -1497,8 +1474,7 @@
             await LoadVersions();
             _currentVersion = _versions.Count > 0 ? _versions[0].VersionNo : 0;
             Status($"Loaded \"{name}\" v{_currentVersion}.");
-        }
-        catch (Exception ex) {
+        } catch (Exception ex) {
             Fail(ex.Message);
         }
     }
@@ -1533,8 +1509,7 @@
             var res = await Client().GetFromJsonAsync<DesignVersionsResult>(
                 $"/api/env/designs/{Uri.EscapeDataString(_currentDesign)}/versions");
             _versions = res?.Versions?.ToList() ?? [];
-        }
-        catch {
+        } catch {
             _versions = [];
         }
     }
@@ -1557,8 +1532,7 @@
             _dirty = false;
             await LoadVersions();
             Status($"Rolled back to v{versionNo} (now v{_currentVersion}).");
-        }
-        catch (Exception ex) {
+        } catch (Exception ex) {
             Fail(ex.Message);
         }
     }
@@ -1578,8 +1552,7 @@
         try {
             var res = await Client().GetFromJsonAsync<DesignListResult>("/api/env/designs");
             _savedDesigns = res?.Designs?.Select(d => d.Name).ToList() ?? [];
-        }
-        catch {
+        } catch {
             _savedDesigns = [];
         }
     }
@@ -1589,8 +1562,7 @@
         AutosaveRecord? rec;
         try {
             rec = await _autosave.InvokeAsync<AutosaveRecord?>("load");
-        }
-        catch {
+        } catch {
             rec = null;
         }
 
@@ -1598,8 +1570,7 @@
         if (!AutosaveRecency.IsFresh(rec.SavedAt, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds())) {
             try {
                 await _autosave.InvokeVoidAsync("clear");
-            }
-            catch (JSDisconnectedException ex) {
+            } catch (JSDisconnectedException ex) {
                 Logger.LogDebug(ex, "stale autosave clear skipped, the circuit is already gone");
             }
 
@@ -1614,16 +1585,13 @@
                 restored = true;
                 Status("Restored your unsaved farm.");
             }
-        }
-        catch (JsonException ex) {
+        } catch (JsonException ex) {
             Logger.LogWarning(ex, "the autosaved farm design could not be parsed and was discarded");
-        }
-        finally {
+        } finally {
             if (_autosave is not null) {
                 try {
                     await _autosave.InvokeVoidAsync("clear");
-                }
-                catch (JSDisconnectedException ex) {
+                } catch (JSDisconnectedException ex) {
                     Logger.LogDebug(ex, "autosave clear skipped, the circuit is already gone");
                 }
             }
@@ -1644,8 +1612,7 @@
             if (t.IsCanceled || _autosave is null) return;
             try {
                 await _autosave.InvokeVoidAsync("save", json, _appVersion, now);
-            }
-            catch (Exception ex) when (ex is JSDisconnectedException or JSException or ObjectDisposedException) {
+            } catch (Exception ex) when (ex is JSDisconnectedException or JSException or ObjectDisposedException) {
                 Logger.LogDebug(ex, "farm autosave could not be written");
             }
         }, TaskScheduler.Default);

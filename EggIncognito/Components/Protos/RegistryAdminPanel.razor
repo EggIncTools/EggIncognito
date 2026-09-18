@@ -181,12 +181,10 @@
         try {
             _deleted = await Client().GetFromJsonAsync<List<DeletedVersionRow>>(
                 "/api/protos/versions/deleted", JsonOpts) ?? [];
-        }
-        catch (Exception ex) when (ex is HttpRequestException or NotSupportedException or JsonException) {
+        } catch (Exception ex) when (ex is HttpRequestException or NotSupportedException or JsonException) {
             _deleted = [];
             Toasts.Push(StatusNoteKind.Error, "could not load deleted versions");
-        }
-        finally {
+        } finally {
             _busy = false;
         }
     }
@@ -241,8 +239,7 @@
     async Task<bool> PostJson(string url, object body) {
         try {
             return (await Client().PostAsJsonAsync(url, body, JsonOpts)).IsSuccessStatusCode;
-        }
-        catch (HttpRequestException) {
+        } catch (HttpRequestException) {
             return false;
         }
     }
@@ -250,8 +247,7 @@
     async Task<bool> PatchJson(string url, object body) {
         try {
             return (await Client().PatchAsJsonAsync(url, body, JsonOpts)).IsSuccessStatusCode;
-        }
-        catch (HttpRequestException) {
+        } catch (HttpRequestException) {
             return false;
         }
     }
@@ -260,8 +256,7 @@
         try {
             var res = await Client().GetAsync(url);
             return res.IsSuccessStatusCode ? await res.Content.ReadAsStringAsync() : "";
-        }
-        catch (HttpRequestException) {
+        } catch (HttpRequestException) {
             return "";
         }
     }

@@ -62,10 +62,7 @@
             try {
                 _prefs = await Js.InvokeAsync<IJSObjectReference>("import", InteropAsset.Url(HostEnv, "./interop/uiPrefs.js"));
                 _preview = await Js.InvokeAsync<IJSObjectReference>("import", InteropAsset.Url(HostEnv, "./interop/themePreview.js"));
-            }
-            catch (JSDisconnectedException) {
-            }
-            catch (JSException) {
+            } catch (Exception ex) when (ex is JSDisconnectedException or JSException) {
             }
         }
     }
@@ -79,10 +76,7 @@
             var resp = await client.GetFromJsonAsync<ThemeListResponse>("/api/theme");
             _themes.AddRange(resp?.Themes ?? []);
             _activeSlug = _themes.FirstOrDefault(t => t.IsActive)?.Slug ?? "";
-        }
-        catch (HttpRequestException) {
-        }
-        catch (JsonException) {
+        } catch (Exception ex) when (ex is HttpRequestException or JsonException) {
         }
     }
 
@@ -114,8 +108,7 @@
             await _prefs.InvokeVoidAsync("set", "theme.model", preset.ToJson());
             await _prefs.InvokeVoidAsync("set", "theme.active", "1");
             await _preview.InvokeVoidAsync("applyTokens", TokenCssMap(preset));
-        }
-        catch (JSDisconnectedException ex) {
+        } catch (JSDisconnectedException ex) {
             Logger.LogDebug(ex, "theme preset apply skipped, the circuit is already gone");
             return;
         }
@@ -149,8 +142,7 @@
             await _prefs.InvokeVoidAsync("remove", "theme.model");
             await _prefs.InvokeVoidAsync("remove", "theme.active");
             await _preview.InvokeVoidAsync("clearTokens", ThemeTokens.Settable);
-        }
-        catch (JSDisconnectedException ex) {
+        } catch (JSDisconnectedException ex) {
             Logger.LogDebug(ex, "theme reset skipped, the circuit is already gone");
             return;
         }
@@ -178,8 +170,7 @@
             if (module is not null) {
                 try {
                     await module.DisposeAsync();
-                }
-                catch (JSDisconnectedException) {
+                } catch (JSDisconnectedException) {
                 }
             }
         }

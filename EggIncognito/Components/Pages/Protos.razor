@@ -295,8 +295,7 @@
             _closingFromRoute = true;
             try {
                 _workbench?.Close();
-            }
-            finally {
+            } finally {
                 _closingFromRoute = false;
             }
 
@@ -512,8 +511,7 @@
         try {
             _protoDrop ??= await JS.InvokeAsync<IJSObjectReference>("import", InteropAsset.Url(Env, "./interop/protoStrip.js"));
             await _protoDrop.InvokeAsync<bool>("wireDrop", "protoPageDrop", "wbFile");
-        }
-        catch (JSDisconnectedException ex) {
+        } catch (JSDisconnectedException ex) {
             Logger.LogDebug(ex, "proto drop zone not wired, the circuit is already gone");
         }
 
@@ -587,8 +585,7 @@
             await Load(true);
             if (_stagedPanel is not null) await _stagedPanel.Load();
             StateHasChanged();
-        }
-        finally {
+        } finally {
             _refreshing = false;
         }
     }
@@ -601,8 +598,7 @@
             _rows = await Client().GetFromJsonAsync<List<ProtoRegistryRow>>("/api/protos/versions", JsonOpts) ?? [];
             State.Registry = _rows;
             State.RegistryLoadedAt = DateTime.UtcNow;
-        }
-        catch (Exception ex) {
+        } catch (Exception ex) {
             if (ex is not OperationCanceledException) Logger.LogWarning(ex, "proto registry load failed");
             if (!background) _rows = [];
         }
@@ -620,8 +616,7 @@
         try {
             _suggestions = await Client().GetFromJsonAsync<List<Models.Registry.MergeSuggestion>>(
                 "/api/protos/versions/merge-suggestions", JsonOpts) ?? [];
-        }
-        catch {
+        } catch {
             if (!background) _suggestions = [];
         }
     }
@@ -637,8 +632,7 @@
     async Task<bool> PostJson(string url, object body) {
         try {
             return (await Client().PostAsJsonAsync(url, body, JsonOpts)).IsSuccessStatusCode;
-        }
-        catch {
+        } catch {
             return false;
         }
     }
@@ -654,8 +648,7 @@
         try {
             await Load();
             if (_stagedPanel is not null) await _stagedPanel.Load();
-        }
-        finally {
+        } finally {
             _busyMutating = false;
         }
     }

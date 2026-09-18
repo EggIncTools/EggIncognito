@@ -482,8 +482,7 @@
         try {
             using var doc = JsonDocument.Parse(json);
             return JsonSerializer.Serialize(doc.RootElement, new JsonSerializerOptions { WriteIndented = true });
-        }
-        catch (JsonException) {
+        } catch (JsonException) {
             return json;
         }
     }
@@ -523,8 +522,7 @@
             _hashWired = true;
             var hash = await _nav.InvokeAsync<string>("read");
             await ApplyHash(hash);
-        }
-        catch (Exception ex) when (ex is JSDisconnectedException or JSException or ObjectDisposedException) {
+        } catch (Exception ex) when (ex is JSDisconnectedException or JSException or ObjectDisposedException) {
             Logger.LogDebug(ex, "hash navigation could not be wired");
         }
     }
@@ -555,8 +553,7 @@
         var hash = clear ? "" : State.Hash() ?? "";
         try {
             await _nav.InvokeVoidAsync(push ? "push" : "write", hash);
-        }
-        catch (JSDisconnectedException ex) {
+        } catch (JSDisconnectedException ex) {
             Logger.LogDebug(ex, "hash write skipped, the circuit is already gone");
         }
     }
@@ -593,8 +590,7 @@
                 Note($"Load failed ({(int)res.StatusCode}).", false);
                 _admin ??= EmptyAdmin;
             }
-        }
-        catch (Exception ex) {
+        } catch (Exception ex) {
             Logger.LogWarning(ex, "loading the admin notification list failed");
             Note("Load failed.", false);
             _admin ??= EmptyAdmin;
@@ -638,8 +634,7 @@
             rows = res.IsSuccessStatusCode
                 ? await res.Content.ReadFromJsonAsync<List<PreviewRow>>(SelfCallJson.Web) ?? []
                 : [];
-        }
-        catch (Exception ex) {
+        } catch (Exception ex) {
             Logger.LogDebug(ex, "preview load failed");
             rows = [];
         }
@@ -703,8 +698,7 @@
                 ? await res.Content.ReadFromJsonAsync<List<FeedActivityRow>>(SelfCallJson.Web) ?? []
                 : [];
             if (!res.IsSuccessStatusCode) Note($"Activity load failed ({(int)res.StatusCode}).", false);
-        }
-        catch (Exception ex) {
+        } catch (Exception ex) {
             Logger.LogWarning(ex, "loading activity for notification {NotificationId} failed", id);
             _activity[id] = [];
             Note("Activity load failed.", false);
@@ -724,8 +718,7 @@
         StateHasChanged();
         try {
             await Task.Delay(PreviewDebounceMs, cts.Token);
-        }
-        catch (OperationCanceledException) {
+        } catch (OperationCanceledException) {
             return;
         }
 
@@ -801,8 +794,7 @@
                 var err = await res.Content.ReadFromJsonAsync<FeedErrorBody>(SelfCallJson.Web);
                 Note(err?.Error ?? $"Create failed ({(int)res.StatusCode}).", false);
             }
-        }
-        catch (Exception ex) {
+        } catch (Exception ex) {
             Logger.LogWarning(ex, "creating the notification failed");
             Note("Create failed.", false);
         }
@@ -822,8 +814,7 @@
             var res = await Client().PatchAsJsonAsync($"/api/protos/feed/{id}", body, SelfCallJson.Web);
             Note(res.IsSuccessStatusCode ? "Saved." : "Save failed.", res.IsSuccessStatusCode);
             if (res.IsSuccessStatusCode) await LoadRows();
-        }
-        catch (Exception ex) {
+        } catch (Exception ex) {
             Logger.LogWarning(ex, "saving notification {NotificationId} failed", id);
             Note("Save failed.", false);
         }
@@ -838,8 +829,7 @@
         try {
             var res = await Client().PostAsync($"/api/protos/feed/{id}/test?sample={Uri.EscapeDataString(sample)}", null);
             Note(res.IsSuccessStatusCode ? "Sent to the webhook." : "The webhook rejected it.", res.IsSuccessStatusCode);
-        }
-        catch (Exception ex) {
+        } catch (Exception ex) {
             Logger.LogWarning(ex, "sending sample {SampleKey} failed", sample);
             Note("Send failed.", false);
         }
@@ -856,8 +846,7 @@
                 await LoadRows();
                 await SelectNew();
             }
-        }
-        catch (Exception ex) {
+        } catch (Exception ex) {
             Logger.LogWarning(ex, "deleting notification {NotificationId} failed", id);
         }
 
@@ -887,8 +876,7 @@
         try {
             var res = await Client().PostAsync($"/api/admin/feed/subscriptions/{id}/test", null);
             Note(res.IsSuccessStatusCode ? "Sent to the webhook." : "The webhook rejected it.", res.IsSuccessStatusCode);
-        }
-        catch (Exception ex) {
+        } catch (Exception ex) {
             Logger.LogWarning(ex, "admin test send for notification {NotificationId} failed", id);
             Note("Send failed.", false);
         }
@@ -904,8 +892,7 @@
             var res = await Client().PostAsync($"/api/admin/feed/subscriptions/{id}/deactivate", null);
             Note(res.IsSuccessStatusCode ? "Deactivated." : "Deactivate failed.", res.IsSuccessStatusCode);
             if (res.IsSuccessStatusCode) await LoadAdmin();
-        }
-        catch (Exception ex) {
+        } catch (Exception ex) {
             Logger.LogWarning(ex, "admin deactivate of notification {NotificationId} failed", id);
             Note("Deactivate failed.", false);
         }
@@ -930,8 +917,7 @@
                 ResetActivity();
                 await LoadAdmin();
             }
-        }
-        catch (Exception ex) {
+        } catch (Exception ex) {
             Logger.LogWarning(ex, "admin delete of notification {NotificationId} failed", id);
             Note("Delete failed.", false);
         }
@@ -950,10 +936,7 @@
             }
 
             if (_nav is not null) await _nav.DisposeAsync();
-        }
-        catch (JSDisconnectedException) {
-        }
-        catch (ObjectDisposedException) {
+        } catch (Exception ex) when (ex is JSDisconnectedException or ObjectDisposedException) {
         }
 
         _selfRef?.Dispose();

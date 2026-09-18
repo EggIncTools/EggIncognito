@@ -414,11 +414,9 @@
             _mapModule ??= await JS.InvokeAsync<IJSObjectReference>(
                 "import", InteropAsset.Url(Env, "./interop/diffmap.js"));
             _mapHandle = await _mapModule.InvokeAsync<IJSObjectReference?>("attach", _view);
-        }
-        catch (JSException) {
+        } catch (JSException) {
             _mapKey = "";
-        }
-        catch (JSDisconnectedException) {
+        } catch (JSDisconnectedException) {
             _mapKey = "";
         }
     }
@@ -427,16 +425,12 @@
         if (_mapHandle is null) return;
         try {
             await _mapHandle.InvokeVoidAsync("dispose");
-        }
-        catch (JSException) {
-        }
-        catch (JSDisconnectedException) {
+        } catch (Exception ex) when (ex is JSException or JSDisconnectedException) {
         }
 
         try {
             await _mapHandle.DisposeAsync();
-        }
-        catch (JSDisconnectedException) {
+        } catch (JSDisconnectedException) {
         }
 
         _mapHandle = null;
@@ -447,8 +441,7 @@
         if (_mapModule is null) return;
         try {
             await _mapModule.DisposeAsync();
-        }
-        catch (JSDisconnectedException) {
+        } catch (JSDisconnectedException) {
         }
 
         _mapModule = null;

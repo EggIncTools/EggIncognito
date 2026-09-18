@@ -43,8 +43,7 @@
             _submitted = summary.Submitted;
             _approved = summary.Approved;
             StateHasChanged();
-        }
-        catch (Exception ex) {
+        } catch (Exception ex) {
             Logger.LogDebug(ex, "contribution summary refresh failed");
         }
     }
@@ -62,12 +61,10 @@
             }
 
             await RefreshAsync();
-        }
-        catch (Exception ex) {
+        } catch (Exception ex) {
             Logger.LogWarning(ex, "submitting contributions failed");
             Toasts.Push(StatusNoteKind.Error, "Could not send right now. Your results are still saved.");
-        }
-        finally {
+        } finally {
             _busy = false;
         }
     }
@@ -79,12 +76,10 @@
             if (res.IsSuccessStatusCode) Toasts.Push(StatusNoteKind.Ok, "Discarded your unsent results.");
             else Toasts.Push(StatusNoteKind.Error, "Could not discard right now.");
             await RefreshAsync();
-        }
-        catch (Exception ex) {
+        } catch (Exception ex) {
             Logger.LogWarning(ex, "discarding contributions failed");
             Toasts.Push(StatusNoteKind.Error, "Could not discard right now.");
-        }
-        finally {
+        } finally {
             _busy = false;
         }
     }

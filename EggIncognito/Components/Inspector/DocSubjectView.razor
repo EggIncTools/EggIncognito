@@ -145,8 +145,7 @@
     async Task LoadAllTags() {
         try {
             _allTags = await Client().GetFromJsonAsync<List<TagRow>>("/api/docs/tags", JsonOpts) ?? [];
-        }
-        catch (Exception ex) when (ex is HttpRequestException or JsonException or TaskCanceledException) {
+        } catch (Exception ex) when (ex is HttpRequestException or JsonException or TaskCanceledException) {
             _allTags = [];
         }
     }
@@ -165,11 +164,9 @@
                     ? "Not authorized."
                     : $"Tag update failed: HTTP {(int)res.StatusCode}");
             }
-        }
-        catch (Exception ex) when (ex is HttpRequestException or JsonException or TaskCanceledException) {
+        } catch (Exception ex) when (ex is HttpRequestException or JsonException or TaskCanceledException) {
             Toasts.Push(StatusNoteKind.Error, $"Tag update failed: {ex.Message}");
-        }
-        finally {
+        } finally {
             _busy = false;
         }
     }
@@ -178,8 +175,7 @@
         try {
             var doc = await Client().GetFromJsonAsync<DocResult>(docUrl, JsonOpts);
             _bodyMd = doc?.BodyMd;
-        }
-        catch (Exception ex) when (ex is HttpRequestException or JsonException or TaskCanceledException) {
+        } catch (Exception ex) when (ex is HttpRequestException or JsonException or TaskCanceledException) {
             _bodyMd = null;
         }
     }
@@ -187,8 +183,7 @@
     async Task LoadTags(string tagsUrl) {
         try {
             _tags = await Client().GetFromJsonAsync<List<TagRow>>(tagsUrl, JsonOpts) ?? [];
-        }
-        catch (Exception ex) when (ex is HttpRequestException or JsonException or TaskCanceledException) {
+        } catch (Exception ex) when (ex is HttpRequestException or JsonException or TaskCanceledException) {
             _tags = [];
         }
     }

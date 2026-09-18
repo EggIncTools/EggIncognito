@@ -242,8 +242,7 @@
         try {
             var fetched = await Client().GetFromJsonAsync<PeriodicalsSummary>("/api/periodicals/summary", JsonOpts);
             if (fetched is not null) _summary = fetched;
-        }
-        catch (Exception ex) {
+        } catch (Exception ex) {
             Logger.LogWarning(ex, "the periodicals summary could not be loaded");
         }
 
@@ -255,8 +254,7 @@
                 var ix = ls.FindIndex(s => s.StartTime <= now);
                 _seasonIx = ix < 0 ? 0 : ix;
             }
-        }
-        catch (Exception ex) {
+        } catch (Exception ex) {
             Logger.LogWarning(ex, "the periodicals season list could not be loaded");
         }
 
@@ -378,8 +376,7 @@
 
                 _boosts[id] = new BoostMeta(string.IsNullOrEmpty(dn) ? TitleCase(id) : dn, dur, eff);
             }
-        }
-        catch (Exception ex) {
+        } catch (Exception ex) {
             Logger.LogWarning(ex, "the boost catalog could not be loaded");
         }
     }
@@ -461,8 +458,7 @@
         try {
             _images = await JS.InvokeAsync<IJSObjectReference>("import", InteropAsset.Url(Env, "./interop/imgFallback.js"));
             await _images.InvokeVoidAsync("wire");
-        }
-        catch (JSDisconnectedException ex) {
+        } catch (JSDisconnectedException ex) {
             Logger.LogDebug(ex, "image fallback wiring skipped, the circuit is already gone");
         }
     }

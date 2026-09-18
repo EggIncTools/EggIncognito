@@ -244,10 +244,7 @@
                 _prefs = await Js.InvokeAsync<IJSObjectReference>("import", InteropAsset.Url(HostEnv, "./interop/uiPrefs.js"));
                 _download = await Js.InvokeAsync<IJSObjectReference>("import", InteropAsset.Url(HostEnv, "./interop/download.js"));
                 await PushPreviewAsync();
-            }
-            catch (JSDisconnectedException) {
-            }
-            catch (JSException) {
+            } catch (Exception ex) when (ex is JSDisconnectedException or JSException) {
             }
         }
     }
@@ -259,10 +256,7 @@
             using var client = Client();
             var resp = await client.GetFromJsonAsync<ThemeListResponse>("/api/theme");
             _themes.AddRange(resp?.Themes ?? []);
-        }
-        catch (HttpRequestException) {
-        }
-        catch (JsonException) {
+        } catch (Exception ex) when (ex is HttpRequestException or JsonException) {
         }
     }
 
@@ -281,8 +275,7 @@
                 State.SelectedSlug = slug;
                 await RefreshAllAsync();
             }
-        }
-        catch (HttpRequestException) {
+        } catch (HttpRequestException) {
             SetStatus("could not load that theme", false);
         }
     }
@@ -367,8 +360,7 @@
         var model = State.Draft.ToModel();
         try {
             await _download.InvokeVoidAsync("text", $"egi-theme-{model.Slug}.json", model.ToJson());
-        }
-        catch (JSDisconnectedException ex) {
+        } catch (JSDisconnectedException ex) {
             Logger.LogDebug(ex, "theme export skipped, the circuit is already gone");
         }
     }
@@ -380,8 +372,7 @@
             await _prefs.InvokeVoidAsync("set", "theme.model", model.ToJson());
             await _prefs.InvokeVoidAsync("set", "theme.active", "1");
             await _preview.InvokeVoidAsync("applyTokens", TokenCssMap(model));
-        }
-        catch (JSDisconnectedException ex) {
+        } catch (JSDisconnectedException ex) {
             Logger.LogDebug(ex, "theme apply skipped, the circuit is already gone");
             return;
         }
@@ -395,8 +386,7 @@
             await _prefs.InvokeVoidAsync("remove", "theme.model");
             await _prefs.InvokeVoidAsync("remove", "theme.active");
             await _preview.InvokeVoidAsync("clearTokens", ThemeTokens.Settable);
-        }
-        catch (JSDisconnectedException ex) {
+        } catch (JSDisconnectedException ex) {
             Logger.LogDebug(ex, "theme reset skipped, the circuit is already gone");
             return;
         }
@@ -477,8 +467,7 @@
         var css = Serializer.Serialize(model, ThemeScope.Preview, _cssEligible && _cssErrors.Count == 0);
         try {
             await _preview.InvokeVoidAsync("setCss", css, _nonce);
-        }
-        catch (JSDisconnectedException) {
+        } catch (JSDisconnectedException) {
         }
     }
 
@@ -530,8 +519,7 @@
             var body = await resp.Content.ReadAsStringAsync();
             using var doc = JsonDocument.Parse(body);
             if (doc.RootElement.TryGetProperty("error", out var err)) return err.GetString() ?? $"HTTP {(int)resp.StatusCode}";
-        }
-        catch (JsonException) {
+        } catch (JsonException) {
         }
 
         return $"HTTP {(int)resp.StatusCode}";
@@ -541,8 +529,7 @@
         if (_preview is not null) {
             try {
                 await _preview.InvokeVoidAsync("clearCss");
-            }
-            catch (JSDisconnectedException) {
+            } catch (JSDisconnectedException) {
             }
         }
 
@@ -554,8 +541,7 @@
             if (module is not null) {
                 try {
                     await module.DisposeAsync();
-                }
-                catch (JSDisconnectedException) {
+                } catch (JSDisconnectedException) {
                 }
             }
         }

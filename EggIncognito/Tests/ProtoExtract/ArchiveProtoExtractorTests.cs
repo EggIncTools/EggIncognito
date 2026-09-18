@@ -60,7 +60,21 @@ public class ArchiveProtoExtractorTests {
         var r = ArchiveProtoExtractor.Extract(ms.ToArray());
         Assert.True(r.Ok, r.Diagnostics);
         Assert.Equal("1.35.6", r.AppVersion);
+        Assert.Equal("1.35.6.3", r.Build);
+    }
 
+    [Fact]
+    public void Extract_Ipa_WithoutBundleVersion_LeavesBuildNull() {
+        if (!TryFixture(out byte[] fx)) return;
+        using var ms = new MemoryStream();
+        using (var zip = new ZipArchive(ms, ZipArchiveMode.Create, true)) {
+            Write(zip, "Payload/EggInc.app/egginc", fx);
+            Write(zip, "Payload/EggInc.app/Info.plist", Encoding.UTF8.GetBytes(
+                "<plist><dict><key>CFBundleShortVersionString</key><string>1.35.6</string></dict></plist>"));
+        }
+
+        var r = ArchiveProtoExtractor.Extract(ms.ToArray());
+        Assert.Equal("1.35.6", r.AppVersion);
         Assert.Null(r.Build);
     }
 

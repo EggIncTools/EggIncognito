@@ -1566,7 +1566,6 @@ input[type="search"]::placeholder { @apply text-muted; }
 .sess-kind-local { @apply text-muted; }
 .sess-kind-device { @apply text-green-400; }
 
-
 .modal-backdrop {
   @apply fixed inset-0 z-50 backdrop-blur-sm flex items-start justify-center overflow-y-auto p-4 sm:p-8;
   background-color: var(--color-scrim);
@@ -3714,4 +3713,3 @@ a.dsc-embed-title:hover { text-decoration: underline; }
   color: var(--color-muted);
 }
 .evcal-pop-v { min-width: 0; font-size: 0.6875rem; color: var(--color-fg-soft); overflow-wrap: anywhere; }
-

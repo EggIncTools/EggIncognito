@@ -6,8 +6,7 @@ public static class Arm64CallXrefScanner {
     public readonly record struct CallXrefScan(ulong FuncVa, ulong FuncEnd, bool Reachable, int Total, int Returned,
         string Diagnostics, IReadOnlyList<CallSite> Sites);
 
-    private static readonly string[] DataSections =
-    [
+    private static readonly string[] DataSections = [
         ".data", ".data.rel.ro", ".got", ".got.plt", "__const", "__data", "__got", "__data_const",
     ];
 

@@ -5,8 +5,7 @@ namespace EggIncognito.Core.Services.ProtoExtract;
 public static class StringLocator {
     public readonly record struct StringHit(ulong Va, int FileOff, string Section, string Neighbors);
 
-    private static readonly string[] StringSections =
-    [
+    private static readonly string[] StringSections = [
         "__cstring", "__const", ".rodata", ".data.rel.ro",
     ];
 
