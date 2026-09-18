@@ -69,8 +69,7 @@
             _rows = designs?.Designs ?? [];
             _designs = _rows.Length;
             ok = true;
-        }
-        catch {
+        } catch {
             _rows = [];
             _designs = 0;
         }
@@ -79,8 +78,7 @@
             var showcase = await Client().GetFromJsonAsync<ShowcaseResult>("/api/farm/showcase");
             _presets = showcase?.Count ?? 0;
             ok = true;
-        }
-        catch {
+        } catch {
             _presets = 0;
         }
 

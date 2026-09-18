@@ -193,11 +193,9 @@
                     ? "upload failed: no response from the browser"
                     : $"upload failed ({res.Status}): {Snippet(res.Body)}");
             }
-        }
-        catch (Exception ex) {
+        } catch (Exception ex) {
             _notice?.Fail($"upload failed: {ex.Message}");
-        }
-        finally {
+        } finally {
             await LoadRefs();
             _refBusy = false;
         }

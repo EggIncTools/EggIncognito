@@ -73,8 +73,7 @@
                     if (embed.ValueKind == JsonValueKind.Object) _embeds.Add(Read(embed));
                 }
             }
-        }
-        catch (JsonException) {
+        } catch (JsonException) {
             _content = Payload;
         }
     }

@@ -49,9 +49,9 @@
     private string? _error;
 
     private string Abs(string url) {
-        return url.StartsWith("http", StringComparison.OrdinalIgnoreCase) || string.IsNullOrEmpty(Auth.IdentityHostUrl)
+        return !url.StartsWith('/') || string.IsNullOrEmpty(Auth.IdentityHostUrl)
             ? url
-            : $"{Auth.IdentityHostUrl!.TrimEnd('/')}/{url.TrimStart('/')}";
+            : $"{Auth.IdentityHostUrl!.TrimEnd('/')}{url}";
     }
 
     private ElementReference _button;
@@ -75,11 +75,9 @@
                 _error = "No login providers configured.";
             else
                 _sources = resp.Sources;
-        }
-        catch (Exception) {
+        } catch (Exception) {
             _error = "Login temporarily unavailable.";
-        }
-        finally {
+        } finally {
             _loading = false;
         }
     }
@@ -90,8 +88,7 @@
             try {
                 _mod ??= await JS.InvokeAsync<IJSObjectReference>("import", InteropAsset.Url(Env, "./interop/loginMenu.js"));
                 await _mod.InvokeVoidAsync("open", _button, _menu, Placement.ToString());
-            }
-            catch (JSDisconnectedException ex) {
+            } catch (JSDisconnectedException ex) {
                 Logger.LogDebug(ex, "login menu open skipped, circuit already gone");
                 return;
             }
@@ -106,8 +103,7 @@
         if (_mod is not null) {
             try {
                 await _mod.InvokeVoidAsync("close");
-            }
-            catch (JSDisconnectedException ex) {
+            } catch (JSDisconnectedException ex) {
                 Logger.LogDebug(ex, "login menu close skipped, circuit already gone");
             }
         }

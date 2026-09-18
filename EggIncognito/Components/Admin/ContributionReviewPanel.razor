@@ -144,8 +144,7 @@
         _busy = true;
         try {
             await LoadPageAsync();
-        }
-        finally {
+        } finally {
             _busy = false;
         }
     }
@@ -175,8 +174,7 @@
                 : "Review failed.";
             await ReloadAsync();
             await OnChanged.InvokeAsync();
-        }
-        finally {
+        } finally {
             _busy = false;
         }
     }
@@ -196,8 +194,7 @@
                 : "Review failed.";
             await ReloadAsync();
             await OnChanged.InvokeAsync();
-        }
-        finally {
+        } finally {
             _busy = false;
         }
     }

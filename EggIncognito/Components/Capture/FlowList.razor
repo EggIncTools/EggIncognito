@@ -176,8 +176,7 @@
         if (firstRender) {
             try {
                 _scroll = await JS.InvokeAsync<IJSObjectReference>("import", InteropAsset.Url(Env, "./interop/scroll.js"));
-            }
-            catch {
+            } catch {
                 /* JS unavailable (e.g. test prerender); auto-scroll is best-effort. */
             }
         }
@@ -186,8 +185,7 @@
         if (count > _lastFlowCount && View.AutoScroll && _scroll is not null) {
             try {
                 await _scroll.InvokeVoidAsync("scrollToBottom", _listRef);
-            }
-            catch (Exception ex) when (ex is JSDisconnectedException or JSException or ObjectDisposedException) {
+            } catch (Exception ex) when (ex is JSDisconnectedException or JSException or ObjectDisposedException) {
                 Logger.LogDebug(ex, "flow list auto-scroll failed");
             }
         }

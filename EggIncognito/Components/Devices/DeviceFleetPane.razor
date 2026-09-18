@@ -280,8 +280,7 @@
                 if (fleet) await LoadFleet();
                 if (build) await LoadBuild();
             }
-        }
-        finally {
+        } finally {
             _loading = false;
         }
 
@@ -382,8 +381,7 @@
                     ? $"provisioned {body?.InstanceId ?? "instance"}"
                     : $"provision failed: {body?.Note ?? res.Describe()}",
                 res.Ok ? StatusNoteKind.Ok : StatusNoteKind.Error);
-        }
-        finally {
+        } finally {
             _busy = false;
         }
 
@@ -411,8 +409,7 @@
                     ? $"destroyed {instanceId}"
                     : $"destroy refused: {body?.Note ?? res.Describe()}",
                 res.Ok ? StatusNoteKind.Ok : StatusNoteKind.Error);
-        }
-        finally {
+        } finally {
             _busy = false;
         }
 
@@ -428,8 +425,7 @@
             var body = res.Json<VirtualActionResult>();
             await Say(res.Ok ? body?.Note ?? "reconciled" : $"reconcile failed: {res.Describe()}",
                 res.Ok ? StatusNoteKind.Ok : StatusNoteKind.Error);
-        }
-        finally {
+        } finally {
             _busy = false;
         }
 
@@ -453,8 +449,7 @@
 
             _buildId = sid;
             await Say($"build {start.Tag} started, running in the background", StatusNoteKind.Ok);
-        }
-        finally {
+        } finally {
             _busy = false;
         }
 
@@ -470,8 +465,7 @@
             var body = res.Json<VirtualActionResult>();
             await Say(res.Ok ? body?.Note ?? $"active image set to {tag}" : $"use failed: {res.Describe()}",
                 res.Ok ? StatusNoteKind.Ok : StatusNoteKind.Error);
-        }
-        finally {
+        } finally {
             _busy = false;
         }
 
@@ -486,8 +480,7 @@
             var body = res.Json<VirtualActionResult>();
             await Say(res.Ok ? $"removed {tag}" : $"remove refused: {body?.Note ?? res.Describe()}",
                 res.Ok ? StatusNoteKind.Ok : StatusNoteKind.Error);
-        }
-        finally {
+        } finally {
             _busy = false;
         }
 
@@ -510,8 +503,7 @@
             var problem = !assets.Ok ? assets.Describe() : _assets is { Ok: false } failed ? failed.Error : null;
             await Say(problem is null ? "integrity cache refreshed" : $"modules refreshed, integrity assets: {problem}",
                 problem is null ? StatusNoteKind.Ok : StatusNoteKind.Error);
-        }
-        finally {
+        } finally {
             _busy = false;
         }
     }

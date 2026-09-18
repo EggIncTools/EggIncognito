@@ -1,7 +1,7 @@
 <Project>
   <PropertyGroup>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
-    <EggIdentityVersion>3.0.2</EggIdentityVersion>
+    <EggIdentityVersion>3.1.0</EggIdentityVersion>
   </PropertyGroup>
   <ItemGroup>
     <PackageVersion Include="AngleSharp" Version="1.8.1" />
@@ -11,6 +11,8 @@
     <PackageVersion Include="EggIdentity.Bot" Version="$(EggIdentityVersion)" />
     <PackageVersion Include="EggIdentity.Client" Version="$(EggIdentityVersion)" />
     <PackageVersion Include="EggIdentity.CodeStyle" Version="$(EggIdentityVersion)" />
+    <PackageVersion Include="EggIdentity.Consent" Version="$(EggIdentityVersion)" />
+    <PackageVersion Include="EggIdentity.DbClone" Version="$(EggIdentityVersion)" />
     <PackageVersion Include="EggIdentity.Deploy" Version="$(EggIdentityVersion)" />
     <PackageVersion Include="EggIdentity.Deploy.AdminUi" Version="$(EggIdentityVersion)" />
     <PackageVersion Include="EggIdentity.Fallback" Version="$(EggIdentityVersion)" />
@@ -21,6 +23,7 @@
     <PackageVersion Include="EggIdentity.Settings.Store" Version="$(EggIdentityVersion)" />
     <PackageVersion Include="EggIdentity.Styles" Version="$(EggIdentityVersion)" />
     <PackageVersion Include="EggIdentity.UI" Version="$(EggIdentityVersion)" />
+    <PackageVersion Include="EggIdentity.Visits" Version="$(EggIdentityVersion)" />
     <PackageVersion Include="Gee.External.Capstone" Version="2.3.0" />
     <PackageVersion Include="Google.Protobuf" Version="3.29.3" />
     <PackageVersion Include="Grpc.Tools" Version="2.71.0" />

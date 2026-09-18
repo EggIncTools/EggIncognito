@@ -130,8 +130,7 @@
 
             var body = await res.Content.ReadFromJsonAsync<GameEventListResponse>(JsonOpts);
             events = body?.Events ?? [];
-        }
-        catch (Exception ex) {
+        } catch (Exception ex) {
             Logger.LogWarning(ex, "the mini event calendar could not be loaded");
             _note = "Events could not be loaded.";
             return;
@@ -155,10 +154,7 @@
             _scroll ??= await JS.InvokeAsync<IJSObjectReference>(
                 "import", InteropAsset.Url(Env, "./interop/scroll.js"));
             await _scroll.InvokeVoidAsync("centerOnFraction", _scroller, NowFraction);
-        }
-        catch (JSDisconnectedException) {
-        }
-        catch (JSException) {
+        } catch (Exception ex) when (ex is JSDisconnectedException or JSException) {
         }
     }
 
@@ -168,8 +164,7 @@
         try {
             _tz = await JS.InvokeAsync<IJSObjectReference>("import", InteropAsset.Url(Env, "./interop/timezone.js"));
             id = await _tz.InvokeAsync<string>("read");
-        }
-        catch (Exception ex) when (ex is JSDisconnectedException or JSException) {
+        } catch (Exception ex) when (ex is JSDisconnectedException or JSException) {
             Logger.LogDebug(ex, "the browser time zone could not be read");
             return;
         }

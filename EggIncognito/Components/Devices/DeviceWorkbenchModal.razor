@@ -170,139 +170,139 @@
                         }
                     </Summary>
                     <ChildContent>
-                    <WorkbenchLoad T="JobGroupRow" Items="_jobs" EmptyText="No jobs yet." Context="jobs">
-                        <div class="reg-wrap">
-                            <table class="data-table dwb-jobs-table">
-                                <thead>
-                                <tr>
-                                    <th>when</th><th>kind</th><th>outcome</th><th>repeat</th><th>took</th><th>trigger</th>
-                                </tr>
-                                </thead>
-                                <tbody>
-                                @{
-                                    DateOnly? lastDay = null;
-                                }
-                                @foreach (var j in jobs) {
-                                    var open = State.Expanded.Contains(j.Id);
-                                    var day = DateOnly.FromDateTime(j.LastAt.ToLocalTime().DateTime);
-                                    if (day != lastDay) {
-                                        lastDay = day;
-                                        <tr class="dwb-job-day">
-                                            <td colspan="6">@day.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)</td>
-                                        </tr>
-                                    }
-
-                                    <tr class="dwb-job-row @(open ? "dwb-job-open" : "")" @key="j.Id" @onclick="@(() => ToggleJob(j))">
-                                        <td class="font-mono">@Stamp(j.LastAt)</td>
-                                        <td>@j.Kind</td>
-                                        <td>
-                                            <span class="dwb-status">
-                                                <Icon Name="@StateIcon(j.State)" Class="@($"icon-sm {StateClass(j.State)}")"/>
-                                                <span>@(j.Outcome ?? j.State)</span>
-                                            </span>
-                                        </td>
-                                        <td class="font-mono text-accent" title="@(j.Repeat > 1 ? $"since {Stamp(j.StartedAt)}" : null)">
-                                            @(j.Repeat > 1 ? $"x{j.Repeat}" : "")
-                                        </td>
-                                        <td class="font-mono">@Duration(j)</td>
-                                        <td class="dwb-job-trigger" title="@j.Trigger">@j.Trigger</td>
+                        <WorkbenchLoad T="JobGroupRow" Items="_jobs" EmptyText="No jobs yet." Context="jobs">
+                            <div class="reg-wrap">
+                                <table class="data-table dwb-jobs-table">
+                                    <thead>
+                                    <tr>
+                                        <th>when</th><th>kind</th><th>outcome</th><th>repeat</th><th>took</th><th>trigger</th>
                                     </tr>
-                                    @if (open) {
-                                        <tr class="dwb-job-detail">
-                                            <td colspan="6">
-                                                <div class="dwb-job-lines">
-                                                    @if (!string.IsNullOrEmpty(j.Message)) {
-                                                        <div class="dwb-job-line text-muted">@j.Message</div>
-                                                    }
-                                                    @foreach (var l in LinesFor(j.Id)) {
-                                                        <div class="dwb-job-line">
-                                                            <span class="font-mono text-muted">@l.At.ToLocalTime().ToString("HH:mm:ss")</span>
-                                                            @if (l.Entry is not null) {
-                                                                <span class="font-mono">@l.Entry</span>
-                                                            }
-                                                            <span class="@LevelClass(l.Level)">@l.Text</span>
-                                                            @if (l.Bytes is > 0) {
-                                                                <span class="text-muted font-mono">@ByteFormat.Mb(l.Bytes.Value, "F1")</span>
-                                                            }
-                                                        </div>
-                                                    }
-                                                </div>
-                                            </td>
-                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                    @{
+                                        DateOnly? lastDay = null;
                                     }
-                                }
-                                </tbody>
-                            </table>
-                        </div>
-                        @if (_jobsMore is not null) {
-                            <button type="button" class="btn-mini mt-2" disabled="@_jobsBusy" @onclick="LoadMoreJobsAsync">
-                                @(_jobsBusy ? "Loading..." : "Older jobs")
-                            </button>
-                        }
-                    </WorkbenchLoad>
+                                    @foreach (var j in jobs) {
+                                        var open = State.Expanded.Contains(j.Id);
+                                        var day = DateOnly.FromDateTime(j.LastAt.ToLocalTime().DateTime);
+                                        if (day != lastDay) {
+                                            lastDay = day;
+                                            <tr class="dwb-job-day">
+                                                <td colspan="6">@day.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)</td>
+                                            </tr>
+                                        }
+
+                                        <tr class="dwb-job-row @(open ? "dwb-job-open" : "")" @key="j.Id" @onclick="@(() => ToggleJob(j))">
+                                            <td class="font-mono">@Stamp(j.LastAt)</td>
+                                            <td>@j.Kind</td>
+                                            <td>
+                                                <span class="dwb-status">
+                                                    <Icon Name="@StateIcon(j.State)" Class="@($"icon-sm {StateClass(j.State)}")"/>
+                                                    <span>@(j.Outcome ?? j.State)</span>
+                                                </span>
+                                            </td>
+                                            <td class="font-mono text-accent" title="@(j.Repeat > 1 ? $"since {Stamp(j.StartedAt)}" : null)">
+                                                @(j.Repeat > 1 ? $"x{j.Repeat}" : "")
+                                            </td>
+                                            <td class="font-mono">@Duration(j)</td>
+                                            <td class="dwb-job-trigger" title="@j.Trigger">@j.Trigger</td>
+                                        </tr>
+                                        @if (open) {
+                                            <tr class="dwb-job-detail">
+                                                <td colspan="6">
+                                                    <div class="dwb-job-lines">
+                                                        @if (!string.IsNullOrEmpty(j.Message)) {
+                                                            <div class="dwb-job-line text-muted">@j.Message</div>
+                                                        }
+                                                        @foreach (var l in LinesFor(j.Id)) {
+                                                            <div class="dwb-job-line">
+                                                                <span class="font-mono text-muted">@l.At.ToLocalTime().ToString("HH:mm:ss")</span>
+                                                                @if (l.Entry is not null) {
+                                                                    <span class="font-mono">@l.Entry</span>
+                                                                }
+                                                                <span class="@LevelClass(l.Level)">@l.Text</span>
+                                                                @if (l.Bytes is > 0) {
+                                                                    <span class="text-muted font-mono">@ByteFormat.Mb(l.Bytes.Value, "F1")</span>
+                                                                }
+                                                            </div>
+                                                        }
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        }
+                                    }
+                                    </tbody>
+                                </table>
+                            </div>
+                            @if (_jobsMore is not null) {
+                                <button type="button" class="btn-mini mt-2" disabled="@_jobsBusy" @onclick="LoadMoreJobsAsync">
+                                    @(_jobsBusy ? "Loading..." : "Older jobs")
+                                </button>
+                            }
+                        </WorkbenchLoad>
                     </ChildContent>
                 </DeviceSection>
 
                 <DeviceSection Title="Binaries" Count="@BinaryCount(dev)" Open="@State.IsOpen(DeviceWorkbenchState.SectionBinaries)"
                                OpenChanged="@(o => State.SetOpen(DeviceWorkbenchState.SectionBinaries, o))">
                     <ChildContent>
-                    <div class="reg-wrap">
-                        <table class="data-table">
-                            <thead>
-                            <tr>
-                                <th>Version</th><th>SHA-256</th><th>Size</th><th>Symbols</th><th>Source</th><th>Pulled</th>
-                                @if (_isContributor) {
-                                    <th></th>
-                                }
-                            </tr>
-                            </thead>
-                            <tbody>
-                            @foreach (var b in (_binaries ?? []).Where(x => x.Platform == dev.Platform)) {
-                                <tr>
-                                    <td>
-                                        <VersionLine App="@b.Version"/>
-                                    </td>
-                                    <td class="font-mono text-xs">@(b.Sha256.Length >= 12 ? b.Sha256[..12] : b.Sha256)</td>
-                                    <td class="font-mono text-xs">@ByteFormat.Mb(b.ByteSize, "F1")</td>
-                                    <td class="font-mono text-xs">@(b.EffectiveSymbols > 0 ? b.EffectiveSymbols : b.NativeSymbols)</td>
-                                    <td class="text-xs">@b.Source</td>
-                                    <td class="text-muted text-xs">@b.PulledAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
-                                    @if (_isContributor) {
-                                        <td class="dwb-row-tools">
-                                            <a class="btn-mini" href="@DownloadUrl(b)" download>
-                                                <Icon Name="download" Class="icon-sm"/>
-                                                Download
-                                            </a>
-                                        </td>
-                                    }
-                                </tr>
-                            }
-                            </tbody>
-                        </table>
-                    </div>
-                    @if (_harvest is { Entries.Count: > 0 }) {
-                        <div class="sub-section-head mt-4 mb-2">Latest harvest</div>
                         <div class="reg-wrap">
                             <table class="data-table">
                                 <thead>
                                 <tr>
-                                    <th>Entry</th><th>Outcome</th><th>Size</th><th>Detail</th><th>When</th>
+                                    <th>Version</th><th>SHA-256</th><th>Size</th><th>Symbols</th><th>Source</th><th>Pulled</th>
+                                    @if (_isContributor) {
+                                        <th></th>
+                                    }
                                 </tr>
                                 </thead>
                                 <tbody>
-                                @foreach (var e in _harvest.Entries) {
+                                @foreach (var b in (_binaries ?? []).Where(x => x.Platform == dev.Platform)) {
                                     <tr>
-                                        <td class="font-mono text-xs">@e.Entry</td>
-                                        <td class="text-xs">@e.Outcome</td>
-                                        <td class="font-mono text-xs">@ByteFormat.Mb(e.Bytes, "F1")</td>
-                                        <td class="text-muted text-xs">@e.Note</td>
-                                        <td class="text-muted text-xs">@e.RanAt.ToLocalTime().ToString("HH:mm:ss")</td>
+                                        <td>
+                                            <VersionLine App="@b.Version"/>
+                                        </td>
+                                        <td class="font-mono text-xs">@(b.Sha256.Length >= 12 ? b.Sha256[..12] : b.Sha256)</td>
+                                        <td class="font-mono text-xs">@ByteFormat.Mb(b.ByteSize, "F1")</td>
+                                        <td class="font-mono text-xs">@(b.EffectiveSymbols > 0 ? b.EffectiveSymbols : b.NativeSymbols)</td>
+                                        <td class="text-xs">@b.Source</td>
+                                        <td class="text-muted text-xs">@b.PulledAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
+                                        @if (_isContributor) {
+                                            <td class="dwb-row-tools">
+                                                <a class="btn-mini" href="@DownloadUrl(b)" download>
+                                                    <Icon Name="download" Class="icon-sm"/>
+                                                    Download
+                                                </a>
+                                            </td>
+                                        }
                                     </tr>
                                 }
                                 </tbody>
                             </table>
                         </div>
-                    }
+                        @if (_harvest is { Entries.Count: > 0 }) {
+                            <div class="sub-section-head mt-4 mb-2">Latest harvest</div>
+                            <div class="reg-wrap">
+                                <table class="data-table">
+                                    <thead>
+                                    <tr>
+                                        <th>Entry</th><th>Outcome</th><th>Size</th><th>Detail</th><th>When</th>
+                                    </tr>
+                                    </thead>
+                                    <tbody>
+                                    @foreach (var e in _harvest.Entries) {
+                                        <tr>
+                                            <td class="font-mono text-xs">@e.Entry</td>
+                                            <td class="text-xs">@e.Outcome</td>
+                                            <td class="font-mono text-xs">@ByteFormat.Mb(e.Bytes, "F1")</td>
+                                            <td class="text-muted text-xs">@e.Note</td>
+                                            <td class="text-muted text-xs">@e.RanAt.ToLocalTime().ToString("HH:mm:ss")</td>
+                                        </tr>
+                                    }
+                                    </tbody>
+                                </table>
+                            </div>
+                        }
                     </ChildContent>
                 </DeviceSection>
                     </Sections>
@@ -578,8 +578,7 @@
             if (Current is not null && (State.IsOpen(DeviceWorkbenchState.SectionJobs) || _jobs is not null)) await RefreshJobsAsync();
             if (_subscription is null) ResolveHub();
             StateHasChanged();
-        }
-        finally {
+        } finally {
             _refreshing = false;
         }
     }
@@ -661,8 +660,7 @@
             var page = await feed.PageAsync(dev.Id, JobGroupCollapser.DefaultTake, before, CancellationToken.None);
             _jobs = [.. _jobs ?? [], .. page.Rows];
             _jobsMore = page.NextBefore;
-        }
-        finally {
+        } finally {
             _jobsBusy = false;
         }
     }
@@ -758,8 +756,7 @@
             _offered.Add(flow.Id);
             Note($"recorded {flow.Path} to your account", true);
             ScheduleFlush();
-        }
-        finally {
+        } finally {
             _offerBusy = false;
             StateHasChanged();
         }
@@ -788,15 +785,13 @@
         _ = Task.Run(async () => {
             try {
                 await Task.Delay(FlushDebounceMs, ct);
-            }
-            catch (OperationCanceledException) {
+            } catch (OperationCanceledException) {
                 return;
             }
 
             try {
                 await InvokeAsync(FlushAsync);
-            }
-            catch (ObjectDisposedException) {
+            } catch (ObjectDisposedException) {
             }
         }, CancellationToken.None);
     }
@@ -819,8 +814,7 @@
             if (_autoQueue.Count > 0 && Current is { } dev && !await SendAutoBatchAsync(dev)) return;
             await Task.Delay(SettleMs);
             if (_contribute is { } panel) await panel.RefreshAsync();
-        }
-        finally {
+        } finally {
             _flushing = false;
             StateHasChanged();
         }
@@ -919,8 +913,7 @@
         _destroyArmed = true;
         try {
             await Task.Delay(TimeSpan.FromSeconds(4), ct);
-        }
-        catch (OperationCanceledException) {
+        } catch (OperationCanceledException) {
             return;
         }
 
@@ -1004,10 +997,7 @@
                 await foreach (var env in reader.ReadAllAsync(ct)) {
                     await InvokeAsync(() => ApplyEnvelope(env));
                 }
-            }
-            catch (OperationCanceledException) {
-            }
-            catch (ChannelClosedException) {
+            } catch (Exception ex) when (ex is OperationCanceledException or ChannelClosedException) {
             }
         }, ct);
     }
@@ -1069,8 +1059,7 @@
     static async Task<T?> ReadBody<T>(HttpResponseMessage resp) {
         try {
             return await resp.Content.ReadFromJsonAsync<T>(SelfCallJson.Web);
-        }
-        catch (Exception ex) when (ex is JsonException or HttpRequestException or NotSupportedException) {
+        } catch (Exception ex) when (ex is JsonException or HttpRequestException or NotSupportedException) {
             return default;
         }
     }
@@ -1080,8 +1069,7 @@
             var body = await resp.Content.ReadFromJsonAsync<JsonElement>();
             if (body.ValueKind == JsonValueKind.Object && body.TryGetProperty("error", out var e))
                 return e.GetString() ?? $"failed ({(int)resp.StatusCode})";
-        }
-        catch {
+        } catch {
         }
 
         return $"failed ({(int)resp.StatusCode})";

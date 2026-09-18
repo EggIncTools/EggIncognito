@@ -4,6 +4,7 @@ public sealed record AdminPane(string Key, string Group, string Label);
 
 public static class AdminPanes {
     public const string Traffic = "traffic";
+    public const string Visits = "visits";
     public const string Users = "users";
     public const string ApiKeys = "api-keys";
     public const string Notifications = "notifications";
@@ -27,6 +28,7 @@ public static class AdminPanes {
 
     public static readonly IReadOnlyList<AdminPane> All = [
         new(Traffic, "Overview", "Traffic"),
+        new(Visits, "Overview", "Visits"),
         new(Users, "Access", "Users"),
         new(ApiKeys, "Access", "API keys"),
         new(Notifications, "Access", "Notifications"),

@@ -313,8 +313,7 @@
             } else {
                 Say(false, $"refresh failed: HTTP {(int)res.StatusCode}");
             }
-        }
-        catch (Exception ex) when (ex is HttpRequestException or JsonException or TaskCanceledException) {
+        } catch (Exception ex) when (ex is HttpRequestException or JsonException or TaskCanceledException) {
             Say(false, $"refresh failed: {ex.Message}");
         }
 
@@ -330,8 +329,7 @@
             var res = await Client().PutAsJsonAsync($"/api/admin/routes/{row.Path}", body, JsonOpts);
             Say(res.IsSuccessStatusCode, res.IsSuccessStatusCode ? $"saved {row.Path}" : $"save failed: HTTP {(int)res.StatusCode}");
             if (res.IsSuccessStatusCode) _expandedPath = null;
-        }
-        catch (Exception ex) when (ex is HttpRequestException or JsonException or TaskCanceledException) {
+        } catch (Exception ex) when (ex is HttpRequestException or JsonException or TaskCanceledException) {
             Say(false, $"save failed: {ex.Message}");
         }
 
@@ -345,8 +343,7 @@
             var res = await Client().DeleteAsync($"/api/admin/routes/{path}");
             Say(res.IsSuccessStatusCode, res.IsSuccessStatusCode ? $"cleared {path}" : $"clear failed: HTTP {(int)res.StatusCode}");
             if (res.IsSuccessStatusCode) _expandedPath = null;
-        }
-        catch (Exception ex) when (ex is HttpRequestException or JsonException or TaskCanceledException) {
+        } catch (Exception ex) when (ex is HttpRequestException or JsonException or TaskCanceledException) {
             Say(false, $"clear failed: {ex.Message}");
         }
 
@@ -366,8 +363,7 @@
         try {
             var res = await Client().PutAsJsonAsync($"/api/admin/routes/{d.Path}", body, JsonOpts);
             Say(res.IsSuccessStatusCode, res.IsSuccessStatusCode ? $"applied {d.Field} for {d.Path}" : $"apply failed: HTTP {(int)res.StatusCode}");
-        }
-        catch (Exception ex) when (ex is HttpRequestException or JsonException or TaskCanceledException) {
+        } catch (Exception ex) when (ex is HttpRequestException or JsonException or TaskCanceledException) {
             Say(false, $"apply failed: {ex.Message}");
         }
 

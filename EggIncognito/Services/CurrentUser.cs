@@ -18,17 +18,12 @@ public sealed class CurrentUser(IHttpContextAccessor accessor, AuthState authSta
 
     public string? DiscordId => IsAuthenticated ? Find(ClaimTypes.NameIdentifier, SessionClaims.DiscordId) : null;
     public string? Username => IsAuthenticated ? Find(ClaimTypes.Name, SessionClaims.Name) : null;
-    public string? Avatar => IsAuthenticated ? Find("urn:discord:avatar:hash", SessionClaims.Avatar) : null;
+    public string? Avatar => IsAuthenticated ? Find(SessionClaims.Avatar) : null;
 
     public string? AvatarUrl => Avatar switch {
         null or "" => null,
-        var a when a.StartsWith("http://", StringComparison.Ordinal) ||
-                   a.StartsWith("https://", StringComparison.Ordinal) ||
-                   a.StartsWith("data:", StringComparison.Ordinal) => a,
-        var a when a.StartsWith('/') => string.IsNullOrEmpty(authState.IdentityHostUrl)
-            ? a
-            : $"{authState.IdentityHostUrl.TrimEnd('/')}{a}",
-        var a => $"https://cdn.discordapp.com/avatars/{DiscordId}/{a}.png"
+        var a when !a.StartsWith('/') || string.IsNullOrEmpty(authState.IdentityHostUrl) => a,
+        var a => $"{authState.IdentityHostUrl.TrimEnd('/')}{a}"
     };
 
     public UserRole Role => UserRoles.Parse(IsAuthenticated ? Find(AuthClaims.RoleClaim, SessionClaims.Role) : null);

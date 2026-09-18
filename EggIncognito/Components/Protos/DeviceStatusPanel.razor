@@ -110,8 +110,7 @@
         try {
             await LoadAsync();
             KickReprobe();
-        }
-        finally {
+        } finally {
             _loading = false;
         }
     }
@@ -121,8 +120,7 @@
             var rows = await Client().GetFromJsonAsync<List<Models.Registry.DeviceStatus>>("/api/devices/status");
             _devices = rows ?? [];
             StateHasChanged();
-        }
-        catch {
+        } catch {
             /* transient; keep last good */
         }
     }
@@ -149,13 +147,11 @@
             foreach (var id in stale) {
                 try {
                     await Client().PostAsync($"/api/devices/{id}/refresh", null);
-                }
-                catch {
+                } catch {
                     /* device still down; ignore */
                 }
             }
-        }
-        finally {
+        } finally {
             _reprobing = false;
         }
     }

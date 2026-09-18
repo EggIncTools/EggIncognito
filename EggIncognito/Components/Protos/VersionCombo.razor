@@ -107,11 +107,9 @@
             } else {
                 await element.InvokeVoidAsync(method, argument);
             }
-        }
-        catch (Exception ex) when (ex is JSDisconnectedException or JSException or ObjectDisposedException) {
+        } catch (Exception ex) when (ex is JSDisconnectedException or JSException or ObjectDisposedException) {
             Logger.LogDebug(ex, "combobox {Method} on {Id} failed", method, id);
-        }
-        finally {
+        } finally {
             await element.DisposeModuleQuietAsync(logger: Logger);
         }
     }

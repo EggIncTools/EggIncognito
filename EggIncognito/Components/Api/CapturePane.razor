@@ -154,8 +154,7 @@
             _hub = _session.Hub;
             _limited = _session.Tier == CaptureTier.Limited;
             _fullDetailRoutes = Kinds.AllRoutes;
-        }
-        catch (CaptureCapacityException) {
+        } catch (CaptureCapacityException) {
             _session = null;
         }
     }
@@ -175,8 +174,7 @@
             _view.CompareToKnown = await InvokeOr("getCompareToKnown", _view.CompareToKnown);
             _view.DefaultFormat = await InvokeOr("getDefaultFormat", _view.DefaultFormat);
             _view.SetupExpanded = await InvokeOr<bool?>("getSetupExpanded", null) ?? _view.SetupExpanded;
-        }
-        catch (Exception ex) when (ex is JSDisconnectedException or JSException or ObjectDisposedException) {
+        } catch (Exception ex) when (ex is JSDisconnectedException or JSException or ObjectDisposedException) {
             _store = null;
         }
 
@@ -199,11 +197,9 @@
                 await foreach (var env in reader.ReadAllAsync(ct)) {
                     await InvokeAsync(() => ApplyEnvelope(env));
                 }
-            }
-            catch (OperationCanceledException) {
+            } catch (OperationCanceledException) {
                 Logger.LogTrace("capture subscription cancelled");
-            }
-            catch (ChannelClosedException) {
+            } catch (ChannelClosedException) {
                 Logger.LogTrace("capture hub unsubscribed");
             }
         }, ct);
@@ -256,8 +252,7 @@
                 await _contribute.RefreshAsync();
                 StateHasChanged();
             });
-        }
-        catch (Exception ex) {
+        } catch (Exception ex) {
             Logger.LogDebug(ex, "contribution panel refresh failed");
         }
     }
@@ -272,12 +267,10 @@
                 Logger.LogWarning("capture {Verb} failed: HTTP {Status} {Detail}", verb, (int)res.StatusCode, detail);
                 Toasts.Push(StatusNoteKind.Error, $"Capture {verb} failed (HTTP {(int)res.StatusCode}). {detail}");
             }
-        }
-        catch (Exception ex) {
+        } catch (Exception ex) {
             Logger.LogWarning(ex, "capture {Verb} request failed", verb);
             Toasts.Push(StatusNoteKind.Error, $"Capture {verb} failed: {ex.Message}");
-        }
-        finally {
+        } finally {
             _toggleBusy = false;
         }
     }
@@ -289,8 +282,7 @@
             using var doc = JsonDocument.Parse(body);
             if (doc.RootElement.TryGetProperty("detail", out var d) && d.GetString() is { Length: > 0 } detail) return detail;
             if (doc.RootElement.TryGetProperty("error", out var e) && e.GetString() is { Length: > 0 } error) return error;
-        }
-        catch (JsonException) {
+        } catch (JsonException) {
             return body.Length > 200 ? body[..200] : body;
         }
 
@@ -309,8 +301,7 @@
             }
 
             Toasts.Push(StatusNoteKind.Error, $"Clear failed (HTTP {(int)res.StatusCode}). {await ProblemDetailAsync(res)}");
-        }
-        catch (Exception ex) {
+        } catch (Exception ex) {
             Logger.LogWarning(ex, "clearing the capture buffer failed");
             Toasts.Push(StatusNoteKind.Error, $"Clear failed: {ex.Message}");
         }
@@ -373,8 +364,7 @@
         if (_store is null) return fallback;
         try {
             return await _store.InvokeAsync<T>(fn);
-        }
-        catch (Exception ex) when (ex is JSDisconnectedException or JSException or ObjectDisposedException) {
+        } catch (Exception ex) when (ex is JSDisconnectedException or JSException or ObjectDisposedException) {
             return fallback;
         }
     }
@@ -383,8 +373,7 @@
         if (_store is null) return;
         try {
             await _store.InvokeVoidAsync(fn, args);
-        }
-        catch (Exception ex) when (ex is JSDisconnectedException or JSException or ObjectDisposedException) {
+        } catch (Exception ex) when (ex is JSDisconnectedException or JSException or ObjectDisposedException) {
             Logger.LogDebug(ex, "capture store call {Function} failed", fn);
         }
     }
@@ -395,8 +384,7 @@
         if (_loopTask is not null) {
             try {
                 await _loopTask;
-            }
-            catch (Exception ex) {
+            } catch (Exception ex) {
                 Logger.LogDebug(ex, "capture event loop ended with an exception");
             }
         }

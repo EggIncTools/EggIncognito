@@ -119,8 +119,7 @@
         ProfileResponse? profile;
         try {
             profile = await identity.GetProfileAsync(_sessionToken, CancellationToken.None);
-        }
-        catch (HttpRequestException) {
+        } catch (HttpRequestException) {
             return;
         }
 
@@ -134,11 +133,9 @@
         try {
             var zone = TimeZoneInfo.FindSystemTimeZoneById(_timezone);
             return TimeZoneInfo.ConvertTime(now, zone).ToString("HH:mm", CultureInfo.InvariantCulture);
-        }
-        catch (TimeZoneNotFoundException) {
+        } catch (TimeZoneNotFoundException) {
             return now.ToString("HH:mm 'UTC'", CultureInfo.InvariantCulture);
-        }
-        catch (InvalidTimeZoneException) {
+        } catch (InvalidTimeZoneException) {
             return now.ToString("HH:mm 'UTC'", CultureInfo.InvariantCulture);
         }
     }
@@ -146,8 +143,7 @@
     static string LanguageLabel(string code) {
         try {
             return CultureInfo.GetCultureInfo(code).EnglishName;
-        }
-        catch (CultureNotFoundException) {
+        } catch (CultureNotFoundException) {
             return code;
         }
     }

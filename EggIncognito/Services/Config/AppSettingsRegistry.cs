@@ -1,3 +1,4 @@
+using EggIdentity.DbClone;
 using EggIdentity.Settings;
 
 namespace EggIncognito.Services.Config;
@@ -13,6 +14,7 @@ public static class AppSettingsRegistry {
         new IntegrationSettingsProvider(),
         new PlatformSettingsProvider(),
         new RateLimitSettingsProvider(),
-        new VirtualDeviceSettingsProvider()
+        new VirtualDeviceSettingsProvider(),
+        EnvironmentSettings.Provider
     ], []);
 }

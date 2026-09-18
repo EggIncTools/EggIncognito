@@ -1,14 +1,17 @@
 using EggIdentity.Bot;
 using EggIdentity.Contract;
 using EggIdentity.Db;
+using EggIdentity.DbClone;
 using EggIdentity.Fallback;
 using EggIdentity.Metrics;
 using EggIdentity.Settings.Api;
+using EggIdentity.Visits;
 using EggIncognito.Bot;
 using EggIncognito.Components;
 using EggIncognito.Core.Services;
 using EggIncognito.Data.Services;
 using EggIncognito.Services;
+using EggIncognito.Services.Admin;
 using EggIncognito.Services.Auth;
 using EggIncognito.Services.Devices.Fake;
 using Microsoft.EntityFrameworkCore;
@@ -50,6 +53,7 @@ public static class AppPipeline {
         using var scope = app.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<EggIncognitoDbContext>();
         await db.Database.MigrateAsync();
+        await scope.ServiceProvider.GetRequiredService<VisitsStore>().MigrateAsync();
         await RouteSeeder.SeedAsync(db, scope.ServiceProvider.GetRequiredService<RouteCatalog>());
         await TagSeeder.SeedAsync(db);
 
@@ -101,8 +105,11 @@ public static class AppPipeline {
 
     public static void MapAppEndpoints(this WebApplication app, BootFlags boot) {
         app.MapControllers();
+        if (boot.DbEnabled) app.MapEggIdentityVisits();
         if (boot.DbEnabled && !string.IsNullOrWhiteSpace(boot.AdminApiSecret))
-            app.MapAdminApi(new AdminApiOptions("eggincognito", boot.AdminApiSecret));
+            app.MapAdminApi(new AdminApiOptions("eggincognito", boot.AdminApiSecret))
+                .MapEggIdentityVisitsAdminApi()
+                .MapCloneAdminApi(EggIncognitoClonePlan.Create());
 
         if (boot.SyncIngestEnabled) {
             var ingest = app.Services.GetRequiredService<NewVersionIngestService>();

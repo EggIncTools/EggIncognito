@@ -44,8 +44,7 @@
                 await Task.Delay(ResetDelayMs);
                 _copied = false;
             }
-        }
-        catch (Exception ex) when (ex is JSDisconnectedException or JSException or ObjectDisposedException) {
+        } catch (Exception ex) when (ex is JSDisconnectedException or JSException or ObjectDisposedException) {
             Logger.LogDebug(ex, "clipboard copy failed");
         }
     }

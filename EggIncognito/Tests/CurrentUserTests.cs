@@ -1,4 +1,6 @@
 using System.Security.Claims;
+using EggIdentity.Auth;
+using EggIdentity.Contract;
 using EggIncognito.Data.Services;
 using EggIncognito.Services;
 using Microsoft.AspNetCore.Http;
@@ -6,11 +8,11 @@ using Microsoft.AspNetCore.Http;
 namespace EggIncognito.Tests;
 
 public class CurrentUserTests {
-    private static CurrentUser Make(ClaimsPrincipal? principal) {
+    private static CurrentUser Make(ClaimsPrincipal? principal, string? identityHost = null) {
         var ctx = new DefaultHttpContext();
         if (principal is not null) ctx.User = principal;
         var accessor = new HttpContextAccessor { HttpContext = ctx };
-        return new CurrentUser(accessor, new AuthState(false));
+        return new CurrentUser(accessor, new AuthState(false, identityHost));
     }
 
     [Fact]
@@ -25,25 +27,32 @@ public class CurrentUserTests {
         var id = new ClaimsIdentity(
         [
             new Claim(ClaimTypes.NameIdentifier, "123"), new Claim(ClaimTypes.Name, "alice"),
-            new Claim("urn:discord:avatar:hash", "abc")
+            new Claim(SessionClaims.Avatar, "/avatars/" + Guid.Empty)
         ], "Discord");
         var u = Make(new ClaimsPrincipal(id));
         Assert.True(u.IsAuthenticated);
         Assert.Equal("123", u.DiscordId);
         Assert.Equal("alice", u.Username);
-        Assert.Equal("abc", u.Avatar);
-        Assert.Equal("https://cdn.discordapp.com/avatars/123/abc.png", u.AvatarUrl);
+        Assert.Equal("/avatars/" + Guid.Empty, u.Avatar);
+        Assert.Equal("/avatars/" + Guid.Empty, u.AvatarUrl);
     }
 
     [Fact]
-    public void AvatarUrl_AlreadyFullUrl_PassedThroughUnwrapped() {
+    public void AvatarUrl_IdentityHostConfigured_PrefixesRootRelativePath() {
         var id = new ClaimsIdentity(
         [
-            new Claim(ClaimTypes.NameIdentifier, "123"), new Claim(ClaimTypes.Name, "alice"),
-            new Claim("urn:discord:avatar:hash", "https://cdn.discordapp.com/avatars/123/abc.png")
+            new Claim(ClaimTypes.Name, "alice"),
+            new Claim(SessionClaims.Avatar, IdentityWire.AvatarPath(Guid.Empty))
         ], "Discord");
-        var u = Make(new ClaimsPrincipal(id));
-        Assert.Equal("https://cdn.discordapp.com/avatars/123/abc.png", u.AvatarUrl);
+        var u = Make(new ClaimsPrincipal(id), "https://id.egginc.tools/");
+        Assert.Equal($"https://id.egginc.tools/avatars/{Guid.Empty}", u.AvatarUrl);
+    }
+
+    [Fact]
+    public void AvatarUrl_NoAvatarClaim_IsNull() {
+        var id = new ClaimsIdentity([new Claim(ClaimTypes.Name, "alice")], "Discord");
+        var u = Make(new ClaimsPrincipal(id), "https://id.egginc.tools/");
+        Assert.Null(u.AvatarUrl);
     }
 
     [Fact]

@@ -207,8 +207,7 @@
             _navHandle = await _nav.InvokeAsync<IJSObjectReference>("listen", _selfRef);
             _hashWired = true;
             await ApplyHash(await _nav.InvokeAsync<string>("read"));
-        }
-        catch (Exception ex) when (ex is JSDisconnectedException or JSException or ObjectDisposedException) {
+        } catch (Exception ex) when (ex is JSDisconnectedException or JSException or ObjectDisposedException) {
             Logger.LogDebug(ex, "hash navigation could not be wired");
         }
 
@@ -221,8 +220,7 @@
         try {
             _store = await JS.InvokeAsync<IJSObjectReference>(
                 "import", InteropAsset.Url(Env, "./interop/inspectorStore.js"));
-        }
-        catch (Exception ex) when (ex is JSDisconnectedException or JSException or ObjectDisposedException) {
+        } catch (Exception ex) when (ex is JSDisconnectedException or JSException or ObjectDisposedException) {
             Logger.LogDebug(ex, "the inspector browser store could not be loaded");
             State.Notice = "Browser storage is unavailable, so salt, history and remembered EIDs are off for this session.";
         }
@@ -391,8 +389,7 @@
         if (_store is null) return fallback;
         try {
             return await _store.InvokeAsync<T>(fn, args);
-        }
-        catch (Exception ex) when (ex is JSDisconnectedException or JSException or ObjectDisposedException) {
+        } catch (Exception ex) when (ex is JSDisconnectedException or JSException or ObjectDisposedException) {
             Logger.LogDebug(ex, "inspector store call {Function} failed", fn);
             return fallback;
         }
@@ -402,8 +399,7 @@
         if (_store is null) return;
         try {
             await _store.InvokeVoidAsync(fn, args);
-        }
-        catch (Exception ex) when (ex is JSDisconnectedException or JSException or ObjectDisposedException) {
+        } catch (Exception ex) when (ex is JSDisconnectedException or JSException or ObjectDisposedException) {
             Logger.LogDebug(ex, "inspector store call {Function} failed", fn);
         }
     }
@@ -489,12 +485,10 @@
 
             State.EnvValidated = true;
             State.EnvOpen = false;
-        }
-        catch (Exception ex) when (ex is HttpRequestException or JsonException or TaskCanceledException) {
+        } catch (Exception ex) when (ex is HttpRequestException or JsonException or TaskCanceledException) {
             State.EnvValidated = false;
             State.EnvError = "validation failed: " + ex.Message;
-        }
-        finally {
+        } finally {
             State.EnvValidating = false;
         }
     }
@@ -540,8 +534,7 @@
                           ?? throw new FormatException("raw body must be a JSON object");
                 FieldTreeBuilder.Apply(State.FieldNodes, obj);
                 State.ApplyEnvLock();
-            }
-            catch (Exception ex) when (ex is JsonException or FormatException) {
+            } catch (Exception ex) when (ex is JsonException or FormatException) {
                 State.RawError = "Raw JSON does not parse, so it was not applied to the tree. Fix it or switch back: " + ex.Message;
                 State.RawMode = true;
                 return;
@@ -588,8 +581,7 @@
         State.Busy = true;
         try {
             await BuildCore();
-        }
-        finally {
+        } finally {
             State.Busy = false;
         }
     }
@@ -599,8 +591,7 @@
         State.Busy = true;
         try {
             await SendCore();
-        }
-        finally {
+        } finally {
             State.Busy = false;
         }
     }
@@ -632,8 +623,7 @@
             fields = State.RawMode
                 ? JsonNode.Parse(string.IsNullOrWhiteSpace(State.RawJson) ? "{}" : State.RawJson)
                 : FieldTreeBuilder.Collect(State.FieldNodes ?? []);
-        }
-        catch (JsonException ex) {
+        } catch (JsonException ex) {
             State.Response = new SendResponse(null, null, null, null, "invalid raw JSON: " + ex.Message, null);
             return;
         }
@@ -662,8 +652,7 @@
             State.LastBuild = data;
             State.BuildStages = data?.Stages;
             await SaveToHistory(e, fields);
-        }
-        catch (Exception ex) when (ex is HttpRequestException or JsonException or TaskCanceledException) {
+        } catch (Exception ex) when (ex is HttpRequestException or JsonException or TaskCanceledException) {
             State.Response = new SendResponse(null, null, null, null, "build failed: " + ex.Message, null);
         }
     }
@@ -711,8 +700,7 @@
             try {
                 if (JsonNode.Parse(string.IsNullOrWhiteSpace(h.FieldsJson) ? "{}" : h.FieldsJson) is JsonObject obj)
                     FieldTreeBuilder.Apply(State.FieldNodes, obj);
-            }
-            catch (JsonException ex) {
+            } catch (JsonException ex) {
                 Logger.LogDebug(ex, "a saved request body did not parse; keeping the freshly seeded tree");
             }
         }
@@ -762,8 +750,7 @@
                 }, JsonOpts);
             State.Response = await res.Content.ReadFromJsonAsync<SendResponse>(JsonOpts);
             await MaybeDiagnose();
-        }
-        catch (Exception ex) when (ex is HttpRequestException or JsonException or TaskCanceledException) {
+        } catch (Exception ex) when (ex is HttpRequestException or JsonException or TaskCanceledException) {
             State.Response = new SendResponse(null, null, null, null, "send failed: " + ex.Message, null);
         }
     }
@@ -780,8 +767,7 @@
             var res = await Client().PostAsJsonAsync("/api/tools/diagnose",
                 new { Base64 = State.Response.RawBase64, RootType = State.Selected?.Response }, JsonOpts);
             State.Diagnosis = await res.Content.ReadFromJsonAsync<DiagnoseDto>(JsonOpts);
-        }
-        catch (Exception ex) when (ex is HttpRequestException or JsonException or TaskCanceledException) {
+        } catch (Exception ex) when (ex is HttpRequestException or JsonException or TaskCanceledException) {
             Logger.LogDebug(ex, "the failed decode could not be diagnosed");
         }
     }
@@ -807,11 +793,9 @@
             var fresh = Catalog.Resolve(e.Path) ?? e;
             State.Selected = fresh;
             await RedecodeAfterFix(fresh);
-        }
-        catch (Exception ex) when (ex is HttpRequestException or JsonException or TaskCanceledException) {
+        } catch (Exception ex) when (ex is HttpRequestException or JsonException or TaskCanceledException) {
             State.Response = State.Response with { Error = "failed to set responseWrapped: " + ex.Message };
-        }
-        finally {
+        } finally {
             _fixWrappedBusy = false;
         }
     }
@@ -828,8 +812,7 @@
                 Error = dec?.Error,
                 WrappedMismatch = dec?.WrappedMismatch ?? false
             };
-        }
-        catch (Exception ex) when (ex is HttpRequestException or JsonException or TaskCanceledException) {
+        } catch (Exception ex) when (ex is HttpRequestException or JsonException or TaskCanceledException) {
             State.Response = State.Response with { Error = "redecode failed: " + ex.Message };
         }
     }
@@ -864,8 +847,7 @@
         string raw;
         try {
             raw = await _store.InvokeAsync<string>("postForm", proxyUrl, State.LastBuild!.FinalFormBody);
-        }
-        catch (Exception ex) when (ex is JSDisconnectedException or JSException or ObjectDisposedException) {
+        } catch (Exception ex) when (ex is JSDisconnectedException or JSException or ObjectDisposedException) {
             State.Response = new SendResponse(null, null, null, null,
                 $"direct request to your proxy failed: {ex.Message}",
                 "Your proxy must be reachable from this browser and allow this origin (CORS).");
@@ -878,8 +860,7 @@
             var dec = await res.Content.ReadFromJsonAsync<SendResponse>(JsonOpts);
             State.Response = new SendResponse(200, raw, dec?.Stages, dec?.Json, dec?.Error, null, dec?.WrappedMismatch ?? false);
             await MaybeDiagnose();
-        }
-        catch (Exception ex) when (ex is HttpRequestException or JsonException or TaskCanceledException) {
+        } catch (Exception ex) when (ex is HttpRequestException or JsonException or TaskCanceledException) {
             State.Response = new SendResponse(null, null, null, null, "decode failed: " + ex.Message, null);
         }
     }
@@ -921,8 +902,7 @@
             Toasts.Push(StatusNoteKind.Error, res.StatusCode == HttpStatusCode.Forbidden
                 ? "Not authorized to write to the shared DB."
                 : $"Save failed: HTTP {(int)res.StatusCode}");
-        }
-        catch (Exception ex) when (ex is HttpRequestException or JsonException or TaskCanceledException) {
+        } catch (Exception ex) when (ex is HttpRequestException or JsonException or TaskCanceledException) {
             Toasts.Push(StatusNoteKind.Error, $"Request failed: {ex.Message}");
         }
     }
@@ -977,8 +957,7 @@
         var hash = clear ? "" : State.Hash() ?? "";
         try {
             await _nav.InvokeVoidAsync(push ? "push" : "write", hash);
-        }
-        catch (Exception ex) when (ex is JSDisconnectedException or JSException or ObjectDisposedException) {
+        } catch (Exception ex) when (ex is JSDisconnectedException or JSException or ObjectDisposedException) {
             Logger.LogDebug(ex, "the workbench hash could not be updated");
         }
     }

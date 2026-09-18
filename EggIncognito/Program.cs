@@ -47,6 +47,8 @@ public sealed class Program {
         builder.AddAppSettingsFramework(boot, settings);
         builder.AddDeployServices();
         builder.AddIdentityServices(boot);
+        builder.AddVisitsServices(boot);
+        builder.AddConsentServices(boot);
         builder.AddBotServices(boot);
         builder.AddSyncIngest(boot);
         builder.AddDatabaseStores(boot);

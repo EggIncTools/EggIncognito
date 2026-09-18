@@ -268,8 +268,7 @@
                 State.RunPanelWidth, State.RunPanelHeight);
             _self ??= DotNetObjectReference.Create(this);
             _drag = await _dragMod.InvokeAsync<IJSObjectReference>("makeDraggable", _card, _handle, _self);
-        }
-        catch (Exception ex) when (ex is JSDisconnectedException or JSException or ObjectDisposedException) {
+        } catch (Exception ex) when (ex is JSDisconnectedException or JSException or ObjectDisposedException) {
             Logger.LogDebug(ex, "run panel drag unavailable");
         }
     }
@@ -282,8 +281,7 @@
     async Task FocusPanelAsync() {
         try {
             await _card.FocusAsync();
-        }
-        catch (Exception ex) when (ex is JSDisconnectedException or JSException or ObjectDisposedException) {
+        } catch (Exception ex) when (ex is JSDisconnectedException or JSException or ObjectDisposedException) {
             Logger.LogDebug(ex, "run panel focus failed");
         }
     }
@@ -343,8 +341,7 @@
         if (id is null) return;
         try {
             await Task.WhenAll(LoadCookbooksAsync(), LoadLastRunsAsync(), CheckRunningAsync());
-        }
-        catch (Exception ex) when (ex is HttpRequestException or JsonException or TaskCanceledException or InvalidOperationException) {
+        } catch (Exception ex) when (ex is HttpRequestException or JsonException or TaskCanceledException or InvalidOperationException) {
             Logger.LogDebug(ex, "device run refresh failed for {DeviceId}", id);
         }
 
@@ -581,8 +578,7 @@
 
             await PublishAsync();
             StateHasChanged();
-        }
-        finally {
+        } finally {
             _refreshing = false;
         }
     }
@@ -735,8 +731,7 @@
                 };
                 if (long.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var id)) return id;
             }
-        }
-        catch (Exception ex) when (ex is JsonException or HttpRequestException or NotSupportedException) {
+        } catch (Exception ex) when (ex is JsonException or HttpRequestException or NotSupportedException) {
             return null;
         }
 
@@ -748,8 +743,7 @@
             var body = await resp.Content.ReadFromJsonAsync<JsonElement>();
             if (body.ValueKind == JsonValueKind.Object && body.TryGetProperty("error", out var e))
                 return e.GetString() ?? $"failed [{(int)resp.StatusCode}]";
-        }
-        catch (Exception ex) when (ex is JsonException or HttpRequestException or NotSupportedException) {
+        } catch (Exception ex) when (ex is JsonException or HttpRequestException or NotSupportedException) {
             return $"failed [{(int)resp.StatusCode}]";
         }
 

@@ -177,8 +177,7 @@
         try {
             using var doc = JsonDocument.Parse(json);
             return JsonSerializer.Serialize(doc, new JsonSerializerOptions { WriteIndented = true });
-        }
-        catch {
+        } catch {
             return json;
         }
     }

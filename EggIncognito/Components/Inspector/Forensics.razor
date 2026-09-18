@@ -85,8 +85,7 @@
             var res = await ClientFactory().PostAsJsonAsync("/api/tools/diagnose",
                 new { Base64 = _manualB64, RootType }, JsonOpts);
             Result = await res.Content.ReadFromJsonAsync<DiagnoseDto>(JsonOpts);
-        }
-        catch (Exception ex) {
+        } catch (Exception ex) {
             Result = new DiagnoseDto(false, 0, 0, null, null, null, null, null, ex.Message);
         }
     }

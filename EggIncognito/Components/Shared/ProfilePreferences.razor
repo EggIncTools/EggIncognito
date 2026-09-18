@@ -53,8 +53,7 @@
             var profile = await _identity.GetProfileAsync(SessionToken, CancellationToken.None);
             _savedTimezone = _timezone = profile?.Timezone ?? "";
             _savedLanguage = _language = profile?.Language ?? "";
-        }
-        catch (HttpRequestException) {
+        } catch (HttpRequestException) {
             SetMessage("Could not read your preferences.", StatusNoteKind.Error);
         }
     }
@@ -73,8 +72,7 @@
         bool ok;
         try {
             ok = await _identity.SetPreferencesAsync(SessionToken, _timezone, _language, null, CancellationToken.None);
-        }
-        catch (HttpRequestException) {
+        } catch (HttpRequestException) {
             ok = false;
         }
 

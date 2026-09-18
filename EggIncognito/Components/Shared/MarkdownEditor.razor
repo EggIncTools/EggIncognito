@@ -104,11 +104,9 @@
                     : (int)res.StatusCode == 503 ? "No database configured."
                     : $"HTTP {(int)res.StatusCode}", StatusNoteKind.Error);
             }
-        }
-        catch (Exception ex) {
+        } catch (Exception ex) {
             SetStatus($"Save failed: {ex.Message}", StatusNoteKind.Error);
-        }
-        finally {
+        } finally {
             _busy = false;
         }
     }
@@ -137,12 +135,10 @@
                 _value += $"\n*(image upload failed: {msg})*\n";
                 SetStatus($"Upload failed: {msg}", StatusNoteKind.Error);
             }
-        }
-        catch (Exception ex) {
+        } catch (Exception ex) {
             _value += $"\n*(image upload failed: {ex.Message})*\n";
             SetStatus($"Upload failed: {ex.Message}", StatusNoteKind.Error);
-        }
-        finally {
+        } finally {
             _busy = false;
         }
     }

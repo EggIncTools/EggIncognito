@@ -128,8 +128,7 @@
             var res = await Client().GetAsync(url);
             var body = await res.Content.ReadAsStringAsync();
             return new DataPayloadEntry((int)res.StatusCode, body);
-        }
-        catch (Exception ex) {
+        } catch (Exception ex) {
             Logger.LogDebug(ex, "data source {Url} could not be read", url);
             return new DataPayloadEntry(0, "");
         }

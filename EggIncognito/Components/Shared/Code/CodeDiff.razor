@@ -414,9 +414,7 @@
             _mapModule ??= await JS.InvokeAsync<IJSObjectReference>(
                 "import", InteropAsset.Url(Env, "./interop/diffmap.js"));
             _mapHandle = await _mapModule.InvokeAsync<IJSObjectReference?>("attach", _view);
-        } catch (JSException) {
-            _mapKey = "";
-        } catch (JSDisconnectedException) {
+        } catch (Exception ex) when (ex is JSException or JSDisconnectedException) {
             _mapKey = "";
         }
     }

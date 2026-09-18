@@ -79,11 +79,9 @@
             var data = await res.Content.ReadFromJsonAsync<Models.Capture.SaveResult>(JsonOpts);
             if (res.IsSuccessStatusCode && data?.Saved is not null) Toasts.Push(StatusNoteKind.Ok, "Saved " + data.Saved);
             else Toasts.Push(StatusNoteKind.Error, data?.Error ?? "Save failed");
-        }
-        catch (Exception ex) {
+        } catch (Exception ex) {
             Toasts.Push(StatusNoteKind.Error, "Save failed: " + ex.Message);
-        }
-        finally {
+        } finally {
             _saving = false;
         }
     }
@@ -206,8 +204,7 @@
         int n;
         try {
             if (!Convert.TryFromBase64String(prefix.PadRight((prefix.Length + 3) / 4 * 4, '='), head, out n)) return null;
-        }
-        catch {
+        } catch {
             return null;
         }
 
@@ -330,8 +327,7 @@
                 var v = eq >= 0 ? pair[(eq + 1)..] : "";
                 try {
                     query.Add((Uri.UnescapeDataString(k), Uri.UnescapeDataString(v)));
-                }
-                catch {
+                } catch {
                     query.Add((k, v));
                 }
             }

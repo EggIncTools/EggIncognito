@@ -16,332 +16,332 @@
     <div class="wb-note">Pick a device.</div>
 } else {
     <div class="dcon">
-    <div class="dcon-body">
-    <div class="dcon-stage-col">
-        <div class="dcon-stage">
-            <button type="button" class="dcon-shot" @ref="_stage"
-                    aria-label="Device screen: tap, hold for long-press, drag or scroll to swipe">
-                @if (_useVideo) {
-                    <canvas class="dcon-canvas" @ref="_canvas"></canvas>
-                } else {
-                    <img class="dcon-img" alt="" @ref="_img"/>
-                }
-                @if (_hasFrame && _selectedGesture is { } hl && TapWidth > 0) {
-                    <span class="dcon-hl dcon-hl-pt" style="@PointStyle(hl.X, hl.Y)"></span>
-                    @if (hl.Kind == RecordedGestureKind.Swipe) {
-                        <span class="dcon-hl dcon-hl-pt dcon-hl-end" style="@PointStyle(hl.X2, hl.Y2)"></span>
-                    }
-                }
-                @if (_hasFrame && TapWidth > 0) {
-                    @foreach (var wp in _watch.Points) {
-                        <span class="dcon-hl dcon-hl-pt dcon-hl-watch" style="@PointStyle(wp.X, wp.Y)"></span>
-                    }
-                }
-                @if (_watch.Tapping) {
-                    <span class="dcon-tapping" aria-hidden="true"></span>
-                }
-            </button>
-            @if (ShowNavBar) {
-                <div class="dcon-nav" role="group" aria-label="Device navigation">
-                    @if (GestureNav) {
-                        <button type="button" class="dcon-nav-btn dcon-nav-pill" aria-label="Home"
-                                @onclick="@(() => KeyAsync("home"))">
-                            <span class="dcon-nav-handle" aria-hidden="true"></span>
-                        </button>
-                    } else {
-                        <button type="button" class="dcon-nav-btn" aria-label="Recents"
-                                @onclick="@(() => KeyAsync("recents"))">
-                            <span class="dcon-nav-recents" aria-hidden="true"></span>
-                        </button>
-                        <button type="button" class="dcon-nav-btn" aria-label="Home" @onclick="@(() => KeyAsync("home"))">
-                            <span class="dcon-nav-home" aria-hidden="true"></span>
-                        </button>
-                        <button type="button" class="dcon-nav-btn" aria-label="Back" @onclick="@(() => KeyAsync("back"))">
-                            <span class="dcon-nav-back" aria-hidden="true"></span>
-                        </button>
-                    }
-                </div>
-            }
-            @if (Asleep) {
-                <button type="button" class="dcon-wake" disabled="@_waking" @onclick="WakeAsync">
-                    <Icon Name="power" Class="icon-md"/>
-                    <span>@(_waking ? "Waking..." : "Click to wake")</span>
-                    <span class="text-muted dcon-stage-reason">@AsleepReason()</span>
-                </button>
-            } else if (!_hasFrame) {
-                <span class="dcon-stage-empty">
-                    <Icon Name="@StreamIcon()" Class="@("icon-sm " + StreamIconClass())"/>
-                    <span>@StageEmptyText()</span>
-                    @if (_streamError is { } stageErr) {
-                        <span class="text-muted dcon-stage-reason">@stageErr</span>
-                    }
-                </span>
-            }
-        </div>
-    </div>
-
-    <div class="dcon-side">
-    @if (Actions is not null) {
-        <div class="dwb-bar dcon-actions">
-            <span class="dwb-bar-group">@Actions</span>
-        </div>
-        @ActionNotes
-    }
-
-    <div class="dwb-bar">
-        <span class="dwb-bar-group">
-            <span class="dcon-k">Stream</span>
-            <span class="dcon-status">
-                <Icon Name="@StreamIcon()" Class="@("icon-sm " + StreamIconClass())"/>
-                <span>@StreamLabel()</span>
-            </span>
-            @if (StreamDetail() is { } streamDetail) {
-                <span class="text-muted text-xs dcon-status-detail">@streamDetail</span>
-            }
-        </span>
-        <span class="dwb-bar-group">
-            <span class="text-muted text-xs" title="@(_videoFallback ? "h264 gave no frame, retrying shortly" : null)">@(_useVideo ? "h264" : _videoFallback ? "jpeg, h264 retry pending" : "jpeg")</span>
-            <select class="field-input dcon-rate" aria-label="Quality" value="@QualityValue()" @onchange="QualityPicked">
-                @if (_useVideo) {
-                    <option value="@StreamQuality.Fluid">Fluid</option>
-                    <option value="@StreamQuality.Balanced">Balanced</option>
-                    <option value="@StreamQuality.Crisp">Crisp</option>
-                } else {
-                    @foreach (var fps in Rates) {
-                        <option value="@fps">@fps fps</option>
-                    }
-                }
-            </select>
-            <button type="button" class="btn-mini" @onclick="ToggleStreamAsync">
-                <Icon Name="@(_live ? "pause" : "play")" Class="icon-sm"/>
-                @(_live ? "Pause" : "Resume")
-            </button>
-            <button type="button" class="btn-mini @(_mode == DeviceConsoleMode.Record ? "dcon-on" : "")"
-                    title="Record every tap, hold and swipe on the stage as flow steps" @onclick="ToggleRecord">
-                <Icon Name="@(_mode == DeviceConsoleMode.Record ? "circle-check" : "circle")" Class="icon-sm"/>
-                Record
-            </button>
-            @if (IsAndroid) {
-                <button type="button" class="btn-mini @(_locking || _watch.Points.Count > 0 ? "dcon-on" : "")"
-                        title="@WatchTitle()" @onclick="ToggleLocking">
-                    <Icon Name="eye" Class="icon-sm"/>
-                    @WatchLabel()
-                </button>
-                @if (_watch.Points.Count > 0) {
-                    <button type="button" class="btn-mini" title="Stop every watch point on this device"
-                            @onclick="StopAllWatchesAsync">
-                        Clear @_watch.Points.Count
-                    </button>
-                }
-            }
-        </span>
-    </div>
-
-    <div class="dwb-bar">
-        <span class="dwb-bar-group">
-            <span class="dcon-k">Workflows</span>
-            @if (_runLine is { } run) {
-                <span class="dcon-run-title">@run.Title</span>
-                <span class="font-mono text-muted text-xs">@run.Elapsed</span>
-                <span class="dcon-status">
-                    <Icon Name="@run.Icon" Class="@("icon-sm " + run.IconClass)"/>
-                    <span>@run.State</span>
-                </span>
-            } else {
-                <span class="text-muted text-xs">nothing running</span>
-            }
-        </span>
-        <span class="dwb-bar-group">
-            <button type="button" class="btn-mini" @onclick="OpenRunPanel">
-                <Icon Name="play" Class="icon-sm"/>
-                @(_runLine is null ? "Open" : "Show run")
-            </button>
-        </span>
-    </div>
-
-    @if (IsAndroid) {
-        <DeviceSection Title="Island" Open="@State.IsOpen(DeviceWorkbenchState.SectionIsland)"
-                       OpenChanged="@(o => State.SetOpen(DeviceWorkbenchState.SectionIsland, o))">
-            <Summary>
-                <span class="text-muted text-xs">@CurrentIslandLabel()</span>
-            </Summary>
-            <Tools>
-                @if (!_newIslandOpen) {
-                    <button type="button" class="btn-mini" disabled="@_islandBusy" @onclick="OpenNewIsland">
-                        <Icon Name="plus" Class="icon-sm"/>
-                        New island
-                    </button>
-                }
-                <button type="button" class="btn-mini" disabled="@_islandBusy" @onclick="LoadIslandsAsync">
-                    <Icon Name="refresh-cw" Class="icon-sm"/>
-                    @(_islandBusy ? "Refreshing..." : "Refresh")
-                </button>
-            </Tools>
-            <ChildContent>
-            <div class="text-muted text-xs">islands run one at a time; only the foreground user renders</div>
-            <div class="reg-wrap dcon-island-wrap">
-                <table class="data-table dcon-list">
-                    <tbody>
-                    <tr>
-                        <td class="dcon-cur">
-                            @if (_selectedAndroidUserId is null) {
-                                <Icon Name="check" Class="icon-sm text-ok"/>
+        <div class="dcon-body">
+            <div class="dcon-stage-col">
+                <div class="dcon-stage">
+                    <button type="button" class="dcon-shot" @ref="_stage"
+                            aria-label="Device screen: tap, hold for long-press, drag or scroll to swipe">
+                        @if (_useVideo) {
+                            <canvas class="dcon-canvas" @ref="_canvas"></canvas>
+                        } else {
+                            <img class="dcon-img" alt="" @ref="_img"/>
+                        }
+                        @if (_hasFrame && _selectedGesture is { } hl && TapWidth > 0) {
+                            <span class="dcon-hl dcon-hl-pt" style="@PointStyle(hl.X, hl.Y)"></span>
+                            @if (hl.Kind == RecordedGestureKind.Swipe) {
+                                <span class="dcon-hl dcon-hl-pt dcon-hl-end" style="@PointStyle(hl.X2, hl.Y2)"></span>
                             }
-                        </td>
-                        <td class="dcon-list-title">Device (no island)</td>
-                        <td class="font-mono text-muted text-xs">user @IslandScope.Owner</td>
-                        <td class="dcon-row-tools">
-                            @if (_selectedAndroidUserId is not null) {
-                                <button type="button" class="btn-mini" disabled="@_islandBusy"
-                                        @onclick="@(() => SwitchIslandAsync(IslandScope.Owner))">
-                                    Switch
+                        }
+                        @if (_hasFrame && TapWidth > 0) {
+                            @foreach (var wp in _watch.Points) {
+                                <span class="dcon-hl dcon-hl-pt dcon-hl-watch" style="@PointStyle(wp.X, wp.Y)"></span>
+                            }
+                        }
+                        @if (_watch.Tapping) {
+                            <span class="dcon-tapping" aria-hidden="true"></span>
+                        }
+                    </button>
+                    @if (ShowNavBar) {
+                        <div class="dcon-nav" role="group" aria-label="Device navigation">
+                            @if (GestureNav) {
+                                <button type="button" class="dcon-nav-btn dcon-nav-pill" aria-label="Home"
+                                        @onclick="@(() => KeyAsync("home"))">
+                                    <span class="dcon-nav-handle" aria-hidden="true"></span>
+                                </button>
+                            } else {
+                                <button type="button" class="dcon-nav-btn" aria-label="Recents"
+                                        @onclick="@(() => KeyAsync("recents"))">
+                                    <span class="dcon-nav-recents" aria-hidden="true"></span>
+                                </button>
+                                <button type="button" class="dcon-nav-btn" aria-label="Home" @onclick="@(() => KeyAsync("home"))">
+                                    <span class="dcon-nav-home" aria-hidden="true"></span>
+                                </button>
+                                <button type="button" class="dcon-nav-btn" aria-label="Back" @onclick="@(() => KeyAsync("back"))">
+                                    <span class="dcon-nav-back" aria-hidden="true"></span>
                                 </button>
                             }
-                        </td>
-                    </tr>
-                    @foreach (var island in _islands) {
-                        var current = _selectedAndroidUserId == island.AndroidUserId;
-                        <tr @key="island.AndroidUserId">
-                            <td class="dcon-cur">
-                                @if (current) {
-                                    <Icon Name="check" Class="icon-sm text-ok"/>
+                        </div>
+                    }
+                    @if (Asleep) {
+                        <button type="button" class="dcon-wake" disabled="@_waking" @onclick="WakeAsync">
+                            <Icon Name="power" Class="icon-md"/>
+                            <span>@(_waking ? "Waking..." : "Click to wake")</span>
+                            <span class="text-muted dcon-stage-reason">@AsleepReason()</span>
+                        </button>
+                    } else if (!_hasFrame) {
+                        <span class="dcon-stage-empty">
+                            <Icon Name="@StreamIcon()" Class="@("icon-sm " + StreamIconClass())"/>
+                            <span>@StageEmptyText()</span>
+                            @if (_streamError is { } stageErr) {
+                                <span class="text-muted dcon-stage-reason">@stageErr</span>
+                            }
+                        </span>
+                    }
+                </div>
+            </div>
+
+            <div class="dcon-side">
+                @if (Actions is not null) {
+                    <div class="dwb-bar dcon-actions">
+                        <span class="dwb-bar-group">@Actions</span>
+                    </div>
+                    @ActionNotes
+                }
+
+                <div class="dwb-bar">
+                    <span class="dwb-bar-group">
+                        <span class="dcon-k">Stream</span>
+                        <span class="dcon-status">
+                            <Icon Name="@StreamIcon()" Class="@("icon-sm " + StreamIconClass())"/>
+                            <span>@StreamLabel()</span>
+                        </span>
+                        @if (StreamDetail() is { } streamDetail) {
+                            <span class="text-muted text-xs dcon-status-detail">@streamDetail</span>
+                        }
+                    </span>
+                    <span class="dwb-bar-group">
+                        <span class="text-muted text-xs" title="@(_videoFallback ? "h264 gave no frame, retrying shortly" : null)">@(_useVideo ? "h264" : _videoFallback ? "jpeg, h264 retry pending" : "jpeg")</span>
+                        <select class="field-input dcon-rate" aria-label="Quality" value="@QualityValue()" @onchange="QualityPicked">
+                            @if (_useVideo) {
+                                <option value="@StreamQuality.Fluid">Fluid</option>
+                                <option value="@StreamQuality.Balanced">Balanced</option>
+                                <option value="@StreamQuality.Crisp">Crisp</option>
+                            } else {
+                                @foreach (var fps in Rates) {
+                                    <option value="@fps">@fps fps</option>
                                 }
-                            </td>
-                            <td class="dcon-list-title">@IslandLabel(island)</td>
-                            <td class="font-mono text-muted text-xs"
-                                title="@(island.Provisioned ? null : "setup wizard not marked complete for this user; interstitials may cover the app")">
-                                user @island.AndroidUserId@(island.Provisioned ? "" : ", unprovisioned")
-                            </td>
-                            <td class="dcon-row-tools">
-                                @if (!current) {
-                                    <button type="button" class="btn-mini" disabled="@_islandBusy"
-                                            @onclick="@(() => SwitchIslandAsync(island.AndroidUserId))">
-                                        Switch
+                            }
+                        </select>
+                        <button type="button" class="btn-mini" @onclick="ToggleStreamAsync">
+                            <Icon Name="@(_live ? "pause" : "play")" Class="icon-sm"/>
+                            @(_live ? "Pause" : "Resume")
+                        </button>
+                        <button type="button" class="btn-mini @(_mode == DeviceConsoleMode.Record ? "dcon-on" : "")"
+                                title="Record every tap, hold and swipe on the stage as flow steps" @onclick="ToggleRecord">
+                            <Icon Name="@(_mode == DeviceConsoleMode.Record ? "circle-check" : "circle")" Class="icon-sm"/>
+                            Record
+                        </button>
+                        @if (IsAndroid) {
+                            <button type="button" class="btn-mini @(_locking || _watch.Points.Count > 0 ? "dcon-on" : "")"
+                                    title="@WatchTitle()" @onclick="ToggleLocking">
+                                <Icon Name="eye" Class="icon-sm"/>
+                                @WatchLabel()
+                            </button>
+                            @if (_watch.Points.Count > 0) {
+                                <button type="button" class="btn-mini" title="Stop every watch point on this device"
+                                        @onclick="StopAllWatchesAsync">
+                                    Clear @_watch.Points.Count
+                                </button>
+                            }
+                        }
+                    </span>
+                </div>
+
+                <div class="dwb-bar">
+                    <span class="dwb-bar-group">
+                        <span class="dcon-k">Workflows</span>
+                        @if (_runLine is { } run) {
+                            <span class="dcon-run-title">@run.Title</span>
+                            <span class="font-mono text-muted text-xs">@run.Elapsed</span>
+                            <span class="dcon-status">
+                                <Icon Name="@run.Icon" Class="@("icon-sm " + run.IconClass)"/>
+                                <span>@run.State</span>
+                            </span>
+                        } else {
+                            <span class="text-muted text-xs">nothing running</span>
+                        }
+                    </span>
+                    <span class="dwb-bar-group">
+                        <button type="button" class="btn-mini" @onclick="OpenRunPanel">
+                            <Icon Name="play" Class="icon-sm"/>
+                            @(_runLine is null ? "Open" : "Show run")
+                        </button>
+                    </span>
+                </div>
+
+                @if (IsAndroid) {
+                    <DeviceSection Title="Island" Open="@State.IsOpen(DeviceWorkbenchState.SectionIsland)"
+                                   OpenChanged="@(o => State.SetOpen(DeviceWorkbenchState.SectionIsland, o))">
+                        <Summary>
+                            <span class="text-muted text-xs">@CurrentIslandLabel()</span>
+                        </Summary>
+                        <Tools>
+                            @if (!_newIslandOpen) {
+                                <button type="button" class="btn-mini" disabled="@_islandBusy" @onclick="OpenNewIsland">
+                                    <Icon Name="plus" Class="icon-sm"/>
+                                    New island
+                                </button>
+                            }
+                            <button type="button" class="btn-mini" disabled="@_islandBusy" @onclick="LoadIslandsAsync">
+                                <Icon Name="refresh-cw" Class="icon-sm"/>
+                                @(_islandBusy ? "Refreshing..." : "Refresh")
+                            </button>
+                        </Tools>
+                        <ChildContent>
+                            <div class="text-muted text-xs">islands run one at a time; only the foreground user renders</div>
+                            <div class="reg-wrap dcon-island-wrap">
+                                <table class="data-table dcon-list">
+                                    <tbody>
+                                    <tr>
+                                        <td class="dcon-cur">
+                                            @if (_selectedAndroidUserId is null) {
+                                                <Icon Name="check" Class="icon-sm text-ok"/>
+                                            }
+                                        </td>
+                                        <td class="dcon-list-title">Device (no island)</td>
+                                        <td class="font-mono text-muted text-xs">user @IslandScope.Owner</td>
+                                        <td class="dcon-row-tools">
+                                            @if (_selectedAndroidUserId is not null) {
+                                                <button type="button" class="btn-mini" disabled="@_islandBusy"
+                                                        @onclick="@(() => SwitchIslandAsync(IslandScope.Owner))">
+                                                    Switch
+                                                </button>
+                                            }
+                                        </td>
+                                    </tr>
+                                    @foreach (var island in _islands) {
+                                        var current = _selectedAndroidUserId == island.AndroidUserId;
+                                        <tr @key="island.AndroidUserId">
+                                            <td class="dcon-cur">
+                                                @if (current) {
+                                                    <Icon Name="check" Class="icon-sm text-ok"/>
+                                                }
+                                            </td>
+                                            <td class="dcon-list-title">@IslandLabel(island)</td>
+                                            <td class="font-mono text-muted text-xs"
+                                                title="@(island.Provisioned ? null : "setup wizard not marked complete for this user; interstitials may cover the app")">
+                                                user @island.AndroidUserId@(island.Provisioned ? "" : ", unprovisioned")
+                                            </td>
+                                            <td class="dcon-row-tools">
+                                                @if (!current) {
+                                                    <button type="button" class="btn-mini" disabled="@_islandBusy"
+                                                            @onclick="@(() => SwitchIslandAsync(island.AndroidUserId))">
+                                                        Switch
+                                                    </button>
+                                                }
+                                                <button type="button" class="btn-mini btn-danger" disabled="@_islandBusy"
+                                                        @onclick="@(() => RemoveIslandAsync(island.AndroidUserId))">
+                                                    Remove
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    }
+                                    </tbody>
+                                </table>
+                            </div>
+                            @if (_newIslandOpen) {
+                                <div class="dcon-run-row">
+                                    <input class="field-input" placeholder="island label" aria-label="New island label"
+                                           @bind="_newIslandLabel" @bind:event="oninput" @onkeydown="NewIslandKeyAsync"/>
+                                    <button type="button" class="btn-mini" disabled="@(_islandBusy || _newIslandLabel.Trim().Length == 0)"
+                                            @onclick="CreateIslandAsync">
+                                        Create
                                     </button>
-                                }
-                                <button type="button" class="btn-mini btn-danger" disabled="@_islandBusy"
-                                        @onclick="@(() => RemoveIslandAsync(island.AndroidUserId))">
-                                    Remove
-                                </button>
-                            </td>
-                        </tr>
-                    }
-                    </tbody>
-                </table>
-            </div>
-            @if (_newIslandOpen) {
-                <div class="dcon-run-row">
-                    <input class="field-input" placeholder="island label" aria-label="New island label"
-                           @bind="_newIslandLabel" @bind:event="oninput" @onkeydown="NewIslandKeyAsync"/>
-                    <button type="button" class="btn-mini" disabled="@(_islandBusy || _newIslandLabel.Trim().Length == 0)"
-                            @onclick="CreateIslandAsync">
-                        Create
-                    </button>
-                    <button type="button" class="btn-mini" disabled="@_islandBusy" @onclick="CancelNewIsland">Cancel</button>
-                </div>
-            }
-            </ChildContent>
-        </DeviceSection>
-    }
-
-    <DeviceSection Title="Input" Open="@State.IsOpen(DeviceWorkbenchState.SectionInput)"
-                   OpenChanged="@(o => State.SetOpen(DeviceWorkbenchState.SectionInput, o))">
-        <Tools>
-            <button type="button" class="btn-mini @(_captureKeys ? "dcon-on" : "")" @onclick="ToggleCapture"
-                    title="Send every keystroke to the device as you type">
-                <Icon Name="@(_captureKeys ? "circle-check" : "circle")" Class="icon-sm"/>
-                Live keys
-            </button>
-            <button type="button" class="btn-mini" @onclick="@(() => KeyAsync("enter"))">Enter</button>
-        </Tools>
-        <ChildContent>
-        @if (_captureKeys) {
-            <div class="dcon-status text-xs">
-                <Icon Name="circle-check" Class="icon-sm text-accent"/>
-                <span class="text-muted">Keys go to the device as you type, anywhere on this page. Ctrl, Alt and Cmd shortcuts still reach the browser.</span>
-            </div>
-        } else {
-            <div class="dcon-typing">
-                <input class="field-input font-mono" placeholder="paste or type a whole string"
-                       aria-label="Text to send" @bind="_text" @bind:event="oninput" @onkeydown="TextKeyAsync"/>
-                <button type="button" class="btn-mini" disabled="@(_text.Length == 0)" @onclick="SendTextAsync">
-                    <Icon Name="send" Class="icon-sm"/>
-                    Send
-                </button>
-            </div>
-        }
-        </ChildContent>
-    </DeviceSection>
-
-    @if (_mode == DeviceConsoleMode.Record) {
-        <div class="dcon-activity">
-            <div class="dcon-activity-head">
-                <span class="dcon-activity-title">
-                    <span class="dcon-k">Record</span>
-                    <span class="text-muted text-xs">@_recorded.Count @(_recorded.Count == 1 ? "step" : "steps")</span>
-                </span>
-                <span class="dcon-activity-tools">
-                    <CopyButton GetText="@(() => RecordedGesture.FlowText(_recorded))" Label="Copy flow" CopiedLabel="Copied"
-                                ShowIcon="false" ButtonClass="btn-mini"/>
-                    <button type="button" class="btn-mini" disabled="@(_recorded.Count == 0 || _replaying)" @onclick="ReplayAllAsync">
-                        <Icon Name="play" Class="icon-sm"/>
-                        @(_replaying ? "Replaying..." : "Replay")
-                    </button>
-                    <button type="button" class="btn-mini" disabled="@(_recorded.Count == 0)" @onclick="ClearRecorded">Clear</button>
-                    <button type="button" class="btn-mini" @onclick="CloseRecord">Close</button>
-                </span>
-            </div>
-            <div class="dcon-activity-body">
-                @if (_recorded.Count == 0) {
-                    <div class="dcon-status text-xs">
-                        <Icon Name="circle" Class="icon-sm text-muted"/>
-                        <span class="text-muted">Tap, hold or swipe the screen. Each gesture lands here as a flow step at device pixels.</span>
-                    </div>
-                } else {
-                    <div class="reg-wrap dcon-tree">
-                        <table class="data-table dcon-list">
-                            <tbody>
-                            @foreach (var index in Enumerable.Range(0, _recorded.Count)) {
-                                var g = _recorded[index];
-                                <tr @key="index" class="dcon-node @(ReferenceEquals(_selectedGesture, g) ? "dcon-node-on" : "")"
-                                    @onclick="@(() => SelectGesture(g))">
-                                    <td class="dcon-cur text-muted">@(index + 1)</td>
-                                    <td class="dcon-node-kind">@GestureKind(g)</td>
-                                    <td class="dcon-list-title font-mono">@g.Where</td>
-                                    <td class="dcon-node-kind">@(g.DurationMs > 0 ? $"{g.DurationMs}ms" : "")</td>
-                                    <td class="dcon-row-tools">
-                                        <button type="button" class="btn-mini" disabled="@_replaying" title="Replay this step"
-                                                @onclick="@(() => ReplayAsync(g))" @onclick:stopPropagation="true">
-                                            <Icon Name="play" Class="icon-sm"/>
-                                        </button>
-                                        <button type="button" class="btn-mini" title="Remove this step"
-                                                @onclick="@(() => RemoveGesture(index))" @onclick:stopPropagation="true">
-                                            <Icon Name="x" Class="icon-sm"/>
-                                        </button>
-                                    </td>
-                                </tr>
+                                    <button type="button" class="btn-mini" disabled="@_islandBusy" @onclick="CancelNewIsland">Cancel</button>
+                                </div>
                             }
-                            </tbody>
-                        </table>
-                    </div>
+                        </ChildContent>
+                    </DeviceSection>
                 }
 
-                @if (_selectedGesture is { } sel) {
-                    <div class="dcon-sel">
-                        <div class="dcon-snip-row">
-                            <span class="dcon-snip-by">step</span>
-                            <code class="dcon-snip">@sel.StepLine</code>
-                            <CopyButton Text="@sel.StepLine" AriaLabel="Copy flow step"/>
+                <DeviceSection Title="Input" Open="@State.IsOpen(DeviceWorkbenchState.SectionInput)"
+                               OpenChanged="@(o => State.SetOpen(DeviceWorkbenchState.SectionInput, o))">
+                    <Tools>
+                        <button type="button" class="btn-mini @(_captureKeys ? "dcon-on" : "")" @onclick="ToggleCapture"
+                                title="Send every keystroke to the device as you type">
+                            <Icon Name="@(_captureKeys ? "circle-check" : "circle")" Class="icon-sm"/>
+                            Live keys
+                        </button>
+                        <button type="button" class="btn-mini" @onclick="@(() => KeyAsync("enter"))">Enter</button>
+                    </Tools>
+                    <ChildContent>
+                    @if (_captureKeys) {
+                        <div class="dcon-status text-xs">
+                            <Icon Name="circle-check" Class="icon-sm text-accent"/>
+                            <span class="text-muted">Keys go to the device as you type, anywhere on this page. Ctrl, Alt and Cmd shortcuts still reach the browser.</span>
+                        </div>
+                    } else {
+                        <div class="dcon-typing">
+                            <input class="field-input font-mono" placeholder="paste or type a whole string"
+                                   aria-label="Text to send" @bind="_text" @bind:event="oninput" @onkeydown="TextKeyAsync"/>
+                            <button type="button" class="btn-mini" disabled="@(_text.Length == 0)" @onclick="SendTextAsync">
+                                <Icon Name="send" Class="icon-sm"/>
+                                Send
+                            </button>
+                        </div>
+                    }
+                    </ChildContent>
+                </DeviceSection>
+
+                @if (_mode == DeviceConsoleMode.Record) {
+                    <div class="dcon-activity">
+                        <div class="dcon-activity-head">
+                            <span class="dcon-activity-title">
+                                <span class="dcon-k">Record</span>
+                                <span class="text-muted text-xs">@_recorded.Count @(_recorded.Count == 1 ? "step" : "steps")</span>
+                            </span>
+                            <span class="dcon-activity-tools">
+                                <CopyButton GetText="@(() => RecordedGesture.FlowText(_recorded))" Label="Copy flow" CopiedLabel="Copied"
+                                            ShowIcon="false" ButtonClass="btn-mini"/>
+                                <button type="button" class="btn-mini" disabled="@(_recorded.Count == 0 || _replaying)" @onclick="ReplayAllAsync">
+                                    <Icon Name="play" Class="icon-sm"/>
+                                    @(_replaying ? "Replaying..." : "Replay")
+                                </button>
+                                <button type="button" class="btn-mini" disabled="@(_recorded.Count == 0)" @onclick="ClearRecorded">Clear</button>
+                                <button type="button" class="btn-mini" @onclick="CloseRecord">Close</button>
+                            </span>
+                        </div>
+                        <div class="dcon-activity-body">
+                            @if (_recorded.Count == 0) {
+                                <div class="dcon-status text-xs">
+                                    <Icon Name="circle" Class="icon-sm text-muted"/>
+                                    <span class="text-muted">Tap, hold or swipe the screen. Each gesture lands here as a flow step at device pixels.</span>
+                                </div>
+                            } else {
+                                <div class="reg-wrap dcon-tree">
+                                    <table class="data-table dcon-list">
+                                        <tbody>
+                                        @foreach (var index in Enumerable.Range(0, _recorded.Count)) {
+                                            var g = _recorded[index];
+                                            <tr @key="index" class="dcon-node @(ReferenceEquals(_selectedGesture, g) ? "dcon-node-on" : "")"
+                                                @onclick="@(() => SelectGesture(g))">
+                                                <td class="dcon-cur text-muted">@(index + 1)</td>
+                                                <td class="dcon-node-kind">@GestureKind(g)</td>
+                                                <td class="dcon-list-title font-mono">@g.Where</td>
+                                                <td class="dcon-node-kind">@(g.DurationMs > 0 ? $"{g.DurationMs}ms" : "")</td>
+                                                <td class="dcon-row-tools">
+                                                    <button type="button" class="btn-mini" disabled="@_replaying" title="Replay this step"
+                                                            @onclick="@(() => ReplayAsync(g))" @onclick:stopPropagation="true">
+                                                        <Icon Name="play" Class="icon-sm"/>
+                                                    </button>
+                                                    <button type="button" class="btn-mini" title="Remove this step"
+                                                            @onclick="@(() => RemoveGesture(index))" @onclick:stopPropagation="true">
+                                                        <Icon Name="x" Class="icon-sm"/>
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        }
+                                        </tbody>
+                                    </table>
+                                </div>
+                            }
+
+                            @if (_selectedGesture is { } sel) {
+                                <div class="dcon-sel">
+                                    <div class="dcon-snip-row">
+                                        <span class="dcon-snip-by">step</span>
+                                        <code class="dcon-snip">@sel.StepLine</code>
+                                        <CopyButton Text="@sel.StepLine" AriaLabel="Copy flow step"/>
+                                    </div>
+                                </div>
+                            }
                         </div>
                     </div>
                 }
+
+                @Sections
             </div>
         </div>
-    }
-
-    @Sections
-    </div>
-    </div>
     </div>
 
     <DeviceRunPanel DeviceId="@_deviceId" Active="@Active" Open="@RunPanelOpen" AndroidUserId="@_selectedAndroidUserId"
@@ -513,8 +513,7 @@
         if (id is null) return;
         try {
             await Task.WhenAll(LoadScreenAsync(), LoadIslandsAsync(), PollUiStateAsync());
-        }
-        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or InvalidOperationException) {
+        } catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or InvalidOperationException) {
             Logger.LogDebug(ex, "device console refresh failed for {DeviceId}", id);
         }
 
@@ -597,11 +596,9 @@
             _uiState = state;
             _uiProbed = true;
             StateHasChanged();
-        }
-        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException) {
+        } catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException) {
             Logger.LogDebug(ex, "ui state poll failed for {DeviceId}", id);
-        }
-        finally {
+        } finally {
             _uiBusy = false;
         }
     }
@@ -787,8 +784,7 @@
                 StateHasChanged();
                 await ReplayAsync(steps[i]);
             }
-        }
-        finally {
+        } finally {
             _replaying = false;
         }
     }
@@ -1007,8 +1003,7 @@
             var res = await Client().PostAsJsonAsync($"/api/devices/{_deviceId}/ui/swipe",
                 new UiSwipeRequest(x1, y1, x2, y2, durationMs), SelfCallJson.Web);
             if (!res.IsSuccessStatusCode) await Fail(await ReadError(res));
-        }
-        finally {
+        } finally {
             _swiping = false;
         }
     }
@@ -1177,8 +1172,7 @@
             var body = await resp.Content.ReadFromJsonAsync<JsonElement>();
             if (body.ValueKind == JsonValueKind.Object && body.TryGetProperty("error", out var e))
                 return e.GetString() ?? $"failed [{(int)resp.StatusCode}]";
-        }
-        catch (Exception ex) when (ex is JsonException or HttpRequestException or NotSupportedException) {
+        } catch (Exception ex) when (ex is JsonException or HttpRequestException or NotSupportedException) {
             return $"failed [{(int)resp.StatusCode}]";
         }
 
@@ -1229,8 +1223,7 @@
                     ? "the browser could not start the video decoder"
                     : "the browser could not attach the image stream", 0);
             }
-        }
-        finally {
+        } finally {
             _syncing = false;
         }
     }
@@ -1451,8 +1444,7 @@
         try {
             _module = await JS.InvokeAsync<IJSObjectReference>("import", InteropAsset.Url(Env, "./interop/deviceConsole.js"));
             return _module;
-        }
-        catch (Exception ex) when (ex is JSDisconnectedException or JSException or ObjectDisposedException) {
+        } catch (Exception ex) when (ex is JSDisconnectedException or JSException or ObjectDisposedException) {
             Logger.LogDebug(ex, "device console module import failed");
             return null;
         }
@@ -1461,8 +1453,7 @@
     async Task SafeAsync(IJSObjectReference module, string identifier, params object?[] args) {
         try {
             await module.InvokeVoidAsync(identifier, args);
-        }
-        catch (Exception ex) when (ex is JSDisconnectedException or JSException or ObjectDisposedException) {
+        } catch (Exception ex) when (ex is JSDisconnectedException or JSException or ObjectDisposedException) {
             Logger.LogDebug(ex, "device console interop call failed");
         }
     }
@@ -1470,8 +1461,7 @@
     async Task<T?> SafeValueAsync<T>(IJSObjectReference module, string identifier, params object?[] args) {
         try {
             return await module.InvokeAsync<T>(identifier, args);
-        }
-        catch (Exception ex) when (ex is JSDisconnectedException or JSException or ObjectDisposedException) {
+        } catch (Exception ex) when (ex is JSDisconnectedException or JSException or ObjectDisposedException) {
             Logger.LogDebug(ex, "device console interop call failed");
             return default;
         }

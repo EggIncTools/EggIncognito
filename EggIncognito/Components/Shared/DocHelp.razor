@@ -74,8 +74,7 @@
         if (_open) {
             try {
                 await UnregisterOutsideClickAsync();
-            }
-            catch (JSDisconnectedException ex) {
+            } catch (JSDisconnectedException ex) {
                 Logger.LogDebug(ex, "outside-click handler already gone with the circuit");
             }
         }
@@ -88,8 +87,7 @@
         try {
             var doc = await Client().GetFromJsonAsync<Models.Docs.DocResult>($"/api/docs/doc/{Kind}/{Uri.EscapeDataString(Key)}", JsonOpts);
             _bodyMd = doc?.BodyMd;
-        }
-        catch {
+        } catch {
             _bodyMd = null;
         }
     }

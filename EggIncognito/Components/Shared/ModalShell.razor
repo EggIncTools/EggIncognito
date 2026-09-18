@@ -53,8 +53,7 @@
         try {
             _scrollLock = await JS.InvokeAsync<IJSObjectReference>("import", InteropAsset.Url(Env, "./interop/scrollLock.js"));
             await _scrollLock.InvokeVoidAsync("lock");
-        }
-        catch (Exception ex) {
+        } catch (Exception ex) {
             Logger.LogDebug(ex, "modal scroll lock unavailable");
         }
     }

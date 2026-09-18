@@ -50,8 +50,7 @@
         _focus = false;
         try {
             await _inputRef.FocusAsync();
-        }
-        catch (Exception ex) when (ex is JSDisconnectedException or JSException or ObjectDisposedException) {
+        } catch (Exception ex) when (ex is JSDisconnectedException or JSException or ObjectDisposedException) {
             Logger.LogDebug(ex, "could not focus the salt input");
         }
     }

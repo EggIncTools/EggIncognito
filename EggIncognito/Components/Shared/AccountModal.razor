@@ -151,9 +151,9 @@
     }
 
     string LinkHref(string url) {
-        return url.StartsWith("http", StringComparison.OrdinalIgnoreCase) || string.IsNullOrEmpty(Auth.IdentityHostUrl)
+        return !url.StartsWith('/') || string.IsNullOrEmpty(Auth.IdentityHostUrl)
             ? url
-            : $"{Auth.IdentityHostUrl!.TrimEnd('/')}/{url.TrimStart('/')}";
+            : $"{Auth.IdentityHostUrl!.TrimEnd('/')}{url}";
     }
 
 }

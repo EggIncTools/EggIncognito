@@ -1,7 +1,11 @@
 @inherits LayoutComponentBase
+@using EggIdentity.Consent
+@inject AuthState Auth
+@inject IHttpContextAccessor HttpContextAccessor
 @Body
 <ToastHost @rendermode="RenderModes.InteractiveServer"/>
 <DeployToastStarter/>
+<CookieBanner SessionToken="@SessionToken" PrivacyUrl="/privacy" @rendermode="RenderModes.InteractiveServer"/>
 <footer id="siteFooter" class="site-footer">
     <div class="site-footer-inner pd-band">
         <p class="site-footer-disclaimer">
@@ -20,3 +24,14 @@
         </nav>
     </div>
 </footer>
+
+@code {
+
+    string? SessionToken {
+        get {
+            string token = HttpContextAccessor.HttpContext?.Request.Cookies[Auth.SessionCookieName] ?? "";
+            return token.Length == 0 ? null : token;
+        }
+    }
+
+}

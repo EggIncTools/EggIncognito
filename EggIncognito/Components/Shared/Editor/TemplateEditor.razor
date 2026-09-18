@@ -71,8 +71,7 @@
         if (!firstRender || _module is not null) return;
         try {
             _module = await JS.InvokeAsync<IJSObjectReference>("import", InteropAsset.Url(Env, "./interop/caretInsert.js"));
-        }
-        catch (Exception ex) when (ex is JSDisconnectedException or JSException or ObjectDisposedException) {
+        } catch (Exception ex) when (ex is JSDisconnectedException or JSException or ObjectDisposedException) {
             Logger.LogDebug(ex, "caret insert interop could not be loaded");
         }
     }
@@ -87,8 +86,7 @@
         if (_module is not null) {
             try {
                 next = await _module.InvokeAsync<string>("insert", _area, token);
-            }
-            catch (Exception ex) when (ex is JSDisconnectedException or JSException or ObjectDisposedException) {
+            } catch (Exception ex) when (ex is JSDisconnectedException or JSException or ObjectDisposedException) {
                 Logger.LogDebug(ex, "caret insert failed, appending instead");
                 next = (Value ?? "") + token;
             }

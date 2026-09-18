@@ -48,8 +48,7 @@
         previous?.Dispose();
         try {
             await Task.Delay(250, cts.Token);
-        }
-        catch (TaskCanceledException) {
+        } catch (TaskCanceledException) {
             return;
         }
 
