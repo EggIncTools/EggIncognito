@@ -38,6 +38,13 @@
             <td class="text-xs">@Result("refresh-endpoints")</td>
         </tr>
         <tr>
+            <td>Check App Store versions (ipatool)</td>
+            <td>
+                <button type="button" class="btn-mini" disabled="@_busy" @onclick="CheckIpaToolVersions">Run</button>
+            </td>
+            <td class="text-xs">@Result("ipatool-versions")</td>
+        </tr>
+        <tr>
             <td>
                 <div class="flex gap-1 items-center flex-wrap">
                     <span>Config refresh-live</span>
@@ -219,6 +226,11 @@
         var ok = await Run("refresh-endpoints",
             () => Api!.PostAsync("/api/config/refresh-endpoints", TimeSpan.FromMinutes(2)));
         if (ok) Notifier.Publish(AdminTopics.Console);
+    }
+
+    Task CheckIpaToolVersions() {
+        return Run("ipatool-versions",
+            () => Api!.PostAsync("/api/devices/ipatool/check-versions", TimeSpan.FromMinutes(3)));
     }
 
     Task RefreshLive() {

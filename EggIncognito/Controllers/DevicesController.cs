@@ -273,6 +273,19 @@ public sealed partial class DevicesController(
         return Ok(new { probed = n });
     }
 
+    [HttpPost("ipatool/check-versions")]
+    [ApiAccess(ApiAccessLevel.Admin)]
+    [EnableRateLimiting("write")]
+    public async Task<IActionResult> IpaToolCheckVersions() {
+        if (RequireAdmin() is { } no) return no;
+        if (services.GetService(typeof(IpaStoreVersionChecker)) is not IpaStoreVersionChecker checker)
+            return StatusCode(503, new { error = "ipatool checker not configured" });
+
+        var result = await checker.CheckAsync(HttpContext.RequestAborted);
+        if (!result.Ok) return StatusCode(502, new { error = result.Diagnostics });
+        return Ok(new { versions = result.Versions, diagnostics = result.Diagnostics });
+    }
+
     [HttpPost("{id}/check-update")]
     [ApiAccess(ApiAccessLevel.Admin)]
     [EnableRateLimiting("write")]

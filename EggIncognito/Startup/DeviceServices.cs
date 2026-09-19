@@ -243,6 +243,9 @@ public static class DeviceServices {
         builder.Services.AddSingleton<KnownVersionRecorder>();
         builder.Services.AddSingleton<IosStoreCatalog>();
         builder.Services.AddSingleton<AndroidStoreCatalog>();
+        builder.Services.AddSingleton(config.GetSection("IpaTools").Get<IpaToolsConfig>() ?? new IpaToolsConfig());
+        builder.Services.AddSingleton<IpaToolStoreVersions>();
+        builder.Services.AddSingleton<IpaStoreVersionChecker>();
 
         builder.Services.AddSingleton<IDeviceUiDriver, AndroidUiDriver>();
         string iosUiNavTweakPath = config["DeviceCapture:Ios:UiNavTweakPath"]
