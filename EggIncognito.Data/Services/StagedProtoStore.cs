@@ -16,7 +16,8 @@ public sealed class StagedProtoStore(EggIncognitoDbContext db, ProtoRegistryStor
         Merged,
         NotFound,
         MissingBuild,
-        BuildCollision
+        BuildCollision,
+        Forbidden
     }
 
     public enum OfferResult {
@@ -187,12 +188,6 @@ public sealed class StagedProtoStore(EggIncognitoDbContext db, ProtoRegistryStor
     private static bool Unchanged(string? proposed, string? stored) =>
         string.IsNullOrWhiteSpace(proposed) || Same(proposed, stored);
 
-    public Task<string?> KindOfPendingAsync(int id, CancellationToken ct) =>
-        db.StagedProtos.AsNoTracking()
-            .Where(s => s.Id == id && s.Status == "pending")
-            .Select(s => (string?)s.Kind)
-            .FirstOrDefaultAsync(ct);
-
     public async Task<OfferResult> OfferAsync(
         string platform, string? appVersion, string? build, string? clientVersion, string? package,
         string protoSha, string protoText, string? messageIndex, string? submittedBy, string source,
@@ -211,9 +206,9 @@ public sealed class StagedProtoStore(EggIncognitoDbContext db, ProtoRegistryStor
         IReadOnlyList<CrawlManifestReader.CrawlRecord> records, CancellationToken ct) {
         int staged = 0, skipped = 0;
         foreach (var r in records) {
-            var norm = ProtoCanonicalForm.Normalize(r.ProtoText);
-            string sha = norm.Ok ? norm.Sha! : r.ProtoSha;
-            string? messageIndex = norm.Ok ? JsonSerializer.Serialize(ProtoTextIndex.Names(norm.Text!)) : null;
+            (string sha, string? messageIndex) = ProtoCanonicalForm.Normalize(r.ProtoText) is { Ok: true, Sha: { } canonSha, Text: { } canonText }
+                ? (canonSha, JsonSerializer.Serialize(ProtoTextIndex.Names(canonText)))
+                : (r.ProtoSha, null);
             var outcome = await StageOrReviveAsync(r.Platform, r.AppVersion, r.Build, r.ClientVersion, null,
                 sha, r.ProtoText, messageIndex, "crawl", null, r.OriginRepo, r.OriginCommit, r.OriginDate,
                 r.Confidence, ct);
@@ -256,23 +251,25 @@ public sealed class StagedProtoStore(EggIncognitoDbContext db, ProtoRegistryStor
     }
 
     public Task<List<PendingRow>> PendingWithTargetsAsync(CancellationToken ct) =>
-        (from s in db.StagedProtos.AsNoTracking()
-         where s.Status == "pending"
-         join p in db.ProtoVersions.AsNoTracking() on s.TargetId equals (int?)p.Id into targets
-         from t in targets.DefaultIfEmpty()
-         orderby s.SubmittedAt descending
-         select new PendingRow(
-             s.Id, s.Source, s.Platform, s.AppVersion, s.Build, s.ClientVersion, s.ProtoSha,
-             s.SubmittedBy, s.SubmittedAt, s.OriginRepo, s.OriginCommit, s.OriginDate, s.Confidence,
-             s.Kind, s.TargetId,
-             t == null ? null : new TargetMeta(t.Platform, t.AppVersion, t.Build, t.ClientVersion, t.ProtoSha)))
-        .ToListAsync(ct);
+        db.StagedProtos.AsNoTracking()
+            .Where(s => s.Status == "pending")
+            .LeftJoin(db.ProtoVersions.AsNoTracking(), s => s.TargetId, p => (int?)p.Id, (s, t) => new { s, t })
+            .OrderByDescending(x => x.s.SubmittedAt)
+            .Select(x => new PendingRow(
+                x.s.Id, x.s.Source, x.s.Platform, x.s.AppVersion, x.s.Build, x.s.ClientVersion, x.s.ProtoSha,
+                x.s.SubmittedBy, x.s.SubmittedAt, x.s.OriginRepo, x.s.OriginCommit, x.s.OriginDate, x.s.Confidence,
+                x.s.Kind, x.s.TargetId,
+                x.t == null
+                    ? null
+                    : new TargetMeta(x.t.Platform, x.t.AppVersion, x.t.Build, x.t.ClientVersion, x.t.ProtoSha)))
+            .ToListAsync(ct);
 
     public async Task<ApproveResult> ApproveAsync(
         int id, string? platform, string? appVersion, string? build, string? clientVersion,
-        string reviewedBy, CancellationToken ct) {
+        string reviewedBy, bool allowCorrection, CancellationToken ct) {
         var row = await db.StagedProtos.FirstOrDefaultAsync(s => s.Id == id && s.Status == "pending", ct);
         if (row is null) return ApproveResult.NotFound;
+        if (row.Kind == KindCorrection && !allowCorrection) return ApproveResult.Forbidden;
 
         string plat = string.IsNullOrWhiteSpace(platform) ? row.Platform : platform;
         string? appV = string.IsNullOrWhiteSpace(appVersion) ? row.AppVersion : appVersion;
@@ -347,15 +344,11 @@ public sealed class StagedProtoStore(EggIncognitoDbContext db, ProtoRegistryStor
         IReadOnlyList<ApproveItem> items, string reviewedBy, bool allowCorrections, CancellationToken ct) {
         int ok = 0, skipped = 0, failed = 0;
         foreach (var it in items) {
-            if (!allowCorrections && await KindOfPendingAsync(it.Id, ct) == KindCorrection) {
-                skipped++;
-                continue;
-            }
-
-            var r = await ApproveAsync(it.Id, it.Platform, it.AppVersion, it.Build, it.ClientVersion, reviewedBy, ct);
+            var r = await ApproveAsync(it.Id, it.Platform, it.AppVersion, it.Build, it.ClientVersion, reviewedBy,
+                allowCorrections, ct);
             switch (r) {
                 case ApproveResult.Ok or ApproveResult.Merged: ok++; break;
-                case ApproveResult.MissingBuild: skipped++; break;
+                case ApproveResult.MissingBuild or ApproveResult.Forbidden: skipped++; break;
                 default: failed++; break;
             }
         }
