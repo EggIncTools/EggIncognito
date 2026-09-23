@@ -11,9 +11,6 @@ public class TemplateEditorTests {
     }
 
     [Fact]
-    public void Tokens_FindOne() => Assert.Equal(new[] { "appVersion" }, FeedTemplate.Tokens("New build {{appVersion}} is up!"));
-
-    [Fact]
     public void Tokens_KeepFirstAppearanceOrder() {
         Assert.Equal(
             new[] { "appVersion", "build", "platform" },

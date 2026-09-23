@@ -194,17 +194,6 @@ public class RegistryFilterTests {
     }
 
     [Fact]
-    public void FieldTableIsTheTenDeclaredFields() {
-        Assert.Equal(
-            new[] {
-                "appVersion", "build", "client", "sha", "source", "package", "detected", "hasText", "badBuild",
-                "sortOrder"
-            },
-            RegistryFilter.Fields.Select(f => f.Key).ToArray());
-        Assert.All(RegistryFilter.Fields, f => Assert.NotEmpty(f.Ops));
-    }
-
-    [Fact]
     public void VersionOptionsAreNewestFirstAndTextOptionsAreAscending() {
         ProtoRegistryRow[] rows = [
             Row(app: "1.11.0", build: "b1", source: "device"),

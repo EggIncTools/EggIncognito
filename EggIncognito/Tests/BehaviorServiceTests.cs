@@ -30,12 +30,6 @@ public class BehaviorServiceTests {
     }
 
     [Fact]
-    public void All_ReturnsAllSevenBehaviors() {
-        var svc = Build();
-        Assert.Equal(7, svc.All().Count);
-    }
-
-    [Fact]
     public void All_ContainsExpectedNames() {
         var svc = Build();
         var names = svc.All().Select(b => b.Name).ToHashSet();

@@ -195,18 +195,20 @@ public class HostedCapturePageTests {
 
         private static CaptureController Controller(CaptureSessionManager manager, ICurrentUser user) =>
             new(manager, new FakeAppMode(false, true), user,
-                HostedCaptureOptions.Defaults(), NullLogger<CaptureController>.Instance, new EmptyServices());
+                HostedCaptureOptions.Defaults(), NullLogger<CaptureController>.Instance);
 
         [Fact]
         public async Task Start_Anonymous_Is401() {
-            var r = await Controller(NewManager(_tmp), new FakeUser(false, false)).Start(CancellationToken.None);
+            var r = await Controller(NewManager(_tmp), new FakeUser(false, false))
+                .Start(null, null, null, CancellationToken.None);
             Assert.Equal(401, ((IStatusCodeActionResult)r).StatusCode);
         }
 
         [Fact]
         public async Task Start_NonSupporter_StartsLimitedSession() {
             var manager = NewManager(_tmp);
-            var r = await Controller(manager, new FakeUser(true, false)).Start(CancellationToken.None);
+            var r = await Controller(manager, new FakeUser(true, false))
+                .Start(null, null, null, CancellationToken.None);
             Assert.Equal(200, ((IStatusCodeActionResult)r).StatusCode);
             var session = manager.Get("tester");
             Assert.NotNull(session);
@@ -217,19 +219,13 @@ public class HostedCapturePageTests {
         [Fact]
         public async Task Start_Supporter_StartsOwnSession() {
             var manager = NewManager(_tmp);
-            var r = await Controller(manager, new FakeUser(true, true)).Start(CancellationToken.None);
+            var r = await Controller(manager, new FakeUser(true, true))
+                .Start(null, null, null, CancellationToken.None);
             Assert.Equal(200, ((IStatusCodeActionResult)r).StatusCode);
             var session = manager.Get("tester");
             Assert.NotNull(session);
             Assert.Equal(CaptureState.Running, session.State);
             await session.StopAsync();
-        }
-
-        [Fact]
-        public async Task ProxyAddress_NonSupporter_ReachesDbCheck() {
-            var r = await Controller(NewManager(_tmp), new FakeUser(true, false))
-                .ProxyAddress(CancellationToken.None);
-            Assert.Equal(503, ((IStatusCodeActionResult)r).StatusCode);
         }
     }
 
@@ -243,7 +239,7 @@ public class HostedCapturePageTests {
             var session = manager.GetOrCreate("tester");
             var controller = new CaptureController(
                 manager, new FakeAppMode(false, true), user,
-                HostedCaptureOptions.Defaults(), NullLogger<CaptureController>.Instance, new EmptyServices());
+                HostedCaptureOptions.Defaults(), NullLogger<CaptureController>.Instance);
             return (controller, session);
         }
 
@@ -258,7 +254,7 @@ public class HostedCapturePageTests {
         public async Task Save_Hosted_ViewerNonSupporter_Is403() {
             var (controller, session) = WithFlowSession(new FakeUser(true, false));
             long id = PublishFlow(session);
-            var r = await controller.SaveEndpoint(new SaveFlowRequest(id), new FakeRoutes());
+            var r = await controller.SaveEndpoint(new SaveFlowRequest(id), new FakeRoutes(), null, null);
             Assert.Equal(403, ((IStatusCodeActionResult)r).StatusCode);
         }
 
@@ -266,7 +262,7 @@ public class HostedCapturePageTests {
         public async Task Save_Hosted_Supporter_PassesGate_Then503NoDb() {
             var (controller, session) = WithFlowSession(new FakeUser(true, true));
             long id = PublishFlow(session);
-            var r = await controller.SaveEndpoint(new SaveFlowRequest(id), new FakeRoutes());
+            var r = await controller.SaveEndpoint(new SaveFlowRequest(id), new FakeRoutes(), null, null);
             Assert.Equal(503, ((IStatusCodeActionResult)r).StatusCode);
         }
 
@@ -274,7 +270,7 @@ public class HostedCapturePageTests {
         public async Task Save_Hosted_Contributor_PassesGate_Then503NoDb() {
             var (controller, session) = WithFlowSession(new FakeUser(true, false, UserRole.Contributor));
             long id = PublishFlow(session);
-            var r = await controller.SaveEndpoint(new SaveFlowRequest(id), new FakeRoutes());
+            var r = await controller.SaveEndpoint(new SaveFlowRequest(id), new FakeRoutes(), null, null);
             Assert.Equal(503, ((IStatusCodeActionResult)r).StatusCode);
         }
     }

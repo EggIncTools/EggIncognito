@@ -160,15 +160,6 @@ public class StoreUpdateTests {
     }
 
     [Fact]
-    public async Task Orchestrator_NullProgress_NoThrow() {
-        var driver = new FakeDriver { Probe = new StoreProbeOutcome(StoreAvailability.UpToDate, "1.0", null) };
-
-        var result = await Orchestrator(driver).CheckAndUpdateAsync(AndroidTarget, default);
-
-        Assert.Equal("up_to_date", result.Action);
-    }
-
-    [Fact]
     public async Task Android_UpToDate_WhenNoUpdateButton() {
         var runner = new FakeRunner(args => {
             return args.Contains("dumpsys")

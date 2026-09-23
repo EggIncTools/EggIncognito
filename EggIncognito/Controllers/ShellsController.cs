@@ -16,7 +16,7 @@ public sealed class ShellsController(
     ShipShellDownloader downloader,
     MeshAssetCache cache,
     IAppMode appMode,
-    ICurrentUser currentUser) : ControllerBase {
+    ICurrentUser currentUser) : ApiControllerBase {
     [HttpGet]
     public IActionResult List([FromQuery] string platform = "ios", [FromQuery] string? assetType = null) {
         var catalog = LoadCatalog(platform);
@@ -95,16 +95,16 @@ public sealed class ShellsController(
     public async Task<IActionResult> Glb(string platform, string identifier, [FromQuery] string? animate,
         [FromQuery] float seconds, CancellationToken ct) {
         if (appMode.Mode == AppMode.Hosted && !currentUser.IsAuthenticated)
-            return StatusCode(403, new { error = "log in to download shell meshes from the hosted site" });
+            return Fail(403, "log in to download shell meshes from the hosted site");
 
         string cacheKey = $"{platform}_{identifier}";
         byte[]? glb = cache.TryGet("shell", cacheKey);
         if (glb is null) {
             var catalog = LoadCatalog(platform);
-            if (catalog is null) return NotFound(new { error = $"no stored config for {platform}" });
+            if (catalog is null) return Fail(404, $"no stored config for {platform}");
             string? url = ShellCatalog.ById(catalog, identifier)?.Url
                           ?? ShellCatalog.ObjectById(catalog, identifier)?.Url;
-            if (url is null) return NotFound(new { error = "unknown shell identifier" });
+            if (url is null) return Fail(404, "unknown shell identifier");
 
             var decode = await downloader.DownloadAndDecodeAsync(url, identifier, ct);
             if (!decode.Ok) return Ok(new { ok = false, diagnostics = decode.Diagnostics });

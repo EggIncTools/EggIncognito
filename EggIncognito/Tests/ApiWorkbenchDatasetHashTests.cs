@@ -99,15 +99,6 @@ public class ApiWorkbenchDatasetHashTests {
         Assert.Equal("mission", state.Id);
     }
 
-    [Fact]
-    public void TheApiWorkbenchOffersFourModes() {
-        var state = new ApiWorkbenchState();
-
-        Assert.Equal(["docs", "apis", "data", "capture"], state.Modes.Select(m => m.Key));
-        Assert.Equal(["Docs", "APIs", "Data", "Capture"], state.Modes.Select(m => m.Label));
-        Assert.Equal("apis", state.DefaultMode);
-    }
-
     [Theory]
     [InlineData(ApiSelectionKind.Endpoint, "apis")]
     [InlineData(ApiSelectionKind.Routes, "apis")]

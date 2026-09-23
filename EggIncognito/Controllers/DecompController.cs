@@ -1,6 +1,5 @@
 using System.Globalization;
 using System.Text.Json.Nodes;
-using EggIdentity.Contract;
 using EggIncognito.Core;
 using EggIncognito.Core.Services.Devices;
 using EggIncognito.Core.Services.ProtoExtract;
@@ -18,24 +17,14 @@ namespace EggIncognito.Controllers;
 [ApiController]
 [Route("api/decomp")]
 [ApiAccess(ApiAccessLevel.Contributor)]
-public sealed class DecompController(
-    GameBinaryProvider binaries,
-    IServiceProvider services,
-    ICurrentUser currentUser) : ControllerBase {
+public sealed class DecompController(GameBinaryProvider binaries) : ApiControllerBase {
     private const int SymbolizedSymbolFloor = 50_000;
-
-    private GameBinaryStore? Store => services.GetService(typeof(GameBinaryStore)) as GameBinaryStore;
-
-    private SymbolizedReferenceStore? RefStore =>
-        services.GetService(typeof(SymbolizedReferenceStore)) as SymbolizedReferenceStore;
 
     [HttpGet("symbols")]
     [EnableRateLimiting("read")]
     [ApiAccess(ApiAccessLevel.Admin)]
     public async Task<IActionResult> Symbols([FromQuery] string? filter, [FromQuery] string? device,
         CancellationToken ct) {
-        if (!currentUser.IsAtLeast(UserRole.Admin))
-            return StatusCode(403, new { error = "admin role required" });
         (bool ok, byte[]? bin, string? diag) = await binaries.GetBinaryAsync(device, ct);
         if (!ok || bin is null) return Ok(new { ok = false, diagnostics = diag });
 
@@ -59,10 +48,8 @@ public sealed class DecompController(
     [ApiAccess(ApiAccessLevel.Admin)]
     public async Task<IActionResult> FunctionConstants([FromQuery] string name, [FromQuery] string? device,
         CancellationToken ct) {
-        if (!currentUser.IsAtLeast(UserRole.Admin))
-            return StatusCode(403, new { error = "admin role required" });
         return string.IsNullOrWhiteSpace(name)
-            ? BadRequest(new { error = "name required" })
+            ? Fail(400, "name required")
             : await ExtractAsync([name], device, ct);
     }
 
@@ -70,8 +57,6 @@ public sealed class DecompController(
     [EnableRateLimiting("read")]
     [ApiAccess(ApiAccessLevel.Admin)]
     public async Task<IActionResult> GalaxyParticle([FromQuery] string? device, CancellationToken ct) {
-        if (!currentUser.IsAtLeast(UserRole.Admin))
-            return StatusCode(403, new { error = "admin role required" });
         try {
             (bool ok, byte[]? bin, string? diag) = await binaries.GetBinaryAsync(device, ct);
             if (!ok || bin is null) return Ok(new { ok = false, diagnostics = diag });
@@ -92,8 +77,6 @@ public sealed class DecompController(
     public async Task<IActionResult> Recover(
         [FromQuery] string? name, [FromQuery] string? refVersion, [FromQuery] string? targetPath,
         CancellationToken ct) {
-        if (!currentUser.IsAtLeast(UserRole.Admin))
-            return StatusCode(403, new { error = "admin role required" });
         try {
             (bool ok, byte[]? refBytes, byte[]? tgtBytes, string? diag) =
                 await binaries.GetRecoveryInputsAsync(refVersion, targetPath, ct);
@@ -130,9 +113,7 @@ public sealed class DecompController(
     [ApiAccess(ApiAccessLevel.Admin)]
     public async Task<IActionResult> ResolveVa(
         [FromQuery] string name, [FromQuery] string? refVersion, [FromQuery] string? targetPath, CancellationToken ct) {
-        if (!currentUser.IsAtLeast(UserRole.Admin))
-            return StatusCode(403, new { error = "admin role required" });
-        if (string.IsNullOrWhiteSpace(name)) return BadRequest(new { error = "name required" });
+        if (string.IsNullOrWhiteSpace(name)) return Fail(400, "name required");
         try {
             (bool ok, byte[]? refBytes, byte[]? tgtBytes, string? diag) =
                 await binaries.GetRecoveryInputsAsync(refVersion, targetPath, ct);
@@ -183,10 +164,8 @@ public sealed class DecompController(
     [ApiAccess(ApiAccessLevel.Admin)]
     public async Task<IActionResult>
         Effect([FromQuery] string? name, [FromQuery] string? device, CancellationToken ct) {
-        if (!currentUser.IsAtLeast(UserRole.Admin))
-            return StatusCode(403, new { error = "admin role required" });
         if (!string.Equals(name, "galaxy-particle", StringComparison.OrdinalIgnoreCase))
-            return BadRequest(new { error = "unknown effect; supported: galaxy-particle" });
+            return Fail(400, "unknown effect; supported: galaxy-particle");
         try {
             (bool ok, byte[]? bin, string? diag) = await binaries.GetBinaryAsync(device, ct);
             if (!ok || bin is null) return Ok(new { ok = false, diagnostics = diag });
@@ -205,8 +184,6 @@ public sealed class DecompController(
     [EnableRateLimiting("read")]
     [ApiAccess(ApiAccessLevel.Admin)]
     public async Task<IActionResult> FarmPlacement([FromQuery] string? device, CancellationToken ct) {
-        if (!currentUser.IsAtLeast(UserRole.Admin))
-            return StatusCode(403, new { error = "admin role required" });
         try {
             (bool ok, byte[]? bin, string? diag) = await binaries.GetBinaryAsync(device, ct);
             if (!ok || bin is null) return Ok(new { ok = false, diagnostics = diag });
@@ -230,7 +207,7 @@ public sealed class DecompController(
     [ApiAccess(ApiAccessLevel.Admin)]
     public async Task<IActionResult> BuildingEffects([FromQuery] string stem, [FromQuery] string? device,
         CancellationToken ct) {
-        if (string.IsNullOrWhiteSpace(stem)) return BadRequest(new { error = "stem required" });
+        if (string.IsNullOrWhiteSpace(stem)) return Fail(400, "stem required");
         try {
             (bool ok, byte[]? bin, _) = await binaries.GetBinaryAsync(device, ct);
             if (!ok || bin is null) return Ok(new { stem, effects = Array.Empty<object>() });
@@ -248,8 +225,6 @@ public sealed class DecompController(
     [EnableRateLimiting("read")]
     [ApiAccess(ApiAccessLevel.Admin)]
     public async Task<IActionResult> HatcheryAssembly([FromQuery] string? device, CancellationToken ct) {
-        if (!currentUser.IsAtLeast(UserRole.Admin))
-            return StatusCode(403, new { error = "admin role required" });
         try {
             (bool ok, byte[]? bin, string? diag) = await binaries.GetBinaryAsync(device, ct);
             if (!ok || bin is null) return Ok(new { ok = false, diagnostics = diag });
@@ -296,16 +271,14 @@ public sealed class DecompController(
     [EnableRateLimiting("read")]
     [ApiAccess(ApiAccessLevel.Admin)]
     public async Task<IActionResult> ParticleCapture([FromQuery] string? addrOffset, [FromQuery] string platform = "ios",
-        [FromQuery] string? device = null, CancellationToken ct = default) {
-        if (!currentUser.IsAtLeast(UserRole.Admin))
-            return StatusCode(403, new { error = "admin role required" });
+        [FromQuery] string? device = null, [FromServices] IDevicePlatforms? platforms = null,
+        [FromServices] IDeviceResolver? resolver = null, CancellationToken ct = default) {
+        if (platforms is null)
+            return Fail(503, "device platform registry unavailable");
 
-        if (services.GetService(typeof(IDevicePlatforms)) is not IDevicePlatforms platforms)
-            return StatusCode(503, new { ok = false, diagnostics = "device platform registry unavailable" });
-
-        var target = await ResolveDeviceTargetAsync(device, platform, ct);
+        var target = await ResolveDeviceTargetAsync(resolver, device, platform, ct);
         if (target is null)
-            return StatusCode(503, new { ok = false, diagnostics = $"no enabled {platform} device" });
+            return Fail(503, $"no enabled {platform} device");
 
         try {
             var result = await platforms.For(target.Platform)
@@ -318,8 +291,9 @@ public sealed class DecompController(
         }
     }
 
-    private async Task<DeviceTarget?> ResolveDeviceTargetAsync(string? deviceId, string platform, CancellationToken ct) {
-        if (services.GetService(typeof(IDeviceResolver)) is not IDeviceResolver resolver) return null;
+    private static async Task<DeviceTarget?> ResolveDeviceTargetAsync(
+        IDeviceResolver? resolver, string? deviceId, string platform, CancellationToken ct) {
+        if (resolver is null) return null;
         try {
             var query = deviceId is null ? new DeviceQuery(Platform: platform) : new DeviceQuery(deviceId);
             var d = await resolver.ResolveAsync(query, ct);
@@ -334,9 +308,7 @@ public sealed class DecompController(
     [ApiAccess(ApiAccessLevel.Admin)]
     public async Task<IActionResult> Signature(
         [FromQuery] string name, [FromQuery] string? refVersion, [FromQuery] int instructions, CancellationToken ct) {
-        if (!currentUser.IsAtLeast(UserRole.Admin))
-            return StatusCode(403, new { error = "admin role required" });
-        if (string.IsNullOrWhiteSpace(name)) return BadRequest(new { error = "name required" });
+        if (string.IsNullOrWhiteSpace(name)) return Fail(400, "name required");
         if (instructions <= 0) instructions = 8;
         try {
             (_, byte[]? refBytes, _, string? diag) =
@@ -380,9 +352,7 @@ public sealed class DecompController(
     public async Task<IActionResult> Disasm(
         [FromQuery] string name, [FromQuery] string? device, [FromQuery] string mode = "list",
         [FromQuery] int max = 512, [FromQuery] bool live = false, CancellationToken ct = default) {
-        if (!currentUser.IsAtLeast(UserRole.Admin))
-            return StatusCode(403, new { error = "admin role required" });
-        if (string.IsNullOrWhiteSpace(name)) return BadRequest(new { error = "name required" });
+        if (string.IsNullOrWhiteSpace(name)) return Fail(400, "name required");
         try {
             (bool ok, byte[]? bin, var syms, string source, string? diag) = await ResolveBinaryAsync(device, live, ct);
             if (!ok || bin is null) return Ok(new { ok = false, diagnostics = diag });
@@ -442,10 +412,8 @@ public sealed class DecompController(
     [HttpGet("stored-binaries")]
     [EnableRateLimiting("read")]
     [ApiAccess(ApiAccessLevel.Admin)]
-    public async Task<IActionResult> StoredBinaries(CancellationToken ct) {
-        if (!currentUser.IsAtLeast(UserRole.Admin))
-            return StatusCode(403, new { error = "admin role required" });
-        if (Store is not { } store) return StatusCode(503, new { error = "no database configured" });
+    [RequiresDb]
+    public async Task<IActionResult> StoredBinaries([FromServices] GameBinaryStore store, CancellationToken ct) {
         var rows = await store.ListAsync(ct);
         return Ok(new {
             ok = true,
@@ -466,13 +434,12 @@ public sealed class DecompController(
     [HttpGet("stored-binaries/{platform}/{version}/download")]
     [EnableRateLimiting("fetch")]
     [ApiAccess(ApiAccessLevel.Contributor)]
-    public async Task<IActionResult> DownloadStoredBinary(string platform, string version, CancellationToken ct) {
-        if (!currentUser.IsAtLeast(UserRole.Contributor))
-            return StatusCode(403, new { error = "contributor role required" });
-        if (Store is not { } store) return StatusCode(503, new { error = "no database configured" });
+    [RequiresDb]
+    public async Task<IActionResult> DownloadStoredBinary(string platform, string version,
+        [FromServices] GameBinaryStore store, CancellationToken ct) {
         var row = await store.GetAsync(platform, version, ct);
         if (row is null || row.ByteSize == 0)
-            return NotFound(new { ok = false, error = $"no stored binary {platform} {version}" });
+            return Fail(404, $"no stored binary {platform} {version}");
 
         Response.Headers.CacheControl = "private, max-age=3600";
         Response.Headers.ETag = $"\"{row.Sha256}\"";
@@ -490,23 +457,21 @@ public sealed class DecompController(
     [HttpDelete("stored-binaries/{platform}/{version}")]
     [EnableRateLimiting("read")]
     [ApiAccess(ApiAccessLevel.Admin)]
-    public async Task<IActionResult> DeleteStoredBinary(string platform, string version, CancellationToken ct) {
-        if (!currentUser.IsAtLeast(UserRole.Admin))
-            return StatusCode(403, new { error = "admin role required" });
-        if (Store is not { } store) return StatusCode(503, new { error = "no database configured" });
+    [RequiresDb]
+    public async Task<IActionResult> DeleteStoredBinary(string platform, string version,
+        [FromServices] GameBinaryStore store, CancellationToken ct) {
         bool removed = await store.DeleteAsync(platform, version, ct);
         return removed
             ? Ok(new { ok = true, platform, version })
-            : NotFound(new { ok = false, error = $"no stored binary {platform} {version}" });
+            : Fail(404, $"no stored binary {platform} {version}");
     }
 
     [HttpGet("symbolized")]
     [EnableRateLimiting("read")]
     [ApiAccess(ApiAccessLevel.Admin)]
-    public async Task<IActionResult> SymbolizedReferences(CancellationToken ct) {
-        if (!currentUser.IsAtLeast(UserRole.Admin))
-            return StatusCode(403, new { error = "admin role required" });
-        if (RefStore is not { } store) return StatusCode(503, new { error = "no database configured" });
+    [RequiresDb]
+    public async Task<IActionResult> SymbolizedReferences([FromServices] SymbolizedReferenceStore store,
+        CancellationToken ct) {
         var rows = await store.ListAsync(ct);
         return Ok(rows.Select(ShapeSymbolized).ToList());
     }
@@ -514,24 +479,21 @@ public sealed class DecompController(
     [HttpPost("symbolized")]
     [EnableRateLimiting("read")]
     [ApiAccess(ApiAccessLevel.Admin)]
+    [RequiresDb]
     [RequestSizeLimit(800_000_000)]
     [RequestFormLimits(MultipartBodyLengthLimit = 800_000_000)]
     public async Task<IActionResult> UploadSymbolizedReference(
-        IFormFile file, [FromQuery] string? version, CancellationToken ct) {
-        if (!currentUser.IsAtLeast(UserRole.Admin))
-            return StatusCode(403, new { error = "admin role required" });
-        if (RefStore is not { } store) return StatusCode(503, new { error = "no database configured" });
-        if (file is null || file.Length == 0) return BadRequest(new { error = "no file uploaded" });
+        IFormFile file, [FromQuery] string? version, [FromServices] SymbolizedReferenceStore store,
+        CancellationToken ct) {
+        if (file is null || file.Length == 0) return Fail(400, "no file uploaded");
 
         (string? ipaVersion, byte[] exec) = await ReadSymbolizedUploadAsync(file, ct);
         string resolved;
         if (ipaVersion is { Length: > 0 })
             resolved = ipaVersion;
         else if (string.IsNullOrWhiteSpace(version))
-            return BadRequest(new {
-                error =
-                    "no .ipa payload found, so this is treated as a raw Mach-O executable; supply the version query parameter"
-            });
+            return Fail(400,
+                "no .ipa payload found, so this is treated as a raw Mach-O executable; supply the version query parameter");
         else
             resolved = version.Trim();
 
@@ -539,14 +501,12 @@ public sealed class DecompController(
         try {
             symbolCount = MachoSymbols.Read(exec).Count;
         } catch (Exception ex) {
-            return BadRequest(new { error = "could not read the Mach-O symbol table: " + ex.Message });
+            return Fail(400, "could not read the Mach-O symbol table: " + ex.Message);
         }
 
         if (symbolCount < SymbolizedSymbolFloor)
-            return BadRequest(new {
-                error =
-                    $"{symbolCount} symbols is below the {SymbolizedSymbolFloor} floor; this is not a symbolized build"
-            });
+            return Fail(400,
+                $"{symbolCount} symbols is below the {SymbolizedSymbolFloor} floor; this is not a symbolized build");
 
         string sha = Hashes.Sha256Hex(exec);
         await store.PutAsync(Platforms.Ios, resolved, sha, exec, symbolCount, ct);
@@ -554,29 +514,27 @@ public sealed class DecompController(
         var stored = (await store.ListAsync(ct))
             .FirstOrDefault(r => r.Platform == Platforms.Ios && r.AppVersion == resolved);
         return stored is null
-            ? StatusCode(500, new { error = $"stored {resolved} but could not read it back" })
+            ? Fail(500, $"stored {resolved} but could not read it back")
             : Ok(ShapeSymbolized(stored));
     }
 
     [HttpDelete("symbolized/{version}")]
     [EnableRateLimiting("read")]
     [ApiAccess(ApiAccessLevel.Admin)]
-    public async Task<IActionResult> DeleteSymbolizedReference(string version, CancellationToken ct) {
-        if (!currentUser.IsAtLeast(UserRole.Admin))
-            return StatusCode(403, new { error = "admin role required" });
-        if (RefStore is not { } store) return StatusCode(503, new { error = "no database configured" });
+    [RequiresDb]
+    public async Task<IActionResult> DeleteSymbolizedReference(string version,
+        [FromServices] SymbolizedReferenceStore store, CancellationToken ct) {
         bool removed = await store.DeleteAsync(Platforms.Ios, version, ct);
         return removed
             ? Ok(new { ok = true, platform = Platforms.Ios, version })
-            : NotFound(new { ok = false, error = $"no symbolized reference {version}" });
+            : Fail(404, $"no symbolized reference {version}");
     }
 
     private static async Task<(string? Version, byte[] Exec)> ReadSymbolizedUploadAsync(
         IFormFile file, CancellationToken ct) {
         byte[] bytes = new byte[file.Length];
-        using (var dest = new MemoryStream(bytes)) {
-            await file.CopyToAsync(dest, ct);
-        }
+        using var dest = new MemoryStream(bytes);
+        await file.CopyToAsync(dest, ct);
 
         (string? ipaVersion, byte[]? ipaExec) = SymbolizedIpa.Read(bytes);
         return ipaVersion is { Length: > 0 } && ipaExec is { Length: > 0 } ? (ipaVersion, ipaExec) : (null, bytes);
@@ -595,8 +553,6 @@ public sealed class DecompController(
     [EnableRateLimiting("read")]
     [ApiAccess(ApiAccessLevel.Admin)]
     public async Task<IActionResult> Harvested(CancellationToken ct) {
-        if (!currentUser.IsAtLeast(UserRole.Admin))
-            return StatusCode(403, new { error = "admin role required" });
         var found = await binaries.GetExtractionCandidatesAsync(ct);
         return Ok(new {
             ok = found.Candidates.Count > 0,
@@ -629,11 +585,9 @@ public sealed class DecompController(
     public async Task<IActionResult> Section(
         [FromQuery] string va, [FromQuery] int count, [FromQuery] string elem = "f64",
         [FromQuery] string? device = null, [FromQuery] bool live = false, CancellationToken ct = default) {
-        if (!currentUser.IsAtLeast(UserRole.Admin))
-            return StatusCode(403, new { error = "admin role required" });
-        if (!TryParseVa(va, out ulong addr)) return BadRequest(new { error = "va must be hex (0x...) or decimal" });
+        if (!TryParseVa(va, out ulong addr)) return Fail(400, "va must be hex (0x...) or decimal");
         if (!Arm64ConstSectionReader.TryParseElem(elem, out var elemType))
-            return BadRequest(new { error = "elem must be one of f32,f64,i32,i64,u32,u64" });
+            return Fail(400, "elem must be one of f32,f64,i32,i64,u32,u64");
         try {
             (bool ok, byte[]? bin, _, string source, string? diag) = await ResolveBinaryAsync(device, live, ct);
             if (!ok || bin is null) return Ok(new { ok = false, diagnostics = diag });

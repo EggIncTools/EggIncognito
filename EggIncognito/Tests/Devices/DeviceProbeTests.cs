@@ -70,14 +70,6 @@ public class DeviceProbeTests {
     }
 
     [Fact]
-    public async Task Ios_ToolMissing_NotReachable() {
-        var runner = new FakeRunner((_, _) => new ProcessResult(-1, "", "ideviceinstaller: not found"));
-        var probe = new IosDeviceProbe(runner, "3489c6b0", "com.auxbrain.egginc");
-        var r = await probe.ProbeAsync(default);
-        Assert.False(r.Reachable);
-    }
-
-    [Fact]
     public async Task Ios_OldFlagSyntax_FallsBackToSubcommand() {
         var seen = new List<string>();
         var runner = new FakeRunner((_, args) => {

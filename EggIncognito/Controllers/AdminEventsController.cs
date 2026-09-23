@@ -13,15 +13,11 @@ namespace EggIncognito.Controllers;
 [Route("api/admin/events")]
 [ApiAccess(ApiAccessLevel.Admin)]
 [EnableRateLimiting("write")]
-public sealed class AdminEventsController(IServiceProvider services) : ControllerBase {
-    private EggIncognitoDbContext? Db => services.GetService(typeof(EggIncognitoDbContext)) as EggIncognitoDbContext;
-    private GameEventBackfill? Backfill => services.GetService(typeof(GameEventBackfill)) as GameEventBackfill;
-
+public sealed class AdminEventsController : ApiControllerBase {
     [HttpGet("stats")]
     [EnableRateLimiting("read")]
-    public async Task<IActionResult> Stats(CancellationToken ct) {
-        var db = Db;
-        if (db is null) return StatusCode(503, new { error = "no database configured" });
+    [RequiresDb]
+    public async Task<IActionResult> Stats([FromServices] EggIncognitoDbContext db, CancellationToken ct) {
         long total = await db.GameEvents.LongCountAsync(ct);
         long device = await db.GameEvents
             .LongCountAsync(e => e.Source == GameEventSources.Device, ct);
@@ -33,29 +29,26 @@ public sealed class AdminEventsController(IServiceProvider services) : Controlle
     }
 
     [HttpPost("sweep-snapshots")]
-    public async Task<IActionResult> SweepSnapshots(CancellationToken ct) {
-        var backfill = Backfill;
-        if (backfill is null) return StatusCode(503, new { error = "no database configured" });
-        return Ok(await backfill.SweepSnapshotsAsync(ct));
-    }
+    [RequiresDb]
+    public async Task<IActionResult> SweepSnapshots([FromServices] GameEventBackfill backfill, CancellationToken ct) =>
+        Ok(await backfill.SweepSnapshotsAsync(ct));
 
     [HttpPost("import-carpet")]
+    [RequiresDb]
     public async Task<IActionResult> ImportCarpet(
-        [FromBody] CarpetImportRequest request, CancellationToken ct) {
-        var backfill = Backfill;
-        if (backfill is null) return StatusCode(503, new { error = "no database configured" });
+        [FromBody] CarpetImportRequest request, [FromServices] GameEventBackfill backfill, CancellationToken ct) {
         if (!string.IsNullOrWhiteSpace(request?.Url) &&
             (!Uri.TryCreate(request.Url.Trim(), UriKind.Absolute, out var uri) ||
              uri.Scheme is not ("http" or "https")))
-            return BadRequest(new { error = "invalid url" });
+            return Fail(400, "invalid url");
         try {
             return Ok(await backfill.ImportCarpetAsync(request?.Url, ct));
         } catch (HttpRequestException ex) {
-            return BadRequest(new { error = $"fetch failed: {ex.Message}" });
+            return Fail(400, $"fetch failed: {ex.Message}");
         } catch (JsonException ex) {
-            return BadRequest(new { error = $"invalid carpet payload: {ex.Message}" });
+            return Fail(400, $"invalid carpet payload: {ex.Message}");
         } catch (OperationCanceledException ex) {
-            return BadRequest(new { error = $"fetch failed: {ex.Message}" });
+            return Fail(400, $"fetch failed: {ex.Message}");
         }
     }
 }

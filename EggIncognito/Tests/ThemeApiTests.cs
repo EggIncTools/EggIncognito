@@ -92,13 +92,4 @@ public class ThemeApiTests(SharedAppFactory f) {
             Assert.Equal(preset.Tokens.Count, model.Tokens.Count);
         }
     }
-
-    [Fact]
-    public void ThemeController_IsNotInTheFloorMismatchBaseline() {
-        var field = typeof(ApiAccessGuardTests)
-            .GetField("FloorMismatchBaseline", BindingFlags.NonPublic | BindingFlags.Static);
-        Assert.NotNull(field);
-        var baseline = (HashSet<string>)field.GetValue(null)!;
-        Assert.DoesNotContain(nameof(ThemeController), baseline);
-    }
 }

@@ -19,105 +19,57 @@ public class ProtoFeedApiTests {
         return new FeedSubscriptionStore(new EggIncognitoDbContext(opts));
     }
 
-    private static ProtoFeedController Controller(IServiceProvider services,
+    private static ProtoFeedController Controller(ICurrentUser user,
         Func<HttpRequestMessage, HttpResponseMessage> respond) =>
-        new(services, new StubHttpFactory(new StubHttpMessageHandler(respond)));
+        new(user, new StubHttpFactory(new StubHttpMessageHandler(respond)));
 
     private static int Status(IActionResult r) => ((IStatusCodeActionResult)r).StatusCode ?? 200;
 
     [Fact]
-    public async Task Create_NoStore_Returns503() {
-        var services = new MapServices(new Dictionary<Type, object?> {
-            [typeof(ICurrentUser)] = new StubUser("42")
-        });
-        var c = Controller(services, _ => new HttpResponseMessage(HttpStatusCode.OK));
-        var r = await c.Create(new FeedCreateReq(
-            "https://discord.com/api/webhooks/1/abc", null, null, null, null), CancellationToken.None);
-        Assert.Equal(503, Status(r));
-    }
-
-    [Fact]
     public async Task Create_Anon_Returns401() {
-        var c = Controller(new MapServices([]), _ => new HttpResponseMessage(HttpStatusCode.OK));
+        var c = Controller(new StubUser(null), _ => new HttpResponseMessage(HttpStatusCode.OK));
         var r = await c.Create(new FeedCreateReq(
-            "https://discord.com/api/webhooks/1/abc", null, null, null, null), CancellationToken.None);
-        Assert.Equal(401, Status(r));
-    }
-
-    [Fact]
-    public async Task Create_BadUrl_Returns400() {
-        var services = new MapServices(new Dictionary<Type, object?> {
-            [typeof(FeedSubscriptionStore)] = UnconnectedStore(),
-            [typeof(ICurrentUser)] = new StubUser("42")
-        });
-        var c = Controller(services, _ => new HttpResponseMessage(HttpStatusCode.OK));
-        var r = await c.Create(new FeedCreateReq(
-            "https://evil.example.com/hook", null, null, null, null), CancellationToken.None);
-        Assert.IsType<BadRequestObjectResult>(r);
-        Assert.Equal(400, Status(r));
-    }
-
-    [Fact]
-    public async Task Create_EmptyUrl_Returns400() {
-        var services = new MapServices(new Dictionary<Type, object?> {
-            [typeof(FeedSubscriptionStore)] = UnconnectedStore(),
-            [typeof(ICurrentUser)] = new StubUser("42")
-        });
-        var c = Controller(services, _ => new HttpResponseMessage(HttpStatusCode.OK));
-        var r = await c.Create(new FeedCreateReq("", null, null, null, null), CancellationToken.None);
-        Assert.IsType<BadRequestObjectResult>(r);
-    }
-
-    [Fact]
-    public async Task Mine_Anon_Returns401() {
-        var c = Controller(new MapServices([]), _ => new HttpResponseMessage(HttpStatusCode.OK));
-        var r = await c.Mine(CancellationToken.None);
-        Assert.Equal(401, Status(r));
-    }
-
-    [Fact]
-    public async Task Mine_NoStore_Returns503() {
-        var services = new MapServices(new Dictionary<Type, object?> {
-            [typeof(ICurrentUser)] = new StubUser("42")
-        });
-        var c = Controller(services, _ => new HttpResponseMessage(HttpStatusCode.OK));
-        var r = await c.Mine(CancellationToken.None);
-        Assert.Equal(503, Status(r));
-    }
-
-    [Fact]
-    public async Task Delete_Anon_Returns401() {
-        var c = Controller(new MapServices([]), _ => new HttpResponseMessage(HttpStatusCode.OK));
-        var r = await c.Delete(1, CancellationToken.None);
-        Assert.Equal(401, Status(r));
-    }
-
-    [Fact]
-    public async Task Delete_NoStore_Returns503() {
-        var services = new MapServices(new Dictionary<Type, object?> {
-            [typeof(ICurrentUser)] = new StubUser("42")
-        });
-        var c = Controller(services, _ => new HttpResponseMessage(HttpStatusCode.OK));
-        var r = await c.Delete(1, CancellationToken.None);
-        Assert.Equal(503, Status(r));
-    }
-
-    [Fact]
-    public async Task Update_Anon_Returns401() {
-        var c = Controller(new MapServices([]), _ => new HttpResponseMessage(HttpStatusCode.OK));
-        var r = await c.Update(1, new FeedUpdateReq(["android"], "new_version", true, null),
+            "https://discord.com/api/webhooks/1/abc", null, null, null, null), UnconnectedStore(),
             CancellationToken.None);
         Assert.Equal(401, Status(r));
     }
 
     [Fact]
-    public async Task Update_NoStore_Returns503() {
-        var services = new MapServices(new Dictionary<Type, object?> {
-            [typeof(ICurrentUser)] = new StubUser("42")
-        });
-        var c = Controller(services, _ => new HttpResponseMessage(HttpStatusCode.OK));
-        var r = await c.Update(1, new FeedUpdateReq(null, null, null, null), CancellationToken.None);
-        Assert.Equal(503, Status(r));
+    public async Task Create_BadUrl_Returns400() {
+        var c = Controller(new StubUser("42"), _ => new HttpResponseMessage(HttpStatusCode.OK));
+        var r = await c.Create(new FeedCreateReq(
+            "https://evil.example.com/hook", null, null, null, null), UnconnectedStore(), CancellationToken.None);
+        Assert.Equal(400, Status(r));
+    }
+
+    [Fact]
+    public async Task Create_EmptyUrl_Returns400() {
+        var c = Controller(new StubUser("42"), _ => new HttpResponseMessage(HttpStatusCode.OK));
+        var r = await c.Create(new FeedCreateReq("", null, null, null, null), UnconnectedStore(),
+            CancellationToken.None);
+        Assert.Equal(400, Status(r));
+    }
+
+    [Fact]
+    public async Task Mine_Anon_Returns401() {
+        var c = Controller(new StubUser(null), _ => new HttpResponseMessage(HttpStatusCode.OK));
+        var r = await c.Mine(UnconnectedStore(), CancellationToken.None);
+        Assert.Equal(401, Status(r));
+    }
+
+    [Fact]
+    public async Task Delete_Anon_Returns401() {
+        var c = Controller(new StubUser(null), _ => new HttpResponseMessage(HttpStatusCode.OK));
+        var r = await c.Delete(1, UnconnectedStore(), CancellationToken.None);
+        Assert.Equal(401, Status(r));
+    }
+
+    [Fact]
+    public async Task Update_Anon_Returns401() {
+        var c = Controller(new StubUser(null), _ => new HttpResponseMessage(HttpStatusCode.OK));
+        var r = await c.Update(1, new FeedUpdateReq(["android"], "new_version", true, null), UnconnectedStore(),
+            CancellationToken.None);
+        Assert.Equal(401, Status(r));
     }
 
     [Theory]
@@ -184,10 +136,6 @@ public class ProtoFeedApiTests {
         string masked = ProtoFeedController.MaskWebhook("https://example.com/hook/SECRETvalue");
         Assert.Equal("...Tvalue", masked);
         Assert.DoesNotContain("SECRETvalue", masked);
-    }
-
-    private sealed class MapServices(Dictionary<Type, object?> map) : IServiceProvider {
-        public object? GetService(Type serviceType) => map.GetValueOrDefault(serviceType);
     }
 
     private sealed class StubUser(string? discordId) : ICurrentUser {

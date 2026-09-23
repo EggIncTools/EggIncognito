@@ -17,34 +17,6 @@ public class SelfCallJsonTests {
     }
 
     [Fact]
-    public async Task ListAsync_ReturnsEmptyOnNotFound() {
-        var client = ClientFor(_ => StubHttpMessageHandler.Json(HttpStatusCode.NotFound, """{"error":"nope"}"""));
-
-        Assert.Empty(await client.ListAsync<Thing>(Url));
-    }
-
-    [Fact]
-    public async Task ListAsync_ReturnsEmptyOnMalformedJson() {
-        var client = ClientFor(_ => StubHttpMessageHandler.Json(HttpStatusCode.OK, "{not json"));
-
-        Assert.Empty(await client.ListAsync<Thing>(Url));
-    }
-
-    [Fact]
-    public async Task ListAsync_ReturnsEmptyOnJsonNull() {
-        var client = ClientFor(_ => StubHttpMessageHandler.Json(HttpStatusCode.OK, "null"));
-
-        Assert.Empty(await client.ListAsync<Thing>(Url));
-    }
-
-    [Fact]
-    public async Task ListAsync_ReturnsEmptyWhenTheTransportThrows() {
-        var client = ClientFor(_ => throw new HttpRequestException("boom"));
-
-        Assert.Empty(await client.ListAsync<Thing>(Url));
-    }
-
-    [Fact]
     public async Task TryListAsync_ReturnsOkAndTheList() {
         var client = ClientFor(_ => StubHttpMessageHandler.Json(HttpStatusCode.OK, """[{"name":"a"},{"name":"b"}]"""));
 

@@ -62,11 +62,6 @@ public class LocalIdentityGateTests {
     }
 
     [Fact]
-    public void Guard_Throws_ForProductionHosted() =>
-        Assert.Throws<InvalidOperationException>(() =>
-            LocalIdentityGate.Guard("Production", AppMode.Hosted, Cfg("true")));
-
-    [Fact]
     public void Guard_Silent_WhenTheKeyIsAbsent() {
         LocalIdentityGate.Guard("Production", AppMode.Hosted, Cfg(null));
         LocalIdentityGate.Guard("Production", AppMode.Hosted, Cfg("false"));

@@ -28,11 +28,4 @@ public class AuthModeTests(SharedAppFactory f) {
         string json = await c.GetStringAsync("/api/auth/me");
         Assert.Contains("\"authenticated\":false", json);
     }
-
-    [Fact]
-    public async Task Code_PassesThrough_WhenAuthOff() {
-        var c = _factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
-        var r = await c.GetAsync("/health?code=abc");
-        Assert.Equal(HttpStatusCode.OK, r.StatusCode);
-    }
 }

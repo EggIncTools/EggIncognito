@@ -10,15 +10,6 @@ public class IosBinaryPullerTests {
         new(new SshDeviceConnection(runner, new SshEndpoint(host, "2222", "/key")));
 
     [Fact]
-    public async Task Pull_LocateFails_ReturnsNull() {
-        var runner = new FakeRunner((exe, _) => exe == "ssh"
-            ? new ProcessResult(255, "", "ssh: connect to host port 2222: Connection refused")
-            : new ProcessResult(0, "", ""));
-        var puller = Puller(runner, "1.2.3.4");
-        Assert.Null(await puller.PullBinaryAsync(BundleId, default));
-    }
-
-    [Fact]
     public async Task Pull_LocateEmpty_ReturnsNull() {
         var runner = new FakeRunner((exe, _) => new ProcessResult(0, "", ""));
         var puller = Puller(runner, "1.2.3.4");

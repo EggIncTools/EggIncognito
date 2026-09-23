@@ -51,6 +51,7 @@ internal static class TestHostInit {
         }
 
         Environment.SetEnvironmentVariable("EGGINCOGNITO_TEST_DBFREE", "1");
+        EggIncognito.Capture.CaptureDiagnostics.Failed = (_, _, _) => { };
     }
 
     internal static bool IsAmbientAppConfig(string name) {

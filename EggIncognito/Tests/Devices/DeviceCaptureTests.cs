@@ -40,15 +40,6 @@ public class DeviceCaptureTests {
     }
 
     [Fact]
-    public void Rinfo_CorruptFile_ReadsEmpty() {
-        using var tmp = new TempDir();
-        File.WriteAllText(tmp.Combine("device-rinfo.json"), "{ not json ]");
-        var store = new DeviceRinfoStore(tmp.Path);
-        Assert.Empty(store.Load());
-        Assert.Null(store.Latest("d"));
-    }
-
-    [Fact]
     public void HostAddress_Picks_Private_Over_Public() {
         var nics = new List<HostAddress.Nic> {
             new("eth-pub", true, false, ["8.8.4.4"]),

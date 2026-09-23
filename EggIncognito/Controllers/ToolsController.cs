@@ -96,7 +96,7 @@ public sealed class ToolsController(
     [RequestSizeLimit(200_000_000)]
     [RequestFormLimits(MultipartBodyLengthLimit = 200_000_000)]
     public async Task<IActionResult> ExtractProto(IFormFile binary, IFormFile? meta, [FromForm] string? fileName,
-        CancellationToken ct) {
+        [FromServices] AnalyzedFileStore? store, CancellationToken ct) {
         if (binary is null || binary.Length == 0) return ExtractFailed("no binary uploaded");
 
         byte[] bin = await ReadFormFileAsync(binary, ct);
@@ -106,7 +106,7 @@ public sealed class ToolsController(
         if (r.Ok) {
             (string? appVersion, string? build) = AppMetaReader.Read(metaBytes);
             r = r with { AppVersion = appVersion, Build = build };
-            await RecordAnalyzedAsync(bin, r, fileName ?? binary.FileName, ct);
+            await RecordAnalyzedAsync(store, bin, r, fileName ?? binary.FileName, ct);
         }
 
         return ExtractResultJson(r, AnalyzedFileStore.Sha256Hex(bin));
@@ -119,9 +119,8 @@ public sealed class ToolsController(
         return bytes;
     }
 
-    private async Task RecordAnalyzedAsync(byte[] bytes, DescriptorProtoCarver.ExtractResult r, string? fileName,
-        CancellationToken ct) {
-        var store = HttpContext.RequestServices.GetService<AnalyzedFileStore>();
+    private async Task RecordAnalyzedAsync(AnalyzedFileStore? store, byte[] bytes,
+        DescriptorProtoCarver.ExtractResult r, string? fileName, CancellationToken ct) {
         if (store is null) return;
         try {
             await store.RecordAsync(new AnalyzedFileStore.Entry(

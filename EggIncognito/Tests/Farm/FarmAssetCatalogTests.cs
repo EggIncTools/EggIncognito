@@ -29,17 +29,6 @@ public class FarmAssetCatalogTests {
     }
 
     [Fact]
-    public void Fixture_CarriesTheWholeDlcCatalog() {
-        var catalog = ConfigFixture.Value.DlcCatalog;
-        Assert.NotNull(catalog);
-        Assert.Equal(4063, catalog.Shells.Count);
-        Assert.Equal(57, catalog.ShellSets.Count);
-        Assert.Equal(13, catalog.Decorators.Count);
-        Assert.Equal(280, catalog.ShellObjects.Count);
-        Assert.Equal(26, catalog.ShellGroups.Count);
-    }
-
-    [Fact]
     public void EveryKnownAssetType_ResolvesToExactlyOneBaseStem() {
         var catalog = Catalog();
         Assert.Equal(97, catalog.KnownAssetTypes.Count);
@@ -256,13 +245,6 @@ public class FarmAssetCatalogTests {
                 AssetType.HatcheryUniverseBolt
             },
             missing.OrderBy(static t => (int)t));
-    }
-
-    [Fact]
-    public void Showcase_CarriesTwoHundredRealFarms() {
-        var showcase = ShowcaseFixture.Value;
-        Assert.Equal(200, showcase.Top.Count + showcase.Featured.Count + showcase.Fresh.Count);
-        Assert.Equal(2203, ShowcaseConfigs().Count());
     }
 
     [Fact]

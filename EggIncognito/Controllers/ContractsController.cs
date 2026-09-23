@@ -13,13 +13,12 @@ namespace EggIncognito.Controllers;
 [ApiController]
 [Route("api/v1/contracts")]
 [ApiAccess(ApiAccessLevel.Public)]
-public sealed class ContractsController(IServiceProvider services) : ControllerBase {
-    private EggIncognitoDbContext? Db => services.GetService(typeof(EggIncognitoDbContext)) as EggIncognitoDbContext;
-    private ContractPredictor? Predictor => services.GetService(typeof(ContractPredictor)) as ContractPredictor;
-
+public sealed class ContractsController : ApiControllerBase {
     [HttpGet]
     [EnableRateLimiting("read")]
+    [RequiresDb]
     public async Task<IActionResult> List(
+        [FromServices] EggIncognitoDbContext db,
         [FromQuery] double? after,
         [FromQuery] double? before,
         [FromQuery] bool? leggacy,
@@ -27,10 +26,8 @@ public sealed class ContractsController(IServiceProvider services) : ControllerB
         [FromQuery] string? search,
         [FromQuery] int limit = 500,
         CancellationToken ct = default) {
-        var db = Db;
-        if (db is null) return StatusCode(503, new { error = "no database configured" });
-        if (after is { } a && !UnixSeconds.IsValid(a)) return BadRequest(new { error = "after is out of range" });
-        if (before is { } b && !UnixSeconds.IsValid(b)) return BadRequest(new { error = "before is out of range" });
+        if (after is { } a && !UnixSeconds.IsValid(a)) return Fail(400, "after is out of range");
+        if (before is { } b && !UnixSeconds.IsValid(b)) return Fail(400, "before is out of range");
 
         limit = Math.Clamp(limit, 1, 1000);
         var q = db.ContractReleases.AsNoTracking();
@@ -50,16 +47,15 @@ public sealed class ContractsController(IServiceProvider services) : ControllerB
     [HttpGet("predictions")]
     [EnableRateLimiting("read")]
     [ApiAccess(ApiAccessLevel.Admin)]
+    [Requires<ContractPredictor>("no database configured")]
     public async Task<IActionResult> Predictions(
+        [FromServices] ContractPredictor predictor,
         [FromQuery] string? contract,
         [FromQuery] int horizon = 9,
         CancellationToken ct = default) {
-        var predictor = Predictor;
-        if (predictor is null) return StatusCode(503, new { error = "no database configured" });
-
         if (!string.IsNullOrWhiteSpace(contract)) {
             var estimate = await predictor.GetContractAsync(contract.Trim(), ct);
-            if (estimate is null) return NotFound(new { error = "unknown contract" });
+            if (estimate is null) return Fail(404, "unknown contract");
             return Ok(estimate);
         }
         return Ok(await predictor.GetSlotsAsync(Math.Clamp(horizon, 1, 30), ct));

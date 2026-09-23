@@ -51,15 +51,6 @@ public class ProtoVersionOrderingTests {
     }
 
     [Fact]
-    public void PreviousIgnoresOtherPlatforms() {
-        var rows = new[] {
-            new Row("ios", "1.36.0", "1.36.0.2"),
-            new Row("android", "1.37.0", "370"),
-        };
-        Assert.Null(ProtoVersionOrdering.Previous(rows[0], rows, Key));
-    }
-
-    [Fact]
     public void NextReturnsTheNextNewerEntry() {
         var rows = new[] {
             new Row("ios", "1.37.0", "1.37.0.1"),

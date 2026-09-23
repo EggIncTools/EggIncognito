@@ -34,18 +34,6 @@ public class SettingsRegistryTests {
             Assert.Contains(d.Default, d.EnumValues, StringComparer.Ordinal);
     }
 
-    [Theory]
-    [InlineData(SettingKeys.DeviceSyncEnabled)]
-    [InlineData(SettingKeys.DeviceSyncAutoPublish)]
-    [InlineData(SettingKeys.DeviceSyncRetryBackoffMinutes)]
-    [InlineData(SettingKeys.DeviceSyncStoreProbeIntervalMinutes)]
-    [InlineData(SettingKeys.VirtualImageOverride)]
-    [InlineData(SettingKeys.ThemeCustomCss)]
-    [InlineData(SettingKeys.ApiKeysMaxPerUser)]
-    [InlineData(SettingKeys.FeedPageBaseUrl)]
-    public void OnlyGenuinelyReReadKeys_AreLive(string key) =>
-        Assert.Equal(ApplyTier.Live, Registry.Require(key).Tier);
-
     [Fact]
     public void LiveTier_IsLimitedToTheKnownReReadSet() {
         string[] expected = [

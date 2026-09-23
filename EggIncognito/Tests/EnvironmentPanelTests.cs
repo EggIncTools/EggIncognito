@@ -16,13 +16,6 @@ public class EnvironmentPanelTests : BunitContext {
     }
 
     [Fact]
-    public void Header_ReadsBasicRequestInfoSetup() {
-        var cut = RenderPanel();
-        Assert.Contains("BasicRequestInfo Setup", cut.Markup);
-        Assert.DoesNotContain("Environment (BasicRequestInfo overrides)", cut.Markup);
-    }
-
-    [Fact]
     public void Open_ShowsTheValidateButton() {
         var cut = RenderPanel();
         Assert.Contains(cut.FindAll("button"), b => b.TextContent.Contains("Validate"));

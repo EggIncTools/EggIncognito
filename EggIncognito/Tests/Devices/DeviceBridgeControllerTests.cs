@@ -20,79 +20,74 @@ public class DeviceBridgeControllerTests {
     private const string Secret = "s3cret";
 
     private static DeviceBridgeController Make(DeviceTransportConfig cfg, IServiceProvider sp,
-        IProcessRunner? runner = null, UserRole role = UserRole.Viewer, string? presentedSecret = null,
+        IProcessRunner? runner = null, string? presentedSecret = null,
         string callerIp = "127.0.0.1", HttpContext? http = null) {
         var context = http ?? new DefaultHttpContext();
         context.RequestServices = sp;
         context.Connection.RemoteIpAddress = IPAddress.Parse(callerIp);
         if (presentedSecret is not null) context.Request.Headers[BridgeRoutes.SecretHeader] = presentedSecret;
 
-        return new DeviceBridgeController(cfg, new FakeUser(role), NullLogger<DeviceBridgeController>.Instance,
+        return new DeviceBridgeController(cfg, NullLogger<DeviceBridgeController>.Instance,
             runner ?? new RecordingRunner(), sp) {
             ControllerContext = new ControllerContext { HttpContext = context }
         };
     }
 
-    private static IServiceProvider Claims(out DeviceClaimRegistry claims) {
-        claims = new DeviceClaimRegistry(TimeProvider.System);
-        return new ServiceCollection().AddSingleton(claims).BuildServiceProvider();
+    private static HttpContext GateHttp(string? presentedSecret = null, string callerIp = "127.0.0.1") {
+        var context = new DefaultHttpContext();
+        context.Connection.RemoteIpAddress = IPAddress.Parse(callerIp);
+        if (presentedSecret is not null) context.Request.Headers[BridgeRoutes.SecretHeader] = presentedSecret;
+        return context;
     }
 
     [Fact]
     public void Gate_BridgeDisabled_404() {
-        var sp = Claims(out _);
-        var c = Make(new DeviceTransportConfig { BridgeEnabled = false, ApiKey = Secret }, sp,
-            presentedSecret: Secret);
+        var cfg = new DeviceTransportConfig { BridgeEnabled = false, ApiKey = Secret };
+        var http = GateHttp(presentedSecret: Secret);
 
-        Assert.IsType<NotFoundResult>(c.Release("runtime-1"));
+        Assert.IsType<NotFoundResult>(BridgeGate.Check(http, cfg, new FakeUser(UserRole.Viewer), null));
     }
 
     [Fact]
     public void Gate_RemoteMode_404_EvenWithTheRightSecret() {
-        var sp = Claims(out _);
         var cfg = new DeviceTransportConfig {
             BridgeEnabled = true,
             ApiKey = Secret,
             Mode = DeviceTransportMode.Remote
         };
-        var c = Make(cfg, sp, presentedSecret: Secret);
+        var http = GateHttp(presentedSecret: Secret);
 
-        Assert.IsType<NotFoundResult>(c.Release("runtime-1"));
+        Assert.IsType<NotFoundResult>(BridgeGate.Check(http, cfg, new FakeUser(UserRole.Viewer), null));
     }
 
     [Fact]
     public void Gate_CallerOutsideAllowedCidrs_403() {
-        var sp = Claims(out _);
         var cfg = new DeviceTransportConfig {
             BridgeEnabled = true,
             ApiKey = Secret,
             AllowedCidrs = ["10.0.0.0/8"]
         };
-        var c = Make(cfg, sp, presentedSecret: Secret, callerIp: "192.168.1.9");
+        var http = GateHttp(presentedSecret: Secret, callerIp: "192.168.1.9");
 
-        var r = Assert.IsType<ObjectResult>(c.Release("runtime-1"));
+        var r = Assert.IsType<ObjectResult>(BridgeGate.Check(http, cfg, new FakeUser(UserRole.Viewer), null));
         Assert.Equal(403, r.StatusCode);
     }
 
     [Fact]
     public void Gate_WrongSecret_403() {
-        var sp = Claims(out _);
-        var c = Make(new DeviceTransportConfig { BridgeEnabled = true, ApiKey = Secret }, sp,
-            presentedSecret: "nope");
+        var cfg = new DeviceTransportConfig { BridgeEnabled = true, ApiKey = Secret };
+        var http = GateHttp(presentedSecret: "nope");
 
-        var r = Assert.IsType<ObjectResult>(c.Release("runtime-1"));
+        var r = Assert.IsType<ObjectResult>(BridgeGate.Check(http, cfg, new FakeUser(UserRole.Viewer), null));
         Assert.Equal(403, r.StatusCode);
     }
 
     [Fact]
     public void Gate_RightSecret_Passes() {
-        var sp = Claims(out var claims);
-        claims.Claim("runtime-1", TimeSpan.FromMinutes(5));
-        var c = Make(new DeviceTransportConfig { BridgeEnabled = true, ApiKey = Secret }, sp,
-            presentedSecret: Secret);
+        var cfg = new DeviceTransportConfig { BridgeEnabled = true, ApiKey = Secret };
+        var http = GateHttp(presentedSecret: Secret);
 
-        Assert.IsType<OkObjectResult>(c.Release("runtime-1"));
-        Assert.False(claims.IsHeld("runtime-1"));
+        Assert.Null(BridgeGate.Check(http, cfg, new FakeUser(UserRole.Viewer), null));
     }
 
     [Fact]
@@ -104,7 +99,8 @@ public class DeviceBridgeControllerTests {
 
         var r = await c.Exec(CancellationToken.None);
 
-        var bad = Assert.IsType<BadRequestObjectResult>(r);
+        var bad = Assert.IsType<ObjectResult>(r);
+        Assert.Equal(400, bad.StatusCode);
         Assert.Contains("BridgeExecutables", bad.Value!.ToString());
     }
 
@@ -162,7 +158,9 @@ public class DeviceBridgeControllerTests {
         var c = Make(new DeviceTransportConfig { BridgeEnabled = true, ApiKey = Secret }, sp,
             presentedSecret: Secret);
 
-        var ok = Assert.IsType<OkObjectResult>(await c.Fleet(CancellationToken.None));
+        var ok = Assert.IsType<OkObjectResult>(
+            await c.Fleet(sp.GetRequiredService<IDeviceFleet>(), sp.GetRequiredService<DeviceProxyPusher>(),
+                CancellationToken.None));
 
         var fleet = Assert.IsType<BridgeFleet>(ok.Value);
         Assert.Equal("10.1.2.3", fleet.CaptureHostIp);
@@ -180,7 +178,7 @@ public class DeviceBridgeControllerTests {
         var c = Make(new DeviceTransportConfig { BridgeEnabled = true, ApiKey = Secret }, sp,
             presentedSecret: Secret);
 
-        var r = Assert.IsType<ObjectResult>(await c.Fleet(CancellationToken.None));
+        var r = Assert.IsType<ObjectResult>(await c.Fleet(null, null, CancellationToken.None));
         Assert.Equal(503, r.StatusCode);
     }
 
@@ -190,7 +188,7 @@ public class DeviceBridgeControllerTests {
         var c = Make(new DeviceTransportConfig { BridgeEnabled = true, ApiKey = Secret }, sp,
             presentedSecret: Secret);
 
-        var ok = Assert.IsType<OkObjectResult>(await c.Instances(CancellationToken.None));
+        var ok = Assert.IsType<OkObjectResult>(await c.Instances(null, CancellationToken.None));
 
         var list = Assert.IsType<BridgeInstanceList>(ok.Value);
         Assert.False(list.Ok);
@@ -205,7 +203,7 @@ public class DeviceBridgeControllerTests {
             presentedSecret: Secret);
 
         var ok = Assert.IsType<OkObjectResult>(
-            await c.InstanceCreate(new BridgeInstanceCreate("egi/redroid:12"), CancellationToken.None));
+            await c.InstanceCreate(new BridgeInstanceCreate("egi/redroid:12"), null, CancellationToken.None));
 
         var res = Assert.IsType<BridgeInstanceResult>(ok.Value);
         Assert.False(res.Ok);
@@ -219,7 +217,9 @@ public class DeviceBridgeControllerTests {
         var c = Make(new DeviceTransportConfig { BridgeEnabled = true, ApiKey = Secret }, sp,
             presentedSecret: Secret);
 
-        Assert.IsType<NotFoundObjectResult>(await c.Capture("runtime-9", CancellationToken.None));
+        var r = Assert.IsType<ObjectResult>(
+            await c.Capture("runtime-9", sp.GetRequiredService<IDeviceCaptureHubs>(), CancellationToken.None));
+        Assert.Equal(404, r.StatusCode);
     }
 
     [Fact]
@@ -228,7 +228,8 @@ public class DeviceBridgeControllerTests {
         var c = Make(new DeviceTransportConfig { BridgeEnabled = true, ApiKey = Secret }, sp,
             presentedSecret: Secret);
 
-        Assert.IsType<BadRequestObjectResult>(await c.Reach("127.0.0.1", 0, CancellationToken.None));
+        var r = Assert.IsType<ObjectResult>(await c.Reach("127.0.0.1", 0, CancellationToken.None));
+        Assert.Equal(400, r.StatusCode);
     }
 
     private static DeviceProxyPusher Pusher(string hostIp) {

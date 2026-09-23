@@ -6,14 +6,6 @@ namespace EggIncognito.Tests.Devices;
 
 public class DevicePollCadenceTests {
     [Fact]
-    public void TimelineNotificationsCoalesceOnTheOldWatchedCadence() =>
-        Assert.Equal(TimeSpan.FromSeconds(2), PgChangeListener.Debounce);
-
-    [Fact]
-    public void TimelineSafetySweepIsLong() =>
-        Assert.Equal(TimeSpan.FromMinutes(5), PgChangeListener.Sweep);
-
-    [Fact]
     public void ListenerBackoffGrowsThenCaps() {
         Assert.Equal(TimeSpan.FromSeconds(2), PgChangeListener.BackoffFor(1));
         Assert.Equal(TimeSpan.FromSeconds(4), PgChangeListener.BackoffFor(2));

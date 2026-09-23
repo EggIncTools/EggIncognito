@@ -17,56 +17,29 @@ namespace EggIncognito.Controllers;
 [ApiAccess(ApiAccessLevel.Admin)]
 [EnableRateLimiting("write")]
 public sealed class VirtualDevicesController(
-    IServiceProvider services,
     VirtualDeviceConfig config,
     ModuleFetcher moduleFetcher,
     IntegrityAssets integrityAssets,
-    VirtualDeviceLifecycle lifecycle) : ControllerBase {
-    private ProvisionedInstanceStore? Store =>
-        services.GetService(typeof(ProvisionedInstanceStore)) as ProvisionedInstanceStore;
-
-    private DeviceModuleStore? Modules =>
-        services.GetService(typeof(DeviceModuleStore)) as DeviceModuleStore;
-
-    private DeviceCaptureManager? Captures =>
-        services.GetService(typeof(DeviceCaptureManager)) as DeviceCaptureManager;
-
-    private IImageBuildExecutor? Images =>
-        services.GetService(typeof(IImageBuildExecutor)) as IImageBuildExecutor;
-
-    private ImageBuildRunner? BuildRunner =>
-        services.GetService(typeof(ImageBuildRunner)) as ImageBuildRunner;
-
-    private ImageBuildStore? BuildStore =>
-        services.GetService(typeof(ImageBuildStore)) as ImageBuildStore;
-
-    private DeviceTimelineCache? Timeline =>
-        services.GetService(typeof(DeviceTimelineCache)) as DeviceTimelineCache;
-
-    private SettingsStore? Settings =>
-        services.GetService(typeof(SettingsStore)) as SettingsStore;
-
-    private SettingsAdminService? SettingsAdmin =>
-        services.GetService(typeof(SettingsAdminService)) as SettingsAdminService;
-
+    VirtualDeviceLifecycle lifecycle) : ApiControllerBase {
     [HttpGet]
     [EnableRateLimiting("read")]
-    public async Task<IActionResult> List(CancellationToken ct) {
+    public async Task<IActionResult> List([FromServices] ProvisionedInstanceStore? store,
+        [FromServices] DeviceCaptureManager? captures, [FromServices] DeviceTimelineCache? timeline,
+        CancellationToken ct) {
         var listed = await lifecycle.Provisioner.ListAsync(ct);
         var containers = new Dictionary<string, ProvisionedInstance>(StringComparer.Ordinal);
         foreach (var c in listed.Value ?? []) containers[c.InstanceId] = c;
 
         List<VirtualInstanceRow> rows;
         if (lifecycle.Delegated) {
-            rows = await WithActivityAsync([.. containers.Values.Select(Row)], ct);
+            rows = await WithActivityAsync(timeline, [.. containers.Values.Select(c => Row(c, captures))], ct);
         } else {
-            if (Store is not { } store) {
-                return StatusCode(503, new {
-                    error = "provisioning is not registered here; it needs a database and the real device stack"
-                });
+            if (store is null) {
+                return Fail(503, "provisioning is not registered here; it needs a database and the real device stack");
             }
 
-            rows = await WithActivityAsync([.. (await store.AllAsync(ct)).Select(r => Row(r, containers))], ct);
+            rows = await WithActivityAsync(timeline,
+                [.. (await store.AllAsync(ct)).Select(r => Row(r, containers, captures))], ct);
         }
 
         var byState = rows.GroupBy(r => r.State, StringComparer.Ordinal)
@@ -86,7 +59,7 @@ public sealed class VirtualDevicesController(
 
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] VirtualCreateRequest? request, CancellationToken ct) {
-        if (!config.Enabled) return StatusCode(503, new { error = "virtual devices are disabled" });
+        if (!config.Enabled) return Fail(503, "virtual devices are disabled");
         var res = await lifecycle.CreateAsync(request?.Image, ct);
         var payload = new VirtualActionResult(
             res.Ok, DeviceOutcomes.Label(res.Outcome), res.Value?.InstanceId, res.Note);
@@ -108,9 +81,9 @@ public sealed class VirtualDevicesController(
 
     [HttpGet("modules")]
     [EnableRateLimiting("read")]
-    public async Task<IActionResult> ListModules(CancellationToken ct) {
-        if (Modules is not { } store) return StatusCode(503, new { error = "no database configured" });
-        var rows = (await store.ListAsync(ct))
+    [RequiresDb]
+    public async Task<IActionResult> ListModules([FromServices] DeviceModuleStore modules, CancellationToken ct) {
+        var rows = (await modules.ListAsync(ct))
             .Select(m => new ModuleCacheRow(m.Name, m.Version, m.ByteSize, m.Source, true, null))
             .ToList();
         return Ok(rows);
@@ -139,9 +112,10 @@ public sealed class VirtualDevicesController(
 
     [HttpGet("images")]
     [EnableRateLimiting("read")]
-    public async Task<IActionResult> ListImages(CancellationToken ct) {
-        if (Images is not { } images) return StatusCode(503, new { error = "image builds are not registered here" });
-        string? active = await ActiveOverrideAsync(ct);
+    [Requires<IImageBuildExecutor>("image builds are not registered here")]
+    public async Task<IActionResult> ListImages([FromServices] IImageBuildExecutor images,
+        [FromServices] SettingsStore? settings, CancellationToken ct) {
+        string? active = await ActiveOverrideAsync(settings, ct);
         var listed = await images.ListAsync("redroid/redroid:*", ct);
         var rows = new List<ImageRow>();
         foreach (var img in listed.Value ?? []) {
@@ -155,15 +129,16 @@ public sealed class VirtualDevicesController(
     }
 
     [HttpPost("images/build")]
-    public async Task<IActionResult> BuildImage([FromBody] ImageBuildRequest? request, CancellationToken ct) {
+    public async Task<IActionResult> BuildImage([FromBody] ImageBuildRequest? request,
+        [FromServices] ImageBuildRunner? runner, [FromServices] SettingsStore? settings, CancellationToken ct) {
         if (!config.Build.Enabled)
-            return StatusCode(503, new { error = "image builds are disabled (Devices:Virtual:Build:Enabled is false)" });
-        if (BuildRunner is not { } runner) return StatusCode(503, new { error = "no database configured" });
-        if (request is null) return BadRequest(new { error = "a build spec is required" });
+            return Fail(503, "image builds are disabled (Devices:Virtual:Build:Enabled is false)");
+        if (runner is null) return Fail(503, "no database configured");
+        if (request is null) return Fail(400, "a build spec is required");
 
         string? baseImage = request.BaseImage;
         if (request.Integrity && string.IsNullOrWhiteSpace(baseImage) && !request.Magisk)
-            baseImage = await ActiveOverrideAsync(ct) ?? config.Image;
+            baseImage = await ActiveOverrideAsync(settings, ct) ?? config.Image;
 
         var spec = new ImageBuildSpec(
             string.IsNullOrWhiteSpace(request.AndroidVersion) ? "11.0.0" : request.AndroidVersion,
@@ -174,18 +149,20 @@ public sealed class VirtualDevicesController(
 
     [HttpGet("images/build/{id:long}")]
     [EnableRateLimiting("read")]
-    public async Task<IActionResult> BuildStatus(long id, CancellationToken ct) {
-        if (BuildStore is not { } store) return StatusCode(503, new { error = "no database configured" });
+    [RequiresDb]
+    public async Task<IActionResult> BuildStatus(long id, [FromServices] ImageBuildStore store,
+        CancellationToken ct) {
         var row = await store.GetAsync(id, ct);
-        if (row is null) return NotFound(new { error = $"unknown build {id}" });
+        if (row is null) return Fail(404, $"unknown build {id}");
         return Ok(new ImageBuildStatusView(
             row.Id, row.Spec, row.Tag, row.State, row.Note, row.Log, row.StartedAt, row.FinishedAt));
     }
 
     [HttpPost("images/use")]
-    public async Task<IActionResult> UseImage([FromBody] ImageUseRequest? request, CancellationToken ct) {
-        if (SettingsAdmin is not { } admin) return StatusCode(503, new { error = "no database configured" });
-        if (request?.Tag is not { Length: > 0 } tag) return BadRequest(new { error = "a tag is required" });
+    [RequiresDb]
+    public async Task<IActionResult> UseImage([FromBody] ImageUseRequest? request,
+        [FromServices] SettingsAdminService admin, CancellationToken ct) {
+        if (request?.Tag is not { Length: > 0 } tag) return Fail(400, "a tag is required");
 
         var saved = await admin.SaveAsync(SettingKeys.VirtualImageOverride, tag, User.Identity?.Name, ct);
         if (!saved.Ok) return BadRequest(new VirtualActionResult(false, DeviceOutcomes.Error, tag, saved.Error));
@@ -193,13 +170,15 @@ public sealed class VirtualDevicesController(
     }
 
     [HttpPost("images/remove")]
-    public async Task<IActionResult> RemoveImage([FromBody] ImageRemoveRequest? request, CancellationToken ct) {
-        if (Images is not { } images) return StatusCode(503, new { error = "image builds are not registered here" });
-        if (request?.Tag is not { Length: > 0 } tag) return BadRequest(new { error = "a tag is required" });
+    [Requires<IImageBuildExecutor>("image builds are not registered here")]
+    public async Task<IActionResult> RemoveImage([FromBody] ImageRemoveRequest? request,
+        [FromServices] IImageBuildExecutor images, [FromServices] SettingsStore? settings,
+        [FromServices] SettingsAdminService? settingsAdmin, CancellationToken ct) {
+        if (request?.Tag is not { Length: > 0 } tag) return Fail(400, "a tag is required");
 
         var removed = await images.RemoveAsync(tag, ct);
-        if (removed.Ok && Settings is { } settings && SettingsAdmin is { } admin) {
-            var active = await settings.GetAsync(SettingKeys.VirtualImageOverride, ct);
+        if (removed.Ok && settings is { } s && settingsAdmin is { } admin) {
+            var active = await s.GetAsync(SettingKeys.VirtualImageOverride, ct);
             if (string.Equals(active?.Value, tag, StringComparison.Ordinal))
                 await admin.SaveAsync(SettingKeys.VirtualImageOverride, null, User.Identity?.Name, ct);
         }
@@ -208,8 +187,8 @@ public sealed class VirtualDevicesController(
         return removed.Ok ? Ok(payload) : StatusCode(removed.Outcome == DeviceOutcome.Unsupported ? 503 : 400, payload);
     }
 
-    private async Task<string?> ActiveOverrideAsync(CancellationToken ct) {
-        if (Settings is not { } settings) return null;
+    private static async Task<string?> ActiveOverrideAsync(SettingsStore? settings, CancellationToken ct) {
+        if (settings is null) return null;
         string? value = (await settings.GetAsync(SettingKeys.VirtualImageOverride, ct))?.Value;
         return string.IsNullOrWhiteSpace(value) ? null : value;
     }
@@ -223,9 +202,9 @@ public sealed class VirtualDevicesController(
 
     private static string? Day(DateOnly? day) => day?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
 
-    private async Task<List<VirtualInstanceRow>> WithActivityAsync(
-        List<VirtualInstanceRow> rows, CancellationToken ct) {
-        if (Timeline is not { } timeline) return rows;
+    private static async Task<List<VirtualInstanceRow>> WithActivityAsync(
+        DeviceTimelineCache? timeline, List<VirtualInstanceRow> rows, CancellationToken ct) {
+        if (timeline is null) return rows;
         List<string> deviceIds = [.. rows.Select(r => r.DeviceId).OfType<string>()];
         if (deviceIds.Count == 0) return rows;
 
@@ -244,26 +223,26 @@ public sealed class VirtualDevicesController(
     private static string ActivityLine(DeviceJobRow job) =>
         job.Message is { Length: > 0 } message ? $"{job.Kind}: {message}" : $"{job.Kind} running";
 
-    private VirtualInstanceRow Row(
-        ProvisionedInstanceRow row, Dictionary<string, ProvisionedInstance> containers) {
+    private static VirtualInstanceRow Row(
+        ProvisionedInstanceRow row, Dictionary<string, ProvisionedInstance> containers, DeviceCaptureManager? captures) {
         containers.TryGetValue(row.InstanceId, out var container);
-        (long flows, string? lastFlow) = Flows(row.DeviceId);
+        (long flows, string? lastFlow) = Flows(captures, row.DeviceId);
         return new VirtualInstanceRow(
             row.InstanceId, row.Kind, row.Image, row.State,
             row.AdbSerial, row.DeviceId, row.CreatedAt, row.LastSeenAt, row.Note,
             container is not null, container?.Note, flows, lastFlow);
     }
 
-    private VirtualInstanceRow Row(ProvisionedInstance instance) {
-        (long flows, string? lastFlow) = Flows(instance.DeviceId);
+    private static VirtualInstanceRow Row(ProvisionedInstance instance, DeviceCaptureManager? captures) {
+        (long flows, string? lastFlow) = Flows(captures, instance.DeviceId);
         return new VirtualInstanceRow(
             instance.InstanceId, instance.Kind, instance.Image, instance.State,
             instance.AdbSerial, instance.DeviceId, instance.CreatedAt, null, instance.Note,
             true, instance.Note, flows, lastFlow);
     }
 
-    private (long Flows, string? LastFlow) Flows(string? deviceId) {
-        if (deviceId is not { Length: > 0 } id || Captures is not { } captures) return (0, null);
+    private static (long Flows, string? LastFlow) Flows(DeviceCaptureManager? captures, string? deviceId) {
+        if (deviceId is not { Length: > 0 } id || captures is null) return (0, null);
         var snap = captures.HubFor(id)?.Snapshot();
         return (captures.DiagFor(id).Flows, snap is { Count: > 0 } ? snap[^1].Timestamp : null);
     }

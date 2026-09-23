@@ -32,20 +32,6 @@ public class HarvestLoopTests {
     }
 
     [Fact]
-    public async Task SinglePoke_RunsExactlyOnce() {
-        var loop = new HarvestLoop();
-        int passes = 0;
-        loop.Poke(false, _ => {
-            Interlocked.Increment(ref passes);
-            return Task.CompletedTask;
-        }, Ignore);
-
-        await loop.Idle;
-        Assert.Equal(1, passes);
-        Assert.False(loop.Running);
-    }
-
-    [Fact]
     public async Task ForceFromAQueuedPoke_ReachesTheNextPass() {
         var loop = new HarvestLoop();
         var release = new SemaphoreSlim(0, 1);

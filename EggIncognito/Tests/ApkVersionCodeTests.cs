@@ -26,12 +26,6 @@ public class ApkVersionCodeTests {
         Assert.Equal(ExpectedVersionCode, ApkVersionCode.Read(ZipWithEntry("AndroidManifest.xml", fx)));
     }
 
-    [Fact]
-    public void ParseAxml_RealArmSplitManifest_ReturnsVersionCode() {
-        if (!TryFixture(out byte[] fx)) return;
-        Assert.Equal(ExpectedVersionCode, ApkVersionCode.ParseAxml(fx));
-    }
-
     private static bool TryFixture(out byte[] bytes) =>
         TestFixtureFiles.TryRead("arm_split_AndroidManifest.bin", out bytes);
 

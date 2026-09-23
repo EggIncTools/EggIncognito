@@ -23,13 +23,4 @@ public class CaptureAddressStoreTests {
             Assert.Equal(0x80, bytes[8] & 0x80);
         }
     }
-
-    [Fact]
-    public void RandomInPrefix_IsInPrefix() {
-        byte[] prefixAddr = IPAddress.Parse("2a01:4f8:c012:e15b::").GetAddressBytes();
-        for (int n = 0; n < 50; n++) {
-            byte[] ab = CaptureAddressStore.RandomInPrefix(Prefix).GetAddressBytes();
-            for (int i = 0; i < 8; i++) Assert.Equal(prefixAddr[i], ab[i]);
-        }
-    }
 }

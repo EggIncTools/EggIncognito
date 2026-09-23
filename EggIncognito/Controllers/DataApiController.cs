@@ -13,7 +13,7 @@ namespace EggIncognito.Controllers;
 [ApiController]
 [Route("api/v1/data")]
 [ApiAccess(ApiAccessLevel.Public)]
-public sealed class DataApiController(DataCatalog catalog, ICurrentUser currentUser) : ControllerBase {
+public sealed class DataApiController(DataCatalog catalog, ICurrentUser currentUser) : ApiControllerBase {
     [HttpGet]
     [EnableRateLimiting("read")]
     public async Task<IActionResult> Index(CancellationToken ct) {
@@ -86,9 +86,9 @@ public sealed class DataApiController(DataCatalog catalog, ICurrentUser currentU
     [EnableRateLimiting("data")]
     public async Task<IActionResult> Get(string group, string id, [FromQuery] string? name, CancellationToken ct) {
         var src = catalog.ById(group, id);
-        if (src is null) return NotFound(new { error = "unknown data source", group, id });
+        if (src is null) return StatusCode(404, new ApiError("unknown data source", null, 404, new { group, id }));
         return src.Extends is not null
-            ? NotFound(new { error = "this is an extension dataset", url = catalog.UrlFor(src) })
+            ? StatusCode(404, new ApiError("this is an extension dataset", null, 404, new { url = catalog.UrlFor(src) }))
             : await Serve(src, name, ct);
     }
 
@@ -98,20 +98,20 @@ public sealed class DataApiController(DataCatalog catalog, ICurrentUser currentU
         CancellationToken ct) {
         var src = catalog.ByChild(group, parent, sub);
         return src is null
-            ? NotFound(new { error = "unknown extension dataset", group, parent, sub })
+            ? StatusCode(404, new ApiError("unknown extension dataset", null, 404, new { group, parent, sub }))
             : await Serve(src, name, ct);
     }
 
     private async Task<IActionResult> Serve(DataSource src, string? name, CancellationToken ct) {
         if (src.Access == DataAccess.Authenticated && !currentUser.IsAuthenticated)
             return StatusCode(401,
-                new { error = "authentication required", hint = "mint an API key at /api/v1/keys or log in" });
+                new ApiError("authentication required", "mint an API key at /api/v1/keys or log in", 401));
 
         if (src.AcceptsName && string.IsNullOrEmpty(name))
-            return BadRequest(new { error = "this source requires a name query parameter" });
+            return Fail(400, "this source requires a name query parameter");
 
         var payload = await src.Produce(new DataProduceContext(HttpContext, name), ct);
-        if (payload is null) return NotFound(new { error = "data not available", id = src.Id });
+        if (payload is null) return StatusCode(404, new ApiError("data not available", null, 404, new { id = src.Id }));
 
         var bytes = payload.Bytes;
         if (payload.ContentType == "application/json" && Request.Query["meta"] != "1")

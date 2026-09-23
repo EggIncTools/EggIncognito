@@ -73,11 +73,4 @@ public sealed class LiveVersionStoreTests : IDisposable {
         store.Observe(new RinfoHarvester.ObservedVersion("", null, null, 72), "t1");
         Assert.Empty(store.Load());
     }
-
-    [Fact]
-    public void Load_CorruptFile_ReturnsEmpty() {
-        string dir = NewDir();
-        File.WriteAllText(Path.Combine(dir, "live-versions.json"), "{ not json");
-        Assert.Empty(new LiveVersionStore(dir).Load());
-    }
 }

@@ -5,12 +5,14 @@ using Microsoft.AspNetCore.Mvc.Filters;
 
 namespace EggIncognito.Controllers;
 
-[AttributeUsage(AttributeTargets.Class | AttributeTargets.Method)]
-public sealed class RequiresDbAttribute : Attribute, IAsyncResourceFilter {
+[AttributeUsage(AttributeTargets.Class | AttributeTargets.Method, AllowMultiple = true)]
+public class RequiresAttribute<T>(string error) : Attribute, IAsyncResourceFilter where T : class {
     public Task OnResourceExecutionAsync(ResourceExecutingContext context, ResourceExecutionDelegate next) {
         if (context.HttpContext.RequestServices.GetRequiredService<IServiceProviderIsService>()
-            .IsService(typeof(EggIncognitoDbContext))) return next();
-        context.Result = new ObjectResult(new ApiError("no database configured", null, 503)) { StatusCode = 503 };
+            .IsService(typeof(T))) return next();
+        context.Result = new ObjectResult(new ApiError(error, null, 503)) { StatusCode = 503 };
         return Task.CompletedTask;
     }
 }
+
+public sealed class RequiresDbAttribute() : RequiresAttribute<EggIncognitoDbContext>("no database configured");

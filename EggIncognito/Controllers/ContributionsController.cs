@@ -19,18 +19,13 @@ public sealed class ContributionsController(
     ICurrentUser currentUser,
     ICaptureContributionKinds kinds,
     ContributionOptions options,
-    IServiceProvider services,
-    ILogger<ContributionsController> logger) : ControllerBase {
+    ILogger<ContributionsController> logger) : ApiControllerBase {
     private const int MaxPageSize = 200;
     private const int MaxOfferBatch = 5000;
 
-    private ContributionStore? Store => services.GetService(typeof(ContributionStore)) as ContributionStore;
-
-    private IdentityApiClient? Identity => services.GetService(typeof(IdentityApiClient)) as IdentityApiClient;
-
-    private async Task<Dictionary<Guid, string>> UsernamesAsync(CancellationToken ct) {
+    private async Task<Dictionary<Guid, string>> UsernamesAsync(IdentityApiClient? identity, CancellationToken ct) {
         var names = new Dictionary<Guid, string>();
-        if (Identity is not { } identity) return names;
+        if (identity is null) return names;
         try {
             foreach (var u in await identity.ListAdminUsersAsync(ct)) names[u.UserId] = u.Username;
         } catch (Exception ex) {
@@ -43,13 +38,13 @@ public sealed class ContributionsController(
     private (Guid UserId, IActionResult? Error) Me() =>
         currentUser.IsAuthenticated && currentUser.UserId is { } id
             ? (id, null)
-            : (Guid.Empty, StatusCode(401, new { error = "log in to use contributions" }));
+            : (Guid.Empty, Fail(401, "log in to use contributions"));
 
     [HttpGet("summary")]
-    public async Task<IActionResult> Summary(CancellationToken ct) {
+    [RequiresDb]
+    public async Task<IActionResult> Summary([FromServices] ContributionStore store, CancellationToken ct) {
         (var userId, var error) = Me();
         if (error is not null) return error;
-        if (Store is not { } store) return StatusCode(503, new { error = "no database configured" });
 
         var counts = await store.CountsForAsync(userId, ct);
         return Ok(new ContributionSummaryDto(
@@ -61,13 +56,14 @@ public sealed class ContributionsController(
     }
 
     [HttpGet("mine")]
+    [RequiresDb]
     public async Task<IActionResult> Mine(
+        [FromServices] ContributionStore store,
         [FromQuery] string? status, [FromQuery] int skip, [FromQuery] int take, CancellationToken ct) {
         (var userId, var error) = Me();
         if (error is not null) return error;
-        if (Store is not { } store) return StatusCode(503, new { error = "no database configured" });
         if (status is not null && !ContributedCaptureStatus.IsKnown(status))
-            return BadRequest(new { error = $"unknown status {status}" });
+            return Fail(400, $"unknown status {status}");
 
         var page = await store.MineAsync(userId, status, Math.Max(skip, 0), Clamp(take), ct);
         return Ok(new {
@@ -79,15 +75,15 @@ public sealed class ContributionsController(
 
     [HttpPost("submit")]
     [EnableRateLimiting("write")]
-    public async Task<IActionResult> Submit(CancellationToken ct) {
+    [RequiresDb]
+    public async Task<IActionResult> Submit([FromServices] ContributionStore store, CancellationToken ct) {
         (var userId, var error) = Me();
         if (error is not null) return error;
-        if (!options.Enabled) return StatusCode(403, new { error = "contributions are disabled" });
-        if (Store is not { } store) return StatusCode(503, new { error = "no database configured" });
+        if (!options.Enabled) return Fail(403, "contributions are disabled");
 
         var counts = await store.CountsForAsync(userId, ct);
         if (counts.Submitted >= options.MaxSubmittedPerUser)
-            return StatusCode(429, new { error = "you have too many submissions awaiting review" });
+            return Fail(429, "you have too many submissions awaiting review");
 
         int sent = await store.SubmitAsync(userId, ct);
         return Ok(new ContributionSubmitResult(sent));
@@ -95,10 +91,10 @@ public sealed class ContributionsController(
 
     [HttpPost("discard")]
     [EnableRateLimiting("write")]
-    public async Task<IActionResult> Discard(CancellationToken ct) {
+    [RequiresDb]
+    public async Task<IActionResult> Discard([FromServices] ContributionStore store, CancellationToken ct) {
         (var userId, var error) = Me();
         if (error is not null) return error;
-        if (Store is not { } store) return StatusCode(503, new { error = "no database configured" });
         int dropped = await store.DiscardAsync(userId, ct);
         return Ok(new { discarded = dropped });
     }
@@ -106,20 +102,18 @@ public sealed class ContributionsController(
     [HttpPost("offer")]
     [ApiAccess(ApiAccessLevel.Admin)]
     [EnableRateLimiting("write")]
-    public IActionResult Offer([FromBody] ContributionOfferRequest body) {
+    [RequiresDb]
+    public IActionResult Offer([FromBody] ContributionOfferRequest body,
+        [FromServices] ContributionRecorder recorder, [FromServices] IDeviceCaptureHubs captures) {
         (var userId, var error) = Me();
         if (error is not null) return error;
         if (OfferBlocked() is { } blocked) return blocked;
-        if (services.GetService(typeof(ContributionRecorder)) is not ContributionRecorder recorder)
-            return StatusCode(503, new { error = "contribution recording is off" });
-        if (services.GetService(typeof(IDeviceCaptureHubs)) is not IDeviceCaptureHubs captures)
-            return StatusCode(503, new { error = "device capture is not configured" });
-        if (string.IsNullOrWhiteSpace(body.DeviceId)) return BadRequest(new { error = "deviceId required" });
+        if (string.IsNullOrWhiteSpace(body.DeviceId)) return Fail(400, "deviceId required");
 
         var flow = captures.HubFor(body.DeviceId)?.Snapshot().FirstOrDefault(f => f.Id == body.FlowId);
-        if (flow is null) return NotFound(new { error = "flow not found on this device's capture" });
+        if (flow is null) return Fail(404, "flow not found on this device's capture");
         if (kinds.For(flow.Path) is null)
-            return BadRequest(new { error = $"{flow.Path} is not a contributable route" });
+            return Fail(400, $"{flow.Path} is not a contributable route");
 
         recorder.Record(userId, flow);
         return Accepted(new { recorded = true, path = flow.Path });
@@ -128,17 +122,15 @@ public sealed class ContributionsController(
     [HttpPost("offer-batch")]
     [ApiAccess(ApiAccessLevel.Admin)]
     [EnableRateLimiting("write")]
-    public IActionResult OfferBatch([FromBody] ContributionOfferBatchRequest body) {
+    [RequiresDb]
+    public IActionResult OfferBatch([FromBody] ContributionOfferBatchRequest body,
+        [FromServices] ContributionRecorder recorder, [FromServices] IDeviceCaptureHubs captures) {
         (var userId, var error) = Me();
         if (error is not null) return error;
         if (OfferBlocked() is { } blocked) return blocked;
-        if (services.GetService(typeof(ContributionRecorder)) is not ContributionRecorder recorder)
-            return StatusCode(503, new { error = "contribution recording is off" });
-        if (services.GetService(typeof(IDeviceCaptureHubs)) is not IDeviceCaptureHubs captures)
-            return StatusCode(503, new { error = "device capture is not configured" });
-        if (string.IsNullOrWhiteSpace(body.DeviceId)) return BadRequest(new { error = "deviceId required" });
-        if (body.Ids.Count == 0) return BadRequest(new { error = "no flow ids supplied" });
-        if (body.Ids.Count > MaxOfferBatch) return BadRequest(new { error = "too many flow ids in one offer" });
+        if (string.IsNullOrWhiteSpace(body.DeviceId)) return Fail(400, "deviceId required");
+        if (body.Ids is []) return Fail(400, "no flow ids supplied");
+        if (body.Ids.Count > MaxOfferBatch) return Fail(400, "too many flow ids in one offer");
 
         var byId = new Dictionary<long, DashboardFlow>();
         foreach (var f in captures.HubFor(body.DeviceId)?.Snapshot() ?? []) byId[f.Id] = f;
@@ -159,18 +151,17 @@ public sealed class ContributionsController(
         return Accepted(new ContributionOfferBatchResult(recorded, missing));
     }
 
-    private ObjectResult? OfferBlocked() {
-        if (!options.Enabled) return StatusCode(403, new { error = "contributions are disabled" });
-        return Store is null ? StatusCode(503, new { error = "no database configured" }) : null;
-    }
+    private ObjectResult? OfferBlocked() =>
+        options.Enabled ? null : Fail(403, "contributions are disabled");
 
     [HttpGet("pending")]
     [ApiAccess(ApiAccessLevel.Admin)]
+    [RequiresDb]
     public async Task<IActionResult> Pending(
+        [FromServices] ContributionStore store, [FromServices] IdentityApiClient? identity,
         [FromQuery] string? kind, [FromQuery] int skip, [FromQuery] int take, CancellationToken ct) {
-        if (Store is not { } store) return StatusCode(503, new { error = "no database configured" });
         var page = await store.PendingAsync(kind, Math.Max(skip, 0), Clamp(take), ct);
-        var names = await UsernamesAsync(ct);
+        var names = await UsernamesAsync(identity, ct);
         return Ok(new {
             total = page.Total,
             rows = page.Rows.Select(r => new ContributionPendingRowDto(
@@ -181,11 +172,12 @@ public sealed class ContributionsController(
 
     [HttpGet("tallies")]
     [ApiAccess(ApiAccessLevel.Admin)]
-    public async Task<IActionResult> Tallies(CancellationToken ct) {
-        if (Store is not { } store) return StatusCode(503, new { error = "no database configured" });
+    [RequiresDb]
+    public async Task<IActionResult> Tallies(
+        [FromServices] ContributionStore store, [FromServices] IdentityApiClient? identity, CancellationToken ct) {
         var counts = await store.CountsAllAsync(ct);
         var tallies = await store.PendingTalliesAsync(50, ct);
-        var names = await UsernamesAsync(ct);
+        var names = await UsernamesAsync(identity, ct);
         return Ok(new {
             counts,
             tallies = tallies.Select(t => new ContributionTallyDto(
@@ -196,10 +188,11 @@ public sealed class ContributionsController(
     [HttpPost("review")]
     [ApiAccess(ApiAccessLevel.Admin)]
     [EnableRateLimiting("write")]
-    public async Task<IActionResult> Review([FromBody] ContributionReviewRequest body, CancellationToken ct) {
-        if (Store is not { } store) return StatusCode(503, new { error = "no database configured" });
-        if (body.Ids.Count == 0) return BadRequest(new { error = "no ids supplied" });
-        if (body.Ids.Count > 5000) return BadRequest(new { error = "too many ids in one review" });
+    [RequiresDb]
+    public async Task<IActionResult> Review([FromServices] ContributionStore store,
+        [FromBody] ContributionReviewRequest body, CancellationToken ct) {
+        if (body.Ids is []) return Fail(400, "no ids supplied");
+        if (body.Ids.Count > 5000) return Fail(400, "too many ids in one review");
 
         int changed = await store.ReviewAsync(body.Ids, body.Approve, Reviewer(), body.Note, ct);
         return Ok(new { reviewed = changed, approved = body.Approve });
@@ -208,11 +201,11 @@ public sealed class ContributionsController(
     [HttpPost("review-contributor")]
     [ApiAccess(ApiAccessLevel.Admin)]
     [EnableRateLimiting("write")]
-    public async Task<IActionResult> ReviewContributor(
+    [RequiresDb]
+    public async Task<IActionResult> ReviewContributor([FromServices] ContributionStore store,
         [FromBody] ContributionContributorReviewRequest body, CancellationToken ct) {
-        if (Store is not { } store) return StatusCode(503, new { error = "no database configured" });
-        if (body.ContributorUserId == Guid.Empty) return BadRequest(new { error = "contributorUserId required" });
-        if (string.IsNullOrWhiteSpace(body.Kind)) return BadRequest(new { error = "kind required" });
+        if (body.ContributorUserId == Guid.Empty) return Fail(400, "contributorUserId required");
+        if (string.IsNullOrWhiteSpace(body.Kind)) return Fail(400, "kind required");
 
         int changed = await store.ReviewContributorAsync(
             body.ContributorUserId, body.Kind, body.Approve, Reviewer(), body.Note, ct);

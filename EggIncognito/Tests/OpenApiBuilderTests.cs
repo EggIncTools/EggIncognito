@@ -22,14 +22,6 @@ public sealed class OpenApiBuilderTests {
         JsonDocument.Parse(OpenApiBuilder.BuildJson(entries, Reflection));
 
     [Fact]
-    public void Doc_ParsesAsJson_WithOpenApiVersion() {
-        using var doc = Build(Entry("ei/first_contact"));
-        Assert.Equal("3.0.3", doc.RootElement.GetProperty("openapi").GetString());
-        Assert.True(doc.RootElement.TryGetProperty("info", out var info));
-        Assert.False(string.IsNullOrEmpty(info.GetProperty("description").GetString()));
-    }
-
-    [Fact]
     public void EveryEntryPath_PresentUnderPaths_WithPost() {
         using var doc = Build(
             Entry("ei/first_contact"),

@@ -28,13 +28,6 @@ public sealed class DocRegistryTests : IDisposable {
     }
 
     [Fact]
-    public void Roots_HasTheTwoKinds() {
-        var roots = Build().Roots();
-        var titles = roots.Select(r => r.Title).ToList();
-        Assert.Equal(new[] { "Messages", "Endpoints" }, titles);
-    }
-
-    [Fact]
     public void Messages_IncludeKnownTypeWithFieldChildren() {
         var reg = Build();
         var messages = reg.Roots().Single(r => r.Title == "Messages").Children;

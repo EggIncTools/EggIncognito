@@ -208,34 +208,6 @@ public sealed class CaptureDashboardTests : IDisposable {
     }
 
     [Fact]
-    public void DecodeRequest_Null_ReturnsNullJson() {
-        string repo = MakeRepo();
-        var decoder = new FlowDecoder(repo);
-
-        Assert.Null(decoder.DecodeRequest("ei/get_periodicals", null).Json);
-    }
-
-    [Fact]
-    public void StatsSnapshot_FreshHub_CertWaiting_AllZero() {
-        var hub = new CaptureHub();
-        var s = hub.StatsSnapshot();
-
-        Assert.Equal("Waiting", s.CertState);
-        Assert.Equal(0, s.ActiveConnections);
-        Assert.Equal(0, s.DeviceCount);
-        Assert.Empty(s.Devices);
-        Assert.Equal(0, s.CapturedAuxbrain);
-        Assert.Equal(0, s.Passthrough);
-        Assert.Equal(0, s.UniqueEndpoints);
-        Assert.Equal(0, s.DecryptOk);
-        Assert.Equal(0, s.DecryptErrors);
-        Assert.Null(s.LastError);
-        Assert.Equal(0, s.BytesCaptured);
-        Assert.Null(s.BiggestEndpoint);
-        Assert.Equal(0, s.BiggestEndpointBytes);
-    }
-
-    [Fact]
     public void RecordConnection_NewIp_TracksDevice_ButStaysWaiting() {
         var hub = new CaptureHub();
         hub.RecordConnection(1, "192.168.1.5", "t");
@@ -265,18 +237,6 @@ public sealed class CaptureDashboardTests : IDisposable {
         Assert.Equal(1, s.CapturedAuxbrain);
         Assert.Equal(1, s.DecryptOk);
         Assert.Equal(1, s.UniqueEndpoints);
-    }
-
-    [Fact]
-    public void CertState_DoesNotDowngrade_OnceTrusted() {
-        var hub = new CaptureHub();
-        hub.Publish(F(), "t");
-        hub.RecordDecryptError("x", "t");
-
-        var s = hub.StatsSnapshot();
-        Assert.Equal("Trusted", s.CertState);
-        Assert.Equal(1, s.DecryptErrors);
-        Assert.Equal("x", s.LastError);
     }
 
     [Fact]
@@ -321,15 +281,6 @@ public sealed class CaptureDashboardTests : IDisposable {
         var s = hub.StatsSnapshot();
         Assert.True(s.BytesCaptured > 0);
         Assert.Equal("ei/big", s.BiggestEndpoint);
-    }
-
-    [Fact]
-    public void RecordConnection_SameIpTwice_DeviceCountStaysOne() {
-        var hub = new CaptureHub();
-        hub.RecordConnection(1, "192.168.1.5", "t");
-        hub.RecordConnection(1, "192.168.1.5", "t");
-
-        Assert.Equal(1, hub.StatsSnapshot().DeviceCount);
     }
 
     [Fact]

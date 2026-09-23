@@ -22,7 +22,9 @@ public class ApiAccessFilterTests {
 
     private static async Task<ObjectResult> Deny(AuthorizationFilterContext ctx) {
         await new ApiAccessFilter().OnAuthorizationAsync(ctx);
-        return Assert.IsType<ObjectResult>(ctx.Result);
+        var result = Assert.IsType<ObjectResult>(ctx.Result);
+        Assert.Equal(result.StatusCode, Assert.IsType<ApiError>(result.Value).Status);
+        return result;
     }
 
     [Fact]

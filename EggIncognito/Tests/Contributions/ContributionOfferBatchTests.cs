@@ -1,13 +1,11 @@
 using EggIdentity.Contract;
 using EggIncognito.Capture;
 using EggIncognito.Controllers;
-using EggIncognito.Data.Services;
 using EggIncognito.Models.Contributions;
 using EggIncognito.Services;
 using EggIncognito.Services.Contributions;
 using EggIncognito.Services.Devices;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -22,8 +20,9 @@ public class ContributionOfferBatchTests {
         long craftId = hub.Publish(Flow(Craft), "12:00:00")!.Id;
         long otherId = hub.Publish(Flow("ei/first_contact"), "12:00:01")!.Id;
 
-        var result = Controller(hub).OfferBatch(
-            new ContributionOfferBatchRequest("dev", [craftId, craftId, otherId, 9999]));
+        var (controller, recorder, hubs) = Setup(hub);
+        var result = controller.OfferBatch(
+            new ContributionOfferBatchRequest("dev", [craftId, craftId, otherId, 9999]), recorder, hubs);
 
         var accepted = Assert.IsType<AcceptedResult>(result);
         var body = Assert.IsType<ContributionOfferBatchResult>(accepted.Value);
@@ -33,26 +32,25 @@ public class ContributionOfferBatchTests {
 
     [Fact]
     public void OfferBatch_RejectsEmptyAndOversizedIdLists() {
-        var controller = Controller(new CaptureHub());
+        var (controller, recorder, hubs) = Setup(new CaptureHub());
 
-        Assert.IsType<BadRequestObjectResult>(
-            controller.OfferBatch(new ContributionOfferBatchRequest("dev", [])));
-        Assert.IsType<BadRequestObjectResult>(
-            controller.OfferBatch(new ContributionOfferBatchRequest("dev", [.. Enumerable.Range(1, 5001).Select(i => (long)i)])));
+        Assert.Equal(400, Assert.IsType<ObjectResult>(
+            controller.OfferBatch(new ContributionOfferBatchRequest("dev", []), recorder, hubs)).StatusCode);
+        Assert.Equal(400, Assert.IsType<ObjectResult>(
+            controller.OfferBatch(
+                new ContributionOfferBatchRequest("dev", [.. Enumerable.Range(1, 5001).Select(i => (long)i)]),
+                recorder, hubs)).StatusCode);
     }
 
-    private static ContributionsController Controller(CaptureHub hub) {
+    private static (ContributionsController Controller, ContributionRecorder Recorder, IDeviceCaptureHubs Hubs)
+        Setup(CaptureHub hub) {
         var kinds = new CaptureContributionKinds([new ArtifactContributionKind()]);
         var options = ContributionOptions.Defaults();
-        var db = new EggIncognitoDbContext(new DbContextOptionsBuilder<EggIncognitoDbContext>()
-            .UseNpgsql("Host=127.0.0.1;Port=1;Database=none;Username=none;Password=none").Options);
-        var services = new ServiceCollection();
-        services.AddSingleton(new ContributionStore(db));
-        services.AddSingleton<IDeviceCaptureHubs>(new OneHub(hub));
-        services.AddSingleton(new ContributionRecorder(
-            new NoScopes(), kinds, options, NullLogger<ContributionRecorder>.Instance));
-        return new ContributionsController(new FakeUser(), kinds, options,
-            services.BuildServiceProvider(), NullLogger<ContributionsController>.Instance);
+        var recorder = new ContributionRecorder(
+            new NoScopes(), kinds, options, NullLogger<ContributionRecorder>.Instance);
+        var controller = new ContributionsController(
+            new FakeUser(), kinds, options, NullLogger<ContributionsController>.Instance);
+        return (controller, recorder, new OneHub(hub));
     }
 
     private static DashboardFlow Flow(string path) =>

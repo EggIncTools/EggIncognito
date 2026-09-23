@@ -13,45 +13,43 @@ namespace EggIncognito.Controllers;
 [ApiAccess(ApiAccessLevel.Admin)]
 [EnableRateLimiting("write")]
 public sealed class AdminFeedController(IServiceProvider services, IHttpClientFactory httpFactory)
-    : ControllerBase {
-    private FeedSubscriptionStore? Store =>
-        services.GetService(typeof(FeedSubscriptionStore)) as FeedSubscriptionStore;
-
-    private IdentityApiClient? Identity =>
-        services.GetService(typeof(IdentityApiClient)) as IdentityApiClient;
-
+    : ApiControllerBase {
     [HttpGet("subscriptions")]
     [EnableRateLimiting("read")]
-    public async Task<IActionResult> Subscriptions(CancellationToken ct) {
-        if (Store is null) return StatusCode(503, new { error = "no database configured" });
-        var subs = await Store.AllForAdminAsync(ct);
+    [RequiresDb]
+    public async Task<IActionResult> Subscriptions([FromServices] FeedSubscriptionStore store,
+        [FromServices] IdentityApiClient? identity, CancellationToken ct) {
+        var subs = await store.AllForAdminAsync(ct);
         var usernames = new Dictionary<Guid, string>();
-        if (Identity is { } identity)
+        if (identity is not null)
             foreach (var u in await identity.ListAdminUsersAsync(ct)) usernames[u.UserId] = u.Username;
         return Ok(FeedAdminGrouping.Build(subs, usernames));
     }
 
     [HttpPost("subscriptions/{id:int}/deactivate")]
-    public async Task<IActionResult> Deactivate(int id, CancellationToken ct) {
-        if (Store is null) return StatusCode(503, new { error = "no database configured" });
-        if (!await Store.AdminDeactivateAsync(id, ct)) return NotFound(new { error = "subscription not found" });
+    [RequiresDb]
+    public async Task<IActionResult> Deactivate(int id, [FromServices] FeedSubscriptionStore store,
+        CancellationToken ct) {
+        if (!await store.AdminDeactivateAsync(id, ct)) return Fail(404, "subscription not found");
         FeedSubscriptionNotify.Changed(services);
         return Ok(new { deactivated = true });
     }
 
     [HttpDelete("subscriptions/{id:int}")]
-    public async Task<IActionResult> Delete(int id, CancellationToken ct) {
-        if (Store is null) return StatusCode(503, new { error = "no database configured" });
-        if (!await Store.AdminDeleteAsync(id, ct)) return NotFound(new { error = "subscription not found" });
+    [RequiresDb]
+    public async Task<IActionResult> Delete(int id, [FromServices] FeedSubscriptionStore store,
+        CancellationToken ct) {
+        if (!await store.AdminDeleteAsync(id, ct)) return Fail(404, "subscription not found");
         FeedSubscriptionNotify.Changed(services);
         return Ok(new { deleted = true });
     }
 
     [HttpPost("subscriptions/{id:int}/test")]
-    public async Task<IActionResult> Test(int id, [FromQuery] string? sample, CancellationToken ct) {
-        if (Store is null) return StatusCode(503, new { error = "no database configured" });
-        var sub = await Store.AdminByIdAsync(id, ct);
-        if (sub is null) return NotFound(new { error = "subscription not found" });
+    [RequiresDb]
+    public async Task<IActionResult> Test(int id, [FromQuery] string? sample,
+        [FromServices] FeedSubscriptionStore store, CancellationToken ct) {
+        var sub = await store.AdminByIdAsync(id, ct);
+        if (sub is null) return Fail(404, "subscription not found");
 
         string kind = FeedEventKinds.Normalize(sub.EventKind);
         var fallback = FeedSamples.For(kind);
@@ -64,7 +62,7 @@ public sealed class AdminFeedController(IServiceProvider services, IHttpClientFa
         var res = await http.PostAsync(sub.TargetUrl,
             new StringContent(body, Encoding.UTF8, "application/json"), ct);
         if (!res.IsSuccessStatusCode)
-            return BadRequest(new { error = "webhook rejected the test message" });
+            return Fail(400, "webhook rejected the test message");
         return Ok(new { tested = true, sample = chosen?.Key });
     }
 }

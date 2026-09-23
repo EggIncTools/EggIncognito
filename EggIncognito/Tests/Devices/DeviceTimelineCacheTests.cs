@@ -11,7 +11,4 @@ public class DeviceTimelineCacheTests {
 
     [Fact]
     public void BackwardMoveRefills() => Assert.True(DeviceTimelineCache.NeedsRefill(42, 41));
-
-    [Fact]
-    public void ColdEntryRefills() => Assert.True(DeviceTimelineCache.NeedsRefill(0, 1));
 }

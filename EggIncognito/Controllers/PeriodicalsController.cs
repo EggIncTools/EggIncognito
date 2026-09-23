@@ -25,11 +25,10 @@ namespace EggIncognito.Controllers;
 [ApiAccess(ApiAccessLevel.Public)]
 [EnableRateLimiting("read")]
 public sealed class PeriodicalsController(
-    ICurrentUser currentUser,
     IConfiguration config,
     DataCatalog catalog,
     IServiceProvider services,
-    ILogger<PeriodicalsController> logger) : ControllerBase {
+    ILogger<PeriodicalsController> logger) : ApiControllerBase {
     private static readonly JsonSerializerOptions ProvenanceJson = JsonPresets.CamelSkipNull;
 
     private static readonly Dictionary<int, string> DimNames =
@@ -41,9 +40,6 @@ public sealed class PeriodicalsController(
     private IEnumerable<DataSource> WireSources =>
         catalog.ByGroup("periodical").Where(s => s.Provenance == DataProvenance.WireFixture);
 
-    private ObjectResult? RequireAuthenticated() =>
-        currentUser.IsAuthenticated ? null : StatusCode(401, new { error = "authentication required" });
-
     private static readonly (string DocId, Func<EffectDataFile, IEffectFamily> Factory)[] SummaryFamilies = [
         ("boosts", f => new BoostFamily(f)),
         ("research", f => new ResearchFamily(f)),
@@ -52,10 +48,10 @@ public sealed class PeriodicalsController(
     ];
 
     [HttpGet("summary")]
-    public IActionResult Summary() {
+    public IActionResult Summary([FromServices] GameDataStore? gdStore, [FromServices] GameConfigStore? store) {
         var extracted = new List<object>();
         object? colleggtibles = null;
-        if (services.GetService(typeof(GameDataStore)) is GameDataStore gdStore) {
+        if (gdStore is not null) {
             foreach (var (docId, factory) in SummaryFamilies) {
                 if (gdStore.Doc(docId) is not { } json) continue;
                 try {
@@ -93,7 +89,7 @@ public sealed class PeriodicalsController(
 
         object[] platforms = [];
         bool configEnabled = false;
-        if (services.GetService(typeof(GameConfigStore)) is GameConfigStore store) {
+        if (store is not null) {
             configEnabled = store.Enabled;
             platforms = [
                 .. store.List().Select(c => (object)new { platform = c.Platform, savedAt = c.SavedAt, bytes = c.Bytes })
@@ -109,23 +105,23 @@ public sealed class PeriodicalsController(
     }
 
     [HttpGet("seasons")]
-    public async Task<IActionResult> Seasons(CancellationToken ct) {
+    public async Task<IActionResult> Seasons([FromServices] EggIncognitoDbContext? db, CancellationToken ct) {
         string? route = catalog.ById("periodical", "season-infos")?.WireRoute;
-        if (route is null) return NotFound(new { error = "season source missing" });
-        string? seasonJson = await ResolveRouteJson(route, ct);
-        if (seasonJson is null) return NotFound(new { error = "no season capture available" });
+        if (route is null) return Fail(404, "season source missing");
+        string? seasonJson = await ResolveRouteJson(route, db, ct);
+        if (seasonJson is null) return Fail(404, "no season capture available");
 
         ContractSeasonInfos infos;
         try {
             infos = ContractSeasonInfos.Parser.ParseJson(seasonJson);
         } catch (Exception ex) {
-            return StatusCode(500, new { error = $"season fixture unreadable: {ex.Message}" });
+            return Fail(500, $"season fixture unreadable: {ex.Message}");
         }
 
         var sightings = new List<EggSighting>();
         var icons = new Dictionary<string, string?>(StringComparer.Ordinal);
         string? perRoute = catalog.ById("periodical", "get_periodicals")?.WireRoute;
-        (string? perJson, _) = await ResolveCurrentJson(perRoute, ct);
+        (string? perJson, _) = await ResolveCurrentJson(perRoute, db, ct);
         if (perJson is not null) {
             try {
                 var per = PeriodicalsResponse.Parser.ParseJson(perJson);
@@ -136,7 +132,7 @@ public sealed class PeriodicalsController(
             }
         }
 
-        string? infoJson = await ResolveRouteJson(ContractsInfoRoute, ct);
+        string? infoJson = await ResolveRouteJson(ContractsInfoRoute, db, ct);
         if (infoJson is not null) {
             try {
                 var info = ContractsInfoResponse.Parser.ParseJson(infoJson);
@@ -147,7 +143,7 @@ public sealed class PeriodicalsController(
             }
         }
 
-        if (services.GetService(typeof(EggIncognitoDbContext)) is EggIncognitoDbContext db) {
+        if (db is not null) {
             try {
                 var rows = await db.ContractReleases.AsNoTracking()
                     .Where(r => r.CustomEggId != null && r.CustomEggId != "")
@@ -254,49 +250,49 @@ public sealed class PeriodicalsController(
     [HttpGet("feed/{name}")]
     [ApiAccess(ApiAccessLevel.Authenticated)]
     public async Task<IActionResult> Feed(string name, CancellationToken ct) {
-        if (RequireAuthenticated() is { } no) return no;
         var src = WireSources.FirstOrDefault(s => string.Equals(s.Feed, name, StringComparison.Ordinal));
-        if (src is null) return NotFound(new { error = "unknown feed" });
+        if (src is null) return Fail(404, "unknown feed");
 
         var payload = await src.Produce(new DataProduceContext(HttpContext, null), ct);
         return payload is null
-            ? NotFound(new { error = "no capture on disk" })
+            ? Fail(404, "no capture on disk")
             : Content(Encoding.UTF8.GetString(payload.Bytes), "application/json");
     }
 
     [HttpGet("gamedata/{key}")]
     public async Task<IActionResult> GameData(string key, CancellationToken ct) {
         var src = catalog.ById("gamedata", key);
-        if (src is null) return NotFound(new { error = "unknown dataset" });
+        if (src is null) return Fail(404, "unknown dataset");
 
         var payload = await src.Produce(new DataProduceContext(HttpContext, null), ct);
         return payload is null
-            ? NotFound(new { error = "resource not found" })
+            ? Fail(404, "resource not found")
             : Content(Encoding.UTF8.GetString(payload.Bytes), "application/json");
     }
 
     [HttpGet("eiafx-data")]
     public async Task<IActionResult> EiAfxData(CancellationToken ct) {
         var src = catalog.ByChild("periodical", "afx-config", "eiafx");
-        if (src is null) return NotFound(new { error = "eiafx source missing" });
+        if (src is null) return Fail(404, "eiafx source missing");
 
         var payload = await src.Produce(new DataProduceContext(HttpContext, null), ct);
         return payload is null
-            ? NotFound(new { error = "no ei_afx/config capture" })
+            ? Fail(404, "no ei_afx/config capture")
             : Content(Encoding.UTF8.GetString(payload.Bytes), "application/json");
     }
 
     [HttpGet("current")]
-    public async Task<IActionResult> Current(CancellationToken ct) {
+    public async Task<IActionResult> Current([FromServices] EggIncognitoDbContext? db,
+        [FromServices] GameAssetProvider? assets, CancellationToken ct) {
         string? route = catalog.ById("periodical", "get_periodicals")?.WireRoute;
-        (string? json, DateTimeOffset? capturedAt) = await ResolveCurrentJson(route, ct);
-        if (json is null) return NotFound(new { error = "no periodicals capture available" });
+        (string? json, DateTimeOffset? capturedAt) = await ResolveCurrentJson(route, db, ct);
+        if (json is null) return Fail(404, "no periodicals capture available");
 
         PeriodicalsResponse per;
         try {
             per = PeriodicalsResponse.Parser.ParseJson(json);
         } catch (Exception ex) {
-            return StatusCode(500, new { error = $"periodicals capture unreadable: {ex.Message}" });
+            return Fail(500, $"periodicals capture unreadable: {ex.Message}");
         }
 
         double? serverTime = per.Contracts is { HasServerTime: true } c ? c.ServerTime : null;
@@ -315,15 +311,15 @@ public sealed class PeriodicalsController(
                 duration = e.Duration,
                 endTime,
                 ccOnly = e.CcOnly,
-                icon = await ResolveEventIcon(e.Type, iconCache, ct)
+                icon = await ResolveEventIcon(e.Type, iconCache, assets, ct)
             });
         }
 
         return Ok(new { capturedAt, serverTime, events });
     }
 
-    private async Task<string?> ResolveRouteJson(string route, CancellationToken ct) {
-        if (services.GetService(typeof(EggIncognitoDbContext)) is EggIncognitoDbContext db) {
+    private async Task<string?> ResolveRouteJson(string route, EggIncognitoDbContext? db, CancellationToken ct) {
+        if (db is not null) {
             try {
                 var stored = await db.StoredEndpoints
                     .FirstOrDefaultAsync(s => s.Path == route && s.Eid == null, ct);
@@ -340,8 +336,9 @@ public sealed class PeriodicalsController(
             : null;
     }
 
-    private async Task<(string? Json, DateTimeOffset? CapturedAt)> ResolveCurrentJson(string? route, CancellationToken ct) {
-        if (services.GetService(typeof(EggIncognitoDbContext)) is EggIncognitoDbContext db) {
+    private async Task<(string? Json, DateTimeOffset? CapturedAt)> ResolveCurrentJson(string? route,
+        EggIncognitoDbContext? db, CancellationToken ct) {
+        if (db is not null) {
             try {
                 var snap = await db.PeriodicalsSnapshots
                     .OrderByDescending(s => s.CapturedAt)
@@ -364,11 +361,12 @@ public sealed class PeriodicalsController(
             : (null, null);
     }
 
-    private async Task<string?> ResolveEventIcon(string type, Dictionary<string, string?> cache, CancellationToken ct) {
+    private async Task<string?> ResolveEventIcon(string type, Dictionary<string, string?> cache,
+        GameAssetProvider? assets, CancellationToken ct) {
         if (string.IsNullOrEmpty(type)) return null;
         if (cache.TryGetValue(type, out string? cached)) return cached;
         string? icon = null;
-        if (services.GetService(typeof(GameAssetProvider)) is GameAssetProvider assets) {
+        if (assets is not null) {
             string stem = type.Replace('-', '_');
             string[] candidates = [$"event_{stem}", stem];
             foreach (string candidate in candidates) {

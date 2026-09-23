@@ -1,4 +1,3 @@
-using EggIdentity.Contract;
 using EggIncognito.Core.Services.Devices;
 using EggIncognito.Data.Models;
 using EggIncognito.Data.Services;
@@ -17,59 +16,42 @@ namespace EggIncognito.Controllers;
 [EnableRateLimiting("read")]
 public sealed class DeviceCookbooksController(
     ICurrentUser currentUser,
-    IServiceProvider services,
-    CookbookCancellations cancellations) : ControllerBase {
-    private DeviceCookbookRunner? Runner =>
-        services.GetService(typeof(DeviceCookbookRunner)) as DeviceCookbookRunner;
-
-    private DeviceTimelineCache? Timeline =>
-        services.GetService(typeof(DeviceTimelineCache)) as DeviceTimelineCache;
-
-    private DeviceCookbookFeed? Cookbooks =>
-        services.GetService(typeof(DeviceCookbookFeed)) as DeviceCookbookFeed;
-
-    private ObjectResult? RequireAdmin() =>
-        currentUser.IsAtLeast(UserRole.Admin) ? null : StatusCode(403, new { error = "admin role required" });
-
+    CookbookCancellations cancellations) : ApiControllerBase {
     [HttpGet("{id}/cookbooks")]
-    public async Task<IActionResult> List(string id, CancellationToken ct) {
-        if (RequireAdmin() is { } no) return no;
-        if (Runner is not { } runner) return StatusCode(503, new { error = "no database configured" });
-
-        if (await runner.TargetAsync(id, ct) is null) return NotFound(new { error = "unknown device" });
+    [RequiresDb]
+    public async Task<IActionResult> List(string id, [FromServices] DeviceCookbookRunner runner,
+        CancellationToken ct) {
+        if (await runner.TargetAsync(id, ct) is null) return Fail(404, "unknown device");
         IReadOnlyList<DeviceCookbookInfo> infos = await runner.DescribeAsync(id, ct);
         return Ok(infos);
     }
 
     [HttpPost("{id}/cookbooks")]
     [EnableRateLimiting("write")]
+    [RequiresDb]
     public async Task<IActionResult> Start(string id, [FromBody] DeviceCookbookRequest? request,
-        CancellationToken ct) {
-        if (RequireAdmin() is { } no) return no;
+        [FromServices] DeviceCookbookRunner runner, CancellationToken ct) {
         if (request is null || string.IsNullOrWhiteSpace(request.CookbookId))
-            return BadRequest(new { error = "cookbookId required" });
-        if (Runner is not { } runner) return StatusCode(503, new { error = "no database configured" });
+            return Fail(400, "cookbookId required");
 
         string who = currentUser.DiscordId ?? "?";
         var start = await runner.StartAsync(id, request, $"admin:{who}", ct);
         return start.Outcome switch {
             DeviceCookbookStartOutcome.Started =>
                 Accepted(new { device = id, jobId = start.JobId, cookbook = request.CookbookId, state = "running" }),
-            DeviceCookbookStartOutcome.UnknownDevice => NotFound(new { error = start.Error }),
-            DeviceCookbookStartOutcome.UnknownCookbook => NotFound(new { error = start.Error }),
-            DeviceCookbookStartOutcome.Unavailable => StatusCode(409, new { error = start.Error }),
-            DeviceCookbookStartOutcome.Busy => StatusCode(409, new { error = start.Error }),
-            _ => StatusCode(503, new { error = start.Error ?? "cookbooks are not configured" })
+            DeviceCookbookStartOutcome.UnknownDevice => Fail(404, start.Error!),
+            DeviceCookbookStartOutcome.UnknownCookbook => Fail(404, start.Error!),
+            DeviceCookbookStartOutcome.Unavailable => Fail(409, start.Error!),
+            DeviceCookbookStartOutcome.Busy => Fail(409, start.Error!),
+            _ => Fail(503, start.Error ?? "cookbooks are not configured")
         };
     }
 
     [HttpGet("{id}/cookbooks/running")]
-    public async Task<IActionResult> Running(string id, CancellationToken ct) {
-        if (RequireAdmin() is { } no) return no;
-        if (Runner is not { } runner) return StatusCode(503, new { error = "no database configured" });
-        if (Timeline is not { } timeline) return StatusCode(503, new { error = "no database configured" });
-
-        if (await runner.TargetAsync(id, ct) is null) return NotFound(new { error = "unknown device" });
+    [RequiresDb]
+    public async Task<IActionResult> Running(string id, [FromServices] DeviceCookbookRunner runner,
+        [FromServices] DeviceTimelineCache timeline, CancellationToken ct) {
+        if (await runner.TargetAsync(id, ct) is null) return Fail(404, "unknown device");
 
         var latest = await timeline.LatestAsync(id, DeviceJobKinds.Cookbook, ct);
         bool running = latest is { State: DeviceJobStates.Running };
@@ -78,30 +60,26 @@ public sealed class DeviceCookbooksController(
 
     [HttpPost("{id}/cookbooks/stop")]
     [EnableRateLimiting("write")]
-    public async Task<IActionResult> Stop(string id, CancellationToken ct) {
-        if (RequireAdmin() is { } no) return no;
-        if (Runner is not { } runner) return StatusCode(503, new { error = "no database configured" });
-        if (await runner.TargetAsync(id, ct) is null) return NotFound(new { error = "unknown device" });
+    [RequiresDb]
+    public async Task<IActionResult> Stop(string id, [FromServices] DeviceCookbookRunner runner,
+        [FromServices] DeviceJobStore jobs, CancellationToken ct) {
+        if (await runner.TargetAsync(id, ct) is null) return Fail(404, "unknown device");
 
         if (cancellations.TryCancel(id, out long jobId)) return Ok(new { ok = true, jobId, live = true });
 
-        if (services.GetService(typeof(DeviceJobStore)) is not DeviceJobStore jobs)
-            return StatusCode(503, new { error = "no database configured" });
         long? orphan = await jobs.CancelRunningAsync(id, DeviceJobKinds.Cookbook,
             "stopped from the console; no live worker held this job", ct);
         return orphan is { } orphanId
             ? Ok(new { ok = true, jobId = orphanId, live = false })
-            : StatusCode(409, new { error = "no cookbook is running on this device" });
+            : Fail(409, "no cookbook is running on this device");
     }
 
     [HttpGet("{id}/cookbooks/run/{jobId:long}")]
-    public async Task<IActionResult> Run(string id, long jobId, CancellationToken ct) {
-        if (RequireAdmin() is { } no) return no;
-        if (Cookbooks is not { } feed) return StatusCode(503, new { error = "no database configured" });
-
+    [RequiresDb]
+    public async Task<IActionResult> Run(string id, long jobId, [FromServices] DeviceCookbookFeed feed,
+        CancellationToken ct) {
         if (await feed.RunAsync(id, jobId, ct) is not { } status)
-            return NotFound(new { error = "unknown cookbook run for this device" });
-
+            return Fail(404, "unknown cookbook run for this device");
         return Ok(status);
     }
 }

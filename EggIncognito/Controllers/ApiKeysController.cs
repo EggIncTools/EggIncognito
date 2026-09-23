@@ -13,27 +13,23 @@ namespace EggIncognito.Controllers;
 [Route("api/v1/keys")]
 [EnableRateLimiting("write")]
 [ApiAccess(ApiAccessLevel.Authenticated)]
-public sealed class ApiKeysController(ICurrentUser currentUser, IConfiguration config, IServiceProvider services)
-    : ControllerBase {
-    private ApiKeyStore? Store => services.GetService(typeof(ApiKeyStore)) as ApiKeyStore;
-
+public sealed class ApiKeysController(ICurrentUser currentUser, IConfiguration config) : ApiControllerBase {
     private int? Cap() => currentUser.IsAtLeast(UserRole.Contributor) || currentUser.IsSupporter
         ? null
         : config.GetValue("ApiKeys:MaxPerUser", 2);
 
     [HttpPost]
-    public async Task<IActionResult> Mint([FromBody] MintReq req, CancellationToken ct) {
+    [RequiresDb]
+    public async Task<IActionResult> Mint([FromBody] MintReq req, [FromServices] ApiKeyStore store,
+        CancellationToken ct) {
         var owner = currentUser.UserId;
-        if (owner is null) return Unauthorized(new { error = "log in to mint an API key" });
+        if (owner is null) return Fail(401, "log in to mint an API key");
         if (User.HasClaim(c => c.Type == ApiKeyGen.Claim))
-            return StatusCode(403, new { error = "cannot mint keys using a key; use a logged-in session" });
-
-        var store = Store;
-        if (store is null) return StatusCode(503, new { error = "no database configured" });
+            return Fail(403, "cannot mint keys using a key; use a logged-in session");
 
         int? cap = Cap();
         if (cap is { } c && await store.ActiveCountAsync(owner.Value, ct) >= c)
-            return Conflict(new { error = $"key limit reached ({c}); revoke one first" });
+            return Fail(409, $"key limit reached ({c}); revoke one first");
 
         (string full, string hash, string prefix) = ApiKeyGen.Mint();
         var row = await store.AddAsync(owner.Value, req.Name ?? "key", hash, prefix, ct);
@@ -41,10 +37,9 @@ public sealed class ApiKeysController(ICurrentUser currentUser, IConfiguration c
     }
 
     [HttpGet]
-    public async Task<IActionResult> Mine(CancellationToken ct) {
+    public async Task<IActionResult> Mine([FromServices] ApiKeyStore? store, CancellationToken ct) {
         var owner = currentUser.UserId;
-        if (owner is null) return Unauthorized(new { error = "log in to manage keys" });
-        var store = Store;
+        if (owner is null) return Fail(401, "log in to manage keys");
         if (store is null) return Ok(new KeysResponse([], Cap()));
         var rows = await store.ByOwnerAsync(owner.Value, ct);
         List<ApiKeysPanelRow> keys = [
@@ -55,13 +50,12 @@ public sealed class ApiKeysController(ICurrentUser currentUser, IConfiguration c
     }
 
     [HttpDelete("{id:int}")]
-    public async Task<IActionResult> Revoke(int id, CancellationToken ct) {
+    [RequiresDb]
+    public async Task<IActionResult> Revoke(int id, [FromServices] ApiKeyStore store, CancellationToken ct) {
         var owner = currentUser.UserId;
-        if (owner is null) return Unauthorized(new { error = "log in to manage keys" });
-        var store = Store;
-        if (store is null) return StatusCode(503, new { error = "no database configured" });
+        if (owner is null) return Fail(401, "log in to manage keys");
         bool ok = await store.RevokeAsync(id, owner.Value, ct);
-        if (!ok) return NotFound(new { error = "key not found" });
+        if (!ok) return Fail(404, "key not found");
         return Ok(new { revoked = true });
     }
 }

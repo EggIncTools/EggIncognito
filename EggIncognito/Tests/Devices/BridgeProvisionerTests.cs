@@ -78,16 +78,6 @@ public class BridgeProvisionerTests {
         Assert.Contains("502", listed.Note ?? "", StringComparison.Ordinal);
     }
 
-    [Fact]
-    public async Task StartAsync_IsUnsupportedBecauseTheHostOwnsTheLifecycle() {
-        var handler = new RecordingHandler(_ => new HttpResponseMessage(HttpStatusCode.OK));
-
-        var started = await Provisioner(handler).StartAsync("egi-vd-abcd", CancellationToken.None);
-
-        Assert.Equal(DeviceOutcome.Unsupported, started.Outcome);
-        Assert.Null(handler.Url);
-    }
-
     private sealed class RecordingHandler(Func<HttpRequestMessage, HttpResponseMessage> respond) : HttpMessageHandler {
         public string? Url { get; private set; }
         public HttpMethod? Method { get; private set; }

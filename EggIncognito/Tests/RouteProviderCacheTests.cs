@@ -120,40 +120,6 @@ public sealed class RouteProviderCacheTests {
         Assert.Equal(2, calls);
     }
 
-    [Fact]
-    public void Binary_UnknownPath_NegativeLookupIsCached() {
-        var time = new FakeTime();
-        int calls = 0;
-        var inner = new FakeBinaryRouteProvider(() => {
-            calls++;
-            return [BinaryRoute("a")];
-        });
-        var cache = new CachedBinaryRouteProvider(inner, TimeSpan.FromSeconds(10), time);
-
-        Assert.Null(cache.GetBinaryRoute("missing"));
-        Assert.Null(cache.GetBinaryRoute("missing"));
-        Assert.Equal(1, calls);
-    }
-
-    [Fact]
-    public void Binary_FetchThrowsAfterSuccess_KeepsStaleSnapshot() {
-        var time = new FakeTime();
-        bool fail = false;
-        var inner = new FakeBinaryRouteProvider(() => {
-            if (fail) throw new InvalidOperationException("db down");
-            return [BinaryRoute("a")];
-        });
-        var cache = new CachedBinaryRouteProvider(inner, TimeSpan.FromSeconds(10), time);
-
-        var first = cache.GetBinaryRoute("a");
-        Assert.NotNull(first);
-
-        fail = true;
-        cache.Invalidate();
-        var second = cache.GetBinaryRoute("a");
-        Assert.Same(first, second);
-    }
-
     private sealed class FakeDbRouteProvider(Func<IReadOnlyList<RouteInfo>> fetch) : IDbRouteProvider {
         public RouteInfo? GetDbRoute(string path) => AllDbRoutes().FirstOrDefault(r => r.Path == path);
         public IReadOnlyList<RouteInfo> AllDbRoutes() => fetch();

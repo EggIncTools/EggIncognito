@@ -33,5 +33,6 @@ public sealed class ApiAccessFilter : IAsyncAuthorizationFilter {
         return Task.CompletedTask;
     }
 
-    private static ObjectResult Deny(int status, string error) => new(new { error }) { StatusCode = status };
+    private static ObjectResult Deny(int status, string error) =>
+        new(new ApiError(error, null, status)) { StatusCode = status };
 }

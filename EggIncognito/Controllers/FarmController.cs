@@ -23,7 +23,7 @@ public sealed class FarmController(
     MeshAssetCache cache,
     IServiceProvider services,
     IAppMode appMode,
-    ICurrentUser currentUser) : ControllerBase {
+    ICurrentUser currentUser) : ApiControllerBase {
     private const string SubPieceMethod =
         "sub-piece drawn at the parent transform; hatchery geometry is baked in the rpo";
 
@@ -31,7 +31,7 @@ public sealed class FarmController(
     [EnableRateLimiting("read")]
     public IActionResult Catalog([FromQuery] string platform = "ios") {
         var catalog = FarmAssetCatalog.From(LoadCatalog(platform));
-        if (catalog.KnownAssetTypes.Count == 0)
+        if (catalog.KnownAssetTypes is [])
             return Ok(new {
                 ok = false,
                 platform,
@@ -124,7 +124,7 @@ public sealed class FarmController(
     public async Task<IActionResult> Camera([FromQuery] string element, [FromQuery] int index = 0,
         [FromQuery] float topUiStart = 0f, CancellationToken ct = default) {
         if (!Enum.TryParse<FarmElement>(element, true, out var parsed) || parsed == FarmElement.Unknown)
-            return BadRequest(new { error = "unknown farm element" });
+            return Fail(400, "unknown farm element");
 
         (var data, string? diag) = await placementData.GetAsync(ct);
         if (data is null) return Ok(new { ok = false, diagnostics = diag });
@@ -147,9 +147,9 @@ public sealed class FarmController(
     public async Task<IActionResult> Mesh(string stem, [FromQuery] string platform = "ios",
         [FromQuery] string? shell = null, CancellationToken ct = default) {
         if (appMode.Mode == AppMode.Hosted && !currentUser.IsAuthenticated)
-            return StatusCode(403, new { error = "log in to download farm meshes from the hosted site" });
+            return Fail(403, "log in to download farm meshes from the hosted site");
         if (string.IsNullOrEmpty(stem) || stem.IndexOfAny(['/', '\\', '.']) >= 0)
-            return BadRequest(new { error = "invalid mesh name" });
+            return Fail(400, "invalid mesh name");
 
         var catalog = FarmAssetCatalog.From(LoadCatalog(platform));
         string? url = UrlFor(catalog, stem, shell);
@@ -157,14 +157,14 @@ public sealed class FarmController(
             var pulled = await deviceMeshes.GetGlbAsync(stem, null, ct);
             return pulled.Ok
                 ? File(pulled.Glb!, "model/gltf-binary", $"{stem}.glb")
-                : StatusCode(pulled.Status, new { error = pulled.Diagnostics });
+                : Fail(pulled.Status, pulled.Diagnostics ?? "mesh pull failed");
         }
 
         string key = $"{platform}_{stem}";
         byte[]? glb = cache.TryGet("shell", key);
         if (glb is null) {
             var decode = await downloader.DownloadAndDecodeAsync(url, stem, ct);
-            if (!decode.Ok) return StatusCode(502, new { error = decode.Diagnostics });
+            if (!decode.Ok) return Fail(502, decode.Diagnostics);
             glb = decode.Glb!;
             await cache.PutAsync("shell", key, glb, ct);
         }

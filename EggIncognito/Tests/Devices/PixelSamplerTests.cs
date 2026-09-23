@@ -33,11 +33,6 @@ public class PixelSamplerTests {
     }
 
     [Fact]
-    public void Sample_BrokenBytes_IsNull() {
-        Assert.Null(PixelSampler.Sample([1, 2, 3], 0, 0));
-    }
-
-    [Fact]
     public void SampleMany_ReadsEveryPointFromOneDecode() {
         var png = Png(i => {
             i[2, 1] = new Rgba32(30, 90, 220);

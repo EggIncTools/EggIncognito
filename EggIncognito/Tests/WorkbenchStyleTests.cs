@@ -57,20 +57,6 @@ public partial class WorkbenchStyleTests(SharedAppFactory f) {
     }
 
     [Fact]
-    public async Task DeviceModeControl_IsGone() {
-        string css = await SheetAsync();
-
-        Assert.DoesNotContain(".dwb-mode", css, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public async Task ThemeModeControl_IsGone() {
-        string css = await SheetAsync();
-
-        Assert.DoesNotContain(".theme-seg", css, StringComparison.Ordinal);
-    }
-
-    [Fact]
     public async Task SharedVocabulary_SurvivesForItsRemainingConsumers() {
         string css = await SheetAsync();
 

@@ -36,9 +36,9 @@ public sealed class CaptureCaNotifierTests : IDisposable {
         var controller = new CaptureController(
             manager, new FakeAppMode(false, true),
             new FakeUser(true, true),
-            HostedCaptureOptions.Defaults(), NullLogger<CaptureController>.Instance, new StubServices(notifier));
+            HostedCaptureOptions.Defaults(), NullLogger<CaptureController>.Instance);
 
-        var r = await controller.Start(CancellationToken.None);
+        var r = await controller.Start(null, notifier, null, CancellationToken.None);
 
         Assert.Equal(200, ((IStatusCodeActionResult)r).StatusCode);
         var session = manager.Get("tester");
@@ -125,11 +125,6 @@ public sealed class CaptureCaNotifierTests : IDisposable {
             Calls++;
             return Task.FromResult(false);
         }
-    }
-
-    private sealed class StubServices(ICaptureCaNotifier notifier) : IServiceProvider {
-        public object? GetService(Type serviceType) =>
-            serviceType == typeof(ICaptureCaNotifier) ? notifier : null;
     }
 
     private sealed class FakeAppMode(bool canCapture, bool hostedEnabled) : IAppMode {

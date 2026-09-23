@@ -23,7 +23,8 @@ namespace EggIncognito.Controllers;
 public sealed partial class DevicesController(
     ICurrentUser currentUser,
     IServiceProvider services,
-    IServiceScopeFactory scopeFactory) : ControllerBase {
+    IServiceScopeFactory scopeFactory,
+    ILogger<DevicesController> logger) : ApiControllerBase {
     private const string StreamBoundary = "egiframe";
     private const int MinStreamFps = 1;
     private const int MaxStreamFps = 5;
@@ -36,21 +37,12 @@ public sealed partial class DevicesController(
     private static readonly byte[] PartTrailer = "\r\n"u8.ToArray();
     private static readonly byte[] StreamEnd = Encoding.ASCII.GetBytes($"--{StreamBoundary}--\r\n");
 
-    private IDeviceStatusStore? Store => services.GetService(typeof(IDeviceStatusStore)) as IDeviceStatusStore;
-    private DeviceJobStore? Jobs => services.GetService(typeof(DeviceJobStore)) as DeviceJobStore;
-    private DeviceTimelineCache? Timeline => services.GetService(typeof(DeviceTimelineCache)) as DeviceTimelineCache;
-    private DeviceJobFeed? JobFeed => services.GetService(typeof(DeviceJobFeed)) as DeviceJobFeed;
-    private EggIncognitoDbContext? Db => services.GetService(typeof(EggIncognitoDbContext)) as EggIncognitoDbContext;
-
-    private ObjectResult? RequireAdmin() =>
-        currentUser.IsAtLeast(UserRole.Admin) ? null : StatusCode(403, new { error = "admin role required" });
-
     private static async Task<DeviceEntry?> FleetEntryAsync(IDeviceFleet fleet, string id, CancellationToken ct) =>
         (await fleet.EnabledAsync(ct)).FirstOrDefault(d => d.Id == id);
 
-    private async Task<string?> ResolveDeviceIdAsync(string incoming, CancellationToken ct) {
+    private async Task<string?> ResolveDeviceIdAsync(string incoming, IDeviceStatusStore? store,
+        CancellationToken ct) {
         if (currentUser.IsAtLeast(UserRole.Admin)) return incoming;
-        var store = Store;
         if (store is null) return null;
         var enabled = await store.EnabledDevicesAsync(ct);
         return enabled.FirstOrDefault(d => DevicePublicKey.For(d.Id) == incoming)?.Id;
@@ -58,9 +50,12 @@ public sealed partial class DevicesController(
 
     [HttpGet("status")]
     [EnableRateLimiting("fetch")]
-    public async Task<IActionResult> Status() {
-        if (services.GetService(typeof(IDeviceFleet)) is not IDeviceFleet fleet || Timeline is not { } timeline)
-            return Ok(Array.Empty<DeviceStatusRow>());
+    public async Task<IActionResult> Status([FromServices] IDeviceFleet? fleet,
+        [FromServices] DeviceTimelineCache? timeline, [FromServices] EggIncognitoDbContext? db,
+        [FromServices] DeviceCaptureManager? captures, [FromServices] GameBinaryProvider? binaryProvider,
+        [FromServices] VirtualDeviceLifecycle? lifecycle, [FromServices] ProvisionedInstanceStore? instances,
+        [FromServices] DeviceStateStore? deviceStates) {
+        if (fleet is null || timeline is null) return Ok(Array.Empty<DeviceStatusRow>());
 
         var ct = HttpContext.RequestAborted;
         bool isAdmin = currentUser.IsAtLeast(UserRole.Admin);
@@ -71,7 +66,7 @@ public sealed partial class DevicesController(
         var devices = enabled.ToDictionary(d => d.Id);
         var virtualUp = new Dictionary<string, DateTimeOffset>(StringComparer.Ordinal);
         HashSet<string> virtualLive = isAdmin
-            ? await MergeVirtualDevicesAsync(virtualUp, ct)
+            ? await MergeVirtualDevicesAsync(virtualUp, lifecycle, instances, ct)
             : [with(StringComparer.Ordinal)];
 
         var ids = devices.Keys.ToList();
@@ -81,28 +76,26 @@ public sealed partial class DevicesController(
             .ToDictionary(u => u.DeviceId, StringComparer.Ordinal);
 
         var platforms = devices.Values.Select(d => d.Platform).Distinct().ToList();
-        var db = Db;
         var versions = db is null
             ? DeviceVersionIndex.Empty
             : await DeviceVersionIndex.BuildAsync(db, platforms, ct);
         var storeLatest = await StoreLatestPerPlatformAsync(db, platforms, ct);
 
-        var captures = services.GetService(typeof(DeviceCaptureManager)) as DeviceCaptureManager;
         int capturePortFor(string id) =>
             captures?.PortFor(id) is > 0 and var listening ? listening : devices[id].CapturePort ?? 0;
         var inputs = new DeviceStatusInputs(
             isAdmin, probes, updates, storeLatest, virtualLive, versions,
-            await CapturedClientVersionsAsync(ct),
-            services.GetService(typeof(GameBinaryProvider)) as GameBinaryProvider,
+            await CapturedClientVersionsAsync(deviceStates, ct),
+            binaryProvider,
             virtualUp, capturePortFor);
 
         return Ok(devices.Values.Select(d => DeviceStatusProjector.Project(d, inputs)));
     }
 
     private async Task<HashSet<string>> MergeVirtualDevicesAsync(Dictionary<string, DateTimeOffset> up,
-        CancellationToken ct) {
+        VirtualDeviceLifecycle? lifecycle, ProvisionedInstanceStore? instances, CancellationToken ct) {
         var live = new HashSet<string>(StringComparer.Ordinal);
-        if (services.GetService(typeof(VirtualDeviceLifecycle)) is VirtualDeviceLifecycle { Delegated: true } lifecycle) {
+        if (lifecycle is { Delegated: true }) {
             var listed = await lifecycle.Provisioner.ListAsync(ct);
             foreach (var instance in listed.Value ?? []) {
                 if (instance.DeviceId is { Length: > 0 } deviceId) up[deviceId] = instance.CreatedAt;
@@ -111,7 +104,7 @@ public sealed partial class DevicesController(
             return live;
         }
 
-        if (Instances is not { } instances) return live;
+        if (instances is null) return live;
         foreach (var row in await instances.AllAsync(ct)) {
             if (row.DeviceId is { Length: > 0 } deviceId) up[deviceId] = row.CreatedAt;
         }
@@ -140,9 +133,10 @@ public sealed partial class DevicesController(
         return latest;
     }
 
-    private async Task<Dictionary<string, int>> CapturedClientVersionsAsync(CancellationToken ct) {
+    private static async Task<Dictionary<string, int>> CapturedClientVersionsAsync(
+        DeviceStateStore? deviceStates, CancellationToken ct) {
         var captured = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-        if (services.GetService(typeof(DeviceStateStore)) is not DeviceStateStore deviceStates) return captured;
+        if (deviceStates is null) return captured;
 
         foreach (var s in await deviceStates.ListAsync(ct)) {
             if (s.ClientVersion is { } clientVersion) captured[s.DeviceId] = clientVersion;
@@ -153,46 +147,39 @@ public sealed partial class DevicesController(
 
     [HttpGet("{id}/jobs")]
     [ApiAccess(ApiAccessLevel.Admin)]
+    [RequiresDb]
     [EnableRateLimiting("read")]
-    public async Task<IActionResult> JobHistory(string id, [FromQuery] int take = JobGroupCollapser.DefaultTake,
-        [FromQuery] long? before = null, CancellationToken ct = default) {
-        if (RequireAdmin() is { } no) return no;
-        if (JobFeed is not { } feed) return StatusCode(503, new { error = "no database configured" });
-
-        return Ok(await feed.PageAsync(id, take, before, ct));
-    }
+    public async Task<IActionResult> JobHistory(string id, [FromServices] DeviceJobFeed feed,
+        [FromQuery] int take = JobGroupCollapser.DefaultTake, [FromQuery] long? before = null,
+        CancellationToken ct = default) =>
+        Ok(await feed.PageAsync(id, take, before, ct));
 
     [HttpGet("{id}/jobs/{jobId:long}/lines")]
     [ApiAccess(ApiAccessLevel.Admin)]
+    [RequiresDb]
     [EnableRateLimiting("read")]
-    public async Task<IActionResult> JobLines(string id, long jobId, CancellationToken ct = default) {
-        if (RequireAdmin() is { } no) return no;
-        if (JobFeed is not { } feed) return StatusCode(503, new { error = "no database configured" });
-
-        return Ok(await feed.LinesAsync(id, jobId, ct));
-    }
+    public async Task<IActionResult> JobLines(string id, long jobId, [FromServices] DeviceJobFeed feed,
+        CancellationToken ct = default) =>
+        Ok(await feed.LinesAsync(id, jobId, ct));
 
     [HttpGet("jobs/live")]
     [ApiAccess(ApiAccessLevel.Admin)]
     [EnableRateLimiting("fetch")]
-    public async Task<IActionResult> LiveJobs(CancellationToken ct) {
-        if (RequireAdmin() is { } no) return no;
-        if (JobFeed is not { } feed) return Ok(Array.Empty<LiveJob>());
-
-        return Ok(await feed.LiveAsync(ct));
-    }
+    public async Task<IActionResult> LiveJobs([FromServices] DeviceJobFeed? feed, CancellationToken ct) =>
+        Ok(feed is null ? [] : await feed.LiveAsync(ct));
 
     [HttpPost("{id}/refresh")]
     [ApiAccess(ApiAccessLevel.Admin)]
     [EnableRateLimiting("write")]
-    public async Task<IActionResult> Refresh(string id) {
-        if (RequireAdmin() is { } no) return no;
-
-        if (services.GetService(typeof(IDeviceAgentClient)) is IDeviceAgentClient agent && agent.Enabled) {
+    public async Task<IActionResult> Refresh(string id, [FromServices] IDeviceAgentClient? agent,
+        [FromServices] IDeviceStatusStore? store, [FromServices] EggIncognitoDbContext? db,
+        [FromServices] DeviceJobStore? jobStore, [FromServices] IDevicePlatforms platforms,
+        [FromServices] TimeProvider time) {
+        if (agent is { Enabled: true }) {
             var dto = await agent.ProbeAsync(id, HttpContext.RequestAborted);
             if (dto is not null) {
-                var agentDevice = await (Store?.GetAsync(id, HttpContext.RequestAborted) ?? Task.FromResult<Device?>(null));
-                if (agentDevice is null) return NotFound(new { error = "unknown device" });
+                var agentDevice = store is null ? null : await store.GetAsync(id, HttpContext.RequestAborted);
+                if (agentDevice is null) return Fail(404, "unknown device");
                 return Ok(new {
                     id = dto.Id,
                     platform = agentDevice.Platform,
@@ -208,17 +195,10 @@ public sealed partial class DevicesController(
             }
         }
 
-        var store = Store;
-        var db = Db;
-        if (store is null || db is null || Jobs is not { } jobStore)
-            return StatusCode(503, new { error = "no database configured" });
+        if (store is null || db is null || jobStore is null) return Fail(503, "no database configured");
 
         var device = await store.GetAsync(id);
-        if (device is null) return NotFound(new { error = "unknown device" });
-
-        var platforms = (IDevicePlatforms)services.GetRequiredService(typeof(IDevicePlatforms));
-        var time = (TimeProvider)services.GetRequiredService(typeof(TimeProvider));
-        var logger = (ILogger<DevicesController>)services.GetRequiredService(typeof(ILogger<DevicesController>));
+        if (device is null) return Fail(404, "unknown device");
 
         var row = await DeviceProbeRunner.ProbeOneAsync(
             device, $"admin:{currentUser.DiscordId}", platforms, jobStore, db, logger, time,
@@ -240,22 +220,16 @@ public sealed partial class DevicesController(
     [HttpPost("refresh-all")]
     [ApiAccess(ApiAccessLevel.Admin)]
     [EnableRateLimiting("write")]
-    public async Task<IActionResult> RefreshAll() {
-        if (RequireAdmin() is { } no) return no;
-
-        if (services.GetService(typeof(IDeviceAgentClient)) is IDeviceAgentClient agent && agent.Enabled) {
+    public async Task<IActionResult> RefreshAll([FromServices] IDeviceAgentClient? agent,
+        [FromServices] IDeviceStatusStore? store, [FromServices] EggIncognitoDbContext? db,
+        [FromServices] DeviceJobStore? jobStore, [FromServices] IDevicePlatforms platforms,
+        [FromServices] TimeProvider time) {
+        if (agent is { Enabled: true }) {
             int probedByAgent = await agent.ProbeAllAsync(HttpContext.RequestAborted);
             return Ok(new { probed = probedByAgent });
         }
 
-        var store = Store;
-        var db = Db;
-        if (store is null || db is null || Jobs is not { } jobStore)
-            return StatusCode(503, new { error = "no database configured" });
-
-        var platforms = (IDevicePlatforms)services.GetRequiredService(typeof(IDevicePlatforms));
-        var time = (TimeProvider)services.GetRequiredService(typeof(TimeProvider));
-        var logger = (ILogger<DevicesController>)services.GetRequiredService(typeof(ILogger<DevicesController>));
+        if (store is null || db is null || jobStore is null) return Fail(503, "no database configured");
 
         var devices = await store.EnabledDevicesAsync();
         int n = 0;
@@ -275,41 +249,32 @@ public sealed partial class DevicesController(
 
     [HttpPost("ipatool/check-versions")]
     [ApiAccess(ApiAccessLevel.Admin)]
+    [Requires<IpaStoreVersionChecker>("ipatool checker not configured")]
     [EnableRateLimiting("write")]
-    public async Task<IActionResult> IpaToolCheckVersions() {
-        if (RequireAdmin() is { } no) return no;
-        if (services.GetService(typeof(IpaStoreVersionChecker)) is not IpaStoreVersionChecker checker)
-            return StatusCode(503, new { error = "ipatool checker not configured" });
-
+    public async Task<IActionResult> IpaToolCheckVersions([FromServices] IpaStoreVersionChecker checker) {
         var result = await checker.CheckAsync(HttpContext.RequestAborted);
-        if (!result.Ok) return StatusCode(502, new { error = result.Diagnostics });
+        if (!result.Ok) return Fail(502, result.Diagnostics);
         return Ok(new { versions = result.Versions, diagnostics = result.Diagnostics });
     }
 
     [HttpPost("{id}/check-update")]
     [ApiAccess(ApiAccessLevel.Admin)]
+    [RequiresDb]
     [EnableRateLimiting("write")]
-    public async Task<IActionResult> CheckUpdate(string id) {
-        if (RequireAdmin() is { } no) return no;
-        var store = Store;
-        var db = Db;
-        if (store is null || db is null) return StatusCode(503, new { error = "no database configured" });
-
-        var logger = (ILogger<DevicesController>)services.GetRequiredService(typeof(ILogger<DevicesController>));
+    public async Task<IActionResult> CheckUpdate(string id, [FromServices] IDeviceStatusStore store,
+        [FromServices] DeviceJobStore jobStore, [FromServices] IEnumerable<IDeviceStoreChecker> checkers) {
         string who = currentUser.DiscordId ?? "?";
 
         var device = await store.GetAsync(id);
-        if (device is null) return NotFound(new { error = "unknown device" });
+        if (device is null) return Fail(404, "unknown device");
 
-        var checker = services.GetServices<IDeviceStoreChecker>()
-            .FirstOrDefault(c => string.Equals(c.Platform, device.Platform, StringComparison.OrdinalIgnoreCase));
-        if (checker is null)
-            return StatusCode(501, new { error = $"no store checker for platform {device.Platform}" });
+        var checker = checkers.FirstOrDefault(c =>
+            string.Equals(c.Platform, device.Platform, StringComparison.OrdinalIgnoreCase));
+        if (checker is null) return Fail(501, $"no store checker for platform {device.Platform}");
 
-        if (Jobs is not { } jobStore) return StatusCode(503, new { error = "no database configured" });
         var job = await jobStore.TryStartAsync(id, DeviceJobKinds.StoreCheck, $"admin:{who}", "checking store...",
             HttpContext.RequestAborted);
-        if (job is null) return StatusCode(409, new { error = "another job is already running on this device" });
+        if (job is null) return Fail(409, "another job is already running on this device");
 
         logger.LogInformation("device check-update: {Id} start (by {Who})", id, who);
         var target = new DeviceTarget(device.Id, device.Platform, device.Target, device.Package);
@@ -357,37 +322,31 @@ public sealed partial class DevicesController(
 
     [HttpPost("{id}/save")]
     [ApiAccess(ApiAccessLevel.Admin)]
+    [RequiresDb]
     [EnableRateLimiting("write")]
-    public async Task<IActionResult> Save(string id) {
-        if (RequireAdmin() is { } no) return no;
-        if (services.GetService(typeof(DeviceRegistryPublisher)) is not DeviceRegistryPublisher publisher)
-            return StatusCode(503, new { error = "no database configured" });
-
+    public async Task<IActionResult> Save(string id, [FromServices] DeviceRegistryPublisher publisher) {
         string who = currentUser.DiscordId ?? "?";
         var res = await publisher.PublishAsync(id, $"device-save:{who}", true, HttpContext.RequestAborted);
         return res.Outcome switch {
             PublishOutcome.Published =>
                 Ok(new { saved = true, appVersion = res.AppVersion, build = res.Build }),
-            PublishOutcome.UnknownDevice => NotFound(new { error = res.Error }),
-            PublishOutcome.UnsupportedPlatform => StatusCode(501, new { error = res.Error }),
-            PublishOutcome.NotConfigured => StatusCode(503, new { error = res.Error }),
+            PublishOutcome.UnknownDevice => Fail(404, res.Error ?? ""),
+            PublishOutcome.UnsupportedPlatform => Fail(501, res.Error ?? ""),
+            PublishOutcome.NotConfigured => Fail(503, res.Error ?? ""),
             PublishOutcome.NotHarvested or PublishOutcome.StaleHarvest or PublishOutcome.MissingAsset =>
-                StatusCode(409, new { error = res.Error }),
-            _ => StatusCode(500, new { error = res.Error })
+                Fail(409, res.Error ?? ""),
+            _ => Fail(500, res.Error ?? "")
         };
     }
 
     [HttpGet("{id}/list-meshes")]
     [ApiAccess(ApiAccessLevel.Admin)]
+    [RequiresDb]
     [EnableRateLimiting("read")]
-    public async Task<IActionResult> ListMeshes(string id) {
-        if (RequireAdmin() is { } no) return no;
-        var store = Store;
-        if (store is null) return StatusCode(503, new { error = "no database configured" });
+    public async Task<IActionResult> ListMeshes(string id, [FromServices] IDeviceStatusStore store,
+        [FromServices] DeviceAssetStore assets) {
         var device = await store.GetAsync(id);
-        if (device is null) return NotFound(new { error = "unknown device" });
-        if (services.GetService(typeof(DeviceAssetStore)) is not DeviceAssetStore assets)
-            return StatusCode(503, new { error = "no database configured" });
+        if (device is null) return Fail(404, "unknown device");
 
         var heads = await assets.ListAsync(DeviceAssetKinds.Mesh, device.Platform, HttpContext.RequestAborted);
         return Ok(new { meshes = heads.Select(h => h.Name), harvested = heads.Count });
@@ -395,53 +354,48 @@ public sealed partial class DevicesController(
 
     [HttpPost("{id}/poke")]
     [ApiAccess(ApiAccessLevel.Admin)]
+    [RequiresDb]
     [EnableRateLimiting("write")]
-    public async Task<IActionResult> Poke(string id) {
-        if (RequireAdmin() is { } no) return no;
-        var store = Store;
-        if (store is null) return StatusCode(503, new { error = "no database configured" });
-        if (await store.GetAsync(id) is null) return NotFound(new { error = "unknown device" });
-        if (services.GetService(typeof(IDeviceAgentClient)) is not IDeviceAgentClient { Enabled: true } agent)
-            return StatusCode(503, new { error = "no device agent configured (set DeviceAgent:Url + DeviceAgent:Secret)" });
+    public async Task<IActionResult> Poke(string id, [FromServices] IDeviceStatusStore store,
+        [FromServices] IDeviceAgentClient? agent) {
+        if (await store.GetAsync(id) is null) return Fail(404, "unknown device");
+        if (agent is not { Enabled: true })
+            return Fail(503, "no device agent configured (set DeviceAgent:Url + DeviceAgent:Secret)");
 
         bool queued = await agent.PokeAsync(id, true, HttpContext.RequestAborted);
         return queued
             ? Accepted(new { ok = true, device = id, queued = true })
-            : StatusCode(502, new { error = "device agent did not accept the poke" });
+            : Fail(502, "device agent did not accept the poke");
     }
 
     [HttpPost("poke-all")]
     [ApiAccess(ApiAccessLevel.Admin)]
     [EnableRateLimiting("write")]
-    public async Task<IActionResult> PokeAll() {
-        if (RequireAdmin() is { } no) return no;
-        if (services.GetService(typeof(IDeviceAgentClient)) is not IDeviceAgentClient { Enabled: true } agent)
-            return StatusCode(503, new { error = "no device agent configured (set DeviceAgent:Url + DeviceAgent:Secret)" });
+    public async Task<IActionResult> PokeAll([FromServices] IDeviceAgentClient? agent) {
+        if (agent is not { Enabled: true })
+            return Fail(503, "no device agent configured (set DeviceAgent:Url + DeviceAgent:Secret)");
 
         bool queued = await agent.PokeAsync(null, true, HttpContext.RequestAborted);
         return queued
             ? Accepted(new { ok = true, queued = true })
-            : StatusCode(502, new { error = "device agent did not accept the poke" });
+            : Fail(502, "device agent did not accept the poke");
     }
 
     [HttpGet("{id}/harvest")]
     [ApiAccess(ApiAccessLevel.Admin)]
+    [RequiresDb]
     [EnableRateLimiting("read")]
-    public async Task<IActionResult> Harvest(string id) {
-        if (RequireAdmin() is { } no) return no;
-        if (services.GetService(typeof(DeviceStateStore)) is not DeviceStateStore states)
-            return StatusCode(503, new { error = "no database configured" });
-
+    public async Task<IActionResult> Harvest(string id, [FromServices] DeviceStateStore states,
+        [FromServices] DeviceTimelineCache? cache, [FromServices] ProtoRegistryStore? registry) {
         var ct = HttpContext.RequestAborted;
         var row = await states.GetAsync(id, ct);
-        if (row is null) return NotFound(new { error = "no harvest state for device" });
-        var cache = Timeline;
+        if (row is null) return Fail(404, "no harvest state for device");
         var harvestJob = cache is null ? null : await cache.LatestAsync(id, DeviceJobKinds.Harvest, ct);
         IReadOnlyList<DeviceJobLineRow> entries = harvestJob is null || cache is null
             ? []
             : await cache.LinesAsync(id, harvestJob.Id, ct);
-        bool inRegistry = !string.IsNullOrEmpty(row.Build)
-                          && services.GetService(typeof(ProtoRegistryStore)) is ProtoRegistryStore registry
+        bool inRegistry = row.Build is { Length: > 0 }
+                          && registry is not null
                           && await registry.GetAsync(row.Platform, row.Build, ct) is not null;
         return Ok(new {
             device = row.DeviceId,
@@ -482,30 +436,24 @@ public sealed partial class DevicesController(
 
     [HttpPost("{id}/restart-app")]
     [ApiAccess(ApiAccessLevel.Admin)]
+    [Requires<DeviceProxyPusher>("device capture not configured")]
+    [Requires<IDeviceFleet>("device capture not configured")]
     [EnableRateLimiting("write")]
-    public async Task<IActionResult> RestartApp(string id) {
-        if (RequireAdmin() is { } no) return no;
-        if (services.GetService(typeof(DeviceProxyPusher))
-                is not DeviceProxyPusher pusher
-            || services.GetService(typeof(IDeviceFleet))
-                is not IDeviceFleet fleet)
-            return StatusCode(503, new { error = "device capture not configured" });
-
+    public async Task<IActionResult> RestartApp(string id, [FromServices] DeviceProxyPusher pusher,
+        [FromServices] IDeviceFleet fleet) {
         if (await FleetEntryAsync(fleet, id, HttpContext.RequestAborted) is not { } entry)
-            return NotFound(new { error = "unknown device" });
+            return Fail(404, "unknown device");
 
         (bool ok, string? note) = await pusher.RestartAppAsync(entry, HttpContext.RequestAborted);
-        return ok ? Ok(new { restarted = true, note }) : StatusCode(502, new { error = note ?? "restart failed" });
+        return ok ? Ok(new { restarted = true, note }) : Fail(502, note ?? "restart failed");
     }
 
     [HttpPost("{id}/recert")]
     [ApiAccess(ApiAccessLevel.Admin)]
+    [Requires<DeviceRecertService>("recert is not configured (no database or android ui driver)")]
     [EnableRateLimiting("write")]
-    public async Task<IActionResult> Recert(string id, [FromQuery] int shots = 0, CancellationToken ct = default) {
-        if (RequireAdmin() is { } no) return no;
-        if (services.GetService(typeof(DeviceRecertService)) is not DeviceRecertService recert)
-            return StatusCode(503, new { error = "recert is not configured (no database or android ui driver)" });
-
+    public async Task<IActionResult> Recert(string id, [FromServices] DeviceRecertService recert,
+        [FromQuery] int shots = 0, CancellationToken ct = default) {
         string who = currentUser.DiscordId ?? "?";
         var result = await recert.RecertAsync(id, $"admin:{who}", ct);
 
@@ -517,47 +465,44 @@ public sealed partial class DevicesController(
 
     [HttpGet("{id}/readiness")]
     [ApiAccess(ApiAccessLevel.Admin)]
+    [Requires<VirtualDeviceReadinessProbe>("readiness probe not configured")]
     [EnableRateLimiting("read")]
-    public async Task<IActionResult> Readiness(string id, CancellationToken ct) {
-        if (RequireAdmin() is { } no) return no;
-        (IActionResult? err, _, var target) = await ResolveUiAsync(id, ct);
+    public async Task<IActionResult> Readiness(string id, [FromServices] VirtualDeviceReadinessProbe probe,
+        [FromServices] IDeviceFleet? fleet, [FromServices] IDevicePlatforms? platforms, CancellationToken ct) {
+        (IActionResult? err, _, var target) = await ResolveUiAsync(id, fleet, platforms, ct);
         if (err is not null) return err;
-        if (services.GetService(typeof(VirtualDeviceReadinessProbe)) is not VirtualDeviceReadinessProbe probe)
-            return StatusCode(503, new { error = "readiness probe not configured" });
 
         return Ok(await probe.ProbeAsync(target, ct));
     }
 
-    private ProvisionedInstanceStore? Instances =>
-        services.GetService(typeof(ProvisionedInstanceStore)) as ProvisionedInstanceStore;
-
     private async Task<(IActionResult? Error, IDevicePlatform Platform, DeviceTarget Target)> ResolveUiAsync(
-        string id, CancellationToken ct) {
-        if (services.GetService(typeof(IDeviceFleet)) is not IDeviceFleet fleet)
-            return (StatusCode(503, new { error = "device config not available" }), null!, null!);
+        string id, IDeviceFleet? fleet, IDevicePlatforms? platforms, CancellationToken ct) {
+        if (fleet is null)
+            return (Fail(503, "device config not available"), new NullDevicePlatform(),
+                new DeviceTarget("", "", "", ""));
 
         if (await FleetEntryAsync(fleet, id, ct) is not { } entry)
-            return (NotFound(new { error = "unknown device" }), null!, null!);
+            return (Fail(404, "unknown device"), new NullDevicePlatform(), new DeviceTarget("", "", "", ""));
 
         var target = new DeviceTarget(entry.Id, entry.Platform, entry.Target, entry.Package);
-        if (services.GetService(typeof(IDevicePlatforms)) is not IDevicePlatforms platforms)
-            return (StatusCode(503, new { error = "device platforms not available" }), null!, null!);
+        if (platforms is null)
+            return (Fail(503, "device platforms not available"), new NullDevicePlatform(), target);
 
         return (null, platforms.For(target.Platform), target);
     }
 
     private ObjectResult UiFailure(DeviceOutcome outcome, string? note) => outcome switch {
-        DeviceOutcome.Unsupported => StatusCode(501, new { error = note ?? "ui control is unsupported on this device" }),
-        DeviceOutcome.Unreachable => StatusCode(502, new { error = note ?? "device unreachable" }),
-        _ => StatusCode(500, new { error = note ?? "device ui call failed" })
+        DeviceOutcome.Unsupported => Fail(501, note ?? "ui control is unsupported on this device"),
+        DeviceOutcome.Unreachable => Fail(502, note ?? "device unreachable"),
+        _ => Fail(500, note ?? "device ui call failed")
     };
 
     [HttpGet("{id}/ui/screenshot")]
     [ApiAccess(ApiAccessLevel.Admin)]
     [EnableRateLimiting("fetch")]
-    public async Task<IActionResult> UiScreenshot(string id, CancellationToken ct) {
-        if (RequireAdmin() is { } no) return no;
-        (IActionResult? err, var platform, var target) = await ResolveUiAsync(id, ct);
+    public async Task<IActionResult> UiScreenshot(string id, [FromServices] IDeviceFleet? fleet,
+        [FromServices] IDevicePlatforms? platforms, CancellationToken ct) {
+        (IActionResult? err, var platform, var target) = await ResolveUiAsync(id, fleet, platforms, ct);
         if (err is not null) return err;
 
         var shot = await platform.ScreenshotAsync(target, ct);
@@ -570,9 +515,9 @@ public sealed partial class DevicesController(
     [HttpGet("{id}/ui/screen")]
     [ApiAccess(ApiAccessLevel.Admin)]
     [EnableRateLimiting("read")]
-    public async Task<IActionResult> UiScreen(string id, CancellationToken ct) {
-        if (RequireAdmin() is { } no) return no;
-        (IActionResult? err, var platform, var target) = await ResolveUiAsync(id, ct);
+    public async Task<IActionResult> UiScreen(string id, [FromServices] IDeviceFleet? fleet,
+        [FromServices] IDevicePlatforms? platforms, CancellationToken ct) {
+        (IActionResult? err, var platform, var target) = await ResolveUiAsync(id, fleet, platforms, ct);
         if (err is not null) return err;
 
         var size = await platform.ScreenSizeAsync(target, ct);
@@ -585,9 +530,9 @@ public sealed partial class DevicesController(
     [HttpGet("{id}/ui/state")]
     [ApiAccess(ApiAccessLevel.Admin)]
     [EnableRateLimiting("read")]
-    public async Task<IActionResult> UiState(string id, CancellationToken ct) {
-        if (RequireAdmin() is { } no) return no;
-        (IActionResult? err, var platform, var target) = await ResolveUiAsync(id, ct);
+    public async Task<IActionResult> UiState(string id, [FromServices] IDeviceFleet? fleet,
+        [FromServices] IDevicePlatforms? platforms, CancellationToken ct) {
+        (IActionResult? err, var platform, var target) = await ResolveUiAsync(id, fleet, platforms, ct);
         if (err is not null) return err;
 
         var state = await platform.ScreenStateAsync(target, ct);
@@ -600,10 +545,10 @@ public sealed partial class DevicesController(
     [HttpGet("{id}/ui/stream")]
     [ApiAccess(ApiAccessLevel.Admin)]
     [DisableRateLimiting]
-    public async Task<IActionResult> UiStream(string id, [FromQuery] int fps = 3,
+    public async Task<IActionResult> UiStream(string id, [FromServices] IDeviceFleet? fleet,
+        [FromServices] IDevicePlatforms? platforms, [FromQuery] int fps = 3,
         [FromQuery] int quality = DeviceFrameEncoder.DefaultQuality, CancellationToken ct = default) {
-        if (RequireAdmin() is { } no) return no;
-        (IActionResult? err, var platform, var target) = await ResolveUiAsync(id, ct);
+        (IActionResult? err, var platform, var target) = await ResolveUiAsync(id, fleet, platforms, ct);
         if (err is not null) return err;
 
         if (await EnterStreamGateAsync(target.Id, ct) is { } busy) return busy;
@@ -631,9 +576,8 @@ public sealed partial class DevicesController(
             return new EmptyResult();
         }
 
-        return StatusCode(409, new {
-            error = $"a screen stream is still open for this device after waiting {DeviceStreamGate.HandoverWait.TotalSeconds:0}s"
-        });
+        return Fail(409,
+            $"a screen stream is still open for this device after waiting {DeviceStreamGate.HandoverWait.TotalSeconds:0}s");
     }
 
     private static async Task<(byte[]? Jpeg, DeviceOutcome Outcome, string? Note)> FrameAsync(
@@ -682,15 +626,15 @@ public sealed partial class DevicesController(
     [HttpGet("{id}/ui/video")]
     [ApiAccess(ApiAccessLevel.Admin)]
     [DisableRateLimiting]
-    public async Task<IActionResult> UiVideo(string id, [FromQuery] string size = "720x1280",
+    public async Task<IActionResult> UiVideo(string id, [FromServices] IDeviceFleet? fleet,
+        [FromServices] IDevicePlatforms? platforms, [FromQuery] string size = "720x1280",
         [FromQuery] int bitrate = 3_000_000, CancellationToken ct = default) {
-        if (RequireAdmin() is { } no) return no;
-        (IActionResult? err, var platform, var target) = await ResolveUiAsync(id, ct);
+        (IActionResult? err, var platform, var target) = await ResolveUiAsync(id, fleet, platforms, ct);
         if (err is not null) return err;
         if (!platform.Capabilities.HasFlag(DeviceCapabilities.ScreenStream))
-            return StatusCode(501, new { error = $"{platform.Platform} cannot stream video" });
+            return Fail(501, $"{platform.Platform} cannot stream video");
         if (!VideoSizeRegex().IsMatch(size))
-            return BadRequest(new { error = "size must look like WIDTHxHEIGHT, e.g. 720x1280" });
+            return Fail(400, "size must look like WIDTHxHEIGHT, e.g. 720x1280");
 
         var display = await platform.ScreenSizeAsync(target, ct);
         if (display.Ok) {
@@ -718,11 +662,10 @@ public sealed partial class DevicesController(
             string? note = await platform.StreamScreenAsync(target, options, Response.Body, ct);
             if (note is null) return new EmptyResult();
 
-            (services.GetService(typeof(ILogger<DevicesController>)) as ILogger<DevicesController>)?
-                .LogWarning("video stream for {DeviceId} stopped: {Note}", target.Id, note);
+            logger.LogWarning("video stream for {DeviceId} stopped: {Note}", target.Id, note);
             if (Response.HasStarted) return new EmptyResult();
             Response.Clear();
-            return StatusCode(502, new { error = note });
+            return Fail(502, note);
         } catch (Exception ex) when (ex is OperationCanceledException or IOException
                                         or ObjectDisposedException) {
             return new EmptyResult();
@@ -734,10 +677,10 @@ public sealed partial class DevicesController(
     [HttpPost("{id}/ui/tap")]
     [ApiAccess(ApiAccessLevel.Admin)]
     [EnableRateLimiting("write")]
-    public async Task<IActionResult> UiTap(string id, [FromBody] UiTapRequest req, CancellationToken ct) {
-        if (RequireAdmin() is { } no) return no;
-        if (req.X < 0 || req.Y < 0) return BadRequest(new { error = "x and y must be non-negative" });
-        (IActionResult? err, var platform, var target) = await ResolveUiAsync(id, ct);
+    public async Task<IActionResult> UiTap(string id, [FromBody] UiTapRequest req,
+        [FromServices] IDeviceFleet? fleet, [FromServices] IDevicePlatforms? platforms, CancellationToken ct) {
+        if (req.X < 0 || req.Y < 0) return Fail(400, "x and y must be non-negative");
+        (IActionResult? err, var platform, var target) = await ResolveUiAsync(id, fleet, platforms, ct);
         if (err is not null) return err;
 
         var r = await platform.TapPointAsync(target, req.X, req.Y, ct);
@@ -746,13 +689,13 @@ public sealed partial class DevicesController(
 
     [HttpPost("{id}/ui/watch")]
     [ApiAccess(ApiAccessLevel.Admin)]
+    [Requires<PixelWatchService>("pixel watch not configured")]
     [EnableRateLimiting("write")]
-    public async Task<IActionResult> UiWatch(string id, [FromBody] PixelWatchRequest req, CancellationToken ct) {
-        if (RequireAdmin() is { } no) return no;
-        if (req.X < 0 || req.Y < 0) return BadRequest(new { error = "x and y must be non-negative" });
-        if (services.GetService(typeof(PixelWatchService)) is not PixelWatchService watches)
-            return StatusCode(503, new { error = "pixel watch not configured" });
-        (IActionResult? err, var platform, var target) = await ResolveUiAsync(id, ct);
+    public async Task<IActionResult> UiWatch(string id, [FromBody] PixelWatchRequest req,
+        [FromServices] PixelWatchService watches, [FromServices] IDeviceFleet? fleet,
+        [FromServices] IDevicePlatforms? platforms, CancellationToken ct) {
+        if (req.X < 0 || req.Y < 0) return Fail(400, "x and y must be non-negative");
+        (IActionResult? err, var platform, var target) = await ResolveUiAsync(id, fleet, platforms, ct);
         if (err is not null) return err;
 
         var r = await watches.AddAsync(platform, target, req.X, req.Y, ct);
@@ -761,47 +704,39 @@ public sealed partial class DevicesController(
 
     [HttpGet("{id}/ui/watch")]
     [ApiAccess(ApiAccessLevel.Admin)]
+    [Requires<PixelWatchService>("pixel watch not configured")]
     [EnableRateLimiting("read")]
-    public IActionResult UiWatchStatus(string id) {
-        if (RequireAdmin() is { } no) return no;
-        if (services.GetService(typeof(PixelWatchService)) is not PixelWatchService watches)
-            return StatusCode(503, new { error = "pixel watch not configured" });
-        return Ok(watches.State(id));
-    }
+    public IActionResult UiWatchStatus(string id, [FromServices] PixelWatchService watches) =>
+        Ok(watches.State(id));
 
     [HttpDelete("{id}/ui/watch")]
     [ApiAccess(ApiAccessLevel.Admin)]
+    [Requires<PixelWatchService>("pixel watch not configured")]
     [EnableRateLimiting("write")]
-    public IActionResult UiWatchStop(string id, [FromQuery] string? point) {
-        if (RequireAdmin() is { } no) return no;
-        if (services.GetService(typeof(PixelWatchService)) is not PixelWatchService watches)
-            return StatusCode(503, new { error = "pixel watch not configured" });
-        bool stopped = string.IsNullOrEmpty(point) ? watches.StopAll(id) : watches.Remove(id, point);
+    public IActionResult UiWatchStop(string id, [FromServices] PixelWatchService watches,
+        [FromQuery] string? point) {
+        bool stopped = point is not { Length: > 0 } ? watches.StopAll(id) : watches.Remove(id, point);
         return Ok(new { ok = true, stopped, state = watches.State(id) });
     }
 
     [HttpPost("{id}/ui/watch/client")]
     [ApiAccess(ApiAccessLevel.Admin)]
+    [Requires<PixelWatchService>("pixel watch not configured")]
     [EnableRateLimiting("write")]
-    public IActionResult UiWatchClient(string id, [FromQuery] bool on) {
-        if (RequireAdmin() is { } no) return no;
-        if (services.GetService(typeof(PixelWatchService)) is not PixelWatchService watches)
-            return StatusCode(503, new { error = "pixel watch not configured" });
+    public IActionResult UiWatchClient(string id, [FromServices] PixelWatchService watches, [FromQuery] bool on) {
         watches.SetClientWatching(id, on);
         return Ok(new { ok = true, client = on, state = watches.State(id) });
     }
 
     [HttpPost("{id}/ui/watch/{point}/hit")]
     [ApiAccess(ApiAccessLevel.Admin)]
+    [Requires<PixelWatchService>("pixel watch not configured")]
     [EnableRateLimiting("write")]
-    public async Task<IActionResult> UiWatchHit(string id, string point, CancellationToken ct) {
-        if (RequireAdmin() is { } no) return no;
-        if (string.IsNullOrWhiteSpace(point)) return BadRequest(new { error = "point is required" });
-        if (services.GetService(typeof(PixelWatchService)) is not PixelWatchService watches)
-            return StatusCode(503, new { error = "pixel watch not configured" });
-        if (watches.State(id).Points.All(p => p.Id != point))
-            return NotFound(new { error = "unknown watch point" });
-        (IActionResult? err, var platform, var target) = await ResolveUiAsync(id, ct);
+    public async Task<IActionResult> UiWatchHit(string id, string point, [FromServices] PixelWatchService watches,
+        [FromServices] IDeviceFleet? fleet, [FromServices] IDevicePlatforms? platforms, CancellationToken ct) {
+        if (string.IsNullOrWhiteSpace(point)) return Fail(400, "point is required");
+        if (watches.State(id).Points.All(p => p.Id != point)) return Fail(404, "unknown watch point");
+        (IActionResult? err, var platform, var target) = await ResolveUiAsync(id, fleet, platforms, ct);
         if (err is not null) return err;
 
         var r = await watches.HitAsync(platform, target, point, ct);
@@ -811,12 +746,12 @@ public sealed partial class DevicesController(
     [HttpPost("{id}/ui/touch")]
     [ApiAccess(ApiAccessLevel.Admin)]
     [EnableRateLimiting("write")]
-    public async Task<IActionResult> UiTouch(string id, [FromBody] UiTouchRequest req, CancellationToken ct) {
-        if (RequireAdmin() is { } no) return no;
-        if (req.X < 0 || req.Y < 0) return BadRequest(new { error = "x and y must be non-negative" });
+    public async Task<IActionResult> UiTouch(string id, [FromBody] UiTouchRequest req,
+        [FromServices] IDeviceFleet? fleet, [FromServices] IDevicePlatforms? platforms, CancellationToken ct) {
+        if (req.X < 0 || req.Y < 0) return Fail(400, "x and y must be non-negative");
         if (!Enum.TryParse(req.Phase, true, out TouchPhase phase))
-            return BadRequest(new { error = "phase must be down, move, up or cancel" });
-        (IActionResult? err, var platform, var target) = await ResolveUiAsync(id, ct);
+            return Fail(400, "phase must be down, move, up or cancel");
+        (IActionResult? err, var platform, var target) = await ResolveUiAsync(id, fleet, platforms, ct);
         if (err is not null) return err;
 
         var r = await platform.TouchAsync(target, phase, req.X, req.Y, ct);
@@ -826,11 +761,11 @@ public sealed partial class DevicesController(
     [HttpPost("{id}/ui/swipe")]
     [ApiAccess(ApiAccessLevel.Admin)]
     [EnableRateLimiting("write")]
-    public async Task<IActionResult> UiSwipe(string id, [FromBody] UiSwipeRequest req, CancellationToken ct) {
-        if (RequireAdmin() is { } no) return no;
+    public async Task<IActionResult> UiSwipe(string id, [FromBody] UiSwipeRequest req,
+        [FromServices] IDeviceFleet? fleet, [FromServices] IDevicePlatforms? platforms, CancellationToken ct) {
         if (req.X1 < 0 || req.Y1 < 0 || req.X2 < 0 || req.Y2 < 0)
-            return BadRequest(new { error = "coordinates must be non-negative" });
-        (IActionResult? err, var platform, var target) = await ResolveUiAsync(id, ct);
+            return Fail(400, "coordinates must be non-negative");
+        (IActionResult? err, var platform, var target) = await ResolveUiAsync(id, fleet, platforms, ct);
         if (err is not null) return err;
 
         var r = await platform.SwipeAsync(target, req.X1, req.Y1, req.X2, req.Y2, req.DurationMs, ct);
@@ -840,10 +775,10 @@ public sealed partial class DevicesController(
     [HttpPost("{id}/ui/text")]
     [ApiAccess(ApiAccessLevel.Admin)]
     [EnableRateLimiting("write")]
-    public async Task<IActionResult> UiText(string id, [FromBody] UiTextRequest req, CancellationToken ct) {
-        if (RequireAdmin() is { } no) return no;
-        if (string.IsNullOrEmpty(req.Text)) return BadRequest(new { error = "text required" });
-        (IActionResult? err, var platform, var target) = await ResolveUiAsync(id, ct);
+    public async Task<IActionResult> UiText(string id, [FromBody] UiTextRequest req,
+        [FromServices] IDeviceFleet? fleet, [FromServices] IDevicePlatforms? platforms, CancellationToken ct) {
+        if (req.Text is not { Length: > 0 }) return Fail(400, "text required");
+        (IActionResult? err, var platform, var target) = await ResolveUiAsync(id, fleet, platforms, ct);
         if (err is not null) return err;
 
         var r = await platform.InputTextAsync(target, req.Text, ct);
@@ -853,11 +788,11 @@ public sealed partial class DevicesController(
     [HttpPost("{id}/ui/key")]
     [ApiAccess(ApiAccessLevel.Admin)]
     [EnableRateLimiting("write")]
-    public async Task<IActionResult> UiKey(string id, [FromBody] UiKeyRequest req, CancellationToken ct) {
-        if (RequireAdmin() is { } no) return no;
+    public async Task<IActionResult> UiKey(string id, [FromBody] UiKeyRequest req,
+        [FromServices] IDeviceFleet? fleet, [FromServices] IDevicePlatforms? platforms, CancellationToken ct) {
         if (!DeviceKeyNames.TryParse(req.Key, out var key))
-            return BadRequest(new { error = $"unknown key (expected one of: {string.Join(", ", DeviceKeyNames.All)})" });
-        (IActionResult? err, var platform, var target) = await ResolveUiAsync(id, ct);
+            return Fail(400, $"unknown key (expected one of: {string.Join(", ", DeviceKeyNames.All)})");
+        (IActionResult? err, var platform, var target) = await ResolveUiAsync(id, fleet, platforms, ct);
         if (err is not null) return err;
 
         var r = await platform.KeyAsync(target, key, ct);
@@ -866,10 +801,10 @@ public sealed partial class DevicesController(
 
     [HttpGet("{id}/live")]
     [EnableRateLimiting("fetch")]
-    public async Task<IActionResult> Live(string id, CancellationToken ct) {
-        if (await ResolveDeviceIdAsync(id, ct) is not { } realId) return Ok(new { found = false });
-        if (services.GetService(typeof(DeviceCaptureManager)) is not DeviceCaptureManager mgr)
-            return Ok(new { found = false });
+    public async Task<IActionResult> Live(string id, [FromServices] IDeviceStatusStore? store,
+        [FromServices] DeviceCaptureManager? mgr, CancellationToken ct) {
+        if (await ResolveDeviceIdAsync(id, store, ct) is not { } realId) return Ok(new { found = false });
+        if (mgr is null) return Ok(new { found = false });
         bool isAdmin = currentUser.IsAtLeast(UserRole.Admin);
         var d = mgr.DiagFor(realId);
         object capture = new {

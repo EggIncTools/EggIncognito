@@ -1,4 +1,5 @@
 using EggIncognito.GameData;
+using EggIncognito.Services;
 using EggIncognito.Services.Auth;
 using EggIncognito.Services.DataApi;
 using Microsoft.AspNetCore.Mvc;
@@ -35,7 +36,7 @@ public sealed class GameDataController(GameDataStore store) : ControllerBase {
             : NotImported();
 
     private ObjectResult NotImported() =>
-        StatusCode(503, new { error = "game data not imported", missing = store.MissingIds() });
+        StatusCode(503, new ApiError("game data not imported", null, 503, store.MissingIds()));
 
     private static object Project(Effect e) => new {
         e.Family,

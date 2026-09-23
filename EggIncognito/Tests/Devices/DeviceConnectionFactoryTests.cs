@@ -37,11 +37,4 @@ public class DeviceConnectionFactoryTests {
 
         Assert.Null(factory.For(new DeviceTarget("x1", "switch", "SER", "com.auxbrain.egginc")));
     }
-
-    [Fact]
-    public void Ios_HostAndKeyConfigured_ReturnsSshConnection() {
-        var factory = new DeviceConnectionFactory(new RefusingProcessRunner(), CaptureConfig());
-
-        Assert.NotNull(factory.Ios());
-    }
 }

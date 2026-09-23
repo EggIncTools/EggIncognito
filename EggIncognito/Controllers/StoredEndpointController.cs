@@ -1,4 +1,3 @@
-using EggIdentity.Contract;
 using EggIncognito.Core.Services;
 using EggIncognito.Data.Models;
 using EggIncognito.Data.Services;
@@ -15,24 +14,13 @@ namespace EggIncognito.Controllers;
 [Route("api/db")]
 [ApiAccess(ApiAccessLevel.Public)]
 [EnableRateLimiting("write")]
-public sealed class StoredEndpointController(ICurrentUser currentUser, IServiceProvider services) : ControllerBase {
-    private EggIncognitoDbContext? Db => services.GetService(typeof(EggIncognitoDbContext)) as EggIncognitoDbContext;
-
-    private IDbRouteProvider? DbRoutes => services.GetService(typeof(IDbRouteProvider)) as IDbRouteProvider;
-
-    private ObjectResult? RequireContributor() =>
-        currentUser.IsAtLeast(UserRole.Contributor)
-            ? null
-            : StatusCode(403, new { error = "contributor role required to write to the shared store" });
-
+public sealed class StoredEndpointController(ICurrentUser currentUser) : ApiControllerBase {
     [HttpPost("endpoint")]
     [ApiAccess(ApiAccessLevel.Contributor)]
+    [RequiresDb]
     public async Task<IActionResult> UpsertEndpointAsync([FromBody] UpsertEndpoint body,
-        [FromServices] IRouteCatalog routes) {
-        if (RequireContributor() is { } no) return no;
-        var db = Db;
-        if (db is null) return StatusCode(503, new { error = "no database configured" });
-        if (routes.Resolve(body.Path) is null) return BadRequest(new { error = $"unknown route {body.Path}" });
+        [FromServices] IRouteCatalog routes, [FromServices] EggIncognitoDbContext db) {
+        if (routes.Resolve(body.Path) is null) return Fail(400, $"unknown route {body.Path}");
 
         var existing = await db.StoredEndpoints
             .FirstOrDefaultAsync(e => e.Path == body.Path && e.Eid == body.Eid);
@@ -57,13 +45,12 @@ public sealed class StoredEndpointController(ICurrentUser currentUser, IServiceP
 
     [HttpPost("route")]
     [ApiAccess(ApiAccessLevel.Contributor)]
-    public async Task<IActionResult> AddRouteAsync([FromBody] AddRoute body, [FromServices] RouteCatalog yamlRoutes) {
-        if (RequireContributor() is { } no) return no;
-        var db = Db;
-        if (db is null) return StatusCode(503, new { error = "no database configured" });
+    [RequiresDb]
+    public async Task<IActionResult> AddRouteAsync([FromBody] AddRoute body, [FromServices] RouteCatalog yamlRoutes,
+        [FromServices] EggIncognitoDbContext db, [FromServices] IDbRouteProvider? dbRoutes) {
         if (yamlRoutes.Resolve(body.Path) is not null ||
             await db.StoredRoutes.AsNoTracking().AnyAsync(r => r.Path == body.Path))
-            return Conflict(new { error = $"route {body.Path} already exists" });
+            return Fail(409, $"route {body.Path} already exists");
 
         db.StoredRoutes.Add(new StoredRoute {
             Path = body.Path,
@@ -80,15 +67,14 @@ public sealed class StoredEndpointController(ICurrentUser currentUser, IServiceP
         try {
             await db.SaveChangesAsync();
         } catch (DbUpdateException) {
-            return Conflict(new { error = $"route {body.Path} already exists" });
+            return Fail(409, $"route {body.Path} already exists");
         }
-        DbRoutes?.Invalidate();
+        dbRoutes?.Invalidate();
         return Ok(new { added = body.Path });
     }
 
     [HttpGet("endpoints")]
-    public async Task<IActionResult> ListEndpointsAsync() {
-        var db = Db;
+    public async Task<IActionResult> ListEndpointsAsync([FromServices] EggIncognitoDbContext? db) {
         if (db is null) return Ok(Array.Empty<object>());
         var rows = await db.StoredEndpoints.AsNoTracking()
             .Select(e => new { e.Id, e.Path, e.ResponseType, e.UpdatedAt }).ToListAsync();
@@ -96,8 +82,7 @@ public sealed class StoredEndpointController(ICurrentUser currentUser, IServiceP
     }
 
     [HttpGet("routes")]
-    public async Task<IActionResult> ListRoutesAsync() {
-        var db = Db;
+    public async Task<IActionResult> ListRoutesAsync([FromServices] EggIncognitoDbContext? db) {
         if (db is null) return Ok(Array.Empty<object>());
         var rows = await db.StoredRoutes.AsNoTracking().Where(r => r.Source == "db")
             .Select(r => new { r.Id, r.Path, r.RequestType, r.ResponseType }).ToListAsync();

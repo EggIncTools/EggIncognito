@@ -11,7 +11,7 @@ namespace EggIncognito.Controllers;
 [Route("api/protos")]
 [ApiAccess(ApiAccessLevel.Public)]
 [EnableRateLimiting("fetch")]
-public sealed class ProtosController(IServiceProvider services) : ControllerBase {
+public sealed class ProtosController : ApiControllerBase {
     private const string FormatText = "text";
     private const string FormatUnified = "unified";
     private const string FormatSplit = "split";
@@ -19,14 +19,12 @@ public sealed class ProtosController(IServiceProvider services) : ControllerBase
     private static readonly string[] DiffFormats = [FormatText, FormatUnified, FormatJson, FormatSplit];
     private static readonly string[] TruthyValues = ["1", "true", "yes", "on"];
 
-    private ProtoRegistryStore? Store =>
-        services.GetService(typeof(ProtoRegistryStore)) as ProtoRegistryStore;
-
     [HttpGet("versions")]
-    public async Task<IActionResult> Versions([FromQuery] string? platform, CancellationToken ct) {
-        if (Store is not { } store) return Ok(Array.Empty<object>());
-        var rows = await store.ListAsync(platform, ct);
-        var orders = await store.ShaOrdersAsync(ct);
+    public async Task<IActionResult> Versions([FromServices] ProtoRegistryStore? store, [FromQuery] string? platform,
+        CancellationToken ct) {
+        if (store is not { } s) return Ok(Array.Empty<object>());
+        var rows = await s.ListAsync(platform, ct);
+        var orders = await s.ShaOrdersAsync(ct);
 
         return Ok(rows.Select(r => new {
             r.Id,
@@ -45,11 +43,12 @@ public sealed class ProtosController(IServiceProvider services) : ControllerBase
     }
 
     [HttpGet("versions/{platform}/{build}")]
-    public async Task<IActionResult> Get(string platform, string build, CancellationToken ct) {
-        if (Store is null) return NotFound();
-        var row = await Store.GetAsync(platform, build, ct);
+    public async Task<IActionResult> Get(string platform, string build, [FromServices] ProtoRegistryStore? store,
+        CancellationToken ct) {
+        if (store is not { } s) return NotFound();
+        var row = await s.GetAsync(platform, build, ct);
         if (row is null) return NotFound();
-        var pp = await Store.GetProtoAsync(row.Id, ct);
+        var pp = await s.GetProtoAsync(row.Id, ct);
         return Ok(new {
             row.Platform,
             row.AppVersion,
@@ -66,9 +65,10 @@ public sealed class ProtosController(IServiceProvider services) : ControllerBase
 
     [HttpGet("versions/{platform}/{build}/proto")]
     public async Task<IActionResult> Proto(
-        string platform, string build, [FromQuery] string? form, CancellationToken ct) {
-        if (Store is null) return NotFound();
-        var (raw, canonical) = await Store.GetCanonicalForVersionAsync(platform, build, ct);
+        string platform, string build, [FromQuery] string? form,
+        [FromServices] ProtoRegistryStore? store, CancellationToken ct) {
+        if (store is not { } s) return NotFound();
+        var (raw, canonical) = await s.GetCanonicalForVersionAsync(platform, build, ct);
         if (raw is null) return NotFound();
 
         bool wantRaw = string.Equals(form, ProtoDisplayForm.Raw, StringComparison.OrdinalIgnoreCase);
@@ -81,13 +81,14 @@ public sealed class ProtosController(IServiceProvider services) : ControllerBase
     }
 
     [HttpGet("sources")]
-    public async Task<IActionResult> Sources(CancellationToken ct) =>
-        Store is null ? Ok(new Dictionary<string, int>()) : Ok(await Store.SourceCountsAsync(ct));
+    public async Task<IActionResult> Sources([FromServices] ProtoRegistryStore? store, CancellationToken ct) =>
+        store is not { } s ? Ok(new Dictionary<string, int>()) : Ok(await s.SourceCountsAsync(ct));
 
     [HttpGet("latest")]
-    public async Task<IActionResult> Latest([FromQuery] string platform = "android", CancellationToken ct = default) {
-        if (Store is null) return NotFound();
-        var rows = await Store.ListAsync(platform, ct);
+    public async Task<IActionResult> Latest([FromQuery] string platform = "android",
+        [FromServices] ProtoRegistryStore? store = null, CancellationToken ct = default) {
+        if (store is not { } s) return NotFound();
+        var rows = await s.ListAsync(platform, ct);
 
         var r = rows
             .OrderByDescending(p => ProtoVersionQuality.LatestSortKey(p.Platform, p.Build, p.AppVersion))
@@ -102,17 +103,17 @@ public sealed class ProtosController(IServiceProvider services) : ControllerBase
     public async Task<IActionResult> Diff(
         [FromQuery] string from, [FromQuery] string to, [FromQuery] string platform = "android",
         [FromQuery] string? format = null, [FromQuery] int context = 3, [FromQuery] string? download = null,
-        CancellationToken ct = default) {
+        [FromServices] ProtoRegistryStore? store = null, CancellationToken ct = default) {
         string fmt = string.IsNullOrWhiteSpace(format) ? FormatText : format.Trim();
         if (!DiffFormats.Contains(fmt, StringComparer.OrdinalIgnoreCase))
-            return BadRequest(new { error = "format must be one of text, unified, json, split" });
+            return Fail(400, "format must be one of text, unified, json, split");
 
-        if (Store is null) return NotFound();
+        if (store is not { } s) return NotFound();
         if (string.IsNullOrWhiteSpace(from) || string.IsNullOrWhiteSpace(to))
-            return BadRequest(new { error = "from and to required" });
+            return Fail(400, "from and to required");
 
-        var (fromRaw, fromCanonical) = await LoadProtoText(platform, from, ct);
-        var (toRaw, toCanonical) = await LoadProtoText(platform, to, ct);
+        var (fromRaw, fromCanonical) = await LoadProtoText(s, platform, from, ct);
+        var (toRaw, toCanonical) = await LoadProtoText(s, platform, to, ct);
         if (fromRaw is null || toRaw is null) return NotFound();
 
         var (fromText, toText, usedForm) = ProtoDisplayForm.Pair(fromCanonical, fromRaw, toCanonical, toRaw);
@@ -163,9 +164,9 @@ public sealed class ProtosController(IServiceProvider services) : ControllerBase
         return sb.Length == 0 ? "proto" : sb.ToString();
     }
 
-    private async Task<(string? Raw, string? Canonical)> LoadProtoText(
-        string platform, string build, CancellationToken ct) {
-        var (raw, canonical) = await Store!.GetCanonicalForVersionAsync(platform, build, ct);
+    private static async Task<(string? Raw, string? Canonical)> LoadProtoText(
+        ProtoRegistryStore store, string platform, string build, CancellationToken ct) {
+        var (raw, canonical) = await store.GetCanonicalForVersionAsync(platform, build, ct);
         return (raw?.ProtoText, canonical.Ok ? canonical.Text : null);
     }
 }

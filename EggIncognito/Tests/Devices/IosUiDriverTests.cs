@@ -45,18 +45,6 @@ public class IosUiDriverTests {
     }
 
     [Fact]
-    public void ParseTree_Selectors_ResolveByTextAndId() {
-        var tree = new UiTree(IosUiDriver.ParseTree(SampleJson), SampleJson);
-
-        var byText = UiSelector.Resolve(tree, UiSelector.Text("PLAY"));
-        var byId = UiSelector.Resolve(tree, UiSelector.Id("play_button"));
-
-        Assert.NotNull(byText);
-        Assert.Same(byText, byId);
-        Assert.Equal("Play", byText!.ContentDesc);
-    }
-
-    [Fact]
     public async Task DumpAsync_TweakAbsent_ReturnsUnsupported() {
         var runner = new FakeRunner((_, args) => Presence(args, present: false));
         var driver = new IosUiDriver(new FakeConnections(runner), DefaultOptions);

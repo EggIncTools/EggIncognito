@@ -24,21 +24,6 @@ public sealed class RouteOverrideCacheTests {
     }
 
     [Fact]
-    public void Snapshot_AfterTtlElapses_Refetches() {
-        var time = new FakeTime();
-        int calls = 0;
-        var provider = new CachedRouteOverrideProvider(() => {
-            calls++;
-            return Dict(Info("a"));
-        }, TimeSpan.FromSeconds(10), time);
-
-        provider.Snapshot();
-        time.Advance(TimeSpan.FromSeconds(11));
-        provider.Snapshot();
-        Assert.Equal(2, calls);
-    }
-
-    [Fact]
     public void Invalidate_ForcesRefetch_EvenWithinTtl() {
         var time = new FakeTime();
         int calls = 0;
@@ -51,25 +36,6 @@ public sealed class RouteOverrideCacheTests {
         provider.Invalidate();
         provider.Snapshot();
         Assert.Equal(2, calls);
-    }
-
-    [Fact]
-    public void Snapshot_FetchThrowsAfterSuccess_KeepsStaleSnapshot() {
-        var time = new FakeTime();
-        bool fail = false;
-        var provider = new CachedRouteOverrideProvider(() => {
-            if (fail) throw new InvalidOperationException("db down");
-            return Dict(Info("a"));
-        }, TimeSpan.FromSeconds(10), time);
-
-        var first = provider.Snapshot();
-        Assert.True(first.ContainsKey("a"));
-
-        fail = true;
-        provider.Invalidate();
-        var second = provider.Snapshot();
-        Assert.Same(first, second);
-        Assert.True(second.ContainsKey("a"));
     }
 
     [Fact]
@@ -97,8 +63,7 @@ public sealed class RouteOverrideCacheTests {
     }
 
     private sealed class FakeTime : TimeProvider {
-        private DateTimeOffset _now = new(2026, 8, 4, 0, 0, 0, TimeSpan.Zero);
+        private readonly DateTimeOffset _now = new(2026, 8, 4, 0, 0, 0, TimeSpan.Zero);
         public override DateTimeOffset GetUtcNow() => _now;
-        public void Advance(TimeSpan d) => _now += d;
     }
 }

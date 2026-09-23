@@ -1,4 +1,3 @@
-using EggIdentity.Contract;
 using EggIncognito.Data.Models;
 using EggIncognito.Data.Services;
 using EggIncognito.Models.Docs;
@@ -15,18 +14,11 @@ namespace EggIncognito.Controllers;
 [Route("api/docs")]
 [ApiAccess(ApiAccessLevel.Public)]
 [EnableRateLimiting("write")]
-public sealed class DocsController(ICurrentUser currentUser, IServiceProvider services) : ControllerBase {
+public sealed class DocsController(ICurrentUser currentUser) : ApiControllerBase {
     private const int MaxImageBytes = 4 * 1024 * 1024;
 
     private static readonly HashSet<string> AllowedImageTypes =
         [with(StringComparer.OrdinalIgnoreCase), "image/png", "image/jpeg", "image/gif", "image/webp"];
-
-    private EggIncognitoDbContext? Db => services.GetService(typeof(EggIncognitoDbContext)) as EggIncognitoDbContext;
-
-    private ObjectResult? RequireContributor() =>
-        currentUser.IsAtLeast(UserRole.Contributor)
-            ? null
-            : StatusCode(403, new { error = "contributor role required to edit documentation" });
 
     private static bool ValidKind(string kind) => DocSubjectKinds.IsKnown(kind);
 
@@ -36,9 +28,8 @@ public sealed class DocsController(ICurrentUser currentUser, IServiceProvider se
         Response.Headers.CacheControl = $"private, max-age={seconds}";
 
     [HttpGet("doc/{kind}/{**key}")]
-    public async Task<IActionResult> GetDoc(string kind, string key) {
-        if (!ValidKind(kind)) return BadRequest(new { error = "invalid subject kind" });
-        var db = Db;
+    public async Task<IActionResult> GetDoc(string kind, string key, [FromServices] EggIncognitoDbContext? db) {
+        if (!ValidKind(kind)) return Fail(400, "invalid subject kind");
         if (db is null) return Ok(new DocResult(null));
         var doc = await db.Docs.AsNoTracking()
             .FirstOrDefaultAsync(d => d.SubjectKind == kind && d.SubjectKey == key);
@@ -47,11 +38,9 @@ public sealed class DocsController(ICurrentUser currentUser, IServiceProvider se
 
     [HttpPost("doc")]
     [ApiAccess(ApiAccessLevel.Contributor)]
-    public async Task<IActionResult> UpsertDocAsync([FromBody] UpsertDoc body) {
-        if (RequireContributor() is { } no) return no;
-        if (!ValidKind(body.SubjectKind)) return BadRequest(new { error = "invalid subject kind" });
-        var db = Db;
-        if (db is null) return StatusCode(503, new { error = "no database configured" });
+    [RequiresDb]
+    public async Task<IActionResult> UpsertDocAsync([FromBody] UpsertDoc body, [FromServices] EggIncognitoDbContext db) {
+        if (!ValidKind(body.SubjectKind)) return Fail(400, "invalid subject kind");
 
         var existing = await db.Docs
             .FirstOrDefaultAsync(d => d.SubjectKind == body.SubjectKind && d.SubjectKey == body.SubjectKey);
@@ -77,8 +66,7 @@ public sealed class DocsController(ICurrentUser currentUser, IServiceProvider se
     }
 
     [HttpGet("tags")]
-    public async Task<IActionResult> GetTags() {
-        var db = Db;
+    public async Task<IActionResult> GetTags([FromServices] EggIncognitoDbContext? db) {
         if (db is null) return Ok(new List<TagRow>());
         var rows = await db.Tags.AsNoTracking().OrderBy(t => t.Label)
             .Select(t => new TagRow(t.Id, t.Slug, t.Label, t.Color)).ToListAsync();
@@ -87,9 +75,8 @@ public sealed class DocsController(ICurrentUser currentUser, IServiceProvider se
     }
 
     [HttpGet("subject-tags/{kind}/{**key}")]
-    public async Task<IActionResult> GetSubjectTags(string kind, string key) {
-        if (!TaggableKind(kind)) return BadRequest(new { error = "tags apply to endpoints only" });
-        var db = Db;
+    public async Task<IActionResult> GetSubjectTags(string kind, string key, [FromServices] EggIncognitoDbContext? db) {
+        if (!TaggableKind(kind)) return Fail(400, "tags apply to endpoints only");
         if (db is null) return Ok(new List<TagRow>());
         var rows = await (
             from st in db.SubjectTags.AsNoTracking()
@@ -103,11 +90,10 @@ public sealed class DocsController(ICurrentUser currentUser, IServiceProvider se
 
     [HttpPost("subject-tags")]
     [ApiAccess(ApiAccessLevel.Contributor)]
-    public async Task<IActionResult> SetSubjectTagsAsync([FromBody] SetSubjectTags body) {
-        if (RequireContributor() is { } no) return no;
-        if (!TaggableKind(body.SubjectKind)) return BadRequest(new { error = "tags apply to endpoints only" });
-        var db = Db;
-        if (db is null) return StatusCode(503, new { error = "no database configured" });
+    [RequiresDb]
+    public async Task<IActionResult> SetSubjectTagsAsync([FromBody] SetSubjectTags body,
+        [FromServices] EggIncognitoDbContext db) {
+        if (!TaggableKind(body.SubjectKind)) return Fail(400, "tags apply to endpoints only");
 
         var wanted = (body.TagIds ?? []).Distinct().ToHashSet();
 
@@ -130,8 +116,7 @@ public sealed class DocsController(ICurrentUser currentUser, IServiceProvider se
     }
 
     [HttpGet("tags-map")]
-    public async Task<IActionResult> GetTagsMap() {
-        var db = Db;
+    public async Task<IActionResult> GetTagsMap([FromServices] EggIncognitoDbContext? db) {
         if (db is null) return Ok(new Dictionary<string, List<TagRow>>());
         var rows = await (
             from st in db.SubjectTags.AsNoTracking()
@@ -166,22 +151,19 @@ public sealed class DocsController(ICurrentUser currentUser, IServiceProvider se
     [HttpPost("image")]
     [ApiAccess(ApiAccessLevel.Contributor)]
     [RequestSizeLimit(MaxImageBytes + 64 * 1024)]
-    public async Task<IActionResult> UploadImageAsync(IFormFile? file) {
-        if (RequireContributor() is { } no) return no;
-        if (file is null || file.Length == 0) return BadRequest(new { error = "no file" });
+    [RequiresDb]
+    public async Task<IActionResult> UploadImageAsync(IFormFile? file, [FromServices] EggIncognitoDbContext db) {
+        if (file is not { Length: > 0 }) return Fail(400, "no file");
         if (file.Length > MaxImageBytes)
-            return BadRequest(new { error = $"image exceeds {MaxImageBytes / (1024 * 1024)} MB" });
+            return Fail(400, $"image exceeds {MaxImageBytes / (1024 * 1024)} MB");
         string ct = file.ContentType ?? "";
-        if (!AllowedImageTypes.Contains(ct)) return BadRequest(new { error = $"unsupported content type '{ct}'" });
-
-        var db = Db;
-        if (db is null) return StatusCode(503, new { error = "no database configured" });
+        if (!AllowedImageTypes.Contains(ct)) return Fail(400, $"unsupported content type '{ct}'");
 
         using var ms = new MemoryStream();
         await file.CopyToAsync(ms);
         byte[] bytes = ms.ToArray();
         if (!MagicMatches(bytes, ct))
-            return BadRequest(new { error = $"file bytes do not match the declared type '{ct}'" });
+            return Fail(400, $"file bytes do not match the declared type '{ct}'");
 
         var img = new DocImage {
             ContentType = ct,
@@ -195,8 +177,7 @@ public sealed class DocsController(ICurrentUser currentUser, IServiceProvider se
     }
 
     [HttpGet("image/{id:long}")]
-    public async Task<IActionResult> GetImage(long id) {
-        var db = Db;
+    public async Task<IActionResult> GetImage(long id, [FromServices] EggIncognitoDbContext? db) {
         if (db is null) return NotFound();
         var img = await db.DocImages.AsNoTracking().FirstOrDefaultAsync(i => i.Id == id);
         if (img is null) return NotFound();
@@ -207,8 +188,7 @@ public sealed class DocsController(ICurrentUser currentUser, IServiceProvider se
     }
 
     [HttpGet("has")]
-    public async Task<IActionResult> GetHasDocs() {
-        var db = Db;
+    public async Task<IActionResult> GetHasDocs([FromServices] EggIncognitoDbContext? db) {
         if (db is null) return Ok(new Dictionary<string, bool>());
         var keys = await db.Docs.AsNoTracking()
             .Select(d => new { d.SubjectKind, d.SubjectKey }).ToListAsync();

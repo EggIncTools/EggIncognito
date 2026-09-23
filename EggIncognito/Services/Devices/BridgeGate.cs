@@ -2,10 +2,24 @@ using System.Net;
 using System.Security.Cryptography;
 using System.Text;
 using EggIdentity.Contract;
+using EggIncognito.Controllers;
 using EggIncognito.Core.Services.Devices;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Filters;
 
 namespace EggIncognito.Services.Devices;
+
+[AttributeUsage(AttributeTargets.Class | AttributeTargets.Method)]
+public sealed class BridgeGateAttribute : Attribute, IAsyncActionFilter {
+    public Task OnActionExecutionAsync(ActionExecutingContext context, ActionExecutionDelegate next) {
+        var sp = context.HttpContext.RequestServices;
+        var result = BridgeGate.Check(context.HttpContext, sp.GetService<DeviceTransportConfig>(),
+            sp.GetRequiredService<ICurrentUser>(), sp.GetService<ILogger<DeviceBridgeController>>());
+        if (result is null) return next();
+        context.Result = result;
+        return Task.CompletedTask;
+    }
+}
 
 public static class BridgeGate {
     public static IActionResult? Check(HttpContext http, DeviceTransportConfig? cfg, ICurrentUser user,
@@ -13,7 +27,7 @@ public static class BridgeGate {
         if (cfg is null || !cfg.BridgeEnabled) return new NotFoundResult();
         if (cfg.Mode == DeviceTransportMode.Remote) return new NotFoundResult();
 
-        var denied = new ObjectResult(new { error = "forbidden" }) { StatusCode = 403 };
+        var denied = new ObjectResult(new ApiError("forbidden", null, 403)) { StatusCode = 403 };
         if (!CallerInAllowedRange(http, cfg)) {
             Log(http, logger,
                 $"caller {http.Connection.RemoteIpAddress} is outside DeviceTransport:AllowedCidrs "

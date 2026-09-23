@@ -12,7 +12,6 @@ namespace EggIncognito.Tests;
 
 public class ApiAccessGuardTests {
     private const byte TwoBytePrefix = 0xFE;
-    private const int MinimumGatedActions = 40;
 
     private static readonly Dictionary<short, OpCode> OpCodeMap = BuildOpCodeMap();
 
@@ -23,10 +22,7 @@ public class ApiAccessGuardTests {
         OpCodes.Brtrue.Value
     ];
 
-    private static readonly HashSet<string> FloorMismatchBaseline = ["CaptureController"];
-
-    private static readonly int IsAtLeastToken =
-        typeof(ICurrentUser).GetMethod(nameof(ICurrentUser.IsAtLeast))!.MetadataToken;
+    private static readonly MethodInfo IsAtLeast = typeof(ICurrentUser).GetMethod(nameof(ICurrentUser.IsAtLeast))!;
 
     [Fact]
     public void EveryController_DeclaresApiAccessPolicy() {
@@ -62,41 +58,38 @@ public class ApiAccessGuardTests {
     }
 
     [Fact]
-    public void DeclaredFloor_MatchesInMethodRoleGate() {
+    public void InMethodRoleGate_SitsAboveDeclaredFloor() {
         var offenders = new List<string>();
         foreach (var t in Controllers()) {
-            if (FloorMismatchBaseline.Contains(t.Name)) continue;
             foreach (var a in Actions(t)) {
                 if (GateOf(t, a) is not { } gate) continue;
                 var floor = DeclaredFloor(a);
-                if (floor != gate)
-                    offenders.Add($"{t.Name}.{a.Name} declares {Name(floor)} but gates on {gate}");
+                if (floor >= gate)
+                    offenders.Add($"{t.Name}.{a.Name} declares {Name(floor)} and re-gates on {gate}");
             }
         }
 
         Assert.True(offenders.Count == 0,
-            "declared [ApiAccess] floor must equal the in-method role gate: " + string.Join("; ", offenders));
+            "in-method role gate repeats the [ApiAccess] floor ApiAccessFilter already enforces; delete it: " +
+            string.Join("; ", offenders));
     }
 
     [Fact]
-    public void RoleGateScanner_StillSeesKnownGates() {
-        var devices = typeof(DevicesController);
-        var designs = typeof(EnvDesignController);
-
-        Assert.Equal(ApiAccessLevel.Admin, GateOf(devices, devices.GetMethod(nameof(DevicesController.JobHistory))!));
+    public void RoleGateScanner_SeesEveryGateShape() {
+        var fixture = typeof(ScannerFixture);
+        Assert.Equal(ApiAccessLevel.Admin, GateOf(fixture, fixture.GetMethod(nameof(ScannerFixture.Direct))!));
+        Assert.Equal(ApiAccessLevel.Admin, GateOf(fixture, fixture.GetMethod(nameof(ScannerFixture.Awaited))!));
+        Assert.Equal(ApiAccessLevel.Admin, GateOf(fixture, fixture.GetMethod(nameof(ScannerFixture.ViaHelper))!));
         Assert.Equal(ApiAccessLevel.Contributor,
-            GateOf(designs, designs.GetMethod(nameof(EnvDesignController.Save))!));
-        Assert.Equal(ApiAccessLevel.Contributor,
-            GateOf(designs, designs.GetMethod(nameof(EnvDesignController.List))!));
-        Assert.Null(GateOf(devices, devices.GetMethod(nameof(DevicesController.Status))!));
+            GateOf(fixture, fixture.GetMethod(nameof(ScannerFixture.ViaRoleArg))!));
+        Assert.Null(GateOf(fixture, fixture.GetMethod(nameof(ScannerFixture.Ungated))!));
     }
 
     [Fact]
-    public void RoleGateScanner_SeesGatesAcrossTheApiSurface() {
-        int gated = Controllers().Sum(t => Actions(t).Count(a => GateOf(t, a) is not null));
-        Assert.True(gated >= MinimumGatedActions,
-            $"role-gate scanner found only {gated} gated actions; below {MinimumGatedActions} it is blind and " +
-            "DeclaredFloor_MatchesInMethodRoleGate passes vacuously");
+    public void RoleGateScanner_SeesKnownAboveFloorGate() {
+        var capture = typeof(CaptureController);
+        Assert.Equal(ApiAccessLevel.Contributor,
+            GateOf(capture, capture.GetMethod(nameof(CaptureController.SaveEndpoint))!));
     }
 
     private static IEnumerable<Type> Controllers() =>
@@ -130,7 +123,7 @@ public class ApiAccessGuardTests {
             if (code[i].Op != OpCodes.Call && code[i].Op != OpCodes.Callvirt) continue;
             int token = code[i].Operand;
 
-            if (token == IsAtLeastToken && GuardsBranch(code, i) && RoleAt(code, i) is { } direct) {
+            if (CallsIsAtLeast(controller.Module, token) && GuardsBranch(code, i) && RoleAt(code, i) is { } direct) {
                 found.Add(direct);
                 continue;
             }
@@ -168,8 +161,19 @@ public class ApiAccessGuardTests {
                               BindingFlags.DeclaredOnly)
             .Where(m => typeof(IActionResult).IsAssignableFrom(m.ReturnType));
 
-    private static bool GuardsBranch(List<Instruction> code, int callAt) =>
-        callAt + 1 < code.Count && Array.IndexOf(ConditionalBranches, code[callAt + 1].Op.Value) >= 0;
+    private static bool CallsIsAtLeast(Module module, int token) {
+        try {
+            return module.ResolveMethod(token) == IsAtLeast;
+        } catch (ArgumentException) {
+            return false;
+        }
+    }
+
+    private static bool GuardsBranch(List<Instruction> code, int callAt) {
+        if (callAt + 1 >= code.Count) return false;
+        if (Array.IndexOf(ConditionalBranches, code[callAt + 1].Op.Value) >= 0) return true;
+        return code[callAt + 1].Op == OpCodes.Ldc_I4_0 && callAt + 2 < code.Count && code[callAt + 2].Op == OpCodes.Ceq;
+    }
 
     private static UserRole? RoleAt(List<Instruction> code, int callAt) {
         if (callAt == 0 || ConstOf(code[callAt - 1]) is not { } v) return null;
@@ -253,4 +257,32 @@ public class ApiAccessGuardTests {
     private static string Name(ApiAccessLevel? level) => level?.ToString() ?? "nothing";
 
     private readonly record struct Instruction(OpCode Op, int Operand);
+
+    private sealed class ScannerFixture(ICurrentUser user) : ControllerBase {
+        [HttpGet]
+        public IActionResult Direct() {
+            if (!user.IsAtLeast(UserRole.Admin)) return Forbid();
+            return Ok();
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> Awaited() {
+            await Task.Yield();
+            if (!user.IsAtLeast(UserRole.Admin)) return Forbid();
+            return Ok();
+        }
+
+        [HttpGet]
+        public IActionResult ViaHelper() => RequireAdmin() ?? Ok();
+
+        [HttpGet]
+        public IActionResult ViaRoleArg() => Require(UserRole.Contributor) ?? Ok();
+
+        [HttpGet]
+        public IActionResult Ungated() => Ok();
+
+        private IActionResult? RequireAdmin() => user.IsAtLeast(UserRole.Admin) ? null : Forbid();
+
+        private IActionResult? Require(UserRole role) => user.IsAtLeast(role) ? null : Forbid();
+    }
 }

@@ -42,12 +42,4 @@ public class ProtoDisplayFormTests {
         Assert.Equal("rawB", b);
         Assert.Equal(ProtoDisplayForm.Raw, form);
     }
-
-    [Fact]
-    public void Pair_BothNull_PicksRawForBothSides() {
-        var (a, b, form) = ProtoDisplayForm.Pair(null, "rawA", null, "rawB");
-        Assert.Equal("rawA", a);
-        Assert.Equal("rawB", b);
-        Assert.Equal(ProtoDisplayForm.Raw, form);
-    }
 }

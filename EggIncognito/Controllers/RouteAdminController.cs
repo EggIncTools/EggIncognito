@@ -20,13 +20,7 @@ public sealed class RouteAdminController(
     IRouteCatalog routes,
     IRouteCatalogReport report,
     IProtoReflection proto,
-    ICurrentUser currentUser,
-    IServiceProvider services) : ControllerBase {
-    private EggIncognitoDbContext? Db => services.GetService(typeof(EggIncognitoDbContext)) as EggIncognitoDbContext;
-
-    private IRouteOverrideProvider? Overrides =>
-        services.GetService(typeof(IRouteOverrideProvider)) as IRouteOverrideProvider;
-
+    ICurrentUser currentUser) : ApiControllerBase {
     [HttpGet]
     [EnableRateLimiting("read")]
     public IActionResult List() => Ok(report.Rows());
@@ -35,36 +29,32 @@ public sealed class RouteAdminController(
     [EnableRateLimiting("read")]
     public IActionResult ListBinary() {
         var binary = report.Binary();
-        if (binary is null) return StatusCode(503, new { error = "no database configured" });
+        if (binary is null) return Fail(503, "no database configured");
         return Ok(binary);
     }
 
     [HttpPost("binary/refresh")]
     [ApiAccess(ApiAccessLevel.Admin)]
-    public async Task<IActionResult> RefreshBinaryAsync(CancellationToken ct) {
-        if (Db is null) return StatusCode(503, new { error = "no database configured" });
-        if (services.GetService(typeof(EndpointCatalogRebuilder)) is not EndpointCatalogRebuilder rebuilder)
-            return StatusCode(503, new { error = "no database configured" });
-
-        return Ok(await rebuilder.RebuildAsync(ct));
-    }
+    [RequiresDb]
+    public async Task<IActionResult> RefreshBinaryAsync([FromServices] EndpointCatalogRebuilder rebuilder,
+        CancellationToken ct) =>
+        Ok(await rebuilder.RebuildAsync(ct));
 
     [HttpPut("{**path}")]
-    public async Task<IActionResult> UpsertAsync(string path, [FromBody] UpsertRouteOverride body) {
-        if (routes.Resolve(path) is null) return NotFound(new { error = $"unknown route {path}" });
+    [RequiresDb]
+    [Requires<IRouteOverrideProvider>("no database configured")]
+    public async Task<IActionResult> UpsertAsync(string path, [FromBody] UpsertRouteOverride body,
+        [FromServices] EggIncognitoDbContext db, [FromServices] IRouteOverrideProvider provider) {
+        if (routes.Resolve(path) is null) return Fail(404, $"unknown route {path}");
         if (body.Request is null && body.Response is null && body.RequestWrapped is null
             && body.ResponseWrapped is null && body.PathParam is null) {
-            return BadRequest(new { error = "all fields null, use DELETE to remove an override" });
+            return Fail(400, "all fields null, use DELETE to remove an override");
         }
 
         if (body.Request is not null && proto.FindMessage(body.Request) is null)
-            return BadRequest(new { error = $"unknown proto type {body.Request}" });
+            return Fail(400, $"unknown proto type {body.Request}");
         if (body.Response is not null && proto.FindMessage(body.Response) is null)
-            return BadRequest(new { error = $"unknown proto type {body.Response}" });
-
-        var db = Db;
-        var provider = Overrides;
-        if (db is null || provider is null) return StatusCode(503, new { error = "no database configured" });
+            return Fail(400, $"unknown proto type {body.Response}");
 
         var now = DateTimeOffset.UtcNow;
         var existing = await db.RouteOverrides.FirstOrDefaultAsync(o => o.Path == path);
@@ -92,18 +82,17 @@ public sealed class RouteAdminController(
         await db.SaveChangesAsync();
         provider.Invalidate();
 
-        var effective = routes.Resolve(path)!;
+        if (routes.Resolve(path) is not { } effective) return Fail(500, "override saved but route resolution failed");
         return Ok(new RouteUpsertResult(effective.Path, EffectiveInfo.From(effective)));
     }
 
     [HttpDelete("{**path}")]
-    public async Task<IActionResult> DeleteAsync(string path) {
-        var db = Db;
-        var provider = Overrides;
-        if (db is null || provider is null) return StatusCode(503, new { error = "no database configured" });
-
+    [RequiresDb]
+    [Requires<IRouteOverrideProvider>("no database configured")]
+    public async Task<IActionResult> DeleteAsync(string path, [FromServices] EggIncognitoDbContext db,
+        [FromServices] IRouteOverrideProvider provider) {
         var existing = await db.RouteOverrides.FirstOrDefaultAsync(o => o.Path == path);
-        if (existing is null) return NotFound(new { error = $"no override for {path}" });
+        if (existing is null) return Fail(404, $"no override for {path}");
         db.RouteOverrides.Remove(existing);
         await db.SaveChangesAsync();
         provider.Invalidate();

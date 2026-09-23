@@ -6,7 +6,6 @@ using EggIncognito.Core.Services.Devices;
 using EggIncognito.Data.Models;
 using EggIncognito.Data.Services;
 using EggIncognito.Models.Devices;
-using EggIncognito.Services;
 using EggIncognito.Services.Auth;
 using EggIncognito.Services.Devices;
 using Microsoft.AspNetCore.Http.Features;
@@ -18,12 +17,12 @@ namespace EggIncognito.Controllers;
 [ApiController]
 [Route(BridgeRoutes.Root)]
 [ApiAccess(ApiAccessLevel.Public)]
+[BridgeGate]
 public sealed class DeviceBridgeController(
     DeviceTransportConfig config,
-    ICurrentUser currentUser,
     ILogger<DeviceBridgeController> logger,
     IProcessRunner runner,
-    IServiceProvider services) : ControllerBase {
+    IServiceProvider services) : ApiControllerBase {
     private const int StreamChunk = 64 * 1024;
     private const string NoProvisioner = "no provisioner here";
     private static readonly TimeSpan ReachTimeout = TimeSpan.FromSeconds(3);
@@ -40,9 +39,7 @@ public sealed class DeviceBridgeController(
     [DisableRequestSizeLimit]
     [RequestFormLimits(MultipartBodyLengthLimit = long.MaxValue, ValueLengthLimit = int.MaxValue)]
     public async Task<IActionResult> Exec(CancellationToken ct) {
-        if (BridgeGate.Check(HttpContext, config, currentUser, logger) is { } gate) return gate;
-
-        (IActionResult? error, var plan) = await PlanAsync(ct);
+        (var error, var plan) = await PlanAsync(ct);
         if (plan is null) return error!;
 
         Note("exec", plan.Spec.Exe);
@@ -71,8 +68,6 @@ public sealed class DeviceBridgeController(
     [DisableRequestSizeLimit]
     [RequestFormLimits(MultipartBodyLengthLimit = long.MaxValue, ValueLengthLimit = int.MaxValue)]
     public async Task<IActionResult> ExecStream(CancellationToken ct) {
-        if (BridgeGate.Check(HttpContext, config, currentUser, logger) is { } gate) return gate;
-
         (IActionResult? error, var plan) = await PlanAsync(ct);
         if (plan is null) return error!;
 
@@ -82,7 +77,7 @@ public sealed class DeviceBridgeController(
             handle = await runner.StartAsync(plan.Spec.Exe, plan.Args, HttpContext.RequestAborted);
         } catch (NotSupportedException ex) {
             plan.Dispose();
-            return StatusCode(501, new { error = ex.Message });
+            return Fail(501, ex.Message);
         }
 
         try {
@@ -125,10 +120,8 @@ public sealed class DeviceBridgeController(
     [HttpPatch(BridgeRoutes.Docker + "/{**path}")]
     [DisableRateLimiting]
     [DisableRequestSizeLimit]
-    public async Task<IActionResult> Docker([FromRoute] string path) {
-        if (BridgeGate.Check(HttpContext, config, currentUser, logger) is { } gate) return gate;
-        if (Service<DockerSocketProxy>() is not { Available: true } proxy)
-            return StatusCode(503, new { error = "docker socket not available" });
+    public async Task<IActionResult> Docker([FromRoute] string path, [FromServices] DockerSocketProxy? proxy) {
+        if (proxy is not { Available: true }) return Fail(503, "docker socket not available");
 
         Note("docker", $"{Request.Method} {path}");
         await proxy.ForwardAsync(HttpContext, path, HttpContext.RequestAborted);
@@ -137,24 +130,20 @@ public sealed class DeviceBridgeController(
 
     [HttpGet(BridgeRoutes.Host)]
     [DisableRateLimiting]
-    public async Task<IActionResult> Host(CancellationToken ct) {
-        if (BridgeGate.Check(HttpContext, config, currentUser, logger) is { } gate) return gate;
-        if (Service<IHostFacts>() is not { } facts)
-            return StatusCode(503, new { error = "host facts are not available here" });
+    public async Task<IActionResult> Host([FromServices] IHostFacts? facts, CancellationToken ct) {
+        if (facts is null) return Fail(503, "host facts are not available here");
 
         Note("host", "facts");
         var result = await facts.GetAsync(ct);
-        if (!result.Ok || result.Value is not { } value)
-            return StatusCode(503, new { error = result.Note ?? "host facts unavailable" });
+        if (!result.Ok || result.Value is not { } value) return Fail(503, result.Note ?? "host facts unavailable");
 
         return Ok(value);
     }
 
     [HttpPost(BridgeRoutes.AdbRestart)]
     [DisableRateLimiting]
-    public async Task<IActionResult> AdbRestart(CancellationToken ct) {
-        if (BridgeGate.Check(HttpContext, config, currentUser, logger) is { } gate) return gate;
-        if (Service<IAdbServer>() is not { } adb) return StatusCode(503, new { error = "no adb server here" });
+    public async Task<IActionResult> AdbRestart([FromServices] IAdbServer? adb, CancellationToken ct) {
+        if (adb is null) return Fail(503, "no adb server here");
 
         Note("host/adb-restart", adb.Socket);
         await adb.RestartAsync(ct);
@@ -164,9 +153,8 @@ public sealed class DeviceBridgeController(
     [HttpGet(BridgeRoutes.Reach)]
     [DisableRateLimiting]
     public async Task<IActionResult> Reach([FromQuery] string? host, [FromQuery] int port, CancellationToken ct) {
-        if (BridgeGate.Check(HttpContext, config, currentUser, logger) is { } gate) return gate;
-        if (string.IsNullOrWhiteSpace(host)) return BadRequest(new { error = "host required" });
-        if (port is < 1 or > 65535) return BadRequest(new { error = "port must be between 1 and 65535" });
+        if (string.IsNullOrWhiteSpace(host)) return Fail(400, "host required");
+        if (port is < 1 or > 65535) return Fail(400, "port must be between 1 and 65535");
 
         Note("host/reach", $"{host}:{port}");
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
@@ -183,21 +171,18 @@ public sealed class DeviceBridgeController(
 
     [HttpGet(BridgeRoutes.Fleet)]
     [DisableRateLimiting]
-    public async Task<IActionResult> Fleet(CancellationToken ct) {
-        if (BridgeGate.Check(HttpContext, config, currentUser, logger) is { } gate) return gate;
-        if (Service<IDeviceFleet>() is not { } fleet)
-            return StatusCode(503, new { error = "device fleet not configured" });
+    public async Task<IActionResult> Fleet(
+        [FromServices] IDeviceFleet? fleet, [FromServices] DeviceProxyPusher? pusher, CancellationToken ct) {
+        if (fleet is null) return Fail(503, "device fleet not configured");
 
         Note("fleet", "list");
         var enabled = await fleet.EnabledAsync(ct);
-        return Ok(new BridgeFleet([.. enabled.Select(FleetEntry)], Service<DeviceProxyPusher>()?.HostIp));
+        return Ok(new BridgeFleet([.. enabled.Select(FleetEntry)], pusher?.HostIp));
     }
 
     [HttpGet(BridgeRoutes.Instances)]
     [DisableRateLimiting]
-    public async Task<IActionResult> Instances(CancellationToken ct) {
-        if (BridgeGate.Check(HttpContext, config, currentUser, logger) is { } gate) return gate;
-
+    public async Task<IActionResult> Instances([FromServices] VirtualDeviceLifecycle? lifecycle, CancellationToken ct) {
         Note("instances", "list");
         using var scope = services.CreateScope();
         if (scope.ServiceProvider.GetService(typeof(ProvisionedInstanceStore)) is ProvisionedInstanceStore store) {
@@ -205,7 +190,7 @@ public sealed class DeviceBridgeController(
             return Ok(new BridgeInstanceList(true, DeviceOutcomes.Ok, null, [.. rows.Select(StoredInstance)]));
         }
 
-        if (Service<VirtualDeviceLifecycle>() is not { } lifecycle) return Ok(NoProvisionerList);
+        if (lifecycle is null) return Ok(NoProvisionerList);
 
         var listed = await lifecycle.Provisioner.ListAsync(ct);
         return Ok(new BridgeInstanceList(listed.Ok, DeviceOutcomes.Label(listed.Outcome), listed.Note,
@@ -214,9 +199,9 @@ public sealed class DeviceBridgeController(
 
     [HttpPost(BridgeRoutes.Instances)]
     [DisableRateLimiting]
-    public async Task<IActionResult> InstanceCreate([FromBody] BridgeInstanceCreate? body, CancellationToken ct) {
-        if (BridgeGate.Check(HttpContext, config, currentUser, logger) is { } gate) return gate;
-        if (Service<VirtualDeviceLifecycle>() is not { } lifecycle) return Ok(NoProvisionerResult);
+    public async Task<IActionResult> InstanceCreate([FromBody] BridgeInstanceCreate? body,
+        [FromServices] VirtualDeviceLifecycle? lifecycle, CancellationToken ct) {
+        if (lifecycle is null) return Ok(NoProvisionerResult);
 
         Note("instances/create", body?.Image ?? "configured image");
         var res = await lifecycle.CreateAsync(body?.Image, ct);
@@ -226,9 +211,9 @@ public sealed class DeviceBridgeController(
 
     [HttpPost(BridgeRoutes.Instances + "/{instanceId}/destroy")]
     [DisableRateLimiting]
-    public async Task<IActionResult> InstanceDestroy(string instanceId, CancellationToken ct) {
-        if (BridgeGate.Check(HttpContext, config, currentUser, logger) is { } gate) return gate;
-        if (Service<VirtualDeviceLifecycle>() is not { } lifecycle) return Ok(NoProvisionerResult);
+    public async Task<IActionResult> InstanceDestroy(string instanceId,
+        [FromServices] VirtualDeviceLifecycle? lifecycle, CancellationToken ct) {
+        if (lifecycle is null) return Ok(NoProvisionerResult);
 
         Note("instances/destroy", instanceId);
         var res = await lifecycle.DestroyAsync(instanceId, ct);
@@ -237,14 +222,14 @@ public sealed class DeviceBridgeController(
 
     [HttpPost(BridgeRoutes.Claim + "/{deviceId}")]
     [DisableRateLimiting]
-    public async Task<IActionResult> Claim(string deviceId, [FromBody] BridgeClaimBody? req, CancellationToken ct) {
-        if (BridgeGate.Check(HttpContext, config, currentUser, logger) is { } gate) return gate;
-        if (Service<IDeviceFleet>() is not { } fleet || Service<DeviceClaimRegistry>() is not { } claims)
-            return StatusCode(503, new { error = "device transport not configured" });
+    public async Task<IActionResult> Claim(string deviceId, [FromBody] BridgeClaimBody? req,
+        [FromServices] IDeviceFleet? fleetSvc, [FromServices] DeviceClaimRegistry? claimsSvc, CancellationToken ct) {
+        if (fleetSvc is not { } fleet || claimsSvc is not { } claims)
+            return Fail(503, "device transport not configured");
 
         var enabled = await fleet.EnabledAsync(ct);
         if (enabled.All(d => !string.Equals(d.Id, deviceId, StringComparison.Ordinal)))
-            return NotFound(new { error = "unknown device" });
+            return Fail(404, "unknown device");
 
         Note("claim", deviceId);
         var expires = claims.Claim(deviceId, TimeSpan.FromSeconds(req?.TtlSeconds ?? config.ClaimTtlSeconds));
@@ -253,10 +238,8 @@ public sealed class DeviceBridgeController(
 
     [HttpPost(BridgeRoutes.Release + "/{deviceId}")]
     [DisableRateLimiting]
-    public IActionResult Release(string deviceId) {
-        if (BridgeGate.Check(HttpContext, config, currentUser, logger) is { } gate) return gate;
-        if (Service<DeviceClaimRegistry>() is not { } claims)
-            return StatusCode(503, new { error = "device transport not configured" });
+    public IActionResult Release(string deviceId, [FromServices] DeviceClaimRegistry? claims) {
+        if (claims is null) return Fail(503, "device transport not configured");
 
         Note("release", deviceId);
         claims.Release(deviceId);
@@ -265,43 +248,37 @@ public sealed class DeviceBridgeController(
 
     [HttpPut(BridgeRoutes.Overrides + "/{deviceId}")]
     [DisableRateLimiting]
-    public async Task<IActionResult> OverridesSet(
-        string deviceId, [FromBody] DeviceResponseOverrideSet? body, CancellationToken ct) {
-        if (BridgeGate.Check(HttpContext, config, currentUser, logger) is { } gate) return gate;
-        if (Service<DeviceResponseOverrideStore>() is not { } store)
-            return StatusCode(503, new { error = "no capture proxy on this host" });
-        if (await UnknownDeviceAsync(deviceId, ct) is { } unknown) return unknown;
-        if (body?.Entries is not { Count: > 0 } entries)
-            return BadRequest(new { error = "at least one override entry is required" });
+    public async Task<IActionResult> OverridesSet(string deviceId, [FromBody] DeviceResponseOverrideSet? body,
+        [FromServices] DeviceResponseOverrideStore? store, [FromServices] IDeviceFleet? fleet, CancellationToken ct) {
+        if (store is null) return Fail(503, "no capture proxy on this host");
+        if (await UnknownDeviceAsync(fleet, deviceId, ct) is { } unknown) return unknown;
+        if (body?.Entries is not { Count: > 0 } entries) return Fail(400, "at least one override entry is required");
 
         Note("overrides", deviceId);
         var res = await store.SetAsync(deviceId, entries, ct);
-        if (!res.Ok) return BadRequest(new { error = res.Note ?? "overrides rejected" });
+        if (!res.Ok) return Fail(400, res.Note ?? "overrides rejected");
         return Ok(new { ok = true, count = entries.Count });
     }
 
     [HttpDelete(BridgeRoutes.Overrides + "/{deviceId}")]
     [DisableRateLimiting]
-    public async Task<IActionResult> OverridesClear(string deviceId, CancellationToken ct) {
-        if (BridgeGate.Check(HttpContext, config, currentUser, logger) is { } gate) return gate;
-        if (Service<DeviceResponseOverrideStore>() is not { } store)
-            return StatusCode(503, new { error = "no capture proxy on this host" });
-        if (await UnknownDeviceAsync(deviceId, ct) is { } unknown) return unknown;
+    public async Task<IActionResult> OverridesClear(string deviceId,
+        [FromServices] DeviceResponseOverrideStore? store, [FromServices] IDeviceFleet? fleet, CancellationToken ct) {
+        if (store is null) return Fail(503, "no capture proxy on this host");
+        if (await UnknownDeviceAsync(fleet, deviceId, ct) is { } unknown) return unknown;
 
         Note("overrides", deviceId);
         var res = await store.ClearAsync(deviceId, ct);
-        if (!res.Ok) return BadRequest(new { error = res.Note ?? "overrides not cleared" });
+        if (!res.Ok) return Fail(400, res.Note ?? "overrides not cleared");
         return Ok(new { ok = true });
     }
 
     [HttpGet(BridgeRoutes.Capture + "/{deviceId}")]
     [DisableRateLimiting]
-    public async Task<IActionResult> Capture(string deviceId, CancellationToken ct) {
-        if (BridgeGate.Check(HttpContext, config, currentUser, logger) is { } gate) return gate;
-        if (Service<IDeviceCaptureHubs>() is not { } hubs)
-            return StatusCode(503, new { error = "no capture proxy on this host" });
-        if (hubs.HubFor(deviceId) is not { } hub)
-            return NotFound(new { error = "no capture for that device on this host" });
+    public async Task<IActionResult> Capture(
+        string deviceId, [FromServices] IDeviceCaptureHubs? hubs, CancellationToken ct) {
+        if (hubs is null) return Fail(503, "no capture proxy on this host");
+        if (hubs.HubFor(deviceId) is not { } hub) return Fail(404, "no capture for that device on this host");
 
         Note("capture", deviceId);
         Response.StatusCode = StatusCodes.Status200OK;
@@ -329,13 +306,12 @@ public sealed class DeviceBridgeController(
         await Response.Body.FlushAsync(ct);
     }
 
-    private async Task<IActionResult?> UnknownDeviceAsync(string deviceId, CancellationToken ct) {
-        if (Service<IDeviceFleet>() is not { } fleet)
-            return StatusCode(503, new { error = "device transport not configured" });
+    private async Task<IActionResult?> UnknownDeviceAsync(IDeviceFleet? fleet, string deviceId, CancellationToken ct) {
+        if (fleet is null) return Fail(503, "device transport not configured");
 
         var enabled = await fleet.EnabledAsync(ct);
         return enabled.All(d => !string.Equals(d.Id, deviceId, StringComparison.Ordinal))
-            ? NotFound(new { error = "unknown device" })
+            ? Fail(404, "unknown device")
             : null;
     }
 
@@ -348,29 +324,27 @@ public sealed class DeviceBridgeController(
     private static BridgeInstance ProvisionedBridgeInstance(ProvisionedInstance i) =>
         new(i.InstanceId, i.Kind, i.Image, i.State, i.AdbSerial, i.HostRef, i.CreatedAt, i.Note, null);
 
-    private T? Service<T>() where T : class => services.GetService(typeof(T)) as T;
-
     private void Note(string verb, string what) =>
         logger.LogInformation("device bridge {Verb} {What} from {Caller}", verb, what,
             HttpContext.Connection.RemoteIpAddress);
 
     private async Task<(IActionResult? Error, BridgeExecPlan? Plan)> PlanAsync(CancellationToken ct) {
-        if (!Request.HasFormContentType) return (BadRequest(new { error = "multipart/form-data required" }), null);
+        if (!Request.HasFormContentType) return (Fail(400, "multipart/form-data required"), null);
 
         var form = await Request.ReadFormAsync(ct);
         if (!form.TryGetValue(BridgeExecParts.Spec, out var raw) || raw.ToString() is not { Length: > 0 } json)
-            return (BadRequest(new { error = $"the {BridgeExecParts.Spec} part is required" }), null);
+            return (Fail(400, $"the {BridgeExecParts.Spec} part is required"), null);
 
         BridgeExecSpec? spec;
         try {
             spec = JsonSerializer.Deserialize<BridgeExecSpec>(json, SpecJson);
         } catch (JsonException ex) {
-            return (BadRequest(new { error = $"malformed {BridgeExecParts.Spec}: {ex.Message}" }), null);
+            return (Fail(400, $"malformed {BridgeExecParts.Spec}: {ex.Message}"), null);
         }
 
-        if (spec is null || string.IsNullOrEmpty(spec.Exe)) return (BadRequest(new { error = "exe required" }), null);
+        if (spec is not { Exe.Length: > 0 }) return (Fail(400, "exe required"), null);
         if (!config.BridgeExecutables.Contains(spec.Exe, StringComparer.Ordinal))
-            return (BadRequest(new { error = $"{spec.Exe} is not in DeviceTransport:BridgeExecutables" }), null);
+            return (Fail(400, $"{spec.Exe} is not in DeviceTransport:BridgeExecutables"), null);
 
         var plan = new BridgeExecPlan(spec, Directory.CreateTempSubdirectory("egi-bridge-"));
         try {
@@ -383,7 +357,7 @@ public sealed class DeviceBridgeController(
 
             if (Substitute(plan) is { } bad) {
                 plan.Dispose();
-                return (BadRequest(new { error = bad }), null);
+                return (Fail(400, bad), null);
             }
         } catch (Exception) {
             plan.Dispose();

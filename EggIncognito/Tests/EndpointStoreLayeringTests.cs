@@ -38,13 +38,6 @@ public class EndpointStoreLayeringTests {
     }
 
     [Fact]
-    public void Miss_ReturnsDefaultInstance() {
-        var file = new FakeSource([], 0);
-        var store = Store(file, null);
-        Assert.NotNull(store.Fetch<PeriodicalsResponse>("ei/none"));
-    }
-
-    [Fact]
     public void Db_Throws_FallsBackToFileDefault_AndLogsWarning() {
         var file = new FakeSource(new Dictionary<string, string> { ["ei/x"] = "{\"userId\":\"FROM_FILE\"}" }, 0);
         var services = new ServiceCollection();

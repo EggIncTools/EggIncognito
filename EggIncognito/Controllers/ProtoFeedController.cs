@@ -1,5 +1,4 @@
 using System.Text;
-using EggIdentity.Contract;
 using EggIncognito.Data.Models;
 using EggIncognito.Data.Services;
 using EggIncognito.Models.Protos;
@@ -14,15 +13,8 @@ namespace EggIncognito.Controllers;
 [ApiController]
 [Route("api/protos/feed")]
 [ApiAccess(ApiAccessLevel.Public)]
-public sealed class ProtoFeedController(IServiceProvider services, IHttpClientFactory httpFactory)
-    : ControllerBase {
-    private FeedSubscriptionStore? Store =>
-        services.GetService(typeof(FeedSubscriptionStore)) as FeedSubscriptionStore;
-
-    private ICurrentUser? CurrentUser => services.GetService(typeof(ICurrentUser)) as ICurrentUser;
-
-    private Guid? OwnerUserId => CurrentUser?.UserId;
-
+public sealed class ProtoFeedController(ICurrentUser currentUser, IHttpClientFactory httpFactory)
+    : ApiControllerBase {
     [HttpGet("kinds")]
     public IActionResult Kinds() => Ok(FeedEventKinds.All.Select(k => new {
         k.Key,
@@ -36,26 +28,27 @@ public sealed class ProtoFeedController(IServiceProvider services, IHttpClientFa
 
     [HttpPost]
     [EnableRateLimiting("write")]
-    public async Task<IActionResult> Create([FromBody] FeedCreateReq req, CancellationToken ct) {
-        var owner = OwnerUserId;
-        if (owner is null) return Unauthorized(new { error = "log in to manage subscriptions" });
-        if (Store is null) return StatusCode(503, new { error = "no database configured" });
+    [RequiresDb]
+    public async Task<IActionResult> Create([FromBody] FeedCreateReq req,
+        [FromServices] FeedSubscriptionStore store, CancellationToken ct) {
+        var owner = currentUser.UserId;
+        if (owner is null) return Fail(401, "log in to manage subscriptions");
         if (string.IsNullOrWhiteSpace(req.WebhookUrl) ||
             !Uri.TryCreate(req.WebhookUrl, UriKind.Absolute, out var webhook) ||
             webhook.Scheme != Uri.UriSchemeHttps ||
             !string.Equals(webhook.Host, "discord.com", StringComparison.OrdinalIgnoreCase) ||
             !webhook.AbsolutePath.StartsWith("/api/webhooks/", StringComparison.Ordinal))
-            return BadRequest(new { error = "a Discord webhook URL is required" });
+            return Fail(400, "a Discord webhook URL is required");
 
         var http = httpFactory.CreateClient("discord-api");
         var test = await http.PostAsync(webhook,
             new StringContent("""{"content":"EggIncognito proto feed connected."}""",
                 Encoding.UTF8, "application/json"), ct);
         if (!test.IsSuccessStatusCode)
-            return BadRequest(new { error = "webhook rejected the test message" });
+            return Fail(400, "webhook rejected the test message");
 
         string kind = FeedEventKinds.Normalize(req.EventKind);
-        var sub = await Store.AddAsync(new FeedSubscription {
+        var sub = await store.AddAsync(new FeedSubscription {
             Kind = "discord",
             EventKind = kind,
             TargetUrl = webhook.ToString(),
@@ -66,17 +59,17 @@ public sealed class ProtoFeedController(IServiceProvider services, IHttpClientFa
             MessageTemplate = string.IsNullOrWhiteSpace(req.MessageTemplate) ? null : req.MessageTemplate,
             OwnerUserId = owner.Value
         }, ct);
-        FeedSubscriptionNotify.Changed(services);
+        FeedSubscriptionNotify.Changed(HttpContext.RequestServices);
         return Ok(new { sub.Id, sub.EventKind, sub.Platforms, sub.Trigger });
     }
 
     [HttpGet("mine")]
-    public async Task<IActionResult> Mine(CancellationToken ct) {
-        var owner = OwnerUserId;
-        if (owner is null) return Unauthorized(new { error = "log in to manage subscriptions" });
-        if (Store is null) return StatusCode(503, new { error = "no database configured" });
+    [RequiresDb]
+    public async Task<IActionResult> Mine([FromServices] FeedSubscriptionStore store, CancellationToken ct) {
+        var owner = currentUser.UserId;
+        if (owner is null) return Fail(401, "log in to manage subscriptions");
 
-        var subs = await Store.ByOwnerAsync(owner.Value, ct);
+        var subs = await store.ByOwnerAsync(owner.Value, ct);
         return Ok(subs.Select(s => new {
             s.Id,
             s.Label,
@@ -95,26 +88,28 @@ public sealed class ProtoFeedController(IServiceProvider services, IHttpClientFa
 
     [HttpDelete("{id:int}")]
     [EnableRateLimiting("write")]
-    public async Task<IActionResult> Delete(int id, CancellationToken ct) {
-        var owner = OwnerUserId;
-        if (owner is null) return Unauthorized(new { error = "log in to manage subscriptions" });
-        if (Store is null) return StatusCode(503, new { error = "no database configured" });
+    [RequiresDb]
+    public async Task<IActionResult> Delete(int id, [FromServices] FeedSubscriptionStore store,
+        CancellationToken ct) {
+        var owner = currentUser.UserId;
+        if (owner is null) return Fail(401, "log in to manage subscriptions");
 
-        bool ok = await Store.DeleteAsync(id, owner.Value, ct);
-        if (!ok) return NotFound(new { error = "subscription not found" });
-        FeedSubscriptionNotify.Changed(services);
+        bool ok = await store.DeleteAsync(id, owner.Value, ct);
+        if (!ok) return Fail(404, "subscription not found");
+        FeedSubscriptionNotify.Changed(HttpContext.RequestServices);
         return Ok(new { deleted = true });
     }
 
     [HttpPost("{id:int}/test")]
     [EnableRateLimiting("write")]
-    public async Task<IActionResult> Test(int id, [FromQuery] string? sample, CancellationToken ct) {
-        var owner = OwnerUserId;
-        if (owner is null) return Unauthorized(new { error = "log in to manage subscriptions" });
-        if (Store is null) return StatusCode(503, new { error = "no database configured" });
+    [RequiresDb]
+    public async Task<IActionResult> Test(int id, [FromQuery] string? sample,
+        [FromServices] FeedSubscriptionStore store, CancellationToken ct) {
+        var owner = currentUser.UserId;
+        if (owner is null) return Fail(401, "log in to manage subscriptions");
 
-        var sub = (await Store.ByOwnerAsync(owner.Value, ct)).FirstOrDefault(s => s.Id == id);
-        if (sub is null) return NotFound(new { error = "subscription not found" });
+        var sub = (await store.ByOwnerAsync(owner.Value, ct)).FirstOrDefault(s => s.Id == id);
+        if (sub is null) return Fail(404, "subscription not found");
 
         string kind = FeedEventKinds.Normalize(sub.EventKind);
         var fallback = FeedSamples.For(kind);
@@ -127,7 +122,7 @@ public sealed class ProtoFeedController(IServiceProvider services, IHttpClientFa
         var res = await http.PostAsync(sub.TargetUrl,
             new StringContent(body, Encoding.UTF8, "application/json"), ct);
         if (!res.IsSuccessStatusCode)
-            return BadRequest(new { error = "webhook rejected the test message" });
+            return Fail(400, "webhook rejected the test message");
         return Ok(new { tested = true, sample = chosen?.Key });
     }
 
@@ -148,52 +143,53 @@ public sealed class ProtoFeedController(IServiceProvider services, IHttpClientFa
             var blocked = matches ? s.Event.BlockedBy(probe) : [];
             return new FeedPreviewRow(
                 s.Key, s.Label, s.Event.Summary, matches, blocked,
-                matches && blocked.Count == 0 ? s.Event.BuildBody(probe.MessageTemplate) : null);
+                matches && blocked is [] ? s.Event.BuildBody(probe.MessageTemplate) : null);
         }));
     }
 
     [HttpPatch("{id:int}")]
     [EnableRateLimiting("write")]
-    public async Task<IActionResult> Update(int id, [FromBody] FeedUpdateReq req, CancellationToken ct) {
-        var owner = OwnerUserId;
-        if (owner is null) return Unauthorized(new { error = "log in to manage subscriptions" });
-        if (Store is null) return StatusCode(503, new { error = "no database configured" });
+    [RequiresDb]
+    public async Task<IActionResult> Update(int id, [FromBody] FeedUpdateReq req,
+        [FromServices] FeedSubscriptionStore store, CancellationToken ct) {
+        var owner = currentUser.UserId;
+        if (owner is null) return Fail(401, "log in to manage subscriptions");
 
-        var sub = (await Store.ByOwnerAsync(owner.Value, ct)).FirstOrDefault(s => s.Id == id);
-        if (sub is null) return NotFound(new { error = "subscription not found" });
+        var sub = (await store.ByOwnerAsync(owner.Value, ct)).FirstOrDefault(s => s.Id == id);
+        if (sub is null) return Fail(404, "subscription not found");
 
         string trigger = FeedEventKinds.NormalizeTrigger(
             FeedEventKinds.Normalize(sub.EventKind), req.Trigger ?? sub.Trigger);
-        bool ok = await Store.UpdateAsync(
+        bool ok = await store.UpdateAsync(
             id, owner.Value,
             req.Platforms ?? ["android", "ios"],
             trigger,
             req.Active ?? true,
             req.MessageTemplate,
             ResolveFilters(sub, req.Filters), ct);
-        if (!ok) return NotFound(new { error = "subscription not found" });
-        FeedSubscriptionNotify.Changed(services);
+        if (!ok) return Fail(404, "subscription not found");
+        FeedSubscriptionNotify.Changed(HttpContext.RequestServices);
         return Ok(new { updated = true });
     }
 
     [HttpGet("{id:int}/activity")]
-    public async Task<IActionResult> Activity(int id, CancellationToken ct) {
-        var owner = OwnerUserId;
-        if (owner is null) return Unauthorized(new { error = "log in to manage subscriptions" });
-        if (Store is not { } store) return StatusCode(503, new { error = "no database configured" });
+    [RequiresDb]
+    public async Task<IActionResult> Activity(int id, [FromServices] FeedSubscriptionStore store,
+        CancellationToken ct) {
+        var owner = currentUser.UserId;
+        if (owner is null) return Fail(401, "log in to manage subscriptions");
 
         var sub = (await store.ByOwnerAsync(owner.Value, ct)).FirstOrDefault(s => s.Id == id);
-        if (sub is null) return NotFound(new { error = "subscription not found" });
+        if (sub is null) return Fail(404, "subscription not found");
         return Ok(await ActivityRowsAsync(store, id, ct));
     }
 
     [HttpGet("admin/{id:int}/activity")]
     [ApiAccess(ApiAccessLevel.Admin)]
-    public async Task<IActionResult> AdminActivity(int id, CancellationToken ct) {
-        if (CurrentUser is not { } user || !user.IsAtLeast(UserRole.Admin))
-            return StatusCode(403, new { error = "admin role required" });
-        if (Store is not { } store) return StatusCode(503, new { error = "no database configured" });
-        if (await store.AdminByIdAsync(id, ct) is null) return NotFound(new { error = "subscription not found" });
+    [RequiresDb]
+    public async Task<IActionResult> AdminActivity(int id, [FromServices] FeedSubscriptionStore store,
+        CancellationToken ct) {
+        if (await store.AdminByIdAsync(id, ct) is null) return Fail(404, "subscription not found");
         return Ok(await ActivityRowsAsync(store, id, ct));
     }
 

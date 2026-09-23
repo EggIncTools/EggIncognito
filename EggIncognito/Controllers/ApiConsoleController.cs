@@ -1,5 +1,3 @@
-using EggIdentity.Contract;
-using EggIncognito.Services;
 using EggIncognito.Services.Auth;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.ApiExplorer;
@@ -11,13 +9,9 @@ namespace EggIncognito.Controllers;
 [Route("api/console")]
 [ApiAccess(ApiAccessLevel.Admin)]
 [EnableRateLimiting("read")]
-public sealed class ApiConsoleController(IApiDescriptionGroupCollectionProvider explorer, ICurrentUser currentUser)
-    : ControllerBase {
+public sealed class ApiConsoleController(IApiDescriptionGroupCollectionProvider explorer) : ApiControllerBase {
     [HttpGet("endpoints")]
     public IActionResult Endpoints() {
-        if (!currentUser.IsAtLeast(UserRole.Admin))
-            return StatusCode(403, new { error = "admin role required" });
-
         var endpoints = explorer.ApiDescriptionGroups.Items
             .SelectMany(g => g.Items)
             .Where(d => d.RelativePath is not null &&

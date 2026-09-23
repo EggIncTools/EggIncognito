@@ -13,13 +13,12 @@ namespace EggIncognito.Controllers;
 [ApiController]
 [Route("api/v1/events")]
 [ApiAccess(ApiAccessLevel.Public)]
-public sealed class EventsController(IServiceProvider services) : ControllerBase {
-    private EggIncognitoDbContext? Db => services.GetService(typeof(EggIncognitoDbContext)) as EggIncognitoDbContext;
-    private EventPredictor? Predictor => services.GetService(typeof(EventPredictor)) as EventPredictor;
-
+public sealed class EventsController : ApiControllerBase {
     [HttpGet]
     [EnableRateLimiting("read")]
+    [RequiresDb]
     public async Task<IActionResult> List(
+        [FromServices] EggIncognitoDbContext db,
         [FromQuery] string? types,
         [FromQuery] bool? ultra,
         [FromQuery] double? after,
@@ -30,12 +29,10 @@ public sealed class EventsController(IServiceProvider services) : ControllerBase
         [FromQuery] int limit = 100,
         [FromQuery] int offset = 0,
         CancellationToken ct = default) {
-        var db = Db;
-        if (db is null) return StatusCode(503, new { error = "no database configured" });
-        if (after is { } a && !UnixSeconds.IsValid(a)) return BadRequest(new { error = "after is out of range" });
-        if (before is { } b && !UnixSeconds.IsValid(b)) return BadRequest(new { error = "before is out of range" });
+        if (after is { } a && !UnixSeconds.IsValid(a)) return Fail(400, "after is out of range");
+        if (before is { } b && !UnixSeconds.IsValid(b)) return Fail(400, "before is out of range");
         if (activeAt is { } at && !UnixSeconds.IsValid(at))
-            return BadRequest(new { error = "activeAt is out of range" });
+            return Fail(400, "activeAt is out of range");
 
         limit = Math.Clamp(limit, 1, 1000);
         offset = Math.Max(offset, 0);
@@ -64,23 +61,23 @@ public sealed class EventsController(IServiceProvider services) : ControllerBase
     [HttpGet("predictions")]
     [EnableRateLimiting("read")]
     [ApiAccess(ApiAccessLevel.Admin)]
+    [Requires<EventPredictor>("no database configured")]
     public async Task<IActionResult> Predictions(
+        [FromServices] EventPredictor predictor,
         [FromQuery] int horizon = 28, [FromQuery] double? asOf = null, CancellationToken ct = default) {
-        var predictor = Predictor;
-        if (predictor is null) return StatusCode(503, new { error = "no database configured" });
-        if (asOf is { } at && !UnixSeconds.IsValid(at)) return BadRequest(new { error = "asOf is out of range" });
+        if (asOf is { } at && !UnixSeconds.IsValid(at)) return Fail(400, "asOf is out of range");
         return Ok(await predictor.GetAsync(horizon, asOf, ct));
     }
 
     [HttpGet("predictions/backtest")]
     [EnableRateLimiting("read")]
     [ApiAccess(ApiAccessLevel.Admin)]
+    [Requires<EventPredictor>("no database configured")]
     public async Task<IActionResult> PredictionsBacktest(
+        [FromServices] EventPredictor predictor,
         [FromQuery] double? asOf, [FromQuery] int horizon = 28, CancellationToken ct = default) {
-        var predictor = Predictor;
-        if (predictor is null) return StatusCode(503, new { error = "no database configured" });
-        if (asOf is not { } at) return BadRequest(new { error = "asOf is required" });
-        if (!UnixSeconds.IsValid(at)) return BadRequest(new { error = "asOf is out of range" });
+        if (asOf is not { } at) return Fail(400, "asOf is required");
+        if (!UnixSeconds.IsValid(at)) return Fail(400, "asOf is out of range");
         return Ok(EventBacktest.Run(await predictor.RowsAsync(ct), at, horizon));
     }
 

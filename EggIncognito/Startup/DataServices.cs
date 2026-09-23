@@ -120,6 +120,7 @@ public static class DataServices {
         builder.Services.AddScoped<CaptureAddressStore>();
         builder.Services.AddScoped<ProtoRegistryStore>();
         builder.Services.AddScoped<StagedProtoStore>();
+        builder.Services.AddScoped<EnvDesignStore>();
         builder.Services.AddScoped<AnalyzedFileStore>();
         builder.Services.AddScoped<DeviceStatusStore>();
         builder.Services.AddScoped<IDeviceStatusStore>(sp => sp.GetRequiredService<DeviceStatusStore>());

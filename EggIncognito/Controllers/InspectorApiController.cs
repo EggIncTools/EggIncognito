@@ -48,18 +48,18 @@ public sealed class InspectorApiController(
     [HttpGet("rinfo-seed")]
     [ApiAccess(ApiAccessLevel.Public)]
     public async Task<IActionResult> RinfoSeed(
-        [FromServices] IServiceProvider services,
+        [FromServices] ProtoRegistryStore? store,
         [FromServices] IConfiguration configuration,
         CancellationToken ct) {
-        var seed = await RegistrySeedAsync(services, ct) ?? CapturedSeed(configuration) ?? EmptySeed;
+        var seed = await RegistrySeedAsync(store, ct) ?? CapturedSeed(configuration) ?? EmptySeed;
         Response.Headers.CacheControl = "private, max-age=60";
         return Ok(seed);
     }
 
     private static readonly RinfoSeedResponse EmptySeed = new("", "", "", "", "", "", "", false);
 
-    private static async Task<RinfoSeedResponse?> RegistrySeedAsync(IServiceProvider services, CancellationToken ct) {
-        if (services.GetService(typeof(ProtoRegistryStore)) is not ProtoRegistryStore store) return null;
+    private static async Task<RinfoSeedResponse?> RegistrySeedAsync(ProtoRegistryStore? store, CancellationToken ct) {
+        if (store is null) return null;
 
         List<ProtoVersion> rows;
         try {

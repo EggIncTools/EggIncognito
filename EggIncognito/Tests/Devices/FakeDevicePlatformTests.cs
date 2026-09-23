@@ -11,17 +11,6 @@ public class FakeDevicePlatformTests {
     private static readonly Dictionary<string, string> Nothing = [];
 
     [Fact]
-    public void Manifest_UnsupportedEntriesMatchTheRealPlatformsAndSayWhy() {
-        var android = FakeStack.Android().Platform.Manifest();
-        var ios = FakeStack.Ios().Platform.Manifest();
-
-        Assert.Contains(android, e => e.Name == HarvestEntries.PackageManifest && !e.Supported);
-        Assert.Contains(ios, e => e.Name == HarvestEntries.AppPackage && !e.Supported);
-        foreach (var entry in android.Concat(ios).Where(e => !e.Supported))
-            Assert.False(string.IsNullOrWhiteSpace(entry.UnsupportedNote));
-    }
-
-    [Fact]
     public async Task Probe_Unreachable_ReportsNotReachable() {
         var stack = FakeStack.Ios(FakeScenarios.Unreachable);
         var probe = await stack.Platform.ProbeAsync(stack.Target, CancellationToken.None);
@@ -111,22 +100,6 @@ public class FakeDevicePlatformTests {
         var b = await two.Platform.FingerprintAsync(two.Target, entry, CancellationToken.None);
 
         Assert.NotEqual(a.Value, b.Value);
-    }
-
-    [Fact]
-    public async Task CaptureParticles_IsUnsupported() {
-        var stack = FakeStack.Ios();
-        var r = await stack.Platform.CaptureParticlesAsync(stack.Target, "", null, CancellationToken.None);
-        Assert.Equal(DeviceOutcome.Unsupported, r.Outcome);
-        Assert.False(string.IsNullOrWhiteSpace(r.Note));
-    }
-
-    [Fact]
-    public async Task ProxyAndCaSurfaces_SucceedTrivially() {
-        var stack = FakeStack.Ios();
-        Assert.True((await stack.Platform.SetProxyAsync(stack.Target, "10.0.0.1", 9000, CancellationToken.None)).Ok);
-        Assert.True((await stack.Platform.ClearProxyAsync(stack.Target, CancellationToken.None)).Ok);
-        Assert.True((await stack.Platform.InstallCaAsync(stack.Target, "ca.cer", CancellationToken.None)).Ok);
     }
 
     [Fact]

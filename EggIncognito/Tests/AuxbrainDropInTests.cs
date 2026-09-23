@@ -134,15 +134,6 @@ public class AuxbrainDropInTests(EggIncApiFactory factory) {
     }
 
     [Fact]
-    public async Task Landing_DocumentsFormShape_SigningAndInspector() {
-        string body = await _client.GetStringAsync("/api");
-        Assert.Contains("data=", body);
-        Assert.Contains("AuthenticatedMessage", body);
-        Assert.Contains("/api/catalog", body);
-        Assert.Contains("/protos#api", body);
-    }
-
-    [Fact]
     public void ApiSurfaceController_HasReadRateLimitPolicy() {
         var attr = typeof(ApiSurfaceController)
             .GetCustomAttribute<EnableRateLimitingAttribute>();

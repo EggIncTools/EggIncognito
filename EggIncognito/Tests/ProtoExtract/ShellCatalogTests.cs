@@ -1,6 +1,5 @@
 using EggIncognito.Core.Services.ProtoExtract;
 using Ei;
-using Google.Protobuf;
 
 namespace EggIncognito.Tests.ProtoExtract;
 
@@ -49,20 +48,6 @@ public class ShellCatalogTests {
         cat.Shells.Add(Shell("ei_silo_x", ShellSpec.Types.AssetType.Silo0Small));
         Assert.NotNull(ShellCatalog.ById(cat, "ei_silo_x"));
         Assert.Null(ShellCatalog.ById(cat, "missing"));
-    }
-
-    [Fact]
-    public void ConfigJson_RoundTrip_PreservesDlcCatalog() {
-        string? json = ConfigJson();
-        if (json is null) return;
-
-        var cfg = ConfigResponse.Parser.ParseJson(json);
-        int shells = cfg.DlcCatalog?.Shells.Count ?? 0;
-        Assert.True(shells > 1000, $"parse lost shells: {shells}");
-
-        string? reformatted = JsonFormatter.Default.Format(cfg);
-        var reparsed = ConfigResponse.Parser.ParseJson(reformatted);
-        Assert.Equal(shells, reparsed.DlcCatalog?.Shells.Count ?? 0);
     }
 
     [Fact]

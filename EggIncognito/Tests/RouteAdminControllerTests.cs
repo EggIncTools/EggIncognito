@@ -37,7 +37,7 @@ public sealed class RouteAdminControllerTests : IDisposable {
         var overrides = sp.GetService<IRouteOverrideProvider>();
         var report = new RouteCatalogReport(routes, yamlRoutes,
             new NonBinaryRouteCatalog(yamlRoutes, null, overrides), overrides, sp.GetService<IBinaryRouteProvider>());
-        return new RouteAdminController(routes, report, new ProtoReflection(), new FakeUser(), sp);
+        return new RouteAdminController(routes, report, new ProtoReflection(), new FakeUser());
     }
 
     private static string Json(object? value) =>
@@ -81,60 +81,32 @@ public sealed class RouteAdminControllerTests : IDisposable {
     public async Task Put_UnknownPath_404() {
         var routes = new FakeCatalog(Route("ei/known"));
         var r = await Controller(routes, YamlWith()).UpsertAsync("ei/missing",
-            new UpsertRouteOverride(null, "PeriodicalsResponse", null, null, null));
-        Assert.IsType<NotFoundObjectResult>(r);
+            new UpsertRouteOverride(null, "PeriodicalsResponse", null, null, null), null!, null!);
+        Assert.Equal(404, Assert.IsType<ObjectResult>(r).StatusCode);
     }
 
     [Fact]
     public async Task Put_AllFieldsNull_400() {
         var routes = new FakeCatalog(Route("ei/known"));
         var r = await Controller(routes, YamlWith()).UpsertAsync("ei/known",
-            new UpsertRouteOverride(null, null, null, null, null));
-        Assert.IsType<BadRequestObjectResult>(r);
+            new UpsertRouteOverride(null, null, null, null, null), null!, null!);
+        Assert.Equal(400, Assert.IsType<ObjectResult>(r).StatusCode);
     }
 
     [Fact]
     public async Task Put_UnknownRequestType_400() {
         var routes = new FakeCatalog(Route("ei/known"));
         var r = await Controller(routes, YamlWith()).UpsertAsync("ei/known",
-            new UpsertRouteOverride("NotARealProtoType", null, null, null, null));
-        Assert.IsType<BadRequestObjectResult>(r);
+            new UpsertRouteOverride("NotARealProtoType", null, null, null, null), null!, null!);
+        Assert.Equal(400, Assert.IsType<ObjectResult>(r).StatusCode);
     }
 
     [Fact]
     public async Task Put_UnknownResponseType_400() {
         var routes = new FakeCatalog(Route("ei/known"));
         var r = await Controller(routes, YamlWith()).UpsertAsync("ei/known",
-            new UpsertRouteOverride(null, "NotARealProtoType", null, null, null));
-        Assert.IsType<BadRequestObjectResult>(r);
-    }
-
-    [Fact]
-    public async Task Put_ValidBody_NoDb_503() {
-        var routes = new FakeCatalog(Route("ei/known"));
-        var r = await Controller(routes, YamlWith()).UpsertAsync("ei/known",
-            new UpsertRouteOverride(null, "PeriodicalsResponse", null, null, null));
-        var sc = Assert.IsType<ObjectResult>(r);
-        Assert.Equal(503, sc.StatusCode);
-    }
-
-    [Fact]
-    public async Task Delete_NoProvider_503() {
-        var routes = new FakeCatalog(Route("ei/known"));
-        var r = await Controller(routes, YamlWith()).DeleteAsync("ei/known");
-        var sc = Assert.IsType<ObjectResult>(r);
-        Assert.Equal(503, sc.StatusCode);
-    }
-
-    [Fact]
-    public async Task Delete_ProviderRegisteredButNoDb_Still503_NeverFalseNegative404() {
-        var routes = new FakeCatalog(Route("ei/known"));
-        var services = new ServiceCollection()
-            .AddSingleton<IRouteOverrideProvider>(new FakeOverrides())
-            .BuildServiceProvider();
-        var r = await Controller(routes, YamlWith(), services).DeleteAsync("ei/known");
-        var sc = Assert.IsType<ObjectResult>(r);
-        Assert.Equal(503, sc.StatusCode);
+            new UpsertRouteOverride(null, "NotARealProtoType", null, null, null), null!, null!);
+        Assert.Equal(400, Assert.IsType<ObjectResult>(r).StatusCode);
     }
 
     [Fact]

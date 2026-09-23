@@ -14,22 +14,19 @@ public sealed class AuthController(
     ICurrentUser currentUser,
     ILogger<AuthController> logger) : ControllerBase {
     [HttpPost("/logout")]
-    public async Task<IActionResult> Logout() {
+    public async Task<IActionResult> Logout([FromServices] SessionCookieOptions? session,
+        [FromServices] IdentityApiClient? identity) {
         if (!authState.Enabled) return NotFound();
-        var session = HttpContext.RequestServices.GetService<SessionCookieOptions>();
         if (session is null) return Redirect("/");
 
         string? sid = User.FindFirstValue(SessionClaims.SessionId);
-        if (!string.IsNullOrEmpty(sid)) {
-            var identity = HttpContext.RequestServices.GetService<IdentityApiClient>();
-            if (identity is not null)
-                try {
-                    await identity.RevokeSessionAsync(sid, HttpContext.RequestAborted);
-                } catch (HttpRequestException ex) {
-                    logger.LogWarning(ex,
-                        "logout: shared session {Sid} not revoked, identity API unreachable", sid);
-                }
-        }
+        if (!string.IsNullOrEmpty(sid) && identity is not null)
+            try {
+                await identity.RevokeSessionAsync(sid, HttpContext.RequestAborted);
+            } catch (HttpRequestException ex) {
+                logger.LogWarning(ex,
+                    "logout: shared session {Sid} not revoked, identity API unreachable", sid);
+            }
 
         SessionIssuer.ClearCookie(Response, session);
         return Redirect("/");

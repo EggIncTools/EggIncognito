@@ -1,5 +1,4 @@
 using System.Text;
-using EggIdentity.Contract;
 using EggIncognito.Core.Services;
 using EggIncognito.Models.Config;
 using EggIncognito.Services;
@@ -20,12 +19,11 @@ public sealed class ConfigController(
     GameConfigStore store,
     ITransportPipeline pipeline,
     IHttpClientFactory httpFactory,
-    ICurrentUser currentUser,
     IAppMode appMode,
     IConfiguration config,
     ConfigChangeNotifier notifier,
     DataCatalog catalog,
-    ILogger<ConfigController> logger) : ControllerBase {
+    ILogger<ConfigController> logger) : ApiControllerBase {
     private const string GetConfigUrl = AuxbrainHosts.Origin + "/ei/get_config";
 
     [HttpGet]
@@ -39,7 +37,7 @@ public sealed class ConfigController(
     public IActionResult Get(string platform) {
         var c = store.Get(platform);
         return c is null
-            ? NotFound(new { error = "no stored config for that platform" })
+            ? Fail(404, "no stored config for that platform")
             : File(Encoding.UTF8.GetBytes(c.Json), "application/json", $"{platform}-config.json");
     }
 
@@ -47,7 +45,6 @@ public sealed class ConfigController(
     [ApiAccess(ApiAccessLevel.Admin)]
     [EnableRateLimiting("write")]
     public async Task<IActionResult> Ingest(string platform, [FromBody] IngestRequest body, CancellationToken ct) {
-        if (RequireAdmin() is { } no) return no;
         byte[] bytes;
         try {
             bytes = ProtoFraming.FromBase64Loose(body.ConfigResponseBase64 ?? "");
@@ -91,7 +88,6 @@ public sealed class ConfigController(
     [EnableRateLimiting("write")]
     public async Task<IActionResult> IngestJson(string platform, [FromBody] IngestJsonRequest body,
         CancellationToken ct) {
-        if (RequireAdmin() is { } no) return no;
         int jsonLen = body.Json?.Length ?? 0;
         logger.LogInformation("config ingest-json: {Platform} received {Len} chars", platform, jsonLen);
         ConfigResponse cfg;
@@ -112,11 +108,9 @@ public sealed class ConfigController(
     [EnableRateLimiting("egress")]
     public async Task<IActionResult>
         RefreshLive(string platform, [FromBody] RefreshRequest? body, CancellationToken ct) {
-        if (RequireAdmin() is { } no) return no;
         string? salt = string.IsNullOrEmpty(body?.Salt) ? null : body.Salt;
         if (salt is null && !pipeline.CanSign)
-            return StatusCode(503,
-                new { error = "live refresh needs a signing salt; ingest a captured config instead" });
+            return Fail(503, "live refresh needs a signing salt; ingest a captured config instead");
 
         var req = new ConfigRequest { Rinfo = new BasicRequestInfo { Platform = platform } };
         var built = salt is null
@@ -152,12 +146,10 @@ public sealed class ConfigController(
     [ApiAccess(ApiAccessLevel.Admin)]
     [EnableRateLimiting("egress")]
     public async Task<IActionResult> RefreshEndpoints([FromBody] RefreshEndpointsRequest? body, CancellationToken ct) {
-        if (RequireAdmin() is { } no) return no;
-        if (!appMode.CanWrite) return StatusCode(403, new { error = "endpoint writes disabled in this mode" });
+        if (!appMode.CanWrite) return Fail(403, "endpoint writes disabled in this mode");
         string? salt = string.IsNullOrEmpty(body?.Salt) ? null : body.Salt;
         if (salt is null && !pipeline.CanSign)
-            return StatusCode(503,
-                new { error = "live refresh needs a signing salt; ingest a captured response instead" });
+            return Fail(503, "live refresh needs a signing salt; ingest a captured response instead");
 
         string? platform = string.IsNullOrEmpty(body?.Platform) ? "IOS" : body.Platform;
 
@@ -208,8 +200,7 @@ public sealed class ConfigController(
 
     private async Task<IActionResult> StoreAsync(string platform, ConfigResponse cfg, CancellationToken ct) {
         if (!store.Enabled)
-            return StatusCode(503,
-                new { error = "config store needs ConfigStore:Dir or ShipAssets:OutputDir configured" });
+            return Fail(503, "config store needs ConfigStore:Dir or ShipAssets:OutputDir configured");
 
         string? json = JsonFormatter.Default.Format(cfg);
         await store.SaveAsync(platform, json, ct);
@@ -225,9 +216,4 @@ public sealed class ConfigController(
             shellObjects
         });
     }
-
-    private ObjectResult? RequireAdmin() =>
-        currentUser.IsAtLeast(UserRole.Admin)
-            ? null
-            : StatusCode(403, new { error = "admin role required" });
 }

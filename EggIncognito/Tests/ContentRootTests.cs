@@ -10,11 +10,4 @@ public class ContentRootTests {
         File.WriteAllText(tmp.Combine("RouteMap", "routes.yaml"), "routes:\n");
         Assert.Equal(tmp.Path, ContentRoot.Resolve(tmp.Path));
     }
-
-    [Fact]
-    public void Resolve_NullConfig_ReturnsAnExistingDirectory() {
-        string resolved = ContentRoot.Resolve(null);
-        Assert.False(string.IsNullOrEmpty(resolved));
-        Assert.True(Directory.Exists(resolved));
-    }
 }

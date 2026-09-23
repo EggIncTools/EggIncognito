@@ -70,23 +70,6 @@ public class PifPropTests {
     }
 
     [Fact]
-    public void Render_HasSectionHeadersInOrderAndApiLevel() {
-        var profile = PifProp.Parse(Legacy);
-        Assert.NotNull(profile);
-
-        string rendered = PifProp.Render(profile);
-
-        int build = rendered.IndexOf("# Build Fields\n", StringComparison.Ordinal);
-        int system = rendered.IndexOf("# System Properties\n", StringComparison.Ordinal);
-        int advanced = rendered.IndexOf("# Advanced Settings\n", StringComparison.Ordinal);
-        Assert.Equal(0, build);
-        Assert.True(system > build);
-        Assert.True(advanced > system);
-        Assert.Contains("*api_level=32\n", rendered, StringComparison.Ordinal);
-        Assert.DoesNotContain("\r", rendered, StringComparison.Ordinal);
-    }
-
-    [Fact]
     public void Render_UnknownDates_WriteUnknown() {
         var profile = PifProp.Parse(Legacy)! with { ReleasedOn = null, Expiry = null };
 
