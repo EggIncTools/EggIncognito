@@ -30,7 +30,8 @@ public static class LibegincClientVersion {
             return viaSymbol;
         }
 
-        return arm32 ? null : ScanBasicRequestInfoCv(img);
+        if (arm32) return null;
+        return ScanBasicRequestInfoCv(img) ?? ScanPerRequestCv(img);
     }
 
     private static int? DecodeGetter(IBinaryImage img, byte[] bin, MachoSymbols.FuncRange fn, bool arm32) {
@@ -85,6 +86,54 @@ public static class LibegincClientVersion {
 
         return null;
     }
+
+    private const int MinPerRequestCallSites = 2;
+
+    private static int? ScanPerRequestCv(IBinaryImage img) {
+        if (!img.TryFindText(out int fo, out int size, out ulong textVa)) return null;
+        byte[] b = img.Bytes;
+        long end = Math.Min((long)fo + size, b.Length);
+        if (fo < 0 || end - fo < 32) return null;
+
+        var hits = new Dictionary<long, (int Value, int Sites)>();
+        for (long p = fo; p + 24 <= end; p += 4) {
+            uint bl = Word(b, p);
+            if ((bl & 0xFC000000) != 0x94000000) continue;
+            if (!IsProtoFieldStoreSequence(b, p, end)) continue;
+
+            long target = p + 4L * SignExtend26(bl & 0x03FFFFFF);
+            if (target < fo || target + 8 > end) continue;
+            if (Word(b, target + 4) != 0xD65F03C0) continue;
+            if (DecodeConstReturn(b, (int)target, 8) is not { } cv) continue;
+            if (cv is < 1 or > MaxClientVersion) continue;
+
+            hits[target] = hits.TryGetValue(target, out var seen)
+                ? (cv, seen.Sites + 1)
+                : (cv, 1);
+        }
+
+        _ = textVa;
+        var best = hits.Values.Where(h => h.Sites >= MinPerRequestCallSites).ToList();
+        return best.Count == 1 ? best[0].Value : null;
+    }
+
+    private static bool IsProtoFieldStoreSequence(byte[] b, long blAt, long end) {
+        bool storesW0 = false, hasBitOr = false, followUpCall = false;
+        for (long q = blAt + 4; q <= blAt + 16 && q + 4 <= end; q += 4) {
+            uint w = Word(b, q);
+            if ((w & 0xFFC00000) == 0xB9000000 && (w & 0x1F) == 0) storesW0 = true;
+            if ((w & 0xFF800000) == 0x32000000) hasBitOr = true;
+        }
+
+        for (long q = blAt + 16; q <= blAt + 40 && q + 4 <= end; q += 4) {
+            if ((Word(b, q) & 0xFC000000) == 0x94000000) followUpCall = true;
+        }
+
+        return storesW0 && hasBitOr && followUpCall;
+    }
+
+    private static long SignExtend26(uint imm26) =>
+        imm26 >= 1u << 25 ? (long)imm26 - (1L << 26) : imm26;
 
     private static uint Word(byte[] b, long p) =>
         (uint)(b[p] | (b[p + 1] << 8) | (b[p + 2] << 16) | (b[p + 3] << 24));

@@ -1913,6 +1913,13 @@ namespace EggIncognito.Data.Migrations
                         .HasColumnType("text")
                         .HasColumnName("confidence");
 
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("text")
+                        .HasDefaultValue("version")
+                        .HasColumnName("kind");
+
                     b.Property<string>("MessageIndex")
                         .HasColumnType("text")
                         .HasColumnName("message_index");
@@ -1978,7 +1985,13 @@ namespace EggIncognito.Data.Migrations
                         .HasColumnType("text")
                         .HasColumnName("submitted_by");
 
+                    b.Property<int?>("TargetId")
+                        .HasColumnType("integer")
+                        .HasColumnName("target_id");
+
                     b.HasKey("Id");
+
+                    b.HasIndex("Kind");
 
                     b.HasIndex("ProtoSha");
 

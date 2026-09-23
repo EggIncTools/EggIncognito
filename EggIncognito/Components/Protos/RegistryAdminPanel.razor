@@ -5,9 +5,9 @@
 @inherits SelfCallComponentBase
 @inject ToastService Toasts
 
-<div class="pwb-admin">
+<section class="pwb-admin">
     <div class="pwb-admin-head">
-        <h3 class="text-sm m-0">Registry admin</h3>
+        <h3 class="pwb-admin-title">Registry admin</h3>
         <div class="settings-seg" role="radiogroup" aria-label="Registry admin action">
             <button type="button" class="seg-btn @(_tab == TabAdd ? "active" : "")"
                     @onclick="@(() => SetTab(TabAdd))">
@@ -32,46 +32,53 @@
 
     @if (_tab == TabAdd) {
         <div class="pwb-admin-grid">
-            <label class="text-xs text-muted">
-                Platform
-                <select class="protos-filter w-full" @bind="_platform">
-                    <option value="android">android</option>
-                    <option value="ios">ios</option>
-                </select>
+            <div class="pwb-field">
+                <span class="pwb-field-label">Platform</span>
+                <div class="settings-seg" role="radiogroup" aria-label="Platform">
+                    <button type="button" class="seg-btn @(_platform == PlatAndroid ? "active" : "")"
+                            @onclick="@(() => SetPlatform(PlatAndroid))">
+                        android
+                    </button>
+                    <button type="button" class="seg-btn @(_platform == PlatIos ? "active" : "")"
+                            @onclick="@(() => SetPlatform(PlatIos))">
+                        ios
+                    </button>
+                </div>
+            </div>
+            <label class="pwb-field">
+                <span class="pwb-field-label">App version<span class="pwb-field-req">*</span></span>
+                <FilterInput Class="reg-filter-input" Placeholder="1.37.2" AriaLabel="App version" @bind-Value="_appVersion"/>
             </label>
-            <label class="text-xs text-muted">
-                App version
-                <FilterInput Class="protos-filter w-full" Placeholder="" AriaLabel="App version" @bind-Value="_appVersion"/>
+            <label class="pwb-field">
+                <span class="pwb-field-label">Build<span class="pwb-field-req">*</span></span>
+                <FilterInput Class="reg-filter-input" Placeholder="137200" AriaLabel="Build" @bind-Value="_build"/>
             </label>
-            <label class="text-xs text-muted">
-                Build
-                <FilterInput Class="protos-filter w-full" Placeholder="" AriaLabel="Build" @bind-Value="_build"/>
+            <label class="pwb-field">
+                <span class="pwb-field-label">Client version<span class="pwb-field-hint">optional</span></span>
+                <FilterInput Class="reg-filter-input" Placeholder="" AriaLabel="Client version" @bind-Value="_client"/>
             </label>
-            <label class="text-xs text-muted">
-                Client version
-                <FilterInput Class="protos-filter w-full" Placeholder="" AriaLabel="Client version" @bind-Value="_client"/>
-            </label>
-            <label class="text-xs text-muted">
-                Source
-                <FilterInput Class="protos-filter w-full" Placeholder="" AriaLabel="Source" @bind-Value="_source"/>
+            <label class="pwb-field">
+                <span class="pwb-field-label">Source<span class="pwb-field-hint">optional</span></span>
+                <FilterInput Class="reg-filter-input" Placeholder="" AriaLabel="Source" @bind-Value="_source"/>
             </label>
         </div>
-        <label class="text-xs text-muted block mt-2 mb-2">
-            Proto (optional)
-            <textarea class="protos-filter w-full font-mono text-xs" rows="6" @bind="_proto"></textarea>
+        <label class="pwb-field pwb-field-block">
+            <span class="pwb-field-label">Proto<span class="pwb-field-hint">optional</span></span>
+            <textarea class="pwb-code-input" rows="6" spellcheck="false" aria-label="Proto" @bind="_proto"></textarea>
         </label>
-        <div class="flex items-center gap-2">
+        <div class="pwb-admin-foot">
+            <span class="text-xs text-muted">Platform, app version and build are required.</span>
             <button type="button" class="btn-primary" disabled="@_busy" @onclick="Add">@(_busy ? "Saving..." : "Save")</button>
         </div>
     } else if (_tab == TabDeleted) {
-        <div class="flex items-center gap-2 mb-2">
-            <span class="text-xs text-muted">@_deleted.Count soft-deleted</span>
-            <button type="button" class="btn-mini" disabled="@_busy" @onclick="LoadDeleted">Reload</button>
+        <div class="admin-panel-head">
+            <div class="sub-section-head">Soft-deleted versions (@_deleted.Count)</div>
+            <button type="button" class="btn-mini" disabled="@_busy" @onclick="LoadDeleted">@(_busy ? "Loading..." : "Reload")</button>
         </div>
         @if (_deleted.Count == 0) {
             <div class="text-xs text-muted">Nothing deleted.</div>
         } else {
-            <div class="reg-scroll">
+            <div class="reg-wrap pwb-admin-scroll">
                 <table class="data-table">
                     <thead>
                     <tr>
@@ -81,7 +88,7 @@
                         <th>Client</th>
                         <th>Proto SHA</th>
                         <th>Deleted</th>
-                        <th class="w-20"></th>
+                        <th class="w-20 pwb-admin-row-tools">Actions</th>
                     </tr>
                     </thead>
                     <tbody>
@@ -90,16 +97,20 @@
                             <td>
                                 <PlatformIcon Platform="@d.Platform"/>
                             </td>
-                            <td>@d.AppVersion</td>
+                            <td class="reg-version">@d.AppVersion</td>
                             <td class="reg-num">@d.Build</td>
                             <td class="reg-num">@d.ClientVersion</td>
-                            <td class="text-xs text-muted font-mono">@Short(d.ProtoSha)</td>
+                            <td>
+                                @if (Short(d.ProtoSha) is { Length: > 0 } sha) {
+                                    <span class="code-chip">@sha</span>
+                                }
+                            </td>
                             <td class="text-xs text-muted">
                                 @if (d.DeletedAt is { } at) {
                                     <TimeAgo Value="@at"/>
                                 }
                             </td>
-                            <td>
+                            <td class="pwb-admin-row-tools">
                                 <button type="button" class="btn-mini" disabled="@_busy"
                                         @onclick="@(() => Restore(d))">
                                     Restore
@@ -112,9 +123,9 @@
             </div>
         }
     } else {
-        <label class="text-xs text-muted block mb-2">
-            Version
-            <select class="protos-filter w-full" value="@_editKey" @onchange="OnPickVersion">
+        <label class="pwb-field pwb-field-pick">
+            <span class="pwb-field-label">Version</span>
+            <select class="field-input" value="@_editKey" @onchange="OnPickVersion">
                 <option value="">pick a version</option>
                 @foreach (var r in EditableRows) {
                     <option value="@RowKey(r)">@r.Platform @r.AppVersion (@r.Build)</option>
@@ -128,12 +139,14 @@
                              OnChanged="OnChanged" OnClose="@(() => _editKey = string.Empty)"/>
         }
     }
-</div>
+</section>
 
 @code {
     const string TabAdd = "add";
     const string TabEdit = "edit";
     const string TabDeleted = "deleted";
+    const string PlatAndroid = "android";
+    const string PlatIos = "ios";
 
     static readonly JsonSerializerOptions JsonOpts = new(JsonSerializerDefaults.Web);
 
@@ -150,7 +163,7 @@
     string _tab = TabAdd;
     bool _busy;
     List<DeletedVersionRow> _deleted = [];
-    string _platform = "android";
+    string _platform = PlatAndroid;
     string _appVersion = "";
     string _build = "";
     string _client = "";
@@ -169,6 +182,10 @@
 
     static string Short(string? sha) {
         return string.IsNullOrEmpty(sha) ? "" : sha.Length <= 12 ? sha : sha[..12];
+    }
+
+    void SetPlatform(string platform) {
+        _platform = platform;
     }
 
     async Task SetTab(string tab) {

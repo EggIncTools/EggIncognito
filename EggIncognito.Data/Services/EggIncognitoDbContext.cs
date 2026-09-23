@@ -249,6 +249,8 @@ public class EggIncognitoDbContext(DbContextOptions<EggIncognitoDbContext> optio
         modelBuilder.Entity<StagedProto>(e => {
             e.HasIndex(x => x.ProtoSha);
             e.HasIndex(x => x.Status);
+            e.HasIndex(x => x.Kind);
+            e.Property(x => x.Kind).HasDefaultValue("version");
         });
         modelBuilder.Entity<EnvDesign>(e => {
             e.HasKey(x => x.Id);

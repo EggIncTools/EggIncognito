@@ -242,9 +242,6 @@
                         <span class="text-muted text-xs">Pick the file to offer in the rail.</span>
                     } else if (selGroup?.Status is { Known: true }) {
                         <span class="pwb-note-inline pwb-ok">in registry</span>
-                    } else if (selGroup?.Status is { InRegistry: true }) {
-                        <span class="pwb-note-inline pwb-ok">sha in registry</span>
-                        <span class="text-muted text-xs">This proto text is already stored under different version metadata.</span>
                     } else if (selGroup?.Status is { Failed: true }) {
                         <span class="pwb-note-inline pwb-err">check failed</span>
                         <button type="button" class="btn-mini" aria-label="Retry check"
@@ -252,7 +249,19 @@
                             <Icon Name="refresh-cw" Class="icon-sm"/> Retry
                         </button>
                     } else if (selGroup?.Status is { Pending: true } or { Offered: true }) {
-                        <span class="pwb-note-inline pwb-warn">pending review</span>
+                        @if (User.IsAtLeast(UserRole.Contributor)) {
+                            <button type="button" class="pwb-pending-btn @(_queueOpen ? "active" : "")"
+                                    @onclick="ToggleQueue">
+                                pending review
+                            </button>
+                        } else {
+                            <span class="pwb-note-inline pwb-warn">pending review</span>
+                        }
+                    } else if (selGroup?.Status is { Conflict: true }) {
+                        <span class="pwb-note-inline pwb-warn">conflicts with registry</span>
+                    } else if (selGroup?.Status is { InRegistry: true }) {
+                        <span class="pwb-note-inline pwb-ok">sha in registry</span>
+                        <span class="text-muted text-xs">This proto text is already stored under different version metadata.</span>
                     } else if (selGroup?.Status is { Offerable: true }) {
                         @if (User.IsAuthenticated) {
                             <span class="pwb-note-inline">offerable</span>
@@ -267,8 +276,118 @@
                             <Icon Name="upload" Class="icon-sm"/> Offer
                         </button>
                     }
+
+                    @if (selGroup is { Winner: not null } og && User.IsAtLeast(UserRole.Admin)) {
+                        <button type="button" class="btn-mini @(_overwriteOpen ? "active" : "")"
+                                @onclick="@(() => ToggleOverwrite(og))">
+                            Overwrite...
+                        </button>
+                    }
                 }
             </div>
+        }
+        @if (selGroup?.Status is { Conflict: true, Stored: { } stored }) {
+            <div class="pwb-cmp">
+                <div class="pwb-cmp-head">
+                    This proto sha is already stored under different version metadata. Review before overwriting.
+                </div>
+                <table class="data-table pwb-cmp-table">
+                    <thead>
+                    <tr>
+                        <th></th>
+                        <th>Stored</th>
+                        <th>Detected</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr class="@CmpClass(stored.Platform, selGroup.Platform)">
+                        <td class="text-muted">platform</td>
+                        <td class="font-mono text-xs">@Dash(stored.Platform)</td>
+                        <td class="font-mono text-xs">@Dash(selGroup.Platform)</td>
+                    </tr>
+                    <tr class="@CmpClass(stored.AppVersion, selGroup.AppVersion)">
+                        <td class="text-muted">app version</td>
+                        <td class="font-mono text-xs">@Dash(stored.AppVersion)</td>
+                        <td class="font-mono text-xs">@Dash(selGroup.AppVersion)</td>
+                    </tr>
+                    <tr class="@CmpClass(stored.Build, selGroup.Build)">
+                        <td class="text-muted">build</td>
+                        <td class="font-mono text-xs">@Dash(stored.Build)</td>
+                        <td class="font-mono text-xs">@Dash(selGroup.Build)</td>
+                    </tr>
+                    <tr class="@CmpClass(stored.ClientVersion, selGroup.ClientVersionText)">
+                        <td class="text-muted">client version</td>
+                        <td class="font-mono text-xs">@Dash(stored.ClientVersion)</td>
+                        <td class="font-mono text-xs">@Dash(selGroup.ClientVersionText)</td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+        }
+        @if (_overwriteOpen && selGroup is { Winner: not null } owg && User.IsAtLeast(UserRole.Admin)) {
+            <section class="pwb-ovw">
+                <div class="pwb-ovw-head">
+                    <h3 class="pwb-admin-title">Overwrite a registry row</h3>
+                    <button type="button" class="reg-edit-btn pwb-admin-close" aria-label="Close overwrite"
+                            @onclick="@(() => _overwriteOpen = false)">
+                        <Icon Name="x"/>
+                    </button>
+                </div>
+                <label class="pwb-field pwb-field-pick">
+                    <span class="pwb-field-label">Target row<span class="pwb-field-req">*</span></span>
+                    <select class="field-input" value="@_ovwTarget" @onchange="OnPickOverwriteTarget">
+                        <option value="">pick the registry row to overwrite</option>
+                        @foreach (var row in OrderedRegistry()) {
+                            <option value="@TargetKey(row)">@row.Platform @Dash(row.AppVersion) (@row.Build) @Sha12(row.ProtoSha)</option>
+                        }
+                    </select>
+                </label>
+                @if (OverwriteTargetRow() is { } target) {
+                    <table class="data-table pwb-cmp-table">
+                        <thead>
+                        <tr>
+                            <th></th>
+                            <th>Stored</th>
+                            <th>Proposed</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        <tr class="@CmpClass(target.AppVersion, owg.AppVersion)">
+                            <td class="text-muted">app version</td>
+                            <td class="font-mono text-xs">@Dash(target.AppVersion)</td>
+                            <td class="font-mono text-xs">@Dash(owg.AppVersion)</td>
+                        </tr>
+                        <tr class="@CmpClass(target.Build, owg.Build)">
+                            <td class="text-muted">build</td>
+                            <td class="font-mono text-xs">@Dash(target.Build)</td>
+                            <td class="font-mono text-xs">@Dash(owg.Build)</td>
+                        </tr>
+                        <tr class="@CmpClass(target.ClientVersion, owg.ClientVersionText)">
+                            <td class="text-muted">client version</td>
+                            <td class="font-mono text-xs">@Dash(target.ClientVersion)</td>
+                            <td class="font-mono text-xs">@Dash(owg.ClientVersionText)</td>
+                        </tr>
+                        <tr class="@CmpClass(target.ProtoSha, owg.Sha)">
+                            <td class="text-muted">proto sha</td>
+                            <td class="font-mono text-xs">@Dash(Sha12(target.ProtoSha))</td>
+                            <td class="font-mono text-xs">@Dash(Sha12(owg.Sha))</td>
+                        </tr>
+                        </tbody>
+                    </table>
+                }
+                <div class="pwb-admin-foot">
+                    <span class="text-xs text-muted">Proposed values come from the extraction, never from this form. Staged for review, not applied here.</span>
+                    <button type="button" class="btn-primary" disabled="@(_overwriteBusy || OverwriteTargetRow() is null)"
+                            @onclick="@(() => StageOverwrite(owg))">
+                        @(_overwriteBusy ? "Staging..." : "Stage overwrite")
+                    </button>
+                </div>
+            </section>
+        }
+        @if (_queueOpen && User.IsAtLeast(UserRole.Contributor)) {
+            <StagedReviewPanel @ref="_queuePanel" IsAdmin="@User.IsAtLeast(UserRole.Admin)" ShowEmpty="true"
+                               EmptyText="Nothing is pending review. This sha was staged earlier and has since been approved or rejected."
+                               OnChanged="OnQueueChanged"/>
         }
         <div class="pwb-head">
             <WorkbenchModes Modes="State.Modes" Current="@State.Mode" CurrentChanged="SetMode" Disabled="ModeDisabled"/>
@@ -455,6 +574,11 @@
 
     bool _open;
     bool _adminOpen;
+    bool _queueOpen;
+    bool _overwriteOpen;
+    bool _overwriteBusy;
+    string _ovwTarget = "";
+    StagedReviewPanel? _queuePanel;
     bool _dropWired;
     bool _offerBusy;
     bool _filterOpen;
@@ -576,6 +700,106 @@
         if (OnChanged.HasDelegate) await OnChanged.InvokeAsync();
     }
 
+    async Task ToggleQueue() {
+        _queueOpen = !_queueOpen;
+        await RefreshQueue();
+    }
+
+    async Task RefreshQueue() {
+        if (_queueOpen && _queuePanel is { } panel) await panel.Load();
+        await Rerender();
+    }
+
+    async Task OnQueueChanged() {
+        foreach (var k in State.GroupStatuses.Keys.ToList()) State.GroupStatuses.Remove(k);
+        await CheckGroups();
+        await OnAdminChanged();
+    }
+
+    void ToggleOverwrite(OfferGroup g) {
+        _overwriteOpen = !_overwriteOpen;
+        if (!_overwriteOpen) return;
+        _ovwTarget = g.Status?.Stored is { } s ? $"{s.Platform}/{s.Build}" : "";
+    }
+
+    void OnPickOverwriteTarget(ChangeEventArgs e) {
+        _ovwTarget = e.Value?.ToString() ?? "";
+    }
+
+    static string TargetKey(ProtoRegistryRow row) {
+        return $"{row.Platform}/{row.Build}";
+    }
+
+    ProtoRegistryRow? OverwriteTargetRow() {
+        return _ovwTarget.Length == 0 ? null : State.Registry.FirstOrDefault(r => TargetKey(r) == _ovwTarget);
+    }
+
+    static string CmpClass(string? stored, string? proposed) {
+        var a = stored?.Trim() ?? "";
+        var b = proposed?.Trim() ?? "";
+        return string.Equals(a, b, StringComparison.OrdinalIgnoreCase) ? "" : "pwb-meta-diff";
+    }
+
+    async Task StageOverwrite(OfferGroup g) {
+        if (OverwriteTargetRow() is not { } target) return;
+        var proto = g.Winner?.Result?.Proto;
+        var sha = g.Winner?.Result?.ProtoSha;
+        if (proto is not { Length: > 0 } || sha is not { Length: > 0 }) {
+            Toasts.Push(StatusNoteKind.Error, "no extracted proto text to stage");
+            return;
+        }
+
+        _overwriteBusy = true;
+        try {
+            var body = new {
+                targetPlatform = target.Platform,
+                targetBuild = target.Build,
+                platform = g.Platform,
+                appVersion = string.IsNullOrWhiteSpace(g.AppVersion) ? null : g.AppVersion,
+                build = string.IsNullOrWhiteSpace(g.Build) ? null : g.Build,
+                clientVersion = string.IsNullOrWhiteSpace(g.ClientVersionText) ? null : g.ClientVersionText,
+                package = (string?)null,
+                protoSha = sha,
+                protoText = proto,
+                messageIndex = (string?)null
+            };
+            var resp = await Client().PostAsJsonAsync("/api/protos/staged/correction", body, SelfCallJson.Web);
+            if (!resp.IsSuccessStatusCode) {
+                Toasts.Push(StatusNoteKind.Error, $"overwrite failed ({(int)resp.StatusCode})");
+                return;
+            }
+
+            var outcome = await resp.Content.ReadFromJsonAsync<OfferResp>(SelfCallJson.Web);
+            switch (outcome?.Result) {
+                case "staged":
+                    Toasts.Push(StatusNoteKind.Ok, $"overwrite staged against {target.Platform} {target.Build}");
+                    _overwriteOpen = false;
+                    _queueOpen = User.IsAtLeast(UserRole.Contributor);
+                    await Rerender();
+                    await RefreshQueue();
+                    await OnChanged.InvokeAsync();
+                    break;
+                case "alreadypending":
+                    Toasts.Push(StatusNoteKind.Info, "an identical overwrite is already pending review");
+                    break;
+                case "nochange":
+                    Toasts.Push(StatusNoteKind.Info, "nothing to overwrite, the stored row already matches");
+                    break;
+                case "notfound":
+                    Toasts.Push(StatusNoteKind.Error, "target registry row not found");
+                    break;
+                default:
+                    Toasts.Push(StatusNoteKind.Error, "overwrite returned an unknown result");
+                    break;
+            }
+        } catch (Exception ex) when (ex is HttpRequestException or NotSupportedException or JsonException) {
+            Logger.LogWarning(ex, "staging an overwrite for {Platform} failed", g.Platform);
+            Toasts.Push(StatusNoteKind.Error, "overwrite request failed");
+        } finally {
+            _overwriteBusy = false;
+        }
+    }
+
     public void OpenAt(ProtoRef a, ProtoRef? b, string? mode) {
         State.A = a;
         State.B = b;
@@ -609,6 +833,8 @@
         var was = _open;
         _open = false;
         _adminOpen = false;
+        _queueOpen = false;
+        _overwriteOpen = false;
         _filterOpen = false;
         _menu = null;
         if (!was) return;
@@ -842,8 +1068,9 @@
         return g.Status switch {
             { Failed: true } => "check failed",
             { Known: true } => "in registry",
-            { InRegistry: true } => "sha in registry",
             { Pending: true } or { Offered: true } => "pending",
+            { Conflict: true } => "conflicts with registry",
+            { InRegistry: true } => "sha in registry",
             { Offerable: true } => "offerable",
             _ => "checking"
         };
@@ -853,8 +1080,10 @@
         if (g.Conflict) return "pwb-err";
         return g.Status switch {
             { Failed: true } => "pwb-err",
-            { Known: true } or { InRegistry: true } => "pwb-ok",
+            { Known: true } => "pwb-ok",
             { Pending: true } or { Offered: true } => "pwb-warn",
+            { Conflict: true } => "pwb-warn",
+            { InRegistry: true } => "pwb-ok",
             _ => ""
         };
     }
@@ -895,7 +1124,7 @@
                     $"/api/protos/staged/check?platform={Uri.EscapeDataString(g.Platform)}&appVersion={Uri.EscapeDataString(g.AppVersion)}&build={Uri.EscapeDataString(g.Build)}&clientVersion={Uri.EscapeDataString(g.ClientVersionText)}&protoSha={Uri.EscapeDataString(g.Sha ?? "")}",
                     Logger);
                 await InvokeAsync(() => State.GroupStatuses[sk] = r is not null
-                    ? new GroupStatus(r.KnownCombination, r.Pending, false, false, r.InRegistry)
+                    ? new GroupStatus(r.KnownCombination, r.Pending, false, false, r.InRegistry, r.Conflict, r.Stored)
                     : new GroupStatus(false, false, false, true));
             } finally {
                 await InvokeAsync(() => _checking.Remove(sk));
@@ -934,8 +1163,9 @@
             if (!resp.IsSuccessStatusCode) return;
             var outcome = await resp.Content.ReadFromJsonAsync<OfferResp>(SelfCallJson.Web);
             await InvokeAsync(() => {
-                if (g.StatusKey is { } sk) State.GroupStatuses[sk] = StatusOf(outcome?.Result);
+                if (g.StatusKey is { } sk) State.GroupStatuses[sk] = StatusOf(outcome?.Result, g.Status);
             });
+            if (outcome?.Result is "staged" or "correctionstaged") await RefreshQueue();
             await OnChanged.InvokeAsync();
         } catch (Exception ex) {
             Logger.LogWarning(ex, "offering the extracted proto for {Platform} failed", g.Platform);
@@ -944,11 +1174,14 @@
         }
     }
 
-    static GroupStatus StatusOf(string? offerResult) {
+    static GroupStatus StatusOf(string? offerResult, GroupStatus? prior) {
         return offerResult switch {
             "alreadyinregistry" => new GroupStatus(true, false, false, false, true),
-            "alreadypending" => new GroupStatus(false, true, false),
-            _ => new GroupStatus(false, true, true)
+            "alreadypending" => new GroupStatus(false, true, false, false, prior?.InRegistry ?? false,
+                prior?.Conflict ?? false, prior?.Stored),
+            "correctionstaged" => new GroupStatus(false, true, true, false, true, true, prior?.Stored),
+            "staged" => new GroupStatus(false, true, true),
+            _ => new GroupStatus(false, false, false, true)
         };
     }
 

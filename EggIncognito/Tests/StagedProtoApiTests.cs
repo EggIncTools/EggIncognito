@@ -28,6 +28,7 @@ public class StagedProtoApiTests {
         Assert.False(new GroupStatus(true, false, false).Offerable);
         Assert.False(new GroupStatus(false, true, false).Offerable);
         Assert.False(new GroupStatus(false, false, false, true).Offerable);
+        Assert.False(new GroupStatus(false, false, false, false, false, true).Offerable);
         Assert.True(new GroupStatus(false, false, false).Offerable);
     }
 }

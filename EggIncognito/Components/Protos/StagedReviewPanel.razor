@@ -1,100 +1,219 @@
-@* Contributor+ review queue for staged proto submissions (public offers + admin crawl imports). Select rows,
-   bulk approve/reject, and inline-edit version fields to fix a crawled null before approving. Approve promotes
-   to the live registry; reject hides + blocks re-offer of that sha. *@
+@* Contributor+ review queue for staged proto submissions (public offers + admin crawl imports) and admin
+   corrections that overwrite an existing registry row. Select rows, bulk approve/reject, and inline-edit
+   version fields to fix a crawled null before approving. Approve promotes to the live registry; reject hides
+   + blocks re-offer of that sha. *@
 @rendermode @(RenderModes.InteractiveServer)
 @inherits SelfCallComponentBase
 @inject IJSRuntime JS
 @inject IWebHostEnvironment Env
 @inject ToastService Toasts
+@using System.Net
 @using System.Text
 @using System.Text.Json
 @implements IAsyncDisposable
 
-@* Only render when there is something to review. *@
-@if (_rows.Count > 0) {
+@* Only render when there is something to review, unless the host asked for an explicit empty state. *@
+@if (_rows.Count == 0 && ShowEmpty) {
+    <section class="panel mb-3">
+        <div class="text-xs text-muted">@EmptyText</div>
+    </section>
+} else if (_rows.Count > 0) {
+    var corrections = Corrections;
+    var fresh = NewSubmissions;
     <section class="panel mb-3">
         <div class="flex items-center gap-2 flex-wrap mb-2">
             <div class="text-sm font-semibold">Staged submissions (@_rows.Count)</div>
-            @if (_rows.Any(r => r.IsIncomplete)) {
+            @if (fresh.Any(r => r.IsIncomplete)) {
                 <button type="button" class="btn-mini" @onclick="CopyAllMissing">
-                    Copy Missing Info (@_rows.Count(r => r.IsIncomplete))
+                    Copy Missing Info (@fresh.Count(r => r.IsIncomplete))
                 </button>
             }
         </div>
 
-        @if (_rows.Count == 0) {
-            <div class="text-xs text-muted">No pending submissions.</div>
-        } else {
-            @if (_selected.Count > 0) {
-                <div class="flex items-center gap-2 flex-wrap mb-2 p-2 rounded-md bg-panel2 border border-border">
-                    <span class="text-xs font-semibold">@_selected.Count selected</span>
-                    <button type="button" class="btn-mini" disabled="@_busy" @onclick="BulkApprove">Approve selected</button>
-                    <button type="button" class="btn-mini" disabled="@_busy" @onclick="BulkReject">Reject selected</button>
-                    <button type="button" class="btn-mini" @onclick="ClearSelection">Clear</button>
-                </div>
-            }
+        @if (_selected.Count > 0) {
+            <div class="flex items-center gap-2 flex-wrap mb-2 p-2 rounded-md bg-panel2 border border-border">
+                <span class="text-xs font-semibold">@_selected.Count selected</span>
+                <button type="button" class="btn-mini" disabled="@_busy" @onclick="BulkApprove">Approve selected</button>
+                <button type="button" class="btn-mini" disabled="@_busy" @onclick="BulkReject">Reject selected</button>
+                <button type="button" class="btn-mini" @onclick="ClearSelection">Clear</button>
+            </div>
+        }
 
-            <table class="data-table">
-                <thead>
-                <tr>
-                    <th class="w-8">
-                        <input type="checkbox" checked="@AllSelected" @onchange="ToggleAll"/>
-                    </th>
-                    <th>Source</th>
-                    <th>Platform</th>
-                    <th>App Version</th>
-                    <th>Build</th>
-                    <th>Client</th>
-                    <th>Proto SHA</th>
-                    <th>Origin</th>
-                    <th class="w-28">Actions</th>
-                </tr>
-                </thead>
-                <tbody>
-                @foreach (var r in _rows) {
-                    <tr class="reg-row">
-                        <td @onclick:stopPropagation="true">
-                            <input type="checkbox" checked="@_selected.Contains(r.Id)" @onchange="@(() => ToggleRow(r.Id))"/>
-                        </td>
-                        <td>
-                            <span class="code-chip">@r.Source</span>
-                        </td>
-                        <td>
-                            <input class="protos-filter w-full" style="min-width:5rem" @bind="r.Platform"/>
-                        </td>
-                        <td>
-                            <input class="protos-filter w-full" style="min-width:6rem" placeholder="-" @bind="r.AppVersion"/>
-                        </td>
-                        <td>
-                            <input class="protos-filter w-full" style="min-width:7rem" placeholder="-" @bind="r.Build"/>
-                        </td>
-                        <td>
-                            <input class="protos-filter w-full" style="min-width:4rem" placeholder="-" @bind="r.ClientVersion"/>
-                        </td>
-                        <td class="text-xs text-muted font-mono">@Short(r.ProtoSha)</td>
-                        <td class="text-xs text-muted">
-                            @if (r.OriginRepo is not null) {
-                                <span>@r.OriginRepo</span>
-                                @if (r.Confidence is { } c) {
-                                    <span class="@ConfClass(c)"> (@c)</span>
-                                }
+        @if (corrections.Count > 0) {
+            <div class="sr-sec sr-corr">
+                <div class="sr-sec-head">
+                    <div class="sub-section-head">Corrections (@corrections.Count)</div>
+                    <span class="pwb-note-inline">Each row overwrites the registry row it targets instead of adding a new version.</span>
+                    @if (!IsAdmin) {
+                        <span class="pwb-note-inline pwb-warn">Admin required to approve or reject these.</span>
+                    }
+                </div>
+                <div class="reg-wrap">
+                    <table class="data-table">
+                        <thead>
+                        <tr>
+                            @if (IsAdmin) {
+                                <th class="w-8">
+                                    <input type="checkbox" checked="@AllSelectedIn(corrections)"
+                                           @onchange="@(e => ToggleAllIn(corrections, e))"/>
+                                </th>
                             }
-                        </td>
-                        <td @onclick:stopPropagation="true">
-                            <div class="flex gap-1">
-                                <button type="button" class="btn-mini" disabled="@_busy" @onclick="@(() => Approve(r))">Approve</button>
-                                <button type="button" class="btn-mini" disabled="@_busy" @onclick="@(() => Reject(r))">Reject</button>
-                                @if (r.IsIncomplete) {
-                                    <button type="button" class="btn-mini" @onclick="@(() => CopyOne(r))">
-                                        Copy
-                                    </button>
+                            <th>Target row</th>
+                            <th>App Version</th>
+                            <th>Build</th>
+                            <th>Client</th>
+                            <th>Proto SHA</th>
+                            <th>Source</th>
+                            @if (IsAdmin) {
+                                <th class="w-28">Actions</th>
+                            }
+                        </tr>
+                        </thead>
+                        <tbody>
+                        @foreach (var r in corrections) {
+                            <tr class="reg-row">
+                                @if (IsAdmin) {
+                                    <td @onclick:stopPropagation="true">
+                                        <input type="checkbox" checked="@_selected.Contains(r.Id)"
+                                               @onchange="@(() => ToggleRow(r.Id))"/>
+                                    </td>
                                 }
-                            </div>
-                        </td>
-                    </tr>
+                                <td class="sr-target">
+                                    <PlatformIcon Platform="@(r.Target?.Platform ?? r.Platform)"/>
+                                    <span class="code-chip">@Dash(r.Target?.Build)</span>
+                                </td>
+                                <td class="@FieldClass(r.Target?.AppVersion, r.AppVersion)">
+                                    <div class="sr-field">
+                                        <span class="sr-stored">@Dash(r.Target?.AppVersion)</span>
+                                        <span class="sr-arrow">&rarr;</span>
+                                        @if (IsAdmin) {
+                                            <input class="protos-filter sr-prop" placeholder="@Dash(r.Target?.AppVersion)"
+                                                   @bind="r.AppVersion"/>
+                                        } else {
+                                            <span class="sr-prop-text">@PropText(r.AppVersion)</span>
+                                        }
+                                    </div>
+                                </td>
+                                <td class="@FieldClass(r.Target?.Build, r.Build)">
+                                    <div class="sr-field">
+                                        <span class="sr-stored">@Dash(r.Target?.Build)</span>
+                                        <span class="sr-arrow">&rarr;</span>
+                                        @if (IsAdmin) {
+                                            <input class="protos-filter sr-prop" placeholder="@Dash(r.Target?.Build)"
+                                                   @bind="r.Build"/>
+                                        } else {
+                                            <span class="sr-prop-text">@PropText(r.Build)</span>
+                                        }
+                                    </div>
+                                </td>
+                                <td class="@FieldClass(r.Target?.ClientVersion, r.ClientVersion)">
+                                    <div class="sr-field">
+                                        <span class="sr-stored">@Dash(r.Target?.ClientVersion)</span>
+                                        <span class="sr-arrow">&rarr;</span>
+                                        @if (IsAdmin) {
+                                            <input class="protos-filter sr-prop" placeholder="@Dash(r.Target?.ClientVersion)"
+                                                   @bind="r.ClientVersion"/>
+                                        } else {
+                                            <span class="sr-prop-text">@PropText(r.ClientVersion)</span>
+                                        }
+                                    </div>
+                                </td>
+                                <td class="@FieldClass(r.Target?.ProtoSha, r.ProtoSha)">
+                                    <div class="sr-field">
+                                        <span class="sr-stored">@Dash(Short(r.Target?.ProtoSha))</span>
+                                        <span class="sr-arrow">&rarr;</span>
+                                        <span class="sr-prop-text">@Dash(Short(r.ProtoSha))</span>
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="code-chip">@r.Source</span>
+                                </td>
+                                @if (IsAdmin) {
+                                    <td @onclick:stopPropagation="true">
+                                        <div class="flex gap-1">
+                                            <button type="button" class="btn-mini" disabled="@_busy" @onclick="@(() => Approve(r))">Overwrite</button>
+                                            <button type="button" class="btn-mini" disabled="@_busy" @onclick="@(() => Reject(r))">Reject</button>
+                                        </div>
+                                    </td>
+                                }
+                            </tr>
+                        }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        }
+
+        @if (fresh.Count > 0) {
+            <div class="sr-sec">
+                @if (corrections.Count > 0) {
+                    <div class="sr-sec-head">
+                        <div class="sub-section-head">New submissions (@fresh.Count)</div>
+                        <span class="pwb-note-inline">Each row adds a version the registry does not have yet.</span>
+                    </div>
                 }
-                </tbody>
-            </table>
+                <table class="data-table">
+                    <thead>
+                    <tr>
+                        <th class="w-8">
+                            <input type="checkbox" checked="@AllSelectedIn(fresh)" @onchange="@(e => ToggleAllIn(fresh, e))"/>
+                        </th>
+                        <th>Source</th>
+                        <th>Platform</th>
+                        <th>App Version</th>
+                        <th>Build</th>
+                        <th>Client</th>
+                        <th>Proto SHA</th>
+                        <th>Origin</th>
+                        <th class="w-28">Actions</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    @foreach (var r in fresh) {
+                        <tr class="reg-row">
+                            <td @onclick:stopPropagation="true">
+                                <input type="checkbox" checked="@_selected.Contains(r.Id)" @onchange="@(() => ToggleRow(r.Id))"/>
+                            </td>
+                            <td>
+                                <span class="code-chip">@r.Source</span>
+                            </td>
+                            <td>
+                                <input class="protos-filter w-full" style="min-width:5rem" @bind="r.Platform"/>
+                            </td>
+                            <td>
+                                <input class="protos-filter w-full" style="min-width:6rem" placeholder="-" @bind="r.AppVersion"/>
+                            </td>
+                            <td>
+                                <input class="protos-filter w-full" style="min-width:7rem" placeholder="-" @bind="r.Build"/>
+                            </td>
+                            <td>
+                                <input class="protos-filter w-full" style="min-width:4rem" placeholder="-" @bind="r.ClientVersion"/>
+                            </td>
+                            <td class="text-xs text-muted font-mono">@Short(r.ProtoSha)</td>
+                            <td class="text-xs text-muted">
+                                @if (r.OriginRepo is not null) {
+                                    <span>@r.OriginRepo</span>
+                                    @if (r.Confidence is { } c) {
+                                        <span class="@ConfClass(c)"> (@c)</span>
+                                    }
+                                }
+                            </td>
+                            <td @onclick:stopPropagation="true">
+                                <div class="flex gap-1">
+                                    <button type="button" class="btn-mini" disabled="@_busy" @onclick="@(() => Approve(r))">Approve</button>
+                                    <button type="button" class="btn-mini" disabled="@_busy" @onclick="@(() => Reject(r))">Reject</button>
+                                    @if (r.IsIncomplete) {
+                                        <button type="button" class="btn-mini" @onclick="@(() => CopyOne(r))">
+                                            Copy
+                                        </button>
+                                    }
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
         }
     </section>
 }
@@ -108,8 +227,12 @@
 
     [Parameter] public EventCallback OnChanged { get; set; }
     [Parameter] public bool IsAdmin { get; set; }
+    [Parameter] public bool ShowEmpty { get; set; }
+    [Parameter] public string EmptyText { get; set; } = "No pending submissions.";
 
-    bool AllSelected => _rows.Count > 0 && _rows.All(r => _selected.Contains(r.Id));
+    List<Models.Staging.StagedRow> Corrections => [.. _rows.Where(r => r.IsCorrection)];
+
+    List<Models.Staging.StagedRow> NewSubmissions => [.. _rows.Where(r => !r.IsCorrection)];
 
     protected override async Task OnInitializedAsync() {
         await Load();
@@ -122,11 +245,14 @@
             _rows = [];
         }
 
-        _selected.IntersectWith(_rows.Select(r => r.Id));
+        _selected.IntersectWith(Selectable.Select(r => r.Id));
         StateHasChanged();
     }
 
+    IEnumerable<Models.Staging.StagedRow> Selectable => _rows.Where(r => IsAdmin || !r.IsCorrection);
+
     void ToggleRow(int id) {
+        if (!Selectable.Any(r => r.Id == id)) return;
         if (!_selected.Add(id)) _selected.Remove(id);
     }
 
@@ -134,17 +260,35 @@
         _selected.Clear();
     }
 
-    void ToggleAll(ChangeEventArgs e) {
-        if (e.Value is true)
-            foreach (var r in _rows)
-                _selected.Add(r.Id);
-        else
-            foreach (var r in _rows)
-                _selected.Remove(r.Id);
+    bool AllSelectedIn(IReadOnlyList<Models.Staging.StagedRow> rows) {
+        return rows.Count > 0 && rows.All(r => _selected.Contains(r.Id));
     }
 
-    static string Short(string sha) {
+    void ToggleAllIn(IReadOnlyList<Models.Staging.StagedRow> rows, ChangeEventArgs e) {
+        var on = e.Value is true;
+        foreach (var r in rows) {
+            if (on && (IsAdmin || !r.IsCorrection)) _selected.Add(r.Id);
+            else _selected.Remove(r.Id);
+        }
+    }
+
+    static string Short(string? sha) {
         return string.IsNullOrEmpty(sha) ? "" : sha.Length <= 12 ? sha : sha[..12];
+    }
+
+    static string Dash(string? value) {
+        return string.IsNullOrWhiteSpace(value) ? "-" : value;
+    }
+
+    static string PropText(string? proposed) {
+        return string.IsNullOrWhiteSpace(proposed) ? "unchanged" : proposed;
+    }
+
+    static string FieldClass(string? stored, string? proposed) {
+        if (string.IsNullOrWhiteSpace(proposed)) return "sr-same";
+        return string.Equals(stored?.Trim() ?? "", proposed.Trim(), StringComparison.OrdinalIgnoreCase)
+            ? "sr-same"
+            : "sr-diff";
     }
 
     static string ConfClass(string c) {
@@ -163,7 +307,8 @@
         _busy = true;
         try {
             var resp = await Client().PostAsJsonAsync($"/api/protos/staged/{r.Id}/approve", ApproveBody(r), JsonOpts);
-            if (resp.IsSuccessStatusCode) Ok("approved");
+            if (resp.IsSuccessStatusCode) Ok(r.IsCorrection ? "registry row overwritten" : "approved");
+            else if (resp.StatusCode == HttpStatusCode.Conflict) Err(await ErrorText(resp) ?? "build already taken");
             else Err($"approve failed ({(int)resp.StatusCode})");
         } catch (Exception ex) {
             Err($"approve error: {ex.Message}");
@@ -293,8 +438,19 @@
     }
 
     Task CopyAllMissing() {
-        return CopyAndClear(_rows.Where(r => r.IsIncomplete).ToList());
+        return CopyAndClear([.. NewSubmissions.Where(r => r.IsIncomplete)]);
     }
+
+    static async Task<string?> ErrorText(HttpResponseMessage resp) {
+        try {
+            var body = await resp.Content.ReadFromJsonAsync<ErrorResp>(JsonOpts);
+            return string.IsNullOrWhiteSpace(body?.Error) ? null : body.Error;
+        } catch (Exception ex) when (ex is HttpRequestException or NotSupportedException or JsonException) {
+            return null;
+        }
+    }
+
+    sealed record ErrorResp(string? Error);
 
     Task CopyOne(Models.Staging.StagedRow r) {
         return CopyAndClear([r]);
