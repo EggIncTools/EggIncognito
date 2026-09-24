@@ -1,6 +1,7 @@
 @rendermode @(RenderModes.InteractiveServer)
 @using EggIncognito.Models.AdminUi
 @using EggIncognito.Services.Assets
+@using EggIncognito.Services.Events
 @inherits AdminPaneBase
 
 <AdminPaneHead Title="Users" Facts="@Stats()"/>
@@ -37,7 +38,7 @@
                         }
                     </select>
                 </td>
-                <td class="text-muted text-xs">@u.LastLoginAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")</td>
+                <td class="text-muted text-xs">@ViewerClock.At(Services, u.LastLoginAt).ToString("yyyy-MM-dd HH:mm:ss")</td>
             </tr>
         }
         </tbody>

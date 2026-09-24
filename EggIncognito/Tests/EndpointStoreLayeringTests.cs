@@ -43,7 +43,7 @@ public class EndpointStoreLayeringTests {
         var services = new ServiceCollection();
         services.AddScoped(_ => new DbEndpointSourceMarker(new ThrowingSource()));
         var factory = services.BuildServiceProvider().GetRequiredService<IServiceScopeFactory>();
-        var logger = new CollectingLogger();
+        var logger = new CollectingLogger<EndpointStore>();
         var store = new EndpointStore(file, factory, logger);
 
         var msg = store.Fetch<AuthenticatedMessage>("ei/x");
@@ -62,14 +62,5 @@ public class EndpointStoreLayeringTests {
     private sealed class ThrowingSource : IEndpointSource {
         public int Priority => 100;
         public byte[]? Lookup(string path, string? eid) => throw new InvalidOperationException("db down");
-    }
-
-    private sealed class CollectingLogger : ILogger<EndpointStore> {
-        public List<LogLevel> Levels { get; } = [];
-        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
-        public bool IsEnabled(LogLevel logLevel) => true;
-
-        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception,
-            Func<TState, Exception?, string> formatter) => Levels.Add(logLevel);
     }
 }

@@ -92,15 +92,15 @@ public sealed class BlobOffloadService(
         var db = scope.ServiceProvider.GetRequiredService<EggIncognitoDbContext>();
 
         long pending = 0, bytes = 0;
-        foreach (var counted in new[] {
+        foreach (var (rows, rowBytes) in new[] {
             await PendingAsync<DeviceAsset>(db, ct),
             await PendingAsync<BuildBlob>(db, ct),
             await PendingAsync<StoredBinary>(db, ct),
             await PendingAsync<StoredApk>(db, ct),
             await PendingAsync<StoredModule>(db, ct)
         }) {
-            pending += counted.Rows;
-            bytes += counted.Bytes;
+            pending += rows;
+            bytes += rowBytes;
         }
 
         if (pending == 0) return;

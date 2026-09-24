@@ -6,10 +6,12 @@
 @inject NotificationsWorkbenchState State
 @inject ToastService Toasts
 @inject ILogger<NotificationsWorkbenchModal> Logger
+@inject IServiceProvider Services
 @using System.Text.Json
 @using EggIncognito.Components.Shared.Editor
 @using EggIncognito.Models.Notifications
 @using EggIncognito.Models.Protos
+@using EggIncognito.Services.Events
 @using EggIncognito.Services.Feed
 @using EggIncognito.Services.Notifications
 @implements IAsyncDisposable
@@ -186,8 +188,8 @@
         return values.Length == 0 ? "none" : string.Join(", ", values);
     }
 
-    static string AdminStamp(DateTimeOffset? at) {
-        return at is { } value ? value.ToLocalTime().ToString("yyyy-MM-dd HH:mm") : "never";
+    string AdminStamp(DateTimeOffset? at) {
+        return at is { } value ? ViewerClock.At(Services, value).ToString("yyyy-MM-dd HH:mm") : "never";
     }
 
     KindInfo? KindOf(string? key) {
@@ -389,7 +391,7 @@
                                                                              @foreach (var r in rows) {
                                                                                  <tr>
                                                                                      <td class="text-muted text-xs whitespace-nowrap">
-                                                                                         @r.At.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")
+                                                                                         @ViewerClock.At(Services, r.At).ToString("yyyy-MM-dd HH:mm:ss")
                                                                                      </td>
                                                                                      <td class="text-xs">@Outcome(r)</td>
                                                                                      <td class="text-xs">@r.Event</td>
@@ -937,6 +939,7 @@
 
             if (_nav is not null) await _nav.DisposeAsync();
         } catch (Exception ex) when (ex is JSDisconnectedException or ObjectDisposedException) {
+            Logger.LogDebug(ex, "notifications interop dispose skipped");
         }
 
         _selfRef?.Dispose();

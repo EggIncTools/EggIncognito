@@ -34,8 +34,8 @@ public static class DeviceShell {
 
     public static string LocateIosApp(string bundleId) =>
         $"app=$(for a in /private/var/containers/Bundle/Application/*/*.app; do " +
-        $"grep -qa {Quote(bundleId)} \"$a/Info.plist\" 2>/dev/null && echo \"$a\" && break; done); " +
-        $"[ -z \"$app\" ] && exit 3;";
+        $"""grep -qa {Quote(bundleId)} "$a/Info.plist" 2>/dev/null && echo "$a" && break; done); """ +
+        """[ -z "$app" ] && exit 3;""";
 
     public const string BinpackPlutil = "/cores/binpack/usr/bin/plutil";
 
@@ -43,7 +43,7 @@ public static class DeviceShell {
         $"plutil -key {key} {plistExpr} 2>/dev/null " +
         $"|| {BinpackPlutil} -key {key} {plistExpr} 2>/dev/null " +
         $"|| grep -a -A1 '<key>{key}</key>' {plistExpr} 2>/dev/null " +
-        $"| sed -n 's|.*<string>\\(.*\\)</string>.*|\\1|p' | head -1";
+        """| sed -n 's|.*<string>\(.*\)</string>.*|\1|p' | head -1""";
 
     public static byte[]? ReadTemp(string path) => File.Exists(path) ? File.ReadAllBytes(path) : null;
 

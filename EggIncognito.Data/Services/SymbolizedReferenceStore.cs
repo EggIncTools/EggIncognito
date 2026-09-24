@@ -6,7 +6,7 @@ namespace EggIncognito.Data.Services;
 public sealed record SymbolizedBinaryInfo(
     string Platform, string AppVersion, string Sha256, long ByteSize, int SymbolCount, DateTimeOffset UploadedAt);
 
-public sealed class SymbolizedReferenceStore(EggIncognitoDbContext db) {
+public sealed class SymbolizedReferenceStore(EggIncognitoDbContext db, TimeProvider time) {
     public Task<SymbolizedBinary?> GetAsync(string platform, string version, CancellationToken ct = default) =>
         db.SymbolizedBinaries.AsNoTracking()
             .FirstOrDefaultAsync(b => b.Platform == platform && b.AppVersion == version, ct);
@@ -30,7 +30,7 @@ public sealed class SymbolizedReferenceStore(EggIncognitoDbContext db) {
 
     public async Task PutAsync(string platform, string version, string sha256, byte[] bytes, int symbolCount,
         CancellationToken ct = default) {
-        var now = DateTimeOffset.UtcNow;
+        var now = time.GetUtcNow();
         if (await ExistsAsync(platform, version, ct)) {
             await db.SymbolizedBinaries
                 .Where(b => b.Platform == platform && b.AppVersion == version)

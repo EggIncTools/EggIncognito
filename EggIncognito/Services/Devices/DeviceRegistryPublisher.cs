@@ -27,25 +27,30 @@ public sealed record PublishResult(
     string? Error = null);
 
 public sealed class DeviceRegistryPublisher(
-    IServiceProvider services,
-    ILogger<DeviceRegistryPublisher> logger) {
+    IDeviceStatusStore? statusStore,
+    ProtoRegistryStore? registryStore,
+    DeviceStateStore? stateStore,
+    DeviceTimelineCache? timelineCache,
+    IDeviceAgentClient agentClient,
+    DeviceAssetStore? assetStore,
+    GameBinaryProvider binaryProvider,
+    ILogger<DeviceRegistryPublisher> logger,
+    TimeProvider time) {
     private const string PlatformAndroid = "android";
     private const string PlatformIos = "ios";
 
     public async Task<PublishResult> PublishAsync(string deviceId, string attribution, bool pokeWhenStale,
         CancellationToken ct) {
-        if (services.GetService(typeof(IDeviceStatusStore)) is not IDeviceStatusStore store
-            || services.GetService(typeof(ProtoRegistryStore)) is not ProtoRegistryStore registry
-            || services.GetService(typeof(DeviceStateStore)) is not DeviceStateStore states)
+        if (statusStore is null || registryStore is null || stateStore is null)
             return new PublishResult(PublishOutcome.NotConfigured, Error: "no database configured");
 
-        var device = await store.GetAsync(deviceId, ct);
+        var device = await statusStore.GetAsync(deviceId, ct);
         if (device is null) return new PublishResult(PublishOutcome.UnknownDevice, Error: "unknown device");
         if (device.Platform is not (PlatformAndroid or PlatformIos))
             return new PublishResult(PublishOutcome.UnsupportedPlatform,
                 Error: $"no extractor for platform {device.Platform}");
 
-        var state = await states.GetAsync(deviceId, ct);
+        var state = await stateStore.GetAsync(deviceId, ct);
         if (state is null || string.IsNullOrEmpty(state.AppVersion))
             return new PublishResult(PublishOutcome.NotHarvested,
                 Error: "device has not been harvested yet; poke the device agent and retry");
@@ -61,9 +66,9 @@ public sealed class DeviceRegistryPublisher(
         string? clientVersion = carve.Result.ClientVersion?.ToString() ?? state.ClientVersion?.ToString();
 
         try {
-            var upsert = await registry.UpsertAsync(
+            var upsert = await registryStore.UpsertAsync(
                 device.Platform, appVersion, build, clientVersion, device.Package,
-                sha, $"device:{device.Id}", DateTimeOffset.UtcNow,
+                sha, $"device:{device.Id}", time.GetUtcNow(),
                 attribution, carve.Result.Proto, "device", true, ct);
             logger.LogInformation(
                 "device publish: {Id} -> registry {Plat} build {Build} ({State}, sha {Sha}, by {Who})",
@@ -78,19 +83,19 @@ public sealed class DeviceRegistryPublisher(
 
     public async Task<bool> InRegistryAsync(string platform, string? build, CancellationToken ct) {
         if (string.IsNullOrEmpty(build)) return false;
-        if (services.GetService(typeof(ProtoRegistryStore)) is not ProtoRegistryStore registry) return false;
-        return await registry.GetAsync(platform, build, ct) is not null;
+        if (registryStore is null) return false;
+        return await registryStore.GetAsync(platform, build, ct) is not null;
     }
 
     private async Task<PublishResult?> StaleAsync(string id, DeviceState state, bool poke, CancellationToken ct) {
-        if (services.GetService(typeof(DeviceTimelineCache)) is not DeviceTimelineCache timeline) return null;
-        var probe = await timeline.LatestAsync(id, DeviceJobKinds.Probe, ct);
+        if (timelineCache is null) return null;
+        var probe = await timelineCache.LatestAsync(id, DeviceJobKinds.Probe, ct);
         if (probe is not { Reachable: true } || string.IsNullOrEmpty(probe.Build)) return null;
         if (string.Equals(probe.Build, state.Build, StringComparison.Ordinal)) return null;
 
         bool poked = false;
-        if (poke && services.GetService(typeof(IDeviceAgentClient)) is IDeviceAgentClient { Enabled: true } agent)
-            poked = await agent.PokeAsync(id, true, ct);
+        if (poke && agentClient is { Enabled: true })
+            poked = await agentClient.PokeAsync(id, true, ct);
 
         logger.LogWarning(
             "device publish: {Id} refused, harvest is {Harvested} but device runs {Installed} (poked={Poked})",
@@ -103,17 +108,17 @@ public sealed class DeviceRegistryPublisher(
 
     private async Task<(Carve? Result, PublishResult? Error)> CarveAsync(
         Device device, DeviceState state, CancellationToken ct) {
-        if (services.GetService(typeof(DeviceAssetStore)) is not DeviceAssetStore assets)
+        if (assetStore is null)
             return (null, new PublishResult(PublishOutcome.NotConfigured, Error: "no database configured"));
 
         if (device.Platform == PlatformAndroid) {
-            var row = await assets.GetAsync(DeviceAssetKinds.Package, HarvestEntries.AndroidArmSplit,
+            var row = await assetStore.GetAsync(DeviceAssetKinds.Package, HarvestEntries.AndroidArmSplit,
                 device.Platform, ct);
             if (row is null)
                 return (null, new PublishResult(PublishOutcome.MissingAsset,
                     Error: "no harvested arm split for this device; poke the device agent and retry"));
 
-            var carved = ArchiveProtoExtractor.Extract(await assets.BytesAsync(row, ct));
+            var carved = ArchiveProtoExtractor.Extract(await assetStore.BytesAsync(row, ct));
             if (!carved.Ok || string.IsNullOrEmpty(carved.Proto)) {
                 logger.LogWarning("device publish: {Id} carve failed ({Diag})", device.Id, carved.Diagnostics);
                 return (null, new PublishResult(PublishOutcome.CarveFailed,
@@ -127,8 +132,7 @@ public sealed class DeviceRegistryPublisher(
             return (new Carve(carved.Proto, state.Build, carved.ClientVersion, carved.ProtoSha), null);
         }
 
-        var binaries = (GameBinaryProvider)services.GetRequiredService(typeof(GameBinaryProvider));
-        var bin = await binaries.GetExtractionBinaryAsync(device.Platform, ct);
+        var bin = await binaryProvider.GetExtractionBinaryAsync(device.Platform, ct);
         if (!bin.Ok || bin.Bytes is null)
             return (null, new PublishResult(PublishOutcome.MissingAsset,
                 Error: $"no harvested {device.Platform} binary: {bin.Diagnostics}"));

@@ -1,9 +1,11 @@
+using System.Buffers;
 using System.IO.Compression;
 
 namespace EggIncognito.Core.Services.ProtoExtract;
 
 public static class RpoAssetLister {
     private const long MaxEntryBytes = 50_000_000L;
+    private static readonly SearchValues<char> PathSeparators = SearchValues.Create("/\\");
 
     public static IReadOnlyList<string> ListStems(byte[] archiveZipBytes) {
         var stems = new SortedSet<string>(StringComparer.Ordinal);
@@ -58,7 +60,7 @@ public static class RpoAssetLister {
     }
 
     private static string Stem(string fullName) {
-        int slash = fullName.LastIndexOfAny(['/', '\\']);
+        int slash = fullName.LastIndexOfAny(PathSeparators);
         string name = slash >= 0 ? fullName[(slash + 1)..] : fullName;
         int dot = name.LastIndexOf('.');
         return dot > 0 ? name[..dot] : name;

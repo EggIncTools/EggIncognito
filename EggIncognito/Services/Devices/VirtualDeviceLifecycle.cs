@@ -19,6 +19,7 @@ public sealed class VirtualDeviceLifecycle(
     DeviceClaimRegistry claims,
     AdminNotifier notifier,
     TimeProvider time,
+    IConfiguration configuration,
     ILogger<VirtualDeviceLifecycle> logger) : BackgroundService {
     private const string Package = "com.auxbrain.egginc";
     private static readonly TimeSpan AdbTimeout = TimeSpan.FromSeconds(30);
@@ -427,7 +428,7 @@ public sealed class VirtualDeviceLifecycle(
     private async Task UnauthorizedAsync(
         ProvisionedInstanceRow row, string serial, ProvisionedInstanceStore store, List<string> changed,
         string detail, CancellationToken ct) {
-        var key = AdbHostKey.ResolveWithSource(config);
+        var key = AdbHostKey.ResolveWithSource(config, configuration["ANDROID_USER_HOME"]);
         string held = key is { } k ? $"this app holds {AdbHostKey.Label(k.Key)} from {k.Source}" : "this app found no adb public key at all";
         if (_adbServerRestarted.Add(row.InstanceId)) {
             logger.LogWarning(

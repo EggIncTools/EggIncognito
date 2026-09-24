@@ -4,7 +4,7 @@ using EggIncognito.Data.Services;
 
 namespace EggIncognito.Services.Devices;
 
-public sealed class DeviceTimelineCache(IServiceScopeFactory scopes) : IDeviceJobSink, IDisposable {
+public sealed class DeviceTimelineCache(IServiceScopeFactory scopes, TimeProvider time) : IDeviceJobSink, IDisposable {
     private const int Keep = 50;
 
     private sealed class Entry {
@@ -57,7 +57,7 @@ public sealed class DeviceTimelineCache(IServiceScopeFactory scopes) : IDeviceJo
 
     public async Task<DeviceJobRow?> LatestAsync(string deviceId, string kind, CancellationToken ct) {
         var e = await LoadAsync(deviceId, ct);
-        return e.Jobs.FirstOrDefault(j => j.Kind == kind);
+        return e.Jobs.Find(j => j.Kind == kind);
     }
 
     public async Task<IReadOnlyList<DeviceJobRow>> LatestPerDeviceAsync(IReadOnlyList<string> deviceIds,
@@ -83,7 +83,7 @@ public sealed class DeviceTimelineCache(IServiceScopeFactory scopes) : IDeviceJo
 
     public async Task<IReadOnlyList<DeviceProbeStats>> StatsAsync(IReadOnlyList<string> deviceIds, TimeSpan window,
         CancellationToken ct) {
-        var now = DateTimeOffset.UtcNow;
+        var now = time.GetUtcNow();
         var outRows = new List<DeviceProbeStats>();
         foreach (string id in deviceIds) {
             var e = await LoadAsync(id, ct);

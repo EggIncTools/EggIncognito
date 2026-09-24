@@ -1,28 +1,19 @@
 namespace EggIncognito.Core.Services.Devices;
 
-public abstract class DevicePlatformBase : IDevicePlatform {
-    protected DevicePlatformBase(
-        string platform,
-        IEnumerable<IDeviceStoreChecker> storeCheckers,
-        IEnumerable<IDeviceProxyConfigurator> proxyConfigurators,
-        IEnumerable<IDeviceCaInstaller> caInstallers,
-        IEnumerable<IDeviceUiDriver> uiDrivers,
-        IEnumerable<IScreenStreamSource> screenStreamSources) {
-        Platform = platform;
-        Store = storeCheckers.FirstOrDefault(c => Platforms.Matches(c.Platform, platform));
-        Proxy = proxyConfigurators.FirstOrDefault(c => Platforms.Matches(c.Platform, platform));
-        Ca = caInstallers.FirstOrDefault(c => Platforms.Matches(c.Platform, platform));
-        Ui = uiDrivers.FirstOrDefault(c => Platforms.Matches(c.Platform, platform));
-        ScreenStream = screenStreamSources.FirstOrDefault(c => Platforms.Matches(c.Platform, platform));
-    }
+public abstract class DevicePlatformBase(
+    string platform,
+    IEnumerable<IDeviceStoreChecker> storeCheckers,
+    IEnumerable<IDeviceProxyConfigurator> proxyConfigurators,
+    IEnumerable<IDeviceCaInstaller> caInstallers,
+    IEnumerable<IDeviceUiDriver> uiDrivers,
+    IEnumerable<IScreenStreamSource> screenStreamSources) : IDevicePlatform {
+    protected IDeviceStoreChecker? Store { get; } = storeCheckers.FirstOrDefault(c => Platforms.Matches(c.Platform, platform));
+    protected IDeviceProxyConfigurator? Proxy { get; } = proxyConfigurators.FirstOrDefault(c => Platforms.Matches(c.Platform, platform));
+    protected IDeviceCaInstaller? Ca { get; } = caInstallers.FirstOrDefault(c => Platforms.Matches(c.Platform, platform));
+    protected IDeviceUiDriver? Ui { get; } = uiDrivers.FirstOrDefault(c => Platforms.Matches(c.Platform, platform));
+    protected IScreenStreamSource? ScreenStream { get; } = screenStreamSources.FirstOrDefault(c => Platforms.Matches(c.Platform, platform));
 
-    protected IDeviceStoreChecker? Store { get; }
-    protected IDeviceProxyConfigurator? Proxy { get; }
-    protected IDeviceCaInstaller? Ca { get; }
-    protected IDeviceUiDriver? Ui { get; }
-    protected IScreenStreamSource? ScreenStream { get; }
-
-    public string Platform { get; }
+    public string Platform { get; } = platform;
 
     public virtual DeviceCapabilities Capabilities =>
         DeviceCapabilities.BinaryPull | DeviceCapabilities.AssetRead | DeviceCapabilities.Probe |
@@ -32,7 +23,7 @@ public abstract class DevicePlatformBase : IDevicePlatform {
         (ScreenStream is not null ? DeviceCapabilities.ScreenStream : DeviceCapabilities.None);
 
     public Task<StoreCheckResult> DriveStoreUpdateAsync(DeviceTarget target, CancellationToken ct,
-        Action<string>? progress = null) =>
+        Func<string, Task>? progress = null) =>
         Store is null
             ? Task.FromResult(new StoreCheckResult(false, null, null, false, false, "unsupported",
                 $"no {Platform} store checker"))

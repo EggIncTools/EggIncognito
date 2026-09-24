@@ -36,7 +36,7 @@ public static class Program {
         var deps = new RunnerDeps(
             new CSharpProtoExtractor(), clientVersion, options.ApkStashDir, options.IosBinaryPath,
             options.PreviousClientVersion, options.Package,
-            evt => poster.PostAsync(evt).GetAwaiter().GetResult());
+            poster.PostAsync);
 
         var runnerDb = RunnerDb.FromEnv(key => RunnerOptions.Env(key));
         var devices = RunnerDeviceSource.Read(options.DevicesDir);
@@ -46,7 +46,7 @@ public static class Program {
             return 1;
         }
 
-        if (args.Contains("--once")) return RunOnce(set, args.Contains("--force"));
+        if (args.Contains("--once")) return await RunOnceAsync(set, args.Contains("--force"), ct);
 
         using var loggerFactory = LoggerFactory.Create(b => b.AddConsole());
         var platforms = BuildPlatforms(loggerFactory);
@@ -60,9 +60,9 @@ public static class Program {
         return 0;
     }
 
-    private static int RunOnce(RunnerSet set, bool force) {
+    private static async Task<int> RunOnceAsync(RunnerSet set, bool force, CancellationToken ct) {
         foreach (var r in set.Runners) {
-            var outcome = r.RunOnce(force);
+            var outcome = await r.RunOnceAsync(force, ct);
             Console.WriteLine($"{r.Platform} once force={force}: {outcome.Detail} build={outcome.Build}");
         }
 
@@ -88,7 +88,7 @@ public static class Program {
 
         var harvester = new HarvestScheduler(runnerDb, platforms, loggerFactory);
         using var resetCtx = runnerDb.NewContext();
-        int stuck = await new DeviceStateStore(resetCtx).ResetRunningAsync(ct);
+        int stuck = await new DeviceStateStore(resetCtx, TimeProvider.System).ResetRunningAsync(ct);
         if (stuck > 0) Console.WriteLine($"cleared {stuck} interrupted harvest(s)");
         return harvester;
     }
@@ -166,7 +166,7 @@ public static class Program {
         foreach (var r in set.Runners) {
             if (ct.IsCancellationRequested) return false;
             try {
-                var tick = Task.Run(() => r.RunOnce(force: false));
+                var tick = Task.Run(() => r.RunOnceAsync(force: false, ct), ct);
                 var done = await Task.WhenAny(tick, Task.Delay(Timeout.Infinite, ct));
                 if (done != tick) return false;
                 var outcome = await tick;

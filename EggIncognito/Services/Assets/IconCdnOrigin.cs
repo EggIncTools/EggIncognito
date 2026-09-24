@@ -4,7 +4,10 @@ using EggIncognito.Core.Services.Assets;
 
 namespace EggIncognito.Services.Assets;
 
-public sealed partial class IconCdnOrigin(IHttpClientFactory httpFactory, ILogger<IconCdnOrigin> logger)
+public sealed partial class IconCdnOrigin(
+    IHttpClientFactory httpFactory,
+    ILogger<IconCdnOrigin> logger,
+    TimeProvider time)
     : IGameAssetOrigin {
     private const string ArtifactsBase = AuxbrainHosts.Origin + "/dlc/artifacts/1/";
 
@@ -26,7 +29,7 @@ public sealed partial class IconCdnOrigin(IHttpClientFactory httpFactory, ILogge
             byte[] bytes = await resp.Content.ReadAsByteArrayAsync(ct);
             if (bytes.Length == 0) return null;
             logger.LogInformation("cdn icon: fetched {Name} ({Bytes}B)", key.Name, bytes.Length);
-            return new GameAsset(key, bytes, "image/png", $"cdn@auxbrain:{key.Name}", DateTimeOffset.UtcNow);
+            return new GameAsset(key, bytes, "image/png", $"cdn@auxbrain:{key.Name}", time.GetUtcNow());
         } catch (Exception ex) {
             logger.LogWarning(ex, "cdn icon fetch failed {Name}", key.Name);
             return null;

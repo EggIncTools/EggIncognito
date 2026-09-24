@@ -86,9 +86,9 @@ public sealed class DataApiController(DataCatalog catalog, ICurrentUser currentU
     [EnableRateLimiting("data")]
     public async Task<IActionResult> Get(string group, string id, [FromQuery] string? name, CancellationToken ct) {
         var src = catalog.ById(group, id);
-        if (src is null) return StatusCode(404, new ApiError("unknown data source", null, 404, new { group, id }));
+        if (src is null) return Fail(404, "unknown data source", new { group, id });
         return src.Extends is not null
-            ? StatusCode(404, new ApiError("this is an extension dataset", null, 404, new { url = catalog.UrlFor(src) }))
+            ? Fail(404, "this is an extension dataset", new { url = catalog.UrlFor(src) })
             : await Serve(src, name, ct);
     }
 
@@ -98,20 +98,19 @@ public sealed class DataApiController(DataCatalog catalog, ICurrentUser currentU
         CancellationToken ct) {
         var src = catalog.ByChild(group, parent, sub);
         return src is null
-            ? StatusCode(404, new ApiError("unknown extension dataset", null, 404, new { group, parent, sub }))
+            ? Fail(404, "unknown extension dataset", new { group, parent, sub })
             : await Serve(src, name, ct);
     }
 
     private async Task<IActionResult> Serve(DataSource src, string? name, CancellationToken ct) {
         if (src.Access == DataAccess.Authenticated && !currentUser.IsAuthenticated)
-            return StatusCode(401,
-                new ApiError("authentication required", "mint an API key at /api/v1/keys or log in", 401));
+            return Fail(401, "authentication required", "mint an API key at /api/v1/keys or log in", null);
 
         if (src.AcceptsName && string.IsNullOrEmpty(name))
             return Fail(400, "this source requires a name query parameter");
 
         var payload = await src.Produce(new DataProduceContext(HttpContext, name), ct);
-        if (payload is null) return StatusCode(404, new ApiError("data not available", null, 404, new { id = src.Id }));
+        if (payload is null) return Fail(404, "data not available", new { id = src.Id });
 
         var bytes = payload.Bytes;
         if (payload.ContentType == "application/json" && Request.Query["meta"] != "1")

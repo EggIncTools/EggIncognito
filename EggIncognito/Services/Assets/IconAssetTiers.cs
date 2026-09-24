@@ -4,14 +4,12 @@ using EggIncognito.Data.Services;
 
 namespace EggIncognito.Services.Assets;
 
-public sealed class IconDbTier(IServiceProvider services, ILogger<IconDbTier> logger) : IGameAssetTier {
-    private DeviceAssetStore? Store => services.GetService(typeof(DeviceAssetStore)) as DeviceAssetStore;
+public sealed class IconDbTier(ILogger<IconDbTier> logger, DeviceAssetStore? store = null) : IGameAssetTier {
     public int Priority => 0;
 
     public bool CanHandle(GameAssetKey key) => key.Kind == "icon";
 
     public async Task<GameAsset?> TryGetAsync(GameAssetKey key, CancellationToken ct) {
-        var store = Store;
         if (store is null) return null;
         try {
             var row = await store.GetAsync(DeviceAssetKinds.Icon, key.Name, key.Platform, ct);
@@ -24,7 +22,6 @@ public sealed class IconDbTier(IServiceProvider services, ILogger<IconDbTier> lo
     }
 
     public async Task PutAsync(GameAsset asset, CancellationToken ct) {
-        var store = Store;
         if (store is null) return;
         try {
             await store.PutAsync(asset.Key.Platform ?? DeviceAssetKinds.AnyPlatform, DeviceAssetKinds.Icon,
@@ -35,7 +32,7 @@ public sealed class IconDbTier(IServiceProvider services, ILogger<IconDbTier> lo
     }
 }
 
-public sealed class IconDiskTier(IconAssetCache cache) : IGameAssetTier {
+public sealed class IconDiskTier(IconAssetCache cache, TimeProvider time) : IGameAssetTier {
     public int Priority => 10;
 
     public bool CanHandle(GameAssetKey key) => key.Kind == "icon";
@@ -44,7 +41,7 @@ public sealed class IconDiskTier(IconAssetCache cache) : IGameAssetTier {
         byte[]? png = cache.TryGet(key.Name);
         return Task.FromResult(png is null
             ? null
-            : new GameAsset(key, png, "image/png", $"disk@{key.Name}", DateTimeOffset.UtcNow));
+            : new GameAsset(key, png, "image/png", $"disk@{key.Name}", time.GetUtcNow()));
     }
 
     public Task PutAsync(GameAsset asset, CancellationToken ct) =>

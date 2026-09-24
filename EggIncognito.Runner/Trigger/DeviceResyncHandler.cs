@@ -16,13 +16,14 @@ public sealed class DeviceResyncHandler {
         foreach (var id in runners.Keys) _locks[id] = new SemaphoreSlim(1, 1);
     }
 
-    public DeviceResyncResult HandleOne(string? authorizationHeader, string id, bool force) {
+    public async Task<DeviceResyncResult> HandleOneAsync(string? authorizationHeader, string id, bool force,
+        CancellationToken ct = default) {
         if (!BearerAuth.Matches(authorizationHeader, _secret)) return new DeviceResyncResult(401, id, null, "unauthorized");
         if (!_runners.TryGetValue(id, out var runner) || !_locks.TryGetValue(id, out var gate))
             return new DeviceResyncResult(404, id, null, "unknown device");
-        if (!gate.Wait(0)) return new DeviceResyncResult(409, id, null, "a resync is already running");
+        if (!await gate.WaitAsync(0, ct)) return new DeviceResyncResult(409, id, null, "a resync is already running");
         try {
-            return new DeviceResyncResult(200, id, runner.RunOnce(force), null);
+            return new DeviceResyncResult(200, id, await runner.RunOnceAsync(force, ct), null);
         } catch (Exception ex) {
             return new DeviceResyncResult(500, id, null, ex.Message);
         } finally {
@@ -30,8 +31,11 @@ public sealed class DeviceResyncHandler {
         }
     }
 
-    public IReadOnlyList<DeviceResyncResult> HandleAll(string? authorizationHeader, bool force) {
+    public async Task<IReadOnlyList<DeviceResyncResult>> HandleAllAsync(string? authorizationHeader, bool force,
+        CancellationToken ct = default) {
         if (!BearerAuth.Matches(authorizationHeader, _secret)) return [new DeviceResyncResult(401, null, null, "unauthorized")];
-        return [.. _runners.Keys.Select(id => HandleOne(authorizationHeader, id, force))];
+        var results = new List<DeviceResyncResult>(_runners.Count);
+        foreach (var id in _runners.Keys) results.Add(await HandleOneAsync(authorizationHeader, id, force, ct));
+        return results;
     }
 }

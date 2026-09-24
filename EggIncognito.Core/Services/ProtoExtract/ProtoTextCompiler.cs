@@ -1,3 +1,4 @@
+using System.Collections.Frozen;
 using System.Globalization;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -10,7 +11,7 @@ namespace EggIncognito.Core.Services.ProtoExtract;
 public static partial class ProtoTextCompiler {
     private const string DescriptorFileName = "ei.proto";
 
-    private static readonly Dictionary<string, FieldType> ScalarTypes = new(StringComparer.Ordinal) {
+    private static readonly FrozenDictionary<string, FieldType> ScalarTypes = new Dictionary<string, FieldType> {
         ["double"] = FieldType.Double,
         ["float"] = FieldType.Float,
         ["int64"] = FieldType.Int64,
@@ -26,7 +27,7 @@ public static partial class ProtoTextCompiler {
         ["sfixed64"] = FieldType.Sfixed64,
         ["sint32"] = FieldType.Sint32,
         ["sint64"] = FieldType.Sint64
-    };
+    }.ToFrozenDictionary(StringComparer.Ordinal);
 
     [GeneratedRegex(@"^syntax\s*=\s*""([^""]*)""\s*;\s*$")]
     private static partial Regex SyntaxRe();

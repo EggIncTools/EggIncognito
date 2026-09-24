@@ -14,9 +14,9 @@ public sealed class AndroidRunnerTests : IDisposable {
 
     private sealed class FakeAdb : IAdbClient {
         public string Dumpsys = "versionCode=111343\nversionName=1.35.7\n";
-        public string DumpsysPackage(string package) => Dumpsys;
-        public string PullArmApk(string package, string destPath) {
-            File.WriteAllText(destPath, "apk");
+        public Task<string> DumpsysPackageAsync(string package, CancellationToken ct) => Task.FromResult(Dumpsys);
+        public async Task<string> PullArmApkAsync(string package, string destPath, CancellationToken ct) {
+            await File.WriteAllTextAsync(destPath, "apk", ct);
             return destPath;
         }
     }
@@ -31,16 +31,19 @@ public sealed class AndroidRunnerTests : IDisposable {
         sent = captured;
         var cvState = new ClientVersionState(_tmp.Combine($"cv-{Guid.NewGuid():N}"), null);
         return new AndroidRunner(adb, new FakeExtractor(), state, new NullClientVersionReader(), cvState,
-            "com.auxbrain.egginc", _tmp.Path, evt => captured.Add(evt));
+            "com.auxbrain.egginc", _tmp.Path, evt => {
+                captured.Add(evt);
+                return Task.CompletedTask;
+            });
     }
 
     private VersionState FreshState() =>
         new(_tmp.Combine($"st-{Guid.NewGuid():N}"));
 
     [Fact]
-    public void NewBuild_Emits_AndSavesState() {
+    public async Task NewBuild_Emits_AndSavesState() {
         var runner = Make(new FakeAdb(), FreshState(), out var sent);
-        var outcome = runner.RunOnce(force: false);
+        var outcome = await runner.RunOnceAsync(force: false);
         Assert.True(outcome.Emitted);
         Assert.Equal("111343", outcome.Build);
         var evt = Assert.Single(sent);
@@ -53,23 +56,23 @@ public sealed class AndroidRunnerTests : IDisposable {
     }
 
     [Fact]
-    public void SameBuild_NoForce_DoesNotEmit() {
+    public async Task SameBuild_NoForce_DoesNotEmit() {
         var state = FreshState();
         var runner = Make(new FakeAdb(), state, out var sent);
-        runner.RunOnce(force: false);
+        await runner.RunOnceAsync(force: false);
         sent.Clear();
-        var outcome = runner.RunOnce(force: false);
+        var outcome = await runner.RunOnceAsync(force: false);
         Assert.False(outcome.Emitted);
         Assert.Empty(sent);
     }
 
     [Fact]
-    public void SameBuild_Force_EmitsAnyway() {
+    public async Task SameBuild_Force_EmitsAnyway() {
         var state = FreshState();
         var runner = Make(new FakeAdb(), state, out var sent);
-        runner.RunOnce(force: false);
+        await runner.RunOnceAsync(force: false);
         sent.Clear();
-        var outcome = runner.RunOnce(force: true);
+        var outcome = await runner.RunOnceAsync(force: true);
         Assert.True(outcome.Emitted);
         Assert.Single(sent);
     }

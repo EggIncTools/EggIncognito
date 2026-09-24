@@ -80,9 +80,8 @@ public class IntegritySeedTests {
     }
 
     [Fact]
-    public void Rc_AlsoStartsTheServiceOnBootCompleted() {
+    public void Rc_AlsoStartsTheServiceOnBootCompleted() =>
         Assert.Contains("on property:sys.boot_completed=1\n    start " + IntegritySeed.ServiceName + "\n", IntegritySeed.Rc, StringComparison.Ordinal);
-    }
 
     [Fact]
     public void Parse_ReadsStateImageMarkerServiceAndLastLogLine() {

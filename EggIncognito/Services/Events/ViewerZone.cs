@@ -3,9 +3,9 @@ using EggIdentity.Client;
 namespace EggIncognito.Services.Events;
 
 public static class ViewerZone {
-    public const string FallbackId = "UTC";
+    public static string FallbackId => TimeZoneInfo.Local.Id;
 
-    public static TimeZoneInfo Fallback => TimeZoneInfo.Utc;
+    public static TimeZoneInfo Fallback => TimeZoneInfo.Local;
 
     public static async Task<string?> ProfileIdAsync(
         IServiceProvider services, ICurrentUser user, CancellationToken ct) {

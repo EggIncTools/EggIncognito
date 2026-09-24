@@ -47,7 +47,7 @@ public static class Program {
 
                 byte[] body = await res.Content.ReadAsByteArrayAsync();
                 using (JsonDocument.Parse(body)) { }
-                if (File.Exists(target) && File.ReadAllBytes(target).AsSpan().SequenceEqual(body)) {
+                if (File.Exists(target) && (await File.ReadAllBytesAsync(target)).AsSpan().SequenceEqual(body)) {
                     Console.WriteLine($"FixtureSync: {id} unchanged");
                     continue;
                 }

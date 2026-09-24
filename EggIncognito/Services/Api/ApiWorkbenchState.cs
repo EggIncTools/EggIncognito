@@ -234,9 +234,9 @@ public sealed class ApiWorkbenchState : WorkbenchStateBase {
     public string NameFor(string key) => Names.GetValueOrDefault(key, "");
 
     public DataSourceRow? CurrentDataset() {
-        var root = Sources?.FirstOrDefault(s => s.Group == Group && s.Id == Id);
+        var root = Sources?.Find(s => s.Group == Group && s.Id == Id);
         if (root is null) return null;
-        return Sub is not { Length: > 0 } sub ? root : root.Children?.FirstOrDefault(c => c.Id == sub);
+        return Sub is not { Length: > 0 } sub ? root : root.Children?.Find(c => c.Id == sub);
     }
 
     public void SelectDataset(string group, string id, string? sub) {
@@ -269,7 +269,7 @@ public sealed class ApiWorkbenchState : WorkbenchStateBase {
         string body = (hash ?? "").TrimStart('#');
         if (body.StartsWith("data/", StringComparison.Ordinal)) body = "api/" + body;
         if (!body.StartsWith("api", StringComparison.Ordinal)) return false;
-        string rest = body.Length > 3 && body[3] == '/' ? body[4..] : body == "api" ? "" : null!;
+        string? rest = body.Length > 3 && body[3] == '/' ? body[4..] : body == "api" ? "" : null;
         if (rest is null) return false;
 
         if (rest.StartsWith("data/", StringComparison.Ordinal)) {

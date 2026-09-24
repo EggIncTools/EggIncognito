@@ -18,6 +18,7 @@
 @using EggIncognito.Models.Contributions
 @using EggIncognito.Models.Devices
 @using EggIncognito.Services.Devices
+@using EggIncognito.Services.Events
 @implements IDisposable
 
 <WorkbenchModal Open="@(_open && _isAdmin)" Title="Devices" TitleId="deviceWorkbenchTitle"
@@ -184,7 +185,7 @@
                                     }
                                     @foreach (var j in jobs) {
                                         var open = State.Expanded.Contains(j.Id);
-                                        var day = DateOnly.FromDateTime(j.LastAt.ToLocalTime().DateTime);
+                                        var day = DateOnly.FromDateTime(ViewerClock.At(Services, j.LastAt).DateTime);
                                         if (day != lastDay) {
                                             lastDay = day;
                                             <tr class="dwb-job-day">
@@ -216,7 +217,7 @@
                                                         }
                                                         @foreach (var l in LinesFor(j.Id)) {
                                                             <div class="dwb-job-line">
-                                                                <span class="font-mono text-muted">@l.At.ToLocalTime().ToString("HH:mm:ss")</span>
+                                                                <span class="font-mono text-muted">@ViewerClock.At(Services, l.At).ToString("HH:mm:ss")</span>
                                                                 @if (l.Entry is not null) {
                                                                     <span class="font-mono">@l.Entry</span>
                                                                 }
@@ -266,7 +267,7 @@
                                         <td class="font-mono text-xs">@ByteFormat.Mb(b.ByteSize, "F1")</td>
                                         <td class="font-mono text-xs">@(b.EffectiveSymbols > 0 ? b.EffectiveSymbols : b.NativeSymbols)</td>
                                         <td class="text-xs">@b.Source</td>
-                                        <td class="text-muted text-xs">@b.PulledAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
+                                        <td class="text-muted text-xs">@ViewerClock.At(Services, b.PulledAt).ToString("yyyy-MM-dd HH:mm")</td>
                                         @if (_isContributor) {
                                             <td class="dwb-row-tools">
                                                 <a class="btn-mini" href="@DownloadUrl(b)" download>
@@ -296,7 +297,7 @@
                                             <td class="text-xs">@e.Outcome</td>
                                             <td class="font-mono text-xs">@ByteFormat.Mb(e.Bytes, "F1")</td>
                                             <td class="text-muted text-xs">@e.Note</td>
-                                            <td class="text-muted text-xs">@e.RanAt.ToLocalTime().ToString("HH:mm:ss")</td>
+                                            <td class="text-muted text-xs">@ViewerClock.At(Services, e.RanAt).ToString("HH:mm:ss")</td>
                                         </tr>
                                     }
                                     </tbody>
@@ -463,8 +464,8 @@
         if (open && _jobs is null) await LoadJobsAsync();
     }
 
-    static string Stamp(DateTimeOffset at) {
-        return at.ToLocalTime().ToString("MM-dd HH:mm:ss", CultureInfo.InvariantCulture);
+    string Stamp(DateTimeOffset at) {
+        return ViewerClock.At(Services, at).ToString("MM-dd HH:mm:ss", CultureInfo.InvariantCulture);
     }
 
     static string? Number(int? value) {
@@ -998,6 +999,7 @@
                     await InvokeAsync(() => ApplyEnvelope(env));
                 }
             } catch (Exception ex) when (ex is OperationCanceledException or ChannelClosedException) {
+                Logger.LogDebug(ex, "capture feed loop ended");
             }
         }, ct);
     }

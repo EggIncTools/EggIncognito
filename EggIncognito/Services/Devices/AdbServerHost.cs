@@ -2,7 +2,12 @@ using EggIncognito.Core.Services.Devices;
 
 namespace EggIncognito.Services.Devices;
 
-public sealed class AdbServerHost(IProcessRunner runner, ILogger<AdbServerHost> logger) : BackgroundService, IAdbServer {
+public sealed class AdbServerHost(
+    IProcessRunner runner,
+    ILogger<AdbServerHost> logger,
+    IConfiguration configuration,
+    TimeProvider time)
+    : BackgroundService, IAdbServer {
     public const string SocketEnv = "ADB_SERVER_SOCKET";
     public const string DefaultSocket = "tcp:127.0.0.1:5037";
     private static readonly TimeSpan CheckInterval = TimeSpan.FromSeconds(30);
@@ -13,7 +18,7 @@ public sealed class AdbServerHost(IProcessRunner runner, ILogger<AdbServerHost> 
     private ProcessHandle? _server;
     private DateTimeOffset? _since;
 
-    public string Socket { get; } = Environment.GetEnvironmentVariable(SocketEnv) is { Length: > 0 } s ? s : DefaultSocket;
+    public string Socket { get; } = configuration[SocketEnv] is { Length: > 0 } s ? s : DefaultSocket;
 
     public bool Owned => _server is not null;
 
@@ -89,7 +94,7 @@ public sealed class AdbServerHost(IProcessRunner runner, ILogger<AdbServerHost> 
         }
 
         _server = handle;
-        _since = DateTimeOffset.UtcNow;
+        _since = time.GetUtcNow();
         _ = handle.Stdout.CopyToAsync(Stream.Null, CancellationToken.None);
         logger.LogInformation("adb server: started on {Socket} from this process; it signs with this container's /root/.android key", Socket);
         for (int i = 0; i < 20 && !await ReachableAsync(ct); i++) await Task.Delay(250, ct);

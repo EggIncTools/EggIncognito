@@ -66,7 +66,7 @@ public static partial class MarkdownRenderer {
         string? listType = null;
 
         void CloseList() {
-            if (listType != null) {
+            if (listType is not null) {
                 outLines.Add($"</{listType}>");
                 listType = null;
             }

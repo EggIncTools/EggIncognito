@@ -1,9 +1,10 @@
+using System.Collections.Frozen;
 using EggIncognito.Core.Services.Devices;
 
 namespace EggIncognito.Services.Devices;
 
 public static class DeviceKeyNames {
-    private static readonly Dictionary<string, DeviceKey> ByName = new(StringComparer.OrdinalIgnoreCase) {
+    private static readonly FrozenDictionary<string, DeviceKey> ByName = new Dictionary<string, DeviceKey>(StringComparer.OrdinalIgnoreCase) {
         ["back"] = DeviceKey.Back,
         ["home"] = DeviceKey.Home,
         ["recents"] = DeviceKey.Recents,
@@ -21,7 +22,7 @@ public static class DeviceKeyNames {
         ["right"] = DeviceKey.Right,
         ["page-up"] = DeviceKey.PageUp,
         ["page-down"] = DeviceKey.PageDown
-    };
+    }.ToFrozenDictionary(StringComparer.OrdinalIgnoreCase);
 
     public static IReadOnlyCollection<string> All => ByName.Keys;
 

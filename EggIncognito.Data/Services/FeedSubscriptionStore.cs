@@ -26,7 +26,7 @@ public interface IFeedSubscriptionStore {
     Task<bool> AdminDeleteAsync(int id, CancellationToken ct = default);
 }
 
-public sealed class FeedSubscriptionStore(EggIncognitoDbContext db) : IFeedSubscriptionStore {
+public sealed class FeedSubscriptionStore(EggIncognitoDbContext db, TimeProvider time) : IFeedSubscriptionStore {
     public async Task<FeedSubscription> AddAsync(FeedSubscription sub, CancellationToken ct = default) {
         db.FeedSubscriptions.Add(sub);
         await db.SaveChangesAsync(ct);
@@ -109,7 +109,7 @@ public sealed class FeedSubscriptionStore(EggIncognitoDbContext db) : IFeedSubsc
             DedupKey = dedupKey,
             Reason = reason,
             Summary = summary,
-            CreatedAt = DateTimeOffset.UtcNow
+            CreatedAt = time.GetUtcNow()
         });
         await db.SaveChangesAsync(ct);
 

@@ -14,26 +14,23 @@ public sealed class ReadinessStep(VirtualDeviceReadinessProbe probe) : CookbookS
 
     public override async Task<CookbookStepResult> RunAsync(DeviceCookbookContext context, CancellationToken ct) {
         var lines = new List<string>();
-        void Add(string line) {
-            lines.Add(line);
-            context.Progress(line);
-        }
-
         var readiness = await probe.ProbeAsync(context.Target, ct);
         var missing = new List<string>();
-        void Row(string name, ReadinessCheck check) {
+        Task Row(string name, ReadinessCheck check) {
             string suffix = check.Note is { Length: > 0 } note ? $" ({note})" : "";
-            Add($"{name}: {(check.Ok ? "ok" : "missing")}{suffix}");
+            string line = $"{name}: {(check.Ok ? "ok" : "missing")}{suffix}";
+            lines.Add(line);
             if (!check.Ok) missing.Add(name);
+            return context.Progress(line);
         }
 
-        Row("installed", readiness.Installed);
-        Row("google play", readiness.GooglePlay);
-        Row("rooted", readiness.Rooted);
-        Row("integrity module", readiness.IntegrityModule);
-        Row("launched", readiness.Launched);
-        Row("capture ca", readiness.CaptureCa);
-        Row("proxy reachable", readiness.ProxyReachable);
+        await Row("installed", readiness.Installed);
+        await Row("google play", readiness.GooglePlay);
+        await Row("rooted", readiness.Rooted);
+        await Row("integrity module", readiness.IntegrityModule);
+        await Row("launched", readiness.Launched);
+        await Row("capture ca", readiness.CaptureCa);
+        await Row("proxy reachable", readiness.ProxyReachable);
 
         return Ok(lines, missing.Count == 0 ? "all checks passed" : $"missing: {string.Join(", ", missing)}");
     }

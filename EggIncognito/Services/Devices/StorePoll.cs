@@ -7,7 +7,7 @@ public static class StorePoll {
         string id, string label, string storeName, string before,
         Func<CancellationToken, Task<string?>> readInstalled,
         int pollSeconds, int pollAttempts, ILogger logger,
-        Action<string>? progress, CancellationToken ct,
+        Func<string, Task>? progress, CancellationToken ct,
         Func<CancellationToken, Task<bool>>? storeConfirmsInstalled = null) {
         for (int attempt = 0; attempt < pollAttempts; attempt++) {
             if (ct.IsCancellationRequested) break;
@@ -22,7 +22,7 @@ public static class StorePoll {
             logger.LogInformation("device check-update: {Id} {Label} poll {N}/{Max} installed={Ver}",
                 id, label, n, pollAttempts, now ?? "?");
             if (now is not null && DeviceParsing.CompareVersions(now, before) > 0) {
-                progress?.Invoke($"{storeName} installed {now} (was {before})");
+                await progress.ReportAsync($"{storeName} installed {now} (was {before})");
                 logger.LogInformation("device check-update: {Id} {Label} climb {Before} -> {After}", id, label, before,
                     now);
                 return new StoreCheckResult(true, before, now, true, true, "updated", $"updated {before} -> {now}");
@@ -30,7 +30,7 @@ public static class StorePoll {
 
             if (storeConfirmsInstalled is not null && await storeConfirmsInstalled(ct)) {
                 string? confirmed = now ?? before;
-                progress?.Invoke($"{storeName} reports install complete (installed {confirmed})");
+                await progress.ReportAsync($"{storeName} reports install complete (installed {confirmed})");
                 logger.LogInformation(
                     "device check-update: {Id} {Label} store-confirmed complete {Before} -> {After}",
                     id, label, before, confirmed);
@@ -38,7 +38,7 @@ public static class StorePoll {
                     $"{storeName} page reports install complete ({before} -> {confirmed})");
             }
 
-            progress?.Invoke($"waiting for {storeName} install… {n * pollSeconds}s elapsed (no change yet)");
+            await progress.ReportAsync($"waiting for {storeName} install… {n * pollSeconds}s elapsed (no change yet)");
         }
 
         string? last = await readInstalled(ct);

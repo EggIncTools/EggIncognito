@@ -17,7 +17,7 @@ public sealed class FakeStoreChecker(
     public string Platform => platform;
 
     public async Task<StoreCheckResult> CheckAndUpdateAsync(DeviceTarget device, CancellationToken ct,
-        Action<string>? progress = null) {
+        Func<string, Task>? progress = null) {
         if (settings.For(device.Id) is not { } fake)
             return new StoreCheckResult(false, null, null, false, false, "unreachable", "not a declared fake device");
 
@@ -33,19 +33,19 @@ public sealed class FakeStoreChecker(
         }
 
         if (fake.Scenario != FakeScenarios.StoreAhead) {
-            progress?.Invoke($"installed {before}; fake store reports current");
+            await progress.ReportAsync($"installed {before}; fake store reports current");
             return new StoreCheckResult(true, before, before, false, false, "up_to_date",
                 "fake store confirms current");
         }
 
         string after = Bump(before);
         string? afterBuild = BumpBuild(build);
-        progress?.Invoke($"installed {before}; fake store offers {after}");
+        await progress.ReportAsync($"installed {before}; fake store offers {after}");
         await knownVersions.RecordAsync(platform, after, Source, ct);
 
         for (int step = 1; step <= ClimbSteps; step++) {
             await Task.Delay(ClimbStepMs, ct);
-            progress?.Invoke(
+            await progress.ReportAsync(
                 $"installing {after} ({step.ToString(CultureInfo.InvariantCulture)}/{ClimbSteps.ToString(CultureInfo.InvariantCulture)})");
         }
 

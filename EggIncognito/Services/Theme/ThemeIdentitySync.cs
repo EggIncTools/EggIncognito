@@ -5,16 +5,16 @@ using EggIncognito.Data.Services;
 namespace EggIncognito.Services.Theme;
 
 public sealed class ThemeIdentitySync(
-    IServiceProvider services,
     AuthState auth,
     IHttpContextAccessor httpContext,
-    ILogger<ThemeIdentitySync> logger) {
+    ILogger<ThemeIdentitySync> logger,
+    IdentityApiClient? identity = null,
+    UserThemeStore? store = null) {
     private const string NoTheme = "null";
 
     public async Task PushActiveAsync(Guid userId, CancellationToken ct) {
         if (Session() is not { } session) return;
-        if (services.GetService(typeof(IdentityApiClient)) is not IdentityApiClient identity) return;
-        if (services.GetService(typeof(UserThemeStore)) is not UserThemeStore store) return;
+        if (identity is null || store is null) return;
 
         var row = await store.ActiveForAsync(userId, ct);
         string payload = NoTheme;
@@ -34,7 +34,7 @@ public sealed class ThemeIdentitySync(
 
     public async Task<ThemeModel?> FetchAsync(CancellationToken ct) {
         if (Session() is not { } session) return null;
-        if (services.GetService(typeof(IdentityApiClient)) is not IdentityApiClient identity) return null;
+        if (identity is null) return null;
 
         string? json;
         try {

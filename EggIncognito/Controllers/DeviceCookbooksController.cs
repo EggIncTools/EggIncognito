@@ -54,8 +54,8 @@ public sealed class DeviceCookbooksController(
         if (await runner.TargetAsync(id, ct) is null) return Fail(404, "unknown device");
 
         var latest = await timeline.LatestAsync(id, DeviceJobKinds.Cookbook, ct);
-        bool running = latest is { State: DeviceJobStates.Running };
-        return Ok(new { running, jobId = running ? latest!.Id : (long?)null });
+        long? jobId = latest is { State: DeviceJobStates.Running } job ? job.Id : null;
+        return Ok(new { running = jobId is not null, jobId });
     }
 
     [HttpPost("{id}/cookbooks/stop")]

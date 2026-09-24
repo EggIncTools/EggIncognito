@@ -52,7 +52,7 @@ public sealed class ThemeController(ICurrentUser currentUser, IConfiguration con
         string? json = await ReadBodyAsync();
         if (json is null) return Fail(400, "body too large");
         var (model, errors) = ThemeJson.Parse(json);
-        if (model is null) return StatusCode(400, new ApiError("invalid theme", null, 400, new { details = errors }));
+        if (model is null) return Fail(400, "invalid theme", new { details = errors });
         if (!string.Equals(model.Slug, slug, StringComparison.Ordinal))
             return Fail(400, "slug in the body must match the route");
         if (model.Css is { Length: > 0 })
@@ -89,11 +89,10 @@ public sealed class ThemeController(ICurrentUser currentUser, IConfiguration con
         if (row is null) return Fail(404, "unknown theme");
         var (model, errors) = ThemeJson.Parse(row.Model);
         if (model is null)
-            return StatusCode(422, new ApiError("stored theme no longer parses", null, 422, new { details = errors }));
+            return Fail(422, "stored theme no longer parses", new { details = errors });
         var contrast = ThemePalette.Contrast(model);
         if (!contrast.Passes)
-            return StatusCode(422,
-                new ApiError("contrast validation failed", null, 422, new { failures = contrast.Failures }));
+            return Fail(422, "contrast validation failed", new { failures = contrast.Failures });
         await store.ActivateAsync(uid, slug, System.Text.Json.JsonSerializer.Serialize(contrast),
             HttpContext.RequestAborted);
         await AfterMutationAsync(cache, sync, uid, HttpContext.RequestAborted);
@@ -120,11 +119,11 @@ public sealed class ThemeController(ICurrentUser currentUser, IConfiguration con
         string? json = await ReadBodyAsync();
         if (json is null) return Fail(400, "body too large");
         var (model, errors) = ThemeJson.Parse(json);
-        if (model is null) return StatusCode(400, new ApiError("invalid theme", null, 400, new { details = errors }));
+        if (model is null) return Fail(400, "invalid theme", new { details = errors });
         if (model.Css is { Length: > 0 }) {
             var parsed = ThemeCss.Parse(model.Css);
             if (!parsed.Ok)
-                return StatusCode(400, new ApiError("invalid custom css", null, 400, new { details = parsed.Errors }));
+                return Fail(400, "invalid custom css", new { details = parsed.Errors });
         }
 
         var row = await store.UpsertAsync(uid, model.Slug, model.Name, model.SchemaVersion, model.ToJson(),
@@ -148,14 +147,14 @@ public sealed class ThemeController(ICurrentUser currentUser, IConfiguration con
         if (css.Length > 0) {
             var parsed = ThemeCss.Parse(css);
             if (!parsed.Ok)
-                return StatusCode(400, new ApiError("invalid custom css", null, 400, new { details = parsed.Errors }));
+                return Fail(400, "invalid custom css", new { details = parsed.Errors });
         }
 
         var row = await store.GetAsync(uid, body.Slug ?? "", HttpContext.RequestAborted);
         if (row is null) return Fail(404, "unknown theme");
         var (model, errors) = ThemeJson.Parse(row.Model);
         if (model is null)
-            return StatusCode(422, new ApiError("stored theme no longer parses", null, 422, new { details = errors }));
+            return Fail(422, "stored theme no longer parses", new { details = errors });
         var updated = model with { Css = css };
         await store.UpsertAsync(uid, model.Slug, model.Name, model.SchemaVersion, updated.ToJson(),
             HttpContext.RequestAborted);

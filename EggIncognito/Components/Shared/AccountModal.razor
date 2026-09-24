@@ -2,6 +2,7 @@
 @using EggIdentity.AdminUi
 @using EggIdentity.Client
 @using EggIncognito.Components.Theme
+@using EggIncognito.Services.Events
 @using Microsoft.AspNetCore.WebUtilities
 @rendermode @(RenderModes.InteractiveServer)
 @inject AuthState Auth
@@ -66,7 +67,7 @@
                                                     </button>
                                                 }
                                                 <span class="truncate">@(id.Username ?? id.Subject)</span>
-                                                <span class="text-xs text-muted shrink-0">@id.LinkedAt.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)</span>
+                                                <span class="text-xs text-muted shrink-0">@ViewerClock.At(Services, id.LinkedAt).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)</span>
                                             </span>
                                         } else {
                                             <span class="text-xs text-muted">Not linked</span>

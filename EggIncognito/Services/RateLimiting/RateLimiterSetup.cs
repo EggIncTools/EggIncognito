@@ -36,7 +36,7 @@ public static class RateLimiterSetup {
                 ctx.HttpContext.Response.Headers.RetryAfter = retry.ToString(CultureInfo.InvariantCulture);
                 ctx.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
                 await ctx.HttpContext.Response.WriteAsJsonAsync(
-                    new { error = "rate_limited", retryAfterSeconds = retry }, ct);
+                    new ApiError("rate_limited", null, 429, new { retryAfterSeconds = retry }), ct);
             };
         });
         return services;

@@ -8,9 +8,12 @@ using Microsoft.EntityFrameworkCore;
 namespace EggIncognito.Services.DataApi;
 
 public sealed class EndpointCatalogRebuilder(
-    IServiceProvider services,
     GameBinaryProvider binaries,
-    RouteCatalog yaml) {
+    RouteCatalog yaml,
+    INonBinaryRouteCatalog nonBinaryRouteCatalog,
+    TimeProvider time,
+    EggIncognitoDbContext? dbContext = null,
+    IBinaryRouteProvider? binaryRouteProvider = null) {
     public async Task<EndpointRebuildResult> RebuildAsync(CancellationToken ct) {
         var found = await binaries.GetExtractionCandidatesAsync(ct);
         if (found.Candidates.Count == 0) {
@@ -42,10 +45,9 @@ public sealed class EndpointCatalogRebuilder(
             .ToList();
         var merged = Merge(inputs);
 
-        var db = services.GetService(typeof(EggIncognitoDbContext)) as EggIncognitoDbContext
-                 ?? throw new InvalidOperationException("no database configured");
+        var db = dbContext ?? throw new InvalidOperationException("no database configured");
 
-        var now = DateTimeOffset.UtcNow;
+        var now = time.GetUtcNow();
         var existing = await db.RouteBinaryCatalogs.ToDictionaryAsync(x => x.Path, StringComparer.Ordinal, ct);
         var seen = new HashSet<string>(StringComparer.Ordinal);
         var binaryRows = new List<BinaryRouteInfo>();
@@ -86,12 +88,10 @@ public sealed class EndpointCatalogRebuilder(
         if (stale.Count > 0) db.RouteBinaryCatalogs.RemoveRange(stale);
 
         await db.SaveChangesAsync(ct);
-        (services.GetService(typeof(IBinaryRouteProvider)) as IBinaryRouteProvider)?.Invalidate();
+        binaryRouteProvider?.Invalidate();
 
         int newCount = seen.Count(p => !existing.ContainsKey(p));
-        var nonBinary = services.GetService(typeof(INonBinaryRouteCatalog)) as INonBinaryRouteCatalog
-                        ?? new NonBinaryRouteCatalog(yaml, null, null);
-        var drift = RouteDrift.Compute(nonBinary.All(), binaryRows);
+        var drift = RouteDrift.Compute(nonBinaryRouteCatalog.All(), binaryRows);
         string note = BuildNote(inputs, merged.Count, notUsed);
         return new EndpointRebuildResult(seen.Count, newCount, drift.Count, contributors[0].Candidate.Version, note);
     }

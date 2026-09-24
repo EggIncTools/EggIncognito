@@ -13,7 +13,7 @@ namespace EggIncognito.Tests.Auth;
 public class ApiAccessFilterTests {
     private static AuthorizationFilterContext Context(string path, UserRole role, params object[] metadata) {
         var services = new ServiceCollection();
-        services.AddSingleton<ICurrentUser>(new FakeUser(role));
+        services.AddSingleton<ICurrentUser>(new FakeUser(role != UserRole.Viewer, role, discordId: null));
         var http = new DefaultHttpContext { RequestServices = services.BuildServiceProvider() };
         http.Request.Path = path;
         var descriptor = new ActionDescriptor { EndpointMetadata = metadata };
@@ -46,17 +46,5 @@ public class ApiAccessFilterTests {
         var ctx = Context("/protos", UserRole.Viewer);
         await new ApiAccessFilter().OnAuthorizationAsync(ctx);
         Assert.Null(ctx.Result);
-    }
-
-    private sealed class FakeUser(UserRole role) : ICurrentUser {
-        public bool IsAuthenticated => role != UserRole.Viewer;
-        public Guid? UserId => null;
-        public string? DiscordId => null;
-        public string? Username => null;
-        public string? Avatar => null;
-        public string? AvatarUrl => null;
-        public UserRole Role => role;
-        public bool IsSupporter => false;
-        public bool IsAtLeast(UserRole need) => role >= need;
     }
 }

@@ -15,11 +15,14 @@ public interface ILastKnownProtoSource {
 
 public interface IEnumFailover {
     string Apply(IMessage message, string formattedJson);
+    Task WarmAsync(CancellationToken ct = default);
 }
 
-public sealed class EnumFailover(ILastKnownProtoSource source, ILogger<EnumFailover>? logger = null) : IEnumFailover {
+public sealed class EnumFailover(ILastKnownProtoSource source, ILogger<EnumFailover>? logger = null, TimeProvider? time = null)
+    : IEnumFailover {
     private static readonly TimeSpan RefreshInterval = TimeSpan.FromSeconds(60);
 
+    private readonly TimeProvider _time = time ?? TimeProvider.System;
     private readonly Lock _gate = new();
     private volatile IReadOnlyDictionary<string, IReadOnlyDictionary<int, string>>? _map;
     private string? _staleKey;
@@ -28,40 +31,41 @@ public sealed class EnumFailover(ILastKnownProtoSource source, ILogger<EnumFailo
     public string Apply(IMessage message, string formattedJson) {
         if (message is null || string.IsNullOrEmpty(formattedJson)) return formattedJson;
         try {
-            var map = EnsureMap();
+            var map = CurrentMap();
             if (map is null || map.Count == 0) return formattedJson;
             if (JsonNode.Parse(formattedJson) is not JsonObject obj) return formattedJson;
             AnnotateMessage(message, obj, map);
             return obj.ToJsonString();
-        } catch {
+        } catch (Exception ex) {
+            logger?.LogEnumAnnotateFailed(ex);
             return formattedJson;
         }
     }
 
-    private IReadOnlyDictionary<string, IReadOnlyDictionary<int, string>>? EnsureMap() {
-        var current = _map;
-        if (current is null) {
-            Rebuild();
-            return _map;
-        }
-
-        long now = DateTimeOffset.UtcNow.Ticks;
-        if (now >= Interlocked.Read(ref _nextRefreshTicks)) {
-            Interlocked.Exchange(ref _nextRefreshTicks, now + RefreshInterval.Ticks);
-            _ = Task.Run(() => {
-                try {
-                    Rebuild();
-                } catch (Exception ex) {
-                    logger?.LogEnumMapRefreshFailed(ex);
-                }
-            });
-        }
-
-        return current;
+    public async Task WarmAsync(CancellationToken ct = default) {
+        Interlocked.Exchange(ref _nextRefreshTicks, _time.GetUtcNow().Ticks + RefreshInterval.Ticks);
+        await RefreshAsync(ct);
     }
 
-    private void Rebuild() {
-        var protos = source.GetLatestProtosAsync().GetAwaiter().GetResult();
+    private IReadOnlyDictionary<string, IReadOnlyDictionary<int, string>>? CurrentMap() {
+        long now = _time.GetUtcNow().Ticks;
+        long next = Interlocked.Read(ref _nextRefreshTicks);
+        if (now >= next && Interlocked.CompareExchange(ref _nextRefreshTicks, now + RefreshInterval.Ticks, next) == next)
+            _ = Task.Run(() => RefreshAsync(CancellationToken.None));
+
+        return _map;
+    }
+
+    private async Task RefreshAsync(CancellationToken ct) {
+        try {
+            await RebuildAsync(ct);
+        } catch (Exception ex) when (ex is not OperationCanceledException) {
+            logger?.LogEnumMapRefreshFailed(ex);
+        }
+    }
+
+    private async Task RebuildAsync(CancellationToken ct) {
+        var protos = await source.GetLatestProtosAsync(ct);
         string key = string.Join("|", protos
             .OrderBy(p => p.Platform, StringComparer.Ordinal)
             .Select(p => p.Platform + ":" + p.Build));
@@ -135,4 +139,8 @@ internal static partial class EnumFailoverLog {
     [LoggerMessage(EventId = 1, Level = LogLevel.Warning,
         Message = "Background enum failover map refresh failed; keeping the previous map")]
     internal static partial void LogEnumMapRefreshFailed(this ILogger logger, Exception ex);
+
+    [LoggerMessage(EventId = 2, Level = LogLevel.Debug,
+        Message = "Enum failover annotation failed; returning the unannotated JSON")]
+    internal static partial void LogEnumAnnotateFailed(this ILogger logger, Exception ex);
 }

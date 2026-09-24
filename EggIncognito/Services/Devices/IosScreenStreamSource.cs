@@ -14,7 +14,7 @@ public sealed class IosScreenStreamSource(ILogger<IosScreenStreamSource> log) : 
         QtUsbDevice? usb;
         string? openNote;
         try {
-            (usb, openNote) = await QtUsbDevice.OpenAsync(target.Target, ct);
+            (usb, openNote) = await QtUsbDevice.OpenAsync(target.Target, log, ct);
         } catch (Exception ex) when (ex is IOException or InvalidOperationException
                                         or UnauthorizedAccessException or UsbException) {
             return $"quicktime usb open failed: {ex.Message}";

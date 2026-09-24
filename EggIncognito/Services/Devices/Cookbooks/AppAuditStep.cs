@@ -13,9 +13,9 @@ public sealed class AppAuditStep(IDeviceConnectionFactory connections) : Cookboo
 
     public override async Task<CookbookStepResult> RunAsync(DeviceCookbookContext context, CancellationToken ct) {
         var lines = new List<string>();
-        void Add(string line) {
+        Task Add(string line) {
             lines.Add(line);
-            context.Progress(line);
+            return context.Progress(line);
         }
 
         var target = context.Target;
@@ -27,7 +27,7 @@ public sealed class AppAuditStep(IDeviceConnectionFactory connections) : Cookboo
         var first = await conn.ShellAsync($"pidof {pkg}", ct);
         await Task.Delay(TimeSpan.FromSeconds(8), ct);
         var second = await conn.ShellAsync($"pidof {pkg}", ct);
-        Add($"pid before: {first.Stdout.Trim()}, 8s later: {second.Stdout.Trim()}");
+        await Add($"pid before: {first.Stdout.Trim()}, 8s later: {second.Stdout.Trim()}");
         foreach (var (label, command) in LiveProbes(pkg)) await ReportAsync(conn, label, command, Add, ct);
 
         var paths = await conn.ShellAsync($"pm path {pkg}", ct);
@@ -39,7 +39,7 @@ public sealed class AppAuditStep(IDeviceConnectionFactory connections) : Cookboo
             $"logcat -d -b crash 2>/dev/null | grep -i -m 5 '{pkg}'", ct);
 
         string verdict = Verdict(alive, splits.Count, configs.Count, crash.Stdout.Trim());
-        Add($"verdict: {verdict}");
+        await Add($"verdict: {verdict}");
         return Ok(lines, verdict);
     }
 
@@ -70,29 +70,29 @@ public sealed class AppAuditStep(IDeviceConnectionFactory connections) : Cookboo
     ];
 
     private static (string Label, string Command)[] LiveProbes(string pkg) => [
-        ("app output", $"p=$(pidof {pkg}); [ -n \"$p\" ] && logcat -d --pid=$p 2>/dev/null | tail -n 40 "
+        ("app output", $"""p=$(pidof {pkg}); [ -n "$p" ] && logcat -d --pid=$p 2>/dev/null | tail -n 40 """
                        + "|| echo 'no live process to read'"),
         ("frames", $"dumpsys gfxinfo {pkg} 2>/dev/null | grep -i -E "
                    + "'Total frames|Janky|rendered|Draw|HWUI|not found' | head -n 8"),
-        ("threads", $"p=$(pidof {pkg}); [ -n \"$p\" ] && ls /proc/$p/task 2>/dev/null | wc -l"),
-        ("wchan", $"p=$(pidof {pkg}); [ -n \"$p\" ] && cat /proc/$p/wchan 2>/dev/null; echo"),
+        ("threads", $"""p=$(pidof {pkg}); [ -n "$p" ] && ls /proc/$p/task 2>/dev/null | wc -l"""),
+        ("wchan", $"""p=$(pidof {pkg}); [ -n "$p" ] && cat /proc/$p/wchan 2>/dev/null; echo"""),
         ("proxy", "settings get global http_proxy"),
         ("egl libs", "ls -l /vendor/lib64/egl /system/lib64/egl 2>&1 | head -n 12"),
         ("translation", $"logcat -d 2>/dev/null | grep -i -E 'ndk_translation|libnb|houdini' | tail -n 8")
     ];
 
     private static async Task ReportAsync(
-        IDeviceConnection conn, string label, string command, Action<string> add, CancellationToken ct) {
+        IDeviceConnection conn, string label, string command, Func<string, Task> add, CancellationToken ct) {
         var r = await conn.ShellAsync(command, ct);
         string[] output = [.. (r.Stdout + "\n" + r.Stderr).Split('\n')
             .Select(l => l.TrimEnd('\r').TrimEnd())
             .Where(l => l.Length > 0)];
         if (output.Length == 0) {
-            add($"{label}: (no output, exit {r.ExitCode})");
+            await add($"{label}: (no output, exit {r.ExitCode})");
             return;
         }
 
-        add($"{label}:");
-        foreach (string line in output) add("  " + line);
+        await add($"{label}:");
+        foreach (string line in output) await add("  " + line);
     }
 }

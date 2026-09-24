@@ -139,9 +139,9 @@ public sealed partial class DockerEngineClient : IDisposable {
     public async Task<DeviceResult<DockerEventReader>> OpenEventsAsync(string? label, CancellationToken ct) {
         if (!Available) return DeviceResult<DockerEventReader>.Unsupported(NotAvailable);
 
-        string filters = string.IsNullOrEmpty(label)
-            ? "{\"type\":[\"container\"]}"
-            : $"{{\"type\":[\"container\"],\"label\":[\"{label}\"]}}";
+        var filterMap = new Dictionary<string, string[]> { ["type"] = ["container"] };
+        if (!string.IsNullOrEmpty(label)) filterMap["label"] = [label];
+        string filters = JsonSerializer.Serialize(filterMap);
         using var req = new HttpRequestMessage(HttpMethod.Get, "events?filters=" + Uri.EscapeDataString(filters));
 
         HttpResponseMessage? res = null;
@@ -204,7 +204,7 @@ public sealed partial class DockerEngineClient : IDisposable {
         string? label, CancellationToken ct) {
         string path = "containers/json?all=1";
         if (!string.IsNullOrEmpty(label)) {
-            string filters = $"{{\"label\":[\"{label}\"]}}";
+            string filters = JsonSerializer.Serialize(new Dictionary<string, string[]> { ["label"] = [label] });
             path += "&filters=" + Uri.EscapeDataString(filters);
         }
 
@@ -279,7 +279,7 @@ public sealed partial class DockerEngineClient : IDisposable {
     public async Task<DeviceResult<IReadOnlyList<DockerImage>>> ListImagesAsync(string? reference, CancellationToken ct) {
         string path = "images/json";
         if (!string.IsNullOrEmpty(reference)) {
-            string filters = $"{{\"reference\":[\"{reference}\"]}}";
+            string filters = JsonSerializer.Serialize(new Dictionary<string, string[]> { ["reference"] = [reference] });
             path += "?filters=" + Uri.EscapeDataString(filters);
         }
 
@@ -299,7 +299,7 @@ public sealed partial class DockerEngineClient : IDisposable {
         Plain(await SendAsync(HttpMethod.Delete, $"images/{Uri.EscapeDataString(tagOrId)}?force=1", null, ct, true));
 
     public async Task<DeviceResult> BuildImageAsync(
-        Stream tarContext, string tag, IReadOnlyDictionary<string, string>? buildArgs, Action<string> onLog,
+        Stream tarContext, string tag, IReadOnlyDictionary<string, string>? buildArgs, Func<string, Task> onLog,
         CancellationToken ct) {
         if (!Available) return DeviceResult.Unsupported(NotAvailable);
 
@@ -320,7 +320,7 @@ public sealed partial class DockerEngineClient : IDisposable {
                 while ((line = await reader.ReadLineAsync(ct)) is not null) {
                     if (line.Length == 0) continue;
                     (string? text, string? err) = ParseBuildLine(line);
-                    if (text is { Length: > 0 }) onLog(text);
+                    if (text is { Length: > 0 }) await onLog(text);
                     if (err is { Length: > 0 }) error = err;
                 }
             }

@@ -37,9 +37,9 @@ public sealed class SeedAuditStep(IDeviceConnectionFactory connections) : Cookbo
 
     public override async Task<CookbookStepResult> RunAsync(DeviceCookbookContext context, CancellationToken ct) {
         var lines = new List<string>();
-        void Add(string line) {
+        Task Add(string line) {
             lines.Add(line);
-            context.Progress(line);
+            return context.Progress(line);
         }
 
         if (connections.For(context.Target) is not { } conn) return Failed(lines, "no connection for this device");
@@ -47,14 +47,14 @@ public sealed class SeedAuditStep(IDeviceConnectionFactory connections) : Cookbo
         foreach (var (label, command) in ShellProbes) await ReportAsync(conn, label, command, Add, ct);
 
         var root = await DeviceRoot.ProbeAsync(conn, ct);
-        Add($"root: {root.Detail}");
+        await Add($"root: {root.Detail}");
         if (root.Ok) {
             foreach (var (label, command) in RootProbes) await ReportAsync(conn, label, root.Wrap(command), Add, ct);
         }
 
         var seed = IntegritySeed.Parse((await conn.ShellAsync(IntegritySeed.ProbeCommand, ct)).Stdout);
         string verdict = Verdict(seed);
-        Add($"verdict: {verdict}");
+        await Add($"verdict: {verdict}");
         return Ok(lines, verdict);
     }
 
@@ -73,17 +73,17 @@ public sealed class SeedAuditStep(IDeviceConnectionFactory connections) : Cookbo
     }
 
     private static async Task ReportAsync(
-        IDeviceConnection conn, string label, string command, Action<string> add, CancellationToken ct) {
+        IDeviceConnection conn, string label, string command, Func<string, Task> add, CancellationToken ct) {
         var r = await conn.ShellAsync(command, ct);
         string[] output = [.. (r.Stdout + "\n" + r.Stderr).Split('\n')
             .Select(l => l.TrimEnd('\r').TrimEnd())
             .Where(l => l.Length > 0)];
         if (output.Length == 0) {
-            add($"{label}: (no output, exit {r.ExitCode})");
+            await add($"{label}: (no output, exit {r.ExitCode})");
             return;
         }
 
-        add($"{label}:");
-        foreach (string line in output) add("  " + line);
+        await add($"{label}:");
+        foreach (string line in output) await add("  " + line);
     }
 }

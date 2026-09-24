@@ -1,5 +1,6 @@
 using Discord;
 using EggIdentity.Bot;
+using EggIncognito.Core;
 using EggIncognito.Core.Services;
 using Microsoft.Extensions.Logging;
 
@@ -83,7 +84,10 @@ public static class ExtraCommands {
                 var embed = new EmbedBuilder()
                     .WithTitle($"Proto message types (page {p}/{pages})")
                     .WithColor(new Color(0xEF7559))
-                    .WithDescription(slice.Count == 0 ? "(none)" : ProtoQuery.Truncate(string.Join("\n", slice)))
+                    .WithDescription(slice.Count == 0
+                        ? "(none)"
+                        : Strings.Truncate(string.Join("\n", slice), ProtoQuery.MaxDescription,
+                            ProtoQuery.TruncatedMarker))
                     .Build();
                 await cmd.FollowupAsync(embed: embed, ephemeral: true);
                 return;
@@ -99,7 +103,8 @@ public static class ExtraCommands {
             var detail = new EmbedBuilder()
                 .WithTitle($"Ei.{schema.Name}")
                 .WithColor(new Color(0xEF7559))
-                .WithDescription("```\n" + ProtoQuery.Truncate(ProtoQuery.TypeLines(schema)) + "\n```")
+                .WithDescription("```\n" + Strings.Truncate(ProtoQuery.TypeLines(schema), ProtoQuery.MaxDescription,
+                    ProtoQuery.TruncatedMarker) + "\n```")
                 .Build();
             await cmd.FollowupAsync(embed: detail, ephemeral: true);
         } catch (Exception ex) {

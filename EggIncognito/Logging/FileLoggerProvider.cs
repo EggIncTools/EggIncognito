@@ -22,7 +22,7 @@ public sealed class FileLoggerProvider : ILoggerProvider {
             _writer = null;
         }
 
-        _writerTask = Task.Run(DrainAsync);
+        _writerTask = DrainAsync();
     }
 
     public string? FilePath { get; }

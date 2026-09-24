@@ -20,14 +20,14 @@ public static class ShipAssetExporter {
             string? enumName = ShipNameMap.EnumNameForStem(asset.Key);
             if (enumName is null) continue;
 
-            byte[] glb = asset.Decode.Glb!;
+            byte[] glb = asset.Decode.Glb;
 
             if (animate is not null) {
                 var anim = GltfAnimator.Animate(glb, animate);
-                if (anim.Ok) glb = anim.Glb!;
+                if (anim.Ok) glb = anim.Glb;
             }
 
-            var b = asset.Decode.Bounds!;
+            var b = asset.Decode.Bounds;
             var entry = new ShipEntry(
                 $"ships/{enumName}.glb",
                 Hashes.Sha256Hex(glb),

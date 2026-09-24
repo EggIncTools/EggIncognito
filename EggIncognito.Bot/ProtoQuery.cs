@@ -25,10 +25,7 @@ public static class ProtoQuery {
             ];
     }
 
-    public static string Truncate(string text, int max = MaxDescription) {
-        const string marker = "\n... (truncated)";
-        return text.Length <= max ? text : text[..Math.Max(0, max - marker.Length)] + marker;
-    }
+    public const string TruncatedMarker = "\n... (truncated)";
 
     public static string TypeLines(SchemaMessage msg) {
         if (msg.Fields.Count == 0) return "(no fields)";

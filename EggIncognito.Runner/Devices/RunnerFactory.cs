@@ -14,7 +14,7 @@ public sealed record RunnerDeps(
     string IosBinaryPath,
     int? PrevClientVersion,
     string DefaultPackage,
-    Action<NewVersionEvent> OnNewVersion);
+    Func<NewVersionEvent, Task> OnNewVersion);
 
 public static class RunnerFactory {
     public static IDeviceRunner? Build(DeviceFileParser.ParsedDevice device, RunnerDeps deps) {

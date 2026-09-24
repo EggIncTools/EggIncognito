@@ -1,3 +1,4 @@
+using System.Collections.Frozen;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using EggIncognito.Core.Services;
@@ -34,13 +35,13 @@ public sealed class FieldNode {
 }
 
 public static class FieldTreeBuilder {
-    private static readonly HashSet<string> Int32 =
+    private static readonly FrozenSet<string> Int32 =
         ["int32", "uint32", "sint32", "fixed32", "sfixed32"];
 
-    private static readonly HashSet<string> Int64 =
+    private static readonly FrozenSet<string> Int64 =
         ["int64", "uint64", "sint64", "fixed64", "sfixed64"];
 
-    private static readonly HashSet<string> Floats = ["double", "float"];
+    private static readonly FrozenSet<string> Floats = ["double", "float"];
 
     public static List<FieldNode> Build(SchemaMessage schema, Func<string, SchemaMessage?> schemaOf) =>
         [.. schema.Fields.Select(f => BuildNode(f, [], schemaOf))];

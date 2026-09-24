@@ -4,16 +4,14 @@ public static class AdbHostKey {
     public const string FileName = "adbkey.pub";
     public const string RootHomeKey = "/root/.android/" + FileName;
 
-    public static string? Resolve(VirtualDeviceConfig config) =>
-        Resolve(config, Environment.GetEnvironmentVariable("ANDROID_USER_HOME"),
-            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile));
+    public static string? Resolve(VirtualDeviceConfig config, string? androidUserHome) =>
+        Resolve(config, androidUserHome, Environment.GetFolderPath(Environment.SpecialFolder.UserProfile));
 
     public static string? Resolve(VirtualDeviceConfig config, string? androidUserHome, string? userProfile) =>
         ResolveWithSource(config, androidUserHome, userProfile)?.Key;
 
-    public static (string Key, string Source)? ResolveWithSource(VirtualDeviceConfig config) =>
-        ResolveWithSource(config, Environment.GetEnvironmentVariable("ANDROID_USER_HOME"),
-            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile));
+    public static (string Key, string Source)? ResolveWithSource(VirtualDeviceConfig config, string? androidUserHome) =>
+        ResolveWithSource(config, androidUserHome, Environment.GetFolderPath(Environment.SpecialFolder.UserProfile));
 
     public static (string Key, string Source)? ResolveWithSource(
         VirtualDeviceConfig config, string? androidUserHome, string? userProfile) {

@@ -8,7 +8,6 @@ using EggIncognito.Services.DataApi;
 using EggIncognito.Services.Devices;
 using EggIncognito.Services.Feed;
 using EggIncognito.Services.Workbench;
-using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace EggIncognito.Startup;
 
@@ -61,9 +60,10 @@ public static class CoreServices {
         builder.Services.AddSingleton<IDocRegistry, DocRegistry>();
         builder.Services.AddSingleton<ILastKnownProtoSource, LastKnownProtoSource>();
         builder.Services.AddSingleton<IEnumFailover, EnumFailover>();
+        builder.Services.AddHostedService<EnumFailoverWarmup>();
         builder.Services.AddSingleton<ITransportPipeline, TransportPipeline>();
         builder.Services.AddMemoryCache();
-        builder.Services.TryAddSingleton(TimeProvider.System);
+        builder.Services.AddSingleton(TimeProvider.System);
     }
 
     public static void AddWorkbenchServices(this WebApplicationBuilder builder) {

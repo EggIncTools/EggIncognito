@@ -5,7 +5,7 @@ using LibUsbDotNet.Main;
 
 namespace EggIncognito.Services.Devices.QuickTime;
 
-internal sealed class QtUsbDevice : IDisposable {
+internal sealed class QtUsbDevice(ILogger log) : IDisposable {
     private const int AppleVendorId = 0x05AC;
     private const byte QuickTimeSubClass = 0x2A;
     private const byte TransferTypeMask = 0x03;
@@ -25,8 +25,9 @@ internal sealed class QtUsbDevice : IDisposable {
     private UsbEndpointWriter? _writer;
     private int _interfaceNumber = -1;
 
-    public static async Task<(QtUsbDevice? Device, string? Note)> OpenAsync(string udid, CancellationToken ct) {
-        var dev = new QtUsbDevice();
+    public static async Task<(QtUsbDevice? Device, string? Note)> OpenAsync(string udid, ILogger log,
+        CancellationToken ct) {
+        var dev = new QtUsbDevice(log);
         try {
             string? note = await dev.ConnectAsync(udid, ct);
             if (note is null) return (dev, null);
@@ -198,6 +199,7 @@ internal sealed class QtUsbDevice : IDisposable {
         try {
             if (_device is not null && _interfaceNumber >= 0) _device.ReleaseInterface(_interfaceNumber);
         } catch (Exception ex) when (ex is UsbException or IOException or InvalidOperationException) {
+            log.LogDebug(ex, "quicktime usb interface release failed");
         }
         _device?.Dispose();
         _ctx.Dispose();

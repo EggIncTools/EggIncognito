@@ -201,7 +201,7 @@ public class EventPredictorTests {
         var db = new EggIncognitoDbContext(opts);
         var version = new EventDataVersion();
         var cache = new EventPredictionCache { Version = version.Version, Value = TemplateRows() };
-        var predictor = new EventPredictor(db, version, cache);
+        var predictor = new EventPredictor(db, version, cache, TimeProvider.System);
 
         var result = await predictor.GetAsync(28, EventTemplate.AsOf);
 

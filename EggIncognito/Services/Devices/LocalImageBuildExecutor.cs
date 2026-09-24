@@ -4,7 +4,7 @@ namespace EggIncognito.Services.Devices;
 
 public sealed class LocalImageBuildExecutor(DockerEngineClient docker) : IImageBuildExecutor {
     public async Task<ImageBuildOutcome> BuildAsync(
-        Stream tarContext, string tag, IReadOnlyDictionary<string, string>? buildArgs, Action<string> onLog,
+        Stream tarContext, string tag, IReadOnlyDictionary<string, string>? buildArgs, Func<string, Task> onLog,
         CancellationToken ct) {
         var built = await docker.BuildImageAsync(tarContext, tag, buildArgs, onLog, ct);
         if (!built.Ok) return new ImageBuildOutcome(false, tag, built.Note ?? "docker build failed");

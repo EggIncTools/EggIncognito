@@ -175,6 +175,7 @@
             _view.DefaultFormat = await InvokeOr("getDefaultFormat", _view.DefaultFormat);
             _view.SetupExpanded = await InvokeOr<bool?>("getSetupExpanded", null) ?? _view.SetupExpanded;
         } catch (Exception ex) when (ex is JSDisconnectedException or JSException or ObjectDisposedException) {
+            Logger.LogDebug(ex, "capture view prefs could not be loaded");
             _store = null;
         }
 
@@ -365,6 +366,7 @@
         try {
             return await _store.InvokeAsync<T>(fn);
         } catch (Exception ex) when (ex is JSDisconnectedException or JSException or ObjectDisposedException) {
+            Logger.LogDebug(ex, "capture store call {Fn} failed", fn);
             return fallback;
         }
     }

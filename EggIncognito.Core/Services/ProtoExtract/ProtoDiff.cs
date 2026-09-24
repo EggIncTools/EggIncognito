@@ -75,11 +75,11 @@ public static class ProtoDiff {
 
         var claimedOld = new HashSet<ProtoMessage>();
         var claimedNew = new HashSet<ProtoMessage>();
-        foreach (var c in candidates) {
-            if (claimedOld.Contains(c.Old) || claimedNew.Contains(c.New)) continue;
-            claimedOld.Add(c.Old);
-            claimedNew.Add(c.New);
-            matchedPairs.Add((c.Old, c.New, true));
+        foreach (var (cOld, cNew, _) in candidates) {
+            if (claimedOld.Contains(cOld) || claimedNew.Contains(cNew)) continue;
+            claimedOld.Add(cOld);
+            claimedNew.Add(cNew);
+            matchedPairs.Add((cOld, cNew, true));
         }
 
         var remainingOld = oldLeftover.Where(m => !claimedOld.Contains(m)).ToList();
@@ -132,7 +132,7 @@ public static class ProtoDiff {
         var newByNum = new Dictionary<int, ProtoField>();
         foreach (var f in newM.Fields) newByNum.TryAdd(f.Number, f);
 
-        var numbers = oldByNum.Keys.Union(newByNum.Keys).OrderBy(n => n);
+        var numbers = oldByNum.Keys.Union(newByNum.Keys).Order();
         var changes = new List<FieldChange>();
         foreach (int n in numbers) {
             bool hasOld = oldByNum.TryGetValue(n, out var of);
@@ -169,7 +169,7 @@ public static class ProtoDiff {
                 var newByNum = new Dictionary<int, ProtoEnumValue>();
                 foreach (var v in ne!.Values) newByNum.TryAdd(v.Number, v);
 
-                var numbers = oldByNum.Keys.Union(newByNum.Keys).OrderBy(n => n);
+                var numbers = oldByNum.Keys.Union(newByNum.Keys).Order();
                 foreach (int n in numbers) {
                     bool ho = oldByNum.TryGetValue(n, out var ov);
                     bool hn = newByNum.TryGetValue(n, out var nv);

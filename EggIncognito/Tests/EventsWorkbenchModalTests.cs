@@ -19,10 +19,11 @@ public class EventsWorkbenchModalTests : BunitContext {
 
     private void Wire(Func<HttpRequestMessage, HttpResponseMessage> respond) {
         Services.AddLogging();
-        Services.AddSingleton<IHttpClientFactory>(new StubFactory(respond));
+        Services.AddSingleton<IHttpClientFactory>(
+            new StubHttpFactory(new StubHttpMessageHandler(respond), new Uri("http://localhost")));
         Services.AddSingleton<IHttpContextAccessor>(new HttpContextAccessor());
         Services.AddSingleton<IWebHostEnvironment>(new FakeWebHostEnvironment());
-        Services.AddSingleton<ICurrentUser>(new FakeUser(UserRole.Viewer));
+        Services.AddSingleton<ICurrentUser>(new FakeUser(authenticated: false, role: UserRole.Viewer, discordId: null));
         Services.AddScoped<EventsWorkbenchState>();
         JSInterop.Mode = JSRuntimeMode.Loose;
     }
@@ -127,20 +128,4 @@ public class EventsWorkbenchModalTests : BunitContext {
         Assert.Empty(cut.FindAll(".evcal-bar"));
     }
 
-    private sealed class StubFactory(Func<HttpRequestMessage, HttpResponseMessage> respond) : IHttpClientFactory {
-        public HttpClient CreateClient(string name) =>
-            new(new StubHttpMessageHandler(respond)) { BaseAddress = new Uri("http://localhost") };
-    }
-
-    private sealed class FakeUser(UserRole role) : ICurrentUser {
-        public bool IsAuthenticated => role != UserRole.Viewer;
-        public Guid? UserId => null;
-        public string? DiscordId => null;
-        public string? Username => null;
-        public string? Avatar => null;
-        public string? AvatarUrl => null;
-        public UserRole Role => role;
-        public bool IsSupporter => false;
-        public bool IsAtLeast(UserRole need) => role >= need;
-    }
 }

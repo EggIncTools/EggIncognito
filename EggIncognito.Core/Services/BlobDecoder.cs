@@ -15,7 +15,7 @@ public static class BlobDecoder {
             ? default
             : EndpointExtractor.AutoDetect(unwrappedBytes);
 
-        bool useUnwrapped = unwrappedBytes is not null && unw.bestScore > raw.bestScore;
+        bool useUnwrapped = unwrappedBytes is not null && unw.BestScore > raw.BestScore;
         (string? typeName, string? json, int confidence, _, _) = useUnwrapped ? unw : raw;
         return typeName is null || json is null
             ? new DecodeResult(null, null, useUnwrapped, 0)

@@ -19,7 +19,7 @@ public sealed class CookbookExecutor {
         foreach (var step in plan) {
             string marker = $"> {step.Title}";
             log.Add(marker);
-            context.Progress(marker);
+            await context.Progress(marker);
 
             var result = await step.RunAsync(context, ct);
             steps.Add(result);
@@ -27,7 +27,7 @@ public sealed class CookbookExecutor {
             if (result.Status == CookbookStepStatus.Failed && result.Note is { Length: > 0 } note
                 && !result.Lines.Contains(note, StringComparer.Ordinal)) {
                 log.Add(note);
-                context.Progress(note);
+                await context.Progress(note);
             }
 
             if (result.Status == CookbookStepStatus.Failed && !step.Soft) {

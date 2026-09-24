@@ -98,7 +98,7 @@ public sealed class DeviceCaptureManager(
 
     public CaptureHub? HubFor(string deviceId) => _captures.TryGetValue(deviceId, out var c) ? c.Hub : null;
 
-    private static string Now() => DateTime.Now.ToString("HH:mm:ss", CultureInfo.InvariantCulture);
+    private static string Now() => DateTimeOffset.Now.ToString("HH:mm:ss", CultureInfo.InvariantCulture);
 
     public DeviceCaptureDiag DiagFor(string deviceId) =>
         _diag.TryGetValue(deviceId, out var d) ? d.Snapshot() : DeviceCaptureDiag.Empty;

@@ -57,8 +57,8 @@ public sealed class DeviceJobStore(EggIncognitoDbContext db, TimeProvider time, 
         DateTimeOffset cutoff) {
         var windowed = newestFirst.Where(r => r.StartedAt >= cutoff).ToList();
         int consecutive = 0;
-        foreach (var r in newestFirst) {
-            if (r.Reachable == true) break;
+        foreach (var (_, reachable, _) in newestFirst) {
+            if (reachable == true) break;
             consecutive++;
         }
 

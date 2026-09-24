@@ -23,9 +23,8 @@ public class ImageBuildSpecTests {
     [InlineData("redroid/redroid:11.0.0_gapps_ndk_magisk", false)]
     [InlineData("", false)]
     [InlineData(null, false)]
-    public void LooksSeeded_ReadsTheTagToken(string? image, bool expected) {
+    public void LooksSeeded_ReadsTheTagToken(string? image, bool expected) =>
         Assert.Equal(expected, ImageBuildSpec.LooksSeeded(image));
-    }
 
     [Fact]
     public void ResolvedTag_ExplicitTagWins() {

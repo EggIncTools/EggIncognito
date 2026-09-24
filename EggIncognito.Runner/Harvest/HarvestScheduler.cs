@@ -32,14 +32,14 @@ public sealed class HarvestScheduler(RunnerDb db, IDevicePlatforms platforms, IL
             return;
         }
 
-        var states = new DeviceStateStore(ctx);
+        var states = new DeviceStateStore(ctx, TimeProvider.System);
         if (!await states.TryBeginAsync(deviceId, CancellationToken.None)) {
             _logger.LogInformation("harvest: {DeviceId} already marked running in db, deferring", deviceId);
             return;
         }
 
-        var harvester = new DeviceHarvester(platforms, new DeviceAssetStore(ctx, BlobBytes.Inline), states,
-            new DeviceJobStore(ctx, TimeProvider.System), new GameBinaryStore(ctx, BlobBytes.Inline),
+        var harvester = new DeviceHarvester(platforms, new DeviceAssetStore(ctx, TimeProvider.System, BlobBytes.Inline), states,
+            new DeviceJobStore(ctx, TimeProvider.System), new GameBinaryStore(ctx, TimeProvider.System, BlobBytes.Inline),
             new ApkStore(ctx, TimeProvider.System, BlobBytes.Inline), logs.CreateLogger<DeviceHarvester>());
         var target = new DeviceTarget(device.Id, device.Platform, device.Target, device.Package);
         await harvester.RunAsync(target, force, CancellationToken.None);

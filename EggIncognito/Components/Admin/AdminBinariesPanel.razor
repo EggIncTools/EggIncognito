@@ -2,6 +2,7 @@
 @using EggIncognito.Core
 @using EggIncognito.Models.AdminUi
 @using EggIncognito.Models.Devices
+@using EggIncognito.Services.Events
 @inherits AdminPaneBase
 
 <AdminPaneHead Title="Stored binaries" Facts="@Stats">
@@ -39,7 +40,7 @@
                         }
                     </td>
                     <td class="text-xs">@b.Source</td>
-                    <td class="text-muted text-xs">@b.PulledAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")</td>
+                    <td class="text-muted text-xs">@ViewerClock.At(Services, b.PulledAt).ToString("yyyy-MM-dd HH:mm:ss")</td>
                     <td>
                         <div class="flex gap-1 justify-end">
                             <button type="button" class="btn-mini btn-danger" disabled="@_busy" @onclick="() => Delete(b.Platform, b.Version)">Delete</button>
@@ -78,7 +79,7 @@
                     <td class="mono text-xs">@ShaShort(r.Sha256)</td>
                     <td class="mono text-xs">@ByteFormat.Mb(r.ByteSize, "F1")</td>
                     <td class="mono text-xs">@r.SymbolCount.ToString("N0")</td>
-                    <td class="text-muted text-xs">@r.UploadedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")</td>
+                    <td class="text-muted text-xs">@ViewerClock.At(Services, r.UploadedAt).ToString("yyyy-MM-dd HH:mm:ss")</td>
                     <td>
                         <div class="flex gap-1 justify-end">
                             <button type="button" class="btn-mini btn-danger" disabled="@_refBusy" @onclick="() => DeleteRef(r.Version)">Delete</button>

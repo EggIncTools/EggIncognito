@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Threading.Channels;
 using EggIncognito.Core.Services;
 
@@ -208,7 +209,7 @@ public sealed class CaptureSession(
 
     public string CurrentHar() => _har?.ToHar() ?? new HarWriter().ToHar();
 
-    private static string Now() => DateTime.Now.ToString("HH:mm:ss");
+    private static string Now() => DateTimeOffset.Now.ToString("HH:mm:ss", CultureInfo.InvariantCulture);
 
     internal static string UniquePath(string path) {
         if (!File.Exists(path)) return path;

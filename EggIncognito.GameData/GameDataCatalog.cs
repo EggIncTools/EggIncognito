@@ -1,22 +1,15 @@
 namespace EggIncognito.GameData;
 
-public abstract class GameDataCatalog<TEntry, TKey> where TEntry : class where TKey : notnull {
-    private readonly Dictionary<TKey, TEntry> _byKey;
+public abstract class GameDataCatalog<TEntry, TKey>(IReadOnlyList<TEntry> entries, string version,
+    IReadOnlyDictionary<string, ProvenanceSource> provenance, Func<TEntry, TKey> keyOf,
+    IEqualityComparer<TKey>? comparer = null) where TEntry : class where TKey : notnull {
+    private readonly Dictionary<TKey, TEntry> _byKey = entries.ToDictionary(keyOf, comparer);
 
-    protected GameDataCatalog(IReadOnlyList<TEntry> entries, string version,
-        IReadOnlyDictionary<string, ProvenanceSource> provenance, Func<TEntry, TKey> keyOf,
-        IEqualityComparer<TKey>? comparer = null) {
-        Entries = entries;
-        Version = version;
-        Provenance = provenance;
-        _byKey = entries.ToDictionary(keyOf, comparer);
-    }
+    public IReadOnlyDictionary<string, ProvenanceSource> Provenance { get; } = provenance;
 
-    public IReadOnlyDictionary<string, ProvenanceSource> Provenance { get; }
+    protected IReadOnlyList<TEntry> Entries { get; } = entries;
 
-    protected IReadOnlyList<TEntry> Entries { get; }
-
-    protected string Version { get; }
+    protected string Version { get; } = version;
 
     protected TEntry? FindByKey(TKey key) => _byKey.GetValueOrDefault(key);
 

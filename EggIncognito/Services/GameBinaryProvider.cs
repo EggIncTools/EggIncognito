@@ -11,7 +11,8 @@ namespace EggIncognito.Services;
 public sealed class GameBinaryProvider(
     IServiceProvider services,
     IConfiguration config,
-    ILogger<GameBinaryProvider> logger) {
+    ILogger<GameBinaryProvider> logger,
+    TimeProvider time) {
     private const string DefaultPlatform = Platforms.Ios;
     private static readonly Lock CvGate = new();
     private static readonly Lock StageGate = new();
@@ -38,39 +39,44 @@ public sealed class GameBinaryProvider(
         return new SymbolizedBinaryStore(dir);
     }
 
-    public async Task<(bool Ok, byte[]? Bytes, string? Diagnostics)> GetBinaryAsync(string? deviceId,
+    public async Task<BinaryFetchResult> GetBinaryAsync(string? deviceId,
         CancellationToken ct) {
         (bool ok, byte[]? bytes, _, string? diag) = await GetBinaryWithVersionAsync(deviceId, ct);
-        return (ok, bytes, diag);
+        return new BinaryFetchResult(ok, bytes, diag);
     }
 
-    public async Task<(bool Ok, byte[]? Bytes, string Version, string? Diagnostics)> GetBinaryWithVersionAsync(
+    public sealed record BinaryFetchResult(bool Ok, byte[]? Bytes, string? Diagnostics);
+
+    public async Task<VersionedBinaryResult> GetBinaryWithVersionAsync(
         string? deviceId, CancellationToken ct) {
         string? version = (await ResolveVersionAndDeviceAsync(deviceId, DefaultPlatform, ct)).Version;
 
         string? overridePath = config[DecompConfigKeys.BinaryPath];
         if (!string.IsNullOrEmpty(overridePath) && File.Exists(overridePath)) {
             byte[] bytes = await File.ReadAllBytesAsync(overridePath, ct);
-            return (true, bytes, version ?? "unknown", null);
+            return new VersionedBinaryResult(true, bytes, version ?? "unknown", null);
         }
 
         var r = SymbolizedStore().Get(version);
-        if (!r.Ok || r.Bytes is null) return (false, null, "", r.Diagnostics);
+        if (!r.Ok || r.Bytes is null) return new VersionedBinaryResult(false, null, "", r.Diagnostics);
 
         if (!r.ExactVersion)
             logger.LogInformation("decomp: device version {Dev} not in stash, using symbolized {Use}", version ?? "?",
                 r.Version);
 
-        return (true, r.Bytes, r.Version,
+        return new VersionedBinaryResult(true, r.Bytes, r.Version,
             r.ExactVersion ? null : $"version mismatch: device {version ?? "?"}, using symbolized {r.Version}");
     }
 
-    public Task<(bool Ok, byte[]? Bytes, IReadOnlyList<MachoSymbols.Symbol>? Symbols, string Version, string?
-        Diagnostics)> GetExtractionBinaryAsync(CancellationToken ct) => GetExtractionBinaryAsync(DefaultPlatform, ct);
+    public sealed record VersionedBinaryResult(bool Ok, byte[]? Bytes, string Version, string? Diagnostics);
 
-    public async Task<(bool Ok, byte[]? Bytes, IReadOnlyList<MachoSymbols.Symbol>? Symbols, string Version, string?
-            Diagnostics)>
-        GetExtractionBinaryAsync(string platform, CancellationToken ct) {
+    public sealed record ExtractionBinaryResult(bool Ok, byte[]? Bytes, IReadOnlyList<MachoSymbols.Symbol>? Symbols,
+        string Version, string? Diagnostics);
+
+    public Task<ExtractionBinaryResult> GetExtractionBinaryAsync(CancellationToken ct) =>
+        GetExtractionBinaryAsync(DefaultPlatform, ct);
+
+    public async Task<ExtractionBinaryResult> GetExtractionBinaryAsync(string platform, CancellationToken ct) {
         bool isDefault = Platforms.Matches(platform, DefaultPlatform);
 
         if (isDefault) {
@@ -78,22 +84,21 @@ public sealed class GameBinaryProvider(
             if (!string.IsNullOrEmpty(overridePath) && File.Exists(overridePath)) {
                 byte[] ob = await File.ReadAllBytesAsync(overridePath, ct);
                 string? ov = (await ResolveVersionAndDeviceAsync(null, platform, ct)).Version;
-                return (true, ob, null, ov ?? "override", $"override binary {overridePath}");
+                return new(true, ob, null, ov ?? "override", $"override binary {overridePath}");
             }
         }
 
         var dev = await EnsureDeviceBinaryAsync(platform, ct);
-        if (dev.Ok && dev.Bytes is not null)
-            return (true, dev.Bytes, dev.Symbols, dev.Version, dev.Diagnostics);
+        if (dev.Ok && dev.Bytes is not null) return dev;
 
         if (isDefault) {
             (bool sok, byte[]? sbytes, string sver, string? sdiag) = await GetBinaryWithVersionAsync(null, ct);
             if (sok && sbytes is not null)
-                return (true, sbytes, null, sver, $"stale stash fallback ({sver}); {dev.Diagnostics}");
-            return (false, null, null, "", $"{dev.Diagnostics}; stash: {sdiag}");
+                return new(true, sbytes, null, sver, $"stale stash fallback ({sver}); {dev.Diagnostics}");
+            return new(false, null, null, "", $"{dev.Diagnostics}; stash: {sdiag}");
         }
 
-        return (false, null, null, dev.Version, dev.Diagnostics);
+        return new(false, null, null, dev.Version, dev.Diagnostics);
     }
 
     public async Task<int?> GetClientVersionAsync(string platform, CancellationToken ct, bool force = false) {
@@ -104,7 +109,7 @@ public sealed class GameBinaryProvider(
             lock (CvGate) {
                 if (CvCache.TryGetValue(platform, out var c) &&
                     string.Equals(c.Version, installed, StringComparison.Ordinal) &&
-                    (c.ClientVersion is not null || DateTimeOffset.UtcNow - c.CheckedAt < CvRecheckBackoff))
+                    (c.ClientVersion is not null || time.GetUtcNow() - c.CheckedAt < CvRecheckBackoff))
                     return c.ClientVersion;
             }
         }
@@ -112,7 +117,7 @@ public sealed class GameBinaryProvider(
         var bin = await GetExtractionBinaryAsync(platform, ct);
         if (!bin.Ok || bin.Bytes is null || !string.Equals(bin.Version, installed, StringComparison.Ordinal)) {
             lock (CvGate) {
-                CvCache[platform] = (installed, null, DateTimeOffset.UtcNow);
+                CvCache[platform] = (installed, null, time.GetUtcNow());
             }
 
             return null;
@@ -120,7 +125,7 @@ public sealed class GameBinaryProvider(
 
         int? cv = LibegincClientVersion.ReadFromBinary(bin.Bytes, bin.Symbols);
         lock (CvGate) {
-            CvCache[platform] = (installed, cv, DateTimeOffset.UtcNow);
+            CvCache[platform] = (installed, cv, time.GetUtcNow());
         }
 
         logger.LogInformation("client version: {Platform} {Version} -> {Cv}", platform, installed,
@@ -188,12 +193,12 @@ public sealed class GameBinaryProvider(
     private static int PlatformRank(string platform) =>
         Platforms.Matches(platform, DefaultPlatform) ? 0 : 1;
 
-    public async Task<IReadOnlyList<(string Platform, string Status, string? Version, string? Note)>>
+    public async Task<IReadOnlyList<VersionStoreStatus>>
         EnsureAllVersionsStoredAsync(CancellationToken ct) {
-        var results = new List<(string, string, string?, string?)>();
+        var results = new List<VersionStoreStatus>();
         var store = Store;
         if (store is null) {
-            results.Add((DefaultPlatform, "no-store", null, "device status store unavailable"));
+            results.Add(new VersionStoreStatus(DefaultPlatform, "no-store", null, "device status store unavailable"));
             return results;
         }
 
@@ -201,44 +206,48 @@ public sealed class GameBinaryProvider(
         try {
             devices = [.. (await store.EnabledDevicesAsync(ct)).Where(d => !DeviceOrigins.IsVirtual(d.Origin))];
         } catch (Exception ex) {
-            results.Add((DefaultPlatform, "store-error", null, ex.Message));
+            results.Add(new VersionStoreStatus(DefaultPlatform, "store-error", null, ex.Message));
             return results;
         }
 
         var platforms = devices.Select(d => d.Platform).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
         if (platforms.Count == 0) {
-            results.Add((DefaultPlatform, "no-device", null, "no enabled devices"));
+            results.Add(new VersionStoreStatus(DefaultPlatform, "no-device", null, "no enabled devices"));
             return results;
         }
 
         foreach (string platform in platforms) {
             (string status, string? version, string? note) = await EnsureCurrentVersionStoredAsync(platform, ct);
-            results.Add((platform, status, version, note));
+            results.Add(new VersionStoreStatus(platform, status, version, note));
         }
 
         return results;
     }
 
-    public Task<(string Status, string? Version, string? Note)> EnsureCurrentVersionStoredAsync(CancellationToken ct) =>
+    public sealed record VersionStoreStatus(string Platform, string Status, string? Version, string? Note);
+
+    public Task<VersionStoreResult> EnsureCurrentVersionStoredAsync(CancellationToken ct) =>
         EnsureCurrentVersionStoredAsync(DefaultPlatform, ct);
 
-    public async Task<(string Status, string? Version, string? Note)> EnsureCurrentVersionStoredAsync(string platform,
+    public async Task<VersionStoreResult> EnsureCurrentVersionStoredAsync(string platform,
         CancellationToken ct) {
         string? version = (await ResolveVersionAndDeviceAsync(null, platform, ct)).Version;
-        if (string.IsNullOrEmpty(version)) return ("no-version", null, "no probe with an installed app version");
+        if (string.IsNullOrEmpty(version)) return new VersionStoreResult("no-version", null, "no probe with an installed app version");
 
         var store = BinaryStore;
-        if (store is null) return ("no-store", version, "binary store unavailable");
+        if (store is null) return new VersionStoreResult("no-store", version, "binary store unavailable");
 
         try {
-            if (await store.ExistsAsync(platform, version, ct)) return ("stored", version, null);
+            if (await store.ExistsAsync(platform, version, ct)) return new VersionStoreResult("stored", version, null);
         } catch (Exception ex) {
-            return ("store-error", version, ex.Message);
+            return new VersionStoreResult("store-error", version, ex.Message);
         }
 
         bool poked = await PokeAgentAsync(ct);
-        return ("awaiting-harvest", version, AwaitingNote(platform, version, poked));
+        return new VersionStoreResult("awaiting-harvest", version, AwaitingNote(platform, version, poked));
     }
+
+    public sealed record VersionStoreResult(string Status, string? Version, string? Note);
 
     private static string AwaitingNote(string platform, string version, bool poked) =>
         poked
@@ -255,11 +264,10 @@ public sealed class GameBinaryProvider(
         }
     }
 
-    private async Task<(bool Ok, byte[]? Bytes, IReadOnlyList<MachoSymbols.Symbol>? Symbols, string Version, string?
-        Diagnostics)> EnsureDeviceBinaryAsync(string platform, CancellationToken ct) {
+    private async Task<ExtractionBinaryResult> EnsureDeviceBinaryAsync(string platform, CancellationToken ct) {
         string? version = (await ResolveVersionAndDeviceAsync(null, platform, ct)).Version;
         if (string.IsNullOrEmpty(version))
-            return (false, null, null, "", "no device version known (no probe with an installed app version)");
+            return new(false, null, null, "", "no device version known (no probe with an installed app version)");
 
         var store = BinaryStore;
         if (store is not null) {
@@ -274,13 +282,13 @@ public sealed class GameBinaryProvider(
                 byte[] bytes = await store.BytesAsync(row, ct);
                 var resolved = await ResolveSymbolsAsync(bytes, ct);
                 string shaShort = row.Sha256.Length >= 12 ? row.Sha256[..12] : row.Sha256;
-                return (true, bytes, resolved.Syms, version,
+                return new(true, bytes, resolved.Syms, version,
                     $"stored binary {platform} {version} (sha {shaShort}); {resolved.Note}");
             }
         }
 
         bool poked = await PokeAgentAsync(ct);
-        return (false, null, null, version,
+        return new(false, null, null, version,
             poked
                 ? $"no harvested binary for {platform} {version}; poked the device agent, retry once harvest lands"
                 : $"no harvested binary for {platform} {version} and no device agent is configured");
@@ -381,19 +389,21 @@ public sealed class GameBinaryProvider(
         }
     }
 
-    public async Task<(bool Ok, byte[]? RefBytes, byte[]? TargetBytes, string? Diagnostics)> GetRecoveryInputsAsync(
+    public async Task<RecoveryInputs> GetRecoveryInputsAsync(
         string? refVersion, string? targetPathOverride, CancellationToken ct) {
         var refr = SymbolizedStore().Get(refVersion);
-        if (!refr.Ok || refr.Bytes is null) return (false, null, null, refr.Diagnostics);
+        if (!refr.Ok || refr.Bytes is null) return new RecoveryInputs(false, null, null, refr.Diagnostics);
 
         string? targetPath = targetPathOverride ?? config[DecompConfigKeys.StrippedTargetPath];
         if (string.IsNullOrEmpty(targetPath) || !File.Exists(targetPath))
-            return (false, refr.Bytes, null,
+            return new RecoveryInputs(false, refr.Bytes, null,
                 $"no stripped target binary; set {DecompConfigKeys.StrippedTargetPath} or pass targetPath");
 
         byte[] targetBytes = await File.ReadAllBytesAsync(targetPath, ct);
-        return (true, refr.Bytes, targetBytes, null);
+        return new RecoveryInputs(true, refr.Bytes, targetBytes, null);
     }
+
+    public sealed record RecoveryInputs(bool Ok, byte[]? RefBytes, byte[]? TargetBytes, string? Diagnostics);
 
     private async Task<(string? Version, Device? Device)> ResolveVersionAndDeviceAsync(string? deviceId,
         string platform, CancellationToken ct) {
@@ -405,7 +415,7 @@ public sealed class GameBinaryProvider(
                 device = Resolver is { } r ? await r.ResolveAsync(new DeviceQuery(Platform: platform), ct) : null;
             } else {
                 var devices = await store.EnabledDevicesAsync(ct);
-                device = devices.FirstOrDefault(d => d.Id == deviceId);
+                device = devices.Find(d => d.Id == deviceId);
             }
 
             if (Jobs is not { } jobs) return (null, device);

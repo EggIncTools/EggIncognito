@@ -9,7 +9,6 @@ using EggIncognito.Services.Contributions;
 using EggIncognito.Services.DataApi;
 using EggIncognito.Services.Devices;
 using EggIncognito.Services.Feed;
-using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace EggIncognito.Startup;
 
@@ -20,7 +19,9 @@ public static class CaptureServices {
         builder.Services.AddSingleton(sp =>
             sp.GetRequiredService<CaptureSessionManager>().GetOrCreate(CaptureSessionManager.LocalKey));
         builder.Services.AddHostedService(sp => new CaptureCountersBridge(
-            sp, boot.DeviceCaptureConfig.Enabled, sp.GetRequiredService<ILogger<CaptureCountersBridge>>()));
+            sp.GetRequiredService<AdminNotifier>(), sp.GetRequiredService<CaptureSessionManager>(),
+            boot.DeviceCaptureConfig.Enabled ? sp.GetRequiredService<DeviceCaptureManager>() : null,
+            sp.GetRequiredService<ILogger<CaptureCountersBridge>>()));
 
         if (!boot.HostedCaptureOn) return;
 
@@ -31,7 +32,6 @@ public static class CaptureServices {
 
         builder.Services.AddSingleton(sp => FrontDoor(sp, boot));
         builder.Services.AddHostedService(sp => sp.GetRequiredService<ProxyFrontDoor>());
-        builder.Services.TryAddSingleton(TimeProvider.System);
         builder.Services.AddHostedService<CaptureSweeper>();
     }
 
@@ -47,7 +47,7 @@ public static class CaptureServices {
                 string caPath = CaptureCaPath.Resolve(config);
                 var opts = new CaptureSessionOptions(
                     int.TryParse(config["CapturePort"], out int cp) ? cp : 8080,
-                    config["EGG_INC_EID"] ?? Environment.GetEnvironmentVariable("EGG_INC_EID"),
+                    config["EGG_INC_EID"],
                     config["CaptureLabel"],
                     config.GetValue("CaptureOverwrite", false),
                     config.GetValue("CaptureVerbose", false),

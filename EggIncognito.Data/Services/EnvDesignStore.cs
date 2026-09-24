@@ -4,7 +4,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace EggIncognito.Data.Services;
 
-public sealed class EnvDesignStore(EggIncognitoDbContext db) {
+public sealed class EnvDesignStore(EggIncognitoDbContext db, TimeProvider time) {
     private const int VersionSaveAttempts = 4;
     private const string UniqueViolation = "23505";
 
@@ -66,7 +66,7 @@ public sealed class EnvDesignStore(EggIncognitoDbContext db) {
         if (src is null) return (RollbackResult.NoVersion, 0, 0);
 
         design.Payload = src.Payload;
-        design.UpdatedAt = DateTimeOffset.UtcNow;
+        design.UpdatedAt = time.GetUtcNow();
         int next = await AddVersionAsync(new EnvDesignVersion {
             DesignId = design.Id,
             Payload = src.Payload,
@@ -90,7 +90,7 @@ public sealed class EnvDesignStore(EggIncognitoDbContext db) {
         var existing = await db.EnvDesigns.FirstOrDefaultAsync(d => d.Name == name, ct);
         if (existing is not null) {
             existing.Payload = payload;
-            existing.UpdatedAt = DateTimeOffset.UtcNow;
+            existing.UpdatedAt = time.GetUtcNow();
             return existing;
         }
 

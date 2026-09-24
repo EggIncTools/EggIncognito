@@ -6,7 +6,7 @@ namespace EggIncognito.Controllers;
 
 [ApiController]
 [ApiAccess(ApiAccessLevel.Public)]
-public class SimulationController(IBehaviorService behaviors) : ControllerBase {
+public sealed class SimulationController(IBehaviorService behaviors) : ControllerBase {
     [HttpOptions("/")]
     public IActionResult GetAll() => Ok(behaviors.All());
 

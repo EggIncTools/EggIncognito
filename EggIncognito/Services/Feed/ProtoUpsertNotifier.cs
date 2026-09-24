@@ -4,11 +4,11 @@ using EggIncognito.Data.Services;
 namespace EggIncognito.Services.Feed;
 
 public sealed class ProtoUpsertNotifier(
-    IServiceProvider services,
     IConfiguration config,
-    ILogger<ProtoUpsertNotifier> logger) : IProtoUpsertObserver {
+    ILogger<ProtoUpsertNotifier> logger,
+    FeedDispatcher? dispatcher = null) : IProtoUpsertObserver {
     public async Task OnUpsertAsync(ProtoUpsertNotice notice, CancellationToken ct) {
-        if (services.GetService<FeedDispatcher>() is not { } dispatcher) return;
+        if (dispatcher is null) return;
         try {
             string pageUrl = FeedDispatcher.BuildPageUrl(
                 config["Feed:PageBaseUrl"], notice.Platform, notice.Build);

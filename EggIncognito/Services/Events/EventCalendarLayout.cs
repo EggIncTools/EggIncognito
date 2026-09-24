@@ -115,13 +115,11 @@ public static class EventCalendarLayout {
         return bars;
     }
 
-    private static List<IReadOnlyList<EventCalendarBar>> Lanes(List<EventCalendarBar> bars) {
-        return [.. bars.GroupBy(b => b.Lane).OrderBy(g => g.Key).Select(lane => (IReadOnlyList<EventCalendarBar>)[.. lane])];
-    }
+    private static List<IReadOnlyList<EventCalendarBar>> Lanes(List<EventCalendarBar> bars) =>
+        [.. bars.GroupBy(b => b.Lane).OrderBy(g => g.Key).Select(lane => (IReadOnlyList<EventCalendarBar>)[.. lane])];
 
-    private static int AssignLane(List<double> laneRights, double left, double right, double gap) {
-        return CalendarLanePacker.AssignLane(laneRights, left, right, -gap);
-    }
+    private static int AssignLane(List<double> laneRights, double left, double right, double gap) =>
+        CalendarLanePacker.AssignLane(laneRights, left, right, -gap);
 
     private static (double Left, double Width) Clip(double startUnix, double endUnix, double windowStart, double span) {
         if (span <= 0) return (0, 1);

@@ -13,7 +13,7 @@ public static class TriggerListener {
         app.MapPost("/resync", async ctx => {
             var force = await ReadForce(ctx);
             string? auth = ctx.Request.Headers.Authorization;
-            var results = handler.HandleAll(auth, force);
+            var results = await handler.HandleAllAsync(auth, force, CancellationToken.None);
             var status = results.Count == 1 ? results[0].Status : 200;
             ctx.Response.StatusCode = status;
             await ctx.Response.WriteAsJsonAsync(new {
@@ -23,7 +23,7 @@ public static class TriggerListener {
         app.MapPost("/resync/{id}", async (HttpContext ctx, string id) => {
             var force = await ReadForce(ctx);
             string? auth = ctx.Request.Headers.Authorization;
-            var r = handler.HandleOne(auth, id, force);
+            var r = await handler.HandleOneAsync(auth, id, force, CancellationToken.None);
             ctx.Response.StatusCode = r.Status;
             await ctx.Response.WriteAsJsonAsync(r.Status == 200
                 ? new { device = r.DeviceId, outcome = r.Outcome!.Detail, build = r.Outcome.Build, protoSha = r.Outcome.ProtoSha }
@@ -87,7 +87,7 @@ public static class TriggerListener {
                 return body?.Force ?? true;
             }
         } catch (Exception ex) {
-            Console.Error.WriteLine($"trigger: unreadable force body, defaulting to force=true: {ex.Message}");
+            await Console.Error.WriteLineAsync($"trigger: unreadable force body, defaulting to force=true: {ex.Message}");
         }
         return true;
     }
@@ -97,7 +97,7 @@ public static class TriggerListener {
             if (ctx.Request.ContentLength is > 0)
                 return await ctx.Request.ReadFromJsonAsync<ExtractBody>();
         } catch (Exception ex) {
-            Console.Error.WriteLine($"trigger: unreadable extract body, ignoring: {ex.Message}");
+            await Console.Error.WriteLineAsync($"trigger: unreadable extract body, ignoring: {ex.Message}");
         }
         return null;
     }

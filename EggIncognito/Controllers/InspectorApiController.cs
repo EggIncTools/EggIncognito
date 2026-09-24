@@ -30,7 +30,7 @@ public sealed class InspectorApiController(
     IAppMode appMode,
     ICurrentUser currentUser,
     ISealedProxy sealedProxy,
-    ILogger<InspectorApiController> logger) : ControllerBase
+    ILogger<InspectorApiController> logger) : ApiControllerBase
 #pragma warning restore S107
 {
     [HttpGet("messages")]
@@ -162,7 +162,7 @@ public sealed class InspectorApiController(
         } catch (Exception ex) {
             logger.LogWarning(ex, "send {Host}{Path} -> FAILED", uri.Host, uri.AbsolutePath);
 
-            return Ok(new ApiError(
+            return StatusCode(StatusCodes.Status502BadGateway, new ApiError(
                 $"send failed: {ex.Message}",
                 "Check the target host is reachable and the URL is correct.",
                 StatusCodes.Status502BadGateway));

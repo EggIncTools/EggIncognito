@@ -11,21 +11,21 @@ public sealed class Arm64Image(byte[] bin, IBinaryImage img) {
     public bool TryWord(ulong va, out uint word) {
         word = 0;
         if (!img.TryVaToFileOffset(va, out int off, out _) || off < 0 || off + 4 > bin.Length) return false;
-        word = BitConverter.ToUInt32(bin, off);
+        word = BitConverter.ToUInt32(bin.AsSpan(off));
         return true;
     }
 
     public bool TryF32(ulong va, out float value) {
         value = 0f;
         if (!img.TryVaToFileOffset(va, out int off, out _) || off < 0 || off + 4 > bin.Length) return false;
-        value = BitConverter.ToSingle(bin, off);
+        value = BitConverter.ToSingle(bin.AsSpan(off));
         return float.IsFinite(value);
     }
 
     public bool TryF64(ulong va, out double value) {
         value = 0d;
         if (!img.TryVaToFileOffset(va, out int off, out _) || off < 0 || off + 8 > bin.Length) return false;
-        value = BitConverter.ToDouble(bin, off);
+        value = BitConverter.ToDouble(bin.AsSpan(off));
         return double.IsFinite(value);
     }
 

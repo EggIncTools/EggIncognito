@@ -1,3 +1,4 @@
+using System.Collections.Frozen;
 using EggIncognito.Core.Services.ProtoExtract;
 using EggIncognito.Services.DataApi;
 
@@ -64,11 +65,12 @@ public static class FeedSamples {
                 ["boost-catalog"], $"{SampleUrl}/protos"))
     ];
 
-    private static readonly Dictionary<string, IReadOnlyList<FeedSample>> ByKind = new(StringComparer.Ordinal) {
-        [FeedEventKinds.ProtoBuild] = ProtoSamples,
-        [FeedEventKinds.ConfigChanged] = ConfigSamples,
-        [FeedEventKinds.GameDataRebuilt] = GameDataSamples
-    };
+    private static readonly FrozenDictionary<string, IReadOnlyList<FeedSample>> ByKind =
+        new Dictionary<string, IReadOnlyList<FeedSample>>(StringComparer.Ordinal) {
+            [FeedEventKinds.ProtoBuild] = ProtoSamples,
+            [FeedEventKinds.ConfigChanged] = ConfigSamples,
+            [FeedEventKinds.GameDataRebuilt] = GameDataSamples
+        }.ToFrozenDictionary(StringComparer.Ordinal);
 
     public static IReadOnlyList<FeedSample> For(string? eventKind) =>
         eventKind is not null && ByKind.TryGetValue(eventKind, out var samples) ? samples : [];

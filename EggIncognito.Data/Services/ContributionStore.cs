@@ -9,7 +9,7 @@ public sealed record ContributionPage(IReadOnlyList<ContributedCapture> Rows, in
 
 public sealed record ContributorTally(Guid ContributorUserId, string Kind, int Submitted, DateTimeOffset Oldest);
 
-public sealed class ContributionStore(EggIncognitoDbContext db) {
+public sealed class ContributionStore(EggIncognitoDbContext db, TimeProvider time) {
     public async Task<ContributionCounts> CountsForAsync(Guid userId, CancellationToken ct) {
         var raw = await db.ContributedCaptures.AsNoTracking()
             .Where(c => c.ContributorUserId == userId)
@@ -52,7 +52,7 @@ public sealed class ContributionStore(EggIncognitoDbContext db) {
             .Where(c => c.ContributorUserId == userId && c.Status == ContributedCaptureStatus.Recorded)
             .ExecuteUpdateAsync(s => s
                 .SetProperty(c => c.Status, ContributedCaptureStatus.Submitted)
-                .SetProperty(c => c.SubmittedAt, DateTimeOffset.UtcNow), ct);
+                .SetProperty(c => c.SubmittedAt, time.GetUtcNow()), ct);
 
     public Task<int> DiscardAsync(Guid userId, CancellationToken ct) =>
         db.ContributedCaptures
@@ -97,7 +97,7 @@ public sealed class ContributionStore(EggIncognitoDbContext db) {
             .ExecuteUpdateAsync(s => s
                 .SetProperty(c => c.Status, status)
                 .SetProperty(c => c.ReviewedBy, reviewer)
-                .SetProperty(c => c.ReviewedAt, DateTimeOffset.UtcNow)
+                .SetProperty(c => c.ReviewedAt, time.GetUtcNow())
                 .SetProperty(c => c.ReviewNote, note), ct);
     }
 
@@ -111,7 +111,7 @@ public sealed class ContributionStore(EggIncognitoDbContext db) {
             .ExecuteUpdateAsync(s => s
                 .SetProperty(c => c.Status, status)
                 .SetProperty(c => c.ReviewedBy, reviewer)
-                .SetProperty(c => c.ReviewedAt, DateTimeOffset.UtcNow)
+                .SetProperty(c => c.ReviewedAt, time.GetUtcNow())
                 .SetProperty(c => c.ReviewNote, note), ct);
     }
 

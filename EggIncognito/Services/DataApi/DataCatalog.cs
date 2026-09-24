@@ -1,3 +1,4 @@
+using System.Buffers;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using EggIncognito.Core.Services;
@@ -24,6 +25,8 @@ public sealed class DataCatalog {
     private static readonly JsonSerializerOptions IndentedJson = new() {
         WriteIndented = true
     };
+
+    private static readonly SearchValues<char> InvalidIconChars = SearchValues.Create(['/', '\\', '.', ' ']);
 
     private readonly Dictionary<string, DataSource> _byRoute;
 
@@ -332,7 +335,7 @@ public sealed class DataCatalog {
 
     private static async Task<DataPayload?> ProduceIcon(DataProduceContext ctx, CancellationToken ct) {
         string? name = ctx.Name;
-        if (string.IsNullOrEmpty(name) || name.IndexOfAny(['/', '\\', '.', ' ']) >= 0) return null;
+        if (string.IsNullOrEmpty(name) || name.AsSpan().IndexOfAny(InvalidIconChars) >= 0) return null;
         var assets = ctx.Services.GetRequiredService<GameAssetProvider>();
         var result = await assets.GetAsync(new GameAssetKey("icon", null, name), ct);
         return !result.Ok || result.Asset is null

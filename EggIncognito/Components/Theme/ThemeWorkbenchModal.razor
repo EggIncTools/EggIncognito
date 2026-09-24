@@ -245,6 +245,7 @@
                 _download = await Js.InvokeAsync<IJSObjectReference>("import", InteropAsset.Url(HostEnv, "./interop/download.js"));
                 await PushPreviewAsync();
             } catch (Exception ex) when (ex is JSDisconnectedException or JSException) {
+                Logger.LogDebug(ex, "theme workbench interop modules could not be loaded");
             }
         }
     }
@@ -257,6 +258,7 @@
             var resp = await client.GetFromJsonAsync<ThemeListResponse>("/api/theme");
             _themes.AddRange(resp?.Themes ?? []);
         } catch (Exception ex) when (ex is HttpRequestException or JsonException) {
+            Logger.LogDebug(ex, "saved themes could not be loaded");
         }
     }
 

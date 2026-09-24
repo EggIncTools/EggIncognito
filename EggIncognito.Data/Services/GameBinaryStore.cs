@@ -7,7 +7,7 @@ public sealed record StoredBinaryInfo(
     string Platform, string AppVersion, string Sha256, long ByteSize, int NativeSymbolCount, int EffectiveSymbolCount,
     string Source, DateTimeOffset PulledAt);
 
-public sealed class GameBinaryStore(EggIncognitoDbContext db, BlobBytes blobs) {
+public sealed class GameBinaryStore(EggIncognitoDbContext db, TimeProvider time, BlobBytes blobs) {
     public Task<byte[]> BytesAsync(StoredBinary row, CancellationToken ct) =>
         blobs.ResolveAsync(BlobTables.StoredBinaries, row.Bytes, row.Sha256, ct);
 
@@ -46,7 +46,7 @@ public sealed class GameBinaryStore(EggIncognitoDbContext db, BlobBytes blobs) {
                 NativeSymbolCount = nativeSymbolCount,
                 EffectiveSymbolCount = effectiveSymbolCount,
                 Source = source,
-                PulledAt = DateTimeOffset.UtcNow
+                PulledAt = time.GetUtcNow()
             });
         } else {
             row.Sha256 = sha256;
@@ -55,7 +55,7 @@ public sealed class GameBinaryStore(EggIncognitoDbContext db, BlobBytes blobs) {
             row.NativeSymbolCount = nativeSymbolCount;
             row.EffectiveSymbolCount = effectiveSymbolCount;
             row.Source = source;
-            row.PulledAt = DateTimeOffset.UtcNow;
+            row.PulledAt = time.GetUtcNow();
         }
 
         await db.SaveChangesAsync(ct);

@@ -10,7 +10,7 @@ namespace EggIncognito.Tests;
 
 public class FeedDispatcherTests {
     private static FeedDispatcher Dispatcher(FakeStore store, HttpMessageHandler handler) =>
-        new(store, new StubHttpFactory(handler), NullLogger<FeedDispatcher>.Instance);
+        new(store, new StubHttpFactory(handler), NullLogger<FeedDispatcher>.Instance, TimeProvider.System);
 
     private static FeedSubscription Sub(int id, string trigger, params string[] platforms) => new() {
         Id = id,

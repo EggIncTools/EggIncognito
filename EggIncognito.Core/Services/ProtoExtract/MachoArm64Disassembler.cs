@@ -33,12 +33,12 @@ public static class MachoArm64Disassembler {
                         if (name.StartsWith('q') && fileOff >= 0 && fileOff + 16 <= bin.Length) {
                             for (int lane = 0; lane < 4; lane++) {
                                 floats.Add(new FloatConst(va + (ulong)(lane * 4),
-                                    BitConverter.ToSingle(bin, (int)fileOff + lane * 4), false));
+                                    BitConverter.ToSingle(bin.AsSpan((int)fileOff + lane * 4)), false));
                             }
                         } else if (name.StartsWith('d') && fileOff >= 0 && fileOff + 8 <= bin.Length) {
-                            floats.Add(new FloatConst(va, BitConverter.ToDouble(bin, (int)fileOff), true));
+                            floats.Add(new FloatConst(va, BitConverter.ToDouble(bin.AsSpan((int)fileOff)), true));
                         } else if (name.StartsWith('s') && fileOff >= 0 && fileOff + 4 <= bin.Length) {
-                            floats.Add(new FloatConst(va, BitConverter.ToSingle(bin, (int)fileOff), false));
+                            floats.Add(new FloatConst(va, BitConverter.ToSingle(bin.AsSpan((int)fileOff)), false));
                         }
                     }
 

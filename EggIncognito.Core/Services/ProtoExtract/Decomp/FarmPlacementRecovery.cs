@@ -1,3 +1,4 @@
+using System.Collections.Frozen;
 using System.Text.Json.Nodes;
 
 namespace EggIncognito.Core.Services.ProtoExtract.Decomp;
@@ -5,11 +6,11 @@ namespace EggIncognito.Core.Services.ProtoExtract.Decomp;
 public static class FarmPlacementRecovery {
     private static readonly long[] BuildingExtentFields = [0x3d0, 0x3d4, 0x3d8];
 
-    private static readonly Dictionary<long, string> ExtentNames = new() {
+    private static readonly FrozenDictionary<long, string> ExtentNames = new Dictionary<long, string> {
         [0x3d0] = "labExtent",
         [0x3d4] = "depotExtent",
         [0x3d8] = "hatcheryExtent"
-    };
+    }.ToFrozenDictionary();
 
     public static Vec3Model Recover(byte[] bin, string needle) {
         if (bin is null || bin.Length < 64)

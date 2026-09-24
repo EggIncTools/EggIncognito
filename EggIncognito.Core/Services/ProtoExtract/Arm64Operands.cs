@@ -104,9 +104,8 @@ public static class Arm64Operands {
 
     public static bool IsZeroReg(string tok) => tok is "wzr" or "xzr";
 
-    public static bool LooksLikeVecReg(string tok) => tok.Length >= 2 &&
-                                                      (tok[0] == 'q' || tok[0] == 'v' || tok[0] == 'd' ||
-                                                       tok[0] == 's') && char.IsDigit(tok[1]);
+    public static bool LooksLikeVecReg(string tok) =>
+        tok.Length >= 2 && tok[0] is 'q' or 'v' or 'd' or 's' && char.IsDigit(tok[1]);
 
     public static int VecWidth(string tok) =>
         tok.Length >= 1 ? tok[0] switch { 'q' or 'v' => 16, 'd' => 8, 's' => 4, _ => 16 } : 16;

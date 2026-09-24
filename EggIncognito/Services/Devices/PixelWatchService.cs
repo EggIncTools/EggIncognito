@@ -5,7 +5,7 @@ using SixLabors.ImageSharp.PixelFormats;
 
 namespace EggIncognito.Services.Devices;
 
-public sealed class PixelWatchService(ILogger<PixelWatchService> logger) : IDisposable {
+public sealed class PixelWatchService(ILogger<PixelWatchService> logger, TimeProvider time) : IDisposable {
     public static readonly TimeSpan Poll = TimeSpan.FromMilliseconds(750);
     public static readonly TimeSpan AfterTap = TimeSpan.FromMilliseconds(700);
     public const int Tolerance = 48;
@@ -57,7 +57,7 @@ public sealed class PixelWatchService(ILogger<PixelWatchService> logger) : IDisp
         if (!_watches.TryGetValue(target.Id, out var watch))
             return DeviceResult<PixelWatchState>.Error("no watch points are armed for this device");
 
-        var point = watch.Snapshot().FirstOrDefault(p => p.Id == pointId);
+        var point = watch.Snapshot().Find(p => p.Id == pointId);
         if (point is null) return DeviceResult<PixelWatchState>.Error("unknown watch point");
         if (Cooling(point)) return DeviceResult<PixelWatchState>.Success(watch.State, "cooling down");
 
@@ -89,7 +89,7 @@ public sealed class PixelWatchService(ILogger<PixelWatchService> logger) : IDisp
         return true;
     }
 
-    private static bool Cooling(Point p) => p.LastTapAt is { } last && DateTimeOffset.UtcNow - last < AfterTap;
+    private bool Cooling(Point p) => p.LastTapAt is { } last && time.GetUtcNow() - last < AfterTap;
 
     private async Task LoopAsync(IDevicePlatform platform, Watch w) {
         var ct = w.Cts.Token;
@@ -136,7 +136,7 @@ public sealed class PixelWatchService(ILogger<PixelWatchService> logger) : IDisp
             var tap = await platform.TapPointAsync(w.Target, p.X, p.Y, ct);
             if (tap.Ok) {
                 p.Taps++;
-                p.LastTapAt = DateTimeOffset.UtcNow;
+                p.LastTapAt = time.GetUtcNow();
                 p.Error = null;
             } else {
                 p.Error = tap.Note ?? "tap failed";
@@ -165,7 +165,7 @@ public sealed class PixelWatchService(ILogger<PixelWatchService> logger) : IDisp
         public CancellationTokenSource Cts { get; } = new();
         public Task? Loop { get; set; }
         public List<Point> Points { get; } = [];
-        public object Gate { get; } = new();
+        public Lock Gate { get; } = new();
         public int TapDepth;
 
         public List<Point> Snapshot() {

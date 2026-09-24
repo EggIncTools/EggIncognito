@@ -1,3 +1,4 @@
+using System.Collections.Frozen;
 using System.Globalization;
 using System.Text.Json;
 using EggIncognito.Core.Services;
@@ -24,8 +25,8 @@ public static class LiveColleggtibleSource {
         WriteIndented = true
     };
 
-    private static readonly Dictionary<int, string> DimensionNames =
-        ColleggtibleCatalog.DimensionCodes.ToDictionary(kv => kv.Value, kv => kv.Key);
+    private static readonly FrozenDictionary<int, string> DimensionNames =
+        ColleggtibleCatalog.DimensionCodes.ToFrozenDictionary(kv => kv.Value, kv => kv.Key);
 
     public static LiveColleggtibles? Derive(IServiceProvider services, string route) {
         foreach ((string? json, string origin) in Candidates(services, route)) {
@@ -80,13 +81,13 @@ public static class LiveColleggtibleSource {
     }
 
     private static IEnumerable<(string? Json, string Origin)> Candidates(IServiceProvider services, string route) {
-        (string? Json, string Origin, DateTimeOffset Updated)[] rows = [DbRow(services, route), FixtureRow(services, route)];
+        var db = services.GetService(typeof(EggIncognitoDbContext)) as EggIncognitoDbContext;
+        (string? Json, string Origin, DateTimeOffset Updated)[] rows = [DbRow(db, route), FixtureRow(services, route)];
         return rows.OrderByDescending(r => r.Updated).Select(r => (r.Json, r.Origin));
     }
 
-    private static (string? Json, string Origin, DateTimeOffset Updated) DbRow(IServiceProvider services, string route) {
-        if (services.GetService(typeof(EggIncognitoDbContext)) is not EggIncognitoDbContext db)
-            return (null, "db", DateTimeOffset.MinValue);
+    private static (string? Json, string Origin, DateTimeOffset Updated) DbRow(EggIncognitoDbContext? db, string route) {
+        if (db is null) return (null, "db", DateTimeOffset.MinValue);
         try {
             var row = db.StoredEndpoints.AsNoTracking()
                 .Where(e => e.Path == route && e.Eid == null)

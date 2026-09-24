@@ -1,3 +1,5 @@
+using System.Diagnostics.CodeAnalysis;
+
 namespace EggIncognito.Core.Services.ProtoExtract;
 
 public static class ProtoCanonicalForm {
@@ -30,5 +32,8 @@ public static class ProtoCanonicalForm {
         }
     }
 
-    public sealed record NormalizeResult(bool Ok, string? Text, string? Sha, string? Error);
+    public sealed record NormalizeResult(bool Ok, string? Text, string? Sha, string? Error) {
+        [MemberNotNullWhen(true, nameof(Text), nameof(Sha))]
+        public bool Ok { get; init; } = Ok;
+    }
 }

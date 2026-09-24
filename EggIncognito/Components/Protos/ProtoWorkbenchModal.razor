@@ -7,6 +7,7 @@
 @inject ProtoWorkbenchState State
 @inject ToastService Toasts
 @inject ILogger<ProtoWorkbenchModal> Logger
+@inject IServiceProvider Services
 @using System.Globalization
 @using System.Text
 @using System.Text.Json
@@ -14,6 +15,7 @@
 @using EggIncognito.Core.Services.ProtoExtract
 @using EggIncognito.Models.Registry
 @using EggIncognito.Models.Tools
+@using EggIncognito.Services.Events
 @using EggIncognito.Services.Protos
 @using Microsoft.AspNetCore.Components.Web.Virtualization
 @implements IAsyncDisposable
@@ -1882,7 +1884,9 @@
         var row = RegistryRow(value);
         return new RefMeta(value.Platform, row?.AppVersion, row?.Build ?? value.Build, row?.ClientVersion,
             row?.Source, row?.Package,
-            row?.DetectedAt?.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture),
+            row?.DetectedAt is { } seen
+                ? ViewerClock.At(Services, TimeAgo.FromUtc(seen)).ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture)
+                : null,
             row?.ProtoSha);
     }
 

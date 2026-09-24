@@ -42,7 +42,7 @@ public class ConsumeObservationRecorderTests {
         };
 
         var row = ConsumeObservationRecorder.Build("consume", "ios-1",
-            Flow("ei_afx/consume_artifact", request, response));
+            Flow("ei_afx/consume_artifact", request, response), DateTimeOffset.UnixEpoch);
 
         Assert.NotNull(row);
         Assert.Equal("consume", row.Action);
@@ -71,7 +71,7 @@ public class ConsumeObservationRecorderTests {
         var flow = Flow("ei_afx/consume_artifact", request, new ConsumeArtifactResponse()) with {
             ResponseJsonRaw = null
         };
-        Assert.Null(ConsumeObservationRecorder.Build("consume", "ios-1", flow));
+        Assert.Null(ConsumeObservationRecorder.Build("consume", "ios-1", flow, DateTimeOffset.UnixEpoch));
     }
 
     [Fact]
@@ -80,7 +80,8 @@ public class ConsumeObservationRecorderTests {
             Spec = new ArtifactSpec { Name = ArtifactSpec.Types.Name.LunarTotem }
         };
         var row = ConsumeObservationRecorder.Build("demote", "android-1",
-            Flow("ei_afx/demote_artifact", request, new ConsumeArtifactResponse { Success = true }));
+            Flow("ei_afx/demote_artifact", request, new ConsumeArtifactResponse { Success = true }),
+            DateTimeOffset.UnixEpoch);
 
         Assert.NotNull(row);
         Assert.Equal(1, row.CountRequested);
@@ -106,7 +107,7 @@ public class ConsumeObservationRecorderTests {
         };
 
         var row = ConsumeObservationRecorder.Build("craft", "ios-1",
-            Flow("ei_afx/craft_artifact", request, response));
+            Flow("ei_afx/craft_artifact", request, response), DateTimeOffset.UnixEpoch);
 
         Assert.NotNull(row);
         Assert.Equal("craft", row.Action);

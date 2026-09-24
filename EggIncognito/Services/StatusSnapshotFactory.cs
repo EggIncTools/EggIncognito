@@ -12,7 +12,8 @@ public sealed class StatusSnapshotFactory(
     CaptureSession capture,
     ITransportPipeline pipeline,
     IConfiguration config,
-    RepoUrl repoUrl) : IStatusProvider {
+    RepoUrl repoUrl,
+    TimeProvider time) : IStatusProvider {
     private static readonly DateTimeOffset ProcessStart =
         new(Process.GetCurrentProcess().StartTime);
 
@@ -32,7 +33,7 @@ public sealed class StatusSnapshotFactory(
             stats.BytesCaptured,
             _dbEnabled,
             pipeline.CanSign,
-            DateTimeOffset.UtcNow - ProcessStart,
+            time.GetUtcNow() - ProcessStart,
             BuildInfo.FromAssembly(repoUrl.Value),
             ok, empty, missing);
     }

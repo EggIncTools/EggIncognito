@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
 using EggIncognito.Core;
 using EggIncognito.Core.Services.Devices;
@@ -31,7 +32,7 @@ public sealed class ModuleFetcher(
         string? expected = Nz(spec.Sha256);
         var cached = await store.LatestAsync(spec.Name, ct);
         if (CacheUsable(cached, expected, forceRefresh))
-            return new ModuleFetchResult(true, spec.Name, cached!.Version, cached.Bytes, cached.ByteSize, true, null);
+            return new ModuleFetchResult(true, spec.Name, cached.Version, cached.Bytes, cached.ByteSize, true, null);
 
         try {
             (byte[] bytes, string? version, string source) = await DownloadAsync(spec, ct);
@@ -47,12 +48,12 @@ public sealed class ModuleFetcher(
         } catch (Exception ex) {
             logger.LogWarning(ex, "module fetch: {Name} failed to resolve", spec.Name);
             if (CacheUsable(cached, expected, false))
-                return new ModuleFetchResult(true, spec.Name, cached!.Version, cached.Bytes, cached.ByteSize, true, null);
+                return new ModuleFetchResult(true, spec.Name, cached.Version, cached.Bytes, cached.ByteSize, true, null);
             return new ModuleFetchResult(false, spec.Name, null, null, 0, false, ex.Message);
         }
     }
 
-    private bool CacheUsable(StoredModule? cached, string? expected, bool forceRefresh) {
+    private bool CacheUsable([NotNullWhen(true)] StoredModule? cached, string? expected, bool forceRefresh) {
         if (cached is null) return false;
         if (expected is not null)
             return cached.Sha256.Equals(expected, StringComparison.OrdinalIgnoreCase);
@@ -86,7 +87,7 @@ public sealed class ModuleFetcher(
 
         var cached = await store.LatestAsync(name, ct);
         if (CacheUsable(cached, null, forceRefresh))
-            return new ModuleFetchResult(true, name, cached!.Version, cached.Bytes, cached.ByteSize, true, null);
+            return new ModuleFetchResult(true, name, cached.Version, cached.Bytes, cached.ByteSize, true, null);
 
         try {
             var http = httpFactory.CreateClient(HttpClientName);
@@ -140,7 +141,7 @@ public sealed class ModuleFetcher(
 
         if (zips.Count == 0) throw new InvalidOperationException($"{repo}@{tag}: release has no {extension} asset");
 
-        var release = zips.FirstOrDefault(z => !z.Name.Contains("debug", StringComparison.OrdinalIgnoreCase));
+        var release = zips.Find(z => !z.Name.Contains("debug", StringComparison.OrdinalIgnoreCase));
         return (release.Url ?? zips[0].Url, tag);
     }
 

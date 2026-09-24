@@ -57,13 +57,4 @@ public class IosBinaryPullerTests {
         var scp = runner.Calls.Single(c => c.exe == "scp");
         Assert.Contains(scp.args, a => a == $"root@h:{BinPath}");
     }
-
-    private sealed class FakeRunner(Func<string, string[], ProcessResult> fn) : IProcessRunner {
-        public readonly List<(string exe, string[] args)> Calls = [];
-
-        public Task<ProcessResult> RunAsync(string exe, string[] args, CancellationToken ct) {
-            Calls.Add((exe, args));
-            return Task.FromResult(fn(exe, args));
-        }
-    }
 }

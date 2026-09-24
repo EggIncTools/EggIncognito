@@ -1,4 +1,5 @@
 using System.Data.Common;
+using System.Globalization;
 using System.Text;
 using EggIncognito.Capture;
 using EggIncognito.Core.Services;
@@ -18,7 +19,7 @@ namespace EggIncognito.Controllers;
 public sealed class ToolsController(
     IConfiguration config,
     IProtoReflection reflection,
-    ILogger<ToolsController> logger) : ControllerBase {
+    ILogger<ToolsController> logger) : ApiControllerBase {
     private string Root => ContentRoot.Resolve(config["ContentRoot"]);
     private string YamlPath => Path.Combine(Root, "RouteMap", "routes.yaml");
     private string DefaultsDir => Path.Combine(Root, "Endpoints", "default");
@@ -52,7 +53,7 @@ public sealed class ToolsController(
     [HttpGet("boost-costs")]
     public IActionResult BoostCosts() {
         string path = Path.Combine(DefaultsDir, "ei", "get_config.json");
-        if (!System.IO.File.Exists(path)) return NotFound(new ToolError("no get_config capture"));
+        if (!System.IO.File.Exists(path)) return Fail(404, "no get_config capture");
         try {
             string json = System.IO.File.ReadAllText(path);
             var costs = BoostCostExtractor.FromConfigJson(json);
@@ -67,7 +68,7 @@ public sealed class ToolsController(
     [HttpGet("colleggtibles")]
     public IActionResult Colleggtibles() {
         string path = Path.Combine(DefaultsDir, "ei", "get_periodicals.json");
-        if (!System.IO.File.Exists(path)) return NotFound(new ToolError("no get_periodicals capture"));
+        if (!System.IO.File.Exists(path)) return Fail(404, "no get_periodicals capture");
         try {
             string json = System.IO.File.ReadAllText(path);
             var extract = ColleggtibleExtractor.FromPeriodicalsJson(json);
@@ -125,7 +126,7 @@ public sealed class ToolsController(
         try {
             await store.RecordAsync(new AnalyzedFileStore.Entry(
                 AnalyzedFileStore.Sha256Hex(bytes), "analyze", null, r.ProtoSha, r.AppVersion, r.Build,
-                r.ClientVersion?.ToString(), fileName), ct);
+                r.ClientVersion?.ToString(CultureInfo.InvariantCulture), fileName), ct);
         } catch (DbException ex) {
             logger.LogWarning(ex, "tools: analyzed-file record for {FileName} not persisted", fileName);
         }
@@ -144,7 +145,7 @@ public sealed class ToolsController(
         try {
             bytes = ProtoFraming.FromBase64Loose(body.Base64 ?? "");
         } catch {
-            return Ok(new ToolError("input is not valid base64"));
+            return Fail(400, "input is not valid base64");
         }
 
         byte[] inner = ProtoFraming.TryUnwrap(bytes) ?? bytes;

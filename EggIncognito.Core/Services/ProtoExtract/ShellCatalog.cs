@@ -21,7 +21,7 @@ public static class ShellCatalog {
         }
 
         foreach (var o in catalog.ShellObjects) {
-            var piece = o.Pieces.Where(p => p.Dlc is not null).OrderBy(p => p.Lod).FirstOrDefault();
+            var piece = o.Pieces.Where(p => p.Dlc is not null).MinBy(p => p.Lod);
             if (piece?.Dlc is not { } dlc) continue;
             string? url = AssetUrl(dlc);
             if (url is null) continue;
@@ -43,7 +43,7 @@ public static class ShellCatalog {
         var objs = new List<ShellObject>();
         if (catalog is null) return objs;
         foreach (var o in catalog.ShellObjects) {
-            var piece = o.Pieces.Where(p => p.Dlc is not null).OrderBy(p => p.Lod).FirstOrDefault();
+            var piece = o.Pieces.Where(p => p.Dlc is not null).MinBy(p => p.Lod);
             if (piece?.Dlc is not { } dlc) continue;
             string? url = AssetUrl(dlc);
             if (url is null) continue;

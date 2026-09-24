@@ -42,8 +42,10 @@ internal static class QtDict {
         return Block(QtMagic.Keyv, p);
     }
 
-    private static byte[] Concat(params byte[][] parts) {
-        byte[] all = new byte[parts.Sum(p => p.Length)];
+    private static byte[] Concat(params ReadOnlySpan<byte[]> parts) {
+        int total = 0;
+        foreach (byte[] p in parts) total += p.Length;
+        byte[] all = new byte[total];
         int at = 0;
         foreach (byte[] p in parts) {
             p.CopyTo(all, at);
@@ -52,7 +54,7 @@ internal static class QtDict {
         return all;
     }
 
-    private static byte[] Dict(params byte[][] pairs) => Block(QtMagic.Dict, Concat(pairs));
+    private static byte[] Dict(params ReadOnlySpan<byte[]> pairs) => Block(QtMagic.Dict, Concat(pairs));
 
     public static byte[] ErrorZero() =>
         Dict(Pair(StringKey("Error"), NumberI32(0)));

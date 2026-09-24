@@ -2,6 +2,7 @@
 @using System.Text.Json
 @using EggIncognito.Models.Admin
 @using EggIncognito.Models.Events
+@using EggIncognito.Services.Events
 @inherits AdminPaneBase
 
 <AdminPaneHead Title="Maintenance" Facts="[Stat]"/>
@@ -136,7 +137,7 @@
                     <td class="text-xs">@icon.ContentType</td>
                     <td class="mono text-xs">@icon.Bytes.ToString("N0")</td>
                     <td class="mono text-xs">@ShaShort(icon.Sha256)</td>
-                    <td class="text-muted text-xs">@icon.UpdatedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")</td>
+                    <td class="text-muted text-xs">@ViewerClock.At(Services, icon.UpdatedAt).ToString("yyyy-MM-dd HH:mm:ss")</td>
                     <td>
                         <div class="flex gap-1 justify-end">
                             <button type="button" class="btn-mini btn-danger" disabled="@_iconBusy" @onclick="() => DeleteIcon(icon.Name)">Delete</button>

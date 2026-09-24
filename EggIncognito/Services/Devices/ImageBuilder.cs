@@ -22,6 +22,7 @@ public sealed class ImageBuilder(
     IntegrityAssets assets,
     CaptureCaSource captureCa,
     AdminNotifier notifier,
+    IConfiguration configuration,
     ILogger<ImageBuilder> logger) {
     public const string HttpClientName = "image-build";
 
@@ -77,7 +78,7 @@ public sealed class ImageBuilder(
             await using var tar = File.OpenRead(tarPath);
             var outcome = await executor.BuildAsync(
                 tar, spec.ResolvedTag, null,
-                line => builds.AppendAsync(buildId, line, CancellationToken.None).GetAwaiter().GetResult(), ct);
+                line => builds.AppendAsync(buildId, line, CancellationToken.None), ct);
 
             await SettleAsync(buildId,
                 outcome.Ok ? ImageBuildStates.Ready : ImageBuildStates.Failed, outcome.Tag, outcome.Note, ct);
@@ -223,7 +224,7 @@ public sealed class ImageBuilder(
         await Log(buildId, $"integrity: keybox {bundle.KeyboxSource}, {bundle.KeyboxSerials.Count} certs, {bundle.KeyboxNote}", ct);
         foreach (string warning in bundle.Warnings) await Log(buildId, "integrity: " + warning, ct);
 
-        var resolvedKey = await HostAdbKey.ResolveAsync(hostFacts, config, ct);
+        var resolvedKey = await HostAdbKey.ResolveAsync(hostFacts, config, configuration, ct);
         string? adbKey = resolvedKey?.Key;
         await Log(buildId, resolvedKey is { } rk
             ? $"integrity: host adb public key {AdbHostKey.Label(rk.Key)} from {rk.Source} baked as {IntegritySeed.RootAdbKeysFile} and into the seed; "
@@ -442,11 +443,9 @@ public sealed class ImageBuilder(
         gz.Write(Encoding.UTF8.GetBytes(text));
     }
 
-    private static string Md5Hex(byte[] bytes) {
 #pragma warning disable CA5351
-        return Convert.ToHexStringLower(MD5.HashData(bytes));
+    private static string Md5Hex(byte[] bytes) => Convert.ToHexStringLower(MD5.HashData(bytes));
 #pragma warning restore CA5351
-    }
 
     private void TryDelete(string path) {
         try {

@@ -1,3 +1,4 @@
+using System.Collections.Frozen;
 using EggIdentity.Styles.Theming;
 
 namespace EggIncognito.Services.Theme;
@@ -50,8 +51,8 @@ public static class ThemeTokens {
 
     public static readonly ThemeTokenRegistry Registry = new ThemeTokenRegistry().Register("info");
 
-    private static readonly HashSet<string> SettableSet = new(Settable, StringComparer.Ordinal);
-    private static readonly HashSet<string> LockedSet = new(Locked, StringComparer.Ordinal);
+    private static readonly FrozenSet<string> SettableSet = Settable.ToFrozenSet(StringComparer.Ordinal);
+    private static readonly FrozenSet<string> LockedSet = Locked.ToFrozenSet(StringComparer.Ordinal);
 
     public static bool IsSettable(string name) => SettableSet.Contains(name);
 

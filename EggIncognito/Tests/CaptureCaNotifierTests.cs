@@ -1,6 +1,5 @@
 using System.Net;
 using System.Text;
-using EggIdentity.Contract;
 using EggIncognito.Capture;
 using EggIncognito.Controllers;
 using EggIncognito.Services;
@@ -35,7 +34,7 @@ public sealed class CaptureCaNotifierTests : IDisposable {
         var notifier = new FailingNotifier();
         var controller = new CaptureController(
             manager, new FakeAppMode(false, true),
-            new FakeUser(true, true),
+            new FakeUser(supporter: true, userId: Guid.Parse("00000000-0000-0000-0000-000000000001")),
             HostedCaptureOptions.Defaults(), NullLogger<CaptureController>.Instance);
 
         var r = await controller.Start(null, notifier, null, CancellationToken.None);
@@ -132,18 +131,6 @@ public sealed class CaptureCaNotifierTests : IDisposable {
         public bool CanCapture => canCapture;
         public bool CanWrite => false;
         public bool HostedCaptureEnabled => hostedEnabled;
-    }
-
-    private sealed class FakeUser(bool authed, bool supporter) : ICurrentUser {
-        public bool IsAuthenticated => authed;
-        public Guid? UserId => authed ? Guid.Parse("00000000-0000-0000-0000-000000000001") : null;
-        public string? DiscordId => authed ? "tester" : null;
-        public string? Username => authed ? "tester" : null;
-        public string? Avatar => null;
-        public string? AvatarUrl => null;
-        public UserRole Role => UserRole.Viewer;
-        public bool IsSupporter => supporter;
-        public bool IsAtLeast(UserRole need) => UserRoles.IsAtLeast(UserRole.Viewer, need);
     }
 
     private sealed class FreshCaProxy : ICaptureProxy {

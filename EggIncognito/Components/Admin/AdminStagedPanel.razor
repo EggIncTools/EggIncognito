@@ -1,6 +1,7 @@
 @rendermode @(RenderModes.InteractiveServer)
 @using EggIncognito.Components.Protos
 @using EggIncognito.Models.Admin
+@using EggIncognito.Services.Events
 @inherits AdminPaneBase
 
 <AdminPaneHead Title="Staged protos" Facts="@Stats"/>
@@ -15,7 +16,7 @@
         .FirstOrDefault();
 
     IEnumerable<string> Stats => Oldest is { } oldest
-        ? [$"{_rows.Count} staged", $"oldest {oldest.LocalDateTime:yyyy-MM-dd}"]
+        ? [$"{_rows.Count} staged", $"oldest {ViewerClock.At(Services, oldest):yyyy-MM-dd}"]
         : [$"{_rows.Count} staged"];
 
     protected override IReadOnlyList<string> Topics => [AdminTopics.Staged];

@@ -251,7 +251,8 @@ public static class DeviceServices {
         string iosUiNavTweakPath = config["DeviceCapture:Ios:UiNavTweakPath"]
                                    ?? "/Library/MobileSubstrate/DynamicLibraries/egiuinav.dylib";
         builder.Services.AddSingleton<IDeviceUiDriver>(sp => new IosUiDriver(
-            sp.GetRequiredService<IDeviceConnectionFactory>(), new IosUiDriver.Options(iosUiNavTweakPath)));
+            sp.GetRequiredService<IDeviceConnectionFactory>(), new IosUiDriver.Options(iosUiNavTweakPath),
+            sp.GetRequiredService<TimeProvider>()));
 
         builder.Services.AddSingleton<IScreenStreamSource, AndroidScreenStreamSource>();
         builder.Services.AddSingleton<IScreenStreamSource, IosScreenStreamSource>();

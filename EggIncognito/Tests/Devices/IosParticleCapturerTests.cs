@@ -77,13 +77,4 @@ public class IosParticleCapturerTests {
         Assert.Contains(push.args, a => a.StartsWith("root@phone:"));
         Assert.EndsWith(".js", push.args[^2]);
     }
-
-    private sealed class FakeRunner(Func<string, string[], ProcessResult> fn) : IProcessRunner {
-        public readonly List<(string exe, string[] args)> Calls = [];
-
-        public Task<ProcessResult> RunAsync(string exe, string[] args, CancellationToken ct) {
-            Calls.Add((exe, args));
-            return Task.FromResult(fn(exe, args));
-        }
-    }
 }

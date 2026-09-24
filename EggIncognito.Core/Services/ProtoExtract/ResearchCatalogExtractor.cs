@@ -168,7 +168,7 @@ public static class ResearchCatalogExtractor {
             if (d == 0 || !int.TryParse(rest[..d], NumberStyles.None, CultureInfo.InvariantCulture, out int len))
                 continue;
             if (rest.Length != d + len + 2) continue;
-            string name = rest.Substring(d, len);
+            string name = rest[d..(d + len)];
             if (sym.Value == 0) continue;
 
             var body = Arm64DataTableReader.ListRange(bin, sym.Value, sym.Value + 4, 1);
@@ -625,15 +625,16 @@ public static class ResearchCatalogExtractor {
 
     private static string? AssembleString(IEnumerable<(long Off, List<ByteWrite> Writes)> writes) {
         const int cap = 512;
-        byte[] buf = new byte[cap];
-        bool[] set = new bool[cap];
+        Span<byte> buf = stackalloc byte[cap];
+        Span<bool> set = stackalloc bool[cap];
         var ordered = writes
             .SelectMany(w => w.Writes.Select(bw => (w.Off, bw.Order, bw.Bytes)))
             .OrderBy(t => t.Order);
         foreach ((long off, _, byte[] bytes) in ordered) {
             for (int j = 0; j < bytes.Length; j++) {
-                long p = off + j;
-                if (p is < 0 or >= cap) continue;
+                long pos = off + j;
+                if (pos is < 0 or >= cap) continue;
+                int p = (int)pos;
                 buf[p] = bytes[j];
                 set[p] = true;
             }
@@ -642,7 +643,7 @@ public static class ResearchCatalogExtractor {
         int end = 0;
         while (end < cap && set[end] && buf[end] != 0) end++;
         if (end == 0) return null;
-        return Encoding.UTF8.GetString(buf, 0, end);
+        return Encoding.UTF8.GetString(buf[..end]);
     }
 
     private static int? ReadIntField(InitWalk walk, ulong fieldVa)
@@ -760,9 +761,10 @@ public static class ResearchCatalogExtractor {
                     xImm[ops[0]] = mz << ShiftOf(ops);
                     break;
 
-                case "movk" when ops.Count >= 2 && TryImm(ops[1], out long mk) && xImm.ContainsKey(ops[0]): {
+                case "movk" when ops.Count >= 2 && TryImm(ops[1], out long mk) &&
+                                xImm.TryGetValue(ops[0], out long existing): {
                         int shift = ShiftOf(ops);
-                        xImm[ops[0]] = (xImm[ops[0]] & ~(0xFFFFL << shift)) | (mk << shift);
+                        xImm[ops[0]] = (existing & ~(0xFFFFL << shift)) | (mk << shift);
                         break;
                     }
 
@@ -784,11 +786,10 @@ public static class ResearchCatalogExtractor {
                     }
 
                 case "add" when ops.Count == 3 && ops[0][0] == 'w': {
-                        bool aLvl = lvlInt.ContainsKey(ops[1]);
-                        bool bLvl = lvlInt.ContainsKey(ops[2]);
+                        bool aLvl = lvlInt.TryGetValue(ops[1], out double lv);
                         string other = aLvl ? ops[2] : ops[1];
-                        if ((aLvl || bLvl) && curInt.TryGetValue(other, out int cd)) {
-                            intRes[ops[0]] = (cd, lvlInt[aLvl ? ops[1] : ops[2]]);
+                        if ((aLvl || lvlInt.TryGetValue(ops[2], out lv)) && curInt.TryGetValue(other, out int cd)) {
+                            intRes[ops[0]] = (cd, lv);
                             curInt.Remove(ops[0]);
                             lvlInt.Remove(ops[0]);
                         } else {
@@ -1128,7 +1129,7 @@ public static class ResearchCatalogExtractor {
         epicBase = 0;
         if (runs.Count == 0) return false;
 
-        var main = runs.OrderByDescending(r => r.Len).First();
+        var main = runs.MaxBy(r => r.Len);
         if (main.Len < Math.Max(4, commonCount / 2)) return false;
         commonBase = main.Start - IdOffset;
 
@@ -1138,9 +1139,8 @@ public static class ResearchCatalogExtractor {
         }
 
         ulong commonEnd = main.Start + (ulong)((commonCount - 1) * stride);
-        var epic = runs.Where(r => r.Start != main.Start && r.Start > commonEnd).OrderByDescending(r => r.Len)
-            .FirstOrDefault();
-        if (epic.Len == 0) epic = runs.Where(r => r.Start != main.Start).OrderByDescending(r => r.Len).FirstOrDefault();
+        var epic = runs.Where(r => r.Start != main.Start && r.Start > commonEnd).DefaultIfEmpty().MaxBy(r => r.Len);
+        if (epic.Len == 0) epic = runs.Where(r => r.Start != main.Start).DefaultIfEmpty().MaxBy(r => r.Len);
 
         if (epic.Len == 0) return false;
         epicBase = epic.Start - IdOffset;
@@ -1167,7 +1167,7 @@ public static class ResearchCatalogExtractor {
     private static bool TryReadU64(byte[] bin, IBinaryImage img, ulong va, out ulong value) {
         value = 0;
         if (!img.TryVaToFileOffset(va, out int fo, out _) || fo + 8 > bin.Length) return false;
-        value = BitConverter.ToUInt64(bin, fo);
+        value = BitConverter.ToUInt64(bin.AsSpan(fo));
         if (value == 0 && img is ElfImage elf && elf.TryResolveRelative(va, out ulong reloc)) value = reloc;
         return true;
     }
@@ -1175,14 +1175,14 @@ public static class ResearchCatalogExtractor {
     private static bool TryReadF64(byte[] bin, IBinaryImage img, ulong va, out double value) {
         value = 0;
         if (!img.TryVaToFileOffset(va, out int fo, out _) || fo + 8 > bin.Length) return false;
-        value = BitConverter.ToDouble(bin, fo);
+        value = BitConverter.ToDouble(bin.AsSpan(fo));
         return double.IsFinite(value);
     }
 
     private static bool TryReadF32(byte[] bin, IBinaryImage img, ulong va, out float value) {
         value = 0;
         if (!img.TryVaToFileOffset(va, out int fo, out _) || fo + 4 > bin.Length) return false;
-        value = BitConverter.ToSingle(bin, fo);
+        value = BitConverter.ToSingle(bin.AsSpan(fo));
         return float.IsFinite(value);
     }
 

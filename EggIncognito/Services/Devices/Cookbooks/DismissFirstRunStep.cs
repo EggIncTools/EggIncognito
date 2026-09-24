@@ -16,9 +16,9 @@ public sealed class DismissFirstRunStep(
 
     public override async Task<CookbookStepResult> RunAsync(DeviceCookbookContext context, CancellationToken ct) {
         var lines = new List<string>();
-        void Add(string line) {
+        Task Add(string line) {
             lines.Add(line);
-            context.Progress(line);
+            return context.Progress(line);
         }
 
         if (Driver(context.Target.Platform) is not { } ui)

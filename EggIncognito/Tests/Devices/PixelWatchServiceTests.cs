@@ -16,7 +16,7 @@ public class PixelWatchServiceTests {
         return ms.ToArray();
     }
 
-    private static PixelWatchService NewService() => new(NullLogger<PixelWatchService>.Instance);
+    private static PixelWatchService NewService() => new(NullLogger<PixelWatchService>.Instance, TimeProvider.System);
 
     [Fact]
     public async Task AddAsync_BeyondTheCap_ReportsTheLimit() {

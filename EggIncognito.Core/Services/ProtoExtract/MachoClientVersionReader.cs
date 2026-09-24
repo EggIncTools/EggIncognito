@@ -8,7 +8,7 @@ public static class MachoClientVersionReader {
         var insns = Arm64Decoder.Decode(macho.AsSpan(off, size), vm);
         var cands = Candidates(insns);
         int? chosen = Pick(cands, previousClientVersion);
-        var sorted = cands.Keys.OrderBy(k => k).ToList();
+        var sorted = cands.Keys.Order().ToList();
         return new ClientVersionResult(chosen, sorted);
     }
 

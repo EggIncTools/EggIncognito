@@ -28,9 +28,8 @@ public class PixelSamplerTests {
     [InlineData(-1, 0)]
     [InlineData(0, 4)]
     [InlineData(4, 0)]
-    public void Sample_OutsideTheImage_IsNull(int x, int y) {
+    public void Sample_OutsideTheImage_IsNull(int x, int y) =>
         Assert.Null(PixelSampler.Sample(Png(_ => { }), x, y));
-    }
 
     [Fact]
     public void SampleMany_ReadsEveryPointFromOneDecode() {
@@ -68,9 +67,8 @@ public class PixelSamplerTests {
     }
 
     [Fact]
-    public void SampleMany_NoPoints_NeverDecodes() {
+    public void SampleMany_NoPoints_NeverDecodes() =>
         Assert.Empty(PixelSampler.SampleMany([1, 2, 3], []));
-    }
 
     [Fact]
     public void Close_UsesPerChannelTolerance() {

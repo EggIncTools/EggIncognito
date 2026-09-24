@@ -9,7 +9,7 @@ public sealed class InitArrayLocator {
     private InitArrayLocator(byte[] bin, IBinaryImage img) {
         _bin = bin;
         _img = img;
-        _syms = [.. img.Symbols.Where(s => s.Value != 0).Select(s => s.Value).Distinct().OrderBy(v => v)];
+        _syms = [.. img.Symbols.Where(s => s.Value != 0).Select(s => s.Value).Distinct().Order()];
         _inits = [.. img.GetInitArrayTargets().Where(t => t != 0).Distinct()];
         _inits.Sort();
     }

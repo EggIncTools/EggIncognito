@@ -20,7 +20,8 @@ public sealed class RouteAdminController(
     IRouteCatalog routes,
     IRouteCatalogReport report,
     IProtoReflection proto,
-    ICurrentUser currentUser) : ApiControllerBase {
+    ICurrentUser currentUser,
+    TimeProvider time) : ApiControllerBase {
     [HttpGet]
     [EnableRateLimiting("read")]
     public IActionResult List() => Ok(report.Rows());
@@ -56,7 +57,7 @@ public sealed class RouteAdminController(
         if (body.Response is not null && proto.FindMessage(body.Response) is null)
             return Fail(400, $"unknown proto type {body.Response}");
 
-        var now = DateTimeOffset.UtcNow;
+        var now = time.GetUtcNow();
         var existing = await db.RouteOverrides.FirstOrDefaultAsync(o => o.Path == path);
         if (existing is null) {
             db.RouteOverrides.Add(new RouteOverride {

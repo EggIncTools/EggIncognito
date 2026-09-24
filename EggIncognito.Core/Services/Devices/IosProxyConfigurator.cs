@@ -33,7 +33,7 @@ public sealed class IosProxyConfigurator(IProcessRunner runner, IosProxyConfigur
         string portStr = port.ToString(CultureInfo.InvariantCulture);
         string[] expected = [
             "HTTPEnable = 1;", "HTTPSEnable = 1;",
-            $"HTTPProxy = \\\"{hostIp}\\\";", $"HTTPSProxy = \\\"{hostIp}\\\";",
+            $"""HTTPProxy = \"{hostIp}\";""", $"""HTTPSProxy = \"{hostIp}\";""",
             $"HTTPPort = {portStr};", $"HTTPSPort = {portStr};"
         ];
         string[] writes = [
@@ -60,10 +60,10 @@ public sealed class IosProxyConfigurator(IProcessRunner runner, IosProxyConfigur
         string guard = string.Join(" && ", expected.Select(e => $"echo \"$CUR\" | grep -qF \"{e}\""));
         return "/bin/sh -c '" +
                $"CUR=$({Plutil} {ProxiesKey} {Prefs} 2>/dev/null); " +
-               $"if {guard}; then echo \"{unchangedNote}\"; exit 0; fi; " +
+               $"""if {guard}; then echo "{unchangedNote}"; exit 0; fi; """ +
                string.Join("; ", writes) + "; " +
-               $"OUT=$({reload} 2>&1) || {{ echo \"configd reload failed: $OUT\"; exit 1; }}; " +
-               $"echo \"{doneNote}\"'";
+               $$"""OUT=$({{reload}} 2>&1) || { echo "configd reload failed: $OUT"; exit 1; }; """ +
+               $"""echo "{doneNote}"'""";
     }
 
     private async Task<(bool Ok, string? Note)> Ssh(string remoteCmd, CancellationToken ct) {

@@ -1,3 +1,4 @@
+using System.Collections.Frozen;
 using EggIncognito.Core.Services.Syntax.Tokenizers;
 
 namespace EggIncognito.Core.Services.Syntax;
@@ -27,10 +28,10 @@ public static class SyntaxHighlighter {
         new MarkdownTokenizer()
     ];
 
-    private static readonly Dictionary<string, ISyntaxTokenizer> Registry =
-        Registered.ToDictionary(t => t.Id, StringComparer.OrdinalIgnoreCase);
+    private static readonly FrozenDictionary<string, ISyntaxTokenizer> Registry =
+        Registered.ToFrozenDictionary(t => t.Id, StringComparer.OrdinalIgnoreCase);
 
-    private static readonly Dictionary<string, string> AliasMap = new(StringComparer.OrdinalIgnoreCase) {
+    private static readonly FrozenDictionary<string, string> AliasMap = new Dictionary<string, string> {
         ["txt"] = "text",
         ["plain"] = "text",
         ["plaintext"] = "text",
@@ -61,9 +62,9 @@ public static class SyntaxHighlighter {
         ["psql"] = "sql",
         ["md"] = "markdown",
         ["curl"] = "http"
-    };
+    }.ToFrozenDictionary(StringComparer.OrdinalIgnoreCase);
 
-    private static readonly Dictionary<string, string> LabelMap = new(StringComparer.OrdinalIgnoreCase) {
+    private static readonly FrozenDictionary<string, string> LabelMap = new Dictionary<string, string> {
         ["text"] = "Plain text",
         ["bash"] = "Shell",
         ["bin"] = "Binary",
@@ -79,7 +80,7 @@ public static class SyntaxHighlighter {
         ["sql"] = "SQL",
         ["xml"] = "XML",
         ["yaml"] = "YAML"
-    };
+    }.ToFrozenDictionary(StringComparer.OrdinalIgnoreCase);
 
     public static IReadOnlyCollection<string> Languages => Registry.Keys;
 

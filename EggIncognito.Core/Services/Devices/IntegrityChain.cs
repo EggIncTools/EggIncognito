@@ -57,8 +57,8 @@ public static class IntegrityChain {
         + "[ -s " + TeesimKeybox + " ] && echo tkey=1; "
         + "[ -f " + TeesimConfig + " ] && echo tcfg=1; "
         + "m=$(grep -m1 ^MODEL= " + PifProp + " 2>/dev/null | cut -d= -f2-); "
-        + "[ -n \"$m\" ] && echo \"model=$m\"; "
-        + "[ -n \"$m\" ] && grep -qF \"$m\" " + TeesimConfig + " 2>/dev/null && echo tsync=1; "
+        + """[ -n "$m" ] && echo "model=$m"; """
+        + """[ -n "$m" ] && grep -qF "$m" """ + TeesimConfig + " 2>/dev/null && echo tsync=1; "
         + "grep -q ^" + GmsPackage + " " + Targets + " 2>/dev/null && echo tgt=1; "
         + "echo " + ScanMarker;
 

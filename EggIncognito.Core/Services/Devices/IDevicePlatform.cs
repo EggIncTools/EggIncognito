@@ -17,7 +17,7 @@ public interface IDevicePlatform {
 
     Task<DeviceProbeResult> ProbeAsync(DeviceTarget target, CancellationToken ct);
     Task<StoreCheckResult> DriveStoreUpdateAsync(DeviceTarget target, CancellationToken ct,
-        Action<string>? progress = null);
+        Func<string, Task>? progress = null);
 
     Task<DeviceResult> SetProxyAsync(DeviceTarget target, string hostIp, int port, CancellationToken ct);
     Task<DeviceResult> ClearProxyAsync(DeviceTarget target, CancellationToken ct);
@@ -52,13 +52,10 @@ public interface IDevicePlatforms {
     IDevicePlatform For(string platform);
 }
 
-public sealed class DevicePlatforms : IDevicePlatforms {
-    private readonly Dictionary<string, IDevicePlatform> _byPlatform;
+public sealed class DevicePlatforms(IEnumerable<IDevicePlatform> platforms) : IDevicePlatforms {
+    private readonly Dictionary<string, IDevicePlatform> _byPlatform =
+        platforms.ToDictionary(p => p.Platform, StringComparer.OrdinalIgnoreCase);
     private readonly NullDevicePlatform _fallback = new();
-
-    public DevicePlatforms(IEnumerable<IDevicePlatform> platforms) {
-        _byPlatform = platforms.ToDictionary(p => p.Platform, StringComparer.OrdinalIgnoreCase);
-    }
 
     public IDevicePlatform For(string platform) =>
         !string.IsNullOrEmpty(platform) && _byPlatform.TryGetValue(platform, out var p) ? p : _fallback;
@@ -92,7 +89,7 @@ public sealed class NullDevicePlatform : IDevicePlatform {
         Task.FromResult(new DeviceProbeResult(false, null, null, Note(target)));
 
     public Task<StoreCheckResult> DriveStoreUpdateAsync(DeviceTarget target, CancellationToken ct,
-        Action<string>? progress = null) =>
+        Func<string, Task>? progress = null) =>
         Task.FromResult(new StoreCheckResult(false, null, null, false, false, "unsupported", Note(target)));
 
     public Task<DeviceResult> SetProxyAsync(DeviceTarget target, string hostIp, int port, CancellationToken ct) =>

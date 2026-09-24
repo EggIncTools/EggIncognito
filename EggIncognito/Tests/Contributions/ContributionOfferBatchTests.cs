@@ -2,7 +2,6 @@ using EggIdentity.Contract;
 using EggIncognito.Capture;
 using EggIncognito.Controllers;
 using EggIncognito.Models.Contributions;
-using EggIncognito.Services;
 using EggIncognito.Services.Contributions;
 using EggIncognito.Services.Devices;
 using Microsoft.AspNetCore.Mvc;
@@ -47,9 +46,10 @@ public class ContributionOfferBatchTests {
         var kinds = new CaptureContributionKinds([new ArtifactContributionKind()]);
         var options = ContributionOptions.Defaults();
         var recorder = new ContributionRecorder(
-            new NoScopes(), kinds, options, NullLogger<ContributionRecorder>.Instance);
+            new NoScopes(), kinds, options, NullLogger<ContributionRecorder>.Instance, TimeProvider.System);
         var controller = new ContributionsController(
-            new FakeUser(), kinds, options, NullLogger<ContributionsController>.Instance);
+            new FakeUser(role: UserRole.Admin, discordId: "1", userId: Guid.Parse("11111111-1111-1111-1111-111111111111")),
+            kinds, options, NullLogger<ContributionsController>.Instance);
         return (controller, recorder, new OneHub(hub));
     }
 
@@ -63,17 +63,5 @@ public class ContributionOfferBatchTests {
 
     private sealed class NoScopes : IServiceScopeFactory {
         public IServiceScope CreateScope() => throw new NotSupportedException();
-    }
-
-    private sealed class FakeUser : ICurrentUser {
-        public bool IsAuthenticated => true;
-        public Guid? UserId => Guid.Parse("11111111-1111-1111-1111-111111111111");
-        public string? DiscordId => "1";
-        public string? Username => "tester";
-        public string? Avatar => null;
-        public string? AvatarUrl => null;
-        public UserRole Role => UserRole.Admin;
-        public bool IsSupporter => false;
-        public bool IsAtLeast(UserRole need) => true;
     }
 }

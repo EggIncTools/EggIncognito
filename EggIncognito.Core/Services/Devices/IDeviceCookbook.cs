@@ -57,7 +57,7 @@ public sealed record DeviceCookbookRun(
 public sealed record DeviceCookbookContext(
     DeviceTarget Target,
     string? Argument,
-    Action<string> Progress,
+    Func<string, Task> Progress,
     int? AndroidUserId = null);
 
 public interface IDeviceCookbook {

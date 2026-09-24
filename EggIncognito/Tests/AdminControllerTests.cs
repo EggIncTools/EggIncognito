@@ -1,15 +1,20 @@
 using EggIdentity.Contract;
+using EggIncognito.Capture;
 using EggIncognito.Controllers;
 using EggIncognito.Models.Admin;
-using EggIncognito.Services;
+using EggIncognito.Services.DataApi;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Infrastructure;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace EggIncognito.Tests;
 
 public class AdminControllerTests {
     private static AdminController Controller(UserRole role, string id = "me")
-        => new(new FakeUser(role, id), new EmptyServices());
+        => new(new FakeUser(role: role, discordId: id), new EmptyServices(),
+            new CaptureSessionManager(HostedCaptureOptions.Defaults(), (_, _, _) => throw new NotSupportedException()),
+            new GameDataStore(new EmptyScopeFactory(), NullLogger<GameDataStore>.Instance));
 
     [Fact]
     public async Task Admin_PassesGate_Then503NoIdentityApi() {
@@ -34,19 +39,11 @@ public class AdminControllerTests {
         Assert.Contains("unknown role", bad.Value!.ToString());
     }
 
-    private sealed class FakeUser(UserRole role, string id = "me") : ICurrentUser {
-        public bool IsAuthenticated => true;
-        public Guid? UserId => null;
-        public string? DiscordId => id;
-        public string? Username => "u";
-        public string? Avatar => null;
-        public string? AvatarUrl => null;
-        public UserRole Role => role;
-        public bool IsSupporter => false;
-        public bool IsAtLeast(UserRole need) => UserRoles.IsAtLeast(role, need);
-    }
-
     private sealed class EmptyServices : IServiceProvider {
         public object? GetService(Type t) => null;
+    }
+
+    private sealed class EmptyScopeFactory : IServiceScopeFactory {
+        public IServiceScope CreateScope() => throw new NotSupportedException();
     }
 }

@@ -62,8 +62,8 @@ public sealed class FlowDecoder {
             }
 
             var detRaw = EndpointExtractor.AutoDetect(respBytes);
-            if (detRaw.json is not null)
-                return Result(detRaw.json, detRaw.typeName, false);
+            if (detRaw.Json is not null)
+                return Result(detRaw.Json, detRaw.TypeName, false);
         }
 
         string? text = AsPrintableText(respBytes);

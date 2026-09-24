@@ -25,14 +25,14 @@ public static partial class GsfIdentity {
     }
 
     public static async Task<string?> WaitAsync(
-        IDeviceConnection conn, RootAccess root, TimeSpan timeout, TimeSpan interval, Action<string>? progress,
+        IDeviceConnection conn, RootAccess root, TimeSpan timeout, TimeSpan interval, Func<string, Task>? progress,
         CancellationToken ct) {
         var started = DateTimeOffset.UtcNow;
         var deadline = started + timeout;
         while (true) {
             if (await ReadAsync(conn, root, ct) is { } id) return id;
             if (DateTimeOffset.UtcNow >= deadline) return null;
-            progress?.Invoke($"waiting for gms check-in ({(DateTimeOffset.UtcNow - started).TotalSeconds:F0}s)");
+            await progress.ReportAsync($"waiting for gms check-in ({(DateTimeOffset.UtcNow - started).TotalSeconds:F0}s)");
             await Task.Delay(interval, ct);
         }
     }

@@ -19,8 +19,8 @@ public sealed class IosSshVersionProbe(SshDeviceConnection conn, string bundleId
     }
 
     private static readonly string Read =
-        $"v=$({DeviceShell.ReadPlistKey("CFBundleShortVersionString")}); echo \"$v\"; " +
-        $"v=$({DeviceShell.ReadPlistKey("CFBundleVersion")}); echo \"$v\";";
+        $"""v=$({DeviceShell.ReadPlistKey("CFBundleShortVersionString")}); echo "$v"; """ +
+        $"""v=$({DeviceShell.ReadPlistKey("CFBundleVersion")}); echo "$v";""";
 
     private static (string? App, string? Build) Parse(string stdout) {
         string[] lines = stdout.Split('\n', StringSplitOptions.TrimEntries);

@@ -3,27 +3,25 @@ using EggIncognito.Core.Services.Devices;
 namespace EggIncognito.Runner.Adb;
 
 public interface IAdbClient {
-    string DumpsysPackage(string package);
-    string PullArmApk(string package, string destPath);
+    Task<string> DumpsysPackageAsync(string package, CancellationToken ct);
+    Task<string> PullArmApkAsync(string package, string destPath, CancellationToken ct);
 }
 
-public sealed class AdbClient : IAdbClient {
-    private readonly AdbDeviceConnection _conn;
+public sealed class AdbClient(string target) : IAdbClient {
+    private readonly AdbDeviceConnection _conn = new(new ProcessRunner(), target);
 
-    public AdbClient(string target) => _conn = new AdbDeviceConnection(new ProcessRunner(), target);
-
-    public string DumpsysPackage(string package) {
-        var r = _conn.ShellAsync($"dumpsys package {package}", CancellationToken.None).GetAwaiter().GetResult();
+    public async Task<string> DumpsysPackageAsync(string package, CancellationToken ct) {
+        var r = await _conn.ShellAsync($"dumpsys package {package}", ct);
         return r.Stdout + r.Stderr;
     }
 
-    public string PullArmApk(string package, string destPath) {
-        var pm = _conn.ShellAsync($"pm path {package}", CancellationToken.None).GetAwaiter().GetResult();
+    public async Task<string> PullArmApkAsync(string package, string destPath, CancellationToken ct) {
+        var pm = await _conn.ShellAsync($"pm path {package}", ct);
         var arm = DeviceParsing.SelectArmSplit(pm.Stdout)
             ?? throw new InvalidOperationException($"no arm split found for {package}");
-        var bytes = _conn.PullBytesAsync(arm, CancellationToken.None).GetAwaiter().GetResult()
+        var bytes = await _conn.PullBytesAsync(arm, ct)
             ?? throw new InvalidOperationException($"adb pull did not produce a file for {arm}");
-        File.WriteAllBytes(destPath, bytes);
+        await File.WriteAllBytesAsync(destPath, bytes, ct);
         return destPath;
     }
 }

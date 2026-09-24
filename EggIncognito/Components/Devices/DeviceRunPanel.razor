@@ -13,6 +13,7 @@
 @using EggIncognito.Core.Services.Devices
 @using EggIncognito.Models.Devices
 @using EggIncognito.Services.Devices
+@using EggIncognito.Services.Events
 @implements IAsyncDisposable
 
 @if (Open) {
@@ -649,8 +650,8 @@
         });
     }
 
-    static string Stamp(DateTimeOffset at) {
-        return at.ToLocalTime().ToString("HH:mm:ss", CultureInfo.InvariantCulture);
+    string Stamp(DateTimeOffset at) {
+        return ViewerClock.At(Services, at).ToString("HH:mm:ss", CultureInfo.InvariantCulture);
     }
 
     static string OutcomeIcon(string state) {

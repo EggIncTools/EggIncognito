@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Diagnostics.CodeAnalysis;
 
 namespace EggIncognito.GameData;
 
@@ -25,10 +26,9 @@ public sealed class GameDataProvider(
 
     public Effect? Resolve(string family, string id) => Family(family)?.Find(id);
 
-    public bool TryResolve(string family, string id, out Effect effect) {
-        var found = Resolve(family, id);
-        effect = found!;
-        return found is not null;
+    public bool TryResolve(string family, string id, [NotNullWhen(true)] out Effect? effect) {
+        effect = Resolve(family, id);
+        return effect is not null;
     }
 
     public IReadOnlyList<Effect> All(string family) =>

@@ -32,7 +32,7 @@ public class BridgeDeviceFleetTests {
             new BridgeFleetEntry("egi-vd-1", "android", "egi-vd-1", "10.0.0.5:5555", "com.auxbrain.egginc",
                 "virtual", 8081)
         ], "192.168.1.66");
-        var fleet = Fleet(new StubHandler(_ => Json(payload)));
+        var fleet = Fleet(new StubHttpMessageHandler(_ => Json(payload)));
 
         var devices = await fleet.EnabledAsync(CancellationToken.None);
 
@@ -49,7 +49,7 @@ public class BridgeDeviceFleetTests {
 
     [Fact]
     public async Task EnabledAsync_FailedRead_IsEmpty() {
-        var fleet = Fleet(new StubHandler(_ => new HttpResponseMessage(HttpStatusCode.Forbidden)));
+        var fleet = Fleet(new StubHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.Forbidden)));
 
         Assert.Empty(await fleet.EnabledAsync(CancellationToken.None));
         Assert.Null(await fleet.CaptureHostIpAsync(CancellationToken.None));
@@ -62,14 +62,8 @@ public class BridgeDeviceFleetTests {
             new BridgeFleetEntry("egi-vd-1", "android", "egi-vd-1", "10.0.0.5:5555", "com.auxbrain.egginc",
                 "virtual", 8081)
         ], "192.168.1.66");
-        var fleet = Fleet(new StubHandler(_ => Json(payload)));
+        var fleet = Fleet(new StubHttpMessageHandler(_ => Json(payload)));
 
         Assert.Equal(0, await fleet.CapturePortAsync("egi-vd-9", CancellationToken.None));
-    }
-
-    private sealed class StubHandler(Func<HttpRequestMessage, HttpResponseMessage> respond) : HttpMessageHandler {
-        protected override Task<HttpResponseMessage> SendAsync(
-            HttpRequestMessage request, CancellationToken cancellationToken) =>
-            Task.FromResult(respond(request));
     }
 }

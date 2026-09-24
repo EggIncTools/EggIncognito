@@ -15,12 +15,14 @@
 @inject NavigationManager Nav
 @inject ToastService Toasts
 @inject AdminNotifier Notifier
+@inject IServiceProvider Services
 @using System.Text.Json
 @using EggIncognito.Components.Api
 @using EggIncognito.Components.Events
 @using EggIncognito.Components.Protos
 @using EggIncognito.Core.Services.ProtoExtract
 @using EggIncognito.Services.Protos
+@using EggIncognito.Services.Events
 @implements IAsyncDisposable
 
 <PageTitle>EggIncognito</PageTitle>
@@ -499,8 +501,9 @@
         if (LoginError == 1) Toasts.Push(StatusNoteKind.Error, "Login failed. Try again.");
     }
 
-    protected override Task OnInitializedAsync() {
-        return Load();
+    protected override async Task OnInitializedAsync() {
+        if (Services.GetService(typeof(ViewerClock)) is ViewerClock clock) await clock.EnsureAsync(Services, User, CancellationToken.None);
+        await Load();
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender) {

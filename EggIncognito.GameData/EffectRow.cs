@@ -1,3 +1,5 @@
+using System.Diagnostics.CodeAnalysis;
+
 namespace EggIncognito.GameData;
 
 public sealed class EffectRow {
@@ -17,7 +19,7 @@ public sealed class EffectRow {
     public string GetString(string field) => (string)Values[field];
     public bool GetBool(string field) => (bool)Values[field];
 
-    public bool TryGet(string field, out object value) => Values.TryGetValue(field, out value!);
+    public bool TryGet(string field, [MaybeNullWhen(false)] out object value) => Values.TryGetValue(field, out value);
 
     private void Validate() {
         foreach (string name in Schema.RequiredNames) {

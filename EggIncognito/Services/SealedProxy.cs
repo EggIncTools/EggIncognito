@@ -10,7 +10,7 @@ public interface ISealedProxy {
     HttpClient CreateEgressClient();
 }
 
-public sealed class SealedProxyOptions {
+public sealed record SealedProxyOptions {
     public string UpstreamUrl { get; init; } = "";
     public string? Username { get; init; }
     public string? Password { get; init; }

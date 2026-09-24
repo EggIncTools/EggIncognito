@@ -3,12 +3,8 @@ using Microsoft.EntityFrameworkCore;
 
 namespace EggIncognito.Runner.Data;
 
-public sealed class RunnerDb {
-    public string ConnectionString { get; }
-
-    private RunnerDb(string connectionString) {
-        ConnectionString = connectionString;
-    }
+public sealed class RunnerDb(string connectionString) {
+    public string ConnectionString { get; } = connectionString;
 
     public static RunnerDb? FromEnv(Func<string, string> env) {
         var conn = env("ConnectionStrings__Postgres");

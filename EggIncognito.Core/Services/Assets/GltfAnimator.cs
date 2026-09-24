@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Numerics;
 using SharpGLTF.Schema2;
 using SharpGLTF.Transforms;
@@ -146,5 +147,8 @@ public static class GltfAnimator {
         public static Options Spin(float seconds = 6f) => new(AnimationKind.SpinY, seconds);
     }
 
-    public sealed record Result(bool Ok, byte[]? Glb, string Diagnostics, string AnimationName, float DurationSeconds);
+    public sealed record Result(bool Ok, byte[]? Glb, string Diagnostics, string AnimationName, float DurationSeconds) {
+        [MemberNotNullWhen(true, nameof(Glb))]
+        public bool Ok { get; init; } = Ok;
+    }
 }

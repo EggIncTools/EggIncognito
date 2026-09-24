@@ -23,7 +23,7 @@ public static class RpaCurveReader {
     }
 
     private static int I32(byte[] b, int o) => b[o] | (b[o + 1] << 8) | (b[o + 2] << 16) | (b[o + 3] << 24);
-    private static float F32(byte[] b, int o) => BitConverter.ToSingle(b, o);
+    private static float F32(byte[] b, int o) => BitConverter.ToSingle(b.AsSpan(o));
 
     public readonly record struct Key(float Time, float C0, float C1, float C2);
 

@@ -22,9 +22,9 @@ public sealed class RecertStep(
 
     public override async Task<CookbookStepResult> RunAsync(DeviceCookbookContext context, CancellationToken ct) {
         var lines = new List<string>();
-        void Add(string line) {
+        Task Add(string line) {
             lines.Add(line);
-            context.Progress(line);
+            return context.Progress(line);
         }
 
         var target = context.Target;
@@ -44,9 +44,9 @@ public sealed class RecertStep(
         if (scope.ServiceProvider.GetService(typeof(DeviceRecertService)) is not DeviceRecertService recert)
             return Failed(lines, "no database configured, recert requires DeviceRecertService");
 
-        Add($"recertifying {target.Id}");
+        await Add($"recertifying {target.Id}");
         var result = await recert.RunFlowAsync(target, ct);
-        foreach (string line in result.Log) Add(line);
+        foreach (string line in result.Log) await Add(line);
 
         return result.Ok ? Ok(lines, "recert ok") : Failed(lines, "recert failed");
     }

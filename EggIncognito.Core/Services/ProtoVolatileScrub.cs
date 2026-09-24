@@ -1,16 +1,17 @@
 using System.Collections;
+using System.Collections.Frozen;
 using Google.Protobuf;
 using Google.Protobuf.Reflection;
 
 namespace EggIncognito.Core.Services;
 
 public static class ProtoVolatileScrub {
-    private static readonly HashSet<string> Countdowns = new([
+    private static readonly FrozenSet<string> Countdowns = new[] {
         "seconds_remaining",
         "seconds_until_available",
         "shells_showcase_last_featured_time",
         "popularity"
-    ], StringComparer.Ordinal);
+    }.ToFrozenSet(StringComparer.Ordinal);
 
     public static T Scrubbed<T>(T message) where T : IMessage<T> {
         var clone = message.Clone();

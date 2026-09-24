@@ -21,8 +21,7 @@ namespace EggIncognito.Controllers;
 public sealed class DeviceBridgeController(
     DeviceTransportConfig config,
     ILogger<DeviceBridgeController> logger,
-    IProcessRunner runner,
-    IServiceProvider services) : ApiControllerBase {
+    IProcessRunner runner) : ApiControllerBase {
     private const int StreamChunk = 64 * 1024;
     private const string NoProvisioner = "no provisioner here";
     private static readonly TimeSpan ReachTimeout = TimeSpan.FromSeconds(3);
@@ -182,10 +181,10 @@ public sealed class DeviceBridgeController(
 
     [HttpGet(BridgeRoutes.Instances)]
     [DisableRateLimiting]
-    public async Task<IActionResult> Instances([FromServices] VirtualDeviceLifecycle? lifecycle, CancellationToken ct) {
+    public async Task<IActionResult> Instances([FromServices] VirtualDeviceLifecycle? lifecycle,
+        [FromServices] ProvisionedInstanceStore? store, CancellationToken ct) {
         Note("instances", "list");
-        using var scope = services.CreateScope();
-        if (scope.ServiceProvider.GetService(typeof(ProvisionedInstanceStore)) is ProvisionedInstanceStore store) {
+        if (store is not null) {
             var rows = await store.AllAsync(ct);
             return Ok(new BridgeInstanceList(true, DeviceOutcomes.Ok, null, [.. rows.Select(StoredInstance)]));
         }
@@ -294,6 +293,7 @@ public sealed class DeviceBridgeController(
                 await WriteEnvelopeAsync(new CaptureEnvelope("stats", null, hub.StatsSnapshot(), null), ct);
                 await foreach (var env in reader.ReadAllAsync(ct)) await WriteEnvelopeAsync(env, ct);
             } catch (Exception ex) when (ex is OperationCanceledException or IOException or ObjectDisposedException) {
+                logger.LogDebug(ex, "bridge capture stream closed");
                 Note("capture ended", deviceId);
             }
         }

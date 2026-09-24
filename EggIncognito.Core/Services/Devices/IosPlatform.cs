@@ -131,8 +131,8 @@ public sealed class IosPlatform(
         HarvestEntry entry, CancellationToken ct) {
         string find = entry.Name switch {
             HarvestEntries.AppBinary => "exe=\"$app/$(basename \"$app\" .app)\"; [ -f \"$exe\" ] && printf '%s\\n' \"$exe\"",
-            HarvestEntries.Meshes => "find \"$app\" \\( -iname '*.rpo' -o -iname '*.rpoz' \\) 2>/dev/null",
-            HarvestEntries.Textures => "find \"$app\" -iname '*.png' 2>/dev/null",
+            HarvestEntries.Meshes => """find "$app" \( -iname '*.rpo' -o -iname '*.rpoz' \) 2>/dev/null""",
+            HarvestEntries.Textures => """find "$app" -iname '*.png' 2>/dev/null""",
             HarvestEntries.PackageManifest => "[ -f \"$app/Info.plist\" ] && printf '%s\\n' \"$app/Info.plist\"",
             _ => ""
         };
@@ -141,7 +141,7 @@ public sealed class IosPlatform(
         var listing = new Dictionary<string, RemoteFile>(StringComparer.Ordinal);
         foreach (string hasher in HashCommands) {
             var r = await conn.ShellAsync(
-                DeviceShell.LocateIosApp(bundleId) + $"{find} | tr '\\n' '\\0' | xargs -0 {hasher} 2>/dev/null", ct);
+                DeviceShell.LocateIosApp(bundleId) + $"""{find} | tr '\n' '\0' | xargs -0 {hasher} 2>/dev/null""", ct);
             listing = Parse(r.Stdout);
             if (listing.Count > 0) return listing;
         }
@@ -149,7 +149,7 @@ public sealed class IosPlatform(
         logger.LogWarning("ios harvest: no content hasher for '{Entry}', falling back to size+mtime", entry.Name);
         foreach (string fmt in StatFormats) {
             var r = await conn.ShellAsync(
-                DeviceShell.LocateIosApp(bundleId) + $"{find} | tr '\\n' '\\0' | xargs -0 stat {fmt} 2>/dev/null", ct);
+                DeviceShell.LocateIosApp(bundleId) + $"""{find} | tr '\n' '\0' | xargs -0 stat {fmt} 2>/dev/null""", ct);
             listing = Parse(r.Stdout);
             if (listing.Count > 0) return listing;
         }
@@ -213,9 +213,9 @@ public sealed class IosPlatform(
             string remote = string.IsNullOrEmpty(config.IosRestartCommand)
                 ? "/bin/sh -c '" +
                   "for p in $(ps ax 2>/dev/null | grep -i egg | grep -v grep | while read pid rest; do echo $pid; done); do kill -9 $p 2>/dev/null; done; sleep 1; " +
-                  $"uiopen --bundleid {bundle} 2>&1 | sed \"s/^/diag uiopen: /\"; " +
+                  $"""uiopen --bundleid {bundle} 2>&1 | sed "s/^/diag uiopen: /"; """ +
                   "sleep 3; echo diag ps-after:; " +
-                  "if ps ax 2>/dev/null | grep -i egg | grep -v grep; then echo \"diag RESULT: running\"; else echo \"diag RESULT: NOT running\"; fi" +
+                  """if ps ax 2>/dev/null | grep -i egg | grep -v grep; then echo "diag RESULT: running"; else echo "diag RESULT: NOT running"; fi""" +
                   "'"
                 : config.IosRestartCommand.Replace("{bundle}", bundle).Replace("{proc}", proc);
             if (connections.Ios() is not { } conn) return DeviceResult.Unreachable("ios ssh not configured");

@@ -18,9 +18,8 @@ public class ScreenVideoPumpTests {
     [InlineData(1080, 2340, 1080, 1920, "888x1920")]
     [InlineData(720, 1280, 1080, 1920, "720x1280")]
     [InlineData(0, 0, 720, 1280, "720x1280")]
-    public void FitSize_PreservesDisplayAspect_AlignedToEight(int dw, int dh, int bw, int bh, string expected) {
+    public void FitSize_PreservesDisplayAspect_AlignedToEight(int dw, int dh, int bw, int bh, string expected) =>
         Assert.Equal(expected, ScreenVideoPump.FitSize(dw, dh, bw, bh));
-    }
 
     [Fact]
     public async Task RunAsync_TwoSegments_ArriveInOrderThenStopsOnNullFactory() {

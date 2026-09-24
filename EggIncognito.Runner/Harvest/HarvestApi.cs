@@ -26,7 +26,7 @@ public sealed class HarvestApi(string secret, RunnerDb db, HarvestScheduler sche
     public async Task<HarvestApiResult> StateAsync(string? authorizationHeader, string id) {
         if (!BearerAuth.Matches(authorizationHeader, secret)) return new HarvestApiResult(401, id, null, "unauthorized");
         using var ctx = db.NewContext();
-        var states = new DeviceStateStore(ctx);
+        var states = new DeviceStateStore(ctx, TimeProvider.System);
         var row = await states.GetAsync(id, CancellationToken.None);
         if (row is null) return new HarvestApiResult(404, id, null, "no harvest state for device");
         var jobs = new DeviceJobStore(ctx, TimeProvider.System);

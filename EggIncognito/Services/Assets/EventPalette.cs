@@ -1,3 +1,5 @@
+using System.Collections.Frozen;
+
 namespace EggIncognito.Services.Assets;
 
 public static class EventPalette {
@@ -5,7 +7,7 @@ public static class EventPalette {
     public const string CcGradientFrom = "#f5a709";
     public const string CcGradientTo = "#900fb1";
 
-    private static readonly Dictionary<string, string> ByType = new(StringComparer.OrdinalIgnoreCase) {
+    private static readonly FrozenDictionary<string, string> ByType = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) {
         ["epic-research-sale"] = "#ef4444",
         ["piggy-boost"] = "#f97316",
         ["piggy-cap-boost"] = "#f59e0b",
@@ -23,7 +25,7 @@ public static class EventPalette {
         ["mission-capacity"] = "#d946ef",
         ["mission-duration"] = "#ec4899",
         ["shell-sale"] = "#f43f5e"
-    };
+    }.ToFrozenDictionary(StringComparer.OrdinalIgnoreCase);
 
     public static string ColorFor(string? eventType) =>
         string.IsNullOrEmpty(eventType)

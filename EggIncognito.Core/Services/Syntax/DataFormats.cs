@@ -1,3 +1,4 @@
+using System.Collections.Frozen;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -14,7 +15,7 @@ public static partial class DataFormats {
     public static readonly string[] JsonFormats = ["json-tree", "json", "yaml", "xml", "js"];
     public static readonly string[] ByteFormats = ["hex", "bin"];
 
-    public static readonly IReadOnlyDictionary<string, string> Labels = new Dictionary<string, string> {
+    public static readonly FrozenDictionary<string, string> Labels = new Dictionary<string, string> {
         ["json-tree"] = "JSON (tree)",
         ["json"] = "JSON (raw)",
         ["yaml"] = "YAML",
@@ -22,7 +23,7 @@ public static partial class DataFormats {
         ["js"] = "JS object",
         ["hex"] = "Hex",
         ["bin"] = "Binary"
-    };
+    }.ToFrozenDictionary();
 
     public static string Label(string fmt) => Labels.GetValueOrDefault(fmt, fmt);
 

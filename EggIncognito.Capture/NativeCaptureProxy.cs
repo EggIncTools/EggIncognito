@@ -91,7 +91,7 @@ public sealed class NativeCaptureProxy(bool verbose = false) : ICaptureProxy {
         }
 
         try {
-            _cts?.Cancel();
+            if (_cts is not null) await _cts.CancelAsync();
         } catch (Exception ex) when (ex is ObjectDisposedException or AggregateException) {
             Log($"stop: cancel failed: {ex.Message}");
         }
@@ -258,7 +258,7 @@ public sealed class NativeCaptureProxy(bool verbose = false) : ICaptureProxy {
         try {
             string reqText = req.Body is { Length: > 0 } ? Encoding.UTF8.GetString(req.Body) : "";
             string? contentType = resp.Headers
-                .FirstOrDefault(h => h.Name.Equals("Content-Type", StringComparison.OrdinalIgnoreCase))?.Value;
+                .Find(h => h.Name.Equals("Content-Type", StringComparison.OrdinalIgnoreCase))?.Value;
             replaced = await transform.TransformAsync(
                 new CaptureOverrideRequest(host, req.Method, req.Path, WireBody.ExtractDataParam(reqText), req.Body),
                 new CaptureUpstreamResponse(resp.StatusCode, contentType, resp.Body ?? []),

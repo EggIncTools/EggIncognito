@@ -20,7 +20,7 @@ public sealed class LaunchAppCookbook(LaunchAppStep step) : IStepCookbook, IDevi
     public Task<DeviceCookbookRun> RunAsync(DeviceCookbookContext context, CancellationToken ct) =>
         CookbookExecutor.RunStepsAsync(this, context, ct);
 
-    public async Task<DeviceCookbookRun> LaunchAsync(DeviceTarget target, Action<string> progress, CancellationToken ct) {
+    public async Task<DeviceCookbookRun> LaunchAsync(DeviceTarget target, Func<string, Task> progress, CancellationToken ct) {
         var result = await step.RunAsync(new DeviceCookbookContext(target, null, progress), ct);
         bool failed = result.Status == CookbookStepStatus.Failed;
         return new DeviceCookbookRun(

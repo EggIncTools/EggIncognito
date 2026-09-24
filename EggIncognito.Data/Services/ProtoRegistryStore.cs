@@ -20,7 +20,7 @@ public interface IProtoBackfillStore {
     Task<List<(string Platform, string Build, string ProtoText)>> LatestProtoTextsAsync(CancellationToken ct = default);
 }
 
-public sealed class ProtoRegistryStore(EggIncognitoDbContext db, IEnumerable<IProtoUpsertObserver> observers)
+public sealed class ProtoRegistryStore(EggIncognitoDbContext db, TimeProvider time, IEnumerable<IProtoUpsertObserver> observers)
     : IProtoBackfillStore {
     public enum MetadataUpdate {
         Ok,
@@ -108,7 +108,7 @@ public sealed class ProtoRegistryStore(EggIncognitoDbContext db, IEnumerable<IPr
             .ToListAsync(ct);
 
         var result = new List<(string, string, string)>();
-        foreach (var latest in rows.GroupBy(r => r.Platform).Select(g => g.First())) {
+        foreach (var latest in rows.DistinctBy(r => r.Platform)) {
             var pp = await db.ProtoProtos.AsNoTracking()
                 .FirstOrDefaultAsync(x => x.ProtoVersionId == latest.Id, ct);
             if (pp is not null && !string.IsNullOrEmpty(pp.ProtoText))
@@ -228,7 +228,7 @@ public sealed class ProtoRegistryStore(EggIncognitoDbContext db, IEnumerable<IPr
         }
 
         row.SortOrder = order;
-        row.UpdatedAt = DateTimeOffset.UtcNow;
+        row.UpdatedAt = time.GetUtcNow();
         row.UpdatedBy = who;
         await db.SaveChangesAsync(ct);
         await NotifyRegistryAsync($"sha-order:{protoSha}", ct);
@@ -262,7 +262,7 @@ public sealed class ProtoRegistryStore(EggIncognitoDbContext db, IEnumerable<IPr
     public async Task<bool> SoftDeleteAsync(string platform, string build, CancellationToken ct = default) {
         var row = await db.ProtoVersions.FirstOrDefaultAsync(p => p.Platform == platform && p.Build == build, ct);
         if (row is null) return false;
-        row.DeletedAt = DateTimeOffset.UtcNow;
+        row.DeletedAt = time.GetUtcNow();
         await db.SaveChangesAsync(ct);
         await NotifyRegistryAsync($"delete:{platform}:{build}", ct);
         return true;
@@ -343,7 +343,7 @@ public sealed class ProtoRegistryStore(EggIncognitoDbContext db, IEnumerable<IPr
         if (row is null) return null;
 
         var norm = ProtoCanonicalForm.Normalize(protoText);
-        row.ProtoSha = norm.Ok ? norm.Sha! : ProtoHash.Of(protoText);
+        row.ProtoSha = norm.Ok ? norm.Sha : ProtoHash.Of(protoText);
         await UpsertProtoProtoAsync(row.Id, protoText, null, row.ProtoSha, ct);
         await NotifyRegistryAsync($"proto:{platform}:{build}", ct);
         return row.ProtoSha;

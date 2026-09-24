@@ -67,8 +67,8 @@ public static class DescriptorProtoCarver {
         string? commonText = commonBytes is { Length: > 0 } ? EmitProto(commonBytes) : null;
         string proto = commonText is not null ? ProtoCleanup.Clean(eiText, commonText) : eiText;
         var norm = ProtoCanonicalForm.Normalize(proto);
-        if (norm.Ok) proto = norm.Text!;
-        string sha = norm.Ok ? norm.Sha! : EggIncognito.Core.ProtoHash.OfDescriptor(eiBytes);
+        if (norm.Ok) proto = norm.Text;
+        string sha = norm.Ok ? norm.Sha : EggIncognito.Core.ProtoHash.OfDescriptor(eiBytes);
         var messages = ProtoTextIndex.Names(proto);
 
         var eiFdp = TryParse(eiBytes) ?? new FileDescriptorProto();
@@ -97,8 +97,8 @@ public static class DescriptorProtoCarver {
 
         string proto = commonText is not null ? ProtoCleanup.Clean(eiText, commonText) : eiText;
         var norm = ProtoCanonicalForm.Normalize(proto);
-        if (norm.Ok) proto = norm.Text!;
-        string sha = norm.Ok ? norm.Sha! : EggIncognito.Core.ProtoHash.OfDescriptor(ei.Bytes);
+        if (norm.Ok) proto = norm.Text;
+        string sha = norm.Ok ? norm.Sha : EggIncognito.Core.ProtoHash.OfDescriptor(ei.Bytes);
         var messages = ProtoTextIndex.Names(proto);
 
         var eiFdp = TryParse(ei.Bytes) ?? new FileDescriptorProto();
@@ -245,14 +245,15 @@ public static class DescriptorProtoCarver {
 
     private static HashSet<string> CollectSymbols(FileDescriptorProto f) {
         var symbols = new HashSet<string>(StringComparer.Ordinal);
-        string root = "";
+        var rootSb = new StringBuilder();
         if (!string.IsNullOrEmpty(f.Package)) {
             foreach (string part in f.Package.Split('.')) {
-                root += "." + part;
-                symbols.Add(root);
+                rootSb.Append('.').Append(part);
+                symbols.Add(rootSb.ToString());
             }
         }
 
+        string root = rootSb.ToString();
         foreach (var m in f.MessageType) AddMessageSymbols(m, root, symbols);
         foreach (var en in f.EnumType) symbols.Add(root + "." + en.Name);
         return symbols;
@@ -271,13 +272,13 @@ public static class DescriptorProtoCarver {
         while (true) {
             string candidate = current + "." + parts[0];
             if (symbols.Contains(candidate)) {
-                string full = candidate;
+                var fullSb = new StringBuilder(candidate);
                 for (int i = 1; i < parts.Length; i++) {
-                    full += "." + parts[i];
-                    if (!symbols.Contains(full)) return null;
+                    fullSb.Append('.').Append(parts[i]);
+                    if (!symbols.Contains(fullSb.ToString())) return null;
                 }
 
-                return full;
+                return fullSb.ToString();
             }
 
             if (current.Length == 0) return null;

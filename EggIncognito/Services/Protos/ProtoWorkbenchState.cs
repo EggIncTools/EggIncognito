@@ -72,5 +72,5 @@ public sealed class ProtoWorkbenchState : WorkbenchStateBase {
     public DiffBundle? Cached { get; set; }
     public string? CachedKey { get; set; }
 
-    public StagedEntry? Find(Guid? id) => id is { } g ? Entries.FirstOrDefault(e => e.Id == g) : null;
+    public StagedEntry? Find(Guid? id) => id is { } g ? Entries.Find(e => e.Id == g) : null;
 }

@@ -61,10 +61,10 @@ public static class StaticInitDoubleExtractor {
             if ((m == "ldr" || m == "ldur") && TryMemLoad(ops, page, out ulong va, out bool isWide)) {
                 if (img is not null && img.TryVaToFileOffset(va, out int fo, out _)) {
                     if (isWide && fo + 16 <= bin.Length) {
-                        Emit(BitConverter.ToInt64(bin, fo));
-                        Emit(BitConverter.ToInt64(bin, fo + 8));
+                        Emit(BitConverter.ToInt64(bin.AsSpan(fo)));
+                        Emit(BitConverter.ToInt64(bin.AsSpan(fo + 8)));
                     } else if (!isWide && fo + 8 <= bin.Length) {
-                        Emit(BitConverter.ToInt64(bin, fo));
+                        Emit(BitConverter.ToInt64(bin.AsSpan(fo)));
                     }
                 }
             }

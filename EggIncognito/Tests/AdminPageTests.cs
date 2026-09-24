@@ -16,7 +16,7 @@ public class AdminPageTests {
     public class Component : BunitContext {
         private void Wire(UserRole role) {
             JSInterop.Mode = JSRuntimeMode.Loose;
-            Services.AddSingleton<ICurrentUser>(new FakeUser(role));
+            Services.AddSingleton<ICurrentUser>(new FakeUser(role != UserRole.Viewer, role));
             Services.AddSingleton<IHttpContextAccessor>(new HttpContextAccessor());
             Services.AddSingleton<IWebHostEnvironment>(new FakeWebHostEnvironment());
             Services.AddSingleton(new AuthState(false));
@@ -65,15 +65,4 @@ public class AdminPageTests {
         }
     }
 
-    private sealed class FakeUser(UserRole role) : ICurrentUser {
-        public bool IsAuthenticated => role != UserRole.Viewer;
-        public Guid? UserId => null;
-        public string? DiscordId => IsAuthenticated ? "fake" : null;
-        public string? Username => IsAuthenticated ? "fake" : null;
-        public string? Avatar => null;
-        public string? AvatarUrl => null;
-        public UserRole Role => role;
-        public bool IsSupporter => false;
-        public bool IsAtLeast(UserRole need) => role >= need;
-    }
 }

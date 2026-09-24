@@ -15,9 +15,9 @@ public sealed class LocalHostFacts(
     public async Task<DeviceResult<HostFacts>> GetAsync(CancellationToken ct) {
         return DeviceResult<HostFacts>.Success(new HostFacts(
             Environment.MachineName,
-            Environment.GetEnvironmentVariable("GIT_SHA"),
+            configuration["GIT_SHA"],
             await NetworkAsync(ct),
-            AdbHostKey.Resolve(config),
+            AdbHostKey.Resolve(config, configuration["ANDROID_USER_HOME"]),
             adb.Socket,
             adb.Owned,
             docker.Available,

@@ -53,12 +53,9 @@ public sealed class FakeDeviceAgent(
     }
 
     public Task<bool> PokeAsync(string? id, bool force, CancellationToken ct) {
-        IReadOnlyList<FakeDevice> targets;
-        if (string.IsNullOrEmpty(id)) {
-            targets = settings.Devices;
-        } else {
-            targets = settings.For(id) is { } one ? [one] : [];
-        }
+        IReadOnlyList<FakeDevice> targets = string.IsNullOrEmpty(id)
+            ? settings.Devices
+            : settings.For(id) is { } one ? [one] : [];
 
         if (targets.Count == 0) return Task.FromResult(false);
 

@@ -16,7 +16,8 @@ public sealed class ConfigChangeNotifier(
     IConfiguration config,
     DataCatalog catalog,
     IRouteCatalog routes,
-    ILogger<ConfigChangeNotifier> logger)
+    ILogger<ConfigChangeNotifier> logger,
+    TimeProvider time)
     : IEndpointWriteObserver {
     public void OnEndpointWritten(string routePath, string json, string? previousJson = null) {
         if (catalog.ByWireRoute(routePath) is not { } source) return;
@@ -91,7 +92,7 @@ public sealed class ConfigChangeNotifier(
             } else {
                 existing.ResponseJson = json;
                 existing.ResponseType = responseType;
-                existing.UpdatedAt = DateTimeOffset.UtcNow;
+                existing.UpdatedAt = time.GetUtcNow();
             }
 
             await db.SaveChangesAsync();
@@ -110,7 +111,7 @@ public sealed class ConfigChangeNotifier(
             await IngestContractsAsync(sp, json, response);
             if (await db.PeriodicalsSnapshots.AnyAsync(s => s.Sha == sha)) return;
             db.PeriodicalsSnapshots.Add(new PeriodicalsSnapshot {
-                CapturedAt = DateTimeOffset.UtcNow,
+                CapturedAt = time.GetUtcNow(),
                 Sha = sha,
                 ResponseJson = json
             });
@@ -124,7 +125,7 @@ public sealed class ConfigChangeNotifier(
         try {
             var response = (PeriodicalsResponse)JsonParser.Default.Parse(json, PeriodicalsResponse.Descriptor);
             if (sp.GetService<GameEventIngestor>() is { } ingestor) {
-                var observations = GameEventMapper.FromPeriodicals(response, DateTimeOffset.UtcNow);
+                var observations = GameEventMapper.FromPeriodicals(response, time.GetUtcNow());
                 if (observations.Count > 0) await ingestor.IngestAsync(observations);
             }
             return response;
@@ -138,7 +139,7 @@ public sealed class ConfigChangeNotifier(
         try {
             if (sp.GetService<ContractIngestor>() is not { } ingestor) return;
             response ??= (PeriodicalsResponse)JsonParser.Default.Parse(json, PeriodicalsResponse.Descriptor);
-            var observations = ContractMapper.FromPeriodicals(response, DateTimeOffset.UtcNow);
+            var observations = ContractMapper.FromPeriodicals(response, time.GetUtcNow());
             if (observations.Count > 0) await ingestor.IngestAsync(observations);
         } catch (Exception ex) {
             logger.LogWarning(ex, "contract ingest from periodicals snapshot failed");

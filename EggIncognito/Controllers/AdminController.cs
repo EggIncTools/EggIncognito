@@ -26,14 +26,16 @@ namespace EggIncognito.Controllers;
 [Route("api/admin")]
 [ApiAccess(ApiAccessLevel.Admin)]
 [EnableRateLimiting("write")]
-public sealed partial class AdminController(ICurrentUser currentUser, IServiceProvider services)
+public sealed partial class AdminController(
+    ICurrentUser currentUser,
+    IServiceProvider services,
+    CaptureSessionManager sessions,
+    GameDataStore gameDataStore)
     : ApiControllerBase {
     [GeneratedRegex("^[a-z0-9_-]{1,64}$")]
     private static partial Regex IconNameRegex();
 
     private static readonly JsonSerializerOptions ProvenanceJson = JsonPresets.CamelSkipNull;
-
-    private BlobBytes Blobs => services.GetService(typeof(BlobBytes)) as BlobBytes ?? BlobBytes.Inline;
 
     [HttpGet("users")]
     public async Task<IActionResult> Users([FromServices] IdentityApiClient? identity) {
@@ -70,36 +72,27 @@ public sealed partial class AdminController(ICurrentUser currentUser, IServicePr
 
     [HttpGet("sessions")]
     [EnableRateLimiting("read")]
-    public async Task<IActionResult> Sessions(CancellationToken ct) {
+    public async Task<IActionResult> Sessions([FromServices] DeviceCaptureManager dcm,
+        [FromServices] IDeviceFleet fleet, CancellationToken ct) {
         var rows = new List<SessionRow>();
-
-        if (services.GetService(typeof(CaptureSessionManager))
-            is CaptureSessionManager mgr)
-            rows.AddRange(mgr.All().Select(x => SessionRow.FromCapture(x.Key, x.Session.Hub.StatsSnapshot())));
-
-        if (services.GetService(typeof(DeviceCaptureManager))
-                is DeviceCaptureManager dcm
-            && services.GetService(typeof(IDeviceFleet))
-                is IDeviceFleet fleet)
-            rows.AddRange((await fleet.EnabledAsync(ct))
-                .Select(d => SessionRow.FromDevice(d.Id, dcm.PortFor(d.Id), dcm.DiagFor(d.Id))));
-
+        rows.AddRange(sessions.All().Select(x => SessionRow.FromCapture(x.Key, x.Session.Hub.StatsSnapshot())));
+        rows.AddRange((await fleet.EnabledAsync(ct))
+            .Select(d => SessionRow.FromDevice(d.Id, dcm.PortFor(d.Id), dcm.DiagFor(d.Id))));
         return Ok(rows);
     }
 
     [HttpGet("data-status")]
     [EnableRateLimiting("read")]
-    public IActionResult DataStatus() {
+    public IActionResult DataStatus([FromServices] DataCatalog dataCatalog, [FromServices] GameConfigStore configStore,
+        [FromServices] IConfiguration cfg) {
         var gameData = new List<DataStatusGameDataRow>();
-        var gdStore = services.GetService(typeof(GameDataStore)) as GameDataStore;
-        if (gdStore?.Provider is { } provider) {
+        if (gameDataStore.Provider is { } provider) {
             foreach (var f in provider.Families) {
                 gameData.Add(new DataStatusGameDataRow(f.Key, f.Effects.Count,
                     JsonSerializer.Serialize(f.Provenance, ProvenanceJson), null));
             }
 
-            string? route = (services.GetService(typeof(DataCatalog)) as DataCatalog)
-                ?.ById("periodical", "get_periodicals")?.WireRoute;
+            string? route = dataCatalog.ById("periodical", "get_periodicals")?.WireRoute;
             var live = route is null ? null : LiveColleggtibleSource.Derive(services, route);
             if (live is not null) {
                 gameData.Add(new DataStatusGameDataRow("colleggtibles", live.Extract.Eggs.Count,
@@ -111,38 +104,32 @@ public sealed partial class AdminController(ICurrentUser currentUser, IServicePr
             }
         }
 
-        List<DataStatusConfigPlatform> platforms = [];
-        bool configEnabled = false;
-        if (services.GetService(typeof(GameConfigStore)) is GameConfigStore store) {
-            configEnabled = store.Enabled;
-            platforms = [
-                .. store.List().Select(c => new DataStatusConfigPlatform(c.Platform, c.SavedAt, c.Bytes))
-            ];
-        }
+        bool configEnabled = configStore.Enabled;
+        List<DataStatusConfigPlatform> platforms = [
+            .. configStore.List().Select(c => new DataStatusConfigPlatform(c.Platform, c.SavedAt, c.Bytes))
+        ];
 
         var fixtures = new List<DataStatusFixtureRow>();
-        if (services.GetService(typeof(IConfiguration)) is IConfiguration cfg) {
-            string eiDir = Path.Combine(ContentRoot.Resolve(cfg["ContentRoot"]), "Endpoints", "default", "ei");
-            if (Directory.Exists(eiDir)) {
-                foreach (string path in Directory.EnumerateFiles(eiDir, "*.json")
-                             .OrderBy(p => p, StringComparer.Ordinal)) {
-                    var info = new FileInfo(path);
-                    string status;
-                    try {
-                        string trimmed = System.IO.File.ReadAllText(path).Trim();
-                        status = trimmed.Length == 0 || trimmed == "{}" ? "empty" : "ok";
-                    } catch {
-                        status = "unreadable";
-                    }
-
-                    fixtures.Add(new DataStatusFixtureRow(Path.GetFileNameWithoutExtension(info.Name), info.Length,
-                        new DateTimeOffset(info.LastWriteTimeUtc, TimeSpan.Zero), status));
+        string eiDir = Path.Combine(ContentRoot.Resolve(cfg["ContentRoot"]), "Endpoints", "default", "ei");
+        if (Directory.Exists(eiDir)) {
+            foreach (string path in Directory.EnumerateFiles(eiDir, "*.json")
+                         .OrderBy(p => p, StringComparer.Ordinal)) {
+                var info = new FileInfo(path);
+                string status;
+                try {
+                    string trimmed = System.IO.File.ReadAllText(path).Trim();
+                    status = trimmed.Length == 0 || trimmed == "{}" ? "empty" : "ok";
+                } catch {
+                    status = "unreadable";
                 }
+
+                fixtures.Add(new DataStatusFixtureRow(Path.GetFileNameWithoutExtension(info.Name), info.Length,
+                    new DateTimeOffset(info.LastWriteTimeUtc, TimeSpan.Zero), status));
             }
         }
 
-        List<GameDataDocInfo> documents = [.. gdStore?.List() ?? []];
-        List<string> missing = [.. gdStore?.MissingIds() ?? GameDataProvider.DocumentIds];
+        List<GameDataDocInfo> documents = [.. gameDataStore.List()];
+        List<string> missing = [.. gameDataStore.MissingIds()];
         return Ok(new DataStatusResponse(gameData, documents, missing, new DataStatusConfig(configEnabled, platforms),
             fixtures));
     }
@@ -151,22 +138,19 @@ public sealed partial class AdminController(ICurrentUser currentUser, IServicePr
     [EnableRateLimiting("read")]
     [RequiresDb]
     public IActionResult GameDataDocuments() {
-        var store = services.GetRequiredService<GameDataStore>();
-        var rows = store.List().ToDictionary(d => d.Id, StringComparer.Ordinal);
+        var rows = gameDataStore.List().ToDictionary(d => d.Id, StringComparer.Ordinal);
         List<GameDataDocRow> documents = [.. GameDataProvider.ImportableIds.Select(id => GameDataDocRow.From(id, rows))];
-        return Ok(new GameDataStatusResponse(documents, [.. store.MissingIds()]));
+        return Ok(new GameDataStatusResponse(documents, [.. gameDataStore.MissingIds()]));
     }
 
     [HttpPost("gamedata/rebuild")]
     [RequiresDb]
-    public async Task<IActionResult> RebuildGameDataDocuments([FromQuery] bool force = true,
-        CancellationToken ct = default) {
-        var rebuilder = services.GetRequiredService<GameDataRebuilder>();
+    public async Task<IActionResult> RebuildGameDataDocuments([FromServices] GameDataRebuilder rebuilder,
+        [FromQuery] bool force = true, CancellationToken ct = default) {
         (var results, string? binaryNote) = await rebuilder.RebuildAsync(force, ct);
-        var store = services.GetRequiredService<GameDataStore>();
         List<GameDataRebuildDocResult> rows =
             [.. results.Select(r => new GameDataRebuildDocResult(r.Id, r.Status, r.Count, r.Bytes, r.Note))];
-        return Ok(new GameDataRebuildResponse(rows, binaryNote, [.. store.MissingIds()]));
+        return Ok(new GameDataRebuildResponse(rows, binaryNote, [.. gameDataStore.MissingIds()]));
     }
 
     [HttpPost("protos/realign")]
@@ -179,7 +163,7 @@ public sealed partial class AdminController(ICurrentUser currentUser, IServicePr
     [RequestSizeLimit(2_000_000)]
     [RequiresDb]
     public async Task<IActionResult> ImportGameDataDocument(string id, [FromServices] EggIncognitoDbContext db,
-        CancellationToken ct) {
+        [FromServices] TimeProvider time, CancellationToken ct) {
         if (!GameDataProvider.ImportableIds.Contains(id)) return Fail(404, "unknown document id");
 
         string json;
@@ -192,7 +176,7 @@ public sealed partial class AdminController(ICurrentUser currentUser, IServicePr
             return Fail(400, ex.Message);
         }
 
-        var now = DateTimeOffset.UtcNow;
+        var now = time.GetUtcNow();
         var row = await db.GameDataDocuments.FirstOrDefaultAsync(d => d.Id == id, ct);
         if (row is null) {
             db.GameDataDocuments.Add(new GameDataDocument { Id = id, Json = json, UpdatedAt = now });
@@ -221,7 +205,7 @@ public sealed partial class AdminController(ICurrentUser currentUser, IServicePr
     [RequestSizeLimit(1_000_000)]
     [RequiresDb]
     public async Task<IActionResult> ImportIcon(string name, [FromServices] EggIncognitoDbContext db,
-        CancellationToken ct) {
+        [FromServices] TimeProvider time, [FromServices] BlobBytes? blobs, CancellationToken ct) {
         if (!IconNameRegex().IsMatch(name)) return Fail(400, "invalid icon name");
 
         byte[] data;
@@ -242,8 +226,8 @@ public sealed partial class AdminController(ICurrentUser currentUser, IServicePr
         bool png = data is [0x89, 0x50, 0x4E, 0x47, ..];
         if (!png) return Fail(400, "not a png");
 
-        await new DeviceAssetStore(db, Blobs).PutAsync(DeviceAssetKinds.AnyPlatform, DeviceAssetKinds.Icon, name, data,
-            "image/png", null, ct);
+        await new DeviceAssetStore(db, time, blobs ?? BlobBytes.Inline).PutAsync(DeviceAssetKinds.AnyPlatform,
+            DeviceAssetKinds.Icon, name, data, "image/png", null, ct);
         return Ok(new { name, bytes = data.Length });
     }
 
@@ -262,12 +246,10 @@ public sealed partial class AdminController(ICurrentUser currentUser, IServicePr
 
     [HttpDelete("sessions/{key}")]
     public async Task<IActionResult> KillSession(string key) {
-        if (services.GetService(typeof(CaptureSessionManager)) is not CaptureSessionManager mgr)
-            return Fail(503, "capture not configured");
-        var session = mgr.Get(key);
+        var session = sessions.Get(key);
         if (session is null) return Fail(404, "session not found");
         await session.StopAsync();
-        if (key != CaptureSessionManager.LocalKey) mgr.Remove(key);
+        if (key != CaptureSessionManager.LocalKey) sessions.Remove(key);
         return Ok(new { killed = key });
     }
 

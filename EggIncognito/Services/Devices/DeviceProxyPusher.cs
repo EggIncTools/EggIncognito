@@ -9,7 +9,8 @@ public sealed class DeviceProxyPusher(
     IDevicePlatforms platforms,
     IDeviceFleet fleet,
     DeviceTransportConfig transport,
-    ILogger<DeviceProxyPusher> logger) {
+    ILogger<DeviceProxyPusher> logger,
+    TimeProvider time) {
     private bool _warnedBridge;
 
     public string? HostIp => HostAddress.Resolve(config.HostIp);
@@ -73,9 +74,9 @@ public sealed class DeviceProxyPusher(
         var before = manager.Rinfo.Latest(d.Id);
         await RestartAppAsync(d, ct);
 
-        var deadline = DateTimeOffset.UtcNow + timeout;
+        var deadline = time.GetUtcNow() + timeout;
         DeviceRinfo? result = null;
-        while (DateTimeOffset.UtcNow < deadline) {
+        while (time.GetUtcNow() < deadline) {
             try {
                 await Task.Delay(TimeSpan.FromSeconds(2), ct);
             } catch (OperationCanceledException) {

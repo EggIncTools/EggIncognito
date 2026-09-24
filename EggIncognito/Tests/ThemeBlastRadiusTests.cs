@@ -1,19 +1,19 @@
 using System.Reflection;
-using EggIdentity.Contract;
 using EggIncognito.Controllers;
 using EggIncognito.Services;
 using EggIncognito.Services.Theme;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Routing;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace EggIncognito.Tests;
 
 public class ThemeBlastRadiusTests {
     [Fact]
     public async Task Resolver_ReturnsNullWithoutADatabase() {
-        var resolver = BuildResolver(new AuthenticatedUser());
+        var resolver = BuildResolver(new FakeUser(discordId: null, userId: Guid.NewGuid()));
         Assert.Null(await resolver.ResolveAsync());
     }
 
@@ -57,10 +57,11 @@ public class ThemeBlastRadiusTests {
     }
 
     private static ThemeResolver BuildResolver(ICurrentUser user) {
-        var services = new ServiceCollection().BuildServiceProvider();
         var cache = new MemoryCache(new MemoryCacheOptions());
         var config = new ConfigurationBuilder().Build();
-        return new ThemeResolver(user, services, cache, ThemeTestSupport.Serializer(), config);
+        var identitySync = new ThemeIdentitySync(new AuthState(false), new HttpContextAccessor(),
+            NullLogger<ThemeIdentitySync>.Instance);
+        return new ThemeResolver(user, identitySync, cache, ThemeTestSupport.Serializer(), config);
     }
 
     private static int CountOccurrences(string haystack, string needle) {
@@ -82,17 +83,5 @@ public class ThemeBlastRadiusTests {
         }
 
         throw new InvalidOperationException("repo root not found");
-    }
-
-    private sealed class AuthenticatedUser : ICurrentUser {
-        public bool IsAuthenticated => true;
-        public Guid? UserId { get; } = Guid.NewGuid();
-        public string? DiscordId => null;
-        public string? Username => "tester";
-        public string? Avatar => null;
-        public string? AvatarUrl => null;
-        public UserRole Role => UserRole.Viewer;
-        public bool IsSupporter => false;
-        public bool IsAtLeast(UserRole need) => need == UserRole.Viewer;
     }
 }

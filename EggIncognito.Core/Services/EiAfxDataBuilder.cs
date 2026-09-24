@@ -1,3 +1,4 @@
+using System.Collections.Frozen;
 using System.Text;
 using Ei;
 
@@ -34,17 +35,17 @@ public sealed record EiAfxTier(
     IReadOnlyList<int> PossibleAfxRarities);
 
 public static class EiAfxDataBuilder {
-    private static readonly IReadOnlyDictionary<string, ProvenanceSource> DefaultProvenance =
+    private static readonly FrozenDictionary<string, ProvenanceSource> DefaultProvenance =
         new Dictionary<string, ProvenanceSource>(StringComparer.Ordinal) {
             ["families"] = new("fixture", "ei_afx/config", "captured"),
             ["icons"] = new("config", "ei/get_config")
-        };
+        }.ToFrozenDictionary();
 
-    private static readonly HashSet<string> IngredientNames = [
+    private static readonly FrozenSet<string> IngredientNames = new[] {
         "EXTRATERRESTRIAL_ALUMINUM", "ANCIENT_TUNGSTEN", "SPACE_ROCKS", "ALIEN_WOOD",
         "GOLD_METEORITE", "TAU_CETI_GEODE", "CENTAURIAN_STEEL", "ERIDANI_FEATHER",
         "DRONE_PARTS", "CELESTIAL_BRONZE", "LALANDE_HIDE", "SOLAR_TITANIUM"
-    ];
+    }.ToFrozenSet();
 
     public static EiAfxData Build(
         ArtifactsConfigurationResponse cfg,
@@ -90,7 +91,7 @@ public static class EiAfxDataBuilder {
         int levelInt = (int)level;
         int tierNumber = levelInt + 1;
 
-        var rarities = rows.Select(r => (int)r.Spec.Rarity).Distinct().OrderBy(r => r).ToList();
+        var rarities = rows.Select(r => (int)r.Spec.Rarity).Distinct().Order().ToList();
         var byRarity = rows.ToDictionary(r => (int)r.Spec.Rarity, r => r);
         var baseRow = byRarity.TryGetValue(0, out var common) ? common : rows[0];
         var prices = rarities.Select(r => byRarity[r].CraftingPrice).ToList();

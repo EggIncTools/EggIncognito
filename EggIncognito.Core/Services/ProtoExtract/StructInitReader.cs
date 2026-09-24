@@ -1,3 +1,4 @@
+using System.Collections.Frozen;
 using System.Globalization;
 using System.Text;
 using static EggIncognito.Core.Services.ProtoExtract.Arm64Operands;
@@ -5,13 +6,13 @@ using static EggIncognito.Core.Services.ProtoExtract.Arm64Operands;
 namespace EggIncognito.Core.Services.ProtoExtract;
 
 public static class StructInitReader {
-    private static readonly HashSet<string> TrackedProducers =
-        [with(StringComparer.Ordinal), "adrp", "add", "mov", "ldr", "ldur", "ldp", "movz", "movk", "movn", "orr"];
+    private static readonly FrozenSet<string> TrackedProducers =
+        new[] { "adrp", "add", "mov", "ldr", "ldur", "ldp", "movz", "movk", "movn", "orr" }
+            .ToFrozenSet(StringComparer.Ordinal);
 
-    private static readonly HashSet<string> NonWritingMnemonics = [
-        with(StringComparer.Ordinal), "cmp", "cmn", "tst", "fcmp", "str", "stur", "strb", "sturb", "strh", "sturh",
-        "stp"
-    ];
+    private static readonly FrozenSet<string> NonWritingMnemonics =
+        new[] { "cmp", "cmn", "tst", "fcmp", "str", "stur", "strb", "sturb", "strh", "sturh", "stp" }
+            .ToFrozenSet(StringComparer.Ordinal);
 
     public static Result Read(byte[] bin, string initSymbol, int maxInstructions = 100_000)
         => ReadWith(bin, BinaryImage.Load(bin)?.Symbols ?? [], initSymbol, maxInstructions);

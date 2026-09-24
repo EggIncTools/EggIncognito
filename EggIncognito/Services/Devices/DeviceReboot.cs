@@ -9,15 +9,15 @@ public static class DeviceReboot {
     private const int RootRetries = 6;
 
     public static async Task<RootAccess?> RebootAsync(
-        IDeviceConnection conn, IProcessRunner runner, string serial, TimeSpan bootTimeout, Action<string> add,
-        CancellationToken ct) {
-        add($"rebooting, waiting up to {bootTimeout.TotalSeconds:F0}s for boot");
+        IDeviceConnection conn, IProcessRunner runner, TimeProvider time, string serial, TimeSpan bootTimeout,
+        Func<string, Task> add, CancellationToken ct) {
+        await add($"rebooting, waiting up to {bootTimeout.TotalSeconds:F0}s for boot");
         await Adb(runner, ["-s", serial, "reboot"], ct);
 
-        var started = DateTimeOffset.UtcNow;
+        var started = time.GetUtcNow();
         var deadline = started + bootTimeout;
         var nextProgress = started + BootProgressInterval;
-        while (DateTimeOffset.UtcNow < deadline) {
+        while (time.GetUtcNow() < deadline) {
             await Task.Delay(BootPollInterval, ct);
             await Adb(runner, ["connect", serial], ct);
             var boot = await Adb(runner, ["-s", serial, "shell", "getprop sys.boot_completed"], ct);
@@ -27,13 +27,13 @@ public static class DeviceReboot {
             }
 
             if (boot.Stdout.Trim() != "1") {
-                if (DateTimeOffset.UtcNow < nextProgress) continue;
-                nextProgress = DateTimeOffset.UtcNow + BootProgressInterval;
-                add($"still booting ({(DateTimeOffset.UtcNow - started).TotalSeconds:F0}s)");
+                if (time.GetUtcNow() < nextProgress) continue;
+                nextProgress = time.GetUtcNow() + BootProgressInterval;
+                await add($"still booting ({(time.GetUtcNow() - started).TotalSeconds:F0}s)");
                 continue;
             }
 
-            add($"boot completed in {(DateTimeOffset.UtcNow - started).TotalSeconds:F0}s");
+            await add($"boot completed in {(time.GetUtcNow() - started).TotalSeconds:F0}s");
             RootAccess root = RootAccess.None;
             for (var attempt = 0; attempt < RootRetries; attempt++) {
                 root = await DeviceRoot.EnsureAsync(conn, runner, serial, ct);
@@ -41,7 +41,7 @@ public static class DeviceReboot {
                 await Task.Delay(BootPollInterval, ct);
             }
 
-            add($"root after reboot: {root.Detail}");
+            await add($"root after reboot: {root.Detail}");
             return root;
         }
 

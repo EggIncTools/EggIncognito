@@ -4,7 +4,8 @@ namespace EggIncognito.Services.Devices.Cookbooks;
 
 public sealed class LaunchIslandStep(
     IDeviceConnectionFactory connections,
-    IConfiguration config) : CookbookStep {
+    IConfiguration config,
+    TimeProvider time) : CookbookStep {
     private static readonly TimeSpan KeyWait = TimeSpan.FromSeconds(30);
     private static readonly TimeSpan ForegroundWait = TimeSpan.FromSeconds(20);
     private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(2);
@@ -25,9 +26,9 @@ public sealed class LaunchIslandStep(
 
     public override async Task<CookbookStepResult> RunAsync(DeviceCookbookContext context, CancellationToken ct) {
         var lines = new List<string>();
-        void Add(string line) {
+        Task Add(string line) {
             lines.Add(line);
-            context.Progress(line);
+            return context.Progress(line);
         }
 
         var target = context.Target;
@@ -41,11 +42,11 @@ public sealed class LaunchIslandStep(
         string user = IslandScope.User(androidUserId);
         var switched = await IslandScope.SwitchAsync(conn, androidUserId, ct);
         if (!switched.Ok) return Failed(lines, switched.Note);
-        Add(switched.Note ?? $"switched to user {user}");
+        await Add(switched.Note ?? $"switched to user {user}");
 
         string? component = await ResolveLaunchAsync(conn, target.Package, user, ct);
         if (component is null) {
-            Add($"{target.Package} is not in user {user}; sharing the device install in");
+            await Add($"{target.Package} is not in user {user}; sharing the device install in");
             var share = await conn.ShellAsync($"pm install-existing --user {user} {target.Package}", ct);
             if (share.ExitCode != 0 || share.Stdout.Contains("failed", StringComparison.OrdinalIgnoreCase))
                 return Failed(lines, $"pm install-existing --user {user} failed: {DeviceParsing.TrimNote(share.Stdout + share.Stderr)}; run install-app-island");
@@ -56,7 +57,7 @@ public sealed class LaunchIslandStep(
             return Failed(lines, $"no launch activity for {target.Package} in user {user}");
 
         await conn.ShellAsync("logcat -c 2>/dev/null", ct);
-        Add($"starting {component} in user {user}");
+        await Add($"starting {component} in user {user}");
         var start = await conn.ShellAsync($"am start --user {user} -n {component}", ct);
         if (start.ExitCode != 0 || start.Stdout.Contains("Error", StringComparison.Ordinal))
             return Failed(lines, $"am start --user {user} failed: {DeviceParsing.TrimNote(start.Stdout + start.Stderr)}");
@@ -76,11 +77,11 @@ public sealed class LaunchIslandStep(
         return resolve.ExitCode == 0 && component.Contains('/', StringComparison.Ordinal) ? component : null;
     }
 
-    private async Task<bool> WaitAntiTamperAsync(IDeviceConnection conn, Action<string> add, CancellationToken ct) {
-        var deadline = DateTimeOffset.UtcNow + KeyWait;
-        while (DateTimeOffset.UtcNow < deadline) {
+    private async Task<bool> WaitAntiTamperAsync(IDeviceConnection conn, Func<string, Task> add, CancellationToken ct) {
+        var deadline = time.GetUtcNow() + KeyWait;
+        while (time.GetUtcNow() < deadline) {
             if (await HasAntiTamperAsync(conn, ct)) {
-                add("play released the anti-tamper key");
+                await add("play released the anti-tamper key");
                 return true;
             }
 
@@ -96,18 +97,18 @@ public sealed class LaunchIslandStep(
     }
 
     private async Task<string?> HandlePlayNagAsync(
-        IDeviceConnection conn, string user, string component, Action<string> add,
+        IDeviceConnection conn, string user, string component, Func<string, Task> add,
         CancellationToken ct) {
         string mode = config["Devices:Islands:PlayNag"] is { Length: > 0 } m ? m.Trim() : PlayNagFreeze;
         if (!string.Equals(mode, PlayNagFreeze, StringComparison.OrdinalIgnoreCase)) {
-            add($"PlayNag mode '{mode}': leaving the Play account nag to the operator");
+            await add($"PlayNag mode '{mode}': leaving the Play account nag to the operator");
             return null;
         }
 
         var front = await DeviceForeground.ReadAsync(conn, ct);
         if (!front.Is(DeviceForeground.PlayStorePackage)) return null;
 
-        add("freezing Play to clear the account nag, then re-launching the app");
+        await add("freezing Play to clear the account nag, then re-launching the app");
         await conn.ShellAsync($"am force-stop --user {user} {DeviceForeground.PlayStorePackage}", ct);
         var relaunch = await conn.ShellAsync($"am start --user {user} -n {component}", ct);
         if (relaunch.ExitCode != 0 || relaunch.Stdout.Contains("Error", StringComparison.Ordinal))
@@ -118,7 +119,7 @@ public sealed class LaunchIslandStep(
 
     private async Task<CookbookStepResult> VerdictAsync(
         IDeviceConnection conn, DeviceTarget target, string user, string component, bool keyed,
-        List<string> lines, Action<string> add, CancellationToken ct) {
+        List<string> lines, Func<string, Task> add, CancellationToken ct) {
         var front = await DeviceForeground.WaitAsync(
             conn, target.Package, DeviceForeground.PlayStorePackage, ForegroundWait, ct);
         if (front.Is(DeviceForeground.PlayStorePackage))
@@ -132,7 +133,7 @@ public sealed class LaunchIslandStep(
         if (await CrashedAsync(conn, target.Package, ct))
             return Failed(lines, $"{target.Package} crashed after launch in user {user}");
 
-        add($"foreground: {front.Component ?? front.Package}");
+        await add($"foreground: {front.Component ?? front.Package}");
         if (!front.Is(target.Package))
             return Failed(lines, $"{component} is running in user {user} but never took the foreground; front is {front.Package ?? "unknown"}");
 

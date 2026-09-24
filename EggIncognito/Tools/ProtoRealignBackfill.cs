@@ -54,7 +54,7 @@ public static class ProtoRealignBackfill {
                 continue;
             }
 
-            var names = ProtoTextIndex.Names(norm.Text!);
+            var names = ProtoTextIndex.Names(norm.Text);
             string newMessageIndex = JsonSerializer.Serialize(names);
             if (norm.Sha == version.ProtoSha && norm.Text == pp.ProtoText && MessageIndexMatches(pp.MessageIndex, names)) {
                 scanned++;
@@ -63,11 +63,11 @@ public static class ProtoRealignBackfill {
                 continue;
             }
 
-            if (!string.IsNullOrEmpty(oldSha) && oldSha != norm.Sha) shaMap[oldSha] = norm.Sha!;
+            if (!string.IsNullOrEmpty(oldSha) && oldSha != norm.Sha) shaMap[oldSha] = norm.Sha;
 
             if (!dryRun) {
-                version.ProtoSha = norm.Sha!;
-                pp.ProtoText = norm.Text!;
+                version.ProtoSha = norm.Sha;
+                pp.ProtoText = norm.Text;
                 pp.MessageIndex = newMessageIndex;
                 try {
                     await db.SaveChangesAsync(ct);
@@ -105,7 +105,7 @@ public static class ProtoRealignBackfill {
                 continue;
             }
 
-            var names = ProtoTextIndex.Names(norm.Text!);
+            var names = ProtoTextIndex.Names(norm.Text);
             string newMessageIndex = JsonSerializer.Serialize(names);
             if (norm.Sha == row.ProtoSha && norm.Text == row.ProtoText && MessageIndexMatches(row.MessageIndex, names)) {
                 scanned++;
@@ -114,11 +114,11 @@ public static class ProtoRealignBackfill {
                 continue;
             }
 
-            if (!string.IsNullOrEmpty(oldSha) && oldSha != norm.Sha) shaMap[oldSha] = norm.Sha!;
+            if (!string.IsNullOrEmpty(oldSha) && oldSha != norm.Sha) shaMap[oldSha] = norm.Sha;
 
             if (!dryRun) {
-                row.ProtoSha = norm.Sha!;
-                row.ProtoText = norm.Text!;
+                row.ProtoSha = norm.Sha;
+                row.ProtoText = norm.Text;
                 row.MessageIndex = newMessageIndex;
                 try {
                     await db.SaveChangesAsync(ct);

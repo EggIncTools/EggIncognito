@@ -1,3 +1,4 @@
+using EggIncognito.Core;
 using Microsoft.EntityFrameworkCore;
 
 namespace EggIncognito.Data.Services;
@@ -12,19 +13,15 @@ public static class PgChannels {
 public static class PgNotify {
     public const int MaxPayload = 2000;
 
-    public static string Clamp(string? payload) {
-        if (string.IsNullOrEmpty(payload)) return "";
-        return payload.Length <= MaxPayload ? payload : payload[..MaxPayload];
-    }
-
     public static string ApkPayload(ApkStoreNotice notice) =>
-        Clamp($"{notice.Kind}:{notice.Platform}:{notice.Package}:{notice.AppVersion}@{notice.Build}");
+        Strings.Truncate($"{notice.Kind}:{notice.Platform}:{notice.Package}:{notice.AppVersion}@{notice.Build}",
+            MaxPayload);
 
     public static async Task SendAsync(EggIncognitoDbContext db, string channel, string payload,
         CancellationToken ct) {
         try {
             await db.Database.ExecuteSqlRawAsync("SELECT pg_notify({0}, {1})",
-                [channel, Clamp(payload)], ct);
+                [channel, Strings.Truncate(payload, MaxPayload)], ct);
         } catch (Exception) {
         }
     }

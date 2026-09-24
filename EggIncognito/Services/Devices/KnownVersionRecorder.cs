@@ -6,7 +6,8 @@ namespace EggIncognito.Services.Devices;
 
 public sealed class KnownVersionRecorder(
     IServiceScopeFactory scopeFactory,
-    ILogger<KnownVersionRecorder> logger) {
+    ILogger<KnownVersionRecorder> logger,
+    TimeProvider time) {
     public async Task RecordAsync(string platform, string appVersion, string source, CancellationToken ct) {
         try {
             using var scope = scopeFactory.CreateScope();
@@ -19,7 +20,7 @@ public sealed class KnownVersionRecorder(
                 Platform = platform,
                 AppVersion = appVersion,
                 Source = source,
-                FirstSeen = DateTimeOffset.UtcNow
+                FirstSeen = time.GetUtcNow()
             });
             await db.SaveChangesAsync(ct);
         } catch (Exception ex) {

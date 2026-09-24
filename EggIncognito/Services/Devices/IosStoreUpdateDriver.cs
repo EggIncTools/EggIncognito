@@ -39,7 +39,7 @@ public sealed class IosStoreUpdateDriver(
     }
 
     public async Task<StoreProbeOutcome> ProbeStoreAsync(
-        DeviceTarget target, string installed, Action<string>? progress, CancellationToken ct) {
+        DeviceTarget target, string installed, Func<string, Task>? progress, CancellationToken ct) {
         string? latest = await catalog.LatestVersionAsync(opts.AppId, opts.LookupCountry, ct);
         if (latest is null)
             return new StoreProbeOutcome(StoreAvailability.Unknown, null, "App Store lookup unavailable");
@@ -51,11 +51,11 @@ public sealed class IosStoreUpdateDriver(
     }
 
     public async Task<TriggerOutcome> TriggerInstallAsync(
-        DeviceTarget target, Action<string>? progress, CancellationToken ct) {
+        DeviceTarget target, Func<string, Task>? progress, CancellationToken ct) {
         if (!SshConfigured)
             return new TriggerOutcome(false, "ios ssh not configured (DeviceUpdate:Ios:SshHost/SshKeyPath)");
 
-        progress?.Invoke("checking eggupdate listener…");
+        await progress.ReportAsync("checking eggupdate listener…");
         if (await ListenerMissingNoteAsync(ct) is { } missing) return new TriggerOutcome(false, missing);
 
         await SshAsync($"uiopen itms-apps://itunes.apple.com/app/id{opts.AppId} || true", ct);

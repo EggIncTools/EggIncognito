@@ -43,6 +43,6 @@ public sealed class BehaviorService : IBehaviorService {
             "corrupt",
             "Malformed base64 body (tests parse error handling)",
             200,
-            () => Encoding.UTF8.GetBytes("!!corrupt!!"))
+            () => "!!corrupt!!"u8.ToArray())
     ];
 }

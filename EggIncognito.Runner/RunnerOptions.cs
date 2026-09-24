@@ -1,3 +1,5 @@
+using System.Globalization;
+
 namespace EggIncognito.Runner;
 
 public sealed record RunnerOptions(
@@ -17,13 +19,17 @@ public sealed record RunnerOptions(
             Env("PACKAGE", "com.auxbrain.egginc"),
             apkStash,
             Env("DEVICES_DIR"),
-            int.TryParse(Env("POLL_INTERVAL"), out int interval) ? interval : 300,
+            int.TryParse(Env("POLL_INTERVAL"), NumberStyles.Integer, CultureInfo.InvariantCulture, out int interval)
+                ? interval
+                : 300,
             Env("SYNC_EVENT_URL"),
             Env("SYNC_EVENT_SECRET"),
             Env("RUNNER_TRIGGER_SECRET"),
             Env("RUNNER_TRIGGER_URLS", "http://127.0.0.1:5055"),
             Env("IOS_BINARY_PATH", Path.Combine(apkStash, "ios-binary")),
-            int.TryParse(Env("PREV_CLIENT_VERSION"), out int previous) ? previous : null);
+            int.TryParse(Env("PREV_CLIENT_VERSION"), NumberStyles.Integer, CultureInfo.InvariantCulture, out int previous)
+                ? previous
+                : null);
     }
 
     public static string Env(string key, string fallback = "") =>

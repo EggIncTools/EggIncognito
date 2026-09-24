@@ -3,7 +3,7 @@ using System.Text;
 
 namespace EggIncognito.Services.Security;
 
-public sealed class SecurityHeadersMiddleware(RequestDelegate next, IConfiguration configuration) {
+public sealed class SecurityHeadersMiddleware(RequestDelegate next, IConfiguration configuration, AuthState auth) {
     public const string NonceKey = "egi.csp.nonce";
     private const string ConfigKey = "Security:Csp";
     private const string ModeOff = "off";
@@ -25,7 +25,7 @@ public sealed class SecurityHeadersMiddleware(RequestDelegate next, IConfigurati
         context.Response.OnStarting(() => {
             context.Response.Headers.Remove(enforce ? ReportOnlyHeader : EnforceHeader);
             context.Response.Headers[enforce ? EnforceHeader : ReportOnlyHeader] =
-                BuildPolicy(context, context.Items[NonceKey] as string ?? nonce);
+                BuildPolicy(context.Items[NonceKey] as string ?? nonce);
             string? contentType = context.Response.ContentType;
             if (contentType is not null && contentType.StartsWith("text/html", StringComparison.OrdinalIgnoreCase))
                 context.Response.Headers.CacheControl = "no-store";
@@ -34,10 +34,10 @@ public sealed class SecurityHeadersMiddleware(RequestDelegate next, IConfigurati
         await next(context);
     }
 
-    private static string BuildPolicy(HttpContext context, string nonce) {
-        string identityHost = "";
-        if (context.RequestServices.GetService(typeof(AuthState)) is AuthState { IdentityHostUrl.Length: > 0 } auth)
-            identityHost = " " + auth.IdentityHostUrl!.TrimEnd('/');
+    private string BuildPolicy(string nonce) {
+        string identityHost = auth is { IdentityHostUrl.Length: > 0 }
+            ? " " + auth.IdentityHostUrl.TrimEnd('/')
+            : "";
 
         var sb = new StringBuilder();
         sb.Append("default-src 'self'; ");

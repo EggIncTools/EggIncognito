@@ -3,7 +3,6 @@ using EggIncognito.Controllers;
 using EggIncognito.Core.Services.Devices;
 using EggIncognito.Data.Models;
 using EggIncognito.Data.Services;
-using EggIncognito.Services;
 using EggIncognito.Services.Devices;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -14,7 +13,7 @@ namespace EggIncognito.Tests.Devices;
 
 public class DevicesControllerTests {
     private static DevicesController Make(UserRole role, IServiceProvider sp) =>
-        new(new FakeUser(role), sp,
+        new(new FakeUser(role: role, discordId: "123"), sp,
             sp.GetService<IServiceScopeFactory>() ?? new ServiceCollection().BuildServiceProvider()
                 .GetRequiredService<IServiceScopeFactory>(),
             NullLogger<DevicesController>.Instance) {
@@ -125,17 +124,5 @@ public class DevicesControllerTests {
         public Task RemoveAsync(string id, CancellationToken ct = default) => Task.CompletedTask;
 
         public Task SetCapturePortAsync(string id, int port, CancellationToken ct = default) => Task.CompletedTask;
-    }
-
-    private sealed class FakeUser(UserRole role) : ICurrentUser {
-        public bool IsAuthenticated => true;
-        public Guid? UserId => null;
-        public string? DiscordId => "123";
-        public string? Username => "tester";
-        public string? Avatar => null;
-        public string? AvatarUrl => null;
-        public UserRole Role => role;
-        public bool IsSupporter => false;
-        public bool IsAtLeast(UserRole need) => UserRoles.IsAtLeast(Role, need);
     }
 }

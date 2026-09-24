@@ -3,6 +3,7 @@ using EggIdentity.Client;
 using EggIdentity.Metrics;
 using EggIncognito.Services;
 using EggIncognito.Services.Auth;
+using EggIncognito.Services.Events;
 using EggIncognito.Services.Metrics;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
@@ -32,5 +33,6 @@ public static class IdentityServices {
         });
         builder.Services.AddSingleton<ITrafficSource, TrafficSource>();
         builder.Services.TryAddScoped<ICurrentUser, CurrentUser>();
+        builder.Services.AddScoped<ViewerClock>();
     }
 }

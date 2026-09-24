@@ -8,7 +8,8 @@ namespace EggIncognito.Services.Predictions;
 
 public readonly record struct EventRow(string Type, bool Ultra, double Start, double End);
 
-public sealed class EventPredictor(EggIncognitoDbContext db, EventDataVersion version, EventPredictionCache cache) {
+public sealed class EventPredictor(EggIncognitoDbContext db, EventDataVersion version, EventPredictionCache cache,
+    TimeProvider time) {
     internal const double Day = 86400d;
     internal const int WindowDays = 182;
     internal const int MinHorizonDays = 1;
@@ -34,7 +35,7 @@ public sealed class EventPredictor(EggIncognitoDbContext db, EventDataVersion ve
     public async Task<EventPredictionSet> GetAsync(
         int horizonDays = 28, double? asOf = null, CancellationToken ct = default) {
         var rows = await RowsAsync(ct);
-        double at = asOf ?? UnixSeconds.FromTime(DateTimeOffset.UtcNow);
+        double at = asOf ?? UnixSeconds.FromTime(time.GetUtcNow());
         return new EventPredictionSet(at, Predict(rows, at, horizonDays));
     }
 
@@ -180,7 +181,7 @@ public sealed class EventPredictor(EggIncognitoDbContext db, EventDataVersion ve
         && !lane.Grid.Any(byDate.ContainsKey);
 
     private static UltraLane? UltraLaneFor(List<Occurrence> ultra, List<DateOnly> days) {
-        var dates = ultra.Select(o => o.Date).Distinct().OrderBy(d => d).ToList();
+        var dates = ultra.Select(o => o.Date).Distinct().Order().ToList();
         if (dates.Count < MinLaneSamples) return null;
 
         var intervals = new List<double>(dates.Count - 1);

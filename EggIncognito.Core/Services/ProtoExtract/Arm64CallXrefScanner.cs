@@ -75,7 +75,7 @@ public static class Arm64CallXrefScanner {
             if (start < 0 || start >= end) continue;
 
             for (int off = start; off + 8 <= end; off += 8) {
-                if (BitConverter.ToUInt64(bin, off) != funcVa) continue;
+                if (BitConverter.ToUInt64(bin.AsSpan(off)) != funcVa) continue;
                 ulong slotVa = s.VmAddr + (ulong)(off - s.FileOff);
                 total++;
                 if (sites.Count < max) sites.Add(new CallSite(slotVa, "data-ptr", "", 0, s.Name));
@@ -110,7 +110,7 @@ public static class Arm64CallXrefScanner {
     private static bool TryReadPtr(IBinaryImage img, byte[] bin, ulong slotVa, out ulong ptr) {
         ptr = 0;
         if (img.TryVaToFileOffset(slotVa, out int fo, out _) && fo >= 0 && fo + 8 <= bin.Length) {
-            ptr = BitConverter.ToUInt64(bin, fo);
+            ptr = BitConverter.ToUInt64(bin.AsSpan(fo));
             if (ptr != 0) return true;
         }
 

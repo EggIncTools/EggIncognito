@@ -155,6 +155,7 @@
                 "import", InteropAsset.Url(Env, "./interop/scroll.js"));
             await _scroll.InvokeVoidAsync("centerOnFraction", _scroller, NowFraction);
         } catch (Exception ex) when (ex is JSDisconnectedException or JSException) {
+            Logger.LogDebug(ex, "the calendar could not scroll to now");
         }
     }
 

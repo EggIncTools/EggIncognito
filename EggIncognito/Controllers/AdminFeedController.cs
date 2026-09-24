@@ -1,6 +1,7 @@
 using System.Text;
 using EggIdentity.Client;
 using EggIncognito.Data.Services;
+using EggIncognito.Services.Admin;
 using EggIncognito.Services.Auth;
 using EggIncognito.Services.Feed;
 using Microsoft.AspNetCore.Mvc;
@@ -12,8 +13,7 @@ namespace EggIncognito.Controllers;
 [Route("api/admin/feed")]
 [ApiAccess(ApiAccessLevel.Admin)]
 [EnableRateLimiting("write")]
-public sealed class AdminFeedController(IServiceProvider services, IHttpClientFactory httpFactory)
-    : ApiControllerBase {
+public sealed class AdminFeedController(IHttpClientFactory httpFactory) : ApiControllerBase {
     [HttpGet("subscriptions")]
     [EnableRateLimiting("read")]
     [RequiresDb]
@@ -29,18 +29,18 @@ public sealed class AdminFeedController(IServiceProvider services, IHttpClientFa
     [HttpPost("subscriptions/{id:int}/deactivate")]
     [RequiresDb]
     public async Task<IActionResult> Deactivate(int id, [FromServices] FeedSubscriptionStore store,
-        CancellationToken ct) {
+        [FromServices] AdminNotifier notifier, CancellationToken ct) {
         if (!await store.AdminDeactivateAsync(id, ct)) return Fail(404, "subscription not found");
-        FeedSubscriptionNotify.Changed(services);
+        FeedSubscriptionNotify.Changed(notifier);
         return Ok(new { deactivated = true });
     }
 
     [HttpDelete("subscriptions/{id:int}")]
     [RequiresDb]
     public async Task<IActionResult> Delete(int id, [FromServices] FeedSubscriptionStore store,
-        CancellationToken ct) {
+        [FromServices] AdminNotifier notifier, CancellationToken ct) {
         if (!await store.AdminDeleteAsync(id, ct)) return Fail(404, "subscription not found");
-        FeedSubscriptionNotify.Changed(services);
+        FeedSubscriptionNotify.Changed(notifier);
         return Ok(new { deleted = true });
     }
 

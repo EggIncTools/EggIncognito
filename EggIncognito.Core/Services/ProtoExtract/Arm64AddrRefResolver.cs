@@ -58,7 +58,7 @@ public static class Arm64AddrRefResolver {
                 ulong slotVa = ldrPage + (ulong)ops[^1].Memory!.Displacement;
                 long slotFile = (long)slotVa - (long)slide;
                 if (slotFile >= 0 && slotFile + 8 <= bin.Length) {
-                    ulong literal = BitConverter.ToUInt64(bin, (int)slotFile);
+                    ulong literal = BitConverter.ToUInt64(bin.AsSpan((int)slotFile));
 
                     if (literal == targetVa || (literal & 0x0000_FFFF_FFFF_FFFFUL) ==
                         (targetVa & 0x0000_FFFF_FFFF_FFFFUL)) {

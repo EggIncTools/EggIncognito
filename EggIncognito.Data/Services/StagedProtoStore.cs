@@ -7,7 +7,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace EggIncognito.Data.Services;
 
-public sealed class StagedProtoStore(EggIncognitoDbContext db, ProtoRegistryStore registry) {
+public sealed class StagedProtoStore(EggIncognitoDbContext db, TimeProvider time, ProtoRegistryStore registry) {
     public const string KindVersion = "version";
     public const string KindCorrection = "correction";
 
@@ -83,7 +83,7 @@ public sealed class StagedProtoStore(EggIncognitoDbContext db, ProtoRegistryStor
                 return StageOutcome.AlreadyPending;
 
             var correction = NewStaged(platform, appVersion, build, clientVersion, package, protoSha, protoText,
-                messageIndex, source, submittedBy, DateTimeOffset.UtcNow);
+                messageIndex, source, submittedBy, time.GetUtcNow());
             correction.Kind = KindCorrection;
             correction.TargetId = target.Id;
             correction.OriginRepo = originRepo;
@@ -98,7 +98,7 @@ public sealed class StagedProtoStore(EggIncognitoDbContext db, ProtoRegistryStor
 
         if (await ShaPendingAsync(protoSha, ct)) return StageOutcome.AlreadyPending;
 
-        var now = DateTimeOffset.UtcNow;
+        var now = time.GetUtcNow();
         int incomingScore = FieldScore(appVersion, build, clientVersion);
 
         var rejected = await db.StagedProtos
@@ -176,7 +176,7 @@ public sealed class StagedProtoStore(EggIncognitoDbContext db, ProtoRegistryStor
             return CorrectionResult.AlreadyPending;
 
         var row = NewStaged(platform, appVersion, build, clientVersion, package, protoSha, protoText,
-            messageIndex, "overwrite", submittedBy, DateTimeOffset.UtcNow);
+            messageIndex, "overwrite", submittedBy, time.GetUtcNow());
         row.Kind = KindCorrection;
         row.TargetId = target.Id;
         db.StagedProtos.Add(row);
@@ -296,7 +296,7 @@ public sealed class StagedProtoStore(EggIncognitoDbContext db, ProtoRegistryStor
 
             row.Status = "approved";
             row.ReviewedBy = reviewedBy;
-            row.ReviewedAt = DateTimeOffset.UtcNow;
+            row.ReviewedAt = time.GetUtcNow();
             await db.SaveChangesAsync(ct);
             await NotifyStagedAsync($"approve:{row.Id}", ct);
             return ApproveResult.Merged;
@@ -309,20 +309,20 @@ public sealed class StagedProtoStore(EggIncognitoDbContext db, ProtoRegistryStor
 
         if (existing is null) {
             await registry.UpsertAsync(plat, appV, bld, cv, row.Package ?? "",
-                row.ProtoSha, $"staged:{row.Id}", DateTimeOffset.UtcNow,
+                row.ProtoSha, $"staged:{row.Id}", time.GetUtcNow(),
                 $"staged-approve:{reviewedBy}", row.ProtoText, row.Source,
                 true, ct);
         } else {
             bool hasProto = await db.ProtoProtos.AnyAsync(x => x.ProtoVersionId == existing.Id, ct);
             await registry.BackfillUpsertAsync(plat, appV, bld, cv, row.Package ?? "",
                 row.ProtoText, row.ProtoSha, row.MessageIndex,
-                !hasProto, $"staged:{row.Id}", DateTimeOffset.UtcNow,
+                !hasProto, $"staged:{row.Id}", time.GetUtcNow(),
                 row.Source, ct);
         }
 
         row.Status = "approved";
         row.ReviewedBy = reviewedBy;
-        row.ReviewedAt = DateTimeOffset.UtcNow;
+        row.ReviewedAt = time.GetUtcNow();
         await db.SaveChangesAsync(ct);
         await NotifyStagedAsync($"approve:{row.Id}", ct);
         return result;
@@ -334,7 +334,7 @@ public sealed class StagedProtoStore(EggIncognitoDbContext db, ProtoRegistryStor
         row.Status = "rejected";
         row.ReviewNote = note;
         row.ReviewedBy = reviewedBy;
-        row.ReviewedAt = DateTimeOffset.UtcNow;
+        row.ReviewedAt = time.GetUtcNow();
         await db.SaveChangesAsync(ct);
         await NotifyStagedAsync($"reject:{row.Id}", ct);
         return true;
@@ -358,7 +358,7 @@ public sealed class StagedProtoStore(EggIncognitoDbContext db, ProtoRegistryStor
 
     public async Task<int> BulkRejectAsync(IReadOnlyList<int> ids, string? note, string reviewedBy,
         CancellationToken ct) {
-        var now = DateTimeOffset.UtcNow;
+        var now = time.GetUtcNow();
         var rows = await db.StagedProtos.Where(s => ids.Contains(s.Id) && s.Status == "pending").ToListAsync(ct);
         foreach (var row in rows) {
             row.Status = "rejected";

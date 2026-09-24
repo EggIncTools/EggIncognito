@@ -92,7 +92,7 @@ public sealed partial class DevicesController(
         return Ok(devices.Values.Select(d => DeviceStatusProjector.Project(d, inputs)));
     }
 
-    private async Task<HashSet<string>> MergeVirtualDevicesAsync(Dictionary<string, DateTimeOffset> up,
+    private static async Task<HashSet<string>> MergeVirtualDevicesAsync(Dictionary<string, DateTimeOffset> up,
         VirtualDeviceLifecycle? lifecycle, ProvisionedInstanceStore? instances, CancellationToken ct) {
         var live = new HashSet<string>(StringComparer.Ordinal);
         if (lifecycle is { Delegated: true }) {
@@ -288,35 +288,36 @@ public sealed partial class DevicesController(
         string who) {
         using var scope = scopeFactory.CreateScope();
         var sp = scope.ServiceProvider;
-        var logger = sp.GetRequiredService<ILogger<DevicesController>>();
-        var jobs = sp.GetRequiredService<DeviceJobStore>();
+        var scopedLogger = sp.GetRequiredService<ILogger<DevicesController>>();
+        var jobs = sp.GetService<DeviceJobStore>();
         try {
             var store = sp.GetService<IDeviceStatusStore>();
             var db = sp.GetService<EggIncognitoDbContext>();
             var platforms = sp.GetRequiredService<IDevicePlatforms>();
             if (store is null || db is null) {
-                await jobs.FailAsync(job, "no database configured", CancellationToken.None);
+                if (jobs is not null) await jobs.FailAsync(job, "no database configured", CancellationToken.None);
                 return;
             }
 
             var result = await checker.CheckAndUpdateAsync(target, CancellationToken.None,
-                msg => jobs.ProgressAsync(job, msg).GetAwaiter().GetResult());
+                jobs is null ? null : msg => jobs.ProgressAsync(job, msg));
 
             var device = await store.GetAsync(job.DeviceId);
-            if (device is not null) {
+            if (device is not null && jobs is not null) {
                 var time = sp.GetRequiredService<TimeProvider>();
                 await DeviceProbeRunner.ProbeOneAsync(
-                    device, $"check-update:{who}", platforms, jobs, db, logger, time, CancellationToken.None);
+                    device, $"check-update:{who}", platforms, jobs, db, scopedLogger, time, CancellationToken.None);
             }
 
-            await jobs.FinishAsync(job, result.Action, result.Note,
-                new DeviceJobFacts(
-                    AppVersion: result.InstalledAfter,
-                    Detail: new { fromVersion = result.InstalledBefore, toVersion = result.InstalledAfter }),
-                CancellationToken.None);
+            if (jobs is not null)
+                await jobs.FinishAsync(job, result.Action, result.Note,
+                    new DeviceJobFacts(
+                        AppVersion: result.InstalledAfter,
+                        Detail: new { fromVersion = result.InstalledBefore, toVersion = result.InstalledAfter }),
+                    CancellationToken.None);
         } catch (Exception ex) {
-            logger.LogError(ex, "device check-update: {Id} background run failed", job.DeviceId);
-            await jobs.FailAsync(job, ex.Message, CancellationToken.None);
+            scopedLogger.LogError(ex, "device check-update: {Id} background run failed", job.DeviceId);
+            if (jobs is not null) await jobs.FailAsync(job, ex.Message, CancellationToken.None);
         }
     }
 
@@ -475,20 +476,22 @@ public sealed partial class DevicesController(
         return Ok(await probe.ProbeAsync(target, ct));
     }
 
-    private async Task<(IActionResult? Error, IDevicePlatform Platform, DeviceTarget Target)> ResolveUiAsync(
+    private sealed record UiResolution(IActionResult? Error, IDevicePlatform Platform, DeviceTarget Target);
+
+    private async Task<UiResolution> ResolveUiAsync(
         string id, IDeviceFleet? fleet, IDevicePlatforms? platforms, CancellationToken ct) {
         if (fleet is null)
-            return (Fail(503, "device config not available"), new NullDevicePlatform(),
+            return new UiResolution(Fail(503, "device config not available"), new NullDevicePlatform(),
                 new DeviceTarget("", "", "", ""));
 
         if (await FleetEntryAsync(fleet, id, ct) is not { } entry)
-            return (Fail(404, "unknown device"), new NullDevicePlatform(), new DeviceTarget("", "", "", ""));
+            return new UiResolution(Fail(404, "unknown device"), new NullDevicePlatform(), new DeviceTarget("", "", "", ""));
 
         var target = new DeviceTarget(entry.Id, entry.Platform, entry.Target, entry.Package);
         if (platforms is null)
-            return (Fail(503, "device platforms not available"), new NullDevicePlatform(), target);
+            return new UiResolution(Fail(503, "device platforms not available"), new NullDevicePlatform(), target);
 
-        return (null, platforms.For(target.Platform), target);
+        return new UiResolution(null, platforms.For(target.Platform), target);
     }
 
     private ObjectResult UiFailure(DeviceOutcome outcome, string? note) => outcome switch {
@@ -563,6 +566,7 @@ public sealed partial class DevicesController(
             return new EmptyResult();
         } catch (Exception ex) when (ex is OperationCanceledException or IOException
                                         or ObjectDisposedException) {
+            logger.LogDebug(ex, "ui frame stream closed");
             return new EmptyResult();
         } finally {
             DeviceStreamGate.Exit(target.Id);
@@ -668,6 +672,7 @@ public sealed partial class DevicesController(
             return Fail(502, note);
         } catch (Exception ex) when (ex is OperationCanceledException or IOException
                                         or ObjectDisposedException) {
+            logger.LogDebug(ex, "ui video stream closed");
             return new EmptyResult();
         } finally {
             DeviceStreamGate.Exit(target.Id);

@@ -50,13 +50,9 @@ internal sealed class TtlSnapshotCache<T>(
     }
 }
 
-public sealed class CachedDbRouteProvider : IDbRouteProvider {
-    private readonly TtlSnapshotCache<RouteInfo> _cache;
-
-    public CachedDbRouteProvider(IDbRouteProvider inner, TimeSpan ttl, TimeProvider? time = null,
-        ILogger? logger = null) {
-        _cache = new TtlSnapshotCache<RouteInfo>(inner.AllDbRoutes, r => r.Path, ttl, time, logger);
-    }
+public sealed class CachedDbRouteProvider(IDbRouteProvider inner, TimeSpan ttl, TimeProvider? time = null,
+    ILogger? logger = null) : IDbRouteProvider {
+    private readonly TtlSnapshotCache<RouteInfo> _cache = new(inner.AllDbRoutes, r => r.Path, ttl, time, logger);
 
     public RouteInfo? GetDbRoute(string path) => _cache.Snapshot().GetValueOrDefault(path);
 
@@ -65,13 +61,9 @@ public sealed class CachedDbRouteProvider : IDbRouteProvider {
     public void Invalidate() => _cache.Invalidate();
 }
 
-public sealed class CachedBinaryRouteProvider : IBinaryRouteProvider {
-    private readonly TtlSnapshotCache<BinaryRouteInfo> _cache;
-
-    public CachedBinaryRouteProvider(IBinaryRouteProvider inner, TimeSpan ttl, TimeProvider? time = null,
-        ILogger? logger = null) {
-        _cache = new TtlSnapshotCache<BinaryRouteInfo>(inner.AllBinaryRoutes, b => b.Path, ttl, time, logger);
-    }
+public sealed class CachedBinaryRouteProvider(IBinaryRouteProvider inner, TimeSpan ttl, TimeProvider? time = null,
+    ILogger? logger = null) : IBinaryRouteProvider {
+    private readonly TtlSnapshotCache<BinaryRouteInfo> _cache = new(inner.AllBinaryRoutes, b => b.Path, ttl, time, logger);
 
     public BinaryRouteInfo? GetBinaryRoute(string path) => _cache.Snapshot().GetValueOrDefault(path);
 

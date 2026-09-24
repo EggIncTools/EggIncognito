@@ -1,4 +1,6 @@
 @using EggIncognito.Models.Admin
+@using EggIncognito.Services.Events
+@inject IServiceProvider Services
 <div class="reg-wrap">
     <table class="data-table">
         <thead>
@@ -25,7 +27,7 @@
                     <td class="mono text-xs">@($"{k.Prefix}…")</td>
                     <td class="font-medium">@k.Name</td>
                 }
-                <td class="text-muted text-xs">@(k.LastUsedAt?.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss") ?? "never")</td>
+                <td class="text-muted text-xs">@(k.LastUsedAt is { } used ? ViewerClock.At(Services, used).ToString("yyyy-MM-dd HH:mm:ss") : "never")</td>
                 <td class="mono text-xs">@k.RequestCount</td>
                 <td>
                     <span class="@(k.Revoked ? "text-muted" : "text-ok")">@(k.Revoked ? "revoked" : "active")</span>

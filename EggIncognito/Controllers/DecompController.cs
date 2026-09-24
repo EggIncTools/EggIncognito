@@ -140,7 +140,7 @@ public sealed class DecompController(GameBinaryProvider binaries) : ApiControlle
                     return VaResult(tgtBytes, report, name + " (via referrer of " + lam.Name + ")",
                         referrers[0].FunctionVa,
                         textVm, textOff, "addr-referrer", referrers.Take(5)
-                            .Select(r => new { fnVa = "0x" + r.FunctionVa.ToString("x"), r.HitCount }).ToList());
+                            .Select(r => new { fnVa = "0x" + r.FunctionVa.ToString("x", CultureInfo.InvariantCulture), r.HitCount }).ToList());
             }
 
             return embedded.Count > 0
@@ -330,7 +330,7 @@ public sealed class DecompController(GameBinaryProvider binaries) : ApiControlle
             return Ok(new {
                 ok = pat.Ok,
                 name = fn.Name,
-                refFunctionVa = "0x" + fn.Start.ToString("x"),
+                refFunctionVa = "0x" + fn.Start.ToString("x", CultureInfo.InvariantCulture),
                 refFunctionLen = (int)(fn.End - fn.Start),
                 instructions = pat.Instructions,
                 maskedWords = pat.MaskedWords,
@@ -375,7 +375,7 @@ public sealed class DecompController(GameBinaryProvider binaries) : ApiControlle
                         function = scan.FunctionName,
                         diagnostics = scan.Diagnostics,
                         addresses = scan.Addresses.Select(a => new {
-                            va = "0x" + a.Va.ToString("x"),
+                            va = "0x" + a.Va.ToString("x", CultureInfo.InvariantCulture),
                             a.Segment,
                             a.Section,
                             a.Via
@@ -392,11 +392,11 @@ public sealed class DecompController(GameBinaryProvider binaries) : ApiControlle
                         mode = "list",
                         source,
                         function = lst.FunctionName,
-                        start = "0x" + lst.Start.ToString("x"),
-                        end = "0x" + lst.End.ToString("x"),
+                        start = "0x" + lst.Start.ToString("x", CultureInfo.InvariantCulture),
+                        end = "0x" + lst.End.ToString("x", CultureInfo.InvariantCulture),
                         diagnostics = lst.Diagnostics,
                         instructions = lst.Instructions.Select(i => new {
-                            va = "0x" + i.Va.ToString("x"),
+                            va = "0x" + i.Va.ToString("x", CultureInfo.InvariantCulture),
                             i.Mnemonic,
                             i.Operands
                         }).ToList()
@@ -570,9 +570,9 @@ public sealed class DecompController(GameBinaryProvider binaries) : ApiControlle
     private async Task<(bool Ok, byte[]? Bin, IReadOnlyList<MachoSymbols.Symbol>? Syms, string Source, string? Diag)>
         ResolveBinaryAsync(string? device, bool live, CancellationToken ct) {
         if (live) {
-            (bool hok, byte[]? hbytes, var hsyms, _, string? hdiag) = await binaries.GetExtractionBinaryAsync(ct);
-            if (hok && hbytes is not null) return (true, hbytes, hsyms, "harvested", hdiag);
-            return (false, null, null, "harvested", hdiag);
+            var h = await binaries.GetExtractionBinaryAsync(ct);
+            if (h.Ok && h.Bytes is not null) return (true, h.Bytes, h.Symbols, "harvested", h.Diagnostics);
+            return (false, null, null, "harvested", h.Diagnostics);
         }
 
         (bool ok, byte[]? bin, string? diag) = await binaries.GetBinaryAsync(device, ct);
@@ -595,7 +595,7 @@ public sealed class DecompController(GameBinaryProvider binaries) : ApiControlle
             return Ok(new {
                 ok = dump.Ok,
                 source,
-                va = "0x" + dump.Va.ToString("x"),
+                va = "0x" + dump.Va.ToString("x", CultureInfo.InvariantCulture),
                 segment = dump.Segment,
                 section = dump.Section,
                 elem,
@@ -628,13 +628,13 @@ public sealed class DecompController(GameBinaryProvider binaries) : ApiControlle
             recovered = report.Recovered,
             method,
             name,
-            va = "0x" + va.ToString("x"),
-            textVmAddr = "0x" + textVm.ToString("x"),
-            textFileOff = "0x" + textOff.ToString("x"),
-            rawTextOffset = "0x" + (va - textVm).ToString("x"),
-            functionStartVa = "0x" + hookVa.ToString("x"),
-            functionEndVa = snapped ? "0x" + endVa.ToString("x") : null,
-            hookOffset = "0x" + (hookVa - textVm).ToString("x"),
+            va = "0x" + va.ToString("x", CultureInfo.InvariantCulture),
+            textVmAddr = "0x" + textVm.ToString("x", CultureInfo.InvariantCulture),
+            textFileOff = "0x" + textOff.ToString("x", CultureInfo.InvariantCulture),
+            rawTextOffset = "0x" + (va - textVm).ToString("x", CultureInfo.InvariantCulture),
+            functionStartVa = "0x" + hookVa.ToString("x", CultureInfo.InvariantCulture),
+            functionEndVa = snapped ? "0x" + endVa.ToString("x", CultureInfo.InvariantCulture) : null,
+            hookOffset = "0x" + (hookVa - textVm).ToString("x", CultureInfo.InvariantCulture),
             wasMidFunction,
             detail
         });

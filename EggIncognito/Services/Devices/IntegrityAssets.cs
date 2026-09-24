@@ -39,7 +39,7 @@ public sealed class IntegrityAssets(
             modules.Add(new IntegrityModuleAsset(spec, id, row.Version, zip));
         }
 
-        var ib = modules.FirstOrDefault(m => m.ModuleId.Equals(IntegrityBoxModuleId, StringComparison.Ordinal));
+        var ib = modules.Find(m => m.ModuleId.Equals(IntegrityBoxModuleId, StringComparison.Ordinal));
         if (ib is null) return IntegrityBundle.Fail("the module chain has no Integrity-Box (module id playintegrityfix)");
         string? patchDate = IntegrityBoxModule.PatchDate(ib.Zip);
         if (patchDate is null) return IntegrityBundle.Fail("Integrity-Box zip carries no security patch date");
@@ -55,7 +55,7 @@ public sealed class IntegrityAssets(
 
         string? xml;
         string source;
-        if (config.IntegrityKeyboxPath is { Length: > 0 } path) {
+        if (config.IntegrityKeyboxPath is { Length: > 0 }) {
             var operatorKeybox = await KeyboxAsync(store, false, warnings, ct);
             if (operatorKeybox.Error is not null) return IntegrityBundle.Fail(operatorKeybox.Error);
             xml = operatorKeybox.Xml;
@@ -88,7 +88,7 @@ public sealed class IntegrityAssets(
             modules.Add(new IntegrityModuleAsset(spec, id, res.Version, res.Bytes));
         }
 
-        var ib = modules.FirstOrDefault(m => m.ModuleId.Equals(IntegrityBoxModuleId, StringComparison.Ordinal));
+        var ib = modules.Find(m => m.ModuleId.Equals(IntegrityBoxModuleId, StringComparison.Ordinal));
         if (ib is null) return IntegrityBundle.Fail("the module chain has no Integrity-Box (module id playintegrityfix)");
 
         string? patchDate = IntegrityBoxModule.PatchDate(ib.Zip);

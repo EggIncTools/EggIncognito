@@ -1,3 +1,4 @@
+using System.Collections.Frozen;
 using System.Globalization;
 using System.Text;
 using System.Text.Json;
@@ -31,8 +32,8 @@ public sealed class PeriodicalsController(
     ILogger<PeriodicalsController> logger) : ApiControllerBase {
     private static readonly JsonSerializerOptions ProvenanceJson = JsonPresets.CamelSkipNull;
 
-    private static readonly Dictionary<int, string> DimNames =
-        ColleggtibleCatalog.DimensionCodes.ToDictionary(kv => kv.Value, kv => kv.Key);
+    private static readonly FrozenDictionary<int, string> DimNames =
+        ColleggtibleCatalog.DimensionCodes.ToFrozenDictionary(kv => kv.Value, kv => kv.Key);
 
     private string Root => ContentRoot.Resolve(config["ContentRoot"]);
     private string DefaultsDir => Path.Combine(Root, "Endpoints", "default");
@@ -210,7 +211,7 @@ public sealed class PeriodicalsController(
 
     private static double[] ResolveStarts(List<ContractSeasonInfo> list) {
         double[] starts = [.. list.Select(s => s.HasStartTime && s.StartTime > 0 ? s.StartTime : 0)];
-        int[] known = [.. Enumerable.Range(0, starts.Length).Where(i => starts[i] > 0)];
+        int[] known = [.. starts.Index().Where(x => x.Item > 0).Select(x => x.Index)];
         if (known.Length == 0) return starts;
 
         double quarter = Quarter(starts);
@@ -224,7 +225,7 @@ public sealed class PeriodicalsController(
     }
 
     private static double Quarter(double[] starts) {
-        int[] known = [.. Enumerable.Range(0, starts.Length).Where(i => starts[i] > 0)];
+        int[] known = [.. starts.Index().Where(x => x.Item > 0).Select(x => x.Index)];
         double quarter = 7889400;
         if (known.Length >= 2) {
             double sum = 0;
@@ -361,7 +362,7 @@ public sealed class PeriodicalsController(
             : (null, null);
     }
 
-    private async Task<string?> ResolveEventIcon(string type, Dictionary<string, string?> cache,
+    private static async Task<string?> ResolveEventIcon(string type, Dictionary<string, string?> cache,
         GameAssetProvider? assets, CancellationToken ct) {
         if (string.IsNullOrEmpty(type)) return null;
         if (cache.TryGetValue(type, out string? cached)) return cached;

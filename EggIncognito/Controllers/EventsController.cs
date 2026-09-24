@@ -19,6 +19,7 @@ public sealed class EventsController : ApiControllerBase {
     [RequiresDb]
     public async Task<IActionResult> List(
         [FromServices] EggIncognitoDbContext db,
+        [FromServices] TimeProvider time,
         [FromQuery] string? types,
         [FromQuery] bool? ultra,
         [FromQuery] double? after,
@@ -46,7 +47,7 @@ public sealed class EventsController : ApiControllerBase {
         if (ultra is { } u) q = q.Where(e => e.Ultra == u);
         if (after is { } a2) q = q.Where(e => e.StartTime >= UnixSeconds.ToTime(a2));
         if (before is { } b2) q = q.Where(e => e.StartTime <= UnixSeconds.ToTime(b2));
-        double? instant = activeAt ?? (active ? UnixSeconds.FromTime(DateTimeOffset.UtcNow) : null);
+        double? instant = activeAt ?? (active ? UnixSeconds.FromTime(time.GetUtcNow()) : null);
         if (instant is { } inst) {
             var t = UnixSeconds.ToTime(inst);
             q = q.Where(e => e.StartTime <= t && e.EndTime >= t);

@@ -1,6 +1,8 @@
 @using System.Globalization
 @using System.Text.Json
 @using EggIncognito.Models.Notifications
+@using EggIncognito.Services.Events
+@inject IServiceProvider Services
 <div class="dsc-msg">
     @if (_content is { Length: > 0 }) {
         <div class="dsc-content">@_content</div>
@@ -78,7 +80,7 @@
         }
     }
 
-    static DiscordEmbed Read(JsonElement source) {
+    DiscordEmbed Read(JsonElement source) {
         var fields = new List<DiscordEmbedField>();
         if (source.TryGetProperty("fields", out var list) && list.ValueKind == JsonValueKind.Array) {
             foreach (var field in list.EnumerateArray()) {
@@ -120,10 +122,10 @@
             : null;
     }
 
-    static string? Stamp(string? raw) {
+    string? Stamp(string? raw) {
         if (raw is not { Length: > 0 }) return null;
         return DateTimeOffset.TryParse(raw, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var at)
-            ? at.UtcDateTime.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture)
+            ? ViewerClock.At(Services, at).ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture)
             : raw;
     }
 

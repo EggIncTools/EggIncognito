@@ -42,13 +42,13 @@ public sealed class AndroidStoreUpdateDriver(
     }
 
     public async Task<StoreProbeOutcome> ProbeStoreAsync(
-        DeviceTarget target, string installed, Action<string>? progress, CancellationToken ct) {
+        DeviceTarget target, string installed, Func<string, Task>? progress, CancellationToken ct) {
         string? latest = await catalog.LatestVersionAsync(target.Package, opts.LookupCountry, opts.LookupLocale, ct);
         bool storeAhead = false;
         if (latest is not null) {
             await knownVersions.RecordAsync(Platforms.Android, latest, "play-scrape", ct);
             storeAhead = DeviceParsing.CompareVersions(latest, installed) > 0;
-            progress?.Invoke(storeAhead
+            await progress.ReportAsync(storeAhead
                 ? $"Play lists {latest} (installed {installed}); opening the Play page…"
                 : $"Play lists {latest}; version name matches, asking the device…");
         }
@@ -57,7 +57,7 @@ public sealed class AndroidStoreUpdateDriver(
     }
 
     private async Task<StoreProbeOutcome> ProbeViaUiAsync(
-        DeviceTarget target, string? latest, bool storeAhead, Action<string>? progress, CancellationToken ct) {
+        DeviceTarget target, string? latest, bool storeAhead, Func<string, Task>? progress, CancellationToken ct) {
         string deepLink = opts.DriveTemplate.Replace("{package}", target.Package);
         var conn = connections.For(target)!;
         var open = await conn.ShellAsync(deepLink, ct);
@@ -65,7 +65,7 @@ public sealed class AndroidStoreUpdateDriver(
             return new StoreProbeOutcome(StoreAvailability.Unknown, latest,
                 $"open page: {DeviceParsing.TrimNote(open.Stderr + open.Stdout)}");
 
-        progress?.Invoke("Play page open; locating Update button…");
+        await progress.ReportAsync("Play page open; locating Update button…");
         for (int tries = 0; tries < 3; tries++) {
             int wait = tries == 0 ? opts.UiFirstWaitSeconds : opts.UiRetryWaitSeconds;
             try {
@@ -98,7 +98,7 @@ public sealed class AndroidStoreUpdateDriver(
     }
 
     public async Task<TriggerOutcome> TriggerInstallAsync(
-        DeviceTarget target, Action<string>? progress, CancellationToken ct) {
+        DeviceTarget target, Func<string, Task>? progress, CancellationToken ct) {
         var tree = await DumpAsync(target, ct);
         if (tree is null) return new TriggerOutcome(false, "could not dump Play UI");
 
@@ -106,7 +106,7 @@ public sealed class AndroidStoreUpdateDriver(
             return new TriggerOutcome(false, "no Update button on the Play page");
 
         int x = node.Bounds.CenterX, y = node.Bounds.CenterY;
-        progress?.Invoke("tapping Update…");
+        await progress.ReportAsync("tapping Update…");
         var tap = await _ui!.TapPointAsync(target, x, y, ct);
         if (!tap.Ok)
             return new TriggerOutcome(false, tap.Note);

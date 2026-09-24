@@ -47,8 +47,8 @@
     static string CarpetPlaceholder =>
         "https://raw.githubusercontent.com/carpetsage/egg/master/periodicals/data/contracts.json";
 
-    static string FormatStart(double startTimestamp) {
-        return UnixSeconds.ToTime(startTimestamp).ToLocalTime().ToString("yyyy-MM-dd");
+    string FormatStart(double startTimestamp) {
+        return ViewerClock.At(Services, UnixSeconds.ToTime(startTimestamp)).ToString("yyyy-MM-dd");
     }
 
     protected override IReadOnlyList<string> Topics => [AdminTopics.Contracts];

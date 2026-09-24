@@ -1,3 +1,5 @@
+using System.Diagnostics.CodeAnalysis;
+
 namespace EggIncognito.GameData;
 
 public enum EffectFieldType {
@@ -16,5 +18,6 @@ public sealed record EffectSchema(IReadOnlyList<EffectField> Fields) {
     public IReadOnlyList<string> RequiredNames { get; } =
         Fields.Where(f => f.Required).Select(f => f.Name).ToArray();
 
-    public bool TryGetField(string name, out EffectField field) => _byName.TryGetValue(name, out field!);
+    public bool TryGetField(string name, [MaybeNullWhen(false)] out EffectField field) =>
+        _byName.TryGetValue(name, out field);
 }

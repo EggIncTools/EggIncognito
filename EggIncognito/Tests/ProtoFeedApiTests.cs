@@ -16,7 +16,7 @@ public class ProtoFeedApiTests {
     private static FeedSubscriptionStore UnconnectedStore() {
         var opts = new DbContextOptionsBuilder<EggIncognitoDbContext>()
             .UseNpgsql("Host=127.0.0.1;Port=1;Database=x;Username=x;Password=x;Timeout=1").Options;
-        return new FeedSubscriptionStore(new EggIncognitoDbContext(opts));
+        return new FeedSubscriptionStore(new EggIncognitoDbContext(opts), TimeProvider.System);
     }
 
     private static ProtoFeedController Controller(ICurrentUser user,
@@ -29,7 +29,7 @@ public class ProtoFeedApiTests {
     public async Task Create_Anon_Returns401() {
         var c = Controller(new StubUser(null), _ => new HttpResponseMessage(HttpStatusCode.OK));
         var r = await c.Create(new FeedCreateReq(
-            "https://discord.com/api/webhooks/1/abc", null, null, null, null), UnconnectedStore(),
+            "https://discord.com/api/webhooks/1/abc", null, null, null, null), UnconnectedStore(), null,
             CancellationToken.None);
         Assert.Equal(401, Status(r));
     }
@@ -38,14 +38,15 @@ public class ProtoFeedApiTests {
     public async Task Create_BadUrl_Returns400() {
         var c = Controller(new StubUser("42"), _ => new HttpResponseMessage(HttpStatusCode.OK));
         var r = await c.Create(new FeedCreateReq(
-            "https://evil.example.com/hook", null, null, null, null), UnconnectedStore(), CancellationToken.None);
+            "https://evil.example.com/hook", null, null, null, null), UnconnectedStore(), null,
+            CancellationToken.None);
         Assert.Equal(400, Status(r));
     }
 
     [Fact]
     public async Task Create_EmptyUrl_Returns400() {
         var c = Controller(new StubUser("42"), _ => new HttpResponseMessage(HttpStatusCode.OK));
-        var r = await c.Create(new FeedCreateReq("", null, null, null, null), UnconnectedStore(),
+        var r = await c.Create(new FeedCreateReq("", null, null, null, null), UnconnectedStore(), null,
             CancellationToken.None);
         Assert.Equal(400, Status(r));
     }
@@ -60,14 +61,14 @@ public class ProtoFeedApiTests {
     [Fact]
     public async Task Delete_Anon_Returns401() {
         var c = Controller(new StubUser(null), _ => new HttpResponseMessage(HttpStatusCode.OK));
-        var r = await c.Delete(1, UnconnectedStore(), CancellationToken.None);
+        var r = await c.Delete(1, UnconnectedStore(), null, CancellationToken.None);
         Assert.Equal(401, Status(r));
     }
 
     [Fact]
     public async Task Update_Anon_Returns401() {
         var c = Controller(new StubUser(null), _ => new HttpResponseMessage(HttpStatusCode.OK));
-        var r = await c.Update(1, new FeedUpdateReq(["android"], "new_version", true, null), UnconnectedStore(),
+        var r = await c.Update(1, new FeedUpdateReq(["android"], "new_version", true, null), UnconnectedStore(), null,
             CancellationToken.None);
         Assert.Equal(401, Status(r));
     }

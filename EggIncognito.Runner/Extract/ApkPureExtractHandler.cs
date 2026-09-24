@@ -1,3 +1,4 @@
+using System.Globalization;
 using EggIdentity.Contract;
 using EggIncognito.Core.Services.Devices;
 using EggIncognito.Core.Services.ProtoExtract;
@@ -17,7 +18,7 @@ public sealed class ApkPureExtractHandler(
     public async Task<ExtractResult> HandleAsync(string? authHeader, string? appVersion) {
         if (!BearerAuth.Matches(authHeader, secret))
             return new ExtractResult(401, null, null, "unauthorized", null);
-        if (!_lock.Wait(0))
+        if (!await _lock.WaitAsync(0))
             return new ExtractResult(409, null, null, "an extract is already running", null);
         try {
             if (string.IsNullOrWhiteSpace(appVersion))
@@ -40,7 +41,8 @@ public sealed class ApkPureExtractHandler(
             } finally {
                 DeviceShell.TryDelete(tmp);
             }
-            if (cv is not null && int.TryParse(cv, out var cvNum)) cvState.Save(cvNum);
+            if (cv is not null && int.TryParse(cv, NumberStyles.Integer, CultureInfo.InvariantCulture, out var cvNum))
+                cvState.Save(cvNum);
 
             var build = ApkVersionCode.Read(armSplit);
             var protoBytes = extraction.ProtoText;
@@ -55,7 +57,7 @@ public sealed class ApkPureExtractHandler(
                 ProtoSha = protoSha,
                 Platform = "android",
                 ProtoTextB64 = Convert.ToBase64String(protoBytes),
-                DetectedAt = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ"),
+                DetectedAt = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ", CultureInfo.InvariantCulture),
             });
             return new ExtractResult(200, build, protoSha, null, "extracted and posted");
         } catch (Exception ex) {

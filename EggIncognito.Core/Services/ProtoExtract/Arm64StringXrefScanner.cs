@@ -54,7 +54,7 @@ public static class Arm64StringXrefScanner {
     private static bool TryReadPtr(IBinaryImage img, byte[] bin, ulong slotVa, out ulong ptr) {
         ptr = 0;
         if (img.TryVaToFileOffset(slotVa, out int fo, out _) && fo >= 0 && fo + 8 <= bin.Length) {
-            ptr = BitConverter.ToUInt64(bin, fo);
+            ptr = BitConverter.ToUInt64(bin.AsSpan(fo));
             if (ptr != 0) return true;
         }
 

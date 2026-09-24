@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using Microsoft.Extensions.Logging;
 
 namespace EggIncognito.Core.Services.Assets;
@@ -23,7 +24,10 @@ public interface IGameAssetOrigin {
     Task<GameAsset?> FetchAsync(GameAssetKey key, CancellationToken ct);
 }
 
-public sealed record GameAssetResult(bool Ok, GameAsset? Asset, string Source, string? Diagnostics);
+public sealed record GameAssetResult(bool Ok, GameAsset? Asset, string Source, string? Diagnostics) {
+    [MemberNotNullWhen(true, nameof(Asset))]
+    public bool Ok { get; init; } = Ok;
+}
 
 public sealed class GameAssetProvider(
     IEnumerable<IGameAssetTier> tiers,

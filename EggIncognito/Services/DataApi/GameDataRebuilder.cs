@@ -16,7 +16,12 @@ public sealed record RebuildDocResult(string Id, string Status, int? Count, int?
 public sealed class GameDataRebuilder(
     IServiceProvider services,
     GameBinaryProvider binaries,
-    ILogger<GameDataRebuilder> logger) {
+    IConfiguration configuration,
+    GameDataStore gameDataStore,
+    ILogger<GameDataRebuilder> logger,
+    TimeProvider time,
+    FeedDispatcher? feedDispatcher = null,
+    EggIncognitoDbContext? dbContext = null) {
     private string _inputSha = "";
     private readonly List<string> _changedDocs = [];
     private string _binaryVersion = "";
@@ -155,9 +160,9 @@ public sealed class GameDataRebuilder(
 
     private async Task DispatchRebuiltAsync(CancellationToken ct) {
         if (_changedDocs.Count == 0) return;
-        if (services.GetService(typeof(FeedDispatcher)) is not FeedDispatcher dispatcher) return;
+        if (feedDispatcher is not { } dispatcher) return;
 
-        string? configured = (services.GetService(typeof(IConfiguration)) as IConfiguration)?["Feed:PageBaseUrl"];
+        string? configured = configuration["Feed:PageBaseUrl"];
         string root = string.IsNullOrEmpty(configured)
             ? FeedDispatcher.DefaultPageBaseUrl
             : configured.TrimEnd('/');
@@ -200,9 +205,7 @@ public sealed class GameDataRebuilder(
     private string GameVersionForAfx() =>
         _binaryVersion.Length > 0
             ? _binaryVersion
-            : services.GetService(typeof(GameDataStore)) is GameDataStore store
-                ? store.Provider?.Colleggtibles.GameVersion ?? ""
-                : "";
+            : gameDataStore.Provider?.Colleggtibles.GameVersion ?? "";
 
     private static void AppendUnbuildable(List<RebuildDocResult> results) {
         foreach (string id in Unbuildable) {
@@ -212,8 +215,7 @@ public sealed class GameDataRebuilder(
     }
 
     private EggIncognitoDbContext Db() =>
-        services.GetService(typeof(EggIncognitoDbContext)) as EggIncognitoDbContext
-        ?? throw new InvalidOperationException("no database configured");
+        dbContext ?? throw new InvalidOperationException("no database configured");
 
     private async Task<string> BinaryInputShaAsync(CancellationToken ct) {
         try {
@@ -318,7 +320,7 @@ public sealed class GameDataRebuilder(
 
     private async Task UpsertAsync(string id, string json, CancellationToken ct) {
         var db = Db();
-        var now = DateTimeOffset.UtcNow;
+        var now = time.GetUtcNow();
         string? inputSha = BinaryDocIds.Contains(id, StringComparer.Ordinal) ? _inputSha : null;
         var row = await db.GameDataDocuments.FirstOrDefaultAsync(d => d.Id == id, ct);
         if (row is null || !string.Equals(row.Json, json, StringComparison.Ordinal)) {

@@ -213,7 +213,7 @@ public sealed class VirtualDevicesController(
 
         var byDevice = running
             .GroupBy(j => j.DeviceId, StringComparer.Ordinal)
-            .ToDictionary(g => g.Key, g => g.OrderByDescending(j => j.Id).First(), StringComparer.Ordinal);
+            .ToDictionary(g => g.Key, g => g.MaxBy(j => j.Id)!, StringComparer.Ordinal);
 
         return [.. rows.Select(r => r.DeviceId is { } id && byDevice.TryGetValue(id, out var job)
             ? r with { Activity = ActivityLine(job) }

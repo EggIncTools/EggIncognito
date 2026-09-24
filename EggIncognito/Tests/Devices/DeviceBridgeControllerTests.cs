@@ -6,7 +6,6 @@ using EggIncognito.Controllers;
 using EggIncognito.Core.Services.Devices;
 using EggIncognito.Data.Models;
 using EggIncognito.Models.Devices;
-using EggIncognito.Services;
 using EggIncognito.Services.Devices;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -18,6 +17,7 @@ namespace EggIncognito.Tests.Devices;
 
 public class DeviceBridgeControllerTests {
     private const string Secret = "s3cret";
+    private static readonly JsonSerializerOptions JsonWeb = new(JsonSerializerDefaults.Web);
 
     private static DeviceBridgeController Make(DeviceTransportConfig cfg, IServiceProvider sp,
         IProcessRunner? runner = null, string? presentedSecret = null,
@@ -28,7 +28,7 @@ public class DeviceBridgeControllerTests {
         if (presentedSecret is not null) context.Request.Headers[BridgeRoutes.SecretHeader] = presentedSecret;
 
         return new DeviceBridgeController(cfg, NullLogger<DeviceBridgeController>.Instance,
-            runner ?? new RecordingRunner(), sp) {
+            runner ?? new RecordingRunner()) {
             ControllerContext = new ControllerContext { HttpContext = context }
         };
     }
@@ -45,7 +45,7 @@ public class DeviceBridgeControllerTests {
         var cfg = new DeviceTransportConfig { BridgeEnabled = false, ApiKey = Secret };
         var http = GateHttp(presentedSecret: Secret);
 
-        Assert.IsType<NotFoundResult>(BridgeGate.Check(http, cfg, new FakeUser(UserRole.Viewer), null));
+        Assert.IsType<NotFoundResult>(BridgeGate.Check(http, cfg, new FakeUser(role: UserRole.Viewer, discordId: "123"), null));
     }
 
     [Fact]
@@ -57,7 +57,7 @@ public class DeviceBridgeControllerTests {
         };
         var http = GateHttp(presentedSecret: Secret);
 
-        Assert.IsType<NotFoundResult>(BridgeGate.Check(http, cfg, new FakeUser(UserRole.Viewer), null));
+        Assert.IsType<NotFoundResult>(BridgeGate.Check(http, cfg, new FakeUser(role: UserRole.Viewer, discordId: "123"), null));
     }
 
     [Fact]
@@ -69,7 +69,7 @@ public class DeviceBridgeControllerTests {
         };
         var http = GateHttp(presentedSecret: Secret, callerIp: "192.168.1.9");
 
-        var r = Assert.IsType<ObjectResult>(BridgeGate.Check(http, cfg, new FakeUser(UserRole.Viewer), null));
+        var r = Assert.IsType<ObjectResult>(BridgeGate.Check(http, cfg, new FakeUser(role: UserRole.Viewer, discordId: "123"), null));
         Assert.Equal(403, r.StatusCode);
     }
 
@@ -78,7 +78,7 @@ public class DeviceBridgeControllerTests {
         var cfg = new DeviceTransportConfig { BridgeEnabled = true, ApiKey = Secret };
         var http = GateHttp(presentedSecret: "nope");
 
-        var r = Assert.IsType<ObjectResult>(BridgeGate.Check(http, cfg, new FakeUser(UserRole.Viewer), null));
+        var r = Assert.IsType<ObjectResult>(BridgeGate.Check(http, cfg, new FakeUser(role: UserRole.Viewer, discordId: "123"), null));
         Assert.Equal(403, r.StatusCode);
     }
 
@@ -87,7 +87,7 @@ public class DeviceBridgeControllerTests {
         var cfg = new DeviceTransportConfig { BridgeEnabled = true, ApiKey = Secret };
         var http = GateHttp(presentedSecret: Secret);
 
-        Assert.Null(BridgeGate.Check(http, cfg, new FakeUser(UserRole.Viewer), null));
+        Assert.Null(BridgeGate.Check(http, cfg, new FakeUser(role: UserRole.Viewer, discordId: "123"), null));
     }
 
     [Fact]
@@ -188,7 +188,7 @@ public class DeviceBridgeControllerTests {
         var c = Make(new DeviceTransportConfig { BridgeEnabled = true, ApiKey = Secret }, sp,
             presentedSecret: Secret);
 
-        var ok = Assert.IsType<OkObjectResult>(await c.Instances(null, CancellationToken.None));
+        var ok = Assert.IsType<OkObjectResult>(await c.Instances(null, null, CancellationToken.None));
 
         var list = Assert.IsType<BridgeInstanceList>(ok.Value);
         Assert.False(list.Ok);
@@ -237,7 +237,7 @@ public class DeviceBridgeControllerTests {
         var manager = new DeviceCaptureManager(capture, new StubFleet(), Path.GetTempPath(), "ca.cer", null,
             Path.GetTempPath(), NullLogger<DeviceCaptureManager>.Instance);
         return new DeviceProxyPusher(manager, capture, new DevicePlatforms([]), new StubFleet(),
-            new DeviceTransportConfig(), NullLogger<DeviceProxyPusher>.Instance);
+            new DeviceTransportConfig(), NullLogger<DeviceProxyPusher>.Instance, TimeProvider.System);
     }
 
     private static DefaultHttpContext FormRequest(BridgeExecSpec spec, (string Name, byte[] Bytes)[] inputs) {
@@ -245,8 +245,7 @@ public class DeviceBridgeControllerTests {
         http.Request.ContentType = "multipart/form-data; boundary=egitest";
 
         var fields = new Dictionary<string, StringValues> {
-            [BridgeExecParts.Spec] =
-                JsonSerializer.Serialize(spec, new JsonSerializerOptions(JsonSerializerDefaults.Web))
+            [BridgeExecParts.Spec] = JsonSerializer.Serialize(spec, JsonWeb)
         };
 
         var files = new FormFileCollection();
@@ -281,17 +280,5 @@ public class DeviceBridgeControllerTests {
             Args = args;
             return Task.FromResult(fn?.Invoke(exe, args) ?? new ProcessResult(0, "", ""));
         }
-    }
-
-    private sealed class FakeUser(UserRole role) : ICurrentUser {
-        public bool IsAuthenticated => true;
-        public Guid? UserId => null;
-        public string? DiscordId => "123";
-        public string? Username => "tester";
-        public string? Avatar => null;
-        public string? AvatarUrl => null;
-        public UserRole Role => role;
-        public bool IsSupporter => false;
-        public bool IsAtLeast(UserRole need) => UserRoles.IsAtLeast(Role, need);
     }
 }

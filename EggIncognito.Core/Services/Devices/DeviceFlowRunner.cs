@@ -4,124 +4,124 @@ namespace EggIncognito.Core.Services.Devices;
 
 public sealed class DeviceFlowRunner(IDeviceUiDriver ui) {
     public async Task<DeviceFlowResult> RunAsync(
-        DeviceTarget target, IReadOnlyList<DeviceFlowStep> steps, Action<string>? progress, CancellationToken ct) {
+        DeviceTarget target, IReadOnlyList<DeviceFlowStep> steps, Func<string, Task>? progress, CancellationToken ct) {
         var log = new List<string>();
         var fields = new Dictionary<string, string>();
         var shots = new List<DeviceFlowShot>();
 
-        void Emit(string line) {
+        async Task EmitAsync(string line) {
             log.Add(line);
-            progress?.Invoke(line);
+            await progress.ReportAsync(line);
         }
 
         foreach (var step in steps) {
             ct.ThrowIfCancellationRequested();
             string descriptor = Describe(step);
 
-            DeviceFlowResult? Fail(string? note) {
+            async Task<DeviceFlowResult?> FailAsync(string? note) {
                 if (step.Required) return new DeviceFlowResult(false, log, fields, shots, descriptor);
-                Emit($"(optional) {descriptor} failed: {note}");
+                await EmitAsync($"(optional) {descriptor} failed: {note}");
                 return null;
             }
 
             switch (step.Kind) {
                 case DeviceFlowStepKind.LaunchApp: {
-                        Emit(descriptor);
+                        await EmitAsync(descriptor);
                         var r = await ui.LaunchAppAsync(target, step.AppRef!, ct);
                         if (!r.Ok) {
-                            var fail = Fail(r.Note);
+                            var fail = await FailAsync(r.Note);
                             if (fail is not null) return fail;
                         }
 
                         break;
                     }
                 case DeviceFlowStepKind.Tap: {
-                        Emit(descriptor);
+                        await EmitAsync(descriptor);
                         var r = await ui.TapAsync(target, step.Selector!, ct);
                         if (!r.Ok) {
-                            var fail = Fail(r.Note);
+                            var fail = await FailAsync(r.Note);
                             if (fail is not null) return fail;
                         }
 
                         break;
                     }
                 case DeviceFlowStepKind.TapPoint: {
-                        Emit(descriptor);
+                        await EmitAsync(descriptor);
                         var r = await ui.TapPointAsync(target, step.X ?? 0, step.Y ?? 0, ct);
                         if (!r.Ok) {
-                            var fail = Fail(r.Note);
+                            var fail = await FailAsync(r.Note);
                             if (fail is not null) return fail;
                         }
 
                         break;
                     }
                 case DeviceFlowStepKind.Swipe: {
-                        Emit(descriptor);
+                        await EmitAsync(descriptor);
                         var r = await ui.SwipeAsync(target, step.X ?? 0, step.Y ?? 0, step.X2 ?? 0, step.Y2 ?? 0,
                             step.DurationMs, ct);
                         if (!r.Ok) {
-                            var fail = Fail(r.Note);
+                            var fail = await FailAsync(r.Note);
                             if (fail is not null) return fail;
                         }
 
                         break;
                     }
                 case DeviceFlowStepKind.Key: {
-                        Emit(descriptor);
+                        await EmitAsync(descriptor);
                         var r = await ui.KeyAsync(target, step.Key!.Value, ct);
                         if (!r.Ok) {
-                            var fail = Fail(r.Note);
+                            var fail = await FailAsync(r.Note);
                             if (fail is not null) return fail;
                         }
 
                         break;
                     }
                 case DeviceFlowStepKind.InputText: {
-                        Emit(descriptor);
+                        await EmitAsync(descriptor);
                         var r = await ui.InputTextAsync(target, step.Text!, ct);
                         if (!r.Ok) {
-                            var fail = Fail(r.Note);
+                            var fail = await FailAsync(r.Note);
                             if (fail is not null) return fail;
                         }
 
                         break;
                     }
                 case DeviceFlowStepKind.Sleep: {
-                        Emit(descriptor);
+                        await EmitAsync(descriptor);
                         await Task.Delay(TimeSpan.FromSeconds(step.TimeoutSeconds), ct);
                         break;
                     }
                 case DeviceFlowStepKind.WaitForSelector: {
-                        Emit($"{descriptor} (up to {step.TimeoutSeconds}s)");
+                        await EmitAsync($"{descriptor} (up to {step.TimeoutSeconds}s)");
                         var (ok, note) = await WaitAsync(target, step,
                             tree => UiSelector.Resolve(tree, step.Selector!) is not null, ct);
                         if (!ok) {
-                            var fail = Fail(note);
+                            var fail = await FailAsync(note);
                             if (fail is not null) return fail;
                         }
 
                         break;
                     }
                 case DeviceFlowStepKind.WaitForText: {
-                        Emit($"{descriptor} (up to {step.TimeoutSeconds}s)");
+                        await EmitAsync($"{descriptor} (up to {step.TimeoutSeconds}s)");
                         var alternatives = step.Text!.Split(" OR ", StringSplitOptions.None);
                         var (ok, note) = await WaitAsync(target, step,
                             tree => tree.Nodes().Any(n => n.Text is not null &&
                                 alternatives.Any(a => n.Text.Contains(a, StringComparison.Ordinal))), ct);
                         if (!ok) {
-                            var fail = Fail(note);
+                            var fail = await FailAsync(note);
                             if (fail is not null) return fail;
                         }
 
                         break;
                     }
                 case DeviceFlowStepKind.WaitForTextGone: {
-                        Emit($"{descriptor} (up to {step.TimeoutSeconds}s)");
+                        await EmitAsync($"{descriptor} (up to {step.TimeoutSeconds}s)");
                         var (ok, note) = await WaitAsync(target, step,
                             tree => !tree.Nodes().Any(n =>
                                 n.Text is not null && n.Text.Contains(step.Text!, StringComparison.Ordinal)), ct);
                         if (!ok) {
-                            var fail = Fail(note);
+                            var fail = await FailAsync(note);
                             if (fail is not null) return fail;
                         }
 
@@ -129,22 +129,22 @@ public sealed class DeviceFlowRunner(IDeviceUiDriver ui) {
                     }
                 case DeviceFlowStepKind.Screenshot: {
                         var r = await ui.ScreenshotAsync(target, ct);
-                        if (r.Ok) {
-                            shots.Add(new DeviceFlowShot(step.Label!, r.Value!));
-                            Emit($"screenshot {step.Label} ({r.Value!.Length} bytes)");
+                        if (r is { Ok: true, Value: { } png }) {
+                            shots.Add(new DeviceFlowShot(step.Label!, png));
+                            await EmitAsync($"screenshot {step.Label} ({png.Length} bytes)");
                         } else {
-                            Emit($"screenshot {step.Label} failed: {r.Note}");
+                            await EmitAsync($"screenshot {step.Label} failed: {r.Note}");
                         }
 
                         break;
                     }
                 case DeviceFlowStepKind.AssertText: {
-                        Emit(descriptor);
+                        await EmitAsync(descriptor);
                         var dump = await ui.DumpAsync(target, ct);
-                        bool found = dump.Ok && dump.Value!.Nodes().Any(n =>
+                        bool found = dump is { Ok: true, Value: { } tree } && tree.Nodes().Any(n =>
                             n.Text is not null && n.Text.Contains(step.Text!, StringComparison.Ordinal));
                         if (!found) {
-                            var fail = Fail(dump.Ok ? "text not found" : dump.Note);
+                            var fail = await FailAsync(dump.Ok ? "text not found" : dump.Note);
                             if (fail is not null) return fail;
                         }
 
@@ -152,31 +152,31 @@ public sealed class DeviceFlowRunner(IDeviceUiDriver ui) {
                     }
                 case DeviceFlowStepKind.ReadField: {
                         var dump = await ui.DumpAsync(target, ct);
-                        if (!dump.Ok) {
-                            if (step.Required) Emit($"read field {step.FieldName} failed: {dump.Note}");
-                            var fail = Fail(dump.Note);
+                        if (dump is not { Ok: true, Value: { } tree }) {
+                            if (step.Required) await EmitAsync($"read field {step.FieldName} failed: {dump.Note}");
+                            var fail = await FailAsync(dump.Note);
                             if (fail is not null) return fail;
                             break;
                         }
 
-                        var node = UiSelector.Resolve(dump.Value!, step.Selector!);
+                        var node = UiSelector.Resolve(tree, step.Selector!);
                         if (node is null) {
-                            if (step.Required) Emit($"read field {step.FieldName} failed: selector not found");
-                            var fail = Fail("selector not found");
+                            if (step.Required) await EmitAsync($"read field {step.FieldName} failed: selector not found");
+                            var fail = await FailAsync("selector not found");
                             if (fail is not null) return fail;
                             break;
                         }
 
-                        string? value = !string.IsNullOrEmpty(node.Text) ? node.Text : NextNonEmptyText(dump.Value!, node);
+                        string? value = !string.IsNullOrEmpty(node.Text) ? node.Text : NextNonEmptyText(tree, node);
                         if (value is null) {
-                            if (step.Required) Emit($"read field {step.FieldName} failed: no text found");
-                            var fail = Fail("no text found");
+                            if (step.Required) await EmitAsync($"read field {step.FieldName} failed: no text found");
+                            var fail = await FailAsync("no text found");
                             if (fail is not null) return fail;
                             break;
                         }
 
                         fields[step.FieldName!] = value;
-                        Emit($"read field {step.FieldName} = {value}");
+                        await EmitAsync($"read field {step.FieldName} = {value}");
                         break;
                     }
             }
@@ -187,12 +187,12 @@ public sealed class DeviceFlowRunner(IDeviceUiDriver ui) {
 
     private async Task<(bool Ok, string? Note)> WaitAsync(
         DeviceTarget target, DeviceFlowStep step, Func<UiTree, bool> predicate, CancellationToken ct) {
-        var sw = Stopwatch.StartNew();
+        long start = Stopwatch.GetTimestamp();
         while (true) {
             var dump = await ui.DumpAsync(target, ct);
-            if (dump.Ok && predicate(dump.Value!)) return (true, null);
+            if (dump is { Ok: true, Value: { } tree } && predicate(tree)) return (true, null);
             string? note = dump.Ok ? "condition not met" : dump.Note;
-            if (sw.Elapsed.TotalSeconds >= step.TimeoutSeconds) return (false, note);
+            if (Stopwatch.GetElapsedTime(start).TotalSeconds >= step.TimeoutSeconds) return (false, note);
             await Task.Delay(TimeSpan.FromSeconds(step.PollSeconds), ct);
         }
     }

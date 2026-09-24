@@ -23,7 +23,7 @@ public static class HostSetup {
             builder.WebHost.UseStaticWebAssets();
         }
 
-        if (Environment.GetEnvironmentVariable("EGGINCOGNITO_TEST_DBFREE") == "1"
+        if (builder.Configuration["EGGINCOGNITO_TEST_DBFREE"] == "1"
             && string.IsNullOrEmpty(builder.Configuration["TestDbOptIn"])) {
             builder.Configuration["ConnectionStrings:Postgres"] = "";
         }

@@ -26,48 +26,48 @@ public class AuthCallbackTests {
 
     [Fact]
     public async Task Code_OnAnyPage_RedirectsClean() {
-        var r = await RunAsync(Enabled, "GET", "/protos", "?code=goodcode");
-        Assert.Equal(StatusCodes.Status302Found, r.Status);
-        Assert.Equal("/protos", r.Location);
-        Assert.False(r.Continued);
+        var (status, location, continued) = await RunAsync(Enabled, "GET", "/protos", "?code=goodcode");
+        Assert.Equal(StatusCodes.Status302Found, status);
+        Assert.Equal("/protos", location);
+        Assert.False(continued);
     }
 
     [Fact]
     public async Task Code_PreservesOtherQueryParams() {
-        var r = await RunAsync(Enabled, "GET", "/protos", "?tab=discord&code=goodcode");
-        Assert.Equal("/protos?tab=discord", r.Location);
+        var (_, location, _) = await RunAsync(Enabled, "GET", "/protos", "?tab=discord&code=goodcode");
+        Assert.Equal("/protos?tab=discord", location);
     }
 
     [Fact]
     public async Task Error_RedirectsWithLoginErrorFlag() {
-        var r = await RunAsync(Enabled, "GET", "/", "?error=login_failed");
-        Assert.Equal("/?login_error=1", r.Location);
+        var (_, location, _) = await RunAsync(Enabled, "GET", "/", "?error=login_failed");
+        Assert.Equal("/?login_error=1", location);
     }
 
     [Fact]
     public async Task State_IsStrippedToo() {
-        var r = await RunAsync(Enabled, "GET", "/protos", "?code=c&state=s");
-        Assert.Equal("/protos", r.Location);
+        var (_, location, _) = await RunAsync(Enabled, "GET", "/protos", "?code=c&state=s");
+        Assert.Equal("/protos", location);
     }
 
     [Fact]
     public async Task NoAuthParams_PassesThrough() {
-        var r = await RunAsync(Enabled, "GET", "/health", "");
-        Assert.True(r.Continued);
-        Assert.Null(r.Location);
+        var (_, location, continued) = await RunAsync(Enabled, "GET", "/health", "");
+        Assert.True(continued);
+        Assert.Null(location);
     }
 
     [Fact]
     public async Task Code_PassesThrough_WhenWidgetDisabled() {
-        var r = await RunAsync(new AuthState(false), "GET", "/health", "?code=abc");
-        Assert.True(r.Continued);
-        Assert.Null(r.Location);
+        var (_, location, continued) = await RunAsync(new AuthState(false), "GET", "/health", "?code=abc");
+        Assert.True(continued);
+        Assert.Null(location);
     }
 
     [Fact]
     public async Task Code_PassesThrough_OnPost() {
-        var r = await RunAsync(Enabled, "POST", "/protos", "?code=abc");
-        Assert.True(r.Continued);
-        Assert.Null(r.Location);
+        var (_, location, continued) = await RunAsync(Enabled, "POST", "/protos", "?code=abc");
+        Assert.True(continued);
+        Assert.Null(location);
     }
 }

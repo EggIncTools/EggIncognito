@@ -25,9 +25,9 @@ public sealed class InstallCaStep(
 
     public override async Task<CookbookStepResult> RunAsync(DeviceCookbookContext context, CancellationToken ct) {
         var lines = new List<string>();
-        void Add(string line) {
+        Task Add(string line) {
             lines.Add(line);
-            context.Progress(line);
+            return context.Progress(line);
         }
 
         var target = context.Target;
@@ -38,7 +38,7 @@ public sealed class InstallCaStep(
         if (ca is null || !File.Exists(ca.Path)) return Failed(lines, NoCa);
 
         if (await TrustedAsync(target, ca, ct) is { } file) {
-            Add($"{file} already in the system trust store");
+            await Add($"{file} already in the system trust store");
             return Ok(lines, "capture CA already in the system trust store");
         }
 
@@ -48,13 +48,13 @@ public sealed class InstallCaStep(
                 $"the capture proxy is not reachable from the host, so a trusted CA would capture nothing: {reach.Note}");
         }
 
-        Add(reach.Ok ? reach.Note ?? "capture proxy reachable" : $"proxy reach not tested: {reach.Note}");
+        await Add(reach.Ok ? reach.Note ?? "capture proxy reachable" : $"proxy reach not tested: {reach.Note}");
 
-        Add($"installing {Path.GetFileName(ca.Path)} on {target.Id}");
+        await Add($"installing {Path.GetFileName(ca.Path)} on {target.Id}");
         (bool ok, string? note) = await installer.InstallAsync(target, ca.Path, ct);
         if (!ok) return Failed(lines, note ?? "ca install failed");
 
-        Add(note ?? "ca installed");
+        await Add(note ?? "ca installed");
         return Ok(lines, note);
     }
 

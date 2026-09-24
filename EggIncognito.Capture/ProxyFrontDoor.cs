@@ -54,7 +54,7 @@ public sealed class ProxyFrontDoor(
 
     public async Task StopAsync(CancellationToken cancellationToken) {
         try {
-            _cts?.Cancel();
+            if (_cts is not null) await _cts.CancelAsync();
         } catch (ObjectDisposedException) {
             /* already torn down */
         }

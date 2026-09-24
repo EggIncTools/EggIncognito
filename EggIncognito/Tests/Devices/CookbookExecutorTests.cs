@@ -11,14 +11,14 @@ public class CookbookExecutorTests {
         public override string Id => id;
         public override string Title => title;
 
-        public override Task<CookbookStepResult> RunAsync(DeviceCookbookContext context, CancellationToken ct) {
+        public override async Task<CookbookStepResult> RunAsync(DeviceCookbookContext context, CancellationToken ct) {
             var lines = new List<string> { $"{id} ran" };
             if (echoNote && note is not null) {
                 lines.Add(note);
-                context.Progress(note);
+                await context.Progress(note);
             }
 
-            return Task.FromResult(new CookbookStepResult(id, title, status, note, lines));
+            return new CookbookStepResult(id, title, status, note, lines);
         }
     }
 
@@ -39,7 +39,10 @@ public class CookbookExecutorTests {
     }
 
     private static DeviceCookbookContext Context(List<string> progress) =>
-        new(Target, null, progress.Add);
+        new(Target, null, line => {
+            progress.Add(line);
+            return Task.CompletedTask;
+        });
 
     [Fact]
     public async Task FailedRunCarriesTheStepNoteVerbatimAndTheStepIdentity() {

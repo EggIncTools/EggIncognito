@@ -3,7 +3,9 @@
 @using System.Text
 @using System.Text.Json
 @using EggIncognito.Models.Periodicals
+@using EggIncognito.Services.Events
 @inherits SelfCallComponentBase
+@inject IServiceProvider Services
 @inject IJSRuntime JS
 @inject IWebHostEnvironment Env
 @inject ILogger<PeriodicalsPanel> Logger
@@ -267,11 +269,11 @@
         _seasonIx = Math.Clamp(_seasonIx + delta, 0, _seasons.Count - 1);
     }
 
-    static DateTimeOffset StartDate(Models.Periodicals.Season s) {
-        return DateTimeOffset.FromUnixTimeSeconds((long)s.StartTime);
+    DateTimeOffset StartDate(Models.Periodicals.Season s) {
+        return ViewerClock.At(Services, DateTimeOffset.FromUnixTimeSeconds((long)s.StartTime));
     }
 
-    static string StartLabel(Models.Periodicals.Season s) {
+    string StartLabel(Models.Periodicals.Season s) {
         var d = StartDate(s);
         var verb = d <= DateTimeOffset.UtcNow ? "Started" : "Starts";
         var derived = s.StartDerived ? " (derived)" : "";
@@ -283,13 +285,13 @@
         return s.StartTime <= now && now < s.NextStartTime;
     }
 
-    static string NextStartLabel(Models.Periodicals.Season s) {
-        return DateTimeOffset.FromUnixTimeSeconds((long)s.NextStartTime).ToLocalTime().ToString("MMMM d");
+    string NextStartLabel(Models.Periodicals.Season s) {
+        return ViewerClock.At(Services, DateTimeOffset.FromUnixTimeSeconds((long)s.NextStartTime)).ToString("MMMM d");
     }
 
-    static string ContractsLeftLabel(Models.Periodicals.Season s) {
-        var nextLocal = DateTimeOffset.FromUnixTimeSeconds((long)s.NextStartTime).ToLocalTime();
-        var mondays = MondaysBetween(DateTimeOffset.UtcNow.ToLocalTime(), nextLocal);
+    string ContractsLeftLabel(Models.Periodicals.Season s) {
+        var nextLocal = ViewerClock.At(Services, DateTimeOffset.FromUnixTimeSeconds((long)s.NextStartTime));
+        var mondays = MondaysBetween(ViewerClock.At(Services, DateTimeOffset.UtcNow), nextLocal);
         return $"{mondays} {(mondays == 1 ? "contract" : "contracts")} left";
     }
 

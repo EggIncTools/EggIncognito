@@ -1,5 +1,4 @@
 using EggIncognito.GameData;
-using EggIncognito.Services;
 using EggIncognito.Services.Auth;
 using EggIncognito.Services.DataApi;
 using Microsoft.AspNetCore.Mvc;
@@ -11,7 +10,7 @@ namespace EggIncognito.Controllers;
 [Route("api/gamedata")]
 [ApiAccess(ApiAccessLevel.Public)]
 [EnableRateLimiting("read")]
-public sealed class GameDataController(GameDataStore store) : ControllerBase {
+public sealed class GameDataController(GameDataStore store) : ApiControllerBase {
     [HttpGet("effects")]
     public IActionResult Effects([FromQuery] string? family, [FromQuery] string? target) {
         if (store.Provider is not { } provider) return NotImported();
@@ -36,7 +35,7 @@ public sealed class GameDataController(GameDataStore store) : ControllerBase {
             : NotImported();
 
     private ObjectResult NotImported() =>
-        StatusCode(503, new ApiError("game data not imported", null, 503, store.MissingIds()));
+        Fail(503, "game data not imported", store.MissingIds());
 
     private static object Project(Effect e) => new {
         e.Family,

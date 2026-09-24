@@ -61,7 +61,7 @@ public class ContractIngestorTests {
         Assert.True(changed);
         Assert.Equal(ContractSources.Device, row.Source);
         Assert.Equal("New Name", row.Name);
-        Assert.Equal(new byte[] { 9, 9, 9 }, row.Proto);
+        Assert.Equal("\t\t\t"u8.ToArray(), row.Proto);
     }
 
     [Fact]

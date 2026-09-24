@@ -53,24 +53,20 @@ public class PixelFingerprintParserTests {
         """;
 
     [Fact]
-    public void LatestVersionUrl_PicksHighestDistinctLink() {
+    public void LatestVersionUrl_PicksHighestDistinctLink() =>
         Assert.Equal("https://developer.android.com/about/versions/16", PixelFingerprintParser.LatestVersionUrl(VersionsHtml));
-    }
 
     [Fact]
-    public void LatestVersionUrl_ReturnsNullWithoutLinks() {
+    public void LatestVersionUrl_ReturnsNullWithoutLinks() =>
         Assert.Null(PixelFingerprintParser.LatestVersionUrl("<html></html>"));
-    }
 
     [Fact]
-    public void QprDownloadPath_PicksTheQprDownloadHref() {
+    public void QprDownloadPath_PicksTheQprDownloadHref() =>
         Assert.Equal("/about/versions/16/download-qpr", PixelFingerprintParser.QprDownloadPath(LatestHtml));
-    }
 
     [Fact]
-    public void QprDownloadPath_ReturnsNullWhenAbsent() {
+    public void QprDownloadPath_ReturnsNullWhenAbsent() =>
         Assert.Null(PixelFingerprintParser.QprDownloadPath("<a href=\"/about/versions/16/download\">x</a>"));
-    }
 
     [Fact]
     public void Devices_PairsProductWithFirstCellInDocumentOrder() {
@@ -80,14 +76,12 @@ public class PixelFingerprintParserTests {
     }
 
     [Fact]
-    public void FlashKey_TakesTextBetweenSemicolonAndAmpersand() {
+    public void FlashKey_TakesTextBetweenSemicolonAndAmpersand() =>
         Assert.Equal("KEYVALUE", PixelFingerprintParser.FlashKey(FlashHtml));
-    }
 
     [Fact]
-    public void FlashKey_ReturnsNullWithoutBodyConfig() {
+    public void FlashKey_ReturnsNullWithoutBodyConfig() =>
         Assert.Null(PixelFingerprintParser.FlashKey("<body>plain</body>"));
-    }
 
     [Fact]
     public void Canary_ReturnsLastCanaryBuild() {
@@ -133,12 +127,10 @@ public class PixelFingerprintParserTests {
     }
 
     [Fact]
-    public void Canary_ReturnsNullWithoutCanary() {
+    public void Canary_ReturnsNullWithoutCanary() =>
         Assert.Null(PixelFingerprintParser.Canary("""{"builds":[{"releaseCandidateName":"X","buildId":"1","canary":false}]}"""));
-    }
 
     [Fact]
-    public void Expiry_IsSixWeeksAfterRelease() {
+    public void Expiry_IsSixWeeksAfterRelease() =>
         Assert.Equal(new DateOnly(2026, 9, 16), PixelFingerprintParser.Expiry(new DateOnly(2026, 8, 5)));
-    }
 }

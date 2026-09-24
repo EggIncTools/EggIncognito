@@ -10,8 +10,8 @@ public sealed class StoreUpdateOrchestrator(
     public string Platform => driver.Platform;
 
     public async Task<StoreCheckResult> CheckAndUpdateAsync(
-        DeviceTarget device, CancellationToken ct, Action<string>? progress = null) {
-        progress?.Invoke("reading installed version…");
+        DeviceTarget device, CancellationToken ct, Func<string, Task>? progress = null) {
+        await progress.ReportAsync("reading installed version…");
         string? before = await driver.ReadInstalledAsync(device, ct);
         if (before is null) {
             logger.LogInformation("device check-update: {Id} {Platform} unreachable (no version read)",
@@ -23,11 +23,11 @@ public sealed class StoreUpdateOrchestrator(
         try {
             await driver.PrepareAsync(device, ct);
 
-            progress?.Invoke($"installed {before}; checking {driver.StoreName}…");
+            await progress.ReportAsync($"installed {before}; checking {driver.StoreName}…");
             var probe = await driver.ProbeStoreAsync(device, before, progress, ct);
             switch (probe.Availability) {
                 case StoreAvailability.UpToDate:
-                    progress?.Invoke($"{driver.StoreName} reports {probe.StoreVersion ?? before} current");
+                    await progress.ReportAsync($"{driver.StoreName} reports {probe.StoreVersion ?? before} current");
                     logger.LogInformation("device check-update: {Id} {Platform} up_to_date (store probe)",
                         device.Id, driver.Platform);
                     return new StoreCheckResult(true, before, before, false, false, "up_to_date",
@@ -37,11 +37,11 @@ public sealed class StoreUpdateOrchestrator(
                         device.Id, driver.Platform, probe.Note);
                     return new StoreCheckResult(true, before, before, true, false, "manual_needed", probe.Note);
                 case StoreAvailability.UpdateOffered:
-                    progress?.Invoke(
+                    await progress.ReportAsync(
                         $"update available ({before} -> {probe.StoreVersion ?? "?"}); triggering install…");
                     break;
                 default:
-                    progress?.Invoke($"store version unknown; driving {driver.StoreName} update…");
+                    await progress.ReportAsync($"store version unknown; driving {driver.StoreName} update…");
                     break;
             }
 
@@ -53,7 +53,7 @@ public sealed class StoreUpdateOrchestrator(
                     probe.Availability == StoreAvailability.UpdateOffered, false, "error", trig.Note);
             }
 
-            progress?.Invoke(
+            await progress.ReportAsync(
                 $"install triggered; waiting for {driver.StoreName} to install (up to {opts.PollAttempts * opts.PollSeconds}s)…");
             var result = await StorePoll.WaitForClimbAsync(device.Id, driver.Platform, driver.StoreName, before,
                 c => driver.ReadInstalledAsync(device, c), opts.PollSeconds, opts.PollAttempts, logger, progress, ct,

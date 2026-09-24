@@ -31,7 +31,7 @@ public static class ProtoRefParser {
         int slash = body.LastIndexOf('/');
         if (slash >= 0) {
             string candidate = body[(slash + 1)..];
-            mode = Modes.FirstOrDefault(m => m.Equals(candidate, StringComparison.OrdinalIgnoreCase));
+            mode = Array.Find(Modes, m => m.Equals(candidate, StringComparison.OrdinalIgnoreCase));
             body = body[..slash];
         }
 

@@ -10,10 +10,11 @@ public sealed record ResolvedTheme(string Css, bool HueRotation);
 
 public sealed class ThemeResolver(
     ICurrentUser currentUser,
-    IServiceProvider services,
+    ThemeIdentitySync identitySync,
     IMemoryCache cache,
     ThemeCssEmitter emitter,
-    IConfiguration configuration) {
+    IConfiguration configuration,
+    UserThemeStore? themeStore = null) {
     private static readonly TimeSpan CacheTtl = TimeSpan.FromSeconds(60);
 
     public static string CacheKey(Guid userId) => $"egi.theme.{userId:N}";
@@ -22,7 +23,7 @@ public sealed class ThemeResolver(
 
     public async Task<ResolvedTheme?> ResolveAsync(CancellationToken ct = default) {
         if (!currentUser.IsAuthenticated || currentUser.UserId is not { } uid) return null;
-        if (services.GetService(typeof(UserThemeStore)) is not UserThemeStore store) return null;
+        if (themeStore is not { } store) return null;
 
         if (cache.TryGetValue(CacheKey(uid), out ResolvedTheme? cached)) return cached;
 
@@ -53,8 +54,7 @@ public sealed class ThemeResolver(
     }
 
     private async Task<UserTheme?> AdoptSharedThemeAsync(UserThemeStore store, Guid uid, CancellationToken ct) {
-        if (services.GetService(typeof(ThemeIdentitySync)) is not ThemeIdentitySync sync) return null;
-        if (await sync.FetchAsync(ct) is not { } shared) return null;
+        if (await identitySync.FetchAsync(ct) is not { } shared) return null;
         if (!ThemePalette.Contrast(shared).Passes) return null;
 
         await store.UpsertAsync(uid, shared.Slug, shared.Name, shared.SchemaVersion, shared.ToJson(), ct);

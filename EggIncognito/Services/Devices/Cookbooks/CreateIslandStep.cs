@@ -44,9 +44,9 @@ public sealed partial class CreateIslandStep(
 
     public override async Task<CookbookStepResult> RunAsync(DeviceCookbookContext context, CancellationToken ct) {
         var lines = new List<string>();
-        void Add(string line) {
+        Task Add(string line) {
             lines.Add(line);
-            context.Progress(line);
+            return context.Progress(line);
         }
 
         var target = context.Target;
@@ -60,16 +60,16 @@ public sealed partial class CreateIslandStep(
         var root = await DeviceRoot.EnsureAsync(conn, runner, target.Target, ct);
         if (!root.Ok)
             return Failed(lines, $"device is not rooted ({root.Detail}); lifting the user cap needs uid=0 (su)");
-        Add($"root: {root.Detail}");
+        await Add($"root: {root.Detail}");
 
         var lift = await conn.ShellAsync(root.Wrap($"resetprop fw.max_users {MaxUsers}"), ct);
-        Add(lift.ExitCode == 0
+        await Add(lift.ExitCode == 0
             ? $"fw.max_users set to {MaxUsers} for this boot"
             : $"resetprop fw.max_users failed (exit {lift.ExitCode}): {DeviceParsing.TrimNote(lift.Stderr + lift.Stdout)}");
 
         await PersistMaxUsersAsync(conn, root, Add, ct);
 
-        Add($"creating user '{label}'");
+        await Add($"creating user '{label}'");
         var create = await conn.ShellAsync($"pm create-user {DeviceShell.Quote(label)}", ct);
         var match = CreatedUserRegex().Match(create.Stdout + create.Stderr);
         if (!match.Success || !int.TryParse(match.Groups[1].Value, out int userId)) {
@@ -77,34 +77,34 @@ public sealed partial class CreateIslandStep(
                 $"pm create-user did not report a new id: {DeviceParsing.TrimNote(create.Stdout + create.Stderr)}");
         }
 
-        Add($"created user id {userId}");
+        await Add($"created user id {userId}");
         bool provisioned = await ProvisionAsync(conn, userId, Add, ct);
         await WriteRowAsync(target.Id, userId, label, provisioned, Add, ct);
         return Ok(lines, $"island {userId} '{label}' created");
     }
 
     private static async Task<bool> ProvisionAsync(
-        IDeviceConnection conn, int userId, Action<string> add, CancellationToken ct) {
+        IDeviceConnection conn, int userId, Func<string, Task> add, CancellationToken ct) {
         string user = IslandScope.User(userId);
         var global = await conn.ShellAsync("settings put global device_provisioned 1", ct);
         var setup = await conn.ShellAsync($"settings put --user {user} secure user_setup_complete 1", ct);
         var wizard = await conn.ShellAsync($"pm disable-user --user {user} {SecSetupWizard}", ct);
 
         bool ok = global.ExitCode == 0 && setup.ExitCode == 0;
-        add(ok
+        await add(ok
             ? $"provisioned user {user} (device_provisioned, user_setup_complete)"
             : "provisioning wrote partial settings; the island may show setup interstitials");
         if (wizard.ExitCode != 0)
-            add($"SecSetupWizard disable: {DeviceParsing.TrimNote(wizard.Stdout + wizard.Stderr)}");
+            await add($"SecSetupWizard disable: {DeviceParsing.TrimNote(wizard.Stdout + wizard.Stderr)}");
         return ok;
     }
 
-    private async Task PersistMaxUsersAsync(
-        IDeviceConnection conn, RootAccess root, Action<string> add, CancellationToken ct) {
+    private static async Task PersistMaxUsersAsync(
+        IDeviceConnection conn, RootAccess root, Func<string, Task> add, CancellationToken ct) {
         string? prop = await PushAsync(conn, ModuleProp, "-island-module.prop", PropRemote, ct);
         string? script = await PushAsync(conn, PostFsData, "-island-postfsdata.sh", ScriptRemote, ct);
         if (prop is null || script is null) {
-            add("could not stage the persistence module; fw.max_users will reset on reboot");
+            await add("could not stage the persistence module; fw.max_users will reset on reboot");
             return;
         }
 
@@ -113,7 +113,7 @@ public sealed partial class CreateIslandStep(
             + $"cp {ScriptRemote} {ModuleDir}/post-fs-data.sh && chmod 0755 {ModuleDir}/post-fs-data.sh && "
             + $"chmod 0644 {ModuleDir}/module.prop && rm -f {PropRemote} {ScriptRemote}";
         var wrote = await conn.ShellAsync(root.Wrap(install), ct);
-        add(wrote.ExitCode == 0
+        await add(wrote.ExitCode == 0
             ? $"persistence module installed at {ModuleDir} (takes effect on next reboot)"
             : $"persistence module install failed (exit {wrote.ExitCode}): {DeviceParsing.TrimNote(wrote.Stderr + wrote.Stdout)}");
     }
@@ -130,14 +130,14 @@ public sealed partial class CreateIslandStep(
     }
 
     private async Task WriteRowAsync(
-        string deviceId, int userId, string label, bool provisioned, Action<string> add, CancellationToken ct) {
+        string deviceId, int userId, string label, bool provisioned, Func<string, Task> add, CancellationToken ct) {
         using var scope = scopeFactory.CreateScope();
         if (scope.ServiceProvider.GetService(typeof(DeviceIslandStore)) is not DeviceIslandStore store) {
-            add("no database configured, island not recorded");
+            await add("no database configured, island not recorded");
             return;
         }
 
         await store.UpsertAsync(deviceId, userId, label, provisioned, null, ct);
-        add($"island {userId} recorded");
+        await add($"island {userId} recorded");
     }
 }

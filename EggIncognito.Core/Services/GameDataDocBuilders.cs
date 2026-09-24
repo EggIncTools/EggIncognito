@@ -1,3 +1,4 @@
+using System.Collections.Frozen;
 using System.Text.Json;
 using EggIncognito.Core.Services.Farm;
 using EggIncognito.Core.Services.ProtoExtract;
@@ -58,7 +59,7 @@ public static class GameDataDocBuilders {
         return new DocResult(JsonSerializer.Serialize(doc, CamelJson), rows.Length, skipped);
     }
 
-    private static readonly Dictionary<string, string> ResearchDimensionTargets = new(StringComparer.Ordinal) {
+    private static readonly FrozenDictionary<string, string> ResearchDimensionTargets = new Dictionary<string, string>(StringComparer.Ordinal) {
         ["eggLayingRateMult"] = "EggLayingRate",
         ["eggValueMult"] = "EggValue",
         ["earningsMult"] = "Earnings",
@@ -105,7 +106,7 @@ public static class GameDataDocBuilders {
         ["holdToResearchMult"] = "HoldToResearch",
         ["artifactsMissionCapacityResearchMult"] = "AfxMissionCapacity",
         ["artifactsMissionFTLDurationResearchMult"] = "AfxMissionDuration"
-    };
+    }.ToFrozenDictionary();
 
     public static DocResult BuildResearch(IReadOnlyList<ResearchCatalogExtractor.ResearchEntry> entries,
         string binaryVersion) {

@@ -15,7 +15,7 @@ public class NotificationsAdminScopeTests : BunitContext {
 
     private void Wire() {
         JSInterop.Mode = JSRuntimeMode.Loose;
-        Services.AddSingleton<ICurrentUser>(new FakeUser());
+        Services.AddSingleton<ICurrentUser>(new FakeUser(role: UserRole.Admin));
         Services.AddSingleton<IHttpContextAccessor>(new HttpContextAccessor());
         Services.AddSingleton<IWebHostEnvironment>(new FakeWebHostEnvironment());
         Services.AddScoped<NotificationsWorkbenchState>();
@@ -43,15 +43,4 @@ public class NotificationsAdminScopeTests : BunitContext {
         Assert.Contains("New notification", cut.Markup);
     }
 
-    private sealed class FakeUser : ICurrentUser {
-        public bool IsAuthenticated => true;
-        public Guid? UserId => null;
-        public string? DiscordId => "fake";
-        public string? Username => "fake";
-        public string? Avatar => null;
-        public string? AvatarUrl => null;
-        public UserRole Role => UserRole.Admin;
-        public bool IsSupporter => false;
-        public bool IsAtLeast(UserRole need) => UserRole.Admin >= need;
-    }
 }

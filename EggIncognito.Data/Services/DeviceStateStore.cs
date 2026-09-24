@@ -19,7 +19,7 @@ public sealed record DeviceRevision(string Platform, string Package, string? App
         string.Join('|', deviceId, Platform, AppVersion ?? "", Build ?? "", ClientVersion?.ToString() ?? "", Package));
 }
 
-public sealed class DeviceStateStore(EggIncognitoDbContext db) {
+public sealed class DeviceStateStore(EggIncognitoDbContext db, TimeProvider time) {
     public Task<DeviceState?> GetAsync(string deviceId, CancellationToken ct) =>
         db.DeviceStates.AsNoTracking().FirstOrDefaultAsync(s => s.DeviceId == deviceId, ct);
 
@@ -35,7 +35,7 @@ public sealed class DeviceStateStore(EggIncognitoDbContext db) {
         row.Build = observed.Build;
         row.ClientVersion = observed.ClientVersion ?? row.ClientVersion;
         row.Revision = revision;
-        row.UpdatedAt = DateTimeOffset.UtcNow;
+        row.UpdatedAt = time.GetUtcNow();
         await db.SaveChangesAsync(ct);
         return row;
     }
@@ -44,14 +44,14 @@ public sealed class DeviceStateStore(EggIncognitoDbContext db) {
         var row = await TrackedAsync(deviceId, ct);
         if (row.ClientVersion == clientVersion) return;
         row.ClientVersion = clientVersion;
-        row.UpdatedAt = DateTimeOffset.UtcNow;
+        row.UpdatedAt = time.GetUtcNow();
         await db.SaveChangesAsync(ct);
     }
 
     public async Task PokeAsync(string deviceId, CancellationToken ct) {
         var row = await TrackedAsync(deviceId, ct);
         row.Dirty = true;
-        row.UpdatedAt = DateTimeOffset.UtcNow;
+        row.UpdatedAt = time.GetUtcNow();
         await db.SaveChangesAsync(ct);
     }
 
@@ -66,7 +66,7 @@ public sealed class DeviceStateStore(EggIncognitoDbContext db) {
         row.Harvesting = true;
         row.Dirty = false;
         row.LastHarvestStatus = HarvestStatus.Running;
-        row.UpdatedAt = DateTimeOffset.UtcNow;
+        row.UpdatedAt = time.GetUtcNow();
         await db.SaveChangesAsync(ct);
         return true;
     }
@@ -85,8 +85,8 @@ public sealed class DeviceStateStore(EggIncognitoDbContext db) {
         row.Harvesting = false;
         row.LastHarvestStatus = status;
         row.LastHarvestNote = note;
-        row.LastHarvestAt = DateTimeOffset.UtcNow;
-        row.UpdatedAt = DateTimeOffset.UtcNow;
+        row.LastHarvestAt = time.GetUtcNow();
+        row.UpdatedAt = time.GetUtcNow();
         if (status is HarvestStatus.Ok) row.HarvestedRevision = revision;
         await db.SaveChangesAsync(ct);
     }
@@ -107,7 +107,7 @@ public sealed class DeviceStateStore(EggIncognitoDbContext db) {
     private async Task<DeviceState> TrackedAsync(string deviceId, CancellationToken ct) {
         var row = await db.DeviceStates.FirstOrDefaultAsync(s => s.DeviceId == deviceId, ct);
         if (row is not null) return row;
-        row = new DeviceState { DeviceId = deviceId, UpdatedAt = DateTimeOffset.UtcNow };
+        row = new DeviceState { DeviceId = deviceId, UpdatedAt = time.GetUtcNow() };
         db.DeviceStates.Add(row);
         return row;
     }

@@ -1,3 +1,4 @@
+using System.Collections.Frozen;
 using System.Runtime.CompilerServices;
 using EggIncognito.Core.Services.ProtoExtract;
 using Ei;
@@ -32,7 +33,7 @@ public sealed class FarmAssetCatalog {
 
     private static readonly ConditionalWeakTable<DLCCatalog, FarmAssetCatalog> Instances = [];
 
-    private static readonly Dictionary<FarmElement, IReadOnlyList<AssetType>> TypesByElement = BuildTypesByElement();
+    private static readonly FrozenDictionary<FarmElement, IReadOnlyList<AssetType>> TypesByElement = BuildTypesByElement().ToFrozenDictionary();
 
     public static readonly FarmAssetCatalog Empty = new(new DLCCatalog());
 
@@ -78,7 +79,7 @@ public sealed class FarmAssetCatalog {
         foreach (var spec in catalog.ShellObjects) {
             string id = spec.Identifier ?? "";
             if (id.Length == 0 || _byIdentifier.ContainsKey(id)) continue;
-            var piece = spec.Pieces.Where(p => p.Dlc is not null).OrderBy(p => p.Lod).FirstOrDefault();
+            var piece = spec.Pieces.Where(p => p.Dlc is not null).MinBy(p => p.Lod);
             if (piece?.Dlc is null) continue;
 
             var pieces = new List<FarmMeshPiece>();

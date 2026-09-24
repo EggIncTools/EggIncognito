@@ -7,7 +7,8 @@ namespace EggIncognito.Runner.Tests;
 public class DeviceResyncHandlerTests {
     private sealed class FakeRunner(string platform, Func<bool, RunOutcome> run) : IDeviceRunner {
         public string Platform => platform;
-        public RunOutcome RunOnce(bool force) => run(force);
+        public Task<RunOutcome> RunOnceAsync(bool force, CancellationToken ct = default) =>
+            Task.Run(() => run(force), ct);
     }
 
     private static DeviceResyncHandler Handler(params (string id, Func<bool, RunOutcome> run)[] runners) {
@@ -17,21 +18,21 @@ public class DeviceResyncHandlerTests {
     }
 
     [Fact]
-    public void HandleOne_BadBearer_Is401() {
+    public async Task HandleOne_BadBearer_Is401() {
         var h = Handler(("pixel", _ => new RunOutcome(true, "1", "s", "ok")));
-        Assert.Equal(401, h.HandleOne("Bearer wrong", "pixel", true).Status);
+        Assert.Equal(401, (await h.HandleOneAsync("Bearer wrong", "pixel", true)).Status);
     }
 
     [Fact]
-    public void HandleOne_UnknownId_Is404() {
+    public async Task HandleOne_UnknownId_Is404() {
         var h = Handler(("pixel", _ => new RunOutcome(true, "1", "s", "ok")));
-        Assert.Equal(404, h.HandleOne("Bearer secret", "ghost", true).Status);
+        Assert.Equal(404, (await h.HandleOneAsync("Bearer secret", "ghost", true)).Status);
     }
 
     [Fact]
-    public void HandleOne_GoodBearer_Runs200() {
+    public async Task HandleOne_GoodBearer_Runs200() {
         var h = Handler(("pixel", _ => new RunOutcome(true, "111343", "s", "emitted")));
-        var r = h.HandleOne("Bearer secret", "pixel", true);
+        var r = await h.HandleOneAsync("Bearer secret", "pixel", true);
         Assert.Equal(200, r.Status);
         Assert.Equal("111343", r.Outcome!.Build);
     }
@@ -41,28 +42,28 @@ public class DeviceResyncHandlerTests {
         var gate = new ManualResetEventSlim(false);
         var started = new ManualResetEventSlim(false);
         var h = Handler(("pixel", _ => { started.Set(); gate.Wait(); return new RunOutcome(true, "1", "s", "ok"); }));
-        var t = Task.Run(() => h.HandleOne("Bearer secret", "pixel", true));
+        var t = h.HandleOneAsync("Bearer secret", "pixel", true);
         started.Wait();
-        var second = h.HandleOne("Bearer secret", "pixel", true);
+        var second = await h.HandleOneAsync("Bearer secret", "pixel", true);
         Assert.Equal(409, second.Status);
         gate.Set();
         await t;
     }
 
     [Fact]
-    public void HandleAll_RunsEveryDevice() {
+    public async Task HandleAll_RunsEveryDevice() {
         var h = Handler(
             ("pixel", _ => new RunOutcome(true, "a", "s", "emitted")),
             ("iphone", _ => new RunOutcome(false, "b", null, "no change")));
-        var results = h.HandleAll("Bearer secret", true);
+        var results = await h.HandleAllAsync("Bearer secret", true);
         Assert.Equal(2, results.Count);
         Assert.All(results, r => Assert.Equal(200, r.Status));
     }
 
     [Fact]
-    public void HandleAll_BadBearer_Is401() {
+    public async Task HandleAll_BadBearer_Is401() {
         var h = Handler(("pixel", _ => new RunOutcome(true, "1", "s", "ok")));
-        var results = h.HandleAll("Bearer wrong", true);
+        var results = await h.HandleAllAsync("Bearer wrong", true);
         Assert.Single(results);
         Assert.Equal(401, results[0].Status);
     }

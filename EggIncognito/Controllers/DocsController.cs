@@ -1,3 +1,4 @@
+using System.Collections.Frozen;
 using EggIncognito.Data.Models;
 using EggIncognito.Data.Services;
 using EggIncognito.Models.Docs;
@@ -14,11 +15,11 @@ namespace EggIncognito.Controllers;
 [Route("api/docs")]
 [ApiAccess(ApiAccessLevel.Public)]
 [EnableRateLimiting("write")]
-public sealed class DocsController(ICurrentUser currentUser) : ApiControllerBase {
+public sealed class DocsController(ICurrentUser currentUser, TimeProvider time) : ApiControllerBase {
     private const int MaxImageBytes = 4 * 1024 * 1024;
 
-    private static readonly HashSet<string> AllowedImageTypes =
-        [with(StringComparer.OrdinalIgnoreCase), "image/png", "image/jpeg", "image/gif", "image/webp"];
+    private static readonly FrozenSet<string> AllowedImageTypes =
+        FrozenSet.Create(StringComparer.OrdinalIgnoreCase, "image/png", "image/jpeg", "image/gif", "image/webp");
 
     private static bool ValidKind(string kind) => DocSubjectKinds.IsKnown(kind);
 
@@ -58,7 +59,7 @@ public sealed class DocsController(ICurrentUser currentUser) : ApiControllerBase
             db.Docs.Remove(existing);
         } else {
             existing.BodyMd = body.BodyMd;
-            existing.UpdatedAt = DateTimeOffset.UtcNow;
+            existing.UpdatedAt = time.GetUtcNow();
         }
 
         await db.SaveChangesAsync();

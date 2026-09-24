@@ -250,7 +250,7 @@ public class CaInstallerTests {
             (bool ok, _) = await inst.InstallAsync(new DeviceTarget("d", "ios", "UDID", "com.auxbrain.egginc"), path, default);
 
             Assert.True(ok);
-            (string exe, string[] args) = runner.Calls.Single(c => c.exe == "ssh");
+            (_, string[] args) = runner.Calls.Single(c => c.exe == "ssh");
             string remote = args[^1];
             Assert.Contains(CaCertPrep.IosCertSha256Hex(cert), remote);
             Assert.Contains(CaCertPrep.DerHex(cert), remote);
@@ -326,15 +326,6 @@ public class CaInstallerTests {
             return binaryMatches && flagsAccepted
                 ? new ProcessResult(0, "uid=0(root) gid=0(root)", "")
                 : new ProcessResult(1, "", $"{candidate[0]}: permission denied");
-        }
-    }
-
-    private sealed class FakeRunner(Func<string, string[], ProcessResult> fn) : IProcessRunner {
-        public readonly List<(string exe, string[] args)> Calls = [];
-
-        public Task<ProcessResult> RunAsync(string exe, string[] args, CancellationToken ct) {
-            Calls.Add((exe, args));
-            return Task.FromResult(fn(exe, args));
         }
     }
 }

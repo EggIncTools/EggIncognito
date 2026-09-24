@@ -1,3 +1,4 @@
+using System.Buffers;
 using System.Globalization;
 using System.Text;
 using System.Xml;
@@ -7,8 +8,8 @@ using EggIncognito.Core.Services.Devices;
 namespace EggIncognito.Services.Devices;
 
 public sealed class AndroidUiDriver(IDeviceConnectionFactory connections) : IDeviceUiDriver {
-    private const string ShellSpecials = "`()<>|;&*\\~\"'$";
-    private const string ShellBreaks = "\n\r";
+    private static readonly SearchValues<char> ShellSpecials = SearchValues.Create("`()<>|;&*\\~\"'$");
+    private static readonly SearchValues<char> ShellBreaks = SearchValues.Create("\n\r");
 
     public const string ScreenStateCommand =
         "dumpsys power 2>/dev/null | grep -E \"mWakefulness|mHoldingDisplaySuspendBlocker\"; "

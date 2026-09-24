@@ -1,3 +1,4 @@
+using System.Buffers;
 using System.IO.Compression;
 
 namespace EggIncognito.Core.Services.ProtoExtract;
@@ -5,6 +6,7 @@ namespace EggIncognito.Core.Services.ProtoExtract;
 public static class ApkTextureLister {
     public const string TextureDir = "assets/textures-etc1png-med/";
     private const long MaxEntryBytes = 20_000_000L;
+    private static readonly SearchValues<char> PathSeparators = SearchValues.Create("/\\");
 
     public static IReadOnlyList<string> ListStems(byte[] apkZipBytes) {
         var stems = new SortedSet<string>(StringComparer.Ordinal);
@@ -56,7 +58,7 @@ public static class ApkTextureLister {
     }
 
     private static string Stem(string fullName) {
-        int slash = fullName.LastIndexOfAny(['/', '\\']);
+        int slash = fullName.LastIndexOfAny(PathSeparators);
         string name = slash >= 0 ? fullName[(slash + 1)..] : fullName;
         int dot = name.LastIndexOf('.');
         return dot > 0 ? name[..dot] : name;

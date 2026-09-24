@@ -28,7 +28,8 @@ public class DevicePollCadenceTests {
 
     [Fact]
     public void NotifyPayloadIsClamped() =>
-        Assert.Equal(PgNotify.MaxPayload, PgNotify.Clamp(new string('x', PgNotify.MaxPayload + 100)).Length);
+        Assert.Equal(PgNotify.MaxPayload, PgNotify.ApkPayload(new ApkStoreNotice(ApkChangeKinds.Stored, "android",
+            new string('x', PgNotify.MaxPayload + 100), "1", "1", 1)).Length);
 
     [Fact]
     public void FleetWatchesContainerLifecycleActions() {

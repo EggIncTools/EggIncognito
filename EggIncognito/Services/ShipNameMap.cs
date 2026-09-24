@@ -1,3 +1,5 @@
+using System.Collections.Frozen;
+
 namespace EggIncognito.Services;
 
 public static class ShipNameMap {
@@ -16,9 +18,9 @@ public static class ShipNameMap {
         new(10, "Atreggies", "Atreggies Henliner", "ei_ship_atreggies_shuttle", "afx_ship_atreggies")
     ];
 
-    private static readonly Dictionary<string, string> StemToEnum =
+    private static readonly FrozenDictionary<string, string> StemToEnum =
         All.Where(s => s.BundleStem is not null)
-            .ToDictionary(s => s.BundleStem!, s => s.EnumName, StringComparer.OrdinalIgnoreCase);
+            .ToFrozenDictionary(s => s.BundleStem!, s => s.EnumName, StringComparer.OrdinalIgnoreCase);
 
     public static string? EnumNameForStem(string stem) =>
         StemToEnum.GetValueOrDefault(stem);

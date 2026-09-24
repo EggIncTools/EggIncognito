@@ -4,8 +4,8 @@ namespace EggIncognito.Services.Devices;
 
 public static class HostAdbKey {
     public static async Task<(string Key, string Source)?> ResolveAsync(
-        IHostFacts facts, VirtualDeviceConfig config, CancellationToken ct) {
-        var local = AdbHostKey.ResolveWithSource(config);
+        IHostFacts facts, VirtualDeviceConfig config, IConfiguration configuration, CancellationToken ct) {
+        var local = AdbHostKey.ResolveWithSource(config, configuration["ANDROID_USER_HOME"]);
         var host = await facts.GetAsync(ct);
         if (host.Value?.AdbPublicKey is not { } key || string.IsNullOrWhiteSpace(key)) return local;
 

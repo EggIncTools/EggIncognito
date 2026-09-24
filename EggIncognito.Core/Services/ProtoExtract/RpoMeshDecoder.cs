@@ -1,4 +1,6 @@
+using System.Buffers;
 using System.Buffers.Binary;
+using System.Diagnostics.CodeAnalysis;
 using System.IO.Compression;
 using System.Text.Json;
 
@@ -56,16 +58,20 @@ public static class RpoMeshDecoder {
                 ? new GZipStream(input, CompressionMode.Decompress)
                 : new ZLibStream(input, CompressionMode.Decompress);
             using var output = new MemoryStream();
-            byte[] buf = new byte[81920];
-            int n;
-            long total = 0;
-            while ((n = dec.Read(buf, 0, buf.Length)) > 0) {
-                total += n;
-                if (total > MaxDecompressedBytes) return data;
-                output.Write(buf, 0, n);
-            }
+            byte[] buf = ArrayPool<byte>.Shared.Rent(81920);
+            try {
+                int n;
+                long total = 0;
+                while ((n = dec.Read(buf, 0, buf.Length)) > 0) {
+                    total += n;
+                    if (total > MaxDecompressedBytes) return data;
+                    output.Write(buf, 0, n);
+                }
 
-            return output.ToArray();
+                return output.ToArray();
+            } finally {
+                ArrayPool<byte>.Shared.Return(buf);
+            }
         } catch (InvalidDataException) {
             return data;
         }
@@ -244,5 +250,8 @@ public static class RpoMeshDecoder {
         int IndexCount,
         BBox? Bounds,
         bool HasEmission,
-        long TrailingBytes = 0);
+        long TrailingBytes = 0) {
+        [MemberNotNullWhen(true, nameof(Glb), nameof(Bounds))]
+        public bool Ok { get; init; } = Ok;
+    }
 }

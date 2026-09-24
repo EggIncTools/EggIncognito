@@ -15,18 +15,18 @@ public class ContractSlotsTests {
     public void Next_FromTuesdayInSummer_UsesEdtNoon() {
         var slots = ContractSlots.Next(Utc(2026, 6, 16, 8), 1);
 
-        var slot = Assert.Single(slots);
-        Assert.Equal(UtcSeconds(2026, 6, 17, 16), slot.Time);
-        Assert.Equal(Assert.Single(ContractSlots.KindsFor(DayOfWeek.Wednesday)), slot.Kind);
+        var (time, kind) = Assert.Single(slots);
+        Assert.Equal(UtcSeconds(2026, 6, 17, 16), time);
+        Assert.Equal(Assert.Single(ContractSlots.KindsFor(DayOfWeek.Wednesday)), kind);
     }
 
     [Fact]
     public void Next_FromTuesdayInWinter_UsesEstNoon() {
         var slots = ContractSlots.Next(Utc(2026, 1, 13, 8), 1);
 
-        var slot = Assert.Single(slots);
-        Assert.Equal(UtcSeconds(2026, 1, 14, 17), slot.Time);
-        Assert.Equal(Assert.Single(ContractSlots.KindsFor(DayOfWeek.Wednesday)), slot.Kind);
+        var (time, kind) = Assert.Single(slots);
+        Assert.Equal(UtcSeconds(2026, 1, 14, 17), time);
+        Assert.Equal(Assert.Single(ContractSlots.KindsFor(DayOfWeek.Wednesday)), kind);
     }
 
     [Fact]
@@ -54,9 +54,9 @@ public class ContractSlotsTests {
     public void Next_AtExactSlotTime_SkipsThatSlot() {
         var slots = ContractSlots.Next(Utc(2026, 6, 19, 16), 1);
 
-        var slot = Assert.Single(slots);
-        Assert.Equal(Assert.Single(ContractSlots.KindsFor(DayOfWeek.Monday)), slot.Kind);
-        Assert.Equal(UtcSeconds(2026, 6, 22, 16), slot.Time);
+        var (time, kind) = Assert.Single(slots);
+        Assert.Equal(Assert.Single(ContractSlots.KindsFor(DayOfWeek.Monday)), kind);
+        Assert.Equal(UtcSeconds(2026, 6, 22, 16), time);
     }
 
     [Fact]

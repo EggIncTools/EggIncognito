@@ -21,7 +21,7 @@ public static class HatcheryAssemblyRecovery {
 
         var timing = RecoverTiming(bin, syms, tvm, tfo);
 
-        float[]? anchor = transforms.FirstOrDefault(t => t.Lambda == AnchorLambda).Translation();
+        float[]? anchor = transforms.Find(t => t.Lambda == AnchorLambda).Translation();
 
         bool ok = transforms.Any(t => t.Ok);
         return new Assembly(ok, anchor, transforms, timing, ok ? "ok" : "nothing recovered");

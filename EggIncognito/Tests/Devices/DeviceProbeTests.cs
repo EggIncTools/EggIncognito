@@ -151,9 +151,4 @@ public class DeviceProbeTests {
         Assert.Equal("1.37.2", r.InstalledAppVersion);
         Assert.Null(r.InstalledBuild);
     }
-
-    private sealed class FakeRunner(Func<string, string[], ProcessResult> fn) : IProcessRunner {
-        public Task<ProcessResult> RunAsync(string exe, string[] args, CancellationToken ct) =>
-            Task.FromResult(fn(exe, args));
-    }
 }

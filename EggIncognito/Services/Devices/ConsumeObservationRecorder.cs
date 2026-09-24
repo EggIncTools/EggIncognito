@@ -12,7 +12,8 @@ namespace EggIncognito.Services.Devices;
 
 public sealed class ConsumeObservationRecorder(
     IServiceScopeFactory scopes,
-    ILogger<ConsumeObservationRecorder> logger) : IProcessedFlowObserver, IHostedService, IDisposable {
+    ILogger<ConsumeObservationRecorder> logger,
+    TimeProvider time) : IProcessedFlowObserver, IHostedService, IDisposable {
     public const string ConsumeRoute = "ei_afx/consume_artifact";
     public const string DemoteRoute = "ei_afx/demote_artifact";
     public const string CraftRoute = "ei_afx/craft_artifact";
@@ -32,7 +33,7 @@ public sealed class ConsumeObservationRecorder(
         if (action is null) return;
 
         try {
-            var row = Build(action, deviceId, flow);
+            var row = Build(action, deviceId, flow, time.GetUtcNow());
             if (row is not null) _queue.Writer.TryWrite(row);
         } catch (Exception ex) {
             CaptureDiagnostics.Failed("consume-observation", flow.Url, ex);
@@ -45,12 +46,13 @@ public sealed class ConsumeObservationRecorder(
         : string.Equals(path, CraftRoute, StringComparison.Ordinal) ? "craft"
         : null;
 
-    public static ArtifactConsumeObservation? Build(string action, string deviceId, DashboardFlow flow) =>
+    public static ArtifactConsumeObservation? Build(string action, string deviceId, DashboardFlow flow,
+        DateTimeOffset now) =>
         string.Equals(action, "craft", StringComparison.Ordinal)
-            ? BuildCraft(deviceId, flow)
-            : BuildConsume(action, deviceId, flow);
+            ? BuildCraft(deviceId, flow, now)
+            : BuildConsume(action, deviceId, flow, now);
 
-    private static ArtifactConsumeObservation? BuildCraft(string deviceId, DashboardFlow flow) {
+    private static ArtifactConsumeObservation? BuildCraft(string deviceId, DashboardFlow flow, DateTimeOffset now) {
         if (flow.RequestJsonRaw is null || flow.ResponseJsonRaw is null) return null;
 
         var request = JsonParser.Default.Parse<CraftArtifactRequest>(flow.RequestJsonRaw);
@@ -69,11 +71,12 @@ public sealed class ConsumeObservationRecorder(
             Success = response.ItemId != 0,
             ClientVersion = string.IsNullOrEmpty(request.Rinfo?.Version) ? null : request.Rinfo.Version,
             DeviceId = string.IsNullOrEmpty(deviceId) ? null : deviceId,
-            ObservedAt = DateTimeOffset.UtcNow
+            ObservedAt = now
         };
     }
 
-    private static ArtifactConsumeObservation? BuildConsume(string action, string deviceId, DashboardFlow flow) {
+    private static ArtifactConsumeObservation? BuildConsume(string action, string deviceId, DashboardFlow flow,
+        DateTimeOffset now) {
         if (flow.RequestJsonRaw is null || flow.ResponseJsonRaw is null) return null;
 
         var request = JsonParser.Default.Parse<ConsumeArtifactRequest>(flow.RequestJsonRaw);
@@ -110,7 +113,7 @@ public sealed class ConsumeObservationRecorder(
             Success = response.Success,
             ClientVersion = string.IsNullOrEmpty(request.Rinfo?.Version) ? null : request.Rinfo.Version,
             DeviceId = string.IsNullOrEmpty(deviceId) ? null : deviceId,
-            ObservedAt = DateTimeOffset.UtcNow
+            ObservedAt = now
         };
     }
 

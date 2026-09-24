@@ -3,7 +3,7 @@ using System.Text;
 
 namespace EggIncognito.Capture;
 
-internal sealed class HttpMessage {
+internal sealed record HttpMessage {
     public required string StartLine { get; init; }
     public required List<HttpHeader> Headers { get; init; }
     public byte[]? Body { get; init; }
@@ -19,7 +19,7 @@ internal sealed class HttpMessage {
     }
 
     public bool IsConnectionClose =>
-        Headers.Any(h => h.Name.Equals("Connection", StringComparison.OrdinalIgnoreCase) &&
+        Headers.Exists(h => h.Name.Equals("Connection", StringComparison.OrdinalIgnoreCase) &&
                          h.Value.Contains("close", StringComparison.OrdinalIgnoreCase));
 
     private bool IsRequest => !StartLine.StartsWith("HTTP/", StringComparison.OrdinalIgnoreCase);
@@ -150,5 +150,5 @@ internal sealed class HttpMessage {
     }
 
     private static string? Get(List<HttpHeader> headers, string name) =>
-        headers.FirstOrDefault(h => h.Name.Equals(name, StringComparison.OrdinalIgnoreCase))?.Value;
+        headers.Find(h => h.Name.Equals(name, StringComparison.OrdinalIgnoreCase))?.Value;
 }

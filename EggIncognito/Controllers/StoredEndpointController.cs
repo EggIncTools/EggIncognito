@@ -14,7 +14,7 @@ namespace EggIncognito.Controllers;
 [Route("api/db")]
 [ApiAccess(ApiAccessLevel.Public)]
 [EnableRateLimiting("write")]
-public sealed class StoredEndpointController(ICurrentUser currentUser) : ApiControllerBase {
+public sealed class StoredEndpointController(ICurrentUser currentUser, TimeProvider time) : ApiControllerBase {
     [HttpPost("endpoint")]
     [ApiAccess(ApiAccessLevel.Contributor)]
     [RequiresDb]
@@ -36,7 +36,7 @@ public sealed class StoredEndpointController(ICurrentUser currentUser) : ApiCont
             existing.ResponseJson = body.ResponseJson;
             existing.ResponseType = body.ResponseType;
 
-            existing.UpdatedAt = DateTimeOffset.UtcNow;
+            existing.UpdatedAt = time.GetUtcNow();
         }
 
         await db.SaveChangesAsync();

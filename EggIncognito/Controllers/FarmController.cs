@@ -1,3 +1,4 @@
+using System.Buffers;
 using EggIncognito.Core.Services.Farm;
 using EggIncognito.Models.Farm;
 using EggIncognito.Services;
@@ -26,6 +27,8 @@ public sealed class FarmController(
     ICurrentUser currentUser) : ApiControllerBase {
     private const string SubPieceMethod =
         "sub-piece drawn at the parent transform; hatchery geometry is baked in the rpo";
+
+    private static readonly SearchValues<char> InvalidStemChars = SearchValues.Create("/\\.");
 
     [HttpGet("catalog")]
     [EnableRateLimiting("read")]
@@ -148,7 +151,7 @@ public sealed class FarmController(
         [FromQuery] string? shell = null, CancellationToken ct = default) {
         if (appMode.Mode == AppMode.Hosted && !currentUser.IsAuthenticated)
             return Fail(403, "log in to download farm meshes from the hosted site");
-        if (string.IsNullOrEmpty(stem) || stem.IndexOfAny(['/', '\\', '.']) >= 0)
+        if (string.IsNullOrEmpty(stem) || stem.AsSpan().IndexOfAny(InvalidStemChars) >= 0)
             return Fail(400, "invalid mesh name");
 
         var catalog = FarmAssetCatalog.From(LoadCatalog(platform));
@@ -156,7 +159,7 @@ public sealed class FarmController(
         if (url is null) {
             var pulled = await deviceMeshes.GetGlbAsync(stem, null, ct);
             return pulled.Ok
-                ? File(pulled.Glb!, "model/gltf-binary", $"{stem}.glb")
+                ? File(pulled.Glb, "model/gltf-binary", $"{stem}.glb")
                 : Fail(pulled.Status, pulled.Diagnostics ?? "mesh pull failed");
         }
 
@@ -165,7 +168,7 @@ public sealed class FarmController(
         if (glb is null) {
             var decode = await downloader.DownloadAndDecodeAsync(url, stem, ct);
             if (!decode.Ok) return Fail(502, decode.Diagnostics);
-            glb = decode.Glb!;
+            glb = decode.Glb;
             await cache.PutAsync("shell", key, glb, ct);
         }
 

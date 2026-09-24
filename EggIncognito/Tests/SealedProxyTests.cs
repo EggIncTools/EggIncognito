@@ -1,5 +1,4 @@
 using System.Net;
-using EggIdentity.Contract;
 using EggIncognito.Services;
 
 namespace EggIncognito.Tests;
@@ -24,23 +23,23 @@ public class SealedProxyTests {
 
     [Fact]
     public async Task CanUse_Unconfigured_False()
-        => Assert.False(await NewProxy(new SealedProxyOptions()).CanUseAsync(new FakeUser(true, true)));
+        => Assert.False(await NewProxy(new SealedProxyOptions()).CanUseAsync(new FakeUser(true, supporter: true)));
 
     [Fact]
     public async Task CanUse_Anonymous_False()
-        => Assert.False(await NewProxy(Configured()).CanUseAsync(new FakeUser(false, false)));
+        => Assert.False(await NewProxy(Configured()).CanUseAsync(new FakeUser(false, supporter: false)));
 
     [Fact]
     public async Task CanUse_NonSupporter_False()
-        => Assert.False(await NewProxy(Configured()).CanUseAsync(new FakeUser(true, false)));
+        => Assert.False(await NewProxy(Configured()).CanUseAsync(new FakeUser(true, supporter: false)));
 
     [Fact]
     public async Task CanUse_SupporterWithoutDiscordId_False()
-        => Assert.False(await NewProxy(Configured()).CanUseAsync(new FakeUser(true, true, null)));
+        => Assert.False(await NewProxy(Configured()).CanUseAsync(new FakeUser(true, discordId: null, supporter: true)));
 
     [Fact]
     public async Task CanUse_Supporter_True()
-        => Assert.True(await NewProxy(Configured()).CanUseAsync(new FakeUser(true, true)));
+        => Assert.True(await NewProxy(Configured()).CanUseAsync(new FakeUser(true, supporter: true)));
 
     [Fact]
     public void CreateEgressClient_UsesNamedEgressClient() {
@@ -73,15 +72,4 @@ public class SealedProxyTests {
         Assert.Equal("pass", cred.Password);
     }
 
-    private sealed class FakeUser(bool authed, bool supporter, string? id = "tester") : ICurrentUser {
-        public bool IsAuthenticated => authed;
-        public Guid? UserId => null;
-        public string? DiscordId => authed ? id : null;
-        public string? Username => authed ? "tester" : null;
-        public string? Avatar => null;
-        public string? AvatarUrl => null;
-        public UserRole Role => UserRole.Viewer;
-        public bool IsSupporter => supporter;
-        public bool IsAtLeast(UserRole need) => UserRoles.IsAtLeast(UserRole.Viewer, need);
-    }
 }

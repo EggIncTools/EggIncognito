@@ -7,7 +7,7 @@ namespace EggIncognito.Data.Services;
 public sealed record DeviceAssetHead(string Platform, string Kind, string Name, string Sha256, long ByteSize,
     string ContentType, string? SourceVersion, DateTimeOffset UpdatedAt);
 
-public sealed class DeviceAssetStore(EggIncognitoDbContext db, BlobBytes blobs) {
+public sealed class DeviceAssetStore(EggIncognitoDbContext db, TimeProvider time, BlobBytes blobs) {
     public Task<byte[]> BytesAsync(DeviceAsset row, CancellationToken ct) =>
         blobs.ResolveAsync(BlobTables.DeviceAssets, row.Bytes, row.Sha256, ct);
 
@@ -60,7 +60,7 @@ public sealed class DeviceAssetStore(EggIncognitoDbContext db, BlobBytes blobs) 
                 ByteSize = bytes.LongLength,
                 ContentType = contentType,
                 SourceVersion = sourceVersion,
-                UpdatedAt = DateTimeOffset.UtcNow
+                UpdatedAt = time.GetUtcNow()
             });
         } else {
             existing.Sha256 = sha;
@@ -68,7 +68,7 @@ public sealed class DeviceAssetStore(EggIncognitoDbContext db, BlobBytes blobs) 
             existing.ByteSize = bytes.LongLength;
             existing.ContentType = contentType;
             existing.SourceVersion = sourceVersion;
-            existing.UpdatedAt = DateTimeOffset.UtcNow;
+            existing.UpdatedAt = time.GetUtcNow();
         }
 
         await db.SaveChangesAsync(ct);

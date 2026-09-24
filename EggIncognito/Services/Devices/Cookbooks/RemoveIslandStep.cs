@@ -20,9 +20,9 @@ public sealed class RemoveIslandStep(
 
     public override async Task<CookbookStepResult> RunAsync(DeviceCookbookContext context, CancellationToken ct) {
         var lines = new List<string>();
-        void Add(string line) {
+        Task Add(string line) {
             lines.Add(line);
-            context.Progress(line);
+            return context.Progress(line);
         }
 
         var target = context.Target;
@@ -44,19 +44,19 @@ public sealed class RemoveIslandStep(
                 $"pm remove-user {user} failed: {DeviceParsing.TrimNote(remove.Stdout + remove.Stderr)}");
         }
 
-        Add($"removed user {user}");
+        await Add($"removed user {user}");
         await DeleteRowAsync(target.Id, androidUserId, Add, ct);
         return Ok(lines, $"island {user} removed");
     }
 
-    private async Task DeleteRowAsync(string deviceId, int androidUserId, Action<string> add, CancellationToken ct) {
+    private async Task DeleteRowAsync(string deviceId, int androidUserId, Func<string, Task> add, CancellationToken ct) {
         using var scope = scopeFactory.CreateScope();
         if (scope.ServiceProvider.GetService(typeof(DeviceIslandStore)) is not DeviceIslandStore store) {
-            add("no database configured, island row not deleted");
+            await add("no database configured, island row not deleted");
             return;
         }
 
         await store.RemoveAsync(deviceId, androidUserId, ct);
-        add($"island {androidUserId} row deleted");
+        await add($"island {androidUserId} row deleted");
     }
 }

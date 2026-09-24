@@ -1,4 +1,6 @@
 @using System.Globalization
+@using EggIncognito.Services.Events
+@inject IServiceProvider Services
 @if (Hover) {
     <Tooltip>
         <ChildContent>
@@ -17,13 +19,11 @@
 
     [Parameter] public bool Hover { get; set; } = true;
 
-    DateTimeOffset Local => Value.ToLocalTime();
-
-    string Full => Local.ToString("dddd d MMMM yyyy 'at' HH:mm:ss zzz", CultureInfo.CurrentCulture);
+    string Full => ViewerClock.At(Services, Value).ToString("dddd d MMMM yyyy 'at' HH:mm:ss zzz", CultureInfo.CurrentCulture);
 
     string Relative {
         get {
-            var delta = DateTimeOffset.Now - Local;
+            var delta = DateTimeOffset.UtcNow - Value;
             if (delta < TimeSpan.Zero) delta = TimeSpan.Zero;
             if (delta.TotalSeconds < 60) return "just now";
             if (delta.TotalMinutes < 60) return FormattableString.Invariant($"{(int)delta.TotalMinutes}m ago");

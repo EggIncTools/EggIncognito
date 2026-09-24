@@ -84,7 +84,7 @@ public sealed partial class EndpointCatalogExtractor {
         while (p < rest.Length && char.IsAsciiDigit(rest[p])) p++;
         if (p == 0 || !int.TryParse(rest[..p], out int len) || len <= 0 || p + len > rest.Length) return false;
 
-        method = rest.Substring(p, len);
+        method = rest[p..(p + len)];
         int after = p + len;
         if (after >= rest.Length || rest[after] != 'E' || !char.IsAsciiLetterLower(method[0])) return false;
 
@@ -124,7 +124,7 @@ public sealed partial class EndpointCatalogExtractor {
         while (j < s.Length && char.IsAsciiDigit(s[j])) j++;
         if (j == lenStart || !int.TryParse(s[lenStart..j], out int len) || len <= 0 || j + len > s.Length) return false;
 
-        string nm = s.Substring(j, len);
+        string nm = s[j..(j + len)];
         int nameEnd = j + len;
         if (nameEnd >= s.Length || s[nameEnd] != 'E' || !IsTypeName(nm)) return false;
 

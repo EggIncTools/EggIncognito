@@ -119,11 +119,9 @@ public sealed partial class EndpointExtractor(HarDirs dirs, string? eid, string 
 
         var contentEl = res.GetProperty("content");
         string rawText = contentEl.GetProperty("text").GetString()!;
-        string responseBodyB64;
-        if (contentEl.TryGetProperty("encoding", out var enc) && enc.GetString() == "base64")
-            responseBodyB64 = Encoding.UTF8.GetString(Convert.FromBase64String(rawText)).Trim();
-        else
-            responseBodyB64 = rawText.Trim();
+        string responseBodyB64 = contentEl.TryGetProperty("encoding", out var enc) && enc.GetString() == "base64"
+            ? Encoding.UTF8.GetString(Convert.FromBase64String(rawText)).Trim()
+            : rawText.Trim();
 
         string? requestData = ReadRequestData(req);
 
@@ -155,9 +153,9 @@ public sealed partial class EndpointExtractor(HarDirs dirs, string? eid, string 
         string? json = FormatResponse(path, inner, dirs.TypeMap);
         if (json is null) {
             var det = AutoDetect(inner);
-            if (det.typeName is null || det.json is null) return null;
-            string red = Scrub(Redactor.Redact(det.json));
-            return new DecodedEntry(path, red, request, det.typeName, det.bestScore, det.secondBestScore);
+            if (det.TypeName is null || det.Json is null) return null;
+            string red = Scrub(Redactor.Redact(det.Json));
+            return new DecodedEntry(path, red, request, det.TypeName, det.BestScore, det.SecondBestScore);
         }
 
         return new DecodedEntry(path, Scrub(json), request, null, 0, 0);
@@ -294,19 +292,19 @@ public sealed partial class EndpointExtractor(HarDirs dirs, string? eid, string 
             }
 
             (var chosen, bool useUnwrapped) = BestFraming(reqBytes);
-            if (chosen.typeName is null || chosen.json is null) return new RequestDecode(null, null, false, null);
+            if (chosen.TypeName is null || chosen.Json is null) return new RequestDecode(null, null, false, null);
 
-            var verdict = ExtractorConfig.ClassifyAutoWrite(chosen.bestScore, chosen.secondBestScore);
+            var verdict = ExtractorConfig.ClassifyAutoWrite(chosen.BestScore, chosen.SecondBestScore);
             Out(
-                $"  reqauto {path}  request -> {chosen.typeName} ({(useUnwrapped ? "wrapped" : "raw")}, {verdict}, conf {chosen.confidence}%)");
+                $"  reqauto {path}  request -> {chosen.TypeName} ({(useUnwrapped ? "wrapped" : "raw")}, {verdict}, conf {chosen.Confidence}%)");
 
-            if (verdict == AutoWriteVerdict.Write || (isExplicit && chosen.typeName is not null))
-                return new RequestDecode(chosen.json, chosen.typeName, useUnwrapped, null);
+            if (verdict == AutoWriteVerdict.Write || (isExplicit && chosen.TypeName is not null))
+                return new RequestDecode(chosen.Json, chosen.TypeName, useUnwrapped, null);
 
             string? note = verdict == AutoWriteVerdict.Flag
-                ? $"{path} request: {chosen.typeName} vs runner-up tied on fields - verify with --decode"
+                ? $"{path} request: {chosen.TypeName} vs runner-up tied on fields - verify with --decode"
                 : null;
-            return new RequestDecode(chosen.json, null, useUnwrapped, note);
+            return new RequestDecode(chosen.Json, null, useUnwrapped, note);
         } catch (InvalidProtocolBufferException ex) when (ex.Message.Contains("ended unexpectedly")) {
             if (_reqErrorSeen.Add(path))
                 Err($"  req   {path}: truncated (HAR capture limit)");
@@ -546,22 +544,23 @@ public sealed partial class EndpointExtractor(HarDirs dirs, string? eid, string 
             }
 
             var (chosen, _) = BestFraming(bytes);
-            return chosen.json is null ? (null, null) : (chosen.json, chosen.typeName);
+            return chosen.Json is null ? (null, null) : (chosen.Json, chosen.TypeName);
         } catch {
             return (null, null);
         }
     }
 
-    private static ((string? typeName, string? json, int confidence, int bestScore, int secondBestScore) result, bool
-        unwrapped) BestFraming(byte[] bytes) {
+    private static (AutoDetectResult result, bool unwrapped) BestFraming(byte[] bytes) {
         var raw = AutoDetect(bytes);
         byte[]? unwrappedBytes = ProtoFraming.TryUnwrap(bytes);
         var unw = unwrappedBytes is null ? default : AutoDetect(unwrappedBytes);
-        return unwrappedBytes is not null && unw.bestScore > raw.bestScore ? (unw, true) : (raw, false);
+        return unwrappedBytes is not null && unw.BestScore > raw.BestScore ? (unw, true) : (raw, false);
     }
 
-    public static (string? typeName, string? json, int confidence, int bestScore, int secondBestScore)
-        AutoDetect(byte[] data) {
+    public readonly record struct AutoDetectResult(string? TypeName, string? Json, int Confidence, int BestScore,
+        int SecondBestScore);
+
+    public static AutoDetectResult AutoDetect(byte[] data) {
         string? bestType = null;
         string? bestJson = null;
         int bestScore = 0;
@@ -580,7 +579,7 @@ public sealed partial class EndpointExtractor(HarDirs dirs, string? eid, string 
             }
         }
 
-        if (bestScore < 2) return (null, null, 0, bestScore, secondBestScore);
+        if (bestScore < 2) return new AutoDetectResult(null, null, 0, bestScore, secondBestScore);
 
         const int Exact = 1000;
         int confidence;
@@ -595,8 +594,8 @@ public sealed partial class EndpointExtractor(HarDirs dirs, string? eid, string 
             confidence = Math.Min(99, (int)((double)bestScore / (bestScore + secondBestScore) * 100));
         }
 
-        return (bestType, bestJson is null ? null : ProtoJson.PrettyPrint(bestJson), confidence, bestScore,
-            secondBestScore);
+        return new AutoDetectResult(bestType, bestJson is null ? null : ProtoJson.PrettyPrint(bestJson), confidence,
+            bestScore, secondBestScore);
     }
 
     public static (int score, string? json) TryParseAs(Type type, byte[] data) {

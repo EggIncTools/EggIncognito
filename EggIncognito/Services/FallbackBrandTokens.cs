@@ -1,7 +1,9 @@
+using System.Collections.Frozen;
+
 namespace EggIncognito.Services;
 
 public static class FallbackBrandTokens {
-    public static readonly IReadOnlyDictionary<string, string> Tokens = new Dictionary<string, string> {
+    public static readonly FrozenDictionary<string, string> Tokens = new Dictionary<string, string> {
         ["--color-bg"] = "#1b1b1f",
         ["--color-panel0"] = "#202027",
         ["--color-panel"] = "#25252b",
@@ -12,5 +14,5 @@ public static class FallbackBrandTokens {
         ["--color-ok"] = "#5ec27e",
         ["--color-err"] = "#e0685f",
         ["--color-border"] = "#3a3a44",
-    };
+    }.ToFrozenDictionary();
 }

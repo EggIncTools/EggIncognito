@@ -32,6 +32,12 @@ public sealed class CurrentUser(IHttpContextAccessor accessor, AuthState authSta
 
     public bool IsAtLeast(UserRole need) => UserRoles.IsAtLeast(Role, need);
 
-    private string? Find(params string[] types) =>
-        types.Select(t => Principal?.FindFirstValue(t)).FirstOrDefault(v => !string.IsNullOrEmpty(v));
+    private string? Find(params ReadOnlySpan<string> types) {
+        foreach (string t in types) {
+            string? v = Principal?.FindFirstValue(t);
+            if (!string.IsNullOrEmpty(v)) return v;
+        }
+
+        return null;
+    }
 }

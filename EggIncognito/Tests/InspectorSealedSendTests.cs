@@ -1,4 +1,3 @@
-using EggIdentity.Contract;
 using EggIncognito.Controllers;
 using EggIncognito.Models.Inspector;
 using EggIncognito.Services;
@@ -26,7 +25,7 @@ public class InspectorSealedSendTests {
     public async Task Send_SealedRequest_NotConfigured_403() {
         var sealedProxy = new FakeSealedProxy(false, false);
         var controller = NewController(
-            new FakeAppMode(AppMode.Local), new FakeUser(true, true), sealedProxy);
+            new FakeAppMode(AppMode.Local), new FakeUser(supporter: true), sealedProxy);
 
         var ex = await Assert.ThrowsAsync<ApiException>(() => controller.Send(SealedSend()));
         Assert.Equal(StatusCodes.Status403Forbidden, ex.Status);
@@ -37,7 +36,7 @@ public class InspectorSealedSendTests {
     public async Task Send_HostedAnonymous_403_BeforeSealedCheck() {
         var sealedProxy = new FakeSealedProxy(true, true);
         var controller = NewController(
-            new FakeAppMode(AppMode.Hosted), new FakeUser(false, false), sealedProxy);
+            new FakeAppMode(AppMode.Hosted), new FakeUser(false), sealedProxy);
 
         var ex = await Assert.ThrowsAsync<ApiException>(() => controller.Send(SealedSend()));
         Assert.Equal(StatusCodes.Status403Forbidden, ex.Status);
@@ -49,18 +48,6 @@ public class InspectorSealedSendTests {
         public bool CanCapture => false;
         public bool CanWrite => false;
         public bool HostedCaptureEnabled => false;
-    }
-
-    private sealed class FakeUser(bool authed, bool supporter) : ICurrentUser {
-        public bool IsAuthenticated => authed;
-        public Guid? UserId => null;
-        public string? DiscordId => authed ? "tester" : null;
-        public string? Username => authed ? "tester" : null;
-        public string? Avatar => null;
-        public string? AvatarUrl => null;
-        public UserRole Role => UserRole.Viewer;
-        public bool IsSupporter => supporter;
-        public bool IsAtLeast(UserRole need) => UserRoles.IsAtLeast(UserRole.Viewer, need);
     }
 
     private sealed class FakeSealedProxy(bool configured, bool canUse) : ISealedProxy {

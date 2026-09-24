@@ -167,15 +167,7 @@ public static class MachoSymbols {
 
     public readonly record struct FuncRange(string Name, ulong Start, ulong End);
 
-    public sealed class Index {
-        private readonly ulong[] _starts;
-        private readonly string[] _names;
-
-        private Index(ulong[] starts, string[] names) {
-            _starts = starts;
-            _names = names;
-        }
-
+    public sealed class Index(ulong[] starts, string[] names) {
         public static Index Build(IReadOnlyList<Symbol> syms) {
             var best = new Dictionary<ulong, string>();
             foreach (var s in syms) {
@@ -201,18 +193,18 @@ public static class MachoSymbols {
             range = default;
             offset = 0;
             int lo = 0;
-            int hi = _starts.Length;
+            int hi = starts.Length;
             while (lo < hi) {
                 int mid = (lo + hi) / 2;
-                if (_starts[mid] <= va) lo = mid + 1;
+                if (starts[mid] <= va) lo = mid + 1;
                 else hi = mid;
             }
 
             if (lo == 0) return false;
             int i = lo - 1;
-            ulong end = i + 1 < _starts.Length ? _starts[i + 1] : _starts[i] + 0x4000;
-            range = new FuncRange(_names[i], _starts[i], end);
-            offset = va - _starts[i];
+            ulong end = i + 1 < starts.Length ? starts[i + 1] : starts[i] + 0x4000;
+            range = new FuncRange(names[i], starts[i], end);
+            offset = va - starts[i];
             return true;
         }
 

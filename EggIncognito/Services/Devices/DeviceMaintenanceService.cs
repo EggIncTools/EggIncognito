@@ -385,7 +385,10 @@ public sealed class DeviceMaintenanceService(
         _lastStoreProbe[d.Id] = time.GetUtcNow();
         var target = new DeviceTarget(d.Id, d.Platform, d.Target, d.Package);
         var result = await checker.CheckAndUpdateAsync(target, ct,
-            msg => logger.LogInformation("device sync: {Id} {Msg}", d.Id, msg));
+            msg => {
+                logger.LogInformation("device sync: {Id} {Msg}", d.Id, msg);
+                return Task.CompletedTask;
+            });
 
         if (result.Installed) {
             _lastNoOpCheck.Remove(d.Id);

@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
@@ -29,17 +30,25 @@ public sealed class CaptureController(
     ILogger<CaptureController> logger) : ApiControllerBase {
     private static readonly JsonSerializerOptions Json = JsonPresets.Web;
 
-    private (CaptureSession? Session, IActionResult? Error) Resolve() {
-        if (appMode.CanCapture)
-            return (manager.GetOrCreate(CaptureSessionManager.LocalKey), null);
+    private bool TryResolve([NotNullWhen(true)] out CaptureSession? session,
+        [NotNullWhen(false)] out IActionResult? error) {
+        session = null;
+        error = null;
+        if (appMode.CanCapture) {
+            session = manager.GetOrCreate(CaptureSessionManager.LocalKey);
+            return true;
+        }
+
         if (!appMode.HostedCaptureEnabled)
-            return (null, Fail(403, "capture is disabled in hosted mode"));
-        if (!currentUser.IsAuthenticated || string.IsNullOrEmpty(currentUser.DiscordId))
-            return (null, Fail(401, "log in to use hosted capture"));
-        var session = manager.Get(currentUser.DiscordId);
-        return session is null
-            ? (null, Fail(404, "no capture session; start one on /capture first"))
-            : (session, null);
+            error = Fail(403, "capture is disabled in hosted mode");
+        else if (!currentUser.IsAuthenticated || string.IsNullOrEmpty(currentUser.DiscordId))
+            error = Fail(401, "log in to use hosted capture");
+        else {
+            session = manager.Get(currentUser.DiscordId);
+            if (session is null) error = Fail(404, "no capture session; start one on /capture first");
+        }
+
+        return session is not null;
     }
 
     private ObjectResult? RequireHostedUser() {
@@ -60,13 +69,11 @@ public sealed class CaptureController(
     private ObjectResult? RequireFullTier(CaptureSession session) =>
         session.Tier == CaptureTier.Full
             ? null
-            : StatusCode(403, new ApiError("limited_capture", null, 403,
-                new { detail = "this action needs full capture access" }));
+            : Fail(403, "limited_capture", new { detail = "this action needs full capture access" });
 
     [HttpGet("stream")]
     public async Task Stream(CancellationToken ct) {
-        var (session, error) = Resolve();
-        if (session is null) {
+        if (!TryResolve(out var session, out var error)) {
             (int status, object? payload) = error is ObjectResult o
                 ? (o.StatusCode ?? 403, o.Value)
                 : (403, (object?)new ApiError("capture unavailable", null, 403));
@@ -108,8 +115,7 @@ public sealed class CaptureController(
 
     [HttpGet("flows")]
     public IActionResult Flows() {
-        var (session, error) = Resolve();
-        return session is null ? error! : Ok(session.Hub.Snapshot());
+        return TryResolve(out var session, out var error) ? Ok(session.Hub.Snapshot()) : error;
     }
 
     [HttpGet("sensitive-keys")]
@@ -119,14 +125,12 @@ public sealed class CaptureController(
 
     [HttpGet("stats")]
     public IActionResult Stats() {
-        var (session, error) = Resolve();
-        return session is null ? error! : Ok(session.Hub.StatsSnapshot());
+        return TryResolve(out var session, out var error) ? Ok(session.Hub.StatsSnapshot()) : error;
     }
 
     [HttpGet("status")]
     public IActionResult Status() {
-        var (session, error) = Resolve();
-        return session is null ? error! : Ok(session.Status);
+        return TryResolve(out var session, out var error) ? Ok(session.Status) : error;
     }
 
     [HttpPost("start")]
@@ -169,7 +173,7 @@ public sealed class CaptureController(
             return Ok(result);
         } catch (Exception ex) {
             logger.LogError(ex, "capture start: {Key} failed on port {Port}", key, session.Port);
-            return StatusCode(500, new ApiError("capture_start_failed", null, 500, new { detail = ex.Message }));
+            return Fail(500, "capture_start_failed", new { detail = ex.Message });
         }
     }
 
@@ -225,7 +229,7 @@ public sealed class CaptureController(
         session.CaDmFailed = true;
         session.Hub.PostNotice(new CaptureEvent(
             "caDmFailed", "Could not DM your setup; use the card below.",
-            DateTime.Now.ToString("HH:mm:ss", CultureInfo.InvariantCulture)));
+            DateTimeOffset.Now.ToString("HH:mm:ss", CultureInfo.InvariantCulture)));
     }
 
     private static async Task RestoreCaAsync(
@@ -253,32 +257,28 @@ public sealed class CaptureController(
 
     [HttpPost("stop")]
     public async Task<IActionResult> Stop() {
-        var (session, error) = Resolve();
-        if (session is null) return error!;
+        if (!TryResolve(out var session, out var error)) return error;
         await session.StopAsync();
         return Ok(new { running = false });
     }
 
     [HttpPost("pause")]
     public IActionResult Pause() {
-        var (session, error) = Resolve();
-        if (session is null) return error!;
+        if (!TryResolve(out var session, out var error)) return error;
         session.Hub.Paused = true;
         return Ok(new { paused = true });
     }
 
     [HttpPost("resume")]
     public IActionResult Resume() {
-        var (session, error) = Resolve();
-        if (session is null) return error!;
+        if (!TryResolve(out var session, out var error)) return error;
         session.Hub.Paused = false;
         return Ok(new { paused = false });
     }
 
     [HttpPost("clear")]
     public IActionResult Clear() {
-        var (session, error) = Resolve();
-        if (session is null) return error!;
+        if (!TryResolve(out var session, out var error)) return error;
         session.Hub.Clear();
         return Ok(new { cleared = true });
     }
@@ -287,8 +287,7 @@ public sealed class CaptureController(
     public async Task<IActionResult> SaveEndpoint([FromBody] SaveFlowRequest body,
         [FromServices] IRouteCatalog routes, [FromServices] EggIncognitoDbContext? db,
         [FromServices] ConfigChangeNotifier? notifier) {
-        var (session, error) = Resolve();
-        if (session is null) return error!;
+        if (!TryResolve(out var session, out var error)) return error;
         if (RequireFullTier(session) is { } no) return no;
         var flow = session.Hub.Find(body.Id);
         if (flow is null) return Fail(404, $"flow {body.Id} not in buffer");
@@ -336,8 +335,7 @@ public sealed class CaptureController(
 
     [HttpGet("har")]
     public IActionResult Har() {
-        var (session, error) = Resolve();
-        if (session is null) return error!;
+        if (!TryResolve(out var session, out var error)) return error;
         if (RequireFullTier(session) is { } no) return no;
         byte[] bytes = Encoding.UTF8.GetBytes(session.CurrentHar());
         return File(bytes, "application/json", "capture-session.har");
@@ -345,11 +343,9 @@ public sealed class CaptureController(
 
     [HttpGet("decode")]
     public IActionResult Decode([FromQuery] string path, [FromQuery] string responseB64) {
-        var (session, error) = Resolve();
-        if (session is null) return error!;
+        if (!TryResolve(out var session, out var error)) return error;
         if (!session.AllowsDetail(path))
-            return StatusCode(403, new ApiError("limited_capture", null, 403,
-                new { detail = $"{path} is not decodable here" }));
+            return Fail(403, "limited_capture", new { detail = $"{path} is not decodable here" });
         var r = session.Decode(path, responseB64);
         return Ok(new { responseJson = r.Json, responseType = r.Type, known = r.Known });
     }

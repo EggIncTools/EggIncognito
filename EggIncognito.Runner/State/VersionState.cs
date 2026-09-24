@@ -1,12 +1,8 @@
 namespace EggIncognito.Runner.State;
 
-public sealed class VersionState {
-    private readonly string _path;
-
-    public VersionState(string path) => _path = path;
-
+public sealed class VersionState(string path) {
     public string LastSeen() =>
-        File.Exists(_path) ? File.ReadAllText(_path).Trim() : "";
+        File.Exists(path) ? File.ReadAllText(path).Trim() : "";
 
-    public void Save(string version) => File.WriteAllText(_path, version);
+    public void Save(string version) => File.WriteAllText(path, version);
 }

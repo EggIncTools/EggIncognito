@@ -15,7 +15,7 @@ namespace EggIncognito.Controllers;
 [Route("api/protos/versions")]
 [ApiAccess(ApiAccessLevel.Public)]
 [EnableRateLimiting("write")]
-public sealed class ProtoRegistryController(ICurrentUser user) : ApiControllerBase {
+public sealed class ProtoRegistryController(ICurrentUser user, TimeProvider time) : ApiControllerBase {
     private string Reviewer => user.DiscordId ?? "?";
 
     [HttpPost]
@@ -36,7 +36,7 @@ public sealed class ProtoRegistryController(ICurrentUser user) : ApiControllerBa
 
         var upsert = await store.UpsertAsync(
             req.Platform, req.AppVersion, req.Build, req.ClientVersion, req.Package ?? "",
-            sha, "", DateTimeOffset.UtcNow, user.Username, protoText,
+            sha, "", time.GetUtcNow(), user.Username, protoText,
             req.Source ?? "upload", ct: ct);
         return Ok(new {
             ok = true,
@@ -58,7 +58,7 @@ public sealed class ProtoRegistryController(ICurrentUser user) : ApiControllerBa
             ProtoRegistryStore.MetadataUpdate.Ok => Ok(new { ok = true }),
             ProtoRegistryStore.MetadataUpdate.BuildCollision =>
                 Fail(409, $"build '{req.Build}' already exists for {platform}"),
-            _ => NotFound()
+            _ => Fail(404, "version not found")
         };
     }
 
@@ -70,7 +70,7 @@ public sealed class ProtoRegistryController(ICurrentUser user) : ApiControllerBa
         if (string.IsNullOrWhiteSpace(req.Proto)) return Fail(400, "proto required");
         return await store.SetProtoAsync(platform, build, req.Proto, ct) is { } sha
             ? Ok(new { ok = true, protoSha = sha })
-            : NotFound();
+            : Fail(404, "version not found");
     }
 
     [HttpDelete("{platform}/{build}")]
@@ -78,7 +78,7 @@ public sealed class ProtoRegistryController(ICurrentUser user) : ApiControllerBa
     [RequiresDb]
     public async Task<IActionResult> Delete(string platform, string build, [FromServices] ProtoRegistryStore store,
         CancellationToken ct) =>
-        await store.SoftDeleteAsync(platform, build, ct) ? Ok(new { ok = true }) : NotFound();
+        await store.SoftDeleteAsync(platform, build, ct) ? Ok(new { ok = true }) : Fail(404, "version not found");
 
     [HttpPost("delete")]
     [ApiAccess(ApiAccessLevel.Admin)]
@@ -135,7 +135,7 @@ public sealed class ProtoRegistryController(ICurrentUser user) : ApiControllerBa
     [RequiresDb]
     public async Task<IActionResult> Restore(string platform, string build, [FromServices] ProtoRegistryStore store,
         CancellationToken ct) =>
-        await store.RestoreAsync(platform, build, ct) ? Ok(new { ok = true }) : NotFound();
+        await store.RestoreAsync(platform, build, ct) ? Ok(new { ok = true }) : Fail(404, "version not found");
 
     [HttpGet("/api/protos/staged/check")]
     [ApiAccess(ApiAccessLevel.Public)]
@@ -185,7 +185,7 @@ public sealed class ProtoRegistryController(ICurrentUser user) : ApiControllerBa
     public async Task<IActionResult> StagedProto(int id, [FromServices] StagedProtoStore s, CancellationToken ct) =>
         await s.PendingByIdAsync(id, ct) is { ProtoText: { Length: > 0 } text }
             ? Content(text, "text/plain")
-            : NotFound();
+            : Fail(404, "staged proto not found");
 
     [HttpPost("/api/protos/staged/{id:int}/approve")]
     [ApiAccess(ApiAccessLevel.Contributor)]
@@ -200,7 +200,7 @@ public sealed class ProtoRegistryController(ICurrentUser user) : ApiControllerBa
             StagedProtoStore.ApproveResult.MissingBuild => Fail(400, "appVersion + build required to approve"),
             StagedProtoStore.ApproveResult.BuildCollision => Fail(409, "build already taken"),
             StagedProtoStore.ApproveResult.Forbidden => Fail(403, "admin+ only"),
-            _ => NotFound()
+            _ => Fail(404, "staged proto not found")
         };
     }
 
@@ -209,7 +209,7 @@ public sealed class ProtoRegistryController(ICurrentUser user) : ApiControllerBa
     [RequiresDb]
     public async Task<IActionResult> StagedReject(int id, [FromBody] RejectRequest req,
         [FromServices] StagedProtoStore s, CancellationToken ct) =>
-        await s.RejectAsync(id, req.Note, Reviewer, ct) ? Ok(new { ok = true }) : NotFound();
+        await s.RejectAsync(id, req.Note, Reviewer, ct) ? Ok(new { ok = true }) : Fail(404, "staged proto not found");
 
     [HttpPost("/api/protos/staged/bulk-approve")]
     [ApiAccess(ApiAccessLevel.Contributor)]

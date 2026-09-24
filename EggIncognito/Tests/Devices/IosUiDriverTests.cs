@@ -47,7 +47,7 @@ public class IosUiDriverTests {
     [Fact]
     public async Task DumpAsync_TweakAbsent_ReturnsUnsupported() {
         var runner = new FakeRunner((_, args) => Presence(args, present: false));
-        var driver = new IosUiDriver(new FakeConnections(runner), DefaultOptions);
+        var driver = new IosUiDriver(new FakeConnections(runner), DefaultOptions, TimeProvider.System);
 
         var result = await driver.DumpAsync(IosTarget, default);
 
@@ -58,7 +58,7 @@ public class IosUiDriverTests {
     [Fact]
     public async Task DumpAsync_SshNotConfigured_ReturnsUnreachable() {
         var runner = new FakeRunner((_, _) => new ProcessResult(0, "", ""));
-        var driver = new IosUiDriver(new FakeConnections(runner, sshConfigured: false), DefaultOptions);
+        var driver = new IosUiDriver(new FakeConnections(runner, sshConfigured: false), DefaultOptions, TimeProvider.System);
 
         var result = await driver.DumpAsync(IosTarget, default);
 
@@ -69,7 +69,7 @@ public class IosUiDriverTests {
     [Fact]
     public async Task DumpAsync_Success_PullsAndParsesJson() {
         var runner = HappyRunner("ok dump nodes=2", jsonBytes: System.Text.Encoding.UTF8.GetBytes(SampleJson));
-        var driver = new IosUiDriver(new FakeConnections(runner), DefaultOptions);
+        var driver = new IosUiDriver(new FakeConnections(runner), DefaultOptions, TimeProvider.System);
 
         var result = await driver.DumpAsync(IosTarget, default);
 
@@ -82,7 +82,7 @@ public class IosUiDriverTests {
     public async Task ScreenshotAsync_Success_ReturnsBytes() {
         byte[] png = [1, 2, 3, 4];
         var runner = HappyRunner("ok screenshot bytes=4", pngBytes: png);
-        var driver = new IosUiDriver(new FakeConnections(runner), DefaultOptions);
+        var driver = new IosUiDriver(new FakeConnections(runner), DefaultOptions, TimeProvider.System);
 
         var result = await driver.ScreenshotAsync(IosTarget, default);
 
@@ -93,37 +93,37 @@ public class IosUiDriverTests {
     [Fact]
     public async Task TapPointAsync_Success_SendsQuotedTapCommand() {
         var runner = HappyRunner("ok tap");
-        var driver = new IosUiDriver(new FakeConnections(runner), DefaultOptions);
+        var driver = new IosUiDriver(new FakeConnections(runner), DefaultOptions, TimeProvider.System);
 
         var result = await driver.TapPointAsync(IosTarget, 100, 200, default);
 
         Assert.True(result.Ok);
         Assert.Contains(runner.Calls,
-            c => c.Exe == "ssh" && c.Args[^1].Contains("printf %s 'tap 100 200'", StringComparison.Ordinal));
+            c => c.exe == "ssh" && c.args[^1].Contains("printf %s 'tap 100 200'", StringComparison.Ordinal));
     }
 
     [Fact]
     public async Task InputTextAsync_PreservesInternalSpaces() {
         var runner = HappyRunner("ok text");
-        var driver = new IosUiDriver(new FakeConnections(runner), DefaultOptions);
+        var driver = new IosUiDriver(new FakeConnections(runner), DefaultOptions, TimeProvider.System);
 
         var result = await driver.InputTextAsync(IosTarget, "hello world", default);
 
         Assert.True(result.Ok);
         Assert.Contains(runner.Calls,
-            c => c.Exe == "ssh" && c.Args[^1].Contains("printf %s 'text hello world'", StringComparison.Ordinal));
+            c => c.exe == "ssh" && c.args[^1].Contains("printf %s 'text hello world'", StringComparison.Ordinal));
     }
 
     [Fact]
     public async Task KeyAsync_Home_SendsKeyHomeCommand() {
         var runner = HappyRunner("ok key home");
-        var driver = new IosUiDriver(new FakeConnections(runner), DefaultOptions);
+        var driver = new IosUiDriver(new FakeConnections(runner), DefaultOptions, TimeProvider.System);
 
         var result = await driver.KeyAsync(IosTarget, DeviceKey.Home, default);
 
         Assert.True(result.Ok);
         Assert.Contains(runner.Calls,
-            c => c.Exe == "ssh" && c.Args[^1].Contains("printf %s 'key home'", StringComparison.Ordinal));
+            c => c.exe == "ssh" && c.args[^1].Contains("printf %s 'key home'", StringComparison.Ordinal));
     }
 
     [Theory]
@@ -134,7 +134,7 @@ public class IosUiDriverTests {
     [InlineData(DeviceKey.DismissKeyguard)]
     public async Task KeyAsync_UnsupportedKeys_ReturnUnsupported(DeviceKey key) {
         var runner = new FakeRunner((_, _) => new ProcessResult(0, "", ""));
-        var driver = new IosUiDriver(new FakeConnections(runner), DefaultOptions);
+        var driver = new IosUiDriver(new FakeConnections(runner), DefaultOptions, TimeProvider.System);
 
         var result = await driver.KeyAsync(IosTarget, key, default);
 
@@ -146,7 +146,7 @@ public class IosUiDriverTests {
     [Fact]
     public async Task RunAsync_DoneNeverAppears_ReturnsUnreachableTimeout() {
         var runner = new FakeRunner((_, args) => Presence(args, present: true, doneLine: null));
-        var driver = new IosUiDriver(new FakeConnections(runner), FastTimeoutOptions);
+        var driver = new IosUiDriver(new FakeConnections(runner), FastTimeoutOptions, TimeProvider.System);
 
         var result = await driver.TapPointAsync(IosTarget, 1, 1, default);
 
@@ -157,7 +157,7 @@ public class IosUiDriverTests {
     [Fact]
     public async Task RunAsync_ErrLine_ReturnsError() {
         var runner = new FakeRunner((_, args) => Presence(args, present: true, doneLine: "err no-key-window"));
-        var driver = new IosUiDriver(new FakeConnections(runner), DefaultOptions);
+        var driver = new IosUiDriver(new FakeConnections(runner), DefaultOptions, TimeProvider.System);
 
         var result = await driver.TapPointAsync(IosTarget, 1, 1, default);
 
@@ -182,7 +182,7 @@ public class IosUiDriverTests {
     [Fact]
     public async Task ScreenStateAsync_Success_SendsStateCommandAndParses() {
         var runner = HappyRunner("ok state awake=0 locked=1");
-        var driver = new IosUiDriver(new FakeConnections(runner), DefaultOptions);
+        var driver = new IosUiDriver(new FakeConnections(runner), DefaultOptions, TimeProvider.System);
 
         var result = await driver.ScreenStateAsync(IosTarget, default);
 
@@ -190,13 +190,13 @@ public class IosUiDriverTests {
         Assert.False(result.Value.Awake);
         Assert.True(result.Value.Locked);
         Assert.Contains(runner.Calls,
-            c => c.Exe == "ssh" && c.Args[^1].Contains("printf %s 'state'", StringComparison.Ordinal));
+            c => c.exe == "ssh" && c.args[^1].Contains("printf %s 'state'", StringComparison.Ordinal));
     }
 
     [Fact]
     public async Task ScreenStateAsync_TweakAbsent_ReturnsUnsupported() {
         var runner = new FakeRunner((_, args) => Presence(args, present: false));
-        var driver = new IosUiDriver(new FakeConnections(runner), DefaultOptions);
+        var driver = new IosUiDriver(new FakeConnections(runner), DefaultOptions, TimeProvider.System);
 
         var result = await driver.ScreenStateAsync(IosTarget, default);
 
@@ -215,20 +215,20 @@ public class IosUiDriverTests {
     [Fact]
     public async Task FrontmostBundleAsync_Success_SendsFrontmostCommand() {
         var runner = HappyRunner("ok frontmost bundle=com.auxbrain.egginc");
-        var driver = new IosUiDriver(new FakeConnections(runner), DefaultOptions);
+        var driver = new IosUiDriver(new FakeConnections(runner), DefaultOptions, TimeProvider.System);
 
         var result = await driver.FrontmostBundleAsync(IosTarget, default);
 
         Assert.True(result.Ok);
         Assert.Equal("com.auxbrain.egginc", result.Value);
         Assert.Contains(runner.Calls,
-            c => c.Exe == "ssh" && c.Args[^1].Contains("printf %s 'frontmost'", StringComparison.Ordinal));
+            c => c.exe == "ssh" && c.args[^1].Contains("printf %s 'frontmost'", StringComparison.Ordinal));
     }
 
     [Fact]
     public async Task FrontmostBundleAsync_ErrLine_ReturnsError() {
         var runner = new FakeRunner((_, args) => Presence(args, present: true, doneLine: "err frontmost ?"));
-        var driver = new IosUiDriver(new FakeConnections(runner), DefaultOptions);
+        var driver = new IosUiDriver(new FakeConnections(runner), DefaultOptions, TimeProvider.System);
 
         var result = await driver.FrontmostBundleAsync(IosTarget, default);
 
@@ -239,13 +239,13 @@ public class IosUiDriverTests {
     [Fact]
     public async Task LaunchAppAsync_IssuesUiopenCommand() {
         var runner = new FakeRunner((_, _) => new ProcessResult(0, "", ""));
-        var driver = new IosUiDriver(new FakeConnections(runner), DefaultOptions);
+        var driver = new IosUiDriver(new FakeConnections(runner), DefaultOptions, TimeProvider.System);
 
         var result = await driver.LaunchAppAsync(IosTarget, "com.auxbrain.egginc", default);
 
         Assert.True(result.Ok);
         Assert.Contains(runner.Calls,
-            c => c.Exe == "ssh" && c.Args[^1] == "uiopen --bundleid com.auxbrain.egginc");
+            c => c.exe == "ssh" && c.args[^1] == "uiopen --bundleid com.auxbrain.egginc");
     }
 
     private static ProcessResult Presence(string[] args, bool present, string? doneLine = "ok tap") {
@@ -282,14 +282,5 @@ public class IosUiDriverTests {
 
         public SshDeviceConnection? Ios(string? hostFallback = null) =>
             sshConfigured ? new SshDeviceConnection(runner, new SshEndpoint("phone", "2222", "/key")) : null;
-    }
-
-    private sealed class FakeRunner(Func<string, string[], ProcessResult> fn) : IProcessRunner {
-        public readonly List<(string Exe, string[] Args)> Calls = [];
-
-        public Task<ProcessResult> RunAsync(string exe, string[] args, CancellationToken ct) {
-            Calls.Add((exe, args));
-            return Task.FromResult(fn(exe, args));
-        }
     }
 }

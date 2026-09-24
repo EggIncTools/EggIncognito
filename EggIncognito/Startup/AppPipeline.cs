@@ -165,7 +165,7 @@ public static class AppPipeline {
             var tracker = new DeployVersionTracker(new DeployStateStore(deployDataSource), notifier);
             try {
                 await tracker.CheckAndNotifyAsync(
-                    botCfg.Name, Environment.GetEnvironmentVariable("GIT_SHA") ?? "", botCfg.Build.Version,
+                    botCfg.Name, app.Configuration["GIT_SHA"] ?? "", botCfg.Build.Version,
                     CancellationToken.None);
             } catch (Exception ex) {
                 app.Logger.LogWarning(ex, "deploy notify failed");

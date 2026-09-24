@@ -14,12 +14,12 @@ public sealed class BridgeProvisioner(
 
     public async Task<DeviceResult<ProvisionedInstance>> CreateAsync(ProvisionSpec spec, CancellationToken ct) {
         string? image = string.IsNullOrWhiteSpace(spec.Image) ? null : spec.Image;
-        var sent = await SendAsync<BridgeInstanceResult>(
+        var (reply, failure) = await SendAsync<BridgeInstanceResult>(
             HttpMethod.Post, BridgeRoutes.Instances, new BridgeInstanceCreate(image), ct);
-        if (sent.Failure is { } failure) return DeviceResult<ProvisionedInstance>.Unreachable(failure);
-        if (sent.Body is not { Ok: true } body || body.Instance is not { } instance) {
+        if (failure is not null) return DeviceResult<ProvisionedInstance>.Unreachable(failure);
+        if (reply is not { Ok: true } body || body.Instance is not { } instance) {
             return DeviceResult<ProvisionedInstance>.Error(
-                sent.Body?.Note ?? "the host did not create a virtual device");
+                reply?.Note ?? "the host did not create a virtual device");
         }
 
         return DeviceResult<ProvisionedInstance>.Success(Map(instance), body.Note);
@@ -32,21 +32,21 @@ public sealed class BridgeProvisioner(
         Task.FromResult(DeviceResult.Unsupported(LifecycleNote));
 
     public async Task<DeviceResult> DestroyAsync(string instanceId, CancellationToken ct) {
-        var sent = await SendAsync<BridgeInstanceResult>(
+        var (reply, failure) = await SendAsync<BridgeInstanceResult>(
             HttpMethod.Post, BridgeRoutes.InstanceDestroy(instanceId), null, ct);
-        if (sent.Failure is { } failure) return DeviceResult.Unreachable(failure);
-        return sent.Body is { Ok: true } body
+        if (failure is not null) return DeviceResult.Unreachable(failure);
+        return reply is { Ok: true } body
             ? DeviceResult.Success(body.Note)
-            : DeviceResult.Error(sent.Body?.Note ?? $"the host did not destroy '{instanceId}'");
+            : DeviceResult.Error(reply?.Note ?? $"the host did not destroy '{instanceId}'");
     }
 
     public async Task<DeviceResult<IReadOnlyList<ProvisionedInstance>>> ListAsync(CancellationToken ct) {
-        var sent = await SendAsync<BridgeInstanceList>(HttpMethod.Get, BridgeRoutes.Instances, null, ct);
-        if (sent.Failure is { } failure)
+        var (reply, failure) = await SendAsync<BridgeInstanceList>(HttpMethod.Get, BridgeRoutes.Instances, null, ct);
+        if (failure is not null)
             return DeviceResult<IReadOnlyList<ProvisionedInstance>>.Unreachable(failure);
-        if (sent.Body is not { Ok: true } body) {
+        if (reply is not { Ok: true } body) {
             return DeviceResult<IReadOnlyList<ProvisionedInstance>>.Error(
-                sent.Body?.Note ?? "the host did not list its virtual devices");
+                reply?.Note ?? "the host did not list its virtual devices");
         }
 
         var instances = body.Instances ?? [];

@@ -14,8 +14,7 @@ public sealed record RunnerSet(
         var list = new List<IDeviceRunner>();
         foreach (var d in devices) {
             var runner = RunnerFactory.Build(d, deps);
-            if (runner is null || d.Id is null || byId.ContainsKey(d.Id)) continue;
-            byId[d.Id] = runner;
+            if (runner is null || d.Id is null || !byId.TryAdd(d.Id, runner)) continue;
             list.Add(runner);
         }
         if (list.Count > 0) return new RunnerSet(list, byId);

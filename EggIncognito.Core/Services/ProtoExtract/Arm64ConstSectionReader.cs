@@ -32,12 +32,12 @@ public static class Arm64ConstSectionReader {
         for (int i = 0; i < count; i++) {
             int o = fileOff + i * size;
             double v = elem switch {
-                TableElemType.F32 => BitConverter.ToSingle(bin, o),
-                TableElemType.F64 => BitConverter.ToDouble(bin, o),
-                TableElemType.I32 => BitConverter.ToInt32(bin, o),
-                TableElemType.I64 => BitConverter.ToInt64(bin, o),
-                TableElemType.U32 => BitConverter.ToUInt32(bin, o),
-                TableElemType.U64 => BitConverter.ToUInt64(bin, o),
+                TableElemType.F32 => BitConverter.ToSingle(bin.AsSpan(o)),
+                TableElemType.F64 => BitConverter.ToDouble(bin.AsSpan(o)),
+                TableElemType.I32 => BitConverter.ToInt32(bin.AsSpan(o)),
+                TableElemType.I64 => BitConverter.ToInt64(bin.AsSpan(o)),
+                TableElemType.U32 => BitConverter.ToUInt32(bin.AsSpan(o)),
+                TableElemType.U64 => BitConverter.ToUInt64(bin.AsSpan(o)),
                 _ => 0
             };
             values.Add(v);

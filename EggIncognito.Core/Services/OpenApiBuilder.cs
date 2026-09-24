@@ -136,9 +136,8 @@ public static class OpenApiBuilder {
 
     private static JsonObject Ref(MessageDescriptor d, IDictionary<string, JsonObject> components) {
         string name = ComponentName(d);
-        if (!components.ContainsKey(name)) {
-            var schema = new JsonObject { ["type"] = "object" };
-            components[name] = schema;
+        var schema = new JsonObject { ["type"] = "object" };
+        if (components.TryAdd(name, schema)) {
             var props = new JsonObject();
             foreach (var f in d.Fields.InFieldNumberOrder())
                 props[f.JsonName] = FieldSchema(f, components);

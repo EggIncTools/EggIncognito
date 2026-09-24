@@ -1,3 +1,5 @@
+using System.Diagnostics.CodeAnalysis;
+
 namespace EggIncognito.GameData;
 
 public sealed record Effect {
@@ -39,5 +41,5 @@ public sealed record Effect {
     public int MetaInt(string field) => Convert.ToInt32(Meta[field]);
     public string MetaString(string field) => (string)Meta[field];
     public bool MetaBool(string field) => (bool)Meta[field];
-    public bool TryMeta(string field, out object value) => Meta.TryGetValue(field, out value!);
+    public bool TryMeta(string field, [MaybeNullWhen(false)] out object value) => Meta.TryGetValue(field, out value);
 }

@@ -108,7 +108,7 @@ public sealed class ShellsController(
 
             var decode = await downloader.DownloadAndDecodeAsync(url, identifier, ct);
             if (!decode.Ok) return Ok(new { ok = false, diagnostics = decode.Diagnostics });
-            glb = decode.Glb!;
+            glb = decode.Glb;
             await cache.PutAsync("shell", cacheKey, glb, ct);
         }
 
@@ -116,7 +116,7 @@ public sealed class ShellsController(
             var opts = new GltfAnimator.Options(
                 GltfAnimator.ParseKind(animate), seconds > 0 ? seconds : 6f);
             var anim = GltfAnimator.Animate(glb, opts);
-            if (anim.Ok) glb = anim.Glb!;
+            if (anim.Ok) glb = anim.Glb;
         }
 
         return File(glb, "model/gltf-binary", $"{identifier}.glb");

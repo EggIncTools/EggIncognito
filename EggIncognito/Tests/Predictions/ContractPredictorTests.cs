@@ -39,7 +39,7 @@ public class ContractPredictorTests {
             Version = version.Version
         };
         var predictor = new ContractPredictor(
-            UnreachableDb(), version, cache, NullLogger<ContractPredictor>.Instance);
+            UnreachableDb(), version, cache, NullLogger<ContractPredictor>.Instance, TimeProvider.System);
         return (predictor, version, cache);
     }
 

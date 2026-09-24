@@ -53,7 +53,7 @@ public sealed class FakeFixtureSource(IServiceScopeFactory scopes) {
             .ToListAsync(ct);
 
         version ??= rows.Select(r => r.AppVersion).FirstOrDefault();
-        var match = rows.FirstOrDefault(r => r.AppVersion == version);
+        var match = rows.Find(r => r.AppVersion == version);
         string? build = match?.Build ?? rows.Select(r => r.Build).FirstOrDefault();
         string? clientVersion = match?.ClientVersion
                                 ?? rows.Select(r => r.ClientVersion).FirstOrDefault(c => !string.IsNullOrEmpty(c));

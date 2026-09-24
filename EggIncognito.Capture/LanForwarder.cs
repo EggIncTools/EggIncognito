@@ -184,13 +184,11 @@ public sealed class LanForwarder : IAsyncDisposable {
         string method = parts.Length >= 1 ? parts[0] : "";
         string target = parts.Length >= 2 ? parts[1] : "";
 
-        string authority;
-        if (method.Equals("CONNECT", StringComparison.OrdinalIgnoreCase))
-            authority = target;
-        else if (Uri.TryCreate(target, UriKind.Absolute, out var uri))
-            authority = uri.IsDefaultPort ? uri.Host : $"{uri.Host}:{uri.Port}";
-        else
-            authority = "";
+        string authority = method.Equals("CONNECT", StringComparison.OrdinalIgnoreCase)
+            ? target
+            : Uri.TryCreate(target, UriKind.Absolute, out var uri)
+                ? uri.IsDefaultPort ? uri.Host : $"{uri.Host}:{uri.Port}"
+                : "";
 
         var kept = new List<string> { requestLine };
         bool hostWritten = false;

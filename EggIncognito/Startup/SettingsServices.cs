@@ -26,7 +26,7 @@ public static class SettingsServices {
         builder.Services.AddSingleton(sp => new SettingsCache(
             sp.GetRequiredService<SettingsRegistry>(),
             sp.GetRequiredService<SettingsStore>(),
-            IndexedEnvLookup.For(sp.GetRequiredService<SettingsRegistry>())));
+            IndexedEnvLookup.For(sp.GetRequiredService<SettingsRegistry>(), sp.GetRequiredService<IConfiguration>())));
         builder.Services.AddSingleton(sp => new SettingsChangeListener(
             sp.GetRequiredService<NpgsqlDataSource>(), sp.GetRequiredService<SettingsCache>()));
         builder.Services.AddSingleton<SettingsAdminService>();

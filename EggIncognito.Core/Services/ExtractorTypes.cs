@@ -1,3 +1,4 @@
+using System.Collections.Frozen;
 using System.Reflection;
 using Ei;
 
@@ -46,9 +47,8 @@ public sealed record DecodedEntry(
 public static class ExtractorConfig {
     public const int ExactBonus = 1000;
 
-    internal static readonly HashSet<string> AlwaysSkip = [
-        with(StringComparer.Ordinal), "ei/get_config"
-    ];
+    internal static readonly FrozenSet<string> AlwaysSkip =
+        new[] { "ei/get_config" }.ToFrozenSet(StringComparer.Ordinal);
 
     public static readonly Assembly EiAssembly = typeof(AuthenticatedMessage).Assembly;
 

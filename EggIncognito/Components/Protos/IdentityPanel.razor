@@ -1,5 +1,6 @@
 @using System.Globalization
 @using EggIdentity.Client
+@using EggIncognito.Services.Events
 @inject AuthState Auth
 @inject ICurrentUser User
 @inject IHttpContextAccessor HttpContextAccessor
@@ -128,16 +129,8 @@
     }
 
     string LocalTime() {
-        var now = DateTimeOffset.UtcNow;
-        if (_timezone.Length == 0) return now.ToString("HH:mm 'UTC'", CultureInfo.InvariantCulture);
-        try {
-            var zone = TimeZoneInfo.FindSystemTimeZoneById(_timezone);
-            return TimeZoneInfo.ConvertTime(now, zone).ToString("HH:mm", CultureInfo.InvariantCulture);
-        } catch (TimeZoneNotFoundException) {
-            return now.ToString("HH:mm 'UTC'", CultureInfo.InvariantCulture);
-        } catch (InvalidTimeZoneException) {
-            return now.ToString("HH:mm 'UTC'", CultureInfo.InvariantCulture);
-        }
+        var zone = ViewerZone.Parse(_timezone) ?? ViewerClock.ZoneOf(Services);
+        return TimeZoneInfo.ConvertTime(DateTimeOffset.UtcNow, zone).ToString("HH:mm", CultureInfo.InvariantCulture);
     }
 
     static string LanguageLabel(string code) {

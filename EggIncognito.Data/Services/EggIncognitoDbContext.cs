@@ -4,7 +4,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace EggIncognito.Data.Services;
 
-public class EggIncognitoDbContext(DbContextOptions<EggIncognitoDbContext> options)
+public sealed class EggIncognitoDbContext(DbContextOptions<EggIncognitoDbContext> options)
     : DbContext(options), IDataProtectionKeyContext {
     public DbSet<StoredEndpoint> StoredEndpoints => Set<StoredEndpoint>();
     public DbSet<StoredRoute> StoredRoutes => Set<StoredRoute>();

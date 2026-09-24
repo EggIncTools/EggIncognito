@@ -4,7 +4,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace EggIncognito.Data.Services;
 
-public sealed class UserThemeStore(EggIncognitoDbContext db) {
+public sealed class UserThemeStore(EggIncognitoDbContext db, TimeProvider time) {
     private const string UniqueViolation = "23505";
 
     public async Task<IReadOnlyList<UserTheme>> ByOwnerAsync(Guid owner, CancellationToken ct = default) =>
@@ -33,7 +33,7 @@ public sealed class UserThemeStore(EggIncognitoDbContext db) {
             existing.Model = model;
             existing.ValidatedAt = null;
             existing.Validation = null;
-            existing.UpdatedAt = DateTimeOffset.UtcNow;
+            existing.UpdatedAt = time.GetUtcNow();
             await db.SaveChangesAsync(ct);
             return existing;
         }
@@ -44,7 +44,7 @@ public sealed class UserThemeStore(EggIncognitoDbContext db) {
             Name = name,
             SchemaVersion = schemaVersion,
             Model = model,
-            UpdatedAt = DateTimeOffset.UtcNow
+            UpdatedAt = time.GetUtcNow()
         };
         db.UserThemes.Add(created);
         try {
@@ -58,7 +58,7 @@ public sealed class UserThemeStore(EggIncognitoDbContext db) {
             row.Model = model;
             row.ValidatedAt = null;
             row.Validation = null;
-            row.UpdatedAt = DateTimeOffset.UtcNow;
+            row.UpdatedAt = time.GetUtcNow();
             await db.SaveChangesAsync(ct);
             return row;
         }
@@ -81,9 +81,9 @@ public sealed class UserThemeStore(EggIncognitoDbContext db) {
             .ToListAsync(ct);
         foreach (var other in current) other.IsActive = false;
         row.IsActive = true;
-        row.ValidatedAt = DateTimeOffset.UtcNow;
+        row.ValidatedAt = time.GetUtcNow();
         row.Validation = validationJson;
-        row.UpdatedAt = DateTimeOffset.UtcNow;
+        row.UpdatedAt = time.GetUtcNow();
         await db.SaveChangesAsync(ct);
         return true;
     }
@@ -93,7 +93,7 @@ public sealed class UserThemeStore(EggIncognitoDbContext db) {
         if (rows.Count == 0) return false;
         foreach (var row in rows) {
             row.IsActive = false;
-            row.UpdatedAt = DateTimeOffset.UtcNow;
+            row.UpdatedAt = time.GetUtcNow();
         }
 
         await db.SaveChangesAsync(ct);
@@ -114,7 +114,7 @@ public sealed class UserThemeStore(EggIncognitoDbContext db) {
 
         row.CustomCssEnabled = customCssEnabled;
         row.DefaultThemeId = defaultThemeId;
-        row.UpdatedAt = DateTimeOffset.UtcNow;
+        row.UpdatedAt = time.GetUtcNow();
         row.UpdatedByUserId = updatedBy;
         try {
             await db.SaveChangesAsync(ct);
@@ -123,7 +123,7 @@ public sealed class UserThemeStore(EggIncognitoDbContext db) {
             var existing = await db.SiteThemePolicies.FirstAsync(p => p.Id == 1, ct);
             existing.CustomCssEnabled = customCssEnabled;
             existing.DefaultThemeId = defaultThemeId;
-            existing.UpdatedAt = DateTimeOffset.UtcNow;
+            existing.UpdatedAt = time.GetUtcNow();
             existing.UpdatedByUserId = updatedBy;
             await db.SaveChangesAsync(ct);
             return existing;

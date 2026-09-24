@@ -1,6 +1,7 @@
 @rendermode @(RenderModes.InteractiveServer)
 @using EggIncognito.Core
 @using EggIncognito.Models.Devices
+@using EggIncognito.Services.Events
 @inherits AdminPaneBase
 
 <AdminPaneHead Title="Stored APKs" Facts="@Stats">
@@ -45,7 +46,7 @@
                         <td class="mono text-xs">@ShaShort(s.Sha256)</td>
                         <td class="mono text-xs">@ByteFormat.Mb(s.ByteSize, "F1")</td>
                         <td class="text-xs">@(s.SourceDeviceId ?? "unknown")</td>
-                        <td class="text-muted text-xs">@s.CapturedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")</td>
+                        <td class="text-muted text-xs">@ViewerClock.At(Services, s.CapturedAt).ToString("yyyy-MM-dd HH:mm:ss")</td>
                         <td></td>
                     </tr>
                 }

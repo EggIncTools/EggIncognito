@@ -9,7 +9,9 @@ public sealed class InstallIntegrityStep(
     ModuleFetcher fetcher,
     IDeviceConnectionFactory connections,
     IHostFacts hostFacts,
-    IProcessRunner runner) : CookbookStep {
+    IProcessRunner runner,
+    IConfiguration configuration,
+    TimeProvider time) : CookbookStep {
     private const string ZygiskOffSql =
         "--sqlite \"REPLACE INTO settings (key,value) VALUES('zygisk',0)\"";
     private const string ShellSuPolicySql =
@@ -23,10 +25,10 @@ public sealed class InstallIntegrityStep(
         + "chown system:shell " + AdbKeysDir + " " + AdbKeysFile + "; "
         + "chmod 750 " + AdbKeysDir + "; chmod 640 " + AdbKeysFile + "; "
         + "rm -f " + RemoteAdbKey;
-    private static string NoAdbKeyWarning(VirtualDeviceConfig config) =>
+    private string NoAdbKeyWarning() =>
         "no adb public key found at "
         + string.Join(", ", AdbHostKey.Candidates(config.AdbPublicKeyPath,
-            Environment.GetEnvironmentVariable("ANDROID_USER_HOME"),
+            configuration["ANDROID_USER_HOME"],
             Environment.GetFolderPath(Environment.SpecialFolder.UserProfile)).Distinct(StringComparer.Ordinal))
         + "; the adb server that owns the key may run in another container on the same host network. "
         + "Mount one shared dir at /root/.android in every container with ADB_SERVER_SOCKET, or set "
@@ -70,9 +72,9 @@ public sealed class InstallIntegrityStep(
 
     public override async Task<CookbookStepResult> RunAsync(DeviceCookbookContext context, CancellationToken ct) {
         var lines = new List<string>();
-        void Add(string line) {
+        Task Add(string line) {
             lines.Add(line);
-            context.Progress(line);
+            return context.Progress(line);
         }
 
         var target = context.Target;
@@ -86,7 +88,7 @@ public sealed class InstallIntegrityStep(
         var root = await DeviceRoot.EnsureAsync(conn, runner, target.Target, ct);
         if (!root.Ok)
             return Failed(lines, $"device is not rooted ({root.Detail}); integrity install needs uid=0 (adb root or su)");
-        Add($"root: {root.Detail}");
+        await Add($"root: {root.Detail}");
 
         string? magisk = await MagiskBinaryAsync(conn, root, ct);
         if (magisk is null) {
@@ -95,7 +97,7 @@ public sealed class InstallIntegrityStep(
                 + "(rebuild the gapps+magisk image or seed the /data volume). integrity install needs Magisk");
         }
 
-        Add($"magisk binary: {magisk}");
+        await Add($"magisk binary: {magisk}");
         await PersistAdbAccessAsync(conn, root, magisk, Add, ct);
 
         var magiskBin = await EnsureMagiskBinAsync(conn, root, Add, ct);
@@ -106,9 +108,9 @@ public sealed class InstallIntegrityStep(
         }
 
         if (config.IntegrityDisableMagiskZygisk) {
-            Add("disabling Magisk built-in Zygisk before installing the zygisk provider");
+            await Add("disabling Magisk built-in Zygisk before installing the zygisk provider");
             var zygisk = await conn.ShellAsync(root.Wrap($"{magisk} {ZygiskOffSql}"), ct);
-            Add(zygisk.ExitCode == 0
+            await Add(zygisk.ExitCode == 0
                 ? "zygisk setting written"
                 : $"zygisk setting write failed (exit {zygisk.ExitCode}): "
                   + DeviceParsing.TrimNote(zygisk.Stderr + zygisk.Stdout));
@@ -134,7 +136,7 @@ public sealed class InstallIntegrityStep(
             if (MagiskModules.IdFromZip(bytes) is not { } moduleId)
                 return Failed(lines, $"'{spec.Name}' zip carries no module.prop id; not a Magisk module");
             installedIds.Add(moduleId);
-            Add($"{spec.Name}{version} [{moduleId}]: {bytes.Length} bytes from {origin}");
+            await Add($"{spec.Name}{version} [{moduleId}]: {bytes.Length} bytes from {origin}");
 
             string remote = $"/data/local/tmp/{spec.Name}.zip";
             string? staged = await PushAsync(conn, bytes, $"-{spec.Name}.zip", remote, ct);
@@ -151,7 +153,7 @@ public sealed class InstallIntegrityStep(
                     + $"; {MagiskBinDir}: {DeviceParsing.TrimNote(binDir.Stdout + binDir.Stderr)}");
             }
 
-            Add($"{spec.Name}: installed");
+            await Add($"{spec.Name}: installed");
             if (spec.RebootAfter) {
                 if (await RebootAsync(conn, target.Target, Add, ct) is not { Ok: true } after)
                     return Failed(lines, $"device did not come back rooted after installing '{spec.Name}'");
@@ -183,7 +185,7 @@ public sealed class InstallIntegrityStep(
         if (dead.Count > 0)
             return Failed(lines, $"chain modules landed but are disabled: {MagiskModules.Describe(dead)}");
 
-        Add($"modules live: {listing}");
+        await Add($"modules live: {listing}");
         return Ok(lines, $"installed {installedIds.Count} module(s): {string.Join(", ", installedIds)}");
     }
 
@@ -210,20 +212,20 @@ public sealed class InstallIntegrityStep(
     }
 
     private static async Task<(bool Ok, string Missing, string Listing)> EnsureMagiskBinAsync(
-        IDeviceConnection conn, RootAccess root, Action<string> add, CancellationToken ct) {
+        IDeviceConnection conn, RootAccess root, Func<string, Task> add, CancellationToken ct) {
         var state = await MagiskBinStateAsync(conn, root, ct);
         if (state.Ok) {
-            add($"MAGISKBIN already complete at {MagiskBinDir}");
+            await add($"MAGISKBIN already complete at {MagiskBinDir}");
             return state;
         }
 
-        add($"seeding {MagiskBinDir} from {MagiskSysDir} (missing {state.Missing})");
+        await add($"seeding {MagiskBinDir} from {MagiskSysDir} (missing {state.Missing})");
         var seed = await conn.ShellAsync(root.Wrap(MagiskBinSeed), ct);
         if (seed.ExitCode != 0)
-            add($"MAGISKBIN seed shell exit {seed.ExitCode}: {DeviceParsing.TrimNote(seed.Stderr + seed.Stdout)}");
+            await add($"MAGISKBIN seed shell exit {seed.ExitCode}: {DeviceParsing.TrimNote(seed.Stderr + seed.Stdout)}");
 
         var after = await MagiskBinStateAsync(conn, root, ct);
-        if (after.Ok) add($"MAGISKBIN seeded: applets + magisk.apk assets/*.sh in {MagiskBinDir}");
+        if (after.Ok) await add($"MAGISKBIN seeded: applets + magisk.apk assets/*.sh in {MagiskBinDir}");
         return after;
     }
 
@@ -233,26 +235,26 @@ public sealed class InstallIntegrityStep(
             .Where(l => l.Length > 0 && l != ScanMarker && l != BusyboxMarker && l != UtilMarker));
 
     private async Task PersistAdbAccessAsync(
-        IDeviceConnection conn, RootAccess root, string magisk, Action<string> add, CancellationToken ct) {
+        IDeviceConnection conn, RootAccess root, string magisk, Func<string, Task> add, CancellationToken ct) {
         var policy = await conn.ShellAsync(root.Wrap($"{magisk} {ShellSuPolicySql}"), ct);
-        add(policy.ExitCode == 0
+        await add(policy.ExitCode == 0
             ? "Magisk su granted to the shell uid (2000)"
             : $"Magisk su policy write failed (exit {policy.ExitCode}): "
               + DeviceParsing.TrimNote(policy.Stderr + policy.Stdout));
 
-        if (await HostAdbKey.ResolveAsync(hostFacts, config, ct) is not { } resolved) {
-            add(NoAdbKeyWarning(config));
+        if (await HostAdbKey.ResolveAsync(hostFacts, config, configuration, ct) is not { } resolved) {
+            await add(NoAdbKeyWarning());
             return;
         }
 
-        add($"adb key {AdbHostKey.Label(resolved.Key)} from {resolved.Source}");
+        await add($"adb key {AdbHostKey.Label(resolved.Key)} from {resolved.Source}");
         if (await PushAsync(conn, Encoding.ASCII.GetBytes(resolved.Key + "\n"), "-adbkey.pub", RemoteAdbKey, ct) is null) {
-            add($"adb key push to {RemoteAdbKey} failed; adbd will reject this host once ro.adb.secure=1");
+            await add($"adb key push to {RemoteAdbKey} failed; adbd will reject this host once ro.adb.secure=1");
             return;
         }
 
         var authorize = await conn.ShellAsync(root.Wrap(AuthorizeAdbKey), ct);
-        add(authorize.ExitCode == 0
+        await add(authorize.ExitCode == 0
             ? "adb key authorized"
             : $"adb key authorize failed (exit {authorize.ExitCode}): "
               + DeviceParsing.TrimNote(authorize.Stderr + authorize.Stdout));
@@ -269,7 +271,7 @@ public sealed class InstallIntegrityStep(
         }
     }
 
-    private Task<RootAccess?> RebootAsync(IDeviceConnection conn, string serial, Action<string> add, CancellationToken ct) =>
-        DeviceReboot.RebootAsync(conn, runner, serial,
+    private Task<RootAccess?> RebootAsync(IDeviceConnection conn, string serial, Func<string, Task> add, CancellationToken ct) =>
+        DeviceReboot.RebootAsync(conn, runner, time, serial,
             TimeSpan.FromSeconds(Math.Max(60, config.IntegrityBootTimeoutSeconds)), add, ct);
 }

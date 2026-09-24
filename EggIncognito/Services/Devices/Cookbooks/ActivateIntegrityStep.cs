@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text;
 using EggIncognito.Core.Services.Devices;
 using EggIncognito.Data.Models;
@@ -9,7 +10,8 @@ public sealed class ActivateIntegrityStep(
     IDeviceFleet fleet,
     IDeviceConnectionFactory connections,
     IProcessRunner runner,
-    IntegrityAssets assets) : CookbookStep {
+    IntegrityAssets assets,
+    TimeProvider time) : CookbookStep {
     private static readonly TimeSpan CheckinWait = TimeSpan.FromMinutes(3);
     private static readonly TimeSpan CheckinPoll = TimeSpan.FromSeconds(10);
     private const string PifLogCommand = "logcat -d -s PIF/Native 2>/dev/null | tail -n 12";
@@ -28,9 +30,9 @@ public sealed class ActivateIntegrityStep(
 
     public override async Task<CookbookStepResult> RunAsync(DeviceCookbookContext context, CancellationToken ct) {
         var lines = new List<string>();
-        void Add(string line) {
+        Task Add(string line) {
             lines.Add(line);
-            context.Progress(line);
+            return context.Progress(line);
         }
 
         var target = context.Target;
@@ -49,15 +51,15 @@ public sealed class ActivateIntegrityStep(
         if (before is null) return Failed(lines, "chain state probe did not run");
         if (!before.BoxPresent)
             return Failed(lines, "Integrity-Box is not installed under /data/adb/modules; run install-integrity first");
-        Add($"before: {before.Describe()}");
+        await Add($"before: {before.Describe()}");
 
         var bundle = await assets.ResolveAsync(false, ct);
         if (!bundle.Ok || bundle.Profile is not { } profile || bundle.PifPropText is not { } pifProp
             || bundle.KeyboxXml is not { } keybox || bundle.PatchDate is not { } patchDate)
             return Failed(lines, bundle.Error ?? "integrity assets did not resolve");
-        Add($"identity {profile.Model} {profile.Fingerprint} (expires {profile.Expiry?.ToString("yyyy-MM-dd") ?? "unknown"})");
-        Add($"keybox {bundle.KeyboxSource}, {bundle.KeyboxSerials.Count} certs, {bundle.KeyboxNote}");
-        foreach (string warning in bundle.Warnings) Add(warning);
+        await Add($"identity {profile.Model} {profile.Fingerprint} (expires {profile.Expiry?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) ?? "unknown"})");
+        await Add($"keybox {bundle.KeyboxSource}, {bundle.KeyboxSerials.Count} certs, {bundle.KeyboxNote}");
+        foreach (string warning in bundle.Warnings) await Add(warning);
 
         string fingerprintBefore = await FingerprintAsync(conn, root, ct);
 
@@ -69,16 +71,16 @@ public sealed class ActivateIntegrityStep(
         await conn.ShellAsync($"rm -rf {IntegrityChain.StageDir}", ct);
         if (!apply.Stdout.Contains("applied=1", StringComparison.Ordinal))
             return Failed(lines, $"identity files did not apply: {DeviceParsing.TrimNote(apply.Stderr + apply.Stdout)}");
-        Add($"identity, keybox, targets and patch level applied; {target.Package} listed for attestation");
+        await Add($"identity, keybox, targets and patch level applied; {target.Package} listed for attestation");
 
         var after = await StateAsync(conn, root, ct);
         if (after is null || !after.Activated)
             return Failed(lines, $"chain still inert after applying: {after?.Describe() ?? "probe did not run"}");
-        Add($"after: {after.Describe()}");
+        await Add($"after: {after.Describe()}");
 
         bool changed = !string.Equals(fingerprintBefore, await FingerprintAsync(conn, root, ct), StringComparison.Ordinal);
         if (!changed && before.Activated && await GsfIdentity.ReadAsync(conn, root, ct) is { } existing) {
-            Add($"chain unchanged and gms already checked in (gsf id {existing}); no reset");
+            await Add($"chain unchanged and gms already checked in (gsf id {existing}); no reset");
             await ReportPifAsync(conn, Add, ct);
             return Ok(lines, after.Describe());
         }
@@ -87,13 +89,13 @@ public sealed class ActivateIntegrityStep(
         var reset = await conn.ShellAsync(root.Wrap(IntegrityChain.ResetPlayCommand(virtualDevice)), ct);
         if (!reset.Stdout.Contains("reset=1", StringComparison.Ordinal))
             return Failed(lines, $"play reset did not complete: {DeviceParsing.TrimNote(reset.Stderr + reset.Stdout)}");
-        Add(virtualDevice
+        await Add(virtualDevice
             ? "play store + gsf cleared; rebooting so gms checks in under the spoofed identity"
             : "play store cleared; gms restarted under the spoofed identity");
 
         if (virtualDevice) {
             var bootTimeout = TimeSpan.FromSeconds(Math.Max(60, config.IntegrityBootTimeoutSeconds));
-            if (await DeviceReboot.RebootAsync(conn, runner, target.Target, bootTimeout, Add, ct) is not { Ok: true } rebooted)
+            if (await DeviceReboot.RebootAsync(conn, runner, time, target.Target, bootTimeout, Add, ct) is not { Ok: true } rebooted)
                 return Failed(lines, "device did not come back rooted after the activation reboot");
             root = rebooted;
 
@@ -104,7 +106,7 @@ public sealed class ActivateIntegrityStep(
                     + "Run integrity-audit and read its checkin log");
             }
 
-            Add($"gms checked in, gsf id {gsf}");
+            await Add($"gms checked in, gsf id {gsf}");
         }
 
         await ReportPifAsync(conn, Add, ct);
@@ -139,11 +141,11 @@ public sealed class ActivateIntegrityStep(
         return r.Stdout.Trim();
     }
 
-    private static async Task ReportPifAsync(IDeviceConnection conn, Action<string> add, CancellationToken ct) {
+    private static async Task ReportPifAsync(IDeviceConnection conn, Func<string, Task> add, CancellationToken ct) {
         var pif = await conn.ShellAsync(PifLogCommand, ct);
         var spoofed = pif.Stdout.Split('\n').Where(l => l.Contains("Spoofing", StringComparison.Ordinal))
             .Select(l => l[(l.IndexOf("Spoofing", StringComparison.Ordinal) + "Spoofing ".Length)..].Trim()).ToList();
-        add(spoofed.Count > 0
+        await add(spoofed.Count > 0
             ? $"pif injected into gms: {string.Join("; ", spoofed.Distinct())}"
             : "no PIF/Native lines in logcat yet; DroidGuard spawns on demand, re-check after launching the app");
     }

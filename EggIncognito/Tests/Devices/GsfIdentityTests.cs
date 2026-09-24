@@ -4,9 +4,8 @@ namespace EggIncognito.Tests.Devices;
 
 public class GsfIdentityTests {
     [Fact]
-    public void Parse_ReadsGservicesRow() {
+    public void Parse_ReadsGservicesRow() =>
         Assert.Equal("123456", GsfIdentity.Parse("Row: 0 value=123456\n"));
-    }
 
     [Fact]
     public void Parse_FallsBackToCheckinPrefs() {

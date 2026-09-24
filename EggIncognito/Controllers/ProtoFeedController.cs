@@ -3,6 +3,7 @@ using EggIncognito.Data.Models;
 using EggIncognito.Data.Services;
 using EggIncognito.Models.Protos;
 using EggIncognito.Services;
+using EggIncognito.Services.Admin;
 using EggIncognito.Services.Auth;
 using EggIncognito.Services.Feed;
 using Microsoft.AspNetCore.Mvc;
@@ -30,7 +31,7 @@ public sealed class ProtoFeedController(ICurrentUser currentUser, IHttpClientFac
     [EnableRateLimiting("write")]
     [RequiresDb]
     public async Task<IActionResult> Create([FromBody] FeedCreateReq req,
-        [FromServices] FeedSubscriptionStore store, CancellationToken ct) {
+        [FromServices] FeedSubscriptionStore store, [FromServices] AdminNotifier? notifier, CancellationToken ct) {
         var owner = currentUser.UserId;
         if (owner is null) return Fail(401, "log in to manage subscriptions");
         if (string.IsNullOrWhiteSpace(req.WebhookUrl) ||
@@ -59,7 +60,7 @@ public sealed class ProtoFeedController(ICurrentUser currentUser, IHttpClientFac
             MessageTemplate = string.IsNullOrWhiteSpace(req.MessageTemplate) ? null : req.MessageTemplate,
             OwnerUserId = owner.Value
         }, ct);
-        FeedSubscriptionNotify.Changed(HttpContext.RequestServices);
+        FeedSubscriptionNotify.Changed(notifier);
         return Ok(new { sub.Id, sub.EventKind, sub.Platforms, sub.Trigger });
     }
 
@@ -90,13 +91,13 @@ public sealed class ProtoFeedController(ICurrentUser currentUser, IHttpClientFac
     [EnableRateLimiting("write")]
     [RequiresDb]
     public async Task<IActionResult> Delete(int id, [FromServices] FeedSubscriptionStore store,
-        CancellationToken ct) {
+        [FromServices] AdminNotifier? notifier, CancellationToken ct) {
         var owner = currentUser.UserId;
         if (owner is null) return Fail(401, "log in to manage subscriptions");
 
         bool ok = await store.DeleteAsync(id, owner.Value, ct);
         if (!ok) return Fail(404, "subscription not found");
-        FeedSubscriptionNotify.Changed(HttpContext.RequestServices);
+        FeedSubscriptionNotify.Changed(notifier);
         return Ok(new { deleted = true });
     }
 
@@ -151,7 +152,7 @@ public sealed class ProtoFeedController(ICurrentUser currentUser, IHttpClientFac
     [EnableRateLimiting("write")]
     [RequiresDb]
     public async Task<IActionResult> Update(int id, [FromBody] FeedUpdateReq req,
-        [FromServices] FeedSubscriptionStore store, CancellationToken ct) {
+        [FromServices] FeedSubscriptionStore store, [FromServices] AdminNotifier? notifier, CancellationToken ct) {
         var owner = currentUser.UserId;
         if (owner is null) return Fail(401, "log in to manage subscriptions");
 
@@ -168,7 +169,7 @@ public sealed class ProtoFeedController(ICurrentUser currentUser, IHttpClientFac
             req.MessageTemplate,
             ResolveFilters(sub, req.Filters), ct);
         if (!ok) return Fail(404, "subscription not found");
-        FeedSubscriptionNotify.Changed(HttpContext.RequestServices);
+        FeedSubscriptionNotify.Changed(notifier);
         return Ok(new { updated = true });
     }
 

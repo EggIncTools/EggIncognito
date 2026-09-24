@@ -4,7 +4,7 @@ using EggIncognito.Core.Services.Devices;
 
 namespace EggIncognito.Services.Devices;
 
-public sealed class IosUiDriver(IDeviceConnectionFactory connections, IosUiDriver.Options opts) : IDeviceUiDriver {
+public sealed class IosUiDriver(IDeviceConnectionFactory connections, IosUiDriver.Options opts, TimeProvider time) : IDeviceUiDriver {
     private const string NoSshNote = "ios ssh not configured";
     private const string CmdPath = "/tmp/egi-uinav.cmd";
     private const string JsonPath = "/tmp/egi-uinav.json";
@@ -127,7 +127,7 @@ public sealed class IosUiDriver(IDeviceConnectionFactory connections, IosUiDrive
         if (send.ExitCode != 0)
             return DeviceResult<string>.Unreachable(DeviceParsing.TrimNote(send.Stderr + send.Stdout));
 
-        var deadline = DateTime.UtcNow.AddMilliseconds(opts.TimeoutMs);
+        var deadline = time.GetUtcNow().AddMilliseconds(opts.TimeoutMs);
         while (true) {
             var poll = await conn.ShellAsync($"[ -f {DonePath} ] && cat {DonePath}", ct);
             if (poll.ExitCode == 0) {
@@ -138,7 +138,7 @@ public sealed class IosUiDriver(IDeviceConnectionFactory connections, IosUiDrive
                         : DeviceResult<string>.Error(DeviceParsing.TrimNote(line));
             }
 
-            if (DateTime.UtcNow >= deadline)
+            if (time.GetUtcNow() >= deadline)
                 return DeviceResult<string>.Unreachable(
                     "egi-uinav tweak did not respond (installed? app foreground?)");
 

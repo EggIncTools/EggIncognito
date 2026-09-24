@@ -22,11 +22,12 @@ public class EnumFailoverTests {
                                      """;
 
     [Fact]
-    public void Apply_SubstitutesLastKnownNameForUnknownEnum() {
+    public async Task Apply_SubstitutesLastKnownNameForUnknownEnum() {
         var msg = new EggIncFirstContactRequest { Platform = (Platform)987654 };
         string json = JsonFormatter.Default.Format(msg);
 
         var failover = new EnumFailover(new StubSource([new LatestProtoText("android", "1.99", ProtoText)]));
+        await failover.WarmAsync();
         string result = failover.Apply(msg, json);
 
         Assert.Contains("\"STEAM\"", result);
@@ -34,11 +35,12 @@ public class EnumFailoverTests {
     }
 
     [Fact]
-    public void Apply_LeavesKnownEnumUntouched() {
+    public async Task Apply_LeavesKnownEnumUntouched() {
         var msg = new EggIncFirstContactRequest { Platform = Platform.Ios };
         string json = JsonFormatter.Default.Format(msg);
 
         var failover = new EnumFailover(new StubSource([new LatestProtoText("android", "1.99", ProtoText)]));
+        await failover.WarmAsync();
         string result = failover.Apply(msg, json);
 
         Assert.Contains("\"IOS\"", result);

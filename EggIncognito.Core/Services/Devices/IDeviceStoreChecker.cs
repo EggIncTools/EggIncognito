@@ -4,7 +4,7 @@ public interface IDeviceStoreChecker {
     string Platform { get; }
 
     Task<StoreCheckResult> CheckAndUpdateAsync(
-        DeviceTarget device, CancellationToken ct, Action<string>? progress = null);
+        DeviceTarget device, CancellationToken ct, Func<string, Task>? progress = null);
 }
 
 public sealed record StoreCheckResult(

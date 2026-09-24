@@ -10,7 +10,7 @@ public readonly record struct ContractReleaseSample(
 
 public sealed class ContractPredictor(
     EggIncognitoDbContext db, ContractDataVersion version, ContractPredictionCache cache,
-    ILogger<ContractPredictor> logger) {
+    ILogger<ContractPredictor> logger, TimeProvider time) {
     private const int TopCandidates = 5;
     private const int SnapHorizon = 12;
     private const int MinGapSamples = 4;
@@ -27,7 +27,7 @@ public sealed class ContractPredictor(
 
     public async Task<ContractPredictionResponse> GetSlotsAsync(int horizonSlots, CancellationToken ct = default) {
         var data = await GetDataAsync(ct);
-        var now = DateTimeOffset.UtcNow;
+        var now = time.GetUtcNow();
         double nowSeconds = UnixSeconds.FromTime(now);
         var slots = ContractSlots.Next(now, horizonSlots)
             .Select(s => new ContractSlotPrediction(s.Time, s.Kind, Top(data, s.Kind, nowSeconds)))
@@ -37,7 +37,7 @@ public sealed class ContractPredictor(
 
     public async Task<ContractNextEstimate?> GetContractAsync(string contractId, CancellationToken ct = default) {
         var data = await GetDataAsync(ct);
-        double now = UnixSeconds.FromTime(DateTimeOffset.UtcNow);
+        double now = UnixSeconds.FromTime(time.GetUtcNow());
         foreach (var pool in AllPools) {
             var candidate = data.Pools[pool].FirstOrDefault(c => c.ContractId == contractId);
             if (candidate is null) continue;
@@ -64,7 +64,7 @@ public sealed class ContractPredictor(
             .ToList();
 
         var data = BuildData(samples);
-        CheckGridConformance(samples, UnixSeconds.FromTime(DateTimeOffset.UtcNow));
+        CheckGridConformance(samples, UnixSeconds.FromTime(time.GetUtcNow()));
         lock (cache) {
             cache.Value = data;
             cache.Version = v;

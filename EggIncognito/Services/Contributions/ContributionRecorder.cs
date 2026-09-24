@@ -10,7 +10,8 @@ public sealed class ContributionRecorder(
     IServiceScopeFactory scopes,
     ICaptureContributionKinds kinds,
     ContributionOptions options,
-    ILogger<ContributionRecorder> logger) : IHostedService, IDisposable {
+    ILogger<ContributionRecorder> logger,
+    TimeProvider time) : IHostedService, IDisposable {
     private readonly Channel<ContributedCapture> _queue =
         Channel.CreateUnbounded<ContributedCapture>(new UnboundedChannelOptions { SingleReader = true });
 
@@ -31,7 +32,7 @@ public sealed class ContributionRecorder(
                 Payload = draft.PayloadJson,
                 DedupeHash = draft.DedupeHash,
                 ClientVersion = draft.ClientVersion,
-                RecordedAt = DateTimeOffset.UtcNow
+                RecordedAt = time.GetUtcNow()
             });
         } catch (Exception ex) {
             CaptureDiagnostics.Failed("contribution", flow.Path, ex);
@@ -110,7 +111,7 @@ public sealed class ContributionRecorder(
         return admitted;
     }
 
-    private async Task WriteIndividuallyAsync(
+    private static async Task WriteIndividuallyAsync(
         EggIncognitoDbContext db, List<ContributedCapture> rows, CancellationToken ct) {
         foreach (var row in rows) {
             try {

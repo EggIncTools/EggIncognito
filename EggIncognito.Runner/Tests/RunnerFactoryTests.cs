@@ -19,7 +19,7 @@ public sealed class RunnerFactoryTests : IDisposable {
             IosBinaryPath: Path.Combine(stash, "ios-binary"),
             PrevClientVersion: null,
             DefaultPackage: "com.auxbrain.egginc",
-            OnNewVersion: _ => { });
+            OnNewVersion: _ => Task.CompletedTask);
     }
 
     [Fact]

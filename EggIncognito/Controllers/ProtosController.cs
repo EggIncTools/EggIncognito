@@ -45,9 +45,9 @@ public sealed class ProtosController : ApiControllerBase {
     [HttpGet("versions/{platform}/{build}")]
     public async Task<IActionResult> Get(string platform, string build, [FromServices] ProtoRegistryStore? store,
         CancellationToken ct) {
-        if (store is not { } s) return NotFound();
+        if (store is not { } s) return Fail(404, "no database configured");
         var row = await s.GetAsync(platform, build, ct);
-        if (row is null) return NotFound();
+        if (row is null) return Fail(404, "version not found");
         var pp = await s.GetProtoAsync(row.Id, ct);
         return Ok(new {
             row.Platform,
@@ -67,9 +67,9 @@ public sealed class ProtosController : ApiControllerBase {
     public async Task<IActionResult> Proto(
         string platform, string build, [FromQuery] string? form,
         [FromServices] ProtoRegistryStore? store, CancellationToken ct) {
-        if (store is not { } s) return NotFound();
+        if (store is not { } s) return Fail(404, "no database configured");
         var (raw, canonical) = await s.GetCanonicalForVersionAsync(platform, build, ct);
-        if (raw is null) return NotFound();
+        if (raw is null) return Fail(404, "no proto for this version");
 
         bool wantRaw = string.Equals(form, ProtoDisplayForm.Raw, StringComparison.OrdinalIgnoreCase);
         bool useCanonical = !wantRaw && canonical.Ok;
@@ -87,7 +87,7 @@ public sealed class ProtosController : ApiControllerBase {
     [HttpGet("latest")]
     public async Task<IActionResult> Latest([FromQuery] string platform = "android",
         [FromServices] ProtoRegistryStore? store = null, CancellationToken ct = default) {
-        if (store is not { } s) return NotFound();
+        if (store is not { } s) return Fail(404, "no database configured");
         var rows = await s.ListAsync(platform, ct);
 
         var r = rows
@@ -95,7 +95,7 @@ public sealed class ProtosController : ApiControllerBase {
             .ThenByDescending(p => p.CreatedAt)
             .FirstOrDefault();
         return r is null
-            ? NotFound()
+            ? Fail(404, "no versions for this platform")
             : Ok(new { r.Platform, r.AppVersion, r.Build, r.ClientVersion, r.Source, r.ProtoSha, r.DetectedAt });
     }
 
@@ -108,13 +108,13 @@ public sealed class ProtosController : ApiControllerBase {
         if (!DiffFormats.Contains(fmt, StringComparer.OrdinalIgnoreCase))
             return Fail(400, "format must be one of text, unified, json, split");
 
-        if (store is not { } s) return NotFound();
+        if (store is not { } s) return Fail(404, "no database configured");
         if (string.IsNullOrWhiteSpace(from) || string.IsNullOrWhiteSpace(to))
             return Fail(400, "from and to required");
 
         var (fromRaw, fromCanonical) = await LoadProtoText(s, platform, from, ct);
         var (toRaw, toCanonical) = await LoadProtoText(s, platform, to, ct);
-        if (fromRaw is null || toRaw is null) return NotFound();
+        if (fromRaw is null || toRaw is null) return Fail(404, "one or both versions not found");
 
         var (fromText, toText, usedForm) = ProtoDisplayForm.Pair(fromCanonical, fromRaw, toCanonical, toRaw);
         Response.Headers["X-Proto-Form"] = usedForm;

@@ -11,7 +11,7 @@ public class GameBinaryProviderTests {
 
     private static GameBinaryProvider Provider(IReadOnlyDictionary<string, string?> settings) {
         var config = new ConfigurationBuilder().AddInMemoryCollection(settings).Build();
-        return new GameBinaryProvider(new EmptyServices(), config, NullLogger<GameBinaryProvider>.Instance);
+        return new GameBinaryProvider(new EmptyServices(), config, NullLogger<GameBinaryProvider>.Instance, TimeProvider.System);
     }
 
     [Fact]

@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace EggIncognito.Data.Services;
 
-public sealed class ApiKeyStore(EggIncognitoDbContext db) {
+public sealed class ApiKeyStore(EggIncognitoDbContext db, TimeProvider time) {
     public async Task<ApiKey> AddAsync(Guid owner, string name, string hash, string prefix,
         CancellationToken ct = default) {
         var row = new ApiKey {
@@ -30,7 +30,7 @@ public sealed class ApiKeyStore(EggIncognitoDbContext db) {
         var row = await db.ApiKeys.FirstOrDefaultAsync(k => k.Id == id && k.OwnerUserId == owner, ct);
         if (row is null || row.Revoked) return false;
         row.Revoked = true;
-        row.RevokedAt = DateTimeOffset.UtcNow;
+        row.RevokedAt = time.GetUtcNow();
         await db.SaveChangesAsync(ct);
         return true;
     }
@@ -41,7 +41,7 @@ public sealed class ApiKeyStore(EggIncognitoDbContext db) {
     public async Task TouchAsync(int id, CancellationToken ct = default) {
         var row = await db.ApiKeys.FirstOrDefaultAsync(k => k.Id == id, ct);
         if (row is null) return;
-        var now = DateTimeOffset.UtcNow;
+        var now = time.GetUtcNow();
         row.RequestCount++;
         if (row.LastUsedAt is null || now - row.LastUsedAt.Value > TimeSpan.FromSeconds(60))
             row.LastUsedAt = now;
@@ -55,7 +55,7 @@ public sealed class ApiKeyStore(EggIncognitoDbContext db) {
         var row = await db.ApiKeys.FirstOrDefaultAsync(k => k.Id == id, ct);
         if (row is null || row.Revoked) return false;
         row.Revoked = true;
-        row.RevokedAt = DateTimeOffset.UtcNow;
+        row.RevokedAt = time.GetUtcNow();
         await db.SaveChangesAsync(ct);
         return true;
     }

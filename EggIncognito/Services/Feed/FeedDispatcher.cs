@@ -9,6 +9,7 @@ public sealed class FeedDispatcher(
     IFeedSubscriptionStore store,
     IHttpClientFactory httpFactory,
     ILogger<FeedDispatcher> logger,
+    TimeProvider time,
     AdminNotifier? notifier = null) {
     private const int DeadAfterFailures = 5;
 
@@ -52,16 +53,16 @@ public sealed class FeedDispatcher(
                 DedupKey = evt.DedupKey,
                 Summary = evt.Summary,
                 Status = ok ? "sent" : "failed",
-                AttemptedAt = DateTimeOffset.UtcNow,
+                AttemptedAt = time.GetUtcNow(),
                 ResponseCode = code,
                 Attempts = 1
             }, ct);
 
             if (ok) {
-                await store.MarkDeliveredAsync(sub.Id, DateTimeOffset.UtcNow, ct);
+                await store.MarkDeliveredAsync(sub.Id, time.GetUtcNow(), ct);
             } else {
                 await store.BumpFailAsync(sub.Id, ct);
-                var refreshed = (await store.ActiveAsync(ct)).FirstOrDefault(s => s.Id == sub.Id);
+                var refreshed = (await store.ActiveAsync(ct)).Find(s => s.Id == sub.Id);
                 if (refreshed is not null && refreshed.FailCount >= DeadAfterFailures)
                     await DeactivateAsync(sub.Id, ct);
             }

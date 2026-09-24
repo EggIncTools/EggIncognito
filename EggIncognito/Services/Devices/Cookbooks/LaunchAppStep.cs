@@ -27,9 +27,9 @@ public sealed class LaunchAppStep(IDeviceConnectionFactory connections) : Cookbo
 
     public override async Task<CookbookStepResult> RunAsync(DeviceCookbookContext context, CancellationToken ct) {
         var lines = new List<string>();
-        void Add(string line) {
+        Task Add(string line) {
             lines.Add(line);
-            context.Progress(line);
+            return context.Progress(line);
         }
 
         var target = context.Target;
@@ -40,7 +40,7 @@ public sealed class LaunchAppStep(IDeviceConnectionFactory connections) : Cookbo
 
         await conn.ShellAsync($"pm enable {DeviceForeground.PlayStorePackage} 2>&1", ct);
 
-        Add($"resolving the launch activity for {target.Package}");
+        await Add($"resolving the launch activity for {target.Package}");
         var resolve = await conn.ShellAsync($"cmd package resolve-activity --brief {target.Package} | tail -1", ct);
         string component = resolve.Stdout.Trim();
         if (resolve.ExitCode != 0 || !component.Contains('/', StringComparison.Ordinal)) {
@@ -48,7 +48,7 @@ public sealed class LaunchAppStep(IDeviceConnectionFactory connections) : Cookbo
                 $"no launch activity for {target.Package}: {DeviceParsing.TrimNote(resolve.Stdout + resolve.Stderr)}");
         }
 
-        Add($"starting {component}");
+        await Add($"starting {component}");
         await conn.ShellAsync("logcat -c 2>/dev/null", ct);
         var start = await conn.ShellAsync($"am start -n {component}", ct);
         if (start.ExitCode != 0 || start.Stdout.Contains("Error", StringComparison.Ordinal)) {
@@ -58,15 +58,15 @@ public sealed class LaunchAppStep(IDeviceConnectionFactory connections) : Cookbo
 
         var front = await WaitForegroundAsync(conn, target, ct);
         if (front.Is(DeviceForeground.PlayStorePackage)) {
-            Add($"play took the foreground: {front.Component ?? front.Package}");
+            await Add($"play took the foreground: {front.Component ?? front.Package}");
             await ReportPlayReasonAsync(conn, Add, ct);
             return Failed(lines, $"play blocked the launch: {PairipNote}{await CertifyHintAsync(conn, ct)}");
         }
 
-        Add($"foreground: {front.Component ?? DeviceParsing.TrimNote(front.Raw)}");
+        await Add($"foreground: {front.Component ?? DeviceParsing.TrimNote(front.Raw)}");
         if (front.Is(target.Package)) {
             if (await PairipFailedAsync(conn, target.Package, ct)) {
-                Add("pairip key import failed");
+                await Add("pairip key import failed");
                 return Failed(lines, $"foreground but black: {PairipNote}{await CertifyHintAsync(conn, ct)}");
             }
 
@@ -87,7 +87,7 @@ public sealed class LaunchAppStep(IDeviceConnectionFactory connections) : Cookbo
 
     private static async Task<bool> PairipFailedAsync(IDeviceConnection conn, string package, CancellationToken ct) {
         var r = await conn.ShellAsync(
-            $"p=$(pidof {package}); [ -n \"$p\" ] && logcat -d --pid=$p 2>/dev/null "
+            $"""p=$(pidof {package}); [ -n "$p" ] && logcat -d --pid=$p 2>/dev/null """
             + "| grep -c -E 'KeyImportException|KeyNotImported' || echo 0", ct);
         return int.TryParse(r.Stdout.Trim(), out int hits) && hits > 0;
     }
@@ -96,15 +96,15 @@ public sealed class LaunchAppStep(IDeviceConnectionFactory connections) : Cookbo
         IDeviceConnection conn, DeviceTarget target, CancellationToken ct) =>
         DeviceForeground.WaitAsync(conn, target.Package, DeviceForeground.PlayStorePackage, ForegroundWait, ct);
 
-    private static async Task ReportPlayReasonAsync(IDeviceConnection conn, Action<string> add, CancellationToken ct) {
+    private static async Task ReportPlayReasonAsync(IDeviceConnection conn, Func<string, Task> add, CancellationToken ct) {
         var r = await conn.ShellAsync(PlayReasonCommand, ct);
         string[] output = [.. r.Stdout.Split('\n').Select(l => l.TrimEnd('\r').TrimEnd()).Where(l => l.Length > 0)];
         if (output.Length == 0) {
-            add("play reason: nothing matching in logcat");
+            await add("play reason: nothing matching in logcat");
             return;
         }
 
-        add("play reason:");
-        foreach (string line in output) add("  " + line);
+        await add("play reason:");
+        foreach (string line in output) await add("  " + line);
     }
 }

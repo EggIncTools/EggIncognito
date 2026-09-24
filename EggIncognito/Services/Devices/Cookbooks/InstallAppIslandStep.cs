@@ -24,9 +24,9 @@ public sealed class InstallAppIslandStep(
 
     public override async Task<CookbookStepResult> RunAsync(DeviceCookbookContext context, CancellationToken ct) {
         var lines = new List<string>();
-        void Add(string line) {
+        Task Add(string line) {
             lines.Add(line);
-            context.Progress(line);
+            return context.Progress(line);
         }
 
         var target = context.Target;
@@ -40,20 +40,20 @@ public sealed class InstallAppIslandStep(
         string user = IslandScope.User(androidUserId);
         var path = await conn.ShellAsync($"pm path {target.Package}", ct);
         if (path.ExitCode == 0 && path.Stdout.Contains("package:", StringComparison.Ordinal)) {
-            Add($"{target.Package} is on the device; sharing it into user {user}");
+            await Add($"{target.Package} is on the device; sharing it into user {user}");
             var share = await conn.ShellAsync($"pm install-existing --user {user} {target.Package}", ct);
             if (share.ExitCode == 0 && !share.Stdout.Contains("failed", StringComparison.OrdinalIgnoreCase))
                 return Ok(lines, $"shared {target.Package} into island {user}");
 
-            Add($"install-existing did not take: {DeviceParsing.TrimNote(share.Stdout + share.Stderr)}");
+            await Add($"install-existing did not take: {DeviceParsing.TrimNote(share.Stdout + share.Stderr)}");
         }
 
-        Add($"{target.Package} is not on the device; installing splits into user {user}");
+        await Add($"{target.Package} is not on the device; installing splits into user {user}");
         return await InstallSplitsAsync(target, androidUserId, lines, Add, ct);
     }
 
     private async Task<CookbookStepResult> InstallSplitsAsync(
-        DeviceTarget target, int androidUserId, List<string> lines, Action<string> add, CancellationToken ct) {
+        DeviceTarget target, int androidUserId, List<string> lines, Func<string, Task> add, CancellationToken ct) {
         var set = await NewestInstallableAsync(target.Package, ct);
         if (set is null)
             return Failed(lines, $"no stored apk for {target.Package}; run install-app on the owner user first");
@@ -70,7 +70,7 @@ public sealed class InstallAppIslandStep(
                 staged.Add(path);
             }
 
-            add($"installing {rows.Count} split(s) of {set.Key} into user {IslandScope.User(androidUserId)}");
+            await add($"installing {rows.Count} split(s) of {set.Key} into user {IslandScope.User(androidUserId)}");
             var install = await Adb(target.Target,
                 ["install-multiple", "--user", IslandScope.User(androidUserId), "-r", .. staged], ct);
             if (install.ExitCode != 0) {

@@ -25,9 +25,8 @@ public class IntegrityChainTests {
     }
 
     [Fact]
-    public void SecurityPatchText_UsesAllKey() {
+    public void SecurityPatchText_UsesAllKey() =>
         Assert.Equal("all=2026-08-05\n", IntegrityChain.SecurityPatchText("2026-08-05"));
-    }
 
     [Fact]
     public void ApplyCommand_CopiesBeforeTeesimSyncBeforeApplied() {

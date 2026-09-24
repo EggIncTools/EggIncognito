@@ -13,7 +13,7 @@ public sealed class RunnerSetTests : IDisposable {
     private RunnerDeps Deps() {
         string stash = _tmp.CreateSubdir();
         return new RunnerDeps(new StubProto(), new NullClientVersionReader(), stash,
-            Path.Combine(stash, "ios-binary"), null, "com.auxbrain.egginc", _ => { });
+            Path.Combine(stash, "ios-binary"), null, "com.auxbrain.egginc", _ => Task.CompletedTask);
     }
 
     [Fact]
@@ -60,6 +60,7 @@ public sealed class RunnerSetTests : IDisposable {
 
     private sealed class FakeRunner(string platform) : IDeviceRunner {
         public string Platform => platform;
-        public RunOutcome RunOnce(bool force) => new(false, null, null, "fake");
+        public Task<RunOutcome> RunOnceAsync(bool force, CancellationToken ct = default) =>
+            Task.FromResult(new RunOutcome(false, null, null, "fake"));
     }
 }

@@ -12,9 +12,7 @@ public sealed class DbSettingsConfigurationSource(SettingsRegistry registry, str
 
 public sealed class DbSettingsConfigurationProvider(SettingsRegistry registry, string connectionString)
     : ConfigurationProvider {
-    public override void Load() {
-        Data = LoadSafely();
-    }
+    public override void Load() => Data = LoadSafely();
 
     private Dictionary<string, string?> LoadSafely() {
         var map = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);

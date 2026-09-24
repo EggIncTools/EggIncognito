@@ -3,7 +3,6 @@ using EggIdentity.Contract;
 using EggIncognito.Controllers;
 using EggIncognito.Core.Services;
 using EggIncognito.Models.Routes;
-using EggIncognito.Services;
 using EggIncognito.Services.Routes;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.DependencyInjection;
@@ -11,6 +10,7 @@ using Microsoft.Extensions.DependencyInjection;
 namespace EggIncognito.Tests;
 
 public sealed class RouteAdminControllerTests : IDisposable {
+    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
     private readonly TempDir _tmp = new();
 
     public void Dispose() => _tmp.Dispose();
@@ -37,11 +37,10 @@ public sealed class RouteAdminControllerTests : IDisposable {
         var overrides = sp.GetService<IRouteOverrideProvider>();
         var report = new RouteCatalogReport(routes, yamlRoutes,
             new NonBinaryRouteCatalog(yamlRoutes, null, overrides), overrides, sp.GetService<IBinaryRouteProvider>());
-        return new RouteAdminController(routes, report, new ProtoReflection(), new FakeUser());
+        return new RouteAdminController(routes, report, new ProtoReflection(), new FakeUser(role: UserRole.Admin), TimeProvider.System);
     }
 
-    private static string Json(object? value) =>
-        JsonSerializer.Serialize(value, new JsonSerializerOptions(JsonSerializerDefaults.Web));
+    private static string Json(object? value) => JsonSerializer.Serialize(value, JsonOptions);
 
     [Fact]
     public void List_MergesSourceAndOverrides_IncludingOrphan() {
@@ -224,17 +223,5 @@ public sealed class RouteAdminControllerTests : IDisposable {
         public IReadOnlyList<BinaryRouteInfo> AllBinaryRoutes() => routes;
         public void Invalidate() {
         }
-    }
-
-    private sealed class FakeUser : ICurrentUser {
-        public bool IsAuthenticated => true;
-        public Guid? UserId => null;
-        public string? DiscordId => "tester";
-        public string? Username => "tester";
-        public string? Avatar => null;
-        public string? AvatarUrl => null;
-        public UserRole Role => UserRole.Admin;
-        public bool IsSupporter => false;
-        public bool IsAtLeast(UserRole need) => UserRoles.IsAtLeast(Role, need);
     }
 }

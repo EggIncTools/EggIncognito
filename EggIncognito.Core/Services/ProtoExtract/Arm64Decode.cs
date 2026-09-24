@@ -27,12 +27,12 @@ public static class Arm64Decode {
         long fileOff = (long)va - (long)slide;
         if (fileOff < 0) return false;
         if (f64 && fileOff + 8 <= bin.Length) {
-            value = BitConverter.ToDouble(bin, (int)fileOff);
+            value = BitConverter.ToDouble(bin.AsSpan((int)fileOff));
             return true;
         }
 
         if (!f64 && fileOff + 4 <= bin.Length) {
-            value = BitConverter.ToSingle(bin, (int)fileOff);
+            value = BitConverter.ToSingle(bin.AsSpan((int)fileOff));
             return true;
         }
 

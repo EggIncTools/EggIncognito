@@ -2,7 +2,6 @@ using System.Net;
 using EggIncognito.Core.Services.Devices;
 using EggIncognito.Services.Devices;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace EggIncognito.Tests.Devices;
@@ -26,7 +25,7 @@ public class StoreUpdateTests {
     private static DeviceTarget IosTarget => new("i", "ios", "UDID", "com.auxbrain.egginc");
 
     private static KnownVersionRecorder Recorder() =>
-        new(new NullScopeFactory(), NullLogger<KnownVersionRecorder>.Instance);
+        new(new NullScopeFactory(), NullLogger<KnownVersionRecorder>.Instance, TimeProvider.System);
 
     private static DeviceActivity Activity() => new(new DeviceClaimRegistry(TimeProvider.System));
 
@@ -88,7 +87,10 @@ public class StoreUpdateTests {
         var driver = new FakeDriver { InstalledReads = _ => null };
         var rounds = new List<string>();
 
-        var result = await Orchestrator(driver).CheckAndUpdateAsync(AndroidTarget, default, msg => rounds.Add(msg));
+        var result = await Orchestrator(driver).CheckAndUpdateAsync(AndroidTarget, default, msg => {
+            rounds.Add(msg);
+            return Task.CompletedTask;
+        });
 
         Assert.Equal("unreachable", result.Action);
         Assert.False(result.Reachable);
@@ -101,7 +103,10 @@ public class StoreUpdateTests {
         var driver = new FakeDriver { Probe = new StoreProbeOutcome(StoreAvailability.UpToDate, "1.0", null) };
         var rounds = new List<string>();
 
-        var result = await Orchestrator(driver).CheckAndUpdateAsync(AndroidTarget, default, msg => rounds.Add(msg));
+        var result = await Orchestrator(driver).CheckAndUpdateAsync(AndroidTarget, default, msg => {
+            rounds.Add(msg);
+            return Task.CompletedTask;
+        });
 
         Assert.Equal("up_to_date", result.Action);
         Assert.False(result.Installed);
@@ -148,7 +153,10 @@ public class StoreUpdateTests {
         var driver = new FakeDriver { InstalledReads = i => i >= 2 ? "1.1" : "1.0" };
         var rounds = new List<string>();
 
-        var result = await Orchestrator(driver, 10).CheckAndUpdateAsync(AndroidTarget, default, msg => rounds.Add(msg));
+        var result = await Orchestrator(driver, 10).CheckAndUpdateAsync(AndroidTarget, default, msg => {
+            rounds.Add(msg);
+            return Task.CompletedTask;
+        });
 
         Assert.Equal("updated", result.Action);
         Assert.True(result.Installed);
@@ -161,16 +169,17 @@ public class StoreUpdateTests {
 
     [Fact]
     public async Task Android_UpToDate_WhenNoUpdateButton() {
-        var runner = new FakeRunner(args => {
-            return args.Contains("dumpsys")
-                ? new ProcessResult(0, "versionName=1.0\n", "")
-                : args.Any(a => a.Contains("cat"))
-                    ? new ProcessResult(0, UiNoUpdate, "")
-                    : new ProcessResult(0, "", "");
-        });
+        var runner = new FakeRunner(args => args.Contains("dumpsys")
+            ? new ProcessResult(0, "versionName=1.0\n", "")
+            : args.Any(a => a.Contains("cat"))
+                ? new ProcessResult(0, UiNoUpdate, "")
+                : new ProcessResult(0, "", ""));
 
         var rounds = new List<string>();
-        var result = await AndroidOrchestrator(runner).CheckAndUpdateAsync(AndroidTarget, default, msg => rounds.Add(msg));
+        var result = await AndroidOrchestrator(runner).CheckAndUpdateAsync(AndroidTarget, default, msg => {
+            rounds.Add(msg);
+            return Task.CompletedTask;
+        });
 
         Assert.Equal("up_to_date", result.Action);
         Assert.False(result.Installed);
@@ -180,13 +189,11 @@ public class StoreUpdateTests {
 
     [Fact]
     public async Task Android_MajorUpdateAdvertised_ManualNeeded() {
-        var runner = new FakeRunner(args => {
-            return args.Contains("dumpsys")
-                ? new ProcessResult(0, "versionName=1.0\n", "")
-                : args.Any(a => a.Contains("cat"))
-                    ? new ProcessResult(0, UiMajorUpdate, "")
-                    : new ProcessResult(0, "", "");
-        });
+        var runner = new FakeRunner(args => args.Contains("dumpsys")
+            ? new ProcessResult(0, "versionName=1.0\n", "")
+            : args.Any(a => a.Contains("cat"))
+                ? new ProcessResult(0, UiMajorUpdate, "")
+                : new ProcessResult(0, "", ""));
 
         var result = await AndroidOrchestrator(runner).CheckAndUpdateAsync(AndroidTarget, default);
 
@@ -197,11 +204,9 @@ public class StoreUpdateTests {
 
     [Fact]
     public async Task Android_PageNeverLoads_Error() {
-        var runner = new FakeRunner(args => {
-            return args.Contains("dumpsys")
-                ? new ProcessResult(0, "versionName=1.0\n", "")
-                : new ProcessResult(0, "", "");
-        });
+        var runner = new FakeRunner(args => args.Contains("dumpsys")
+            ? new ProcessResult(0, "versionName=1.0\n", "")
+            : new ProcessResult(0, "", ""));
 
         var result = await AndroidOrchestrator(runner, 2).CheckAndUpdateAsync(AndroidTarget, default);
 
@@ -223,7 +228,10 @@ public class StoreUpdateTests {
         });
 
         var rounds = new List<string>();
-        var result = await AndroidOrchestrator(runner, 10).CheckAndUpdateAsync(AndroidTarget, default, msg => rounds.Add(msg));
+        var result = await AndroidOrchestrator(runner, 10).CheckAndUpdateAsync(AndroidTarget, default, msg => {
+            rounds.Add(msg);
+            return Task.CompletedTask;
+        });
 
         Assert.Equal("updated", result.Action);
         Assert.True(result.Installed);
@@ -237,7 +245,10 @@ public class StoreUpdateTests {
         var runner = new FakeRunner(_ => new ProcessResult(0, "", ""));
         var rounds = new List<string>();
 
-        var result = await AndroidOrchestrator(runner).CheckAndUpdateAsync(AndroidTarget, default, msg => rounds.Add(msg));
+        var result = await AndroidOrchestrator(runner).CheckAndUpdateAsync(AndroidTarget, default, msg => {
+            rounds.Add(msg);
+            return Task.CompletedTask;
+        });
 
         Assert.Equal("unreachable", result.Action);
         Assert.False(result.Reachable);
@@ -248,7 +259,7 @@ public class StoreUpdateTests {
     public async Task TriggerInstallAsync_TapsUpdateNodeCenter_ViaTapPointAsync() {
         var tree = await ParseTreeAsync(UiWithUpdate);
         var ui = new FakeUiDriver { DumpResult = DeviceResult<UiTree>.Success(tree) };
-        var logger = new CollectingLogger();
+        var logger = new CollectingLogger<AndroidStoreUpdateDriver>();
         var runner = new FakeRunner(_ => new ProcessResult(0, "", ""));
         var driver = new AndroidStoreUpdateDriver(
             runner, new FakeConnections(runner),
@@ -499,11 +510,11 @@ public class StoreUpdateTests {
         public Task PrepareAsync(DeviceTarget target, CancellationToken ct) => Task.CompletedTask;
 
         public Task<StoreProbeOutcome> ProbeStoreAsync(
-            DeviceTarget target, string installed, Action<string>? progress, CancellationToken ct) =>
+            DeviceTarget target, string installed, Func<string, Task>? progress, CancellationToken ct) =>
             Task.FromResult(Probe);
 
         public Task<TriggerOutcome> TriggerInstallAsync(
-            DeviceTarget target, Action<string>? progress, CancellationToken ct) {
+            DeviceTarget target, Func<string, Task>? progress, CancellationToken ct) {
             TriggerCalled = true;
             return Task.FromResult(Trigger);
         }
@@ -558,15 +569,6 @@ public class StoreUpdateTests {
 
         public Task<DeviceResult> LaunchAppAsync(DeviceTarget target, string appRef, CancellationToken ct) =>
             Task.FromResult(DeviceResult.Unsupported());
-    }
-
-    private sealed class CollectingLogger : ILogger<AndroidStoreUpdateDriver> {
-        public List<string> Messages { get; } = [];
-        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
-        public bool IsEnabled(LogLevel logLevel) => true;
-
-        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception,
-            Func<TState, Exception?, string> formatter) => Messages.Add(formatter(state, exception));
     }
 
     private sealed class NullScopeFactory : IServiceScopeFactory {

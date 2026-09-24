@@ -63,6 +63,7 @@
                 _prefs = await Js.InvokeAsync<IJSObjectReference>("import", InteropAsset.Url(HostEnv, "./interop/uiPrefs.js"));
                 _preview = await Js.InvokeAsync<IJSObjectReference>("import", InteropAsset.Url(HostEnv, "./interop/themePreview.js"));
             } catch (Exception ex) when (ex is JSDisconnectedException or JSException) {
+                Logger.LogDebug(ex, "theme interop modules could not be loaded");
             }
         }
     }
@@ -77,6 +78,7 @@
             _themes.AddRange(resp?.Themes ?? []);
             _activeSlug = _themes.FirstOrDefault(t => t.IsActive)?.Slug ?? "";
         } catch (Exception ex) when (ex is HttpRequestException or JsonException) {
+            Logger.LogDebug(ex, "saved themes could not be loaded");
         }
     }
 

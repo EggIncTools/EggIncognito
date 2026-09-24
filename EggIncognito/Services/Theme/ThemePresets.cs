@@ -1,9 +1,10 @@
+using System.Collections.Frozen;
 using EggIdentity.Styles.Theming;
 
 namespace EggIncognito.Services.Theme;
 
 public static class ThemePresets {
-    private static readonly Dictionary<string, string> DefaultHex = new() {
+    private static readonly FrozenDictionary<string, string> DefaultHex = new Dictionary<string, string> {
         ["bg"] = "#1b1b1f",
         ["panel0"] = "#202027",
         ["panel"] = "#25252b",
@@ -15,7 +16,7 @@ public static class ThemePresets {
         ["ok"] = "#5ec27e",
         ["err"] = "#e0685f",
         ["border"] = "#3a3a44"
-    };
+    }.ToFrozenDictionary();
 
     public static ThemeColor DefaultToken(string name) =>
         ThemeColor.FromHex(DefaultHex.TryGetValue(name, out string? hex) ? hex : "#000000")!.Value;

@@ -40,7 +40,7 @@ public static class SyncIngestServices {
             string protoSha = evt.ProtoSha;
             if (protoText is not null) {
                 var norm = ProtoCanonicalForm.Normalize(protoText);
-                if (norm.Ok) protoSha = norm.Sha!;
+                if (norm.Ok) protoSha = norm.Sha;
             }
 
             string? appVersion = string.IsNullOrEmpty(evt.AppVersion) ? evt.Version : evt.AppVersion;
@@ -49,7 +49,7 @@ public static class SyncIngestServices {
 
             await store.UpsertAsync(
                 evt.Platform ?? "android", appVersion, build, evt.ClientVersion, evt.Package, protoSha, evt.ApkRef,
-                DateTimeOffset.TryParse(evt.DetectedAt, out var dt) ? dt : DateTimeOffset.UtcNow,
+                DateTimeOffset.TryParse(evt.DetectedAt, out var dt) ? dt : sp.GetRequiredService<TimeProvider>().GetUtcNow(),
                 null, protoText, ct: ct);
         }
 

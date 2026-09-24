@@ -9,6 +9,7 @@ public abstract class AdminPaneBase : BrowserApiComponentBase {
 
     [Inject] protected AdminNotifier Notifier { get; set; } = null!;
     [Inject] protected AdminWorkbenchState State { get; set; } = null!;
+    [Inject] protected IServiceProvider Services { get; set; } = null!;
 
     protected abstract IReadOnlyList<string> Topics { get; }
 

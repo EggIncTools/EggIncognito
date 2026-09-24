@@ -30,17 +30,8 @@ public class HostedCapturePageTests {
         public bool HostedCaptureEnabled => hostedEnabled;
     }
 
-    private sealed class FakeUser(bool authed, bool supporter, UserRole role = UserRole.Viewer) : ICurrentUser {
-        public bool IsAuthenticated => authed;
-        public Guid? UserId => authed ? Guid.Parse("00000000-0000-0000-0000-000000000001") : null;
-        public string? DiscordId => authed ? "tester" : null;
-        public string? Username => authed ? "tester" : null;
-        public string? Avatar => null;
-        public string? AvatarUrl => null;
-        public UserRole Role => role;
-        public bool IsSupporter => supporter;
-        public bool IsAtLeast(UserRole need) => UserRoles.IsAtLeast(role, need);
-    }
+    private static FakeUser Tester(bool authed, bool supporter, UserRole role = UserRole.Viewer) =>
+        new(authed, role, supporter: supporter, userId: Guid.Parse("00000000-0000-0000-0000-000000000001"));
 
     private sealed class EmptyServices : IServiceProvider {
         public object? GetService(Type serviceType) => null;
@@ -79,7 +70,7 @@ public class HostedCapturePageTests {
         private void Wire(TempDir tmp, bool authed, bool supporter, bool canCapture = false) {
             JSInterop.Mode = JSRuntimeMode.Loose;
             Services.AddSingleton<IAppMode>(new FakeAppMode(canCapture, true));
-            Services.AddSingleton<ICurrentUser>(new FakeUser(authed, supporter));
+            Services.AddSingleton<ICurrentUser>(Tester(authed, supporter));
             Services.AddSingleton(HostedCaptureOptions.Defaults());
             Services.AddSingleton(NewManager(tmp));
             Services.AddSingleton<IHttpContextAccessor>(new HttpContextAccessor());
@@ -199,7 +190,7 @@ public class HostedCapturePageTests {
 
         [Fact]
         public async Task Start_Anonymous_Is401() {
-            var r = await Controller(NewManager(_tmp), new FakeUser(false, false))
+            var r = await Controller(NewManager(_tmp), Tester(false, false))
                 .Start(null, null, null, CancellationToken.None);
             Assert.Equal(401, ((IStatusCodeActionResult)r).StatusCode);
         }
@@ -207,7 +198,7 @@ public class HostedCapturePageTests {
         [Fact]
         public async Task Start_NonSupporter_StartsLimitedSession() {
             var manager = NewManager(_tmp);
-            var r = await Controller(manager, new FakeUser(true, false))
+            var r = await Controller(manager, Tester(true, false))
                 .Start(null, null, null, CancellationToken.None);
             Assert.Equal(200, ((IStatusCodeActionResult)r).StatusCode);
             var session = manager.Get("tester");
@@ -219,7 +210,7 @@ public class HostedCapturePageTests {
         [Fact]
         public async Task Start_Supporter_StartsOwnSession() {
             var manager = NewManager(_tmp);
-            var r = await Controller(manager, new FakeUser(true, true))
+            var r = await Controller(manager, Tester(true, true))
                 .Start(null, null, null, CancellationToken.None);
             Assert.Equal(200, ((IStatusCodeActionResult)r).StatusCode);
             var session = manager.Get("tester");
@@ -252,7 +243,7 @@ public class HostedCapturePageTests {
 
         [Fact]
         public async Task Save_Hosted_ViewerNonSupporter_Is403() {
-            var (controller, session) = WithFlowSession(new FakeUser(true, false));
+            var (controller, session) = WithFlowSession(Tester(true, false));
             long id = PublishFlow(session);
             var r = await controller.SaveEndpoint(new SaveFlowRequest(id), new FakeRoutes(), null, null);
             Assert.Equal(403, ((IStatusCodeActionResult)r).StatusCode);
@@ -260,7 +251,7 @@ public class HostedCapturePageTests {
 
         [Fact]
         public async Task Save_Hosted_Supporter_PassesGate_Then503NoDb() {
-            var (controller, session) = WithFlowSession(new FakeUser(true, true));
+            var (controller, session) = WithFlowSession(Tester(true, true));
             long id = PublishFlow(session);
             var r = await controller.SaveEndpoint(new SaveFlowRequest(id), new FakeRoutes(), null, null);
             Assert.Equal(503, ((IStatusCodeActionResult)r).StatusCode);
@@ -268,7 +259,7 @@ public class HostedCapturePageTests {
 
         [Fact]
         public async Task Save_Hosted_Contributor_PassesGate_Then503NoDb() {
-            var (controller, session) = WithFlowSession(new FakeUser(true, false, UserRole.Contributor));
+            var (controller, session) = WithFlowSession(Tester(true, false, UserRole.Contributor));
             long id = PublishFlow(session);
             var r = await controller.SaveEndpoint(new SaveFlowRequest(id), new FakeRoutes(), null, null);
             Assert.Equal(503, ((IStatusCodeActionResult)r).StatusCode);

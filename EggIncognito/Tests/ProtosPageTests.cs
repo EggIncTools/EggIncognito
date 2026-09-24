@@ -47,7 +47,7 @@ public class ProtosPageTests {
 
     public class Component : BunitContext {
         private void Wire(UserRole role) {
-            Services.AddSingleton<ICurrentUser>(new FakeUser(role));
+            Services.AddSingleton<ICurrentUser>(new FakeUser(role != UserRole.Viewer, role));
             Services.AddSingleton(new AuthState(false));
             Services.AddSingleton<IHttpContextAccessor>(new HttpContextAccessor());
             Services.AddSingleton<IWebHostEnvironment>(new FakeWebHostEnvironment());
@@ -107,18 +107,6 @@ public class ProtosPageTests {
             Assert.DoesNotContain("pd-w-data", cut.Markup);
             Assert.DoesNotContain("Fixtures", cut.Markup);
         }
-    }
-
-    private sealed class FakeUser(UserRole role) : ICurrentUser {
-        public bool IsAuthenticated => role != UserRole.Viewer;
-        public Guid? UserId => null;
-        public string? DiscordId => IsAuthenticated ? "fake" : null;
-        public string? Username => IsAuthenticated ? "fake" : null;
-        public string? Avatar => null;
-        public string? AvatarUrl => null;
-        public UserRole Role => role;
-        public bool IsSupporter => false;
-        public bool IsAtLeast(UserRole need) => role >= need;
     }
 
     private sealed class FakeAppMode : IAppMode {

@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace EggIncognito.Data.Services;
 
-public sealed class CaptureAddressStore(EggIncognitoDbContext db) {
+public sealed class CaptureAddressStore(EggIncognitoDbContext db, TimeProvider time) {
     public static IPAddress RandomInPrefix(string prefixCidr) {
         string[] parts = prefixCidr.Split('/');
         byte[] prefix = IPAddress.Parse(parts[0]).GetAddressBytes();
@@ -55,7 +55,7 @@ public sealed class CaptureAddressStore(EggIncognitoDbContext db) {
             string canonical = addr.ToString();
             var row = await db.CaptureProxyAddrs.FirstOrDefaultAsync(a => a.UserId == userId, ct);
             if (row is null)
-                db.CaptureProxyAddrs.Add(new CaptureProxyAddr { UserId = userId, Addr = canonical, CreatedAt = DateTimeOffset.UtcNow });
+                db.CaptureProxyAddrs.Add(new CaptureProxyAddr { UserId = userId, Addr = canonical, CreatedAt = time.GetUtcNow() });
             else
                 row.Addr = canonical;
             try {

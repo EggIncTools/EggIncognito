@@ -4,7 +4,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace EggIncognito.Data.Services;
 
-public sealed class AnalyzedFileStore(EggIncognitoDbContext db) {
+public sealed class AnalyzedFileStore(EggIncognitoDbContext db, TimeProvider time) {
     public static string Sha256Hex(byte[] bytes) => Hashes.Sha256Hex(bytes);
 
     public Task<AnalyzedFile?> FindAsync(string fileSha, CancellationToken ct) => db.AnalyzedFiles.AsNoTracking().FirstOrDefaultAsync(f => f.FileSha == fileSha, ct);
@@ -14,7 +14,7 @@ public sealed class AnalyzedFileStore(EggIncognitoDbContext db) {
         if (exists) return;
         db.AnalyzedFiles.Add(new AnalyzedFile {
             FileSha = entry.FileSha,
-            FirstSeen = DateTimeOffset.UtcNow,
+            FirstSeen = time.GetUtcNow(),
             Source = entry.Source,
             Platform = entry.Platform,
             ProtoSha = entry.ProtoSha,

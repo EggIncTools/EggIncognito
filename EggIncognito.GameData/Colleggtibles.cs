@@ -1,3 +1,5 @@
+using System.Collections.Frozen;
+
 namespace EggIncognito.GameData;
 
 public sealed record ColleggtibleEgg(string Identifier, int Dimension, IReadOnlyList<double> TierValues);
@@ -11,8 +13,8 @@ public interface IColleggtibleCatalog {
 }
 
 public sealed class ColleggtibleCatalog : GameDataCatalog<ColleggtibleEgg, string>, IColleggtibleCatalog {
-    public static readonly IReadOnlyDictionary<string, int> DimensionCodes =
-        new Dictionary<string, int>(StringComparer.Ordinal) {
+    public static readonly FrozenDictionary<string, int> DimensionCodes =
+        new Dictionary<string, int> {
             ["INVALID"] = 0,
             ["EARNINGS"] = 1,
             ["AWAY_EARNINGS"] = 2,
@@ -23,7 +25,7 @@ public sealed class ColleggtibleCatalog : GameDataCatalog<ColleggtibleEgg, strin
             ["VEHICLE_COST"] = 7,
             ["HAB_COST"] = 8,
             ["RESEARCH_COST"] = 9
-        };
+        }.ToFrozenDictionary(StringComparer.Ordinal);
 
     private ColleggtibleCatalog(IReadOnlyList<ColleggtibleEgg> eggs, IReadOnlyDictionary<string, string> map,
         string gameVersion, IReadOnlyDictionary<string, ProvenanceSource> provenance)
