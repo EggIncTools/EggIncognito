@@ -106,10 +106,15 @@ public static class AppPipeline {
     public static void MapAppEndpoints(this WebApplication app, BootFlags boot) {
         app.MapControllers();
         if (boot.DbEnabled) app.MapEggIdentityVisits();
-        if (boot.DbEnabled && !string.IsNullOrWhiteSpace(boot.AdminApiSecret))
-            app.MapAdminApi(new AdminApiOptions("eggincognito", boot.AdminApiSecret))
-                .MapEggIdentityVisitsAdminApi()
-                .MapCloneAdminApi(EggIncognitoClonePlan.Create());
+        if (boot.DbEnabled && !string.IsNullOrWhiteSpace(boot.AdminApiSecret)) {
+            var build = BuildInfo.FromAssembly("https://github.com/EggIncTools/EggIncognito");
+            app.MapAdminApi(new AdminApiOptions("eggincognito", boot.AdminApiSecret) {
+                Version = build.Version,
+                Revision = build.Sha
+            })
+            .MapEggIdentityVisitsAdminApi()
+            .MapCloneAdminApi(EggIncognitoClonePlan.Create());
+        }
 
         if (boot.SyncIngestEnabled) {
             var ingest = app.Services.GetRequiredService<NewVersionIngestService>();

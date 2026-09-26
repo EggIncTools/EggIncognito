@@ -11,7 +11,6 @@ public class CommandParsingTests {
     [InlineData("verify", BotCommand.Verify)]
     [InlineData("endpoints", BotCommand.Endpoints)]
     [InlineData("proto", BotCommand.Proto)]
-    [InlineData("updateserver", BotCommand.UpdateServer)]
     [InlineData("nope", BotCommand.Unknown)]
     [InlineData("", BotCommand.Unknown)]
     [InlineData(null, BotCommand.Unknown)]

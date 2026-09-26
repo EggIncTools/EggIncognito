@@ -50,8 +50,6 @@ public static class BotServices {
                 Date = buildInfo.BuildDate
             },
             SharedRoleId = config["SHARED_ROLE_ID"] ?? config["Discord:SharedRoleId"] ?? "",
-            DeployAgentUrl = config["DEPLOY_AGENT_URL"] ?? config["Discord:DeployAgentUrl"] ?? "",
-            DeployAgentSecret = config["DEPLOY_AGENT_SECRET"] ?? config["Discord:DeployAgentSecret"] ?? "",
             PostgresConnectionString = boot.DbEnabled ? boot.PgConn! : "",
             DashboardChannelId = config["Discord:DashboardChannelId"] ?? "",
             DashboardProvider = _ => Task.FromResult(DashboardSnapshotFor(status, buildInfo, startedAt, botLogger)),

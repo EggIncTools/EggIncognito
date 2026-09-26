@@ -23,10 +23,6 @@ public sealed class IntegrationSettingsProvider : ISettingsProvider {
             SettingKind.Snowflake, ApplyTier.RestartRequired, Sensitivity.Plain),
         new("discord.invite_url", "Discord__InviteUrl", "Invite URL", Discord,
             SettingKind.Url, ApplyTier.RestartRequired, Sensitivity.Plain),
-        new("discord.deploy_agent_url", "DEPLOY_AGENT_URL", "Deploy agent URL", Discord,
-            SettingKind.Url, ApplyTier.RestartRequired, Sensitivity.Plain),
-        new("discord.deploy_agent_secret", "DEPLOY_AGENT_SECRET", "Deploy agent secret", Discord,
-            SettingKind.Secret, ApplyTier.RestartRequired, Sensitivity.Secret),
 
         new("sync_event.secret", "SyncEvent__EventSecret", "Sync ingest secret", Egress,
             SettingKind.Secret, ApplyTier.RestartRequired, Sensitivity.Secret) {

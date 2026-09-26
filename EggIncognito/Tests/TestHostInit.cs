@@ -12,8 +12,6 @@ internal static class TestHostInit {
         "CaptureOverwrite",
         "CertsPath",
         "ContentRoot",
-        "DEPLOY_AGENT_SECRET",
-        "DEPLOY_AGENT_URL",
         "EGG_INC_API_SALT",
         "EGG_INC_EID",
         "EndpointsPath",

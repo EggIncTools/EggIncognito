@@ -6,7 +6,6 @@ public enum BotCommand {
     Verify,
     Endpoints,
     Proto,
-    UpdateServer,
     Unknown
 }
 
@@ -23,7 +22,6 @@ public static class CommandParsing {
         "verify" => BotCommand.Verify,
         "endpoints" => BotCommand.Endpoints,
         "proto" => BotCommand.Proto,
-        "updateserver" => BotCommand.UpdateServer,
         _ => BotCommand.Unknown
     };
 
