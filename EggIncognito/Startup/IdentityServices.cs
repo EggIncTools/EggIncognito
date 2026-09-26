@@ -1,6 +1,7 @@
 using System.Net.Http.Headers;
 using EggIdentity.Client;
 using EggIdentity.Metrics;
+using EggIncognito.Data.Services;
 using EggIncognito.Services;
 using EggIncognito.Services.Auth;
 using EggIncognito.Services.Events;
@@ -17,6 +18,11 @@ public static class IdentityServices {
                 c.DefaultRequestHeaders.Authorization =
                     new AuthenticationHeaderValue("Bearer", boot.IdentityApiSecret);
             });
+        }
+
+        if (boot.IdentityApiEnabled && boot.DbEnabled) {
+            builder.Services.AddScoped<IUserMergeRemapper, UserMergeRemapper>();
+            builder.Services.AddHostedService<UserMergeSyncService>();
         }
 
         if (boot.Session is not null) builder.Services.AddSingleton(boot.Session);
