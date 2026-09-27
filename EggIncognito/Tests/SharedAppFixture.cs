@@ -54,16 +54,6 @@ public sealed class HostedCaptureAppCollection : ICollectionFixture<HostedCaptur
     public const string Name = "hosted-capture";
 }
 
-public sealed class EventSecretAppFactory : EgiTestFactory {
-    public const string Secret = "test-secret-123";
-    protected override void Configure(IWebHostBuilder builder) => builder.UseSetting("SyncEvent:EventSecret", Secret);
-}
-
-[CollectionDefinition(Name)]
-public sealed class EventSecretAppCollection : ICollectionFixture<EventSecretAppFactory> {
-    public const string Name = "event-secret";
-}
-
 [CollectionDefinition(Name)]
 public sealed class EggIncApiCollection : ICollectionFixture<EggIncApiFactory> {
     public const string Name = "egginc-api";

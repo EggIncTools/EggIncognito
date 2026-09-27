@@ -227,18 +227,6 @@
                     <span class="text-muted text-xs">@sel.Status@(sel.Step is { Length: > 0 } ? $": {sel.Step}" : "")...</span>
                 } else if (sel.Result is { } r) {
                     <span class="font-mono text-muted text-xs">@(r.Messages.Count) - @Sha12(r.ProtoSha)</span>
-                    @if (SizeFlow(r) is { Count: > 0 } sizes) {
-                        <span class="font-mono text-muted text-xs">
-                            @for (var i = 0; i < sizes.Count; i++) {
-                                if (i > 0) {
-                                    <span class="wb-arrow">&rarr;</span>
-                                }
-
-                                @sizes[i]
-                            }
-                        </span>
-                    }
-
                     @if (selGroup is { Conflict: true }) {
                         <span class="pwb-note-inline pwb-err">conflict</span>
                         <span class="text-muted text-xs">Pick the file to offer in the rail.</span>
@@ -263,7 +251,6 @@
                         <span class="pwb-note-inline pwb-warn">conflicts with registry</span>
                     } else if (selGroup?.Status is { InRegistry: true }) {
                         <span class="pwb-note-inline pwb-ok">sha in registry</span>
-                        <span class="text-muted text-xs">This proto text is already stored under different version metadata.</span>
                     } else if (selGroup?.Status is { Offerable: true }) {
                         @if (User.IsAuthenticated) {
                             <span class="pwb-note-inline">offerable</span>
@@ -289,42 +276,11 @@
             </div>
         }
         @if (selGroup?.Status is { Conflict: true, Stored: { } stored }) {
-            <div class="pwb-cmp">
-                <div class="pwb-cmp-head">
-                    This proto sha is already stored under different version metadata. Review before overwriting.
-                </div>
-                <table class="data-table pwb-cmp-table">
-                    <thead>
-                    <tr>
-                        <th></th>
-                        <th>Stored</th>
-                        <th>Detected</th>
-                    </tr>
-                    </thead>
-                    <tbody>
-                    <tr class="@CmpClass(stored.Platform, selGroup.Platform)">
-                        <td class="text-muted">platform</td>
-                        <td class="font-mono text-xs">@Dash(stored.Platform)</td>
-                        <td class="font-mono text-xs">@Dash(selGroup.Platform)</td>
-                    </tr>
-                    <tr class="@CmpClass(stored.AppVersion, selGroup.AppVersion)">
-                        <td class="text-muted">app version</td>
-                        <td class="font-mono text-xs">@Dash(stored.AppVersion)</td>
-                        <td class="font-mono text-xs">@Dash(selGroup.AppVersion)</td>
-                    </tr>
-                    <tr class="@CmpClass(stored.Build, selGroup.Build)">
-                        <td class="text-muted">build</td>
-                        <td class="font-mono text-xs">@Dash(stored.Build)</td>
-                        <td class="font-mono text-xs">@Dash(selGroup.Build)</td>
-                    </tr>
-                    <tr class="@CmpClass(stored.ClientVersion, selGroup.ClientVersionText)">
-                        <td class="text-muted">client version</td>
-                        <td class="font-mono text-xs">@Dash(stored.ClientVersion)</td>
-                        <td class="font-mono text-xs">@Dash(selGroup.ClientVersionText)</td>
-                    </tr>
-                    </tbody>
-                </table>
-            </div>
+            <dl class="pwb-cmp">
+                @CmpFact("App version", stored.AppVersion, selGroup.AppVersion)
+                @CmpFact("Build", stored.Build, selGroup.Build)
+                @CmpFact("Client version", stored.ClientVersion, selGroup.ClientVersionText)
+            </dl>
         }
         @if (_overwriteOpen && selGroup is { Winner: not null } owg && User.IsAtLeast(UserRole.Admin)) {
             <section class="pwb-ovw">
@@ -345,40 +301,14 @@
                     </select>
                 </label>
                 @if (OverwriteTargetRow() is { } target) {
-                    <table class="data-table pwb-cmp-table">
-                        <thead>
-                        <tr>
-                            <th></th>
-                            <th>Stored</th>
-                            <th>Proposed</th>
-                        </tr>
-                        </thead>
-                        <tbody>
-                        <tr class="@CmpClass(target.AppVersion, owg.AppVersion)">
-                            <td class="text-muted">app version</td>
-                            <td class="font-mono text-xs">@Dash(target.AppVersion)</td>
-                            <td class="font-mono text-xs">@Dash(owg.AppVersion)</td>
-                        </tr>
-                        <tr class="@CmpClass(target.Build, owg.Build)">
-                            <td class="text-muted">build</td>
-                            <td class="font-mono text-xs">@Dash(target.Build)</td>
-                            <td class="font-mono text-xs">@Dash(owg.Build)</td>
-                        </tr>
-                        <tr class="@CmpClass(target.ClientVersion, owg.ClientVersionText)">
-                            <td class="text-muted">client version</td>
-                            <td class="font-mono text-xs">@Dash(target.ClientVersion)</td>
-                            <td class="font-mono text-xs">@Dash(owg.ClientVersionText)</td>
-                        </tr>
-                        <tr class="@CmpClass(target.ProtoSha, owg.Sha)">
-                            <td class="text-muted">proto sha</td>
-                            <td class="font-mono text-xs">@Dash(Sha12(target.ProtoSha))</td>
-                            <td class="font-mono text-xs">@Dash(Sha12(owg.Sha))</td>
-                        </tr>
-                        </tbody>
-                    </table>
+                    <dl class="pwb-cmp">
+                        @CmpFact("App version", target.AppVersion, owg.AppVersion)
+                        @CmpFact("Build", target.Build, owg.Build)
+                        @CmpFact("Client version", target.ClientVersion, owg.ClientVersionText)
+                        @CmpFact("Proto SHA", Sha12(target.ProtoSha), Sha12(owg.Sha))
+                    </dl>
                 }
                 <div class="pwb-admin-foot">
-                    <span class="text-xs text-muted">Proposed values come from the extraction, never from this form. Staged for review, not applied here.</span>
                     <button type="button" class="btn-primary" disabled="@(_overwriteBusy || OverwriteTargetRow() is null)"
                             @onclick="@(() => StageOverwrite(owg))">
                         @(_overwriteBusy ? "Staging..." : "Stage overwrite")
@@ -739,8 +669,17 @@
     static string CmpClass(string? stored, string? proposed) {
         var a = stored?.Trim() ?? "";
         var b = proposed?.Trim() ?? "";
-        return string.Equals(a, b, StringComparison.OrdinalIgnoreCase) ? "" : "pwb-meta-diff";
+        return string.Equals(a, b, StringComparison.OrdinalIgnoreCase) ? "sr-same" : "sr-diff";
     }
+
+    RenderFragment CmpFact(string label, string? stored, string? proposed) => @<div class="@CmpClass(stored, proposed)">
+                                                                                   <dt>@label</dt>
+                                                                                   <dd class="sr-field">
+                                                                                       <span class="sr-stored">@Dash(stored)</span>
+                                                                                       <span class="sr-arrow">&rarr;</span>
+                                                                                       <span class="sr-prop-text">@Dash(proposed)</span>
+                                                                                   </dd>
+                                                                               </div>;
 
     async Task StageOverwrite(OfferGroup g) {
         if (OverwriteTargetRow() is not { } target) return;
@@ -976,7 +915,11 @@
         });
         await BackfillBuildAndClientVersion(entry);
         await InvokeAsync(async () => {
-            if (State.A is null && State.SelectedId == entry.Id && SessionRef(entry) is { } sref) await SetA(sref);
+            if (State.SelectedId != entry.Id || SessionRef(entry) is not { } sref) return;
+            State.TextCache.Remove(CacheKey(sref));
+            State.TextCache.Remove(RawCacheKey(sref));
+            if (SameRef(State.A, sref)) await AfterSelection();
+            else await SetA(sref);
         });
         await CheckGroups();
     }
@@ -2028,14 +1971,6 @@
                       || n.EndsWith(".apkm", StringComparison.OrdinalIgnoreCase)
                       || n.EndsWith(".xapk", StringComparison.OrdinalIgnoreCase);
         return android ? "android" : "ios";
-    }
-
-    static List<string> SizeFlow(ExtractResult r) {
-        var parts = new List<string>();
-        if (r.FileSize is { } fs) parts.Add(ByteFormat.Mb(fs, culture: CultureInfo.InvariantCulture));
-        if (r.StrippedSize is { } ss) parts.Add(ByteFormat.Mb(ss, culture: CultureInfo.InvariantCulture));
-        if (r.UploadedSize is { } us) parts.Add(ByteFormat.KbOrMb(us, culture: CultureInfo.InvariantCulture));
-        return parts;
     }
 
     public async ValueTask DisposeAsync() {

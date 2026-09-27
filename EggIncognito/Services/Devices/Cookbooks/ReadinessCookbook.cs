@@ -5,7 +5,7 @@ namespace EggIncognito.Services.Devices.Cookbooks;
 public sealed class ReadinessCookbook(ReadinessStep step) : IStepCookbook {
     public string Id => DeviceCookbookIds.Readiness;
     public string Title => "Readiness";
-    public string Summary => "Reports install, Google Play, root, integrity module, launch and capture-CA state for the device.";
+    public string Summary => "Reports install, Google Play, root, launch and capture-CA state for the device.";
 
     public async Task<DeviceCookbookInfo> DescribeAsync(DeviceTarget target, CancellationToken ct) {
         var a = await step.DescribeAsync(target, ct);

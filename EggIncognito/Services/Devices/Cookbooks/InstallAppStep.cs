@@ -148,8 +148,6 @@ public sealed class InstallAppStep(
         if (source is null) return (null, $"unknown source device '{sourceId}'");
         if (!Platforms.Matches(source.Platform, Platforms.Android))
             return (null, $"source device '{sourceId}' is not android");
-        if (DeviceOrigins.IsVirtual(source.Origin))
-            return (null, $"source device '{sourceId}' is virtual; splits come off physical devices only");
 
         await add($"pulling {source.Package} splits from {source.Label}");
         var puller = new DeviceApkPuller(runner);
@@ -230,7 +228,6 @@ public sealed class InstallAppStep(
     private async Task<IReadOnlyList<DeviceEntry>> SourceDevicesAsync(string excludeId, CancellationToken ct) {
         var candidates = (await fleet.EnabledAsync(ct))
             .Where(d => Platforms.Matches(d.Platform, Platforms.Android)
-                        && !DeviceOrigins.IsVirtual(d.Origin)
                         && !string.Equals(d.Id, excludeId, StringComparison.Ordinal))
             .ToList();
         if (candidates.Count == 0) return [];

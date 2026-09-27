@@ -14,7 +14,6 @@ public static class AppSettingsRegistry {
         new IntegrationSettingsProvider(),
         new PlatformSettingsProvider(),
         new RateLimitSettingsProvider(),
-        new VirtualDeviceSettingsProvider(),
         EnvironmentSettings.Provider
     ], []);
 }

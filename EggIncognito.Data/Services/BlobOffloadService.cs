@@ -40,10 +40,8 @@ public sealed class BlobOffloadService(
 
     private static readonly Func<BlobOffloadService, CancellationToken, Task<BlobOffloadProgress>>[] Movers = [
         (s, ct) => s.MoveAsync<DeviceAsset>(BlobTables.DeviceAssets, ct),
-        (s, ct) => s.MoveAsync<BuildBlob>(BlobTables.BuildBlobs, ct),
         (s, ct) => s.MoveAsync<StoredBinary>(BlobTables.StoredBinaries, ct),
-        (s, ct) => s.MoveAsync<StoredApk>(BlobTables.StoredApks, ct),
-        (s, ct) => s.MoveAsync<StoredModule>(BlobTables.DeviceModules, ct)
+        (s, ct) => s.MoveAsync<StoredApk>(BlobTables.StoredApks, ct)
     ];
 
     private async Task<BlobOffloadProgress> MoveAsync<T>(string table, CancellationToken ct) where T : class, IBlobRow {
@@ -94,10 +92,8 @@ public sealed class BlobOffloadService(
         long pending = 0, bytes = 0;
         foreach (var (rows, rowBytes) in new[] {
             await PendingAsync<DeviceAsset>(db, ct),
-            await PendingAsync<BuildBlob>(db, ct),
             await PendingAsync<StoredBinary>(db, ct),
-            await PendingAsync<StoredApk>(db, ct),
-            await PendingAsync<StoredModule>(db, ct)
+            await PendingAsync<StoredApk>(db, ct)
         }) {
             pending += rows;
             bytes += rowBytes;
@@ -121,10 +117,8 @@ public sealed class BlobOffloadService(
 
         int missing = 0;
         missing += await MissingAsync<DeviceAsset>(db, BlobTables.DeviceAssets, ct);
-        missing += await MissingAsync<BuildBlob>(db, BlobTables.BuildBlobs, ct);
         missing += await MissingAsync<StoredBinary>(db, BlobTables.StoredBinaries, ct);
         missing += await MissingAsync<StoredApk>(db, BlobTables.StoredApks, ct);
-        missing += await MissingAsync<StoredModule>(db, BlobTables.DeviceModules, ct);
 
         if (missing > 0) {
             logger.LogError(

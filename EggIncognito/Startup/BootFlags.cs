@@ -22,7 +22,6 @@ public sealed record BootFlags {
     public required AuthState AuthState { get; init; }
     public required bool HostedBehindProxy { get; init; }
     public required string? BotToken { get; init; }
-    public required string? EventSecret { get; init; }
     public required HostedCaptureOptions HostedCapture { get; init; }
     public required bool HostedCaptureOn { get; init; }
     public required bool FakeDevices { get; init; }
@@ -35,7 +34,6 @@ public sealed record BootFlags {
 
     public bool AuthEnabled => AuthState.Enabled;
     public bool BotEnabled => !string.IsNullOrWhiteSpace(BotToken);
-    public bool SyncIngestEnabled => !string.IsNullOrWhiteSpace(EventSecret);
 
     public static BootFlags From(WebApplicationBuilder builder) {
         var config = builder.Configuration;
@@ -77,7 +75,6 @@ public sealed record BootFlags {
                 session?.CookieName ?? "eggidentity_session", localIdentityOn, session is not null),
             HostedBehindProxy = hosted,
             BotToken = config["Discord:BotToken"],
-            EventSecret = config["SyncEvent:EventSecret"],
             HostedCapture = hostedCapture,
             HostedCaptureOn = hosted && config.GetValue("HostedCaptureEnabled", false),
             FakeDevices = fakeDevices,

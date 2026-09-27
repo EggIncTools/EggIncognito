@@ -37,8 +37,26 @@ public sealed class StagedProtoStore(EggIncognitoDbContext db, TimeProvider time
     private Task NotifyStagedAsync(string key, CancellationToken ct) =>
         PgNotify.SendAsync(db, PgChannels.StagedProtos, key, ct);
 
-    private async Task<bool> ShaPendingAsync(string sha, CancellationToken ct) =>
-        await db.StagedProtos.AnyAsync(s => s.ProtoSha == sha && s.Status == "pending", ct);
+    private async Task<bool> ShaPendingAsync(string sha, string? platform, CancellationToken ct) {
+        string? p = string.IsNullOrWhiteSpace(platform) ? null : platform.Trim();
+        return await db.StagedProtos.AnyAsync(
+            s => s.ProtoSha == sha && s.Status == "pending" && (p == null || EF.Functions.ILike(s.Platform, p)), ct);
+    }
+
+    public static List<ProtoVersion> OnPlatform(IReadOnlyList<ProtoVersion> rows, string? platform) =>
+        string.IsNullOrWhiteSpace(platform) ? [.. rows] : [.. rows.Where(p => Same(p.Platform, platform))];
+
+    public static CheckOutcome Evaluate(IReadOnlyList<ProtoVersion> shaRows, bool pending, string? platform,
+        string? appVersion, string? build, string? clientVersion) {
+        var rows = OnPlatform(shaRows, platform);
+        bool inReg = rows.Count > 0;
+        bool known = rows.Any(p => AllCompatible(p, platform, appVersion, build, clientVersion));
+        bool conflict = inReg && !known;
+        var stored = conflict
+            ? new StoredMeta(rows[0].Platform, rows[0].AppVersion, rows[0].Build, rows[0].ClientVersion)
+            : (StoredMeta?)null;
+        return new CheckOutcome(inReg, pending, known, conflict, stored);
+    }
 
     private static int FieldScore(string? appVersion, string? build, string? clientVersion) =>
         (string.IsNullOrWhiteSpace(appVersion) ? 0 : 1)
@@ -73,7 +91,7 @@ public sealed class StagedProtoStore(EggIncognitoDbContext db, TimeProvider time
         string protoSha, string protoText, string? messageIndex, string source, string? submittedBy,
         string? originRepo, string? originCommit, DateTimeOffset? originDate, string? confidence,
         CancellationToken ct) {
-        var shaRows = await ShaRowsAsync(protoSha, ct);
+        var shaRows = OnPlatform(await ShaRowsAsync(protoSha, ct), platform);
         if (shaRows.Count > 0) {
             if (shaRows.Any(p => AllCompatible(p, platform, appVersion, build, clientVersion)))
                 return StageOutcome.AlreadyInRegistry;
@@ -96,7 +114,7 @@ public sealed class StagedProtoStore(EggIncognitoDbContext db, TimeProvider time
             return StageOutcome.CorrectionStaged;
         }
 
-        if (await ShaPendingAsync(protoSha, ct)) return StageOutcome.AlreadyPending;
+        if (await ShaPendingAsync(protoSha, platform, ct)) return StageOutcome.AlreadyPending;
 
         var now = time.GetUtcNow();
         int incomingScore = FieldScore(appVersion, build, clientVersion);
@@ -240,14 +258,8 @@ public sealed class StagedProtoStore(EggIncognitoDbContext db, TimeProvider time
         string? platform, string? appVersion, string? build, string? clientVersion, string protoSha,
         CancellationToken ct) {
         var rows = await ShaRowsAsync(protoSha, ct);
-        bool inReg = rows.Count > 0;
-        bool pending = await ShaPendingAsync(protoSha, ct);
-        bool known = rows.Any(p => AllCompatible(p, platform, appVersion, build, clientVersion));
-        bool conflict = inReg && !known;
-        var stored = conflict
-            ? new StoredMeta(rows[0].Platform, rows[0].AppVersion, rows[0].Build, rows[0].ClientVersion)
-            : (StoredMeta?)null;
-        return new CheckOutcome(inReg, pending, known, conflict, stored);
+        bool pending = await ShaPendingAsync(protoSha, platform, ct);
+        return Evaluate(rows, pending, platform, appVersion, build, clientVersion);
     }
 
     public Task<List<PendingRow>> PendingWithTargetsAsync(CancellationToken ct) =>

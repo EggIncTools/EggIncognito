@@ -21,7 +21,6 @@ public class AmbientEnvironmentTests {
     [InlineData("Auth__LocalIdentity__Enabled")]
     [InlineData("Identity__ApiSecret")]
     [InlineData("Discord__BotToken")]
-    [InlineData("SyncEvent__EventSecret")]
     [InlineData("DeviceSync__Enabled")]
     [InlineData("DeviceProbe__TimeoutSeconds")]
     [InlineData("Capture__AddressSecret")]

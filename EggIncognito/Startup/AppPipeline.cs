@@ -116,13 +116,6 @@ public static class AppPipeline {
             .MapCloneAdminApi(EggIncognitoClonePlan.Create());
         }
 
-        if (boot.SyncIngestEnabled) {
-            var ingest = app.Services.GetRequiredService<NewVersionIngestService>();
-            app.MapPost("/events/new-version",
-                    NewVersionHandler.Build(boot.EventSecret!, evt => ingest.HandleAsync(evt)))
-                .RequireRateLimiting("write");
-        }
-
         app.MapRazorComponents<App>().AddInteractiveServerRenderMode();
         app.MapGet("/health", () => Results.Ok());
         app.MapGet("/api/app/mode", (IAppMode m, AuthState auth, ICurrentUser user) =>

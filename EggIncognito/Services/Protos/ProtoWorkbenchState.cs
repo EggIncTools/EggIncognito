@@ -16,9 +16,6 @@ public sealed record ExtractResult {
     public int? ClientVersion { get; init; }
     public string? FileName { get; init; }
     public string? FileSha { get; init; }
-    public long? FileSize { get; init; }
-    public long? StrippedSize { get; init; }
-    public long? UploadedSize { get; init; }
 }
 
 public sealed class StagedEntry {

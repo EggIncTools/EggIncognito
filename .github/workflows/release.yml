@@ -129,40 +129,13 @@ jobs:
     secrets:
       PACKAGES_PAT: ${{ secrets.PACKAGES_PAT }}
 
-  docker-runner:
-    uses: EggIncTools/EggIdentity/.github/workflows/docker-publish.yml@main
-    permissions:
-      contents: read
-      packages: write
-      actions: write
-    with:
-      dockerfile: EggIncognito.Runner/Dockerfile
-      image-suffix: -runner
-      needs-pat: true
-      build-args: GITHUB_PACKAGES_USER=${{ github.actor }}
-      cache-scope: runner
-    secrets:
-      PACKAGES_PAT: ${{ secrets.PACKAGES_PAT }}
-
   notify-app:
     needs: docker
-    uses: EggIncTools/EggIdentity/.github/workflows/notify-agent.yml@main
+    uses: EggIncTools/EggIdentity/.github/workflows/notify-deploy.yml@main
     with:
       app: eggincognito
-      agent-url: https://egghook.egginc.tools/agent
+      hook-url: https://id.egginc.tools
       digest: ${{ needs.docker.outputs.digest }}
-      revision: ${{ github.sha }}
-      version: ${{ github.ref_name }}
-    secrets:
-      hook-secret: ${{ secrets.DEPLOY_HOOK_SECRET }}
-
-  notify-runner:
-    needs: docker-runner
-    uses: EggIncTools/EggIdentity/.github/workflows/notify-agent.yml@main
-    with:
-      app: eggincognito-runner
-      agent-url: https://egghook.egginc.tools/agent
-      digest: ${{ needs.docker-runner.outputs.digest }}
       revision: ${{ github.sha }}
       version: ${{ github.ref_name }}
     secrets:

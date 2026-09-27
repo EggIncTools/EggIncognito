@@ -25,53 +25,15 @@
                 Size="WorkbenchSize.Wide" CardClass="dwb-card" BodyId="deviceWorkbench" OnClose="CloseModal">
     <Rail>
         <WorkbenchRail>
-            @if (Physical().Any()) {
-                <WorkbenchSection Label="Physical">
-                    @foreach (var d in Physical()) {
-                        @DeviceEntry(d)
-                    }
-                </WorkbenchSection>
-            }
-            <WorkbenchSection Label="Virtual">
-                <WorkbenchEntry Selected="@State.FleetOpen" OnClick="ShowFleet">
-                    <Lead>
-                        <span class="wb-lead">
-                            <Icon Name="server" Class="icon-sm"/>
-                        </span>
-                    </Lead>
-                    <Name>Fleet</Name>
-                    <MetaLine>
-                        <span class="dwb-meta-vd">
-                            <span>@(_fleet is { } fleet ? $"{fleet.LiveCount} of {fleet.MaxInstances} live" : "")</span>
-                        </span>
-                    </MetaLine>
-                </WorkbenchEntry>
-                @foreach (var d in Virtual()) {
+            <WorkbenchSection Label="Devices">
+                @foreach (var d in Ordered()) {
                     @DeviceEntry(d)
-                }
-                @foreach (var i in PendingInstances()) {
-                    <WorkbenchEntry Selected="false" OnClick="ShowFleet" @key="i.InstanceId">
-                        <Lead>
-                            <span class="wb-lead">
-                                <Icon Name="circle-x" Class="icon-sm text-err"/>
-                                <PlatformIcon Platform="android"/>
-                            </span>
-                        </Lead>
-                        <Name>@i.InstanceId</Name>
-                        <MetaLine>
-                            <span class="dwb-meta-vd">
-                                <span>@i.State@(i.Note is { Length: > 0 } ? $", {i.Note}" : "")</span>
-                            </span>
-                        </MetaLine>
-                    </WorkbenchEntry>
                 }
             </WorkbenchSection>
         </WorkbenchRail>
     </Rail>
     <ChildContent>
-        @if (State.FleetOpen) {
-            <DeviceFleetPane Active="true" OnNotice="Notice" OnChanged="ReloadDevices"/>
-        } else if (Current is not { } dev) {
+        @if (Current is not { } dev) {
             @if (_devicesFailed) {
                 <div class="wb-note">
                     Device list unavailable, the status call failed.
@@ -82,39 +44,26 @@
             }
         } else {
             <div class="dwb-pane dwb-pane-fill">
-                <DeviceConsolePane DeviceId="@dev.Id" Platform="@dev.Platform" Virtual="@dev.Virtual" Active="true"
+                <DeviceConsolePane DeviceId="@dev.Id" Platform="@dev.Platform" Active="true"
                                    OnNotice="Notice" OnChanged="ReloadDevices">
                     <Actions>
-                        @if (dev.Virtual) {
-                            <button type="button" class="btn-primary" disabled="@Busy" @onclick="Launch">
-                                <Icon Name="play" Class="icon-sm"/>
-                                Launch
-                            </button>
-                            <button type="button" class="btn-mini" disabled="@Busy" @onclick="RestartApp">Restart app</button>
+                        <button type="button" class="btn-primary" disabled="@Busy" @onclick="ProbeNow">
+                            <Icon Name="refresh-cw" Class="icon-sm"/>
+                            Probe
+                        </button>
+                        <button type="button" class="btn-mini" disabled="@Busy" @onclick="CheckStore">Check store</button>
+                        <button type="button" class="btn-mini" disabled="@Busy" @onclick="RestartApp">Restart app</button>
+                        @if (dev.Platform == "android") {
                             <button type="button" class="btn-mini" disabled="@Busy" @onclick="Recert">Recert</button>
-                            <button type="button" class="btn-mini btn-danger" disabled="@Busy" @onclick="Destroy">
-                                <Icon Name="trash-2" Class="icon-sm"/>
-                                @(_destroyArmed ? "Destroy?" : "Destroy")
-                            </button>
-                        } else {
-                            <button type="button" class="btn-primary" disabled="@Busy" @onclick="ProbeNow">
-                                <Icon Name="refresh-cw" Class="icon-sm"/>
-                                Probe
-                            </button>
-                            <button type="button" class="btn-mini" disabled="@Busy" @onclick="CheckStore">Check store</button>
-                            <button type="button" class="btn-mini" disabled="@Busy" @onclick="RestartApp">Restart app</button>
-                            @if (dev.Platform == "android") {
-                                <button type="button" class="btn-mini" disabled="@Busy" @onclick="Recert">Recert</button>
-                            }
-
-                            @if (_harvest is { InRegistry: false }) {
-                                <button type="button" class="btn-mini" disabled="@Busy" @onclick="SaveToRegistry">
-                                    Save to registry
-                                </button>
-                            }
-
-                            <button type="button" class="btn-mini" disabled="@Busy" @onclick="Poke">Poke harvest</button>
                         }
+
+                        @if (_harvest is { InRegistry: false }) {
+                            <button type="button" class="btn-mini" disabled="@Busy" @onclick="SaveToRegistry">
+                                Save to registry
+                            </button>
+                        }
+
+                        <button type="button" class="btn-mini" disabled="@Busy" @onclick="Poke">Poke harvest</button>
                     </Actions>
                     <ActionNotes>@ActionLines(dev)</ActionNotes>
                     <Sections>
@@ -326,9 +275,7 @@
     bool _jobsBusy;
     bool _refreshing;
     bool _devicesFailed;
-    bool _destroyArmed;
     IDisposable? _topics;
-    CancellationTokenSource? _destroyCts;
 
     List<DeviceRow> _devices = [];
     List<LiveJob> _live = [];
@@ -338,7 +285,6 @@
     List<StoredBinaryRow>? _binaries;
     HarvestInfo? _harvest;
     RecertResultDto? _recert;
-    VirtualDevicesStatus? _fleet;
 
     CaptureHub? _hub;
     IDisposable? _subscription;
@@ -367,23 +313,7 @@
         return _live.FirstOrDefault(j => j.Device == id);
     }
 
-    IEnumerable<DeviceRow> Physical() {
-        return Ordered().Where(d => !d.Virtual);
-    }
-
-    IEnumerable<DeviceRow> Virtual() {
-        return Ordered().Where(d => d.Virtual);
-    }
-
-    IEnumerable<VirtualInstanceRow> PendingInstances() {
-        if (_fleet is null) return [];
-        return _fleet.Instances
-            .Where(i => ProvisionStates.IsLive(i.State) || i.State == ProvisionStates.Failed)
-            .Where(i => i.DeviceId is null || _devices.All(d => d.Id != i.DeviceId))
-            .OrderBy(i => i.InstanceId, StringComparer.Ordinal);
-    }
-
-    RenderFragment DeviceEntry(DeviceRow d) => @<WorkbenchEntry Selected="@(State.SelectedId == d.Id && !State.FleetOpen)" @key="d.Id"
+    RenderFragment DeviceEntry(DeviceRow d) => @<WorkbenchEntry Selected="@(State.SelectedId == d.Id)" @key="d.Id"
                                                                 Foot="@FootFor(d)"
                                                                 OnClick="@(() => Select(d.Id))">
                                                    <Lead>
@@ -396,14 +326,6 @@
                                                    <Name>@d.Label</Name>
                                                    <MetaLine>
                                                        <VersionLine App="@d.InstalledAppVersion" Build="@d.InstalledBuild" Client="@Number(d.ClientVersion)"/>
-                                                       @if (d.Virtual) {
-                                                           <span class="dwb-meta-vd meta-dots">
-                                                               <span>@(d.Target ?? "no address yet")</span>
-                                                               @if (d.Up is { } up) {
-                                                                   <span>up <TimeAgo Value="@up" Hover="false"/></span>
-                                                               }
-                                                           </span>
-                                                       }
                                                    </MetaLine>
                                                </WorkbenchEntry>;
 
@@ -491,10 +413,7 @@
     public async Task Open(string? deviceId = null) {
         if (!_isAdmin) return;
         _open = true;
-        if (deviceId is not null) {
-            State.SelectedId = deviceId;
-            State.FleetOpen = false;
-        }
+        if (deviceId is not null) State.SelectedId = deviceId;
 
         await LoadAsync();
         State.SelectedId ??= Ordered().FirstOrDefault()?.Id;
@@ -513,17 +432,11 @@
         await Open(deviceId);
     }
 
-    public async Task OpenFleet() {
-        State.FleetOpen = true;
-        await Open();
-    }
-
     void CloseModal() {
         _open = false;
         Unsubscribe();
         _offered.Clear();
         DetachCapture();
-        DisarmDestroy();
     }
 
     void Unsubscribe() {
@@ -532,12 +445,7 @@
     }
 
     async Task Select(string id) {
-        var wasFleet = State.FleetOpen;
-        State.FleetOpen = false;
-        if (State.SelectedId == id) {
-            if (wasFleet) await LoadForDeviceAsync();
-            return;
-        }
+        if (State.SelectedId == id) return;
 
         State.SelectedId = id;
         _recert = null;
@@ -545,29 +453,14 @@
         _jobsMore = null;
         _jobLines.Clear();
         _offered.Clear();
-        DisarmDestroy();
         DetachCapture();
         if (_devices.All(d => d.Id != id)) await LoadAsync();
         await LoadForDeviceAsync();
     }
 
-    void ShowFleet() {
-        if (State.FleetOpen) return;
-        State.FleetOpen = true;
-        DetachCapture();
-    }
-
     void OnTopic(string topic) {
         if (_disposed || !_open) return;
         if (topic == AdminTopics.DeviceStatus) _ = InvokeAsync(RefreshAsync);
-        else if (topic == AdminTopics.VirtualDevices) _ = InvokeAsync(RefreshFleetAsync);
-    }
-
-    async Task RefreshFleetAsync() {
-        if (_disposed || !_open) return;
-        await LoadAsync();
-        await LoadFleetAsync();
-        StateHasChanged();
     }
 
     async Task RefreshAsync() {
@@ -589,7 +482,6 @@
         if (ok) _devices = rows;
         _devicesFailed = !ok;
         await LoadLiveAsync();
-        await LoadFleetAsync();
     }
 
     async Task ReloadDevices() {
@@ -681,15 +573,6 @@
     async Task LoadHarvestAsync() {
         if (Current is not { } dev) return;
         _harvest = await Client().OneAsync<HarvestInfo>($"/api/devices/{dev.Id}/harvest", Logger);
-    }
-
-    async Task LoadFleetAsync() {
-        if (!_isAdmin) return;
-        _fleet = await Client().OneAsync<VirtualDevicesStatus>("/api/devices/virtual", Logger);
-    }
-
-    VirtualInstanceRow? InstanceFor(DeviceRow dev) {
-        return _fleet?.Instances.FirstOrDefault(i => string.Equals(i.DeviceId, dev.Id, StringComparison.Ordinal));
     }
 
     async Task LoadBinariesAsync() {
@@ -858,77 +741,6 @@
         return Act($"/api/devices/{Current!.Id}/poke", "harvest queued");
     }
 
-    async Task Launch() {
-        if (Current is not { } dev) return;
-        var res = await Client().PostAsJsonAsync($"/api/devices/{dev.Id}/cookbooks",
-            new DeviceCookbookRequest(DeviceCookbookIds.LaunchApp), SelfCallJson.Web);
-        Note(res.IsSuccessStatusCode ? "launch started" : await ReadError(res), res.IsSuccessStatusCode);
-        await LoadLiveAsync();
-        await LoadJobsAsync();
-    }
-
-    async Task Destroy() {
-        if (Current is not { Virtual: true } dev) return;
-        if (!_destroyArmed) {
-            _ = ArmDestroy();
-            return;
-        }
-
-        DisarmDestroy();
-        if (InstanceFor(dev) is not { } instance) {
-            await LoadFleetAsync();
-            instance = InstanceFor(dev);
-        }
-
-        if (instance is null) {
-            Note("no fleet instance registered for this device", false);
-            return;
-        }
-
-        var res = await Client().DeleteAsync($"/api/devices/virtual/{instance.InstanceId}");
-        if (!res.IsSuccessStatusCode) {
-            var body = await ReadBody<VirtualActionResult>(res);
-            Note($"destroy refused: {body?.Note ?? $"failed ({(int)res.StatusCode})"}", false);
-            return;
-        }
-
-        Note($"destroyed {instance.InstanceId}", true);
-
-        _offered.Clear();
-        DetachCapture();
-        State.SelectedId = null;
-        _recert = null;
-        _jobs = null;
-        _jobsMore = null;
-        _jobLines.Clear();
-        await ReloadDevices();
-        State.SelectedId = Ordered().FirstOrDefault()?.Id;
-        await LoadForDeviceAsync();
-    }
-
-    async Task ArmDestroy() {
-        _destroyCts?.Cancel();
-        _destroyCts?.Dispose();
-        _destroyCts = new CancellationTokenSource();
-        var ct = _destroyCts.Token;
-        _destroyArmed = true;
-        try {
-            await Task.Delay(TimeSpan.FromSeconds(4), ct);
-        } catch (OperationCanceledException) {
-            return;
-        }
-
-        _destroyArmed = false;
-        StateHasChanged();
-    }
-
-    void DisarmDestroy() {
-        _destroyArmed = false;
-        _destroyCts?.Cancel();
-        _destroyCts?.Dispose();
-        _destroyCts = null;
-    }
-
     async Task RestartApp() {
         if (Current is not { } dev) return;
         var id = dev.Id;
@@ -1081,7 +893,6 @@
         _disposed = true;
         Unsubscribe();
         DetachCapture();
-        DisarmDestroy();
     }
 
 }

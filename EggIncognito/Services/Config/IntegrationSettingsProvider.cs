@@ -24,10 +24,6 @@ public sealed class IntegrationSettingsProvider : ISettingsProvider {
         new("discord.invite_url", "Discord__InviteUrl", "Invite URL", Discord,
             SettingKind.Url, ApplyTier.RestartRequired, Sensitivity.Plain),
 
-        new("sync_event.secret", "SyncEvent__EventSecret", "Sync ingest secret", Egress,
-            SettingKind.Secret, ApplyTier.RestartRequired, Sensitivity.Secret) {
-            Description = "Empty disables the sync ingest endpoint."
-        },
         new("transport.api_salt", "EGG_INC_API_SALT", "Request signing salt", Egress,
             SettingKind.Secret, ApplyTier.RestartRequired, Sensitivity.Secret) {
             Description = "Unset disables request signing for Inspector live sends. Not required to boot."

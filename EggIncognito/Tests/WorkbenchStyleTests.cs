@@ -64,7 +64,7 @@ public partial class WorkbenchStyleTests(SharedAppFactory f) {
                      ".wb-body", ".wb-rail", ".wb-rail-empty", ".wb-main", ".wb-head-tools",
                      ".wb-group", ".wb-group-head", ".wb-group-body",
                      ".wb-entry", ".wb-entry-name", ".wb-entry-meta", ".wb-entry-foot",
-                     ".wb-x", ".wb-radio", ".wb-arrow",
+                     ".wb-x", ".wb-radio",
                      ".wb-st-queued", ".wb-st-run", ".wb-st-done", ".wb-st-err", ".wb-st-offer"
                  }) {
             Assert.Contains(cls, css, StringComparison.Ordinal);

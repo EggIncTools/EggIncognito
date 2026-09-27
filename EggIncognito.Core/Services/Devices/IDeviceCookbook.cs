@@ -8,10 +8,6 @@ public static class DeviceCookbookIds {
     public const string BringUp = "bring-up";
     public const string Recert = "recert";
     public const string Readiness = "readiness";
-    public const string InstallIntegrity = "install-integrity";
-    public const string ActivateIntegrity = "activate-integrity";
-    public const string SeedAudit = "seed-audit";
-    public const string IntegrityAudit = "integrity-audit";
     public const string AppAudit = "app-audit";
     public const string CreateIsland = "create-island";
     public const string InstallAppIsland = "install-app-island";

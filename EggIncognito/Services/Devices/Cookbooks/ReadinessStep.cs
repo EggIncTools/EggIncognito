@@ -3,7 +3,7 @@ using EggIncognito.Models.Devices;
 
 namespace EggIncognito.Services.Devices.Cookbooks;
 
-public sealed class ReadinessStep(VirtualDeviceReadinessProbe probe) : CookbookStep {
+public sealed class ReadinessStep(AndroidReadinessProbe probe) : CookbookStep {
     public override string Id => DeviceCookbookIds.Readiness;
     public override string Title => "Readiness";
 
@@ -27,7 +27,6 @@ public sealed class ReadinessStep(VirtualDeviceReadinessProbe probe) : CookbookS
         await Row("installed", readiness.Installed);
         await Row("google play", readiness.GooglePlay);
         await Row("rooted", readiness.Rooted);
-        await Row("integrity module", readiness.IntegrityModule);
         await Row("launched", readiness.Launched);
         await Row("capture ca", readiness.CaptureCa);
         await Row("proxy reachable", readiness.ProxyReachable);

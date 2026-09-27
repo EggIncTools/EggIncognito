@@ -36,6 +36,7 @@ public static class DeviceServices {
         int probeTimeoutSeconds = config.GetValue("DeviceProbe:TimeoutSeconds", 0);
         if (probeTimeoutSeconds > 0) DeviceProbeTimeout.Value = TimeSpan.FromSeconds(probeTimeoutSeconds);
 
+        if (boot.DbEnabled) builder.Services.AddScoped<DeviceHarvester>();
         if (boot.FakeDevices) {
             builder.Services.AddSingleton(boot.FakeDeviceSettings);
             builder.Services.AddSingleton<FakeDeviceVersions>();
@@ -46,17 +47,18 @@ public static class DeviceServices {
             builder.Services.AddSingleton<FakeDeviceAgent>();
             builder.Services.AddSingleton<IDeviceAgentClient>(sp => sp.GetRequiredService<FakeDeviceAgent>());
             builder.Services.AddHostedService(sp => sp.GetRequiredService<FakeDeviceAgent>());
-            if (boot.DbEnabled) builder.Services.AddScoped<DeviceHarvester>();
         } else if (remote) {
             builder.Services.AddSingleton<IProcessRunner, BridgeProcessRunner>();
             builder.Services.AddSingleton<IHostFacts, BridgeHostFacts>();
             builder.Services.AddSingleton<IAdbServer, BridgeAdbServer>();
-            builder.Services.AddHttpClient<IDeviceAgentClient, DeviceAgentClient>();
+            builder.Services.AddSingleton<IDeviceAgentClient, BridgeDeviceAgent>();
         } else {
             builder.Services.AddSingleton<IProcessRunner, ProcessRunner>();
             builder.Services.AddSingleton<IHostFacts, LocalHostFacts>();
             builder.Services.AddSingleton<IAdbServer>(sp => sp.GetRequiredService<AdbServerHost>());
-            builder.Services.AddHttpClient<IDeviceAgentClient, DeviceAgentClient>();
+            builder.Services.AddSingleton<LocalDeviceAgent>();
+            builder.Services.AddSingleton<IDeviceAgentClient>(sp => sp.GetRequiredService<LocalDeviceAgent>());
+            if (boot.DbEnabled) builder.Services.AddHostedService(sp => sp.GetRequiredService<LocalDeviceAgent>());
             builder.Services.AddHostedService(sp => sp.GetRequiredService<AdbServerHost>());
         }
 
@@ -83,16 +85,8 @@ public static class DeviceServices {
 
     private static void AddDeviceCookbooks(this WebApplicationBuilder builder, BootFlags boot) {
         builder.Services.AddSingleton<CaptureCaSource>();
-        builder.Services.AddSingleton<VirtualDeviceReadinessProbe>();
+        builder.Services.AddSingleton<AndroidReadinessProbe>();
         builder.Services.AddSingleton<CookbookExecutor>();
-        builder.Services.AddSingleton<ModuleFetcher>();
-        builder.Services.AddSingleton<PixelFingerprintFetcher>();
-        builder.Services.AddSingleton<IntegrityAssets>();
-        builder.Services.AddHttpClient(ModuleFetcher.HttpClientName, c => {
-            c.Timeout = TimeSpan.FromSeconds(60);
-            c.MaxResponseContentBufferSize = 64 * 1024 * 1024;
-            c.DefaultRequestHeaders.UserAgent.ParseAdd("EggIncognito-DeviceModules/1.0");
-        });
 
         builder.Services.AddSingleton<InstallAppStep>();
         builder.Services.AddSingleton<InstallCaStep>();
@@ -100,10 +94,6 @@ public static class DeviceServices {
         builder.Services.AddSingleton<DismissFirstRunStep>();
         builder.Services.AddSingleton<RecertStep>();
         builder.Services.AddSingleton<ReadinessStep>();
-        builder.Services.AddSingleton<InstallIntegrityStep>();
-        builder.Services.AddSingleton<ActivateIntegrityStep>();
-        builder.Services.AddSingleton<SeedAuditStep>();
-        builder.Services.AddSingleton<IntegrityAuditStep>();
         builder.Services.AddSingleton<AppAuditStep>();
         builder.Services.AddSingleton<CreateIslandStep>();
         builder.Services.AddSingleton<InstallAppIslandStep>();
@@ -117,10 +107,6 @@ public static class DeviceServices {
         builder.Services.AddSingleton<BringUpCookbook>();
         builder.Services.AddSingleton<RecertCookbook>();
         builder.Services.AddSingleton<ReadinessCookbook>();
-        builder.Services.AddSingleton<InstallIntegrityCookbook>();
-        builder.Services.AddSingleton<ActivateIntegrityCookbook>();
-        builder.Services.AddSingleton<SeedAuditCookbook>();
-        builder.Services.AddSingleton<IntegrityAuditCookbook>();
         builder.Services.AddSingleton<AppAuditCookbook>();
         builder.Services.AddSingleton<CreateIslandCookbook>();
         builder.Services.AddSingleton<InstallAppIslandCookbook>();
@@ -133,10 +119,6 @@ public static class DeviceServices {
         builder.Services.AddSingleton<IDeviceCookbook>(sp => sp.GetRequiredService<BringUpCookbook>());
         builder.Services.AddSingleton<IDeviceCookbook>(sp => sp.GetRequiredService<RecertCookbook>());
         builder.Services.AddSingleton<IDeviceCookbook>(sp => sp.GetRequiredService<ReadinessCookbook>());
-        builder.Services.AddSingleton<IDeviceCookbook>(sp => sp.GetRequiredService<InstallIntegrityCookbook>());
-        builder.Services.AddSingleton<IDeviceCookbook>(sp => sp.GetRequiredService<ActivateIntegrityCookbook>());
-        builder.Services.AddSingleton<IDeviceCookbook>(sp => sp.GetRequiredService<SeedAuditCookbook>());
-        builder.Services.AddSingleton<IDeviceCookbook>(sp => sp.GetRequiredService<IntegrityAuditCookbook>());
         builder.Services.AddSingleton<IDeviceCookbook>(sp => sp.GetRequiredService<AppAuditCookbook>());
         builder.Services.AddSingleton<IDeviceCookbook>(sp => sp.GetRequiredService<CreateIslandCookbook>());
         builder.Services.AddSingleton<IDeviceCookbook>(sp => sp.GetRequiredService<InstallAppIslandCookbook>());

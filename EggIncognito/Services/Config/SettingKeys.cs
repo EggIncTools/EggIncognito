@@ -1,8 +1,6 @@
 namespace EggIncognito.Services.Config;
 
 public static class SettingKeys {
-    public const string VirtualImageOverride = "devices.virtual.image";
-
     public const string DeviceSyncEnabled = "device_sync.enabled";
     public const string DeviceSyncAutoPublish = "device_sync.auto_publish";
     public const string DeviceSyncRetryBackoffMinutes = "device_sync.retry_backoff_minutes";

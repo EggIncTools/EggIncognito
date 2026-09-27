@@ -43,8 +43,7 @@ public class SettingsRegistryTests {
             SettingKeys.DeviceSyncRetryBackoffMinutes,
             SettingKeys.DeviceSyncStoreProbeIntervalMinutes,
             SettingKeys.FeedPageBaseUrl,
-            SettingKeys.ThemeCustomCss,
-            SettingKeys.VirtualImageOverride
+            SettingKeys.ThemeCustomCss
         ];
         var actual = Registry.WithTier(ApplyTier.Live).Select(d => d.Key).Order(StringComparer.Ordinal);
         Assert.Equal(expected.Order(StringComparer.Ordinal), actual);
@@ -60,8 +59,12 @@ public class SettingsRegistryTests {
     [InlineData("Decomp__LiveDevicePull")]
     [InlineData("DEPLOY_NOTIFY_SECRET")]
     [InlineData("DeviceCheck__Android__PollSeconds")]
-    [InlineData("Devices__Virtual__Build__GappsUrl")]
-    [InlineData("Devices__Virtual__Integrity__Modules__0__Name")]
+    [InlineData("Devices__Virtual__Enabled")]
+    [InlineData("Devices__Virtual__Image")]
+    [InlineData("Devices__Virtual__Integrity__Enabled")]
+    [InlineData("DeviceAgent__Url")]
+    [InlineData("SyncEvent__EventSecret")]
+    [InlineData("Runner__IosBinaryStashPath")]
     public void DeadAndOutOfScopeKeys_StayUnregistered(string envKey) =>
         Assert.DoesNotContain(Registry.All, d => string.Equals(d.EnvKey, envKey, StringComparison.Ordinal));
 }

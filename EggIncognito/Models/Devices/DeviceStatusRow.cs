@@ -16,6 +16,4 @@ public sealed record DeviceStatusRow(
     string? Note,
     DateTimeOffset? ProbedAt,
     DeviceUpdateSummary? LastUpdate,
-    bool Virtual = false,
-    DateTimeOffset? Up = null,
     int CapturePort = 0);

@@ -59,8 +59,6 @@ public sealed class PlatformSettingsProvider : ISettingsProvider {
             Description = "Optional override. Extraction prefers the device-harvested binary for the version."
         },
         new("decomp.stripped_target_path", "Decomp__StrippedTargetPath", "Stripped target path", Assets,
-            SettingKind.Path, ApplyTier.RestartRequired, Sensitivity.Plain),
-        new("runner.ios_binary_stash_path", "Runner__IosBinaryStashPath", "Runner iOS binary stash", Assets,
             SettingKind.Path, ApplyTier.RestartRequired, Sensitivity.Plain)
     ];
 

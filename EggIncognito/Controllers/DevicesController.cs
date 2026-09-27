@@ -53,21 +53,12 @@ public sealed partial class DevicesController(
     public async Task<IActionResult> Status([FromServices] IDeviceFleet? fleet,
         [FromServices] DeviceTimelineCache? timeline, [FromServices] EggIncognitoDbContext? db,
         [FromServices] DeviceCaptureManager? captures, [FromServices] GameBinaryProvider? binaryProvider,
-        [FromServices] VirtualDeviceLifecycle? lifecycle, [FromServices] ProvisionedInstanceStore? instances,
         [FromServices] DeviceStateStore? deviceStates) {
         if (fleet is null || timeline is null) return Ok(Array.Empty<DeviceStatusRow>());
 
         var ct = HttpContext.RequestAborted;
         bool isAdmin = currentUser.IsAtLeast(UserRole.Admin);
-        var enabled = (await fleet.EnabledAsync(ct))
-            .Where(d => isAdmin || !DeviceOrigins.IsVirtual(d.Origin))
-            .Select(AsDevice);
-
-        var devices = enabled.ToDictionary(d => d.Id);
-        var virtualUp = new Dictionary<string, DateTimeOffset>(StringComparer.Ordinal);
-        HashSet<string> virtualLive = isAdmin
-            ? await MergeVirtualDevicesAsync(virtualUp, lifecycle, instances, ct)
-            : [with(StringComparer.Ordinal)];
+        var devices = (await fleet.EnabledAsync(ct)).Select(AsDevice).ToDictionary(d => d.Id);
 
         var ids = devices.Keys.ToList();
         var probes = (await timeline.LatestPerDeviceAsync(ids, DeviceJobKinds.Probe, ct))
@@ -84,32 +75,11 @@ public sealed partial class DevicesController(
         int capturePortFor(string id) =>
             captures?.PortFor(id) is > 0 and var listening ? listening : devices[id].CapturePort ?? 0;
         var inputs = new DeviceStatusInputs(
-            isAdmin, probes, updates, storeLatest, virtualLive, versions,
+            isAdmin, probes, updates, storeLatest, versions,
             await CapturedClientVersionsAsync(deviceStates, ct),
-            binaryProvider,
-            virtualUp, capturePortFor);
+            binaryProvider, capturePortFor);
 
         return Ok(devices.Values.Select(d => DeviceStatusProjector.Project(d, inputs)));
-    }
-
-    private static async Task<HashSet<string>> MergeVirtualDevicesAsync(Dictionary<string, DateTimeOffset> up,
-        VirtualDeviceLifecycle? lifecycle, ProvisionedInstanceStore? instances, CancellationToken ct) {
-        var live = new HashSet<string>(StringComparer.Ordinal);
-        if (lifecycle is { Delegated: true }) {
-            var listed = await lifecycle.Provisioner.ListAsync(ct);
-            foreach (var instance in listed.Value ?? []) {
-                if (instance.DeviceId is { Length: > 0 } deviceId) up[deviceId] = instance.CreatedAt;
-            }
-
-            return live;
-        }
-
-        if (instances is null) return live;
-        foreach (var row in await instances.AllAsync(ct)) {
-            if (row.DeviceId is { Length: > 0 } deviceId) up[deviceId] = row.CreatedAt;
-        }
-
-        return live;
     }
 
     private static Device AsDevice(DeviceEntry e) => new() {
@@ -360,8 +330,7 @@ public sealed partial class DevicesController(
     public async Task<IActionResult> Poke(string id, [FromServices] IDeviceStatusStore store,
         [FromServices] IDeviceAgentClient? agent) {
         if (await store.GetAsync(id) is null) return Fail(404, "unknown device");
-        if (agent is not { Enabled: true })
-            return Fail(503, "no device agent configured (set DeviceAgent:Url + DeviceAgent:Secret)");
+        if (agent is not { Enabled: true }) return Fail(503, "no device agent on this host");
 
         bool queued = await agent.PokeAsync(id, true, HttpContext.RequestAborted);
         return queued
@@ -373,8 +342,7 @@ public sealed partial class DevicesController(
     [ApiAccess(ApiAccessLevel.Admin)]
     [EnableRateLimiting("write")]
     public async Task<IActionResult> PokeAll([FromServices] IDeviceAgentClient? agent) {
-        if (agent is not { Enabled: true })
-            return Fail(503, "no device agent configured (set DeviceAgent:Url + DeviceAgent:Secret)");
+        if (agent is not { Enabled: true }) return Fail(503, "no device agent on this host");
 
         bool queued = await agent.PokeAsync(null, true, HttpContext.RequestAborted);
         return queued
@@ -466,9 +434,9 @@ public sealed partial class DevicesController(
 
     [HttpGet("{id}/readiness")]
     [ApiAccess(ApiAccessLevel.Admin)]
-    [Requires<VirtualDeviceReadinessProbe>("readiness probe not configured")]
+    [Requires<AndroidReadinessProbe>("readiness probe not configured")]
     [EnableRateLimiting("read")]
-    public async Task<IActionResult> Readiness(string id, [FromServices] VirtualDeviceReadinessProbe probe,
+    public async Task<IActionResult> Readiness(string id, [FromServices] AndroidReadinessProbe probe,
         [FromServices] IDeviceFleet? fleet, [FromServices] IDevicePlatforms? platforms, CancellationToken ct) {
         (IActionResult? err, _, var target) = await ResolveUiAsync(id, fleet, platforms, ct);
         if (err is not null) return err;

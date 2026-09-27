@@ -63,19 +63,3 @@ jobs:
       cache-scope: app
     secrets:
       PACKAGES_PAT: ${{ secrets.PACKAGES_PAT }}
-
-  seed-runner-image-cache:
-    if: github.event_name == 'push'
-    uses: EggIncTools/EggIdentity/.github/workflows/docker-publish.yml@main
-    permissions:
-      contents: read
-      packages: write
-    with:
-      push: false
-      dockerfile: EggIncognito.Runner/Dockerfile
-      image-suffix: -runner
-      needs-pat: true
-      build-args: GITHUB_PACKAGES_USER=${{ github.actor }}
-      cache-scope: runner
-    secrets:
-      PACKAGES_PAT: ${{ secrets.PACKAGES_PAT }}

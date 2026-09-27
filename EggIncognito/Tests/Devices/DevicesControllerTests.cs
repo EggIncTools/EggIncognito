@@ -85,7 +85,7 @@ public class DevicesControllerTests {
     public async Task Status_NoDb_ReturnsEmptyArray() {
         var sp = new ServiceCollection().BuildServiceProvider();
         var c = Make(UserRole.Viewer, sp);
-        var r = await c.Status(null, null, null, null, null, null, null, null);
+        var r = await c.Status(null, null, null, null, null, null);
         var ok = Assert.IsType<OkObjectResult>(r);
         Assert.NotNull(ok.Value);
     }

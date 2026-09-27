@@ -1,5 +1,4 @@
 using System.Globalization;
-using EggIncognito.Core;
 using EggIncognito.Core.Services.Devices;
 using EggIncognito.Core.Services.ProtoExtract;
 using EggIncognito.Data.Models;
@@ -15,10 +14,7 @@ public sealed class GameBinaryProvider(
     TimeProvider time) {
     private const string DefaultPlatform = Platforms.Ios;
     private static readonly Lock CvGate = new();
-    private static readonly Lock StageGate = new();
     private static readonly TimeSpan CvRecheckBackoff = TimeSpan.FromMinutes(15);
-
-    private static (string Version, string Sha)? StagedIos;
 
 #pragma warning disable IDE0028
     private static readonly Dictionary<string, (string Version, int? ClientVersion, DateTimeOffset CheckedAt)>
@@ -160,9 +156,7 @@ public sealed class GameBinaryProvider(
         if (store is not null) {
             try {
                 var devices = await store.EnabledDevicesAsync(ct);
-                platforms.AddRange(devices
-                    .Where(d => !DeviceOrigins.IsVirtual(d.Origin))
-                    .Select(d => d.Platform).Distinct(StringComparer.OrdinalIgnoreCase));
+                platforms.AddRange(devices.Select(d => d.Platform).Distinct(StringComparer.OrdinalIgnoreCase));
             } catch (Exception ex) {
                 logger.LogWarning(ex, "enabled-device enumeration failed; falling back to {Platform}", DefaultPlatform);
                 rejected.Add($"device enumeration failed: {ex.Message}");
@@ -204,7 +198,7 @@ public sealed class GameBinaryProvider(
 
         List<Device> devices;
         try {
-            devices = [.. (await store.EnabledDevicesAsync(ct)).Where(d => !DeviceOrigins.IsVirtual(d.Origin))];
+            devices = [.. await store.EnabledDevicesAsync(ct)];
         } catch (Exception ex) {
             results.Add(new VersionStoreStatus(DefaultPlatform, "store-error", null, ex.Message));
             return results;
@@ -335,58 +329,6 @@ public sealed class GameBinaryProvider(
         }
 
         return (syms, false, nativeCount, $"{nativeCount} native symbols (no graft reference)");
-    }
-
-    public async Task<(bool Staged, string? Note)> EnsureIosBinaryStagedAsync(CancellationToken ct) {
-        string? stashPath = config["Runner:IosBinaryStashPath"];
-        if (string.IsNullOrEmpty(stashPath)) return (false, "no Runner:IosBinaryStashPath configured");
-
-        string? installed = (await ResolveVersionAndDeviceAsync(null, "ios", ct)).Version;
-        if (string.IsNullOrEmpty(installed)) return (false, "no installed ios version known");
-
-        lock (StageGate) {
-            if (StagedIos is { } s && string.Equals(s.Version, installed, StringComparison.Ordinal)
-                                   && File.Exists(stashPath))
-                return (true, $"already staged {installed}");
-        }
-
-        var bin = await GetExtractionBinaryAsync("ios", ct);
-        if (!bin.Ok || bin.Bytes is null)
-            return (false, $"no ios binary for {installed}: {bin.Diagnostics}");
-        if (!string.Equals(bin.Version, installed, StringComparison.Ordinal))
-            return (false, $"skipping stale ios binary {bin.Version} for installed {installed}");
-
-        return await StageIosBinaryAsync("ios", bin.Bytes, ct)
-            ? (true, $"staged {installed}")
-            : (false, $"stage write failed for {installed}");
-    }
-
-    private async Task<bool> StageIosBinaryAsync(string platform, byte[] bytes, CancellationToken ct) {
-        if (!Platforms.Matches(platform, Platforms.Ios)) return false;
-        string? stashPath = config["Runner:IosBinaryStashPath"];
-        if (string.IsNullOrEmpty(stashPath)) return false;
-
-        string? installed = (await ResolveVersionAndDeviceAsync(null, Platforms.Ios, ct)).Version;
-        string sha = Hashes.Sha256Hex(bytes);
-        lock (StageGate) {
-            if (StagedIos is { } s && string.Equals(s.Sha, sha, StringComparison.Ordinal) && File.Exists(stashPath))
-                return true;
-        }
-
-        try {
-            string? dir = Path.GetDirectoryName(stashPath);
-            if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
-            string tmp = stashPath + ".tmp";
-            await File.WriteAllBytesAsync(tmp, bytes, ct);
-            File.Move(tmp, stashPath, true);
-            lock (StageGate) StagedIos = (installed ?? "", sha);
-            logger.LogInformation("binary store: staged ios binary to {Path} ({Bytes} bytes, sha {Sha})", stashPath,
-                bytes.Length, sha[..12]);
-            return true;
-        } catch (Exception ex) {
-            logger.LogWarning(ex, "binary store: could not stage ios binary to {Path}", stashPath);
-            return false;
-        }
     }
 
     public async Task<RecoveryInputs> GetRecoveryInputsAsync(

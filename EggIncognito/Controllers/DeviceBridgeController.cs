@@ -3,8 +3,6 @@ using System.Text;
 using System.Text.Json;
 using EggIncognito.Capture;
 using EggIncognito.Core.Services.Devices;
-using EggIncognito.Data.Models;
-using EggIncognito.Data.Services;
 using EggIncognito.Models.Devices;
 using EggIncognito.Services.Auth;
 using EggIncognito.Services.Devices;
@@ -23,15 +21,8 @@ public sealed class DeviceBridgeController(
     ILogger<DeviceBridgeController> logger,
     IProcessRunner runner) : ApiControllerBase {
     private const int StreamChunk = 64 * 1024;
-    private const string NoProvisioner = "no provisioner here";
     private static readonly TimeSpan ReachTimeout = TimeSpan.FromSeconds(3);
     private static readonly JsonSerializerOptions SpecJson = new(JsonSerializerDefaults.Web);
-
-    private static readonly BridgeInstanceList NoProvisionerList =
-        new(false, DeviceOutcomes.Unsupported, NoProvisioner, []);
-
-    private static readonly BridgeInstanceResult NoProvisionerResult =
-        new(false, DeviceOutcomes.Unsupported, NoProvisioner, null);
 
     [HttpPost(BridgeRoutes.Exec)]
     [DisableRateLimiting]
@@ -111,22 +102,6 @@ public sealed class DeviceBridgeController(
         await BridgeStreamFrames.WriteExitAsync(body, exit, ct);
     }
 
-    [HttpGet(BridgeRoutes.Docker + "/{**path}")]
-    [HttpPost(BridgeRoutes.Docker + "/{**path}")]
-    [HttpPut(BridgeRoutes.Docker + "/{**path}")]
-    [HttpDelete(BridgeRoutes.Docker + "/{**path}")]
-    [HttpHead(BridgeRoutes.Docker + "/{**path}")]
-    [HttpPatch(BridgeRoutes.Docker + "/{**path}")]
-    [DisableRateLimiting]
-    [DisableRequestSizeLimit]
-    public async Task<IActionResult> Docker([FromRoute] string path, [FromServices] DockerSocketProxy? proxy) {
-        if (proxy is not { Available: true }) return Fail(503, "docker socket not available");
-
-        Note("docker", $"{Request.Method} {path}");
-        await proxy.ForwardAsync(HttpContext, path, HttpContext.RequestAborted);
-        return new EmptyResult();
-    }
-
     [HttpGet(BridgeRoutes.Host)]
     [DisableRateLimiting]
     public async Task<IActionResult> Host([FromServices] IHostFacts? facts, CancellationToken ct) {
@@ -179,44 +154,17 @@ public sealed class DeviceBridgeController(
         return Ok(new BridgeFleet([.. enabled.Select(FleetEntry)], pusher?.HostIp));
     }
 
-    [HttpGet(BridgeRoutes.Instances)]
+    [HttpPost(BridgeRoutes.Poke)]
+    [HttpPost(BridgeRoutes.Poke + "/{deviceId}")]
     [DisableRateLimiting]
-    public async Task<IActionResult> Instances([FromServices] VirtualDeviceLifecycle? lifecycle,
-        [FromServices] ProvisionedInstanceStore? store, CancellationToken ct) {
-        Note("instances", "list");
-        if (store is not null) {
-            var rows = await store.AllAsync(ct);
-            return Ok(new BridgeInstanceList(true, DeviceOutcomes.Ok, null, [.. rows.Select(StoredInstance)]));
-        }
+    public async Task<IActionResult> Poke(string? deviceId, [FromQuery] bool force,
+        [FromServices] IDeviceAgentClient? agent, [FromServices] IDeviceFleet? fleet, CancellationToken ct) {
+        if (agent is not { Enabled: true }) return Fail(503, "no device agent on this host");
+        if (deviceId is { Length: > 0 } && await UnknownDeviceAsync(fleet, deviceId, ct) is { } unknown) return unknown;
 
-        if (lifecycle is null) return Ok(NoProvisionerList);
-
-        var listed = await lifecycle.Provisioner.ListAsync(ct);
-        return Ok(new BridgeInstanceList(listed.Ok, DeviceOutcomes.Label(listed.Outcome), listed.Note,
-            [.. (listed.Value ?? []).Select(ProvisionedBridgeInstance)]));
-    }
-
-    [HttpPost(BridgeRoutes.Instances)]
-    [DisableRateLimiting]
-    public async Task<IActionResult> InstanceCreate([FromBody] BridgeInstanceCreate? body,
-        [FromServices] VirtualDeviceLifecycle? lifecycle, CancellationToken ct) {
-        if (lifecycle is null) return Ok(NoProvisionerResult);
-
-        Note("instances/create", body?.Image ?? "configured image");
-        var res = await lifecycle.CreateAsync(body?.Image, ct);
-        return Ok(new BridgeInstanceResult(res.Ok, DeviceOutcomes.Label(res.Outcome), res.Note,
-            res.Value is { } made ? ProvisionedBridgeInstance(made) : null));
-    }
-
-    [HttpPost(BridgeRoutes.Instances + "/{instanceId}/destroy")]
-    [DisableRateLimiting]
-    public async Task<IActionResult> InstanceDestroy(string instanceId,
-        [FromServices] VirtualDeviceLifecycle? lifecycle, CancellationToken ct) {
-        if (lifecycle is null) return Ok(NoProvisionerResult);
-
-        Note("instances/destroy", instanceId);
-        var res = await lifecycle.DestroyAsync(instanceId, ct);
-        return Ok(new BridgeInstanceResult(res.Ok, DeviceOutcomes.Label(res.Outcome), res.Note, null));
+        Note("poke", deviceId ?? "all");
+        bool queued = await agent.PokeAsync(deviceId, force, ct);
+        return queued ? Accepted(new { ok = true, queued = true }) : Fail(502, "the agent did not accept the poke");
     }
 
     [HttpPost(BridgeRoutes.Claim + "/{deviceId}")]
@@ -317,12 +265,6 @@ public sealed class DeviceBridgeController(
 
     private static BridgeFleetEntry FleetEntry(DeviceEntry d) =>
         new(d.Id, d.Platform, d.Label, d.Target, d.Package, d.Origin, d.CapturePort);
-
-    private static BridgeInstance StoredInstance(ProvisionedInstanceRow r) =>
-        new(r.InstanceId, r.Kind, r.Image, r.State, r.AdbSerial, r.HostRef, r.CreatedAt, r.Note, r.DeviceId);
-
-    private static BridgeInstance ProvisionedBridgeInstance(ProvisionedInstance i) =>
-        new(i.InstanceId, i.Kind, i.Image, i.State, i.AdbSerial, i.HostRef, i.CreatedAt, i.Note, null);
 
     private void Note(string verb, string what) =>
         logger.LogInformation("device bridge {Verb} {What} from {Caller}", verb, what,

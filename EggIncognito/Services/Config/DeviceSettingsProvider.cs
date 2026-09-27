@@ -101,11 +101,6 @@ public sealed class DeviceSettingsProvider : ISettingsProvider {
             Default = "/Library/MobileSubstrate/DynamicLibraries/egiuinav.dylib"
         },
 
-        new("device_agent.url", "DeviceAgent__Url", "Device agent URL", Capture,
-            SettingKind.Url, ApplyTier.RestartRequired, Sensitivity.Plain),
-        new("device_agent.secret", "DeviceAgent__Secret", "Device agent secret", Capture,
-            SettingKind.Secret, ApplyTier.RestartRequired, Sensitivity.Secret),
-
         new("device_update.android.drive_command", "DeviceUpdate__Android__DriveCommand",
             "Android drive command", Update,
             SettingKind.Text, ApplyTier.RestartRequired, Sensitivity.Plain) {

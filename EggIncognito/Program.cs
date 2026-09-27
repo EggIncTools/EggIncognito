@@ -50,12 +50,10 @@ public sealed class Program {
         builder.AddVisitsServices(boot);
         builder.AddConsentServices(boot);
         builder.AddBotServices(boot);
-        builder.AddSyncIngest(boot);
         builder.AddDatabaseStores(boot);
         builder.AddContributionServices(boot);
         builder.AddCaptureServices(boot);
         builder.AddDeviceServices(boot);
-        builder.AddVirtualDeviceServices(boot);
     }
 
     private static void LogStartupState(WebApplication app, FileLoggerProvider fileLogProvider) {

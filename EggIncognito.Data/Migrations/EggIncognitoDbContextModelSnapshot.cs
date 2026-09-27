@@ -295,54 +295,6 @@ namespace EggIncognito.Data.Migrations
                     b.ToTable("backfill_jobs");
                 });
 
-            modelBuilder.Entity("EggIncognito.Data.Models.BuildBlob", b =>
-                {
-                    b.Property<long>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
-
-                    b.Property<long>("ByteSize")
-                        .HasColumnType("bigint")
-                        .HasColumnName("byte_size");
-
-                    b.Property<byte[]>("Bytes")
-                        .HasColumnType("bytea")
-                        .HasColumnName("bytes");
-
-                    b.Property<DateTimeOffset>("FetchedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("fetched_at")
-                        .HasDefaultValueSql("now()");
-
-                    b.Property<string>("Key")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("key");
-
-                    b.Property<string>("Sha256")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("sha256");
-
-                    b.Property<string>("Source")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("source");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("Key")
-                        .IsUnique();
-
-                    b.HasIndex("Sha256");
-
-                    b.ToTable("build_blobs");
-                });
-
             modelBuilder.Entity("EggIncognito.Data.Models.CaptureProxyAddr", b =>
                 {
                     b.Property<Guid>("UserId")
@@ -1108,50 +1060,6 @@ namespace EggIncognito.Data.Migrations
                     b.ToTable("env_design_versions");
                 });
 
-            modelBuilder.Entity("EggIncognito.Data.Models.ExtractJob", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer")
-                        .HasColumnName("id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("AppVersion")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("app_version");
-
-                    b.Property<DateTimeOffset?>("FinishedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("finished_at");
-
-                    b.Property<string>("Note")
-                        .HasColumnType("text")
-                        .HasColumnName("note");
-
-                    b.Property<string>("Platform")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("platform");
-
-                    b.Property<DateTimeOffset>("StartedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("started_at");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("status");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("Platform", "AppVersion")
-                        .IsUnique();
-
-                    b.ToTable("extract_jobs");
-                });
-
             modelBuilder.Entity("EggIncognito.Data.Models.FeedDelivery", b =>
                 {
                     b.Property<int>("Id")
@@ -1427,60 +1335,6 @@ namespace EggIncognito.Data.Migrations
                     b.ToTable("game_events");
                 });
 
-            modelBuilder.Entity("EggIncognito.Data.Models.ImageBuild", b =>
-                {
-                    b.Property<long>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
-
-                    b.Property<DateTimeOffset?>("FinishedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("finished_at");
-
-                    b.Property<string>("Log")
-                        .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("text")
-                        .HasDefaultValue("")
-                        .HasColumnName("log");
-
-                    b.Property<string>("Note")
-                        .HasColumnType("text")
-                        .HasColumnName("note");
-
-                    b.Property<string>("Spec")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("spec");
-
-                    b.Property<DateTimeOffset>("StartedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("started_at")
-                        .HasDefaultValueSql("now()");
-
-                    b.Property<string>("State")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("state");
-
-                    b.Property<string>("Tag")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("tag");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("State");
-
-                    b.HasIndex("Tag");
-
-                    b.ToTable("image_builds");
-                });
-
             modelBuilder.Entity("EggIncognito.Data.Models.KnownVersion", b =>
                 {
                     b.Property<int>("Id")
@@ -1719,62 +1573,6 @@ namespace EggIncognito.Data.Migrations
                         .IsUnique();
 
                     b.ToTable("proto_versions");
-                });
-
-            modelBuilder.Entity("EggIncognito.Data.Models.ProvisionedInstanceRow", b =>
-                {
-                    b.Property<string>("InstanceId")
-                        .HasColumnType("text")
-                        .HasColumnName("instance_id");
-
-                    b.Property<string>("AdbSerial")
-                        .HasColumnType("text")
-                        .HasColumnName("adb_serial");
-
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at")
-                        .HasDefaultValueSql("now()");
-
-                    b.Property<string>("DeviceId")
-                        .HasColumnType("text")
-                        .HasColumnName("device_id");
-
-                    b.Property<string>("HostRef")
-                        .HasColumnType("text")
-                        .HasColumnName("host_ref");
-
-                    b.Property<string>("Image")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("image");
-
-                    b.Property<string>("Kind")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("kind");
-
-                    b.Property<DateTimeOffset?>("LastSeenAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("last_seen_at");
-
-                    b.Property<string>("Note")
-                        .HasColumnType("text")
-                        .HasColumnName("note");
-
-                    b.Property<string>("State")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("state");
-
-                    b.HasKey("InstanceId");
-
-                    b.HasIndex("DeviceId");
-
-                    b.HasIndex("State");
-
-                    b.ToTable("provisioned_instances");
                 });
 
             modelBuilder.Entity("EggIncognito.Data.Models.RouteBinaryCatalog", b =>
@@ -2184,58 +1982,6 @@ namespace EggIncognito.Data.Migrations
                     b.ToTable("stored_endpoints");
                 });
 
-            modelBuilder.Entity("EggIncognito.Data.Models.StoredModule", b =>
-                {
-                    b.Property<long>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
-
-                    b.Property<long>("ByteSize")
-                        .HasColumnType("bigint")
-                        .HasColumnName("byte_size");
-
-                    b.Property<byte[]>("Bytes")
-                        .HasColumnType("bytea")
-                        .HasColumnName("bytes");
-
-                    b.Property<DateTimeOffset>("FetchedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("fetched_at")
-                        .HasDefaultValueSql("now()");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("name");
-
-                    b.Property<string>("Sha256")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("sha256");
-
-                    b.Property<string>("Source")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("source");
-
-                    b.Property<string>("Version")
-                        .HasColumnType("text")
-                        .HasColumnName("version");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("Name")
-                        .IsUnique();
-
-                    b.HasIndex("Sha256");
-
-                    b.ToTable("device_modules");
-                });
-
             modelBuilder.Entity("EggIncognito.Data.Models.StoredRoute", b =>
                 {
                     b.Property<long>("Id")
@@ -2603,15 +2349,6 @@ namespace EggIncognito.Data.Migrations
                         .HasForeignKey("CanonicalId")
                         .OnDelete(DeleteBehavior.SetNull)
                         .HasConstraintName("fk_proto_versions_canonical");
-                });
-
-            modelBuilder.Entity("EggIncognito.Data.Models.ProvisionedInstanceRow", b =>
-                {
-                    b.HasOne("EggIncognito.Data.Models.Device", null)
-                        .WithMany()
-                        .HasForeignKey("DeviceId")
-                        .OnDelete(DeleteBehavior.SetNull)
-                        .HasConstraintName("fk_provisioned_instances_device");
                 });
 
             modelBuilder.Entity("EggIncognito.Data.Models.SiteThemePolicy", b =>

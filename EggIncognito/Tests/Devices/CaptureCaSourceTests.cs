@@ -68,6 +68,6 @@ public class CaptureCaSourceTests {
     private sealed class StubHostFacts(string? pem) : IHostFacts {
         public Task<DeviceResult<HostFacts>> GetAsync(CancellationToken ct) =>
             Task.FromResult(DeviceResult<HostFacts>.Success(new HostFacts(
-                "host", null, "host", null, "adb", false, true, "192.168.1.66", pem)));
+                "host", null, "adb", false, "192.168.1.66", pem)));
     }
 }

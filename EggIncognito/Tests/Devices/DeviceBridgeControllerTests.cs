@@ -183,35 +183,6 @@ public class DeviceBridgeControllerTests {
     }
 
     [Fact]
-    public async Task Instances_NoProvisioner_UnsupportedEnvelope() {
-        var sp = new ServiceCollection().BuildServiceProvider();
-        var c = Make(new DeviceTransportConfig { BridgeEnabled = true, ApiKey = Secret }, sp,
-            presentedSecret: Secret);
-
-        var ok = Assert.IsType<OkObjectResult>(await c.Instances(null, null, CancellationToken.None));
-
-        var list = Assert.IsType<BridgeInstanceList>(ok.Value);
-        Assert.False(list.Ok);
-        Assert.Equal(DeviceOutcomes.Unsupported, list.Outcome);
-        Assert.Empty(list.Instances);
-    }
-
-    [Fact]
-    public async Task InstanceCreate_NoProvisioner_UnsupportedEnvelope() {
-        var sp = new ServiceCollection().BuildServiceProvider();
-        var c = Make(new DeviceTransportConfig { BridgeEnabled = true, ApiKey = Secret }, sp,
-            presentedSecret: Secret);
-
-        var ok = Assert.IsType<OkObjectResult>(
-            await c.InstanceCreate(new BridgeInstanceCreate("egi/redroid:12"), null, CancellationToken.None));
-
-        var res = Assert.IsType<BridgeInstanceResult>(ok.Value);
-        Assert.False(res.Ok);
-        Assert.Equal(DeviceOutcomes.Unsupported, res.Outcome);
-        Assert.Null(res.Instance);
-    }
-
-    [Fact]
     public async Task Capture_NoHubForDevice_404() {
         var sp = new ServiceCollection().AddSingleton<IDeviceCaptureHubs>(new NoHubs()).BuildServiceProvider();
         var c = Make(new DeviceTransportConfig { BridgeEnabled = true, ApiKey = Secret }, sp,

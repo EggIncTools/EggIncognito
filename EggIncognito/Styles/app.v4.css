@@ -1675,7 +1675,6 @@ body .modal-body .skm { color: var(--color-fg); }
 .wb-st-done { @apply text-ok; }
 .wb-st-err { @apply text-err; }
 .wb-st-offer { @apply text-info; }
-.wb-arrow { @apply text-muted opacity-50 mx-1; }
 .wb-st-muted { color: var(--color-muted); }
 .wb-rail-popout { overflow: visible; }
 .wb-rail-popout .wb-sec-head { flex: none; }
@@ -2357,14 +2356,17 @@ body .modal-body .skm { color: var(--color-fg); }
 }
 .pwb-pending-btn:hover, .pwb-pending-btn.active { border-color: var(--color-warn); }
 .pwb-cmp {
-  border: 1px solid color-mix(in oklab, var(--color-warn) 45%, transparent);
-  border-radius: 0.375rem;
-  background-color: var(--color-panel2);
-  padding: 0.5rem 0.625rem;
-  margin-bottom: 0.5rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1rem;
+  margin: 0 0 0.5rem;
+  min-width: 0;
 }
-.pwb-cmp-head { font-size: 0.75rem; color: var(--color-muted); margin-bottom: 0.375rem; }
-.pwb-cmp-table { width: auto; min-width: 20rem; }
+.pwb-cmp > div { min-width: 0; }
+.pwb-cmp dt { @apply text-[0.6875rem] uppercase tracking-wide text-muted; }
+.pwb-cmp dd { @apply m-0; }
+.pwb-cmp .sr-diff .sr-prop-text, .pwb-cmp .sr-diff .sr-arrow { color: var(--color-accent); }
+.pwb-cmp .sr-same .sr-prop-text { color: var(--color-muted); }
 .pwb-ovw {
   border: 1px solid var(--color-border-strong);
   border-radius: 0.5rem;
@@ -2641,8 +2643,6 @@ body .modal-body .skm { color: var(--color-fg); }
 .dwb-card { --wb-rail-w: 15rem; }
 .dwb-card .wb-entry-head { align-items: flex-start; }
 .dwb-card .wb-entry-meta { display: flex; flex-direction: column; gap: 0.125rem; min-width: 0; }
-.dwb-meta-vd { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.375rem; min-width: 0; }
-.dwb-meta-vd > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .dwb-card .wb-main { display: flex; flex-direction: column; }
 .dwb-pane { display: flex; flex-direction: column; min-width: 0; margin-top: 0.75rem; }
 .dwb-pane-fill { flex: 1 1 0; min-height: 0; }
@@ -3473,34 +3473,6 @@ a.dsc-embed-title:hover { text-decoration: underline; }
 .acct-prov-icon {
   @apply w-[22.5px] h-[22.5px] shrink-0 object-contain [filter:brightness(0)_invert(1)];
 }
-
-.vd-pane { @apply flex flex-col gap-3 min-w-0; }
-.vd-head { @apply flex flex-wrap items-center gap-x-3 gap-y-2; }
-.vd-head-actions { @apply flex items-center gap-1.5 ml-auto; }
-.vd-cols {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: 1.25rem;
-  min-width: 0;
-  margin-top: 0.5rem;
-}
-@media (max-width: 60rem) {
-  .vd-cols { grid-template-columns: minmax(0, 1fr); }
-}
-.vd-col { @apply flex flex-col gap-2 min-w-0; }
-.vd-col-head { @apply flex flex-wrap items-center gap-x-3 gap-y-1; }
-.vd-build { @apply flex flex-wrap items-center gap-x-3 gap-y-2; }
-.vd-build .field-input { @apply w-24; }
-.vd-check { @apply flex items-center gap-1.5 text-xs text-fg-soft cursor-pointer; }
-.vd-check:hover { color: var(--color-fg); }
-.vd-check input[type="checkbox"]:checked { background-color: transparent; border-color: var(--color-accent); }
-.vd-check input[type="checkbox"]:checked::after {
-  border-color: var(--color-accent);
-  border-bottom-style: solid;
-  border-right-style: solid;
-}
-.vd-row-actions { @apply flex items-center gap-1.5 justify-end; padding-right: 0.75rem; }
-.vd-row-active td:first-child { color: var(--color-accent); box-shadow: inset 2px 0 0 var(--color-accent); }
 
 .sub-section-head { @apply text-sm font-semibold text-fg; }
 .sub-form { @apply flex flex-col gap-4; }

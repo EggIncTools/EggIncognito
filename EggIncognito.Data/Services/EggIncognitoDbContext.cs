@@ -25,13 +25,11 @@ public sealed class EggIncognitoDbContext(DbContextOptions<EggIncognitoDbContext
     public DbSet<FeedSuppression> FeedSuppressions => Set<FeedSuppression>();
     public DbSet<BackfillJob> BackfillJobs => Set<BackfillJob>();
     public DbSet<KnownVersion> KnownVersions => Set<KnownVersion>();
-    public DbSet<ExtractJob> ExtractJobs => Set<ExtractJob>();
     public DbSet<Device> Devices => Set<Device>();
     public DbSet<DeviceJob> DeviceJobs => Set<DeviceJob>();
     public DbSet<DeviceJobLine> DeviceJobLines => Set<DeviceJobLine>();
     public DbSet<DeviceState> DeviceStates => Set<DeviceState>();
     public DbSet<DeviceAsset> DeviceAssets => Set<DeviceAsset>();
-    public DbSet<ProvisionedInstanceRow> ProvisionedInstances => Set<ProvisionedInstanceRow>();
     public DbSet<DeviceIslandRow> DeviceIslands => Set<DeviceIslandRow>();
     public DbSet<StagedProto> StagedProtos => Set<StagedProto>();
     public DbSet<EnvDesign> EnvDesigns => Set<EnvDesign>();
@@ -46,9 +44,6 @@ public sealed class EggIncognitoDbContext(DbContextOptions<EggIncognitoDbContext
     public DbSet<GameDataDocument> GameDataDocuments => Set<GameDataDocument>();
     public DbSet<StoredBinary> StoredBinaries => Set<StoredBinary>();
     public DbSet<StoredApk> StoredApks => Set<StoredApk>();
-    public DbSet<StoredModule> DeviceModules => Set<StoredModule>();
-    public DbSet<BuildBlob> BuildBlobs => Set<BuildBlob>();
-    public DbSet<ImageBuild> ImageBuilds => Set<ImageBuild>();
     public DbSet<AppSetting> AppSettings => Set<AppSetting>();
     public DbSet<SymbolizedBinary> SymbolizedBinaries => Set<SymbolizedBinary>();
     public DbSet<AnalyzedFile> AnalyzedFiles => Set<AnalyzedFile>();
@@ -179,10 +174,6 @@ public sealed class EggIncognitoDbContext(DbContextOptions<EggIncognitoDbContext
             e.HasIndex(x => new { x.Platform, x.AppVersion, x.Source }).IsUnique();
             e.Property(x => x.FirstSeen).HasDefaultValueSql("now()");
         });
-        modelBuilder.Entity<ExtractJob>(e => {
-            e.HasKey(x => x.Id);
-            e.HasIndex(x => new { x.Platform, x.AppVersion }).IsUnique();
-        });
         modelBuilder.Entity<Device>(e => {
             e.HasKey(x => x.Id);
             e.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
@@ -224,17 +215,6 @@ public sealed class EggIncognitoDbContext(DbContextOptions<EggIncognitoDbContext
             e.HasIndex(x => new { x.Platform, x.Kind, x.Name }).IsUnique();
             e.HasIndex(x => x.Sha256);
             e.Property(x => x.UpdatedAt).HasDefaultValueSql("now()");
-        });
-        modelBuilder.Entity<ProvisionedInstanceRow>(e => {
-            e.HasKey(x => x.InstanceId);
-            e.HasIndex(x => x.State);
-            e.HasIndex(x => x.DeviceId);
-            e.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
-            e.HasOne<Device>()
-                .WithMany()
-                .HasForeignKey(x => x.DeviceId)
-                .HasConstraintName("fk_provisioned_instances_device")
-                .OnDelete(DeleteBehavior.SetNull);
         });
         modelBuilder.Entity<DeviceIslandRow>(e => {
             e.HasKey(x => new { x.DeviceId, x.AndroidUserId });
@@ -312,25 +292,6 @@ public sealed class EggIncognitoDbContext(DbContextOptions<EggIncognitoDbContext
                 .HasForeignKey(x => x.SourceDeviceId)
                 .HasConstraintName("fk_stored_apks_source_device")
                 .OnDelete(DeleteBehavior.SetNull);
-        });
-        modelBuilder.Entity<StoredModule>(e => {
-            e.HasKey(x => x.Id);
-            e.HasIndex(x => x.Name).IsUnique();
-            e.HasIndex(x => x.Sha256);
-            e.Property(x => x.FetchedAt).HasDefaultValueSql("now()").ValueGeneratedOnAdd();
-        });
-        modelBuilder.Entity<BuildBlob>(e => {
-            e.HasKey(x => x.Id);
-            e.HasIndex(x => x.Key).IsUnique();
-            e.HasIndex(x => x.Sha256);
-            e.Property(x => x.FetchedAt).HasDefaultValueSql("now()").ValueGeneratedOnAdd();
-        });
-        modelBuilder.Entity<ImageBuild>(e => {
-            e.HasKey(x => x.Id);
-            e.HasIndex(x => x.State);
-            e.HasIndex(x => x.Tag);
-            e.Property(x => x.Log).HasDefaultValue("");
-            e.Property(x => x.StartedAt).HasDefaultValueSql("now()").ValueGeneratedOnAdd();
         });
         modelBuilder.Entity<AppSetting>(e => {
             e.HasKey(x => x.Key);

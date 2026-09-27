@@ -1,6 +1,5 @@
 using EggIncognito.Data.Services;
 using EggIncognito.Services.Admin;
-using EggIncognito.Services.Devices;
 
 namespace EggIncognito.Tests.Devices;
 
@@ -30,18 +29,4 @@ public class DevicePollCadenceTests {
     public void NotifyPayloadIsClamped() =>
         Assert.Equal(PgNotify.MaxPayload, PgNotify.ApkPayload(new ApkStoreNotice(ApkChangeKinds.Stored, "android",
             new string('x', PgNotify.MaxPayload + 100), "1", "1", 1)).Length);
-
-    [Fact]
-    public void FleetWatchesContainerLifecycleActions() {
-        Assert.True(DockerEventWatcher.IsWatched("die"));
-        Assert.True(DockerEventWatcher.IsWatched("destroy"));
-        Assert.True(DockerEventWatcher.IsWatched("health_status: unhealthy"));
-        Assert.False(DockerEventWatcher.IsWatched("exec_start: id"));
-    }
-
-    [Fact]
-    public void FleetReconnectBackoffGrowsThenCaps() {
-        Assert.Equal(TimeSpan.FromSeconds(4), DockerEventWatcher.NextBackoff(TimeSpan.FromSeconds(2)));
-        Assert.Equal(TimeSpan.FromMinutes(2), DockerEventWatcher.NextBackoff(TimeSpan.FromMinutes(90)));
-    }
 }

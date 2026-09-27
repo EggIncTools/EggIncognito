@@ -14,7 +14,6 @@ public sealed class DeviceWorkbenchState : WorkbenchStateBase {
     public override IReadOnlyList<(string Key, string Label, int? Count)> Modes { get; } = [];
 
     public string? SelectedId { get; set; }
-    public bool FleetOpen { get; set; }
     public string? RunPanelFor { get; set; }
     public double? RunPanelLeft { get; set; }
     public double? RunPanelTop { get; set; }

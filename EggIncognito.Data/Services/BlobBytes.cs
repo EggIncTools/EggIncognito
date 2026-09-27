@@ -2,14 +2,10 @@ namespace EggIncognito.Data.Services;
 
 public static class BlobTables {
     public const string DeviceAssets = "device_assets";
-    public const string BuildBlobs = "build_blobs";
     public const string StoredBinaries = "stored_binaries";
     public const string StoredApks = "stored_apks";
-    public const string DeviceModules = "device_modules";
 
-    public static readonly string[] All = [
-        DeviceAssets, BuildBlobs, StoredBinaries, StoredApks, DeviceModules
-    ];
+    public static readonly string[] All = [DeviceAssets, StoredBinaries, StoredApks];
 }
 
 public sealed class BlobBytes(BlobFileStore? files = null) {

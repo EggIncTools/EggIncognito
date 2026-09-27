@@ -543,8 +543,6 @@
             return _deviceWorkbench?.OpenScreen() ?? Task.CompletedTask;
         if (string.Equals(fragment, "devices", StringComparison.OrdinalIgnoreCase))
             return _deviceWorkbench?.Open() ?? Task.CompletedTask;
-        if (string.Equals(fragment, "fleet", StringComparison.OrdinalIgnoreCase))
-            return _deviceWorkbench?.OpenFleet() ?? Task.CompletedTask;
         if (fragment.StartsWith("capture/", StringComparison.OrdinalIgnoreCase))
             return _deviceWorkbench?.OpenCapture(fragment["capture/".Length..]) ?? Task.CompletedTask;
 

@@ -10,11 +10,9 @@ public sealed record DeviceStatusInputs(
     IReadOnlyDictionary<string, DeviceJobRow> Probes,
     IReadOnlyDictionary<string, DeviceJobRow> Updates,
     IReadOnlyDictionary<string, string?> StoreLatest,
-    IReadOnlySet<string> VirtualLive,
     DeviceVersionIndex Versions,
     IReadOnlyDictionary<string, int> CapturedClientVersions,
     GameBinaryProvider? Binaries,
-    IReadOnlyDictionary<string, DateTimeOffset> VirtualUp,
     Func<string, int> CapturePortFor);
 
 public static class DeviceStatusProjector {
@@ -23,7 +21,6 @@ public static class DeviceStatusProjector {
         var update = inputs.Updates.GetValueOrDefault(device.Id);
         string? storeLatest = inputs.StoreLatest.GetValueOrDefault(device.Platform);
         bool isAdmin = inputs.IsAdmin;
-        bool isVirtual = DeviceOrigins.IsVirtual(device.Origin);
 
         return new DeviceStatusRow(
             isAdmin ? device.Id : DevicePublicKey.For(device.Id),
@@ -31,7 +28,7 @@ public static class DeviceStatusProjector {
             device.Label,
             isAdmin ? device.Target : null,
             isAdmin ? device.Package : null,
-            probe?.Reachable == true || inputs.VirtualLive.Contains(device.Id),
+            probe?.Reachable == true,
             probe?.AppVersion,
             probe?.Build,
             ClientVersion(device, probe, inputs),
@@ -43,8 +40,6 @@ public static class DeviceStatusProjector {
             !isAdmin || update is null
                 ? null
                 : new DeviceUpdateSummary(update.Outcome, update.Message, update.Trigger, update.StartedAt),
-            isVirtual,
-            isAdmin && isVirtual && inputs.VirtualUp.TryGetValue(device.Id, out var up) ? up : null,
             isAdmin ? inputs.CapturePortFor(device.Id) : 0);
     }
 

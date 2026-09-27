@@ -220,7 +220,7 @@ export async function analyzeStored(token, endpoint, dotnetRef) {
     await report(dotnetRef, token, `uploading (${sizeText(uploadedSize)})`);
     const r = await postForm(endpoint, form);
     if (r?.error) return { ok: false, diagnostics: r.error };
-    return { ...r, fileName: file.name, fileSize: file.size, uploadedSize };
+    return { ...r, fileName: file.name };
   } catch (e) {
     return { ok: false, diagnostics: String(e) };
   }

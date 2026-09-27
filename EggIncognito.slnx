@@ -11,7 +11,5 @@
   <Project Path="EggIncognito.Protos/EggIncognito.Protos.csproj" />
   <Project Path="EggIncognito.RelayAgent/EggIncognito.RelayAgent.csproj" />
   <Project Path="EggIncognito.RouteGenerator/EggIncognito.RouteGenerator.csproj" />
-  <Project Path="EggIncognito.Runner/EggIncognito.Runner.csproj" />
-  <Project Path="EggIncognito.Runner/Tests/EggIncognito.Runner.Tests.csproj" />
   <Project Path="EggIncognito/Tests/EggIncognito.Tests.csproj" />
 </Solution>
