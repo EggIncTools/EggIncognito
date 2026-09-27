@@ -70,16 +70,32 @@ public interface IDeviceCookbooks {
 }
 
 public sealed class DeviceCookbooks(IEnumerable<IDeviceCookbook> cookbooks) : IDeviceCookbooks {
+    public static readonly TimeSpan DescribeBudget = TimeSpan.FromSeconds(10);
+
     private readonly Dictionary<string, IDeviceCookbook> _byId =
         cookbooks.ToDictionary(c => c.Id, StringComparer.OrdinalIgnoreCase);
 
     public async Task<IReadOnlyList<DeviceCookbookInfo>> DescribeAllAsync(
         DeviceTarget target, CancellationToken ct) {
-        var described = new List<DeviceCookbookInfo>();
-        foreach (var cookbook in _byId.Values.OrderBy(c => c.Id, StringComparer.Ordinal))
-            described.Add(await cookbook.DescribeAsync(target, ct));
-        return described;
+        var ordered = _byId.Values.OrderBy(c => c.Id, StringComparer.Ordinal);
+        return await Task.WhenAll(ordered.Select(c => DescribeBoundedAsync(c, target, DescribeBudget, ct)));
     }
+
+    public static async Task<DeviceCookbookInfo> DescribeBoundedAsync(IDeviceCookbook cookbook, DeviceTarget target,
+        TimeSpan budget, CancellationToken ct) {
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        cts.CancelAfter(budget);
+        try {
+            return await cookbook.DescribeAsync(target, cts.Token).WaitAsync(cts.Token);
+        } catch (OperationCanceledException) when (!ct.IsCancellationRequested) {
+            return Unavailable(cookbook, $"checking availability took longer than {budget.TotalSeconds:0}s");
+        } catch (Exception ex) when (ex is not OperationCanceledException and not OutOfMemoryException) {
+            return Unavailable(cookbook, $"checking availability failed: {ex.Message}");
+        }
+    }
+
+    private static DeviceCookbookInfo Unavailable(IDeviceCookbook cookbook, string reason) =>
+        new(cookbook.Id, cookbook.Title, cookbook.Summary, false, reason);
 
     public IDeviceCookbook? Find(string cookbookId) =>
         !string.IsNullOrEmpty(cookbookId) && _byId.TryGetValue(cookbookId, out var c) ? c : null;

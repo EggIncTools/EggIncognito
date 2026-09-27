@@ -14,7 +14,7 @@ public sealed class ScreenVideoPump(Func<CancellationToken, Task<ProcessHandle?>
     public const string KillStaleCommand = "pkill -x screenrecord";
 
     public static string ScreenrecordCommand(string size, int bitrate) =>
-        $"screenrecord --output-format=h264 --size {size} --bit-rate {bitrate} --time-limit {SegmentSeconds} -";
+        $"{KillStaleCommand}; exec screenrecord --output-format=h264 --size {size} --bit-rate {bitrate} --time-limit {SegmentSeconds} -";
 
     public static string FitSize(int displayW, int displayH, int boxW, int boxH) {
         if (displayW <= 0 || displayH <= 0 || boxW <= 0 || boxH <= 0)

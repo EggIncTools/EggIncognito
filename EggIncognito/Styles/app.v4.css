@@ -2732,7 +2732,9 @@ body .modal-body .skm { color: var(--color-fg); }
 .dcon-sec-toggle:hover { color: var(--color-fg); }
 .dcon-sec-body { display: flex; flex-direction: column; gap: 0.5rem; min-width: 0; padding-top: 0.25rem; }
 .dcon-body {
-  --dcon-stage-h: min(100cqh, 55cqw * 19.5 / 9);
+  --dcon-nav-h: 2.25rem;
+  --dcon-nav-gap: 0.5rem;
+  --dcon-stage-h: min(100cqh - var(--dcon-nav-h) - var(--dcon-nav-gap), 55cqw * 19.5 / 9);
   display: flex;
   flex: 1 1 0;
   align-items: stretch;
@@ -2794,6 +2796,8 @@ body .modal-body .skm { color: var(--color-fg); }
   overflow-y: auto;
 }
 .dcon-stage {
+  --dcon-radius: 1rem;
+  --dcon-inner-radius: calc(var(--dcon-radius) - 1px);
   position: relative;
   box-sizing: border-box;
   flex: 0 0 auto;
@@ -2802,7 +2806,7 @@ body .modal-body .skm { color: var(--color-fg); }
   max-height: 100%;
   max-width: 100%;
   border: 1px solid var(--color-border);
-  border-radius: 1rem;
+  border-radius: var(--dcon-radius);
   background-color: var(--color-bg);
   overflow: hidden;
 }
@@ -2816,6 +2820,7 @@ body .modal-body .skm { color: var(--color-fg); }
   height: 100%;
   padding: 0;
   border: 0;
+  border-radius: var(--dcon-inner-radius);
   background-color: transparent;
   line-height: 0;
   cursor: crosshair;
@@ -2829,7 +2834,7 @@ body .modal-body .skm { color: var(--color-fg); }
   max-height: 100%;
 }
 @media (max-width: 60rem) {
-  .dcon-body { --dcon-stage-h: min(60cqh, 100cqw * 19.5 / 9); flex-direction: column; overflow-y: auto; }
+  .dcon-body { --dcon-stage-h: min(60cqh - var(--dcon-nav-h) - var(--dcon-nav-gap), 100cqw * 19.5 / 9); flex-direction: column; overflow-y: auto; }
   .dcon-stage-col { align-items: center; align-self: center; }
   .dcon-side { min-width: 0; overflow-y: visible; }
 }
@@ -2856,7 +2861,7 @@ body .modal-body .skm { color: var(--color-fg); }
   pointer-events: none;
   outline: 2px solid var(--color-accent);
   outline-offset: -2px;
-  border-radius: 1rem;
+  border-radius: var(--dcon-inner-radius);
 }
 .dcon-stage-empty {
   position: absolute;
@@ -2931,19 +2936,19 @@ body .modal-body .skm { color: var(--color-fg); }
 }
 .dcon-actions { justify-content: flex-start; }
 .dcon-nav {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 5;
   display: flex;
+  flex: none;
   align-items: center;
   justify-content: space-evenly;
-  height: 2rem;
+  box-sizing: border-box;
+  width: calc(var(--dcon-stage-h, 30rem) * 9 / 19.5);
+  max-width: 100%;
+  height: var(--dcon-nav-h);
+  margin-top: var(--dcon-nav-gap);
   padding: 0 1.25rem;
-  background-color: color-mix(in oklab, var(--color-bg) 76%, transparent);
-  border-top: 1px solid color-mix(in oklab, var(--color-border) 55%, transparent);
-  pointer-events: none;
+  border: 1px solid var(--color-border);
+  border-radius: 0.5rem;
+  background-color: var(--color-panel2);
 }
 .dcon-nav-btn {
   display: inline-flex;
@@ -2957,18 +2962,9 @@ body .modal-body .skm { color: var(--color-fg); }
   border-radius: 0;
   background-color: transparent;
   color: var(--color-fg);
-  pointer-events: auto;
   cursor: pointer;
 }
 .dcon-nav-btn:hover { color: var(--color-accent); }
-.dcon-nav-pill { width: 40%; }
-.dcon-nav-handle {
-  width: 100%;
-  max-width: 7rem;
-  height: 0.25rem;
-  border-radius: 0.125rem;
-  background-color: currentColor;
-}
 .dcon-nav-back {
   width: 0;
   height: 0;

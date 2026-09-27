@@ -41,27 +41,6 @@
                             <span class="dcon-tapping" aria-hidden="true"></span>
                         }
                     </button>
-                    @if (ShowNavBar) {
-                        <div class="dcon-nav" role="group" aria-label="Device navigation">
-                            @if (GestureNav) {
-                                <button type="button" class="dcon-nav-btn dcon-nav-pill" aria-label="Home"
-                                        @onclick="@(() => KeyAsync("home"))">
-                                    <span class="dcon-nav-handle" aria-hidden="true"></span>
-                                </button>
-                            } else {
-                                <button type="button" class="dcon-nav-btn" aria-label="Recents"
-                                        @onclick="@(() => KeyAsync("recents"))">
-                                    <span class="dcon-nav-recents" aria-hidden="true"></span>
-                                </button>
-                                <button type="button" class="dcon-nav-btn" aria-label="Home" @onclick="@(() => KeyAsync("home"))">
-                                    <span class="dcon-nav-home" aria-hidden="true"></span>
-                                </button>
-                                <button type="button" class="dcon-nav-btn" aria-label="Back" @onclick="@(() => KeyAsync("back"))">
-                                    <span class="dcon-nav-back" aria-hidden="true"></span>
-                                </button>
-                            }
-                        </div>
-                    }
                     @if (Asleep) {
                         <button type="button" class="dcon-wake" disabled="@_waking" @onclick="WakeAsync">
                             <Icon Name="power" Class="icon-md"/>
@@ -78,6 +57,22 @@
                         </span>
                     }
                 </div>
+                @if (IsAndroid) {
+                    <div class="dcon-nav" role="group" aria-label="Device navigation">
+                        <button type="button" class="dcon-nav-btn" aria-label="Recents" title="Recents"
+                                @onclick="@(() => KeyAsync("recents"))">
+                            <span class="dcon-nav-recents" aria-hidden="true"></span>
+                        </button>
+                        <button type="button" class="dcon-nav-btn" aria-label="Home" title="Home"
+                                @onclick="@(() => KeyAsync("home"))">
+                            <span class="dcon-nav-home" aria-hidden="true"></span>
+                        </button>
+                        <button type="button" class="dcon-nav-btn" aria-label="Back" title="Back"
+                                @onclick="@(() => KeyAsync("back"))">
+                            <span class="dcon-nav-back" aria-hidden="true"></span>
+                        </button>
+                    </div>
+                }
             </div>
 
             <div class="dcon-side">
@@ -464,10 +459,6 @@
     bool Asleep => _uiProbed && _uiState is { } s && (!s.Awake || s.Locked);
 
     bool RunPanelOpen => State.RunPanelFor == _deviceId && _deviceId is not null;
-
-    bool ShowNavBar => IsAndroid && _uiProbed && _uiState?.NavMode is not (0 or 1);
-
-    bool GestureNav => _uiState?.NavMode is 2;
 
     DeviceConsoleCache? Cache => _deviceId is { } id ? State.ConsoleFor(id) : null;
 
@@ -1340,6 +1331,7 @@
 
     [JSInvokable]
     public Task OnFrameFailed(int status, string note) {
+        if (status is 0 or 200 && RestartStream()) return InvokeAsync(StateHasChanged);
         return StreamEndedAsync(string.IsNullOrWhiteSpace(note) ? "the device stopped sending frames" : note, status);
     }
 
@@ -1373,7 +1365,7 @@
     public Task OnVideoEnded(string token, string reason, int status, bool retryable) {
         if (string.Equals(reason, "stopped", StringComparison.OrdinalIgnoreCase)) return Task.CompletedTask;
         if (token != _streamKey) return Task.CompletedTask;
-        if (retryable && RestartVideo()) return InvokeAsync(StateHasChanged);
+        if (retryable && _streamOnVideo && RestartStream()) return InvokeAsync(StateHasChanged);
         return StreamEndedAsync(string.IsNullOrWhiteSpace(reason) ? "the server closed the stream" : reason, status);
     }
 
@@ -1386,8 +1378,8 @@
 
     const int MaxRestartsPerMinute = 4;
 
-    bool RestartVideo() {
-        if (!_live || !_streamOnVideo || _deviceId is null) return false;
+    bool RestartStream() {
+        if (!_live || _deviceId is null || _streamKey.Length == 0) return false;
         var now = DateTimeOffset.UtcNow;
         if (now - _restartWindowAt > TimeSpan.FromMinutes(1)) {
             _restartWindowAt = now;

@@ -522,34 +522,37 @@ public sealed partial class DevicesController(
         (IActionResult? err, var platform, var target) = await ResolveUiAsync(id, fleet, platforms, ct);
         if (err is not null) return err;
 
-        if (await EnterStreamGateAsync(target.Id, ct) is { } busy) return busy;
+        (var lease, var busy) = await EnterStreamGateAsync(target.Id, ct);
+        if (lease is null) return busy!;
 
         int jpegQuality = DeviceFrameEncoder.ClampQuality(quality);
         var gap = TimeSpan.FromMilliseconds(1000.0 / Math.Clamp(fps, MinStreamFps, MaxStreamFps));
-        try {
-            await using var hold = await DeviceStreamHold.AcquireAsync(services, target, ct);
-            (byte[]? first, var outcome, string? note) = await FrameAsync(platform, target, jpegQuality, ct);
-            if (first is null) return UiFailure(outcome, note);
-            await PumpFramesAsync(platform, target, first, gap, jpegQuality, ct);
-            return new EmptyResult();
-        } catch (Exception ex) when (ex is OperationCanceledException or IOException
-                                        or ObjectDisposedException) {
-            logger.LogDebug(ex, "ui frame stream closed");
-            return new EmptyResult();
-        } finally {
-            DeviceStreamGate.Exit(target.Id);
+        using (lease) {
+            var live = lease.Token;
+            try {
+                await using var hold = await DeviceStreamHold.AcquireAsync(services, target, live);
+                (byte[]? first, var outcome, string? note) = await FrameAsync(platform, target, jpegQuality, live);
+                if (first is null) return UiFailure(outcome, note);
+                await PumpFramesAsync(platform, target, first, gap, jpegQuality, live);
+                return new EmptyResult();
+            } catch (Exception ex) when (ex is OperationCanceledException or IOException
+                                            or ObjectDisposedException) {
+                logger.LogDebug(ex, "ui frame stream closed{Why}", lease.Preempted ? " (a newer viewer took over)" : "");
+                return new EmptyResult();
+            }
         }
     }
 
-    private async Task<IActionResult?> EnterStreamGateAsync(string deviceId, CancellationToken ct) {
+    private async Task<(DeviceStreamLease? Lease, IActionResult? Busy)> EnterStreamGateAsync(string deviceId,
+        CancellationToken ct) {
         try {
-            if (await DeviceStreamGate.TryEnterAsync(deviceId, ct)) return null;
+            if (await DeviceStreamGate.TryEnterAsync(deviceId, ct) is { } lease) return (lease, null);
         } catch (OperationCanceledException) {
-            return new EmptyResult();
+            return (null, new EmptyResult());
         }
 
-        return Fail(409,
-            $"a screen stream is still open for this device after waiting {DeviceStreamGate.HandoverWait.TotalSeconds:0}s");
+        return (null, Fail(409,
+            $"a screen stream is still open for this device after waiting {DeviceStreamGate.HandoverWait.TotalSeconds:0}s"));
     }
 
     private static async Task<(byte[]? Jpeg, DeviceOutcome Outcome, string? Note)> FrameAsync(
@@ -615,35 +618,37 @@ public sealed partial class DevicesController(
                 int.Parse(box[0], CultureInfo.InvariantCulture), int.Parse(box[1], CultureInfo.InvariantCulture));
         }
 
-        if (await EnterStreamGateAsync(target.Id, ct) is { } busy) return busy;
+        (var lease, var busy) = await EnterStreamGateAsync(target.Id, ct);
+        if (lease is null) return busy!;
 
         string[] wh = size.Split('x');
         var options = new ScreenStreamOptions(
             int.Parse(wh[0], CultureInfo.InvariantCulture),
             int.Parse(wh[1], CultureInfo.InvariantCulture),
             Math.Clamp(bitrate, MinVideoBitrate, MaxVideoBitrate));
-        try {
-            await using var hold = await DeviceStreamHold.AcquireAsync(services, target, ct);
-            Response.StatusCode = StatusCodes.Status200OK;
-            Response.ContentType = "application/octet-stream";
-            Response.Headers.CacheControl = "no-store";
-            Response.Headers.Pragma = "no-cache";
-            Response.Headers["X-Accel-Buffering"] = "no";
-            HttpContext.Features.Get<IHttpResponseBodyFeature>()?.DisableBuffering();
+        using (lease) {
+            var live = lease.Token;
+            try {
+                await using var hold = await DeviceStreamHold.AcquireAsync(services, target, live);
+                Response.StatusCode = StatusCodes.Status200OK;
+                Response.ContentType = "application/octet-stream";
+                Response.Headers.CacheControl = "no-store";
+                Response.Headers.Pragma = "no-cache";
+                Response.Headers["X-Accel-Buffering"] = "no";
+                HttpContext.Features.Get<IHttpResponseBodyFeature>()?.DisableBuffering();
 
-            string? note = await platform.StreamScreenAsync(target, options, Response.Body, ct);
-            if (note is null) return new EmptyResult();
+                string? note = await platform.StreamScreenAsync(target, options, Response.Body, live);
+                if (note is null) return new EmptyResult();
 
-            logger.LogWarning("video stream for {DeviceId} stopped: {Note}", target.Id, note);
-            if (Response.HasStarted) return new EmptyResult();
-            Response.Clear();
-            return Fail(502, note);
-        } catch (Exception ex) when (ex is OperationCanceledException or IOException
-                                        or ObjectDisposedException) {
-            logger.LogDebug(ex, "ui video stream closed");
-            return new EmptyResult();
-        } finally {
-            DeviceStreamGate.Exit(target.Id);
+                logger.LogWarning("video stream for {DeviceId} stopped: {Note}", target.Id, note);
+                if (Response.HasStarted) return new EmptyResult();
+                Response.Clear();
+                return Fail(502, note);
+            } catch (Exception ex) when (ex is OperationCanceledException or IOException
+                                            or ObjectDisposedException) {
+                logger.LogDebug(ex, "ui video stream closed{Why}", lease.Preempted ? " (a newer viewer took over)" : "");
+                return new EmptyResult();
+            }
         }
     }
 

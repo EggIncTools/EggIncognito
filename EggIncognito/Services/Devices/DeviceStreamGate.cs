@@ -3,19 +3,73 @@ using System.Collections.Concurrent;
 namespace EggIncognito.Services.Devices;
 
 public static class DeviceStreamGate {
-    public static readonly TimeSpan HandoverWait = TimeSpan.FromSeconds(3);
+    public static readonly TimeSpan HandoverWait = TimeSpan.FromSeconds(5);
 
-    private static readonly ConcurrentDictionary<string, SemaphoreSlim> Gates = new(StringComparer.Ordinal);
+    private static readonly ConcurrentDictionary<string, Slot> Slots = new(StringComparer.Ordinal);
 
-    public static Task<bool> TryEnterAsync(string deviceId, CancellationToken ct) =>
-        Gate(deviceId).WaitAsync(HandoverWait, ct);
-
-    public static void Exit(string deviceId) {
-        if (Gates.TryGetValue(deviceId, out var gate)) gate.Release();
+    public static async Task<DeviceStreamLease?> TryEnterAsync(string deviceId, CancellationToken ct) {
+        var slot = Slots.GetOrAdd(deviceId, _ => new Slot());
+        slot.Preempt();
+        if (!await slot.Gate.WaitAsync(HandoverWait, ct)) return null;
+        return slot.Hand(ct);
     }
 
     public static bool IsHeld(string deviceId) =>
-        Gates.TryGetValue(deviceId, out var gate) && gate.CurrentCount == 0;
+        Slots.TryGetValue(deviceId, out var slot) && slot.Gate.CurrentCount == 0;
 
-    private static SemaphoreSlim Gate(string deviceId) => Gates.GetOrAdd(deviceId, _ => new SemaphoreSlim(1, 1));
+    private sealed class Slot {
+        private readonly Lock _lock = new();
+        private DeviceStreamLease? _holder;
+
+        public SemaphoreSlim Gate { get; } = new(1, 1);
+
+        public void Preempt() {
+            DeviceStreamLease? holder;
+            lock (_lock) holder = _holder;
+            holder?.Preempt();
+        }
+
+        public DeviceStreamLease Hand(CancellationToken ct) {
+            var lease = new DeviceStreamLease(Release, ct);
+            lock (_lock) _holder = lease;
+            return lease;
+        }
+
+        private void Release(DeviceStreamLease lease) {
+            lock (_lock) {
+                if (ReferenceEquals(_holder, lease)) _holder = null;
+            }
+
+            Gate.Release();
+        }
+    }
+}
+
+public sealed class DeviceStreamLease : IDisposable {
+    private readonly Action<DeviceStreamLease> _release;
+    private readonly CancellationTokenSource _cts;
+    private int _disposed;
+
+    internal DeviceStreamLease(Action<DeviceStreamLease> release, CancellationToken ct) {
+        _release = release;
+        _cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+    }
+
+    public CancellationToken Token => _cts.Token;
+
+    public bool Preempted { get; private set; }
+
+    internal void Preempt() {
+        Preempted = true;
+        try {
+            _cts.Cancel();
+        } catch (ObjectDisposedException) {
+        }
+    }
+
+    public void Dispose() {
+        if (Interlocked.Exchange(ref _disposed, 1) != 0) return;
+        _release(this);
+        _cts.Dispose();
+    }
 }

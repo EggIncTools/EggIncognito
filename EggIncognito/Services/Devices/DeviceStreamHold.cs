@@ -22,6 +22,7 @@ public sealed class DeviceStreamHold(IDeviceClaims? claims, IDeviceConnection? c
         var conn = Platforms.Matches(target.Platform, Platforms.Android) ? factory?.For(target) : null;
         var hold = new DeviceStreamHold(claims, conn, target.Id, logger);
 
+        var awake = hold.KeepAwakeAsync(ct);
         if (claims is { Active: true }) {
             var ttl = TtlOf(services);
             var claim = await claims.ClaimAsync(target.Id, ttl, ct);
@@ -29,7 +30,7 @@ public sealed class DeviceStreamHold(IDeviceClaims? claims, IDeviceConnection? c
             else hold._renewal = hold.RenewAsync(claims, ttl);
         }
 
-        await hold.KeepAwakeAsync(ct);
+        await awake;
         return hold;
     }
 
@@ -51,16 +52,25 @@ public sealed class DeviceStreamHold(IDeviceClaims? claims, IDeviceConnection? c
         }
     }
 
+    public static string KeepAwakeCommand =>
+        "settings get system screen_off_timeout; input keyevent KEYCODE_WAKEUP; wm dismiss-keyguard; "
+        + $"svc power stayon true; settings put system screen_off_timeout {StreamingScreenTimeoutMs}";
+
+    public static string RestoreCommand(string? previousTimeout) =>
+        previousTimeout is null
+            ? "svc power stayon false"
+            : $"settings put system screen_off_timeout {previousTimeout}; svc power stayon false";
+
+    public static string? PreviousTimeout(string stdout) {
+        string first = stdout.Split('\n', 2)[0].Trim();
+        return int.TryParse(first, NumberStyles.Integer, CultureInfo.InvariantCulture, out _) ? first : null;
+    }
+
     private async Task KeepAwakeAsync(CancellationToken ct) {
         if (conn is null) return;
         try {
-            var previous = await conn.ShellAsync("settings get system screen_off_timeout", ct);
-            if (previous.ExitCode == 0 && int.TryParse(previous.Stdout.Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out _))
-                _previousTimeout = previous.Stdout.Trim();
-            await conn.ShellAsync("input keyevent KEYCODE_WAKEUP", ct);
-            await conn.ShellAsync("wm dismiss-keyguard", ct);
-            await conn.ShellAsync("svc power stayon true", ct);
-            await conn.ShellAsync($"settings put system screen_off_timeout {StreamingScreenTimeoutMs}", ct);
+            var r = await conn.ShellAsync(KeepAwakeCommand, ct);
+            _previousTimeout = PreviousTimeout(r.Stdout);
         } catch (Exception ex) when (ex is not OperationCanceledException) {
             logger.LogDebug(ex, "stream: keep-awake for {Device} failed", deviceId);
         }
@@ -74,9 +84,7 @@ public sealed class DeviceStreamHold(IDeviceClaims? claims, IDeviceConnection? c
         using var budget = new CancellationTokenSource(ReleaseBudget);
         if (conn is not null) {
             try {
-                if (_previousTimeout is not null)
-                    await conn.ShellAsync($"settings put system screen_off_timeout {_previousTimeout}", budget.Token);
-                await conn.ShellAsync("svc power stayon false", budget.Token);
+                await conn.ShellAsync(RestoreCommand(_previousTimeout), budget.Token);
             } catch (Exception ex) when (ex is not OutOfMemoryException) {
                 logger.LogDebug(ex, "stream: restoring screen timeout for {Device} failed", deviceId);
             }

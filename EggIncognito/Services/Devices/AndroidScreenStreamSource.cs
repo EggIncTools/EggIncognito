@@ -14,7 +14,6 @@ public sealed class AndroidScreenStreamSource(IDeviceConnectionFactory factory) 
 
         string size = string.Create(CultureInfo.InvariantCulture, $"{options.Width}x{options.Height}");
         string command = ScreenVideoPump.ScreenrecordCommand(size, options.Bitrate);
-        await conn.ShellAsync(ScreenVideoPump.KillStaleCommand, ct);
         var pump = new ScreenVideoPump(token => conn.ExecOutStreamAsync(command, token));
         return await pump.RunAsync(output, ct);
     }

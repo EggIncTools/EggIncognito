@@ -1,7 +1,9 @@
 const sessions = new Map();
-const FIRST_FRAME_MS = 8000;
-const STALL_MS = 8000;
+const FIRST_FRAME_MS = 15000;
+const VIDEO_FIRST_FRAME_MS = 20000;
+const STALL_MS = 15000;
 const VIDEO_STALL_MS = 30000;
+const BUSY_RETRIES = 3;
 
 function detach(img) {
   const s = sessions.get(img);
@@ -523,8 +525,8 @@ function tickStats(s) {
     return;
   }
   const now = performance.now();
-  if (s.lastFrameAt === 0 && now - s.startedAt > FIRST_FRAME_MS) {
-    finish(s, "no first frame within " + Math.round(FIRST_FRAME_MS / 1000) + "s", 0, false);
+  if (s.lastFrameAt === 0 && now - s.startedAt > VIDEO_FIRST_FRAME_MS) {
+    finish(s, "no first frame within " + Math.round(VIDEO_FIRST_FRAME_MS / 1000) + "s", 0, false);
     return;
   }
   if (s.lastFrameAt > 0 && now - s.lastFrameAt > VIDEO_STALL_MS) {
@@ -660,7 +662,7 @@ async function open(s) {
     const response = await fetch(s.url, { cache: "no-store", credentials: "same-origin", signal: s.ctrl.signal });
     if (response.ok) return response;
     const body = await response.text();
-    if (response.status === 409 && attempt === 0 && !s.stopped) {
+    if (response.status === 409 && attempt < BUSY_RETRIES && !s.stopped) {
       await sleep(1000, s.ctrl.signal);
       if (s.stopped) throw new DOMException("stopped", "AbortError");
       continue;

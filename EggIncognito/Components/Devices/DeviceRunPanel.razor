@@ -61,7 +61,13 @@
                         <span class="text-xs text-muted">to user @target</span>
                     }
                 } else {
-                    <span class="text-xs text-muted">@(_booksBusy ? "loading cookbooks" : "no cookbooks for this device")</span>
+                    <span class="text-xs text-muted">@(_booksBusy ? "loading cookbooks" : _booksError ?? "no cookbooks for this device")</span>
+                    @if (!_booksBusy) {
+                        <button type="button" class="btn-mini" @onclick="RetryCookbooks">
+                            <Icon Name="refresh-cw" Class="icon-sm"/>
+                            Retry
+                        </button>
+                    }
                 }
             </div>
 
@@ -196,11 +202,13 @@
     static readonly string[] JobIdNames = ["jobId", "JobId", "runId", "RunId", "id", "Id"];
     const int LastRunCount = 5;
     const int LastRunPage = 25;
+    static readonly TimeSpan CookbookLoadBudget = TimeSpan.FromSeconds(20);
 
     bool _disposed;
     bool _isAdmin;
     bool _loaded;
     bool _booksBusy;
+    string? _booksError;
     bool _runBusy;
     bool _runDone;
     bool _runOk;
@@ -309,6 +317,8 @@
             StopRunWatch();
             ResetRun();
             _books = [];
+            _booksBusy = false;
+            _booksError = null;
             _lastRuns = [];
             _args.Clear();
             _bookId = "";
@@ -381,19 +391,35 @@
         return OnRunChanged.InvokeAsync(_runTitle is null ? null : Line());
     }
 
+    void RetryCookbooks() {
+        _ = LoadCookbooksAsync();
+    }
+
     async Task LoadCookbooksAsync() {
         if (_deviceId is not { } id) return;
         _booksBusy = true;
         StateHasChanged();
-        var books = _isAdmin && Runner is { } runner
-            ? [.. await runner.DescribeAsync(id, CancellationToken.None)]
-            : await Client().ListAsync<DeviceCookbookInfo>($"/api/devices/{id}/cookbooks", Logger);
-        if (Stale(id)) return;
-        _books = books;
-        SeedCookbookDefaults();
-        if (Cache is { } cache) cache.Cookbooks = books;
-        _booksBusy = false;
-        StateHasChanged();
+        try {
+            using var budget = new CancellationTokenSource(CookbookLoadBudget);
+            List<DeviceCookbookInfo> books = _isAdmin && Runner is { } runner
+                ? [.. await runner.DescribeAsync(id, budget.Token)]
+                : await Client().ListAsync<DeviceCookbookInfo>($"/api/devices/{id}/cookbooks", Logger, budget.Token);
+            if (Stale(id)) return;
+            _books = books;
+            SeedCookbookDefaults();
+            if (Cache is { } cache) cache.Cookbooks = books;
+            _booksError = null;
+        } catch (Exception ex) when (ex is not OutOfMemoryException) {
+            Logger.LogWarning(ex, "loading cookbooks for {DeviceId} failed", id);
+            if (!Stale(id)) _booksError = ex is OperationCanceledException
+                ? $"cookbooks did not load within {CookbookLoadBudget.TotalSeconds:0}s"
+                : $"cookbooks failed to load: {ex.Message}";
+        } finally {
+            if (!Stale(id)) {
+                _booksBusy = false;
+                StateHasChanged();
+            }
+        }
     }
 
     void SeedCookbookDefaults() {
