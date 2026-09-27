@@ -33,7 +33,7 @@ public sealed record BootFlags {
     public required GmsFirstRunConfig GmsFirstRunConfig { get; init; }
 
     public bool AuthEnabled => AuthState.Enabled;
-    public bool BotEnabled => !string.IsNullOrWhiteSpace(BotToken);
+    public bool BotEnabled => !string.IsNullOrWhiteSpace(BotToken) || IdentityApiEnabled;
 
     public static BootFlags From(WebApplicationBuilder builder) {
         var config = builder.Configuration;

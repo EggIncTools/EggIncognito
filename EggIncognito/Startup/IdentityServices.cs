@@ -1,6 +1,7 @@
 using System.Net.Http.Headers;
 using EggIdentity.Client;
 using EggIdentity.Metrics;
+using EggIdentity.UI;
 using EggIncognito.Data.Services;
 using EggIncognito.Services;
 using EggIncognito.Services.Auth;
@@ -31,7 +32,6 @@ public static class IdentityServices {
 
         builder.Services.AddSingleton(boot.AuthState);
         builder.Services.AddCascadingAuthenticationState();
-        builder.Services.AddHttpContextAccessor();
         builder.Services.AddEggIdentityRequestMetrics(o => {
             o.PathPrefix = "/api";
             o.InternalMarkerHeader = SelfCallClient.InternalMarkerHeader;
@@ -39,6 +39,7 @@ public static class IdentityServices {
         });
         builder.Services.AddSingleton<ITrafficSource, TrafficSource>();
         builder.Services.TryAddScoped<ICurrentUser, CurrentUser>();
+        builder.Services.AddEggIdentityBrowserTimeZone();
         builder.Services.AddScoped<ViewerClock>();
     }
 }

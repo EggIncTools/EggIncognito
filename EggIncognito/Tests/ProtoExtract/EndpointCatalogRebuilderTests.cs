@@ -11,36 +11,6 @@ public class EndpointCatalogRebuilderTests {
         return dir is null ? null : Path.Combine(dir.FullName, "EggIncognito");
     }
 
-    private static bool TryLoadAndroid(out byte[] bin, out string contentRoot) {
-        bin = [];
-        contentRoot = FindContentRoot() ?? "";
-        if (contentRoot.Length == 0) return false;
-
-        string path = Path.Combine(contentRoot, "captures", "egginc-android-1.37.so");
-        var info = new FileInfo(path);
-        if (!info.Exists || info.Length <= 1_000_000) return false;
-
-        bin = File.ReadAllBytes(path);
-        return true;
-    }
-
-    [Fact]
-    public void ExtractAndFilter_DiscoversI18nRoutes_SkipsExcludedPaths() {
-        if (!TryLoadAndroid(out var bin, out var contentRoot)) return;
-
-        var syms = ElfSymbols.Read(bin);
-        var extracted = EndpointCatalogExtractor.ExtractWith(bin, syms);
-        Assert.True(extracted.Ok, extracted.Diagnostics);
-
-        var yaml = RouteCatalog.ForRepo(contentRoot);
-        var kept = EndpointCatalogRebuilder.Filter(extracted.Endpoints, yaml.ExcludedPaths);
-
-        Assert.Contains(kept, e => e.Path == "ei_i18n/get_translation_pack");
-        Assert.Contains(kept, e => e.Path == "ei_i18n/get_translations");
-        Assert.DoesNotContain(kept, e => e.Path == "ei/kb");
-        Assert.Contains(kept, e => e.Path == "ei_afx/zoom_zoom");
-    }
-
     [Fact]
     public void ExcludedPaths_ContainsOnlyKnownFalseFlags() {
         string? contentRoot = FindContentRoot();

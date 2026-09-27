@@ -26,7 +26,7 @@ public class DeviceStreamGateTests {
         using var stuck = await DeviceStreamGate.TryEnterAsync(id, CancellationToken.None);
         Assert.NotNull(stuck);
 
-        Assert.Null(await DeviceStreamGate.TryEnterAsync(id, CancellationToken.None));
+        Assert.Null(await DeviceStreamGate.TryEnterAsync(id, TimeSpan.FromMilliseconds(50), CancellationToken.None));
     }
 
     [Fact]

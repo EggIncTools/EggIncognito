@@ -7,10 +7,14 @@ public static class DeviceStreamGate {
 
     private static readonly ConcurrentDictionary<string, Slot> Slots = new(StringComparer.Ordinal);
 
-    public static async Task<DeviceStreamLease?> TryEnterAsync(string deviceId, CancellationToken ct) {
+    public static Task<DeviceStreamLease?> TryEnterAsync(string deviceId, CancellationToken ct) =>
+        TryEnterAsync(deviceId, HandoverWait, ct);
+
+    internal static async Task<DeviceStreamLease?> TryEnterAsync(string deviceId, TimeSpan wait,
+        CancellationToken ct) {
         var slot = Slots.GetOrAdd(deviceId, _ => new Slot());
         slot.Preempt();
-        if (!await slot.Gate.WaitAsync(HandoverWait, ct)) return null;
+        if (!await slot.Gate.WaitAsync(wait, ct)) return null;
         return slot.Hand(ct);
     }
 

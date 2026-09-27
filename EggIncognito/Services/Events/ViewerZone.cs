@@ -3,8 +3,6 @@ using EggIdentity.Client;
 namespace EggIncognito.Services.Events;
 
 public static class ViewerZone {
-    public static string FallbackId => TimeZoneInfo.Local.Id;
-
     public static TimeZoneInfo Fallback => TimeZoneInfo.Local;
 
     public static async Task<string?> ProfileIdAsync(

@@ -154,9 +154,9 @@ public static class AppPipeline {
 
         var deployDataSource = NpgsqlDataSource.Create(boot.PgConn!);
         var configStore = new ChannelConfigStore(deployDataSource);
-        var botCfg = app.Services.GetRequiredService<BotConfig>();
         var hosted = app.Services.GetRequiredService<EggIncognitoBotHostedService>();
         app.Lifetime.ApplicationStarted.Register(() => _ = Task.Run(async () => {
+            var botCfg = hosted.Config;
             var client = hosted.Bot?.Client;
             if (client is null || !ulong.TryParse(botCfg.GuildId, out ulong guildId)) return;
             var notifier = new DeployNotifier(configStore, client, guildId, botCfg.Name);

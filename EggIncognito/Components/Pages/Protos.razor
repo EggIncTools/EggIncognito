@@ -502,12 +502,17 @@
     }
 
     protected override async Task OnInitializedAsync() {
-        if (Services.GetService(typeof(ViewerClock)) is ViewerClock clock) await clock.EnsureAsync(Services, User, CancellationToken.None);
+        if (ViewerClock.Of(Services) is { } clock) {
+            await clock.EnsureAsync(Services, User, CancellationToken.None);
+            clock.Changed += OnZoneChanged;
+        }
+
         await Load();
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender) {
         if (!firstRender) return;
+        if (ViewerClock.Of(Services) is { } clock) await clock.SyncAsync();
         _topics ??= Notifier.Subscribe(OnTopic);
         await Vis.ListenAsync(OnVisibleAsync);
         try {
@@ -661,7 +666,10 @@
         return string.IsNullOrEmpty(sha) ? "" : sha.Length <= 6 ? sha : sha[..6];
     }
 
+    void OnZoneChanged() => _ = InvokeAsync(StateHasChanged);
+
     public async ValueTask DisposeAsync() {
+        if (ViewerClock.Of(Services) is { } clock) clock.Changed -= OnZoneChanged;
         _disposed = true;
         _topics?.Dispose();
         _topics = null;

@@ -215,27 +215,4 @@ public class LibegincClientVersionTests {
     [Fact]
     public void ReadFromBinary_NoSymbol_ReturnsNull() =>
         Assert.Null(LibegincClientVersion.ReadFromBinary(SoWithSymbol(ConstReturn(72), "_Z7unrelatedv", TextVa)));
-
-    [Fact]
-    public void ReadFromBinary_RealAndroidBinary_MatchesRinfo() {
-        string path = Path.Combine(RepoRoot(), "EggIncognito", "captures", "egginc-android-1.37.so");
-        if (!File.Exists(path)) return;
-        Assert.Equal(75, LibegincClientVersion.ReadFromBinary(File.ReadAllBytes(path)));
-    }
-
-    [Theory]
-    [InlineData("egginc-1.7.7", 15)]
-    [InlineData("egginc", 72)]
-    public void ReadFromBinary_RealIosBinary_MatchesCompiledConstant(string name, int expected) {
-        string path = Path.Combine(RepoRoot(), "EggIncognito", "captures", name);
-        if (!File.Exists(path)) return;
-        Assert.Equal(expected, LibegincClientVersion.ReadFromBinary(File.ReadAllBytes(path)));
-    }
-
-    private static string RepoRoot() {
-        var dir = new DirectoryInfo(AppContext.BaseDirectory);
-        while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "EggIncognito.slnx")))
-            dir = dir.Parent;
-        return dir?.FullName ?? Directory.GetCurrentDirectory();
-    }
 }

@@ -79,12 +79,11 @@
 
     ElementReference _scroller;
     IJSObjectReference? _scroll;
-    IJSObjectReference? _tz;
+    ViewerClock? _clock;
     IReadOnlyList<EventCalendarRow> _rows = [];
     IReadOnlyList<EventCalendarCell> _days = [];
     IReadOnlyList<CalendarItem> _items = [];
     TimeZoneInfo _zone = ViewerZone.Fallback;
-    bool _zoneFromProfile;
     DateTimeOffset _start;
     DateTimeOffset _end;
     string _note = "";
@@ -96,10 +95,11 @@
         $"--evcal-days:{DayCount};--evcal-gap:{EventCalendarLayout.GapPercent(_start, _end):0.###}%;");
 
     protected override async Task OnInitializedAsync() {
-        var profileId = await ViewerZone.ProfileIdAsync(Services, User, CancellationToken.None);
-        if (ViewerZone.Parse(profileId) is { } profileZone) {
-            _zone = profileZone;
-            _zoneFromProfile = true;
+        _clock = ViewerClock.Of(Services);
+        if (_clock is not null) {
+            await _clock.EnsureAsync(Services, User, CancellationToken.None);
+            _zone = _clock.Zone;
+            _clock.Changed += OnZoneChanged;
         }
 
         var now = DateTimeOffset.UtcNow;
@@ -147,7 +147,6 @@
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender) {
-        if (firstRender) await ResolveBrowserZone();
         if (_scrolled || _rows.Count == 0 || _note.Length > 0) return;
         _scrolled = true;
         try {
@@ -159,24 +158,15 @@
         }
     }
 
-    async Task ResolveBrowserZone() {
-        if (_zoneFromProfile || _note.Length > 0) return;
-        string? id;
-        try {
-            _tz = await JS.InvokeAsync<IJSObjectReference>("import", InteropAsset.Url(Env, "./interop/timezone.js"));
-            id = await _tz.InvokeAsync<string>("read");
-        } catch (Exception ex) when (ex is JSDisconnectedException or JSException) {
-            Logger.LogDebug(ex, "the browser time zone could not be read");
-            return;
-        }
-
-        if (ViewerZone.Parse(id) is not { } zone || zone.Id == _zone.Id) return;
-        _zone = zone;
+    void OnZoneChanged() => _ = InvokeAsync(() => {
+        if (_clock is null || _clock.Zone.Id == _zone.Id) return;
+        _zone = _clock.Zone;
+        if (_note.Length > 0) return;
         var now = DateTimeOffset.UtcNow;
         SetWindow(now);
         Relayout(now);
         StateHasChanged();
-    }
+    });
 
     double NowFraction => _rows.Count > 0 && _rows[0].NowPercent is { } percent ? percent / 100 : 1;
 
@@ -231,8 +221,8 @@
     }
 
     public async ValueTask DisposeAsync() {
+        if (_clock is not null) _clock.Changed -= OnZoneChanged;
         await _scroll.DisposeModuleAsync(logger: Logger);
-        await _tz.DisposeModuleAsync(logger: Logger);
     }
 
 }

@@ -15,6 +15,8 @@ public sealed class IosStoreUpdateDriver(
 
     private readonly ConcurrentDictionary<string, string> _entry = new(StringComparer.OrdinalIgnoreCase);
 
+    internal TimeSpan TriggerSettle { get; init; } = TimeSpan.FromSeconds(3);
+
     public string Platform => Platforms.Ios;
     public string StoreName => "App Store";
 
@@ -60,7 +62,7 @@ public sealed class IosStoreUpdateDriver(
 
         await SshAsync($"uiopen itms-apps://itunes.apple.com/app/id{opts.AppId} || true", ct);
         try {
-            await Task.Delay(TimeSpan.FromSeconds(3), ct);
+            await Task.Delay(TriggerSettle, ct);
         } catch (OperationCanceledException ex) {
             logger.LogDebug(ex, "ios store trigger settle delay cancelled");
         }

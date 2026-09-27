@@ -77,7 +77,7 @@ public class StoreUpdateTests {
             new IosStoreUpdateDriver.Options("phone", "2222", "/keys/phone", "/var/mobile/trigger", TweakPath,
                 "12345", null),
             Catalog(_ => Json("{\"resultCount\":1,\"results\":[{\"version\":\"1.37\"}]}")),
-            Recorder(), [], Activity(), NullLogger<IosStoreUpdateDriver>.Instance);
+            Recorder(), [], Activity(), NullLogger<IosStoreUpdateDriver>.Instance) { TriggerSettle = TimeSpan.Zero };
 
     private static HttpResponseMessage Json(string body) =>
         new(HttpStatusCode.OK) { Content = new StringContent(body) };

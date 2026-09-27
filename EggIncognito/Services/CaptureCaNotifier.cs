@@ -1,6 +1,7 @@
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
+using EggIncognito.Bot;
 
 namespace EggIncognito.Services;
 
@@ -21,12 +22,13 @@ public sealed class NoopCaptureCaNotifier : ICaptureCaNotifier {
 public sealed class DiscordCaptureCaNotifier(
     IHttpClientFactory httpFactory,
     IConfiguration config,
-    ILogger<DiscordCaptureCaNotifier> logger)
+    ILogger<DiscordCaptureCaNotifier> logger,
+    EggIncognitoBotHostedService? bot = null)
     : ICaptureCaNotifier {
     private const string ProfileFile = "eggincognito-capture.mobileconfig";
 
     public async Task<bool> SendSetupAsync(CaptureSetupDm dm, CancellationToken ct) {
-        string? token = config["Discord:BotToken"];
+        string? token = bot?.Config.Token is { Length: > 0 } resolved ? resolved : config["Discord:BotToken"];
         if (string.IsNullOrWhiteSpace(token) || string.IsNullOrWhiteSpace(dm.DiscordId) || dm.CerBytes.Length == 0) {
             logger.LogWarning(
                 "capture setup DM: not attempted (token {HasToken}, discordId {HasId}, ca {CaBytes} bytes)",

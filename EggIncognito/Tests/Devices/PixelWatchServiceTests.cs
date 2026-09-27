@@ -16,7 +16,10 @@ public class PixelWatchServiceTests {
         return ms.ToArray();
     }
 
-    private static PixelWatchService NewService() => new(NullLogger<PixelWatchService>.Instance, TimeProvider.System);
+    private static readonly TimeSpan FastPoll = TimeSpan.FromMilliseconds(20);
+
+    private static PixelWatchService NewService(TimeProvider? time = null) =>
+        new(NullLogger<PixelWatchService>.Instance, time ?? TimeProvider.System) { PollEvery = FastPoll };
 
     [Fact]
     public async Task AddAsync_BeyondTheCap_ReportsTheLimit() {
@@ -44,7 +47,7 @@ public class PixelWatchServiceTests {
 
         Assert.True((await svc.AddAsync(platform, Target, 1, 1, CancellationToken.None)).Ok);
         int afterArm = platform.Screenshots;
-        await Task.Delay(PixelWatchService.Poll * 3);
+        await Task.Delay(FastPoll * 5);
 
         Assert.Equal(1, afterArm);
         Assert.Equal(afterArm, platform.Screenshots);
@@ -52,12 +55,14 @@ public class PixelWatchServiceTests {
 
     [Fact]
     public async Task HitAsync_TapsOnceThenCoolsDown() {
-        using var svc = NewService();
+        var time = new ManualTime { Now = DateTimeOffset.UtcNow };
+        using var svc = NewService(time);
         var platform = new StubPlatform(Png());
         svc.SetClientWatching(Target.Id, true);
         var added = await svc.AddAsync(platform, Target, 2, 2, CancellationToken.None);
         string point = added.Value!.Points[0].Id;
-        await Task.Delay(PixelWatchService.AfterTap + TimeSpan.FromMilliseconds(150));
+        for (int i = 0; i < 200 && svc.State(Target.Id).Points[0].Taps == 0; i++) await Task.Delay(5);
+        time.Now += PixelWatchService.AfterTap + TimeSpan.FromMilliseconds(1);
 
         int before = svc.State(Target.Id).Points[0].Taps;
         var hit = await svc.HitAsync(platform, Target, point, CancellationToken.None);
@@ -81,6 +86,11 @@ public class PixelWatchServiceTests {
 
         Assert.False(hit.Ok);
         Assert.Equal("unknown watch point", hit.Note);
+    }
+
+    private sealed class ManualTime : TimeProvider {
+        public DateTimeOffset Now { get; set; }
+        public override DateTimeOffset GetUtcNow() => Now;
     }
 
     private sealed class StubPlatform(byte[] png) : DevicePlatformBase("android", [], [], [], [], []) {

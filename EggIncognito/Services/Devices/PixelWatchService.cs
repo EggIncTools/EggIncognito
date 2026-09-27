@@ -14,6 +14,8 @@ public sealed class PixelWatchService(ILogger<PixelWatchService> logger, TimePro
     private readonly ConcurrentDictionary<string, Watch> _watches = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<string, bool> _clientWatching = new(StringComparer.Ordinal);
 
+    internal TimeSpan PollEvery { get; init; } = Poll;
+
     public event Action<string, PixelWatchState>? Changed;
 
     public PixelWatchState State(string deviceId) =>
@@ -96,7 +98,7 @@ public sealed class PixelWatchService(ILogger<PixelWatchService> logger, TimePro
         try {
             foreach (var p in w.Snapshot()) await TapAsync(platform, w, p, ct);
             while (!ct.IsCancellationRequested) {
-                await Task.Delay(Poll, ct);
+                await Task.Delay(PollEvery, ct);
                 if (ClientWatching(w.Target.Id)) continue;
                 var points = w.Snapshot();
                 if (points.Count == 0) continue;

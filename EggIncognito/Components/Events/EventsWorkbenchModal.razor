@@ -20,7 +20,7 @@
         <CalendarRangePicker TZoom="EventCalendarZoom" AvailableZooms="Zooms" Zoom="_zoom" ZoomLabel="ZoomLabel"
                              RangeLabel="@RangeLabel" DateValue="@CenterDate" ZoomChanged="SetZoom" OnPan="Pan"
                              OnToday="Today" DateChanged="JumpToDate"/>
-        <span class="evwb-zone">@_zoneId</span>
+        <span class="evwb-zone">@_zone.Id</span>
     </HeadTools>
     <Rail>
         <WorkbenchRail>
@@ -285,21 +285,19 @@
     EventPredictionSet? _eventPredictions;
     ContractPredictionResponse? _contractPredictions;
     TimeZoneInfo _zone = ViewerZone.Fallback;
-    string _zoneId = ViewerZone.FallbackId;
-    bool _zoneFromProfile;
+    ViewerClock? _clock;
 
     IJSObjectReference? _nav;
     IJSObjectReference? _navHandle;
-    IJSObjectReference? _tz;
     DotNetObjectReference<EventsWorkbenchModal>? _selfRef;
 
     protected override async Task OnInitializedAsync() {
         _isAdmin = User.IsAtLeast(UserRole.Admin);
-        var id = await ViewerZone.ProfileIdAsync(Services, User, CancellationToken.None);
-        if (ViewerZone.Parse(id) is not { } zone) return;
-        _zone = zone;
-        _zoneId = id!;
-        _zoneFromProfile = true;
+        _clock = ViewerClock.Of(Services);
+        if (_clock is null) return;
+        await _clock.EnsureAsync(Services, User, CancellationToken.None);
+        _zone = _clock.Zone;
+        _clock.Changed += OnZoneChanged;
     }
 
     bool Filtering =>
@@ -683,7 +681,6 @@
 
     protected override async Task OnAfterRenderAsync(bool firstRender) {
         if (!firstRender) return;
-        await ResolveBrowserZone();
         try {
             _nav = await JS.InvokeAsync<IJSObjectReference>("import", InteropAsset.Url(Env, "./interop/hashnav.js"));
             _selfRef = DotNetObjectReference.Create(this);
@@ -697,22 +694,12 @@
         StateHasChanged();
     }
 
-    async Task ResolveBrowserZone() {
-        if (_zoneFromProfile) return;
-        string? id;
-        try {
-            _tz = await JS.InvokeAsync<IJSObjectReference>("import", InteropAsset.Url(Env, "./interop/timezone.js"));
-            id = await _tz.InvokeAsync<string>("read");
-        } catch (Exception ex) when (ex is JSDisconnectedException or JSException or ObjectDisposedException) {
-            Logger.LogDebug(ex, "the browser time zone could not be read");
-            return;
-        }
-
-        if (ViewerZone.Parse(id) is not { } zone) return;
-        _zone = zone;
-        _zoneId = id!;
+    void OnZoneChanged() => _ = InvokeAsync(async () => {
+        if (_clock is null || _clock.Zone.Id == _zone.Id) return;
+        _zone = _clock.Zone;
         if (_open) await Refresh();
-    }
+        StateHasChanged();
+    });
 
     [JSInvokable]
     public async Task OnHashChanged(string hash) {
@@ -939,8 +926,8 @@
 
     public async ValueTask DisposeAsync() {
         await _navHandle.DisposeModuleAsync("dispose", Logger);
+        if (_clock is not null) _clock.Changed -= OnZoneChanged;
         await _nav.DisposeModuleAsync(logger: Logger);
-        await _tz.DisposeModuleAsync(logger: Logger);
         _selfRef?.Dispose();
     }
 
