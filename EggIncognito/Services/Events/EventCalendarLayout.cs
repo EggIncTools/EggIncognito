@@ -7,6 +7,7 @@ public static class EventCalendarLayout {
     public const double DayGapFraction = 0.05;
 
     private const double MinWidthFraction = 0.006;
+    private const double LaneTolerance = 1e-9;
 
     public static double GapPercent(DateTimeOffset start, DateTimeOffset end) =>
         100.0 / Math.Max(1, (end - start).TotalDays) * DayGapFraction;
@@ -95,7 +96,6 @@ public static class EventCalendarLayout {
             .ThenByDescending(i => i.End - i.Start)
             .ThenBy(i => i.Key, StringComparer.Ordinal)
             .ToList();
-        double laneGap = DayGapFraction / Math.Max(1, (end - start).TotalDays);
         var laneRights = new List<double>();
         var bars = new List<EventCalendarBar>(hits.Count);
         foreach (var item in hits) {
@@ -103,7 +103,7 @@ public static class EventCalendarLayout {
             bool past = item.End <= nowUnix;
             bars.Add(new EventCalendarBar(
                 item,
-                AssignLane(laneRights, left, left + width, laneGap),
+                CalendarLanePacker.AssignLane(laneRights, left, left + width, LaneTolerance),
                 left * 100,
                 width * 100,
                 !past && item.Start <= nowUnix,
@@ -117,9 +117,6 @@ public static class EventCalendarLayout {
 
     private static List<IReadOnlyList<EventCalendarBar>> Lanes(List<EventCalendarBar> bars) =>
         [.. bars.GroupBy(b => b.Lane).OrderBy(g => g.Key).Select(lane => (IReadOnlyList<EventCalendarBar>)[.. lane])];
-
-    private static int AssignLane(List<double> laneRights, double left, double right, double gap) =>
-        CalendarLanePacker.AssignLane(laneRights, left, right, -gap);
 
     private static (double Left, double Width) Clip(double startUnix, double endUnix, double windowStart, double span) {
         if (span <= 0) return (0, 1);
