@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk.Razor">
+  <PropertyGroup>
+    <IsPackable>true</IsPackable>
+    <PackageId>EggIncognito.Artifacts</PackageId>
+    <Description>Egg Inc artifact identity extracted from the game binary, plus artifact and mission-target images as static web assets.</Description>
+    <DefaultItemExcludes>$(DefaultItemExcludes);Tests\**</DefaultItemExcludes>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Data\artifact-definitions.json" LogicalName="artifact-definitions.json" />
+  </ItemGroup>
+</Project>

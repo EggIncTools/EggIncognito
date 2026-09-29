@@ -38,6 +38,7 @@ public sealed class EggIncognitoDbContext(DbContextOptions<EggIncognitoDbContext
     public DbSet<PeriodicalsSnapshot> PeriodicalsSnapshots => Set<PeriodicalsSnapshot>();
 
     public DbSet<ArtifactConsumeObservation> ArtifactConsumeObservations => Set<ArtifactConsumeObservation>();
+    public DbSet<ConsumeCoverageTarget> ConsumeCoverageTargets => Set<ConsumeCoverageTarget>();
     public DbSet<ContributedCapture> ContributedCaptures => Set<ContributedCapture>();
     public DbSet<GameEvent> GameEvents => Set<GameEvent>();
     public DbSet<ContractRelease> ContractReleases => Set<ContractRelease>();
@@ -74,6 +75,12 @@ public sealed class EggIncognitoDbContext(DbContextOptions<EggIncognitoDbContext
                 .HasForeignKey(x => x.DeviceId)
                 .HasConstraintName("fk_artifact_consume_observations_device")
                 .OnDelete(DeleteBehavior.SetNull);
+        });
+        modelBuilder.Entity<ConsumeCoverageTarget>(t => {
+            t.HasKey(x => x.Id);
+            t.Property(x => x.Enabled).HasDefaultValue(true);
+            t.Property(x => x.UpdatedAt).HasDefaultValueSql("now()");
+            t.HasIndex(x => new { x.SpecName, x.SpecLevel, x.SpecRarity }).IsUnique().AreNullsDistinct(false);
         });
         modelBuilder.Entity<ContributedCapture>(c => {
             c.HasKey(x => x.Id);

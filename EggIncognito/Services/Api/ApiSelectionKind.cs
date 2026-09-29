@@ -5,5 +5,6 @@ public enum ApiSelectionKind {
     Dataset,
     Routes,
     Capture,
-    Docs
+    Docs,
+    Coverage
 }

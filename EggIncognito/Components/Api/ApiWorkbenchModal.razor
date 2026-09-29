@@ -81,6 +81,19 @@
                         </WorkbenchSection>
                     }
                 </WorkbenchLoad>
+                @if (State.IsAdmin) {
+                    <WorkbenchSection Label="Coverage">
+                        <WorkbenchEntry Selected="@(State.Kind == ApiSelectionKind.Coverage)"
+                                        OnClick="@(_ => SelectSection(ApiSelectionKind.Coverage))">
+                            <Lead>
+                                <span class="wb-lead">
+                                    <Icon Name="layout-grid" Class="icon-sm"/>
+                                </span>
+                            </Lead>
+                            <Name>Consume coverage</Name>
+                        </WorkbenchEntry>
+                    </WorkbenchSection>
+                }
             </WorkbenchRail>
         }
     </Rail>
@@ -97,6 +110,9 @@
                 break;
             case ApiSelectionKind.Capture:
                 <CapturePane/>
+                break;
+            case ApiSelectionKind.Coverage:
+                <ConsumeCoveragePane/>
                 break;
             default:
                 <div class="awb-try">
@@ -950,6 +966,7 @@
         }
 
         if (State.Kind is ApiSelectionKind.Routes && !State.IsContributor) State.Kind = ApiSelectionKind.Endpoint;
+        if (State.Kind is ApiSelectionKind.Coverage && !State.IsAdmin) ApplyModeDefault(ApiWorkbenchState.ModeData);
     }
 
     async Task WriteHash(bool push = false, bool clear = false) {

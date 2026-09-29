@@ -1,5 +1,7 @@
 <Solution>
   <Project Path="EggIncognito/EggIncognito.csproj" />
+  <Project Path="EggIncognito.Artifacts/EggIncognito.Artifacts.csproj" />
+  <Project Path="EggIncognito.Artifacts/Tests/EggIncognito.Artifacts.Tests.csproj" />
   <Project Path="EggIncognito.Core/EggIncognito.Core.csproj" />
   <Project Path="EggIncognito.GameData/EggIncognito.GameData.csproj" />
   <Project Path="EggIncognito.GameData/Tests/EggIncognito.GameData.Tests.csproj" />

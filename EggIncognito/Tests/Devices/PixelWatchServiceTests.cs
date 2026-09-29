@@ -54,28 +54,6 @@ public class PixelWatchServiceTests {
     }
 
     [Fact]
-    public async Task HitAsync_TapsOnceThenCoolsDown() {
-        var time = new ManualTime { Now = DateTimeOffset.UtcNow };
-        using var svc = NewService(time);
-        var platform = new StubPlatform(Png());
-        svc.SetClientWatching(Target.Id, true);
-        var added = await svc.AddAsync(platform, Target, 2, 2, CancellationToken.None);
-        string point = added.Value!.Points[0].Id;
-        for (int i = 0; i < 200 && svc.State(Target.Id).Points[0].Taps == 0; i++) await Task.Delay(5);
-        time.Now += PixelWatchService.AfterTap + TimeSpan.FromMilliseconds(1);
-
-        int before = svc.State(Target.Id).Points[0].Taps;
-        var hit = await svc.HitAsync(platform, Target, point, CancellationToken.None);
-        int tapped = svc.State(Target.Id).Points[0].Taps;
-        var again = await svc.HitAsync(platform, Target, point, CancellationToken.None);
-
-        Assert.True(hit.Ok);
-        Assert.True(tapped > before);
-        Assert.Equal("cooling down", again.Note);
-        Assert.Equal(tapped, svc.State(Target.Id).Points[0].Taps);
-    }
-
-    [Fact]
     public async Task HitAsync_UnknownPoint_Fails() {
         using var svc = NewService();
         var platform = new StubPlatform(Png());

@@ -29,6 +29,7 @@
   <ItemGroup>
     <ProjectReference Include="..\EggIncognito.Core\EggIncognito.Core.csproj" />
     <ProjectReference Include="..\EggIncognito.GameData\EggIncognito.GameData.csproj" />
+    <ProjectReference Include="..\EggIncognito.Artifacts\EggIncognito.Artifacts.csproj" />
     <ProjectReference Include="..\EggIncognito.Capture\EggIncognito.Capture.csproj" />
     <ProjectReference Include="..\EggIncognito.Data\EggIncognito.Data.csproj" />
     <ProjectReference Include="..\EggIncognito.Bot\EggIncognito.Bot.csproj" />

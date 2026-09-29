@@ -1,0 +1,2200 @@
+{
+  "families": [
+    {
+      "name": "LUNAR_TOTEM",
+      "afxId": 0,
+      "binaryId": "lunar_totem",
+      "pluralName": "LUNAR TOTEMS",
+      "kind": 0,
+      "dimension": 3,
+      "order": 0,
+      "tiers": [
+        {
+          "level": 0,
+          "name": "BASIC LUNAR TOTEM",
+          "rarityCount": 1,
+          "recipe": []
+        },
+        {
+          "level": 1,
+          "name": "LUNAR TOTEM",
+          "rarityCount": 2,
+          "recipe": [
+            {
+              "afxId": 0,
+              "level": 0,
+              "count": 3
+            }
+          ]
+        },
+        {
+          "level": 2,
+          "name": "POWERFUL LUNAR TOTEM",
+          "rarityCount": 2,
+          "recipe": [
+            {
+              "afxId": 0,
+              "level": 1,
+              "count": 6
+            }
+          ]
+        },
+        {
+          "level": 3,
+          "name": "EGGCEPTIONAL LUNAR TOTEM",
+          "rarityCount": 4,
+          "recipe": [
+            {
+              "afxId": 0,
+              "level": 2,
+              "count": 6
+            },
+            {
+              "afxId": 43,
+              "level": 1,
+              "count": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "NEODYMIUM_MEDALLION",
+      "afxId": 3,
+      "binaryId": "neodymium_medallion",
+      "pluralName": "NEODYMIUM MEDALLIONS",
+      "kind": 0,
+      "dimension": 14,
+      "order": 1,
+      "tiers": [
+        {
+          "level": 0,
+          "name": "WEAK NEODYMIUM MEDALLION",
+          "rarityCount": 1,
+          "recipe": []
+        },
+        {
+          "level": 1,
+          "name": "NEODYMIUM MEDALLION",
+          "rarityCount": 2,
+          "recipe": [
+            {
+              "afxId": 3,
+              "level": 0,
+              "count": 4
+            }
+          ]
+        },
+        {
+          "level": 2,
+          "name": "PRECISE NEODYMIUM MEDALLION",
+          "rarityCount": 2,
+          "recipe": [
+            {
+              "afxId": 3,
+              "level": 1,
+              "count": 5
+            },
+            {
+              "afxId": 18,
+              "level": 1,
+              "count": 1
+            }
+          ]
+        },
+        {
+          "level": 3,
+          "name": "EGGCEPTIONAL NEODYMIUM MEDALLION",
+          "rarityCount": 4,
+          "recipe": [
+            {
+              "afxId": 3,
+              "level": 2,
+              "count": 6
+            },
+            {
+              "afxId": 27,
+              "level": 2,
+              "count": 2
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "BEAK_OF_MIDAS",
+      "afxId": 4,
+      "binaryId": "beak_of_midas",
+      "pluralName": "BEAKS OF MIDAS",
+      "kind": 0,
+      "dimension": 16,
+      "order": 2,
+      "tiers": [
+        {
+          "level": 0,
+          "name": "DULL BEAK OF MIDAS",
+          "rarityCount": 1,
+          "recipe": []
+        },
+        {
+          "level": 1,
+          "name": "BEAK OF MIDAS",
+          "rarityCount": 1,
+          "recipe": [
+            {
+              "afxId": 4,
+              "level": 0,
+              "count": 4
+            }
+          ]
+        },
+        {
+          "level": 2,
+          "name": "JEWELED BEAK OF MIDAS",
+          "rarityCount": 2,
+          "recipe": [
+            {
+              "afxId": 4,
+              "level": 1,
+              "count": 5
+            },
+            {
+              "afxId": 18,
+              "level": 1,
+              "count": 1
+            }
+          ]
+        },
+        {
+          "level": 3,
+          "name": "GLISTENING BEAK OF MIDAS",
+          "rarityCount": 3,
+          "recipe": [
+            {
+              "afxId": 4,
+              "level": 2,
+              "count": 6
+            },
+            {
+              "afxId": 17,
+              "level": 2,
+              "count": 3
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "LIGHT_OF_EGGENDIL",
+      "afxId": 5,
+      "binaryId": "light_of_eggendil",
+      "pluralName": "LIGHT OF EGGENDILS",
+      "kind": 0,
+      "dimension": 5,
+      "order": 3,
+      "tiers": [
+        {
+          "level": 0,
+          "name": "DIM LIGHT OF EGGENDIL",
+          "rarityCount": 1,
+          "recipe": []
+        },
+        {
+          "level": 1,
+          "name": "SHIMMERING LIGHT OF EGGENDIL",
+          "rarityCount": 2,
+          "recipe": [
+            {
+              "afxId": 5,
+              "level": 0,
+              "count": 5
+            },
+            {
+              "afxId": 18,
+              "level": 2,
+              "count": 1
+            }
+          ]
+        },
+        {
+          "level": 2,
+          "name": "GLOWING LIGHT OF EGGENDIL",
+          "rarityCount": 2,
+          "recipe": [
+            {
+              "afxId": 5,
+              "level": 1,
+              "count": 7
+            },
+            {
+              "afxId": 11,
+              "level": 2,
+              "count": 4
+            }
+          ]
+        },
+        {
+          "level": 3,
+          "name": "BRILLIANT LIGHT OF EGGENDIL",
+          "rarityCount": 3,
+          "recipe": [
+            {
+              "afxId": 5,
+              "level": 2,
+              "count": 10
+            },
+            {
+              "afxId": 11,
+              "level": 3,
+              "count": 4
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "DEMETERS_NECKLACE",
+      "afxId": 6,
+      "binaryId": "demeters_necklace",
+      "pluralName": "DEMETERS NECKLACES",
+      "kind": 0,
+      "dimension": 5,
+      "order": 4,
+      "tiers": [
+        {
+          "level": 0,
+          "name": "SIMPLE DEMETERS NECKLACE",
+          "rarityCount": 1,
+          "recipe": []
+        },
+        {
+          "level": 1,
+          "name": "JEWELED DEMETERS NECKLACE",
+          "rarityCount": 2,
+          "recipe": [
+            {
+              "afxId": 6,
+              "level": 0,
+              "count": 3
+            }
+          ]
+        },
+        {
+          "level": 2,
+          "name": "PRISTINE DEMETERS NECKLACE",
+          "rarityCount": 3,
+          "recipe": [
+            {
+              "afxId": 6,
+              "level": 1,
+              "count": 5
+            },
+            {
+              "afxId": 9,
+              "level": 0,
+              "count": 2
+            }
+          ]
+        },
+        {
+          "level": 3,
+          "name": "BEGGSPOKE DEMETERS NECKLACE",
+          "rarityCount": 4,
+          "recipe": [
+            {
+              "afxId": 6,
+              "level": 2,
+              "count": 6
+            },
+            {
+              "afxId": 17,
+              "level": 2,
+              "count": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "VIAL_MARTIAN_DUST",
+      "afxId": 7,
+      "binaryId": "vial_of_martian_dust",
+      "pluralName": "VIALS OF MARTIAN DUST",
+      "kind": 0,
+      "dimension": 24,
+      "order": 5,
+      "tiers": [
+        {
+          "level": 0,
+          "name": "TINY VIAL OF MARTIAN DUST",
+          "rarityCount": 1,
+          "recipe": []
+        },
+        {
+          "level": 1,
+          "name": "VIAL OF MARTIAN DUST",
+          "rarityCount": 2,
+          "recipe": [
+            {
+              "afxId": 7,
+              "level": 0,
+              "count": 5
+            }
+          ]
+        },
+        {
+          "level": 2,
+          "name": "HERMETIC VIAL OF MARTIAN DUST",
+          "rarityCount": 2,
+          "recipe": [
+            {
+              "afxId": 7,
+              "level": 1,
+              "count": 7
+            },
+            {
+              "afxId": 43,
+              "level": 1,
+              "count": 2
+            }
+          ]
+        },
+        {
+          "level": 3,
+          "name": "PRIME VIAL OF MARTIAN DUST",
+          "rarityCount": 3,
+          "recipe": [
+            {
+              "afxId": 7,
+              "level": 2,
+              "count": 8
+            },
+            {
+              "afxId": 18,
+              "level": 2,
+              "count": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "ORNATE_GUSSET",
+      "afxId": 8,
+      "binaryId": "ornate_gusset",
+      "pluralName": "GUSSETS",
+      "kind": 0,
+      "dimension": 25,
+      "order": 6,
+      "tiers": [
+        {
+          "level": 0,
+          "name": "PLAIN GUSSET",
+          "rarityCount": 1,
+          "recipe": []
+        },
+        {
+          "level": 1,
+          "name": "ORNATE GUSSET",
+          "rarityCount": 2,
+          "recipe": [
+            {
+              "afxId": 8,
+              "level": 0,
+              "count": 5
+            }
+          ]
+        },
+        {
+          "level": 2,
+          "name": "DISTEGGUISHED GUSSET",
+          "rarityCount": 2,
+          "recipe": [
+            {
+              "afxId": 8,
+              "level": 1,
+              "count": 6
+            },
+            {
+              "afxId": 30,
+              "level": 1,
+              "count": 2
+            }
+          ]
+        },
+        {
+          "level": 3,
+          "name": "JEWELED GUSSET",
+          "rarityCount": 3,
+          "recipe": [
+            {
+              "afxId": 8,
+              "level": 2,
+              "count": 8
+            },
+            {
+              "afxId": 17,
+              "level": 2,
+              "count": 3
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "THE_CHALICE",
+      "afxId": 9,
+      "binaryId": "the_chalice",
+      "pluralName": "CHALICES",
+      "kind": 0,
+      "dimension": 4,
+      "order": 7,
+      "tiers": [
+        {
+          "level": 0,
+          "name": "PLAIN CHALICE",
+          "rarityCount": 1,
+          "recipe": []
+        },
+        {
+          "level": 1,
+          "name": "POLISHED CHALICE",
+          "rarityCount": 2,
+          "recipe": [
+            {
+              "afxId": 9,
+              "level": 0,
+              "count": 4
+            },
+            {
+              "afxId": 17,
+              "level": 1,
+              "count": 1
+            }
+          ]
+        },
+        {
+          "level": 2,
+          "name": "JEWELED CHALICE",
+          "rarityCount": 3,
+          "recipe": [
+            {
+              "afxId": 9,
+              "level": 1,
+              "count": 6
+            },
+            {
+              "afxId": 18,
+              "level": 1,
+              "count": 4
+            }
+          ]
+        },
+        {
+          "level": 3,
+          "name": "EGGCEPTIONAL CHALICE",
+          "rarityCount": 3,
+          "recipe": [
+            {
+              "afxId": 9,
+              "level": 2,
+              "count": 8
+            },
+            {
+              "afxId": 4,
+              "level": 3,
+              "count": 2
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "BOOK_OF_BASAN",
+      "afxId": 10,
+      "binaryId": "book_of_basan",
+      "pluralName": "BOOKS OF BASAN",
+      "kind": 0,
+      "dimension": 26,
+      "order": 8,
+      "tiers": [
+        {
+          "level": 0,
+          "name": "BOOK OF BASAN",
+          "rarityCount": 1,
+          "recipe": []
+        },
+        {
+          "level": 1,
+          "name": "COLLECTORS BOOK OF BASAN",
+          "rarityCount": 1,
+          "recipe": [
+            {
+              "afxId": 10,
+              "level": 0,
+              "count": 6
+            },
+            {
+              "afxId": 17,
+              "level": 2,
+              "count": 4
+            }
+          ]
+        },
+        {
+          "level": 2,
+          "name": "FORTIFIED BOOK OF BASAN",
+          "rarityCount": 2,
+          "recipe": [
+            {
+              "afxId": 10,
+              "level": 1,
+              "count": 10
+            },
+            {
+              "afxId": 9,
+              "level": 3,
+              "count": 3
+            }
+          ]
+        },
+        {
+          "level": 3,
+          "name": "GILDED BOOK OF BASAN",
+          "rarityCount": 3,
+          "recipe": [
+            {
+              "afxId": 10,
+              "level": 2,
+              "count": 12
+            },
+            {
+              "afxId": 5,
+              "level": 3,
+              "count": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "PHOENIX_FEATHER",
+      "afxId": 11,
+      "binaryId": "phoenix_feather",
+      "pluralName": "PHOENIX FEATHERS",
+      "kind": 0,
+      "dimension": 9,
+      "order": 9,
+      "tiers": [
+        {
+          "level": 0,
+          "name": "TATTERED PHOENIX FEATHER",
+          "rarityCount": 1,
+          "recipe": []
+        },
+        {
+          "level": 1,
+          "name": "PHOENIX FEATHER",
+          "rarityCount": 1,
+          "recipe": [
+            {
+              "afxId": 11,
+              "level": 0,
+              "count": 6
+            },
+            {
+              "afxId": 18,
+              "level": 1,
+              "count": 1
+            }
+          ]
+        },
+        {
+          "level": 2,
+          "name": "BRILLIANT PHOENIX FEATHER",
+          "rarityCount": 2,
+          "recipe": [
+            {
+              "afxId": 11,
+              "level": 1,
+              "count": 10
+            },
+            {
+              "afxId": 10,
+              "level": 0,
+              "count": 2
+            }
+          ]
+        },
+        {
+          "level": 3,
+          "name": "BLAZING PHOENIX FEATHER",
+          "rarityCount": 3,
+          "recipe": [
+            {
+              "afxId": 11,
+              "level": 2,
+              "count": 12
+            },
+            {
+              "afxId": 10,
+              "level": 2,
+              "count": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "TUNGSTEN_ANKH",
+      "afxId": 12,
+      "binaryId": "tungsten_ankh",
+      "pluralName": "TUNGSTEN ANKHS",
+      "kind": 0,
+      "dimension": 5,
+      "order": 10,
+      "tiers": [
+        {
+          "level": 0,
+          "name": "CRUDE TUNGSTEN ANKH",
+          "rarityCount": 1,
+          "recipe": []
+        },
+        {
+          "level": 1,
+          "name": "TUNGSTEN ANKH",
+          "rarityCount": 2,
+          "recipe": [
+            {
+              "afxId": 12,
+              "level": 0,
+              "count": 6
+            }
+          ]
+        },
+        {
+          "level": 2,
+          "name": "POLISHED TUNGSTEN ANKH",
+          "rarityCount": 3,
+          "recipe": [
+            {
+              "afxId": 12,
+              "level": 1,
+              "count": 7
+            },
+            {
+              "afxId": 43,
+              "level": 1,
+              "count": 2
+            }
+          ]
+        },
+        {
+          "level": 3,
+          "name": "BRILLIANT TUNGSTEN ANKH",
+          "rarityCount": 3,
+          "recipe": [
+            {
+              "afxId": 12,
+              "level": 2,
+              "count": 8
+            },
+            {
+              "afxId": 17,
+              "level": 2,
+              "count": 4
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "AURELIAN_BROOCH",
+      "afxId": 21,
+      "binaryId": "aurelian_brooch",
+      "pluralName": "AURELIAN BROOCHES",
+      "kind": 0,
+      "dimension": 13,
+      "order": 11,
+      "tiers": [
+        {
+          "level": 0,
+          "name": "PLAIN AURELIAN BROOCH",
+          "rarityCount": 1,
+          "recipe": []
+        },
+        {
+          "level": 1,
+          "name": "AURELIAN BROOCH",
+          "rarityCount": 1,
+          "recipe": [
+            {
+              "afxId": 21,
+              "level": 0,
+              "count": 5
+            }
+          ]
+        },
+        {
+          "level": 2,
+          "name": "JEWELED AURELIAN BROOCH",
+          "rarityCount": 3,
+          "recipe": [
+            {
+              "afxId": 21,
+              "level": 1,
+              "count": 7
+            },
+            {
+              "afxId": 6,
+              "level": 2,
+              "count": 2
+            }
+          ]
+        },
+        {
+          "level": 3,
+          "name": "EGGCEPTIONAL AURELIAN BROOCH",
+          "rarityCount": 4,
+          "recipe": [
+            {
+              "afxId": 21,
+              "level": 2,
+              "count": 10
+            },
+            {
+              "afxId": 17,
+              "level": 2,
+              "count": 2
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "CARVED_RAINSTICK",
+      "afxId": 22,
+      "binaryId": "carved_rainstick",
+      "pluralName": "CARVED RAINSTICKS",
+      "kind": 0,
+      "dimension": 17,
+      "order": 12,
+      "tiers": [
+        {
+          "level": 0,
+          "name": "SIMPLE CARVED RAINSTICK",
+          "rarityCount": 1,
+          "recipe": []
+        },
+        {
+          "level": 1,
+          "name": "CARVED RAINSTICK",
+          "rarityCount": 1,
+          "recipe": [
+            {
+              "afxId": 22,
+              "level": 0,
+              "count": 5
+            },
+            {
+              "afxId": 8,
+              "level": 0,
+              "count": 1
+            }
+          ]
+        },
+        {
+          "level": 2,
+          "name": "ORNATE CARVED RAINSTICK",
+          "rarityCount": 1,
+          "recipe": [
+            {
+              "afxId": 22,
+              "level": 1,
+              "count": 7
+            },
+            {
+              "afxId": 4,
+              "level": 2,
+              "count": 1
+            }
+          ]
+        },
+        {
+          "level": 3,
+          "name": "MEGGNIFICENT CARVED RAINSTICK",
+          "rarityCount": 3,
+          "recipe": [
+            {
+              "afxId": 22,
+              "level": 2,
+              "count": 9
+            },
+            {
+              "afxId": 18,
+              "level": 2,
+              "count": 2
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "PUZZLE_CUBE",
+      "afxId": 23,
+      "binaryId": "puzzle_cube",
+      "pluralName": "PUZZLE CUBES",
+      "kind": 0,
+      "dimension": 18,
+      "order": 13,
+      "tiers": [
+        {
+          "level": 0,
+          "name": "ANCIENT PUZZLE CUBE",
+          "rarityCount": 1,
+          "recipe": []
+        },
+        {
+          "level": 1,
+          "name": "PUZZLE CUBE",
+          "rarityCount": 2,
+          "recipe": [
+            {
+              "afxId": 23,
+              "level": 0,
+              "count": 3
+            }
+          ]
+        },
+        {
+          "level": 2,
+          "name": "MYSTICAL PUZZLE CUBE",
+          "rarityCount": 2,
+          "recipe": [
+            {
+              "afxId": 23,
+              "level": 1,
+              "count": 7
+            },
+            {
+              "afxId": 8,
+              "level": 0,
+              "count": 2
+            }
+          ]
+        },
+        {
+          "level": 3,
+          "name": "UNSOLVABLE PUZZLE CUBE",
+          "rarityCount": 4,
+          "recipe": [
+            {
+              "afxId": 23,
+              "level": 2,
+              "count": 10
+            },
+            {
+              "afxId": 17,
+              "level": 2,
+              "count": 2
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "QUANTUM_METRONOME",
+      "afxId": 24,
+      "binaryId": "quantum_metronome",
+      "pluralName": "QUANTUM METRONOMES",
+      "kind": 0,
+      "dimension": 6,
+      "order": 14,
+      "tiers": [
+        {
+          "level": 0,
+          "name": "MISALIGNED QUANTUM METRONOME",
+          "rarityCount": 1,
+          "recipe": []
+        },
+        {
+          "level": 1,
+          "name": "ADEQUATE QUANTUM METRONOME",
+          "rarityCount": 2,
+          "recipe": [
+            {
+              "afxId": 24,
+              "level": 0,
+              "count": 5
+            },
+            {
+              "afxId": 29,
+              "level": 0,
+              "count": 2
+            }
+          ]
+        },
+        {
+          "level": 2,
+          "name": "PERFECT QUANTUM METRONOME",
+          "rarityCount": 3,
+          "recipe": [
+            {
+              "afxId": 24,
+              "level": 1,
+              "count": 7
+            },
+            {
+              "afxId": 30,
+              "level": 2,
+              "count": 4
+            }
+          ]
+        },
+        {
+          "level": 3,
+          "name": "REGGFERENCE QUANTUM METRONOME",
+          "rarityCount": 4,
+          "recipe": [
+            {
+              "afxId": 24,
+              "level": 2,
+              "count": 9
+            },
+            {
+              "afxId": 18,
+              "level": 2,
+              "count": 4
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "SHIP_IN_A_BOTTLE",
+      "afxId": 25,
+      "binaryId": "ship_in_a_bottle",
+      "pluralName": "SHIPS IN BOTTLES",
+      "kind": 0,
+      "dimension": 22,
+      "order": 15,
+      "tiers": [
+        {
+          "level": 0,
+          "name": "SHIP IN A BOTTLE",
+          "rarityCount": 1,
+          "recipe": []
+        },
+        {
+          "level": 1,
+          "name": "DETAILED SHIP IN A BOTTLE",
+          "rarityCount": 1,
+          "recipe": [
+            {
+              "afxId": 25,
+              "level": 0,
+              "count": 6
+            },
+            {
+              "afxId": 6,
+              "level": 3,
+              "count": 2
+            }
+          ]
+        },
+        {
+          "level": 2,
+          "name": "COMPLEX SHIP IN A BOTTLE",
+          "rarityCount": 2,
+          "recipe": [
+            {
+              "afxId": 25,
+              "level": 1,
+              "count": 9
+            },
+            {
+              "afxId": 43,
+              "level": 2,
+              "count": 3
+            }
+          ]
+        },
+        {
+          "level": 3,
+          "name": "EGGQUISITE SHIP IN A BOTTLE",
+          "rarityCount": 4,
+          "recipe": [
+            {
+              "afxId": 25,
+              "level": 2,
+              "count": 12
+            },
+            {
+              "afxId": 10,
+              "level": 2,
+              "count": 2
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "TACHYON_DEFLECTOR",
+      "afxId": 26,
+      "binaryId": "tachyon_deflector",
+      "pluralName": "TACHYON DEFLECTORS",
+      "kind": 0,
+      "dimension": 23,
+      "order": 16,
+      "tiers": [
+        {
+          "level": 0,
+          "name": "WEAK TACHYON DEFLECTOR",
+          "rarityCount": 1,
+          "recipe": []
+        },
+        {
+          "level": 1,
+          "name": "TACHYON DEFLECTOR",
+          "rarityCount": 1,
+          "recipe": [
+            {
+              "afxId": 26,
+              "level": 0,
+              "count": 6
+            },
+            {
+              "afxId": 25,
+              "level": 1,
+              "count": 2
+            }
+          ]
+        },
+        {
+          "level": 2,
+          "name": "ROBUST TACHYON DEFLECTOR",
+          "rarityCount": 2,
+          "recipe": [
+            {
+              "afxId": 26,
+              "level": 1,
+              "count": 10
+            },
+            {
+              "afxId": 24,
+              "level": 3,
+              "count": 1
+            }
+          ]
+        },
+        {
+          "level": 3,
+          "name": "EGGCEPTIONAL TACHYON DEFLECTOR",
+          "rarityCount": 4,
+          "recipe": [
+            {
+              "afxId": 26,
+              "level": 2,
+              "count": 12
+            },
+            {
+              "afxId": 25,
+              "level": 3,
+              "count": 4
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "INTERSTELLAR_COMPASS",
+      "afxId": 27,
+      "binaryId": "interstellar_compass",
+      "pluralName": "INTERSTELLAR COMPASSES",
+      "kind": 0,
+      "dimension": 19,
+      "order": 17,
+      "tiers": [
+        {
+          "level": 0,
+          "name": "MISCALIBRATED INTERSTELLAR COMPASS",
+          "rarityCount": 1,
+          "recipe": []
+        },
+        {
+          "level": 1,
+          "name": "INTERSTELLAR COMPASS",
+          "rarityCount": 1,
+          "recipe": [
+            {
+              "afxId": 27,
+              "level": 0,
+              "count": 6
+            }
+          ]
+        },
+        {
+          "level": 2,
+          "name": "PRECISE INTERSTELLAR COMPASS",
+          "rarityCount": 2,
+          "recipe": [
+            {
+              "afxId": 27,
+              "level": 1,
+              "count": 8
+            },
+            {
+              "afxId": 43,
+              "level": 1,
+              "count": 4
+            }
+          ]
+        },
+        {
+          "level": 3,
+          "name": "CLAIRVOYANT INTERSTELLAR COMPASS",
+          "rarityCount": 4,
+          "recipe": [
+            {
+              "afxId": 27,
+              "level": 2,
+              "count": 10
+            },
+            {
+              "afxId": 18,
+              "level": 2,
+              "count": 4
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "DILITHIUM_MONOCLE",
+      "afxId": 28,
+      "binaryId": "dilithium_monocle",
+      "pluralName": "DILITHIUM MONOCLES",
+      "kind": 0,
+      "dimension": 7,
+      "order": 18,
+      "tiers": [
+        {
+          "level": 0,
+          "name": "DILITHIUM MONOCLE",
+          "rarityCount": 1,
+          "recipe": []
+        },
+        {
+          "level": 1,
+          "name": "PRECISE DILITHIUM MONOCLE",
+          "rarityCount": 1,
+          "recipe": [
+            {
+              "afxId": 28,
+              "level": 0,
+              "count": 5
+            },
+            {
+              "afxId": 29,
+              "level": 0,
+              "count": 1
+            }
+          ]
+        },
+        {
+          "level": 2,
+          "name": "EGGSACTING DILITHIUM MONOCLE",
+          "rarityCount": 1,
+          "recipe": [
+            {
+              "afxId": 28,
+              "level": 1,
+              "count": 8
+            },
+            {
+              "afxId": 43,
+              "level": 2,
+              "count": 2
+            }
+          ]
+        },
+        {
+          "level": 3,
+          "name": "FLAWLESS DILITHIUM MONOCLE",
+          "rarityCount": 3,
+          "recipe": [
+            {
+              "afxId": 28,
+              "level": 2,
+              "count": 10
+            },
+            {
+              "afxId": 30,
+              "level": 3,
+              "count": 2
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "TITANIUM_ACTUATOR",
+      "afxId": 29,
+      "binaryId": "titanium_actuator",
+      "pluralName": "TITANIUM ACTUATORS",
+      "kind": 0,
+      "dimension": 20,
+      "order": 19,
+      "tiers": [
+        {
+          "level": 0,
+          "name": "INCONSISTENT TITANIUM ACTUATOR",
+          "rarityCount": 1,
+          "recipe": []
+        },
+        {
+          "level": 1,
+          "name": "TITANIUM ACTUATOR",
+          "rarityCount": 1,
+          "recipe": [
+            {
+              "afxId": 29,
+              "level": 0,
+              "count": 4
+            },
+            {
+              "afxId": 43,
+              "level": 1,
+              "count": 4
+            }
+          ]
+        },
+        {
+          "level": 2,
+          "name": "PRECISE TITANIUM ACTUATOR",
+          "rarityCount": 2,
+          "recipe": [
+            {
+              "afxId": 29,
+              "level": 1,
+              "count": 6
+            },
+            {
+              "afxId": 43,
+              "level": 2,
+              "count": 3
+            }
+          ]
+        },
+        {
+          "level": 3,
+          "name": "REGGFERENCE TITANIUM ACTUATOR",
+          "rarityCount": 3,
+          "recipe": [
+            {
+              "afxId": 29,
+              "level": 2,
+              "count": 8
+            },
+            {
+              "afxId": 24,
+              "level": 3,
+              "count": 3
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "MERCURYS_LENS",
+      "afxId": 30,
+      "binaryId": "mercurys_lens",
+      "pluralName": "MERCURY'S LENSES",
+      "kind": 0,
+      "dimension": 21,
+      "order": 20,
+      "tiers": [
+        {
+          "level": 0,
+          "name": "MISALIGNED MERCURY'S LENS",
+          "rarityCount": 1,
+          "recipe": []
+        },
+        {
+          "level": 1,
+          "name": "MERCURY'S LENS",
+          "rarityCount": 2,
+          "recipe": [
+            {
+              "afxId": 30,
+              "level": 0,
+              "count": 6
+            }
+          ]
+        },
+        {
+          "level": 2,
+          "name": "PRECISE MERCURY'S LENS",
+          "rarityCount": 2,
+          "recipe": [
+            {
+              "afxId": 30,
+              "level": 1,
+              "count": 8
+            },
+            {
+              "afxId": 18,
+              "level": 1,
+              "count": 2
+            }
+          ]
+        },
+        {
+          "level": 3,
+          "name": "MEGGNIFICENT MERCURY'S LENS",
+          "rarityCount": 4,
+          "recipe": [
+            {
+              "afxId": 30,
+              "level": 2,
+              "count": 10
+            },
+            {
+              "afxId": 43,
+              "level": 2,
+              "count": 6
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "TACHYON_STONE",
+      "afxId": 1,
+      "binaryId": "tachyon_stone",
+      "pluralName": "TACHYON STONES",
+      "kind": 1,
+      "dimension": 6,
+      "order": 21,
+      "tiers": [
+        {
+          "level": 0,
+          "name": "TACHYON STONE",
+          "rarityCount": 1,
+          "recipe": [
+            {
+              "afxId": 2,
+              "level": 0,
+              "count": 20
+            }
+          ]
+        },
+        {
+          "level": 1,
+          "name": "EGGSQUISITE TACHYON STONE",
+          "rarityCount": 1,
+          "recipe": [
+            {
+              "afxId": 1,
+              "level": 0,
+              "count": 15
+            }
+          ]
+        },
+        {
+          "level": 2,
+          "name": "BRILLIANT TACHYON STONE",
+          "rarityCount": 1,
+          "recipe": [
+            {
+              "afxId": 1,
+              "level": 1,
+              "count": 20
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "DILITHIUM_STONE",
+      "afxId": 31,
+      "binaryId": "dilithium_stone",
+      "pluralName": "DILITHIUM STONES",
+      "kind": 1,
+      "dimension": 8,
+      "order": 22,
+      "tiers": [
+        {
+          "level": 0,
+          "name": "DILITHIUM STONE",
+          "rarityCount": 1,
+          "recipe": [
+            {
+              "afxId": 44,
+              "level": 0,
+              "count": 20
+            }
+          ]
+        },
+        {
+          "level": 1,
+          "name": "EGGSQUISITE DILITHIUM STONE",
+          "rarityCount": 1,
+          "recipe": [
+            {
+              "afxId": 31,
+              "level": 0,
+              "count": 12
+            }
+          ]
+        },
+        {
+          "level": 2,
+          "name": "BRILLIANT DILITHIUM STONE",
+          "rarityCount": 1,
+          "recipe": [
+            {
+              "afxId": 31,
+              "level": 1,
+              "count": 15
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "SHELL_STONE",
+      "afxId": 32,
+      "binaryId": "shell_stone",
+      "pluralName": "SHELL STONES",
+      "kind": 1,
+      "dimension": 5,
+      "order": 23,
+      "tiers": [
+        {
+          "level": 0,
+          "name": "SHELL STONE",
+          "rarityCount": 1,
+          "recipe": [
+            {
+              "afxId": 45,
+              "level": 0,
+              "count": 20
+            }
+          ]
+        },
+        {
+          "level": 1,
+          "name": "EGGSQUISITE SHELL STONE",
+          "rarityCount": 1,
+          "recipe": [
+            {
+              "afxId": 32,
+              "level": 0,
+              "count": 20
+            }
+          ]
+        },
+        {
+          "level": 2,
+          "name": "FLAWLESS SHELL STONE",
+          "rarityCount": 1,
+          "recipe": [
+            {
+              "afxId": 31,
+              "level": 1,
+              "count": 5
+            },
+            {
+              "afxId": 32,
+              "level": 1,
+              "count": 10
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "LUNAR_STONE",
+      "afxId": 33,
+      "binaryId": "lunar_stone",
+      "pluralName": "LUNAR STONES",
+      "kind": 1,
+      "dimension": 3,
+      "order": 24,
+      "tiers": [
+        {
+          "level": 0,
+          "name": "LUNAR STONE",
+          "rarityCount": 1,
+          "recipe": [
+            {
+              "afxId": 46,
+              "level": 0,
+              "count": 20
+            }
+          ]
+        },
+        {
+          "level": 1,
+          "name": "EGGSQUISITE LUNAR STONE",
+          "rarityCount": 1,
+          "recipe": [
+            {
+              "afxId": 33,
+              "level": 0,
+              "count": 20
+            }
+          ]
+        },
+        {
+          "level": 2,
+          "name": "MEGGNIFICENT LUNAR STONE",
+          "rarityCount": 1,
+          "recipe": [
+            {
+              "afxId": 33,
+              "level": 1,
+              "count": 25
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "SOUL_STONE",
+      "afxId": 34,
+      "binaryId": "soul_stone",
+      "pluralName": "SOUL STONES",
+      "kind": 1,
+      "dimension": 12,
+      "order": 25,
+      "tiers": [
+        {
+          "level": 0,
+          "name": "SOUL STONE",
+          "rarityCount": 1,
+          "recipe": [
+            {
+              "afxId": 47,
+              "level": 0,
+              "count": 20
+            }
+          ]
+        },
+        {
+          "level": 1,
+          "name": "EGGSQUISITE SOUL STONE",
+          "rarityCount": 1,
+          "recipe": [
+            {
+              "afxId": 34,
+              "level": 0,
+              "count": 15
+            }
+          ]
+        },
+        {
+          "level": 2,
+          "name": "RADIANT SOUL STONE",
+          "rarityCount": 1,
+          "recipe": [
+            {
+              "afxId": 34,
+              "level": 1,
+              "count": 20
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "PROPHECY_STONE",
+      "afxId": 39,
+      "binaryId": "prophecy_stone",
+      "pluralName": "PROPHECY STONES",
+      "kind": 1,
+      "dimension": 26,
+      "order": 26,
+      "tiers": [
+        {
+          "level": 0,
+          "name": "PROPHECY STONE",
+          "rarityCount": 1,
+          "recipe": [
+            {
+              "afxId": 48,
+              "level": 0,
+              "count": 20
+            }
+          ]
+        },
+        {
+          "level": 1,
+          "name": "EGGSQUISITE PROPHECY STONE",
+          "rarityCount": 1,
+          "recipe": [
+            {
+              "afxId": 39,
+              "level": 0,
+              "count": 10
+            }
+          ]
+        },
+        {
+          "level": 2,
+          "name": "RADIANT PROPHECY STONE",
+          "rarityCount": 1,
+          "recipe": [
+            {
+              "afxId": 39,
+              "level": 1,
+              "count": 12
+            },
+            {
+              "afxId": 34,
+              "level": 2,
+              "count": 2
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "QUANTUM_STONE",
+      "afxId": 36,
+      "binaryId": "quantum_stone",
+      "pluralName": "QUANTUM STONES",
+      "kind": 1,
+      "dimension": 19,
+      "order": 27,
+      "tiers": [
+        {
+          "level": 0,
+          "name": "QUANTUM STONE",
+          "rarityCount": 1,
+          "recipe": [
+            {
+              "afxId": 49,
+              "level": 0,
+              "count": 20
+            }
+          ]
+        },
+        {
+          "level": 1,
+          "name": "PHASED QUANTUM STONE",
+          "rarityCount": 1,
+          "recipe": [
+            {
+              "afxId": 36,
+              "level": 0,
+              "count": 15
+            }
+          ]
+        },
+        {
+          "level": 2,
+          "name": "MEGGNIFICENT QUANTUM STONE",
+          "rarityCount": 1,
+          "recipe": [
+            {
+              "afxId": 36,
+              "level": 1,
+              "count": 20
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "TERRA_STONE",
+      "afxId": 37,
+      "binaryId": "terra_stone",
+      "pluralName": "TERRA STONES",
+      "kind": 1,
+      "dimension": 24,
+      "order": 28,
+      "tiers": [
+        {
+          "level": 0,
+          "name": "TERRA STONE",
+          "rarityCount": 1,
+          "recipe": [
+            {
+              "afxId": 50,
+              "level": 0,
+              "count": 20
+            }
+          ]
+        },
+        {
+          "level": 1,
+          "name": "RICH TERRA STONE",
+          "rarityCount": 1,
+          "recipe": [
+            {
+              "afxId": 37,
+              "level": 0,
+              "count": 15
+            }
+          ]
+        },
+        {
+          "level": 2,
+          "name": "EGGCEPTIONAL TERRA STONE",
+          "rarityCount": 1,
+          "recipe": [
+            {
+              "afxId": 37,
+              "level": 1,
+              "count": 20
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "LIFE_STONE",
+      "afxId": 38,
+      "binaryId": "life_stone",
+      "pluralName": "LIFE STONES",
+      "kind": 1,
+      "dimension": 4,
+      "order": 29,
+      "tiers": [
+        {
+          "level": 0,
+          "name": "LIFE STONE",
+          "rarityCount": 1,
+          "recipe": [
+            {
+              "afxId": 51,
+              "level": 0,
+              "count": 20
+            }
+          ]
+        },
+        {
+          "level": 1,
+          "name": "GOOD LIFE STONE",
+          "rarityCount": 1,
+          "recipe": [
+            {
+              "afxId": 38,
+              "level": 0,
+              "count": 12
+            }
+          ]
+        },
+        {
+          "level": 2,
+          "name": "EGGCEPTIONAL LIFE STONE",
+          "rarityCount": 1,
+          "recipe": [
+            {
+              "afxId": 38,
+              "level": 1,
+              "count": 15
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "CLARITY_STONE",
+      "afxId": 40,
+      "binaryId": "clarity_stone",
+      "pluralName": "CLARITY STONES",
+      "kind": 1,
+      "dimension": 29,
+      "order": 30,
+      "tiers": [
+        {
+          "level": 0,
+          "name": "CLARITY STONE",
+          "rarityCount": 1,
+          "recipe": [
+            {
+              "afxId": 52,
+              "level": 0,
+              "count": 20
+            }
+          ]
+        },
+        {
+          "level": 1,
+          "name": "EGGSQUISITE CLARITY STONE",
+          "rarityCount": 1,
+          "recipe": [
+            {
+              "afxId": 40,
+              "level": 0,
+              "count": 10
+            },
+            {
+              "afxId": 39,
+              "level": 0,
+              "count": 2
+            }
+          ]
+        },
+        {
+          "level": 2,
+          "name": "EGGCEPTIONAL CLARITY STONE",
+          "rarityCount": 1,
+          "recipe": [
+            {
+              "afxId": 40,
+              "level": 1,
+              "count": 20
+            },
+            {
+              "afxId": 39,
+              "level": 2,
+              "count": 2
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "TACHYON_STONE_FRAGMENT",
+      "afxId": 2,
+      "binaryId": "tachyon_stone_fragment",
+      "pluralName": "TACHYON STONE FRAGMENTS",
+      "kind": 3,
+      "dimension": 0,
+      "order": 31,
+      "tiers": [
+        {
+          "level": 0,
+          "name": "TACHYON STONE FRAGMENT",
+          "rarityCount": 1,
+          "recipe": []
+        }
+      ]
+    },
+    {
+      "name": "DILITHIUM_STONE_FRAGMENT",
+      "afxId": 44,
+      "binaryId": "dilithium_stone_fragment",
+      "pluralName": "DILITHIUM STONE FRAGMENTS",
+      "kind": 3,
+      "dimension": 0,
+      "order": 32,
+      "tiers": [
+        {
+          "level": 0,
+          "name": "DILITHIUM STONE FRAGMENT",
+          "rarityCount": 1,
+          "recipe": []
+        }
+      ]
+    },
+    {
+      "name": "SHELL_STONE_FRAGMENT",
+      "afxId": 45,
+      "binaryId": "shell_stone_fragment",
+      "pluralName": "SHELL STONE FRAGMENTS",
+      "kind": 3,
+      "dimension": 0,
+      "order": 33,
+      "tiers": [
+        {
+          "level": 0,
+          "name": "SHELL STONE FRAGMENT",
+          "rarityCount": 1,
+          "recipe": []
+        }
+      ]
+    },
+    {
+      "name": "LUNAR_STONE_FRAGMENT",
+      "afxId": 46,
+      "binaryId": "lunar_stone_fragment",
+      "pluralName": "LUNAR STONE FRAGMENTS",
+      "kind": 3,
+      "dimension": 0,
+      "order": 34,
+      "tiers": [
+        {
+          "level": 0,
+          "name": "LUNAR STONE FRAGMENT",
+          "rarityCount": 1,
+          "recipe": []
+        }
+      ]
+    },
+    {
+      "name": "SOUL_STONE_FRAGMENT",
+      "afxId": 47,
+      "binaryId": "soul_stone_fragment",
+      "pluralName": "SOUL STONE FRAGMENTS",
+      "kind": 3,
+      "dimension": 0,
+      "order": 35,
+      "tiers": [
+        {
+          "level": 0,
+          "name": "SOUL STONE FRAGMENT",
+          "rarityCount": 1,
+          "recipe": []
+        }
+      ]
+    },
+    {
+      "name": "PROPHECY_STONE_FRAGMENT",
+      "afxId": 48,
+      "binaryId": "prophecy_stone_fragment",
+      "pluralName": "PROPHECY STONE FRAGMENTS",
+      "kind": 3,
+      "dimension": 0,
+      "order": 36,
+      "tiers": [
+        {
+          "level": 0,
+          "name": "PROPHECY STONE FRAGMENT",
+          "rarityCount": 1,
+          "recipe": []
+        }
+      ]
+    },
+    {
+      "name": "QUANTUM_STONE_FRAGMENT",
+      "afxId": 49,
+      "binaryId": "quantum_stone_fragment",
+      "pluralName": "QUANTUM STONE FRAGMENTS",
+      "kind": 3,
+      "dimension": 0,
+      "order": 37,
+      "tiers": [
+        {
+          "level": 0,
+          "name": "QUANTUM STONE FRAGMENT",
+          "rarityCount": 1,
+          "recipe": []
+        }
+      ]
+    },
+    {
+      "name": "TERRA_STONE_FRAGMENT",
+      "afxId": 50,
+      "binaryId": "terra_stone_fragment",
+      "pluralName": "TERRA STONE FRAGMENTS",
+      "kind": 3,
+      "dimension": 0,
+      "order": 38,
+      "tiers": [
+        {
+          "level": 0,
+          "name": "TERRA STONE FRAGMENT",
+          "rarityCount": 1,
+          "recipe": []
+        }
+      ]
+    },
+    {
+      "name": "LIFE_STONE_FRAGMENT",
+      "afxId": 51,
+      "binaryId": "life_stone_fragment",
+      "pluralName": "LIFE STONE FRAGMENTS",
+      "kind": 3,
+      "dimension": 0,
+      "order": 39,
+      "tiers": [
+        {
+          "level": 0,
+          "name": "LIFE STONE FRAGMENT",
+          "rarityCount": 1,
+          "recipe": []
+        }
+      ]
+    },
+    {
+      "name": "CLARITY_STONE_FRAGMENT",
+      "afxId": 52,
+      "binaryId": "clarity_stone_fragment",
+      "pluralName": "CLARITY STONE FRAGMENTS",
+      "kind": 3,
+      "dimension": 0,
+      "order": 40,
+      "tiers": [
+        {
+          "level": 0,
+          "name": "CLARITY STONE FRAGMENT",
+          "rarityCount": 1,
+          "recipe": []
+        }
+      ]
+    },
+    {
+      "name": "GOLD_METEORITE",
+      "afxId": 17,
+      "binaryId": "gold_meteorite",
+      "pluralName": "GOLD METEORITES",
+      "kind": 2,
+      "dimension": 0,
+      "order": 41,
+      "tiers": [
+        {
+          "level": 0,
+          "name": "TINY GOLD METEORITE",
+          "rarityCount": 1,
+          "recipe": []
+        },
+        {
+          "level": 1,
+          "name": "ENRICHED GOLD METEORITE",
+          "rarityCount": 1,
+          "recipe": [
+            {
+              "afxId": 17,
+              "level": 0,
+              "count": 9
+            }
+          ]
+        },
+        {
+          "level": 2,
+          "name": "SOLID GOLD METEORITE",
+          "rarityCount": 1,
+          "recipe": [
+            {
+              "afxId": 17,
+              "level": 1,
+              "count": 11
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "TAU_CETI_GEODE",
+      "afxId": 18,
+      "binaryId": "tau_centi_geode",
+      "pluralName": "GEODES",
+      "kind": 2,
+      "dimension": 0,
+      "order": 42,
+      "tiers": [
+        {
+          "level": 0,
+          "name": "TAU CETI GEODE PIECE",
+          "rarityCount": 1,
+          "recipe": []
+        },
+        {
+          "level": 1,
+          "name": "GLIMMERING TAU CETI GEODE",
+          "rarityCount": 1,
+          "recipe": [
+            {
+              "afxId": 18,
+              "level": 0,
+              "count": 12
+            }
+          ]
+        },
+        {
+          "level": 2,
+          "name": "RADIANT TAU CETI GEODE",
+          "rarityCount": 1,
+          "recipe": [
+            {
+              "afxId": 18,
+              "level": 1,
+              "count": 14
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "SOLAR_TITANIUM",
+      "afxId": 43,
+      "binaryId": "solar_titanium",
+      "pluralName": "SOLAR TITANIUM",
+      "kind": 2,
+      "dimension": 0,
+      "order": 43,
+      "tiers": [
+        {
+          "level": 0,
+          "name": "SOLAR TITANIUM ORE",
+          "rarityCount": 1,
+          "recipe": []
+        },
+        {
+          "level": 1,
+          "name": "SOLAR TITANIUM BAR",
+          "rarityCount": 1,
+          "recipe": [
+            {
+              "afxId": 43,
+              "level": 0,
+              "count": 10
+            }
+          ]
+        },
+        {
+          "level": 2,
+          "name": "SOLAR TITANIUM GEOGON",
+          "rarityCount": 1,
+          "recipe": [
+            {
+              "afxId": 43,
+              "level": 1,
+              "count": 12
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "dimensionLabels": {
+    "0": "[hatchery not supported]",
+    "1": "[hatchery not supported]",
+    "2": "earnings",
+    "3": "away earnings",
+    "4": "internal hatchery rate",
+    "5": "egg value",
+    "6": "egg laying rate",
+    "7": "boost boost",
+    "8": "boost duration",
+    "9": "Soul Egg collection rate",
+    "10": "cash",
+    "11": "earnings bonus",
+    "12": "bonus per Soul Egg",
+    "13": "drone rewards",
+    "14": "drone frequency",
+    "15": "gift rewards",
+    "16": "chance of gold in gifts and drones",
+    "18": "research cost",
+    "19": "shipping rate",
+    "20": "hold to hatch rate",
+    "21": "farm valuation",
+    "22": "co-op teammates' earnings",
+    "23": "co-op teammates' egg laying rate",
+    "24": "max running chicken bonus",
+    "25": "hab capacity",
+    "26": "bonus per egg of prophecy",
+    "27": "soul eggs collected",
+    "28": "enlightenment egg costs",
+    "29": "effect on enlightenment",
+    "34": "shell price"
+  },
+  "binaryVersion": "1.37",
+  "provenance": {
+    "identity": {
+      "origin": "binary",
+      "locator": "artifactdata",
+      "method": "decoded"
+    },
+    "labels": {
+      "origin": "binary",
+      "locator": "GameDimensions::name_str",
+      "method": "decoded"
+    }
+  }
+}

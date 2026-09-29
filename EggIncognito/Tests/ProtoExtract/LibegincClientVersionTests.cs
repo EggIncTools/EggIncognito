@@ -212,6 +212,26 @@ public class LibegincClientVersionTests {
         Assert.Equal(72, LibegincClientVersion.Read(ms.ToArray()));
     }
 
+    private const uint OrrHasBit8W8 = 0x321D0108;
+    private const uint StrW8X19Has = 0xB9001268;
+    private const uint StrW8X19Version = 0xB9003268;
+
+    [Fact]
+    public void ReadFromBinary_BackupVersionStore_DecodesMovz() =>
+        Assert.Equal(10, LibegincClientVersion.ReadFromBinary(
+            SoWithSymbol(Raw(OrrHasBit8W8, StrW8X19Has, Movz(8, 10), StrW8X19Version), "_Z7unrelatedv", TextVa)));
+
+    [Fact]
+    public void ReadFromBinary_BackupVersionStore_DecodesOrrBitmask() =>
+        Assert.Equal(24, LibegincClientVersion.ReadFromBinary(
+            SoWithSymbol(Raw(OrrHasBit8W8, StrW8X19Has, 0x321D07E8, StrW8X19Version), "_Z7unrelatedv", TextVa)));
+
+    [Fact]
+    public void ReadFromBinary_BackupVersionStore_ConflictingValues_ReturnsNull() =>
+        Assert.Null(LibegincClientVersion.ReadFromBinary(SoWithSymbol(Raw(
+            OrrHasBit8W8, StrW8X19Has, Movz(8, 10), StrW8X19Version,
+            OrrHasBit8W8, StrW8X19Has, Movz(8, 11), StrW8X19Version), "_Z7unrelatedv", TextVa)));
+
     [Fact]
     public void ReadFromBinary_NoSymbol_ReturnsNull() =>
         Assert.Null(LibegincClientVersion.ReadFromBinary(SoWithSymbol(ConstReturn(72), "_Z7unrelatedv", TextVa)));

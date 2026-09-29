@@ -91,6 +91,15 @@ public class ApiWorkbenchDatasetHashTests {
     }
 
     [Fact]
+    public void ApplyHash_ReadsCoverage() {
+        var state = new ApiWorkbenchState();
+        Assert.True(state.ApplyHash("#api/coverage"));
+        Assert.Equal(ApiSelectionKind.Coverage, state.Kind);
+        Assert.Equal(ApiWorkbenchState.ModeData, state.Mode);
+        Assert.Equal("api/coverage", state.Hash());
+    }
+
+    [Fact]
     public void ApplyHash_LeavesTheStateAloneWhenItDoesNotMatch() {
         var state = new ApiWorkbenchState();
         state.SelectDataset("gamedata", "mission", null);

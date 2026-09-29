@@ -10,6 +10,7 @@ COPY EggIncognito.Data/EggIncognito.Data.csproj EggIncognito.Data/
 COPY EggIncognito.Bot/EggIncognito.Bot.csproj EggIncognito.Bot/
 COPY EggIncognito.RouteGenerator/EggIncognito.RouteGenerator.csproj EggIncognito.RouteGenerator/
 COPY EggIncognito.GameData/EggIncognito.GameData.csproj EggIncognito.GameData/
+COPY EggIncognito.Artifacts/EggIncognito.Artifacts.csproj EggIncognito.Artifacts/
 COPY EggIncognito.CssBuild/EggIncognito.CssBuild.csproj EggIncognito.CssBuild/
 COPY EggIncognito/EggIncognito.csproj EggIncognito/
 ARG GITHUB_PACKAGES_USER
@@ -28,6 +29,7 @@ COPY EggIncognito.Data/ EggIncognito.Data/
 COPY EggIncognito.Bot/ EggIncognito.Bot/
 COPY EggIncognito.RouteGenerator/ EggIncognito.RouteGenerator/
 COPY EggIncognito.GameData/ EggIncognito.GameData/
+COPY EggIncognito.Artifacts/ EggIncognito.Artifacts/
 COPY EggIncognito.CssBuild/ EggIncognito.CssBuild/
 COPY EggIncognito/ EggIncognito/
 

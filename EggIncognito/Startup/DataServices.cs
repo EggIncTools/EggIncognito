@@ -3,6 +3,7 @@ using EggIncognito.Data.Services;
 using EggIncognito.Services;
 using EggIncognito.Services.Admin;
 using EggIncognito.Services.Contracts;
+using EggIncognito.Services.Coverage;
 using EggIncognito.Services.DataApi;
 using EggIncognito.Services.Devices;
 using EggIncognito.Services.Docs;
@@ -115,6 +116,7 @@ public static class DataServices {
 
         builder.Services.AddSingleton<ConsumeObservationRecorder>();
         builder.Services.AddHostedService(sp => sp.GetRequiredService<ConsumeObservationRecorder>());
+        builder.Services.AddScoped<ConsumeCoverageService>();
         builder.Services.AddScoped<CaptureCredentialStore>();
         builder.Services.AddScoped<CaptureAddressStore>();
         builder.Services.AddScoped<ProtoRegistryStore>();

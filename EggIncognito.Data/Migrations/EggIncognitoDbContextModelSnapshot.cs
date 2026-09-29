@@ -534,6 +534,60 @@ namespace EggIncognito.Data.Migrations
                     b.ToTable("contributed_captures");
                 });
 
+            modelBuilder.Entity("EggIncognito.Data.Models.ConsumeCoverageTarget", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<bool>("Enabled")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true)
+                        .HasColumnName("enabled");
+
+                    b.Property<int>("ItemTarget")
+                        .HasColumnType("integer")
+                        .HasColumnName("item_target");
+
+                    b.Property<int>("ObservationTarget")
+                        .HasColumnType("integer")
+                        .HasColumnName("observation_target");
+
+                    b.Property<string>("SpecLevel")
+                        .HasColumnType("text")
+                        .HasColumnName("spec_level");
+
+                    b.Property<string>("SpecName")
+                        .HasColumnType("text")
+                        .HasColumnName("spec_name");
+
+                    b.Property<string>("SpecRarity")
+                        .HasColumnType("text")
+                        .HasColumnName("spec_rarity");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at")
+                        .HasDefaultValueSql("now()");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SpecName", "SpecLevel", "SpecRarity")
+                        .IsUnique()
+                        .HasAnnotation("Npgsql:NullsDistinct", false);
+
+                    b.ToTable("consume_coverage_targets");
+                });
+
             modelBuilder.Entity("EggIncognito.Data.Models.Device", b =>
                 {
                     b.Property<string>("Id")

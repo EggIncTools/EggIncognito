@@ -1,0 +1,243 @@
+@using System.Text.Json
+@using EggIncognito.Artifacts
+@using EggIncognito.GameData
+@using EggIncognito.Models.Coverage
+@using EggIncognito.Services.Coverage
+@inherits SelfCallComponentBase
+@inject IServiceScopeFactory Scopes
+@inject ToastService Toasts
+@inject ILogger<ConsumeCoveragePane> Logger
+@inject ICurrentUser User
+
+@if (User.IsAtLeast(UserRole.Admin)) {
+    @if (_noDb) {
+        <div class="awb-pane">
+            <h4 class="awb-pane-title">Consume coverage</h4>
+            <StatusNote Severity="StatusNoteKind.Error">No database configured.</StatusNote>
+        </div>
+    } else if (_map is null) {
+        @if (_loaded) {
+            <div class="awb-pane">
+                <h4 class="awb-pane-title">Consume coverage</h4>
+                <StatusNote Severity="StatusNoteKind.Error">The artifact catalog is not loaded.</StatusNote>
+            </div>
+        }
+    } else {
+        <div class="awb-pane">
+            <h4 class="awb-pane-title">Consume coverage</h4>
+            <div class="wbx-kpis cov-kpis">
+                <div class="wbx-kpi"><span class="wbx-kpi-n">@Pct(_map.Validity)</span><span class="wbx-kpi-k">Validity</span></div>
+                <div class="wbx-kpi"><span class="wbx-kpi-n">@_map.CellsComplete/@_map.CellsInScope</span><span class="wbx-kpi-k">Cells complete</span></div>
+                <div class="wbx-kpi"><span class="wbx-kpi-n">@_map.Items</span><span class="wbx-kpi-k">Items</span></div>
+                <div class="wbx-kpi"><span class="wbx-kpi-n">@_map.Observations</span><span class="wbx-kpi-k">Observations</span></div>
+                <div class="wbx-kpi"><span class="wbx-kpi-n">@_map.PendingItems</span><span class="wbx-kpi-k">Pending items</span></div>
+            </div>
+            <div class="reg-wrap cov-wrap">
+                <table class="data-table cov-table">
+                    <thead>
+                    <tr>
+                        <th>Family</th>
+                        <th>Validity</th>
+                        <th>Cells</th>
+                        <th>Items</th>
+                        <th>Obs</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    @foreach (var f in _map.Families) {
+                        <tr class="reg-row cursor-pointer" @key="f.SpecName" @onclick="() => Toggle(f.SpecName)">
+                            <td>
+                                <span class="cov-fam">
+                                    <span class="ep-caret @(Open(f) ? "ep-caret-open" : "")"></span>
+                                    @if (f.Tiers.Count > 0) {
+                                        <img class="cov-fam-ico" src="@IconSrc(f.SpecName, f.Tiers[^1].AfxLevel)" alt="" loading="lazy"/>
+                                    }
+                                    @f.PluralName
+                                </span>
+                            </td>
+                            <td><span class="wbx-bar-track cov-bar"><span class="wbx-bar-fill" style="@Fill(f.Validity)"></span></span></td>
+                            <td class="font-mono">@f.CellsComplete/@f.CellsInScope</td>
+                            <td class="font-mono">@f.Items</td>
+                            <td class="font-mono">@f.Observations</td>
+                        </tr>
+                        @if (Open(f)) {
+                            <tr class="cov-grid-row">
+                                <td colspan="5">
+                                    <div class="cov-grid">
+                                        <span></span>
+                                        @foreach (var head in RarityHeads) {
+                                            <span class="cov-head">@head</span>
+                                        }
+                                        @foreach (var t in f.Tiers) {
+                                            <span class="cov-tier">@t.Name</span>
+                                            @for (int r = 0; r < RarityHeads.Length; r++) {
+                                                var cell = t.Cells.FirstOrDefault(c => c.AfxRarity == r);
+                                                if (cell is null) {
+                                                    <span class="cov-cell-none"></span>
+                                                    continue;
+                                                }
+
+                                                <button type="button" class="cov-cell @(cell.InScope ? "" : "cov-cell-off") @(Selected(f, t, cell) ? "cov-cell-sel" : "")"
+                                                        style="@CellStyle(cell)" @onclick="() => Select(f, t, cell)">
+                                                    <span class="cov-disc bg-r-@cell.AfxRarity"><img src="@IconSrc(f.SpecName, t.AfxLevel)" alt="" loading="lazy"/></span>
+                                                    <span class="cov-nk">@cell.Items/@cell.Observations</span>
+                                                </button>
+                                            }
+                                        }
+                                    </div>
+                                    @if (_sel is { } s && s.Family == f.SpecName) {
+                                        @Detail(s.Cell)
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+}
+
+@code {
+    static readonly string[] RarityHeads = ["Common", "Rare", "Epic", "Legendary"];
+    static readonly string[] ScopeNames = ["Cell", "Tier", "Family", "Rarity", "Global"];
+    static readonly JsonSerializerOptions JsonOpts = new(JsonSerializerDefaults.Web);
+
+    ConsumeCoverageMap? _map;
+    bool _noDb;
+    bool _loaded;
+    bool _busy;
+    readonly HashSet<string> _open = new(StringComparer.Ordinal);
+    CoverageSelection? _sel;
+    string _scope = "Cell";
+    int _itemTarget;
+    int _obsTarget;
+    bool _enabled = true;
+
+    protected override async Task OnInitializedAsync() {
+        if (!User.IsAtLeast(UserRole.Admin)) return;
+        await LoadAsync();
+    }
+
+    async Task LoadAsync() {
+        using var scope = Scopes.CreateScope();
+        var svc = scope.ServiceProvider.GetService<ConsumeCoverageService>();
+        if (svc is null) {
+            _noDb = true;
+            _loaded = true;
+            return;
+        }
+
+        try {
+            _map = await svc.MapAsync(CancellationToken.None);
+        } catch (Exception ex) when (ex is JsonException or InvalidOperationException or GameDataSchemaException) {
+            Logger.LogWarning(ex, "consume coverage could not be built");
+            _map = null;
+        }
+
+        _loaded = true;
+        if (_sel is { } s) Reselect(s);
+    }
+
+    void Reselect(CoverageSelection s) {
+        var cell = _map?.Families.FirstOrDefault(f => f.SpecName == s.Family)?.Tiers
+            .FirstOrDefault(t => t.Level == s.Level)?.Cells.FirstOrDefault(c => c.Rarity == s.Rarity);
+        _sel = cell is null ? null : s with { Cell = cell };
+    }
+
+    bool Open(CoverageFamily f) => _open.Contains(f.SpecName);
+
+    void Toggle(string spec) {
+        if (!_open.Remove(spec)) _open.Add(spec);
+    }
+
+    bool Selected(CoverageFamily f, CoverageTier t, CoverageCell c) =>
+        _sel is { } s && s.Family == f.SpecName && s.Level == t.Level && s.Rarity == c.Rarity;
+
+    void Select(CoverageFamily f, CoverageTier t, CoverageCell c) {
+        _sel = new CoverageSelection(f.SpecName, t.Level, c.Rarity, c);
+        _scope = "Cell";
+        _itemTarget = c.ItemTarget;
+        _obsTarget = c.ObservationTarget;
+        _enabled = c.InScope;
+    }
+
+    CoverageTargetRequest RequestFor(CoverageSelection s) => _scope switch {
+        "Tier" => new(s.Family, s.Level, null, _itemTarget, _obsTarget, _enabled),
+        "Family" => new(s.Family, null, null, _itemTarget, _obsTarget, _enabled),
+        "Rarity" => new(null, null, s.Rarity, _itemTarget, _obsTarget, _enabled),
+        "Global" => new(null, null, null, _itemTarget, _obsTarget, _enabled),
+        _ => new(s.Family, s.Level, s.Rarity, _itemTarget, _obsTarget, _enabled)
+    };
+
+    async Task Save() {
+        if (_sel is not { } s) return;
+        await Write(c => c.PutAsJsonAsync("/api/admin/consume-coverage/targets", RequestFor(s), JsonOpts), "Target saved.");
+    }
+
+    async Task Remove(long id) =>
+        await Write(c => c.DeleteAsync($"/api/admin/consume-coverage/targets/{id}"), "Target removed.");
+
+    async Task Write(Func<HttpClient, Task<HttpResponseMessage>> call, string ok) {
+        _busy = true;
+        try {
+            using var res = await call(Client());
+            if (res.IsSuccessStatusCode) {
+                Toasts.Push(StatusNoteKind.Ok, ok);
+                await LoadAsync();
+            } else {
+                Toasts.Push(StatusNoteKind.Error, await ReadError(res));
+            }
+        } catch (Exception ex) when (ex is HttpRequestException or JsonException or TaskCanceledException) {
+            Logger.LogWarning(ex, "consume coverage target write failed");
+            Toasts.Push(StatusNoteKind.Error, "The target could not be saved.");
+        } finally {
+            _busy = false;
+        }
+    }
+
+    static async Task<string> ReadError(HttpResponseMessage res) {
+        try {
+            var body = await res.Content.ReadFromJsonAsync<ApiError>(JsonOpts);
+            if (body?.Error is { Length: > 0 } e) return e;
+        } catch (JsonException) {
+        }
+
+        return $"failed ({(int)res.StatusCode})";
+    }
+
+    static string IconSrc(string spec, int level) => ArtifactAssets.IconPath(ArtifactAssets.KeyFor(spec), level + 1);
+
+    static string Fill(double v) => FormattableString.Invariant($"--fill:{v * 100:0.#}%;");
+
+    static string CellStyle(CoverageCell c) => FormattableString.Invariant($"--v:{c.Validity:0.###};");
+
+    static string Pct(double v) => FormattableString.Invariant($"{v * 100:0.#}%");
+
+    RenderFragment Detail(CoverageCell c) => @<div class="cov-detail">
+        <dl class="pd-identity-facts">
+            <div><dt>Items</dt><dd>@c.Items / @c.ItemTarget</dd></div>
+            <div><dt>Observations</dt><dd>@c.Observations / @c.ObservationTarget</dd></div>
+            <div><dt>Pending</dt><dd>@c.PendingItems / @c.PendingObservations</dd></div>
+            <div><dt>Short</dt><dd>@c.ItemsShort items, @c.ObservationsShort obs</dd></div>
+            <div><dt>Next</dt><dd>@c.ObservationsShort x consume @c.SuggestedBatch</dd></div>
+        </dl>
+        <div class="dwb-bar">
+            <div class="dwb-bar-group">
+                @foreach (var sc in ScopeNames) {
+                    <label class="cov-scope"><input type="radio" class="wb-radio" name="cov-scope" checked="@(_scope == sc)" @onchange="() => _scope = sc"/>@sc</label>
+                }
+            </div>
+            <div class="dwb-bar-group">
+                <input type="number" min="1" class="reg-filter-input cov-num" aria-label="Item target" @bind="_itemTarget"/>
+                <input type="number" min="1" class="reg-filter-input cov-num" aria-label="Observation target" @bind="_obsTarget"/>
+                <label class="cov-scope"><input type="checkbox" checked="@_enabled" @onchange="e => _enabled = e.Value is true"/>Enabled</label>
+                <button type="button" class="btn-primary" disabled="@_busy" @onclick="Save">Save</button>
+                @if (_scope == "Cell" && c.CellTargetId is { } id) {
+                    <button type="button" class="btn-mini" disabled="@_busy" @onclick="() => Remove(id)">Reset</button>
+                }
+            </div>
+        </div>
+    </div>;
+}

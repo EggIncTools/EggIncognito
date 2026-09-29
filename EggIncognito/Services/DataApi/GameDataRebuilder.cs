@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json.Nodes;
+using EggIncognito.Artifacts;
 using EggIncognito.Core;
 using EggIncognito.Core.Services;
 using EggIncognito.Core.Services.ProtoExtract;
@@ -145,6 +146,7 @@ public sealed class GameDataRebuilder(
             }, ct);
         }
 
+        CheckArtifactDefinitions(results, candidates);
         await LandColleggtiblesAsync(results, ct);
         await LandArtifactCatalogAsync(results, ct);
         AppendUnbuildable(results);
@@ -156,6 +158,31 @@ public sealed class GameDataRebuilder(
         LogUnbuilt(results);
         await DispatchRebuiltAsync(ct);
         return (results, note);
+    }
+
+    private const string ArtifactDefinitionsId = "artifact-definitions";
+
+    private static void CheckArtifactDefinitions(List<RebuildDocResult> results, IReadOnlyList<Candidate> candidates) {
+        var c = candidates.FirstOrDefault(x => x.IsElf);
+        if (c is null) {
+            results.Add(new RebuildDocResult(ArtifactDefinitionsId, "skipped", null, null, "no Android candidate"));
+            return;
+        }
+
+        try {
+            var table = ArtifactTableExtractor.ExtractWith(c.Bin, c.Syms);
+            var labels = DimensionLabelExtractor.ExtractWith(c.Bin, c.Syms);
+            var parsed = ArtifactDefinitions.Parse(ArtifactDefinitionsBuilder.Build(table, labels, c.Version));
+            bool same = string.Equals(ArtifactDefinitions.Fingerprint(parsed.Families, parsed.Labels),
+                ArtifactDefinitions.Fingerprint(ArtifactDefinitions.All, ArtifactDefinitions.Labels),
+                StringComparison.Ordinal);
+            results.Add(new RebuildDocResult(ArtifactDefinitionsId, same ? "current" : "drift", parsed.Families.Count,
+                null, same
+                    ? $"{c.Platform} {c.Version}"
+                    : $"snapshot {ArtifactDefinitions.BinaryVersion} differs from {c.Platform} {c.Version}; regenerate via write_artifact_definitions"));
+        } catch (Exception ex) {
+            results.Add(new RebuildDocResult(ArtifactDefinitionsId, "failed", null, null, ex.Message));
+        }
     }
 
     private async Task DispatchRebuiltAsync(CancellationToken ct) {

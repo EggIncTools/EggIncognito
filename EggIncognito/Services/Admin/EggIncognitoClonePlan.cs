@@ -27,6 +27,7 @@ public static class EggIncognitoClonePlan {
         new TablePolicy("env_designs", ClonePolicy.Full) { UserIdColumns = ["owner_user_id"] },
         new TablePolicy("env_design_versions", ClonePolicy.Full) { UserIdColumns = ["author_user_id"] },
         new TablePolicy("artifact_consume_observations", ClonePolicy.Full),
+        new TablePolicy("consume_coverage_targets", ClonePolicy.Full),
         new TablePolicy("site_theme_policy", ClonePolicy.Full) { UserIdColumns = ["updated_by_user_id"] },
 
         new TablePolicy("contributed_captures", ClonePolicy.Scrub) {

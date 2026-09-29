@@ -31,7 +31,7 @@ public static class LibegincClientVersion {
         }
 
         if (arm32) return null;
-        return ScanBasicRequestInfoCv(img) ?? ScanPerRequestCv(img);
+        return ScanBasicRequestInfoCv(img) ?? ScanPerRequestCv(img) ?? ScanBackupVersionCv(img);
     }
 
     private static int? DecodeGetter(IBinaryImage img, byte[] bin, MachoSymbols.FuncRange fn, bool arm32) {
@@ -115,6 +115,52 @@ public static class LibegincClientVersion {
         _ = textVa;
         var best = hits.Values.Where(h => h.Sites >= MinPerRequestCallSites).ToList();
         return best.Count == 1 ? best[0].Value : null;
+    }
+
+    private const int BackupVersionFieldOffset = 0x30;
+    private const ulong BackupVersionHasBit = 0x8;
+
+    private static int? ScanBackupVersionCv(IBinaryImage img) {
+        if (!img.TryFindText(out int fo, out int size, out _)) return null;
+        byte[] b = img.Bytes;
+        long end = Math.Min((long)fo + size, b.Length);
+        if (fo < 0 || end - fo < 16) return null;
+
+        var values = new HashSet<int>();
+        for (long p = fo; p + 16 <= end; p += 4) {
+            uint orr = Word(b, p);
+            if ((orr & 0xFF800000) != 0x32000000) continue;
+            int hasReg = (int)(orr & 0x1F);
+            if ((int)((orr >> 5) & 0x1F) != hasReg) continue;
+            if (DecodeBitMask(0, (int)((orr >> 16) & 0x3F), (int)((orr >> 10) & 0x3F), 32) != BackupVersionHasBit) continue;
+
+            uint strHas = Word(b, p + 4);
+            if ((strHas & 0xFFC00000) != 0xB9000000) continue;
+            if ((int)(strHas & 0x1F) != hasReg) continue;
+            if (((strHas >> 10) & 0xFFF) != HasBitsFieldOffset / 4) continue;
+            int baseReg = (int)((strHas >> 5) & 0x1F);
+
+            if (DecodeMovImm32(Word(b, p + 8), out int cvReg) is not { } cv) continue;
+            if (cv is < 1 or > MaxClientVersion) continue;
+
+            uint strCv = Word(b, p + 12);
+            if ((strCv & 0xFFC00000) != 0xB9000000) continue;
+            if ((int)(strCv & 0x1F) != cvReg) continue;
+            if ((int)((strCv >> 5) & 0x1F) != baseReg) continue;
+            if (((strCv >> 10) & 0xFFF) != BackupVersionFieldOffset / 4) continue;
+
+            values.Add(cv);
+        }
+
+        return values.Count == 1 ? values.First() : null;
+    }
+
+    private static int? DecodeMovImm32(uint ins, out int rd) {
+        rd = (int)(ins & 0x1F);
+        if ((ins & 0xFFE00000) == 0x52800000) return (int)((ins >> 5) & 0xFFFF);
+        if ((ins & 0xFF8003E0) != 0x320003E0) return null;
+        ulong? bm = DecodeBitMask(0, (int)((ins >> 16) & 0x3F), (int)((ins >> 10) & 0x3F), 32);
+        return bm is null or > int.MaxValue ? null : (int)bm.Value;
     }
 
     private static bool IsProtoFieldStoreSequence(byte[] b, long blAt, long end) {
