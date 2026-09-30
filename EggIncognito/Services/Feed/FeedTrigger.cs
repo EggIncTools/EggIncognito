@@ -7,11 +7,12 @@ public static class FeedTrigger {
         string trigger, bool created, bool protoChanged, VersionDelta delta, bool flawed,
         IReadOnlyList<string> subPlatforms, string evtPlatform) {
         if (!subPlatforms.Contains(evtPlatform)) return false;
+        if (delta != VersionDelta.Forward) return false;
 
         return trigger switch {
-            FeedEventKinds.TriggerVersionUp => delta == VersionDelta.Forward,
+            FeedEventKinds.TriggerVersionUp => true,
             FeedEventKinds.TriggerProtoChanged => protoChanged,
-            FeedEventKinds.TriggerSuspect => flawed || delta is VersionDelta.Backfill or VersionDelta.Unknown,
+            FeedEventKinds.TriggerSuspect => flawed,
             _ => created
         };
     }

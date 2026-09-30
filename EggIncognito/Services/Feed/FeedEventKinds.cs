@@ -43,9 +43,9 @@ public static class FeedEventKinds {
         ProtoBuild, "Proto build",
         [
             new FeedTriggerOption(TriggerVersionUp, "New version"),
-            new FeedTriggerOption(TriggerProtoChanged, "Proto changed"),
-            new FeedTriggerOption(TriggerNewVersion, "Any registry insert"),
-            new FeedTriggerOption(TriggerSuspect, "Suspect extraction")
+            new FeedTriggerOption(TriggerProtoChanged, "New version, proto changed"),
+            new FeedTriggerOption(TriggerNewVersion, "New version, first insert"),
+            new FeedTriggerOption(TriggerSuspect, "New version, suspect extraction")
         ],
         [
             "platform", "appVersion", "build", "clientVersion", "protoSha", "protoChanged", "pageUrl",

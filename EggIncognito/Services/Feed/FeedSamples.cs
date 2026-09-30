@@ -29,8 +29,8 @@ public static class FeedSamples {
             Proto("android", "1.36.0", "111350", "71", SampleSha, true, true,
                 VersionDelta.Backfill, "1.37.0", "111358", true)),
         new("broken", "Failed extraction",
-            Proto("ios", "1.36.4", "111340", null, "", true, true,
-                VersionDelta.Unknown, "1.37.0", "1.37.0.1", false))
+            Proto("ios", "1.37.1", "111340", null, "", true, true,
+                VersionDelta.Forward, "1.37.0", "1.37.0.1", false))
     ];
 
     private static ConfigChangedEvent Config(string feed, ConfigChangeSummary? change) =>

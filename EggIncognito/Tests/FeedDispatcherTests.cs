@@ -39,7 +39,7 @@ public class FeedDispatcherTests {
         new(feed, sha, "https://x/periodicals");
 
     private static ProtoBuildEvent ProtoEvt(bool protoChanged, string platform = "android", int id = 7) =>
-        new(id, platform, "1.0", "111343", "72", "sha", true, protoChanged, "https://x/y");
+        new(id, platform, "1.0", "111343", "72", "sha", true, protoChanged, "https://x/y", VersionDelta.Forward);
 
     [Fact]
     public async Task ProtoChanged_Fires_OnChange() {
@@ -219,8 +219,27 @@ public class FeedDispatcherTests {
 
     private static ProtoBuildEvent BrokenIosEvt(int id = 42) {
         var flaws = ProtoVersionQuality.Flaws("ios", "111340", null, "", false);
-        return new ProtoBuildEvent(id, "ios", "1.36.4", "111340", null, "", true, true, "https://x/y",
-            VersionDelta.Unknown, "1.37.0", "1.37.0.1", flaws);
+        return new ProtoBuildEvent(id, "ios", "1.37.1", "111340", null, "", true, true, "https://x/y",
+            VersionDelta.Forward, "1.37.0", "1.37.0.1", flaws);
+    }
+
+    [Fact]
+    public async Task Backfill_NeverReachesAnyProtoSubscription() {
+        var store = new FakeStore(
+            Sub(1, FeedEventKinds.TriggerVersionUp, "android"),
+            Sub(2, FeedEventKinds.TriggerProtoChanged, "android"),
+            Sub(3, FeedEventKinds.TriggerNewVersion, "android"),
+            Sub(4, FeedEventKinds.TriggerSuspect, "android"));
+        var handler = new StubHandler(_ => new HttpResponseMessage(HttpStatusCode.NoContent));
+        var d = Dispatcher(store, handler);
+
+        await d.DispatchAsync(ProtoEvt(true) with { Delta = VersionDelta.Backfill, ProtoVersionId = 1 });
+        await d.DispatchAsync(ProtoEvt(true) with { Delta = VersionDelta.Unknown, ProtoVersionId = 2 });
+        await d.DispatchAsync(BrokenIosEvt(3) with { Delta = VersionDelta.Backfill });
+
+        Assert.Equal(0, handler.Posts);
+        Assert.Empty(store.Deliveries);
+        Assert.Empty(store.Suppressions);
     }
 
     [Fact]
@@ -247,7 +266,7 @@ public class FeedDispatcherTests {
         var blocked = Assert.Single(store.Suppressions);
         Assert.Contains(FeedEventKinds.FilterRequireClientVersion, blocked.Reason, StringComparison.Ordinal);
         Assert.Contains(FeedEventKinds.FilterSaneBuild, blocked.Reason, StringComparison.Ordinal);
-        Assert.Contains(FeedEventKinds.FilterKnownDelta, blocked.Reason, StringComparison.Ordinal);
+        Assert.DoesNotContain(FeedEventKinds.FilterKnownDelta, blocked.Reason, StringComparison.Ordinal);
     }
 
     [Fact]
