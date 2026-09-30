@@ -173,8 +173,10 @@ public sealed class GameDataRebuilder(
             var table = ArtifactTableExtractor.ExtractWith(c.Bin, c.Syms);
             var labels = DimensionLabelExtractor.ExtractWith(c.Bin, c.Syms);
             var parsed = ArtifactDefinitions.Parse(ArtifactDefinitionsBuilder.Build(table, labels, c.Version));
-            bool same = string.Equals(ArtifactDefinitions.Fingerprint(parsed.Families, parsed.Labels),
-                ArtifactDefinitions.Fingerprint(ArtifactDefinitions.All, ArtifactDefinitions.Labels),
+            bool same = string.Equals(
+                ArtifactDefinitions.Fingerprint(parsed.Families, parsed.Labels, parsed.EffectTemplate),
+                ArtifactDefinitions.Fingerprint(ArtifactDefinitions.All, ArtifactDefinitions.Labels,
+                    ArtifactDefinitions.EffectTemplate),
                 StringComparison.Ordinal);
             results.Add(new RebuildDocResult(ArtifactDefinitionsId, same ? "current" : "drift", parsed.Families.Count,
                 null, same

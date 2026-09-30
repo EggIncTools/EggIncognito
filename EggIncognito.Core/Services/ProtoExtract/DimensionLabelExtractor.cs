@@ -7,6 +7,7 @@ public static class DimensionLabelExtractor {
     public const string Symbol = "_ZN14GameDimensions8name_strEP14GameControllerNS_4NameE";
     private const int CaseBudget = 24;
     private const int SsoCapacity = 23;
+    private const ulong TraceSpan = 0x140;
 
     private static readonly (int Index, string Label)[] Anchors =
         [(3, "away earnings"), (12, "bonus per Soul Egg"), (14, "drone frequency")];
@@ -16,20 +17,23 @@ public static class DimensionLabelExtractor {
     public static Result ExtractWith(byte[] bin, IReadOnlyList<MachoSymbols.Symbol> syms) {
         var img = BinaryImage.Load(bin);
         if (img is null) return Fail("no binary image");
-        var head = Arm64DataTableReader.ListWith(bin, syms.Count > 0 ? syms : img.Symbols, [Symbol], 32);
+        syms = syms.Count > 0 ? syms : img.Symbols;
+        var head = Arm64DataTableReader.ListWith(bin, syms, [Symbol], 32);
         if (!head.Ok) return Fail(head.Diagnostics);
 
         if (!TryReadSwitch(head.Instructions, out int count, out ulong tableVa, out ulong baseVa))
             return Fail("name_str jump table not recognised");
 
         bool shortFirst = img is ElfImage;
+        var calls = new PltCallResolver(bin, img);
         var labels = new Dictionary<int, string>();
         for (int i = 0; i < count; i++) {
             if (!img.TryVaToFileOffset(tableVa + (ulong)(2 * i), out int fo, out _) || fo + 2 > bin.Length)
                 return Fail($"jump table entry {i} unreadable");
             ulong target = baseVa + ((ulong)BitConverter.ToUInt16(bin, fo) << 2);
-            if (ReadCase(bin, img, target, shortFirst) is not { } label) continue;
-            if (label.Length == 0 || label.EndsWith(' ') || label == "unknown") continue;
+            string? label = ReadCase(bin, img, target, shortFirst);
+            if (label is null || label.EndsWith(' ')) label = TraceCase(bin, img, calls, syms, target) ?? label;
+            if (label is null || label.Length == 0 || label.EndsWith(' ') || label == "unknown") continue;
             labels[i] = label;
         }
 
@@ -69,6 +73,12 @@ public static class DimensionLabelExtractor {
         }
 
         return false;
+    }
+
+    private static string? TraceCase(byte[] bin, IBinaryImage img, PltCallResolver calls,
+        IReadOnlyList<MachoSymbols.Symbol> syms, ulong start) {
+        var trace = Arm64StringTracer.Run(bin, img, calls, syms, start, start + TraceSpan, true);
+        return trace.Template.Contains("{currency}", StringComparison.Ordinal) ? trace.Template : null;
     }
 
     private static string? ReadCase(byte[] bin, IBinaryImage img, ulong start, bool shortFirst) {

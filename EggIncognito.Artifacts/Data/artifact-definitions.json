@@ -8,12 +8,20 @@
       "kind": 0,
       "dimension": 3,
       "order": 0,
+      "description": "Modify away earnings",
       "tiers": [
         {
           "level": 0,
           "name": "BASIC LUNAR TOTEM",
           "rarityCount": 1,
-          "recipe": []
+          "recipe": [],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 2,
+              "template": ""
+            }
+          ]
         },
         {
           "level": 1,
@@ -24,6 +32,18 @@
               "afxId": 0,
               "level": 0,
               "count": 3
+            }
+          ],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 4,
+              "template": ""
+            },
+            {
+              "rarity": 1,
+              "magnitude": 8,
+              "template": ""
             }
           ]
         },
@@ -36,6 +56,18 @@
               "afxId": 0,
               "level": 1,
               "count": 6
+            }
+          ],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 20,
+              "template": ""
+            },
+            {
+              "rarity": 1,
+              "magnitude": 40,
+              "template": ""
             }
           ]
         },
@@ -54,6 +86,28 @@
               "level": 1,
               "count": 1
             }
+          ],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 50,
+              "template": ""
+            },
+            {
+              "rarity": 1,
+              "magnitude": 100,
+              "template": ""
+            },
+            {
+              "rarity": 2,
+              "magnitude": 150,
+              "template": ""
+            },
+            {
+              "rarity": 3,
+              "magnitude": 200,
+              "template": ""
+            }
           ]
         }
       ]
@@ -66,12 +120,20 @@
       "kind": 0,
       "dimension": 14,
       "order": 1,
+      "description": "Increase drone frequency",
       "tiers": [
         {
           "level": 0,
           "name": "WEAK NEODYMIUM MEDALLION",
           "rarityCount": 1,
-          "recipe": []
+          "recipe": [],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 1.1,
+              "template": ""
+            }
+          ]
         },
         {
           "level": 1,
@@ -82,6 +144,18 @@
               "afxId": 3,
               "level": 0,
               "count": 4
+            }
+          ],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 1.25,
+              "template": ""
+            },
+            {
+              "rarity": 1,
+              "magnitude": 1.3,
+              "template": ""
             }
           ]
         },
@@ -100,6 +174,18 @@
               "level": 1,
               "count": 1
             }
+          ],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 1.5,
+              "template": ""
+            },
+            {
+              "rarity": 2,
+              "magnitude": 1.6,
+              "template": ""
+            }
           ]
         },
         {
@@ -117,6 +203,28 @@
               "level": 2,
               "count": 2
             }
+          ],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 2,
+              "template": ""
+            },
+            {
+              "rarity": 1,
+              "magnitude": 2.1,
+              "template": ""
+            },
+            {
+              "rarity": 2,
+              "magnitude": 2.2,
+              "template": ""
+            },
+            {
+              "rarity": 3,
+              "magnitude": 2.3,
+              "template": ""
+            }
           ]
         }
       ]
@@ -129,12 +237,20 @@
       "kind": 0,
       "dimension": 16,
       "order": 2,
+      "description": "Increase gold reward chance",
       "tiers": [
         {
           "level": 0,
           "name": "DULL BEAK OF MIDAS",
           "rarityCount": 1,
-          "recipe": []
+          "recipe": [],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 1.2,
+              "template": ""
+            }
+          ]
         },
         {
           "level": 1,
@@ -145,6 +261,13 @@
               "afxId": 4,
               "level": 0,
               "count": 4
+            }
+          ],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 1.5,
+              "template": ""
             }
           ]
         },
@@ -163,6 +286,18 @@
               "level": 1,
               "count": 1
             }
+          ],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 2,
+              "template": ""
+            },
+            {
+              "rarity": 1,
+              "magnitude": 3,
+              "template": ""
+            }
           ]
         },
         {
@@ -180,6 +315,23 @@
               "level": 2,
               "count": 3
             }
+          ],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 6,
+              "template": ""
+            },
+            {
+              "rarity": 1,
+              "magnitude": 11,
+              "template": ""
+            },
+            {
+              "rarity": 3,
+              "magnitude": 0,
+              "template": "Gold gifts and drone rewards guaranteed!"
+            }
           ]
         }
       ]
@@ -192,12 +344,20 @@
       "kind": 0,
       "dimension": 5,
       "order": 3,
+      "description": "Enlightenment egg value increase",
       "tiers": [
         {
           "level": 0,
           "name": "DIM LIGHT OF EGGENDIL",
           "rarityCount": 1,
-          "recipe": []
+          "recipe": [],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 1.5,
+              "template": "Enlightenment egg value increased by \u001Bg{value:5}"
+            }
+          ]
         },
         {
           "level": 1,
@@ -213,6 +373,18 @@
               "afxId": 18,
               "level": 2,
               "count": 1
+            }
+          ],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 2,
+              "template": "Enlightenment egg value increased by \u001Bg{value:5}"
+            },
+            {
+              "rarity": 1,
+              "magnitude": 2.2,
+              "template": "Enlightenment egg value increased by \u001Bg{value:5}"
             }
           ]
         },
@@ -231,6 +403,18 @@
               "level": 2,
               "count": 4
             }
+          ],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 10,
+              "template": "Enlightenment egg value increased by \u001Bg{value:5}"
+            },
+            {
+              "rarity": 1,
+              "magnitude": 15,
+              "template": "Enlightenment egg value increased by \u001Bg{value:5}"
+            }
           ]
         },
         {
@@ -248,6 +432,23 @@
               "level": 3,
               "count": 4
             }
+          ],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 100,
+              "template": "Enlightenment egg value increased by \u001Bg{value:5}"
+            },
+            {
+              "rarity": 2,
+              "magnitude": 150,
+              "template": "Enlightenment egg value increased by \u001Bg{value:5}"
+            },
+            {
+              "rarity": 3,
+              "magnitude": 250,
+              "template": "Enlightenment egg value increased by \u001Bg{value:5}"
+            }
           ]
         }
       ]
@@ -260,12 +461,20 @@
       "kind": 0,
       "dimension": 5,
       "order": 4,
+      "description": "Increase egg value",
       "tiers": [
         {
           "level": 0,
           "name": "SIMPLE DEMETERS NECKLACE",
           "rarityCount": 1,
-          "recipe": []
+          "recipe": [],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 1.1,
+              "template": ""
+            }
+          ]
         },
         {
           "level": 1,
@@ -276,6 +485,18 @@
               "afxId": 6,
               "level": 0,
               "count": 3
+            }
+          ],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 1.25,
+              "template": ""
+            },
+            {
+              "rarity": 1,
+              "magnitude": 1.35,
+              "template": ""
             }
           ]
         },
@@ -294,6 +515,23 @@
               "level": 0,
               "count": 2
             }
+          ],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 1.5,
+              "template": ""
+            },
+            {
+              "rarity": 1,
+              "magnitude": 1.6,
+              "template": ""
+            },
+            {
+              "rarity": 2,
+              "magnitude": 1.75,
+              "template": ""
+            }
           ]
         },
         {
@@ -311,6 +549,28 @@
               "level": 2,
               "count": 1
             }
+          ],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 2,
+              "template": ""
+            },
+            {
+              "rarity": 1,
+              "magnitude": 2.25,
+              "template": ""
+            },
+            {
+              "rarity": 2,
+              "magnitude": 2.5,
+              "template": ""
+            },
+            {
+              "rarity": 3,
+              "magnitude": 3,
+              "template": ""
+            }
           ]
         }
       ]
@@ -323,12 +583,20 @@
       "kind": 0,
       "dimension": 24,
       "order": 5,
+      "description": "Increase max running chicken bonus",
       "tiers": [
         {
           "level": 0,
           "name": "TINY VIAL OF MARTIAN DUST",
           "rarityCount": 1,
-          "recipe": []
+          "recipe": [],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 10,
+              "template": "Increases max running chicken bonus by \u001Bg{comma}"
+            }
+          ]
         },
         {
           "level": 1,
@@ -339,6 +607,18 @@
               "afxId": 7,
               "level": 0,
               "count": 5
+            }
+          ],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 50,
+              "template": "Increases max running chicken bonus by \u001Bg{comma}"
+            },
+            {
+              "rarity": 1,
+              "magnitude": 60,
+              "template": "Increases max running chicken bonus by \u001Bg{comma}"
             }
           ]
         },
@@ -357,6 +637,18 @@
               "level": 1,
               "count": 2
             }
+          ],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 100,
+              "template": "Increases max running chicken bonus by \u001Bg{comma}"
+            },
+            {
+              "rarity": 2,
+              "magnitude": 150,
+              "template": "Increases max running chicken bonus by \u001Bg{comma}"
+            }
           ]
         },
         {
@@ -374,6 +666,23 @@
               "level": 2,
               "count": 1
             }
+          ],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 200,
+              "template": "Increases max running chicken bonus by \u001Bg{comma}"
+            },
+            {
+              "rarity": 1,
+              "magnitude": 300,
+              "template": "Increases max running chicken bonus by \u001Bg{comma}"
+            },
+            {
+              "rarity": 3,
+              "magnitude": 500,
+              "template": "Increases max running chicken bonus by \u001Bg{comma}"
+            }
           ]
         }
       ]
@@ -386,12 +695,20 @@
       "kind": 0,
       "dimension": 25,
       "order": 6,
+      "description": "Increase hen house capacity",
       "tiers": [
         {
           "level": 0,
           "name": "PLAIN GUSSET",
           "rarityCount": 1,
-          "recipe": []
+          "recipe": [],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 1.05,
+              "template": ""
+            }
+          ]
         },
         {
           "level": 1,
@@ -402,6 +719,18 @@
               "afxId": 8,
               "level": 0,
               "count": 5
+            }
+          ],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 1.1,
+              "template": ""
+            },
+            {
+              "rarity": 2,
+              "magnitude": 1.12,
+              "template": ""
             }
           ]
         },
@@ -420,6 +749,18 @@
               "level": 1,
               "count": 2
             }
+          ],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 1.15,
+              "template": ""
+            },
+            {
+              "rarity": 1,
+              "magnitude": 1.16,
+              "template": ""
+            }
           ]
         },
         {
@@ -437,6 +778,23 @@
               "level": 2,
               "count": 3
             }
+          ],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 1.2,
+              "template": ""
+            },
+            {
+              "rarity": 2,
+              "magnitude": 1.22,
+              "template": ""
+            },
+            {
+              "rarity": 3,
+              "magnitude": 1.25,
+              "template": ""
+            }
           ]
         }
       ]
@@ -449,12 +807,20 @@
       "kind": 0,
       "dimension": 4,
       "order": 7,
+      "description": "Improved internal hatcheries",
       "tiers": [
         {
           "level": 0,
           "name": "PLAIN CHALICE",
           "rarityCount": 1,
-          "recipe": []
+          "recipe": [],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 1.05,
+              "template": ""
+            }
+          ]
         },
         {
           "level": 1,
@@ -470,6 +836,18 @@
               "afxId": 17,
               "level": 1,
               "count": 1
+            }
+          ],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 1.1,
+              "template": ""
+            },
+            {
+              "rarity": 2,
+              "magnitude": 1.15,
+              "template": ""
             }
           ]
         },
@@ -488,6 +866,23 @@
               "level": 1,
               "count": 4
             }
+          ],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 1.2,
+              "template": ""
+            },
+            {
+              "rarity": 1,
+              "magnitude": 1.23,
+              "template": ""
+            },
+            {
+              "rarity": 2,
+              "magnitude": 1.25,
+              "template": ""
+            }
           ]
         },
         {
@@ -505,6 +900,23 @@
               "level": 3,
               "count": 2
             }
+          ],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 1.3,
+              "template": ""
+            },
+            {
+              "rarity": 2,
+              "magnitude": 1.35,
+              "template": ""
+            },
+            {
+              "rarity": 3,
+              "magnitude": 1.4,
+              "template": ""
+            }
           ]
         }
       ]
@@ -517,12 +929,20 @@
       "kind": 0,
       "dimension": 26,
       "order": 8,
+      "description": "Increases effect of Eggs of Prophecy",
       "tiers": [
         {
           "level": 0,
           "name": "BOOK OF BASAN",
           "rarityCount": 1,
-          "recipe": []
+          "recipe": [],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 1,
+              "template": "+\u001Bg0.25%\u001Bw to Egg of Prophecy bonus"
+            }
+          ]
         },
         {
           "level": 1,
@@ -538,6 +958,13 @@
               "afxId": 17,
               "level": 2,
               "count": 4
+            }
+          ],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 1,
+              "template": "+\u001Bg0.5%\u001Bw to Egg of Prophecy bonus"
             }
           ]
         },
@@ -556,6 +983,18 @@
               "level": 3,
               "count": 3
             }
+          ],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 1,
+              "template": "+\u001Bg0.75%\u001Bw to Egg of Prophecy bonus"
+            },
+            {
+              "rarity": 2,
+              "magnitude": 1,
+              "template": "+\u001Bg0.8%\u001Bw to Egg of Prophecy bonus"
+            }
           ]
         },
         {
@@ -573,6 +1012,23 @@
               "level": 3,
               "count": 1
             }
+          ],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 1,
+              "template": "+\u001Bg1%\u001Bw to Egg of Prophecy bonus"
+            },
+            {
+              "rarity": 2,
+              "magnitude": 1,
+              "template": "+\u001Bg1.1%\u001Bw to Egg of Prophecy bonus"
+            },
+            {
+              "rarity": 3,
+              "magnitude": 1,
+              "template": "+\u001Bg1.2%\u001Bw to Egg of Prophecy bonus"
+            }
           ]
         }
       ]
@@ -585,12 +1041,20 @@
       "kind": 0,
       "dimension": 9,
       "order": 9,
+      "description": "Increased soul egg collection rate",
       "tiers": [
         {
           "level": 0,
           "name": "TATTERED PHOENIX FEATHER",
           "rarityCount": 1,
-          "recipe": []
+          "recipe": [],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 1.25,
+              "template": ""
+            }
+          ]
         },
         {
           "level": 1,
@@ -606,6 +1070,13 @@
               "afxId": 18,
               "level": 1,
               "count": 1
+            }
+          ],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 2,
+              "template": ""
             }
           ]
         },
@@ -624,6 +1095,18 @@
               "level": 0,
               "count": 2
             }
+          ],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 5,
+              "template": ""
+            },
+            {
+              "rarity": 1,
+              "magnitude": 6,
+              "template": ""
+            }
           ]
         },
         {
@@ -641,6 +1124,23 @@
               "level": 2,
               "count": 1
             }
+          ],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 10,
+              "template": ""
+            },
+            {
+              "rarity": 1,
+              "magnitude": 12,
+              "template": ""
+            },
+            {
+              "rarity": 3,
+              "magnitude": 15,
+              "template": ""
+            }
           ]
         }
       ]
@@ -653,12 +1153,20 @@
       "kind": 0,
       "dimension": 5,
       "order": 10,
+      "description": "Increases egg value",
       "tiers": [
         {
           "level": 0,
           "name": "CRUDE TUNGSTEN ANKH",
           "rarityCount": 1,
-          "recipe": []
+          "recipe": [],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 1.1,
+              "template": ""
+            }
+          ]
         },
         {
           "level": 1,
@@ -669,6 +1177,18 @@
               "afxId": 12,
               "level": 0,
               "count": 6
+            }
+          ],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 1.25,
+              "template": ""
+            },
+            {
+              "rarity": 1,
+              "magnitude": 1.28,
+              "template": ""
             }
           ]
         },
@@ -687,6 +1207,23 @@
               "level": 1,
               "count": 2
             }
+          ],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 1.5,
+              "template": ""
+            },
+            {
+              "rarity": 1,
+              "magnitude": 1.75,
+              "template": ""
+            },
+            {
+              "rarity": 3,
+              "magnitude": 2,
+              "template": ""
+            }
           ]
         },
         {
@@ -704,6 +1241,23 @@
               "level": 2,
               "count": 4
             }
+          ],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 2,
+              "template": ""
+            },
+            {
+              "rarity": 1,
+              "magnitude": 2.25,
+              "template": ""
+            },
+            {
+              "rarity": 3,
+              "magnitude": 2.5,
+              "template": ""
+            }
           ]
         }
       ]
@@ -716,12 +1270,20 @@
       "kind": 0,
       "dimension": 13,
       "order": 11,
+      "description": "Increase drone rewards",
       "tiers": [
         {
           "level": 0,
           "name": "PLAIN AURELIAN BROOCH",
           "rarityCount": 1,
-          "recipe": []
+          "recipe": [],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 1.1,
+              "template": ""
+            }
+          ]
         },
         {
           "level": 1,
@@ -732,6 +1294,13 @@
               "afxId": 21,
               "level": 0,
               "count": 5
+            }
+          ],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 1.25,
+              "template": ""
             }
           ]
         },
@@ -750,6 +1319,23 @@
               "level": 2,
               "count": 2
             }
+          ],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 1.5,
+              "template": ""
+            },
+            {
+              "rarity": 1,
+              "magnitude": 1.6,
+              "template": ""
+            },
+            {
+              "rarity": 2,
+              "magnitude": 1.7,
+              "template": ""
+            }
           ]
         },
         {
@@ -767,6 +1353,28 @@
               "level": 2,
               "count": 2
             }
+          ],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 2,
+              "template": ""
+            },
+            {
+              "rarity": 1,
+              "magnitude": 2.25,
+              "template": ""
+            },
+            {
+              "rarity": 2,
+              "magnitude": 2.5,
+              "template": ""
+            },
+            {
+              "rarity": 3,
+              "magnitude": 3,
+              "template": ""
+            }
           ]
         }
       ]
@@ -779,12 +1387,20 @@
       "kind": 0,
       "dimension": 17,
       "order": 12,
+      "description": "Increase chance of {currency} rewards from gifts and drones",
       "tiers": [
         {
           "level": 0,
           "name": "SIMPLE CARVED RAINSTICK",
           "rarityCount": 1,
-          "recipe": []
+          "recipe": [],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 1.2,
+              "template": ""
+            }
+          ]
         },
         {
           "level": 1,
@@ -800,6 +1416,13 @@
               "afxId": 8,
               "level": 0,
               "count": 1
+            }
+          ],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 1.5,
+              "template": ""
             }
           ]
         },
@@ -818,6 +1441,13 @@
               "level": 2,
               "count": 1
             }
+          ],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 2,
+              "template": ""
+            }
           ]
         },
         {
@@ -835,6 +1465,23 @@
               "level": 2,
               "count": 2
             }
+          ],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 5,
+              "template": ""
+            },
+            {
+              "rarity": 2,
+              "magnitude": 10,
+              "template": ""
+            },
+            {
+              "rarity": 3,
+              "magnitude": 0,
+              "template": "{currency} drone rewards and gifts guaranteed."
+            }
           ]
         }
       ]
@@ -847,12 +1494,20 @@
       "kind": 0,
       "dimension": 18,
       "order": 13,
+      "description": "Lower research costs",
       "tiers": [
         {
           "level": 0,
           "name": "ANCIENT PUZZLE CUBE",
           "rarityCount": 1,
-          "recipe": []
+          "recipe": [],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 0.95,
+              "template": ""
+            }
+          ]
         },
         {
           "level": 1,
@@ -863,6 +1518,18 @@
               "afxId": 23,
               "level": 0,
               "count": 3
+            }
+          ],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 0.9,
+              "template": ""
+            },
+            {
+              "rarity": 2,
+              "magnitude": 0.85,
+              "template": ""
             }
           ]
         },
@@ -881,6 +1548,18 @@
               "level": 0,
               "count": 2
             }
+          ],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 0.8,
+              "template": ""
+            },
+            {
+              "rarity": 1,
+              "magnitude": 0.78,
+              "template": ""
+            }
           ]
         },
         {
@@ -898,6 +1577,28 @@
               "level": 2,
               "count": 2
             }
+          ],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 0.5,
+              "template": ""
+            },
+            {
+              "rarity": 1,
+              "magnitude": 0.47,
+              "template": ""
+            },
+            {
+              "rarity": 2,
+              "magnitude": 0.45,
+              "template": ""
+            },
+            {
+              "rarity": 3,
+              "magnitude": 0.4,
+              "template": ""
+            }
           ]
         }
       ]
@@ -910,12 +1611,20 @@
       "kind": 0,
       "dimension": 6,
       "order": 14,
+      "description": "Increases egg laying rate",
       "tiers": [
         {
           "level": 0,
           "name": "MISALIGNED QUANTUM METRONOME",
           "rarityCount": 1,
-          "recipe": []
+          "recipe": [],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 1.05,
+              "template": ""
+            }
+          ]
         },
         {
           "level": 1,
@@ -931,6 +1640,18 @@
               "afxId": 29,
               "level": 0,
               "count": 2
+            }
+          ],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 1.1,
+              "template": ""
+            },
+            {
+              "rarity": 1,
+              "magnitude": 1.12,
+              "template": ""
             }
           ]
         },
@@ -949,6 +1670,23 @@
               "level": 2,
               "count": 4
             }
+          ],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 1.15,
+              "template": ""
+            },
+            {
+              "rarity": 1,
+              "magnitude": 1.17,
+              "template": ""
+            },
+            {
+              "rarity": 2,
+              "magnitude": 1.2,
+              "template": ""
+            }
           ]
         },
         {
@@ -966,6 +1704,28 @@
               "level": 2,
               "count": 4
             }
+          ],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 1.25,
+              "template": ""
+            },
+            {
+              "rarity": 1,
+              "magnitude": 1.27,
+              "template": ""
+            },
+            {
+              "rarity": 2,
+              "magnitude": 1.3,
+              "template": ""
+            },
+            {
+              "rarity": 3,
+              "magnitude": 1.35,
+              "template": ""
+            }
           ]
         }
       ]
@@ -978,12 +1738,20 @@
       "kind": 0,
       "dimension": 22,
       "order": 15,
+      "description": "Increase co-op mates earnings",
       "tiers": [
         {
           "level": 0,
           "name": "SHIP IN A BOTTLE",
           "rarityCount": 1,
-          "recipe": []
+          "recipe": [],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 1.2,
+              "template": ""
+            }
+          ]
         },
         {
           "level": 1,
@@ -999,6 +1767,13 @@
               "afxId": 6,
               "level": 3,
               "count": 2
+            }
+          ],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 1.3,
+              "template": ""
             }
           ]
         },
@@ -1017,6 +1792,18 @@
               "level": 2,
               "count": 3
             }
+          ],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 1.5,
+              "template": ""
+            },
+            {
+              "rarity": 1,
+              "magnitude": 1.6,
+              "template": ""
+            }
           ]
         },
         {
@@ -1034,6 +1821,28 @@
               "level": 2,
               "count": 2
             }
+          ],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 1.7,
+              "template": ""
+            },
+            {
+              "rarity": 1,
+              "magnitude": 1.8,
+              "template": ""
+            },
+            {
+              "rarity": 2,
+              "magnitude": 1.9,
+              "template": ""
+            },
+            {
+              "rarity": 3,
+              "magnitude": 2,
+              "template": ""
+            }
           ]
         }
       ]
@@ -1046,12 +1855,20 @@
       "kind": 0,
       "dimension": 23,
       "order": 16,
+      "description": "Increase co-op mates egg laying rate",
       "tiers": [
         {
           "level": 0,
           "name": "WEAK TACHYON DEFLECTOR",
           "rarityCount": 1,
-          "recipe": []
+          "recipe": [],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 1.05,
+              "template": ""
+            }
+          ]
         },
         {
           "level": 1,
@@ -1067,6 +1884,13 @@
               "afxId": 25,
               "level": 1,
               "count": 2
+            }
+          ],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 1.08,
+              "template": ""
             }
           ]
         },
@@ -1085,6 +1909,18 @@
               "level": 3,
               "count": 1
             }
+          ],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 1.12,
+              "template": ""
+            },
+            {
+              "rarity": 1,
+              "magnitude": 1.13,
+              "template": ""
+            }
           ]
         },
         {
@@ -1102,6 +1938,28 @@
               "level": 3,
               "count": 4
             }
+          ],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 1.15,
+              "template": ""
+            },
+            {
+              "rarity": 1,
+              "magnitude": 1.17,
+              "template": ""
+            },
+            {
+              "rarity": 2,
+              "magnitude": 1.19,
+              "template": ""
+            },
+            {
+              "rarity": 3,
+              "magnitude": 1.2,
+              "template": ""
+            }
           ]
         }
       ]
@@ -1114,12 +1972,20 @@
       "kind": 0,
       "dimension": 19,
       "order": 17,
+      "description": "Increase egg shipping rate",
       "tiers": [
         {
           "level": 0,
           "name": "MISCALIBRATED INTERSTELLAR COMPASS",
           "rarityCount": 1,
-          "recipe": []
+          "recipe": [],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 1.05,
+              "template": ""
+            }
+          ]
         },
         {
           "level": 1,
@@ -1130,6 +1996,13 @@
               "afxId": 27,
               "level": 0,
               "count": 6
+            }
+          ],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 1.1,
+              "template": ""
             }
           ]
         },
@@ -1148,6 +2021,18 @@
               "level": 1,
               "count": 4
             }
+          ],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 1.2,
+              "template": ""
+            },
+            {
+              "rarity": 1,
+              "magnitude": 1.22,
+              "template": ""
+            }
           ]
         },
         {
@@ -1165,6 +2050,28 @@
               "level": 2,
               "count": 4
             }
+          ],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 1.3,
+              "template": ""
+            },
+            {
+              "rarity": 1,
+              "magnitude": 1.35,
+              "template": ""
+            },
+            {
+              "rarity": 2,
+              "magnitude": 1.4,
+              "template": ""
+            },
+            {
+              "rarity": 3,
+              "magnitude": 1.5,
+              "template": ""
+            }
           ]
         }
       ]
@@ -1177,12 +2084,20 @@
       "kind": 0,
       "dimension": 7,
       "order": 18,
+      "description": "Increases boost effectiveness",
       "tiers": [
         {
           "level": 0,
           "name": "DILITHIUM MONOCLE",
           "rarityCount": 1,
-          "recipe": []
+          "recipe": [],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 1.05,
+              "template": ""
+            }
+          ]
         },
         {
           "level": 1,
@@ -1198,6 +2113,13 @@
               "afxId": 29,
               "level": 0,
               "count": 1
+            }
+          ],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 1.1,
+              "template": ""
             }
           ]
         },
@@ -1216,6 +2138,13 @@
               "level": 2,
               "count": 2
             }
+          ],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 1.15,
+              "template": ""
+            }
           ]
         },
         {
@@ -1233,6 +2162,23 @@
               "level": 3,
               "count": 2
             }
+          ],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 1.2,
+              "template": ""
+            },
+            {
+              "rarity": 2,
+              "magnitude": 1.25,
+              "template": ""
+            },
+            {
+              "rarity": 3,
+              "magnitude": 1.3,
+              "template": ""
+            }
           ]
         }
       ]
@@ -1245,12 +2191,20 @@
       "kind": 0,
       "dimension": 20,
       "order": 19,
+      "description": "Increase hold to hatch rate",
       "tiers": [
         {
           "level": 0,
           "name": "INCONSISTENT TITANIUM ACTUATOR",
           "rarityCount": 1,
-          "recipe": []
+          "recipe": [],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 1,
+              "template": ""
+            }
+          ]
         },
         {
           "level": 1,
@@ -1266,6 +2220,13 @@
               "afxId": 43,
               "level": 1,
               "count": 4
+            }
+          ],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 4,
+              "template": ""
             }
           ]
         },
@@ -1284,6 +2245,18 @@
               "level": 2,
               "count": 3
             }
+          ],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 6,
+              "template": ""
+            },
+            {
+              "rarity": 1,
+              "magnitude": 7,
+              "template": ""
+            }
           ]
         },
         {
@@ -1301,6 +2274,23 @@
               "level": 3,
               "count": 3
             }
+          ],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 10,
+              "template": ""
+            },
+            {
+              "rarity": 2,
+              "magnitude": 12,
+              "template": ""
+            },
+            {
+              "rarity": 3,
+              "magnitude": 15,
+              "template": ""
+            }
           ]
         }
       ]
@@ -1313,12 +2303,20 @@
       "kind": 0,
       "dimension": 21,
       "order": 20,
+      "description": "Increases farm value",
       "tiers": [
         {
           "level": 0,
           "name": "MISALIGNED MERCURY'S LENS",
           "rarityCount": 1,
-          "recipe": []
+          "recipe": [],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 1.1,
+              "template": ""
+            }
+          ]
         },
         {
           "level": 1,
@@ -1329,6 +2327,18 @@
               "afxId": 30,
               "level": 0,
               "count": 6
+            }
+          ],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 1.2,
+              "template": ""
+            },
+            {
+              "rarity": 1,
+              "magnitude": 1.22,
+              "template": ""
             }
           ]
         },
@@ -1347,6 +2357,18 @@
               "level": 1,
               "count": 2
             }
+          ],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 1.5,
+              "template": ""
+            },
+            {
+              "rarity": 1,
+              "magnitude": 1.55,
+              "template": ""
+            }
           ]
         },
         {
@@ -1364,6 +2386,28 @@
               "level": 2,
               "count": 6
             }
+          ],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 2,
+              "template": ""
+            },
+            {
+              "rarity": 1,
+              "magnitude": 2.25,
+              "template": ""
+            },
+            {
+              "rarity": 2,
+              "magnitude": 2.5,
+              "template": ""
+            },
+            {
+              "rarity": 3,
+              "magnitude": 3,
+              "template": ""
+            }
           ]
         }
       ]
@@ -1376,6 +2420,7 @@
       "kind": 1,
       "dimension": 6,
       "order": 21,
+      "description": "Increases egg laying rate when set",
       "tiers": [
         {
           "level": 0,
@@ -1386,6 +2431,13 @@
               "afxId": 2,
               "level": 0,
               "count": 20
+            }
+          ],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 1.02,
+              "template": ""
             }
           ]
         },
@@ -1399,6 +2451,13 @@
               "level": 0,
               "count": 15
             }
+          ],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 1.04,
+              "template": ""
+            }
           ]
         },
         {
@@ -1410,6 +2469,13 @@
               "afxId": 1,
               "level": 1,
               "count": 20
+            }
+          ],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 1.05,
+              "template": ""
             }
           ]
         }
@@ -1423,6 +2489,7 @@
       "kind": 1,
       "dimension": 8,
       "order": 22,
+      "description": "Increases boost duration when set",
       "tiers": [
         {
           "level": 0,
@@ -1433,6 +2500,13 @@
               "afxId": 44,
               "level": 0,
               "count": 20
+            }
+          ],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 1.03,
+              "template": ""
             }
           ]
         },
@@ -1446,6 +2520,13 @@
               "level": 0,
               "count": 12
             }
+          ],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 1.06,
+              "template": ""
+            }
           ]
         },
         {
@@ -1457,6 +2538,13 @@
               "afxId": 31,
               "level": 1,
               "count": 15
+            }
+          ],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 1.08,
+              "template": ""
             }
           ]
         }
@@ -1470,6 +2558,7 @@
       "kind": 1,
       "dimension": 5,
       "order": 23,
+      "description": "Increases egg value when set",
       "tiers": [
         {
           "level": 0,
@@ -1480,6 +2569,13 @@
               "afxId": 45,
               "level": 0,
               "count": 20
+            }
+          ],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 1.05,
+              "template": ""
             }
           ]
         },
@@ -1492,6 +2588,13 @@
               "afxId": 32,
               "level": 0,
               "count": 20
+            }
+          ],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 1.08,
+              "template": ""
             }
           ]
         },
@@ -1510,6 +2613,13 @@
               "level": 1,
               "count": 10
             }
+          ],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 1.1,
+              "template": ""
+            }
           ]
         }
       ]
@@ -1522,6 +2632,7 @@
       "kind": 1,
       "dimension": 3,
       "order": 24,
+      "description": "Increases away earnings when set",
       "tiers": [
         {
           "level": 0,
@@ -1532,6 +2643,13 @@
               "afxId": 46,
               "level": 0,
               "count": 20
+            }
+          ],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 1.2,
+              "template": ""
             }
           ]
         },
@@ -1545,6 +2663,13 @@
               "level": 0,
               "count": 20
             }
+          ],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 1.3,
+              "template": ""
+            }
           ]
         },
         {
@@ -1556,6 +2681,13 @@
               "afxId": 33,
               "level": 1,
               "count": 25
+            }
+          ],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 1.4,
+              "template": ""
             }
           ]
         }
@@ -1569,6 +2701,7 @@
       "kind": 1,
       "dimension": 12,
       "order": 25,
+      "description": "Increases soul egg bonus when set",
       "tiers": [
         {
           "level": 0,
@@ -1579,6 +2712,13 @@
               "afxId": 47,
               "level": 0,
               "count": 20
+            }
+          ],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 0.05,
+              "template": ""
             }
           ]
         },
@@ -1592,6 +2732,13 @@
               "level": 0,
               "count": 15
             }
+          ],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 0.1,
+              "template": ""
+            }
           ]
         },
         {
@@ -1603,6 +2750,13 @@
               "afxId": 34,
               "level": 1,
               "count": 20
+            }
+          ],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 0.25,
+              "template": ""
             }
           ]
         }
@@ -1616,6 +2770,7 @@
       "kind": 1,
       "dimension": 26,
       "order": 26,
+      "description": "Increases egg of prophecy egg bonus when set",
       "tiers": [
         {
           "level": 0,
@@ -1626,6 +2781,13 @@
               "afxId": 48,
               "level": 0,
               "count": 20
+            }
+          ],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 0,
+              "template": "+\u001Bg0.05%\u001Bw to Egg of Prophecy bonus"
             }
           ]
         },
@@ -1638,6 +2800,13 @@
               "afxId": 39,
               "level": 0,
               "count": 10
+            }
+          ],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 0,
+              "template": "+\u001Bg0.1%\u001Bw to Egg of Prophecy bonus"
             }
           ]
         },
@@ -1656,6 +2825,13 @@
               "level": 2,
               "count": 2
             }
+          ],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 0,
+              "template": "+\u001Bg0.15%\u001Bw to Egg of Prophecy bonus"
+            }
           ]
         }
       ]
@@ -1668,6 +2844,7 @@
       "kind": 1,
       "dimension": 19,
       "order": 27,
+      "description": "Increases shipping capacity when set",
       "tiers": [
         {
           "level": 0,
@@ -1678,6 +2855,13 @@
               "afxId": 49,
               "level": 0,
               "count": 20
+            }
+          ],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 1.02,
+              "template": ""
             }
           ]
         },
@@ -1691,6 +2875,13 @@
               "level": 0,
               "count": 15
             }
+          ],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 1.04,
+              "template": ""
+            }
           ]
         },
         {
@@ -1702,6 +2893,13 @@
               "afxId": 36,
               "level": 1,
               "count": 20
+            }
+          ],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 1.05,
+              "template": ""
             }
           ]
         }
@@ -1715,6 +2913,7 @@
       "kind": 1,
       "dimension": 24,
       "order": 28,
+      "description": "Increases max running chicken bonus when set",
       "tiers": [
         {
           "level": 0,
@@ -1725,6 +2924,13 @@
               "afxId": 50,
               "level": 0,
               "count": 20
+            }
+          ],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 10,
+              "template": "Increases max running chicken bonus by \u001Bg{comma}"
             }
           ]
         },
@@ -1738,6 +2944,13 @@
               "level": 0,
               "count": 15
             }
+          ],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 50,
+              "template": "Increases max running chicken bonus by \u001Bg{comma}"
+            }
           ]
         },
         {
@@ -1749,6 +2962,13 @@
               "afxId": 37,
               "level": 1,
               "count": 20
+            }
+          ],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 100,
+              "template": "Increases max running chicken bonus by \u001Bg{comma}"
             }
           ]
         }
@@ -1762,6 +2982,7 @@
       "kind": 1,
       "dimension": 4,
       "order": 29,
+      "description": "Improves internal hatcheries when set",
       "tiers": [
         {
           "level": 0,
@@ -1772,6 +2993,13 @@
               "afxId": 51,
               "level": 0,
               "count": 20
+            }
+          ],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 1.02,
+              "template": ""
             }
           ]
         },
@@ -1785,6 +3013,13 @@
               "level": 0,
               "count": 12
             }
+          ],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 1.03,
+              "template": ""
+            }
           ]
         },
         {
@@ -1796,6 +3031,13 @@
               "afxId": 38,
               "level": 1,
               "count": 15
+            }
+          ],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 1.04,
+              "template": ""
             }
           ]
         }
@@ -1809,6 +3051,7 @@
       "kind": 1,
       "dimension": 29,
       "order": 30,
+      "description": "Enables effect of host artifact on enlightenment egg farm.",
       "tiers": [
         {
           "level": 0,
@@ -1819,6 +3062,13 @@
               "afxId": 52,
               "level": 0,
               "count": 20
+            }
+          ],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 0.25,
+              "template": "\u001Bg{int100}%\u001Bw effect of host artifact on enlightenment egg farms."
             }
           ]
         },
@@ -1837,6 +3087,13 @@
               "level": 0,
               "count": 2
             }
+          ],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 0.5,
+              "template": "\u001Bg{int100}%\u001Bw effect of host artifact on enlightenment egg farms."
+            }
           ]
         },
         {
@@ -1854,6 +3111,13 @@
               "level": 2,
               "count": 2
             }
+          ],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 1,
+              "template": "\u001Bg{int100}%\u001Bw effect of host artifact on enlightenment egg farms."
+            }
           ]
         }
       ]
@@ -1866,12 +3130,20 @@
       "kind": 3,
       "dimension": 0,
       "order": 31,
+      "description": "",
       "tiers": [
         {
           "level": 0,
           "name": "TACHYON STONE FRAGMENT",
           "rarityCount": 1,
-          "recipe": []
+          "recipe": [],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 0,
+              "template": ""
+            }
+          ]
         }
       ]
     },
@@ -1883,12 +3155,20 @@
       "kind": 3,
       "dimension": 0,
       "order": 32,
+      "description": "",
       "tiers": [
         {
           "level": 0,
           "name": "DILITHIUM STONE FRAGMENT",
           "rarityCount": 1,
-          "recipe": []
+          "recipe": [],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 0,
+              "template": ""
+            }
+          ]
         }
       ]
     },
@@ -1900,12 +3180,20 @@
       "kind": 3,
       "dimension": 0,
       "order": 33,
+      "description": "",
       "tiers": [
         {
           "level": 0,
           "name": "SHELL STONE FRAGMENT",
           "rarityCount": 1,
-          "recipe": []
+          "recipe": [],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 0,
+              "template": ""
+            }
+          ]
         }
       ]
     },
@@ -1917,12 +3205,20 @@
       "kind": 3,
       "dimension": 0,
       "order": 34,
+      "description": "",
       "tiers": [
         {
           "level": 0,
           "name": "LUNAR STONE FRAGMENT",
           "rarityCount": 1,
-          "recipe": []
+          "recipe": [],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 0,
+              "template": ""
+            }
+          ]
         }
       ]
     },
@@ -1934,12 +3230,20 @@
       "kind": 3,
       "dimension": 0,
       "order": 35,
+      "description": "",
       "tiers": [
         {
           "level": 0,
           "name": "SOUL STONE FRAGMENT",
           "rarityCount": 1,
-          "recipe": []
+          "recipe": [],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 0,
+              "template": ""
+            }
+          ]
         }
       ]
     },
@@ -1951,12 +3255,20 @@
       "kind": 3,
       "dimension": 0,
       "order": 36,
+      "description": "",
       "tiers": [
         {
           "level": 0,
           "name": "PROPHECY STONE FRAGMENT",
           "rarityCount": 1,
-          "recipe": []
+          "recipe": [],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 0,
+              "template": ""
+            }
+          ]
         }
       ]
     },
@@ -1968,12 +3280,20 @@
       "kind": 3,
       "dimension": 0,
       "order": 37,
+      "description": "",
       "tiers": [
         {
           "level": 0,
           "name": "QUANTUM STONE FRAGMENT",
           "rarityCount": 1,
-          "recipe": []
+          "recipe": [],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 0,
+              "template": ""
+            }
+          ]
         }
       ]
     },
@@ -1985,12 +3305,20 @@
       "kind": 3,
       "dimension": 0,
       "order": 38,
+      "description": "",
       "tiers": [
         {
           "level": 0,
           "name": "TERRA STONE FRAGMENT",
           "rarityCount": 1,
-          "recipe": []
+          "recipe": [],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 0,
+              "template": ""
+            }
+          ]
         }
       ]
     },
@@ -2002,12 +3330,20 @@
       "kind": 3,
       "dimension": 0,
       "order": 39,
+      "description": "",
       "tiers": [
         {
           "level": 0,
           "name": "LIFE STONE FRAGMENT",
           "rarityCount": 1,
-          "recipe": []
+          "recipe": [],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 0,
+              "template": ""
+            }
+          ]
         }
       ]
     },
@@ -2019,12 +3355,20 @@
       "kind": 3,
       "dimension": 0,
       "order": 40,
+      "description": "",
       "tiers": [
         {
           "level": 0,
           "name": "CLARITY STONE FRAGMENT",
           "rarityCount": 1,
-          "recipe": []
+          "recipe": [],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 0,
+              "template": ""
+            }
+          ]
         }
       ]
     },
@@ -2036,12 +3380,20 @@
       "kind": 2,
       "dimension": 0,
       "order": 41,
+      "description": "Precious metal ingredient",
       "tiers": [
         {
           "level": 0,
           "name": "TINY GOLD METEORITE",
           "rarityCount": 1,
-          "recipe": []
+          "recipe": [],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 0,
+              "template": ""
+            }
+          ]
         },
         {
           "level": 1,
@@ -2052,6 +3404,13 @@
               "afxId": 17,
               "level": 0,
               "count": 9
+            }
+          ],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 0,
+              "template": ""
             }
           ]
         },
@@ -2065,6 +3424,13 @@
               "level": 1,
               "count": 11
             }
+          ],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 0,
+              "template": ""
+            }
           ]
         }
       ]
@@ -2077,12 +3443,20 @@
       "kind": 2,
       "dimension": 0,
       "order": 42,
+      "description": "Shiny ingredient",
       "tiers": [
         {
           "level": 0,
           "name": "TAU CETI GEODE PIECE",
           "rarityCount": 1,
-          "recipe": []
+          "recipe": [],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 0,
+              "template": ""
+            }
+          ]
         },
         {
           "level": 1,
@@ -2093,6 +3467,13 @@
               "afxId": 18,
               "level": 0,
               "count": 12
+            }
+          ],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 0,
+              "template": ""
             }
           ]
         },
@@ -2106,6 +3487,13 @@
               "level": 1,
               "count": 14
             }
+          ],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 0,
+              "template": ""
+            }
           ]
         }
       ]
@@ -2118,12 +3506,20 @@
       "kind": 2,
       "dimension": 0,
       "order": 43,
+      "description": "Strong ingredient",
       "tiers": [
         {
           "level": 0,
           "name": "SOLAR TITANIUM ORE",
           "rarityCount": 1,
-          "recipe": []
+          "recipe": [],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 0,
+              "template": ""
+            }
+          ]
         },
         {
           "level": 1,
@@ -2134,6 +3530,13 @@
               "afxId": 43,
               "level": 0,
               "count": 10
+            }
+          ],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 0,
+              "template": ""
             }
           ]
         },
@@ -2146,6 +3549,13 @@
               "afxId": 43,
               "level": 1,
               "count": 12
+            }
+          ],
+          "effects": [
+            {
+              "rarity": 0,
+              "magnitude": 0,
+              "template": ""
             }
           ]
         }
@@ -2170,6 +3580,7 @@
     "14": "drone frequency",
     "15": "gift rewards",
     "16": "chance of gold in gifts and drones",
+    "17": "chance of {currency} in gifts and drones",
     "18": "research cost",
     "19": "shipping rate",
     "20": "hold to hatch rate",
@@ -2184,11 +3595,17 @@
     "29": "effect on enlightenment",
     "34": "shell price"
   },
+  "effectTemplate": "\u001Bg{prefix}{value}\u001Bw {label}",
   "binaryVersion": "1.37",
   "provenance": {
     "identity": {
       "origin": "binary",
       "locator": "artifactdata",
+      "method": "decoded"
+    },
+    "effects": {
+      "origin": "binary",
+      "locator": "artifactdata / ArtifactSpec::effectDescription",
       "method": "decoded"
     },
     "labels": {

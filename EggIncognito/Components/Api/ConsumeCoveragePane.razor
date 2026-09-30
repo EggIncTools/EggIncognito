@@ -78,7 +78,8 @@
                                                 }
 
                                                 <button type="button" class="cov-cell @(cell.InScope ? "" : "cov-cell-off") @(Selected(f, t, cell) ? "cov-cell-sel" : "")"
-                                                        style="@CellStyle(cell)" @onclick="() => Select(f, t, cell)">
+                                                        style="@CellStyle(cell)" title="@ArtifactDefinitions.EffectText(f.SpecName, t.AfxLevel, cell.AfxRarity)"
+                                                        @onclick="() => Select(f, t, cell)">
                                                     <span class="cov-disc bg-r-@cell.AfxRarity"><img src="@IconSrc(f.SpecName, t.AfxLevel)" alt="" loading="lazy"/></span>
                                                     <span class="cov-nk">@cell.Items/@cell.Observations</span>
                                                 </button>

@@ -17,8 +17,17 @@ public static partial class ArtifactTableExtractor {
     private const ulong MaxBuilderBytes = 0x80000;
     private static readonly string[] RarityCtorNeedles = ["mapIN2ei19ArtifactSpec_Rarity", "initializer_list"];
 
-    private static readonly Layout AppleLayout = new(8, 0x50, 0x58, 0x60, 0x78, false);
-    private static readonly Layout NdkLayout = new(0x10, 0x60, 0x68, 0x70, 0x88, true);
+    private static readonly Layout AppleLayout = new(8, 0x50, 0x58, 0x60, 0x78, false, 0);
+    private static readonly Layout NdkLayout = new(0x10, 0x60, 0x68, 0x70, 0x88, true, 0xc0);
+    private const int RarityKeyOffset = 0;
+    private const int RarityMagnitudeOffset = 0x18;
+    private const int RarityDescribePtr = 0x70;
+    private const int FamilyDescribePtr = 0x50;
+    private const int FunctionCallSlot = 0x30;
+    private const ulong LambdaScan = 0x400;
+    public const string GenericTemplateSymbol = "_ZN12ArtifactSpec17effectDescriptionEP14GameController";
+    private static readonly string[] TemplateTokens = ["{prefix", "{value", "{label"];
+    private static readonly double[] LunarMagnitudes = [2, 4, 8, 20, 40, 50, 100, 150, 200];
 
     private static readonly string[] LunarTiers =
         ["BASIC LUNAR TOTEM", "LUNAR TOTEM", "POWERFUL LUNAR TOTEM", "EGGCEPTIONAL LUNAR TOTEM"];
@@ -55,9 +64,19 @@ public static partial class ArtifactTableExtractor {
         if (rarity.Count == 0 && InferRarityCtor(insns, calls, tier.Start) is { } inferred) rarity.Add(inferred);
         if (rarity.Count == 0) return Fail("rarity map constructor not found");
 
-        var walker = new Walker(bin, img, calls, family.Start, tier.Start, rarity, elf ? NdkLayout : AppleLayout);
+        var walker = new Walker(bin, img, symbols, calls, family.Start, tier.Start, rarity,
+            elf ? NdkLayout : AppleLayout);
         foreach (var insn in insns) walker.Step(insn);
-        return Calibrate(walker.Families, walker.Issues, walker.UnresolvedIngredients);
+        string generic = elf ? TraceGenericTemplate(bin, img, calls, symbols) : "";
+        return Calibrate(walker.Families, generic, elf, walker.Issues, walker.UnresolvedIngredients);
+    }
+
+    private static string TraceGenericTemplate(byte[] bin, IBinaryImage img, CallResolver calls,
+        IReadOnlyList<MachoSymbols.Symbol> symbols) {
+        if (!MachoSymbols.TryFindFunc(symbols, [GenericTemplateSymbol], out var fn)) return "";
+        var trace = Arm64StringTracer.Run(bin, img, calls.Plt, symbols, fn.Start, fn.End, false);
+        int esc = trace.Template.IndexOf('\u001b');
+        return esc < 0 ? trace.Template : trace.Template[esc..];
     }
 
     private static string? LocateMachoBuilder(byte[] bin, IReadOnlyList<MachoSymbols.Symbol> syms, out ulong start,
@@ -140,8 +159,26 @@ public static partial class ArtifactTableExtractor {
         return counts.Count == 0 ? null : counts.MaxBy(kv => kv.Value).Key;
     }
 
-    private static Result Calibrate(List<Family> families, IReadOnlyList<string> issues, int unresolved) {
+    private static Result Calibrate(List<Family> families, string generic, bool effects, IReadOnlyList<string> issues,
+        int unresolved) {
         var errors = new List<string>(issues);
+        if (effects && !TemplateTokens.All(t => generic.Contains(t, StringComparison.Ordinal)))
+            errors.Add($"generic effect template read as '{Show(generic)}'");
+        if (effects) {
+            foreach (var f in families) {
+                foreach (var t in f.Tiers) {
+                    if (t.Effects.Count != t.RarityCount)
+                        errors.Add($"{f.BinaryId} level {t.Level}: {t.Effects.Count} of {t.RarityCount} effects");
+                    var keys = t.Effects.Select(e => e.Rarity).ToList();
+                    if (keys.Count > 0 && (keys[0] != 0 || keys.Any(k => k is < 0 or > 3)
+                                           || !keys.SequenceEqual(keys.Distinct().Order())))
+                        errors.Add($"{f.BinaryId} level {t.Level}: rarity keys [{string.Join(",", keys)}]");
+                }
+            }
+
+            Anchor(families, errors, 0, f => f.Tiers.SelectMany(t => t.Effects).Select(e => e.Magnitude)
+                .SequenceEqual(LunarMagnitudes));
+        }
         if (families.Count != ExpectedFamilies)
             errors.Add($"expected {ExpectedFamilies} families, read {families.Count}");
         if (families.Select(f => f.AfxId).Distinct().Count() != families.Count) errors.Add("duplicate afx ids");
@@ -163,68 +200,55 @@ public static partial class ArtifactTableExtractor {
         Anchor(families, errors, 18, f => f.BinaryId == "tau_centi_geode" && f.Kind == 2);
 
         string tail = unresolved == 0 ? "" : $", {unresolved} unresolved ingredients";
+        int effectCount = families.Sum(f => f.Tiers.Sum(t => t.Effects.Count));
         string diag = errors.Count == 0
-            ? $"{families.Count} families, {families.Sum(f => f.Tiers.Count)} tiers{tail}"
+            ? $"{families.Count} families, {families.Sum(f => f.Tiers.Count)} tiers, {effectCount} effects{tail}"
             : string.Join("; ", errors) + tail;
-        return new Result(errors.Count == 0, families, diag);
+        return new Result(errors.Count == 0, families, generic, diag);
     }
+
+    private static string Show(string s) => s.Replace("\u001b", "<esc>", StringComparison.Ordinal);
 
     private static void Anchor(IReadOnlyList<Family> families, List<string> errors, int afxId, Func<Family, bool> ok) {
         var f = families.FirstOrDefault(x => x.AfxId == afxId);
         if (f.Tiers is null || !ok(f)) errors.Add($"anchor afx {afxId} mismatch");
     }
 
-    private static Result Fail(string diagnostics) => new(false, [], diagnostics);
+    private static Result Fail(string diagnostics) => new(false, [], "", diagnostics);
 
     public readonly record struct Ingredient(int AfxId, int Level, int Count);
 
-    public readonly record struct Tier(int Level, string Name, int RarityCount, IReadOnlyList<Ingredient> Recipe);
+    public readonly record struct RarityEffect(int Rarity, double Magnitude, string Template);
+
+    public readonly record struct Tier(int Level, string Name, int RarityCount, IReadOnlyList<Ingredient> Recipe,
+        IReadOnlyList<RarityEffect> Effects);
 
     public readonly record struct Family(int AfxId, int Order, string BinaryId, string PluralName, int Kind,
-        int Dimension, IReadOnlyList<Tier> Tiers);
+        int Dimension, string Description, IReadOnlyList<Tier> Tiers);
 
-    public readonly record struct Result(bool Ok, IReadOnlyList<Family> Families, string Diagnostics);
+    public readonly record struct Result(bool Ok, IReadOnlyList<Family> Families, string EffectTemplate,
+        string Diagnostics);
 
     private readonly record struct Ptr(int Region, long Offset) {
         public Ptr Plus(long delta) => new(Region, Offset + delta);
     }
 
     private readonly record struct PendingTier(int Level, string? Name, int RarityCount,
-        IReadOnlyList<Ingredient> Recipe);
+        IReadOnlyList<Ingredient> Recipe, IReadOnlyList<RarityEffect> Effects);
 
     private readonly record struct Layout(int KeyGap, int KindOffset, int RecipeBegin, int RecipeEnd,
-        int RarityMapOffset, bool ShortStringFirst);
+        int RarityMapOffset, bool ShortStringFirst, int RarityStride);
 
     private sealed class CallResolver(byte[] bin, IBinaryImage img) {
-        private readonly Dictionary<ulong, ulong> _slots =
-            img is ElfImage ? ElfSections.ReadJumpSlots(bin) : [];
+        public PltCallResolver Plt { get; } = new(bin, img);
 
-        private readonly Dictionary<ulong, ulong> _cache = [];
-
-        public ulong Resolve(ulong target) {
-            if (_slots.Count == 0) return target;
-            if (_cache.TryGetValue(target, out ulong hit)) return hit;
-            ulong resolved = Stub(target) is { } slot && _slots.TryGetValue(slot, out ulong fn) ? fn : target;
-            _cache[target] = resolved;
-            return resolved;
-        }
-
-        private ulong? Stub(ulong va) {
-            var head = Arm64DataTableReader.ListRange(bin, va, va + 16, 4);
-            if (!head.Ok || head.Instructions.Count < 4 || head.Instructions[3].Mnemonic != "br") return null;
-            var i0 = SplitOps(head.Instructions[0].Operands);
-            var i1 = SplitOps(head.Instructions[1].Operands);
-            if (head.Instructions[0].Mnemonic != "adrp" || i0.Count != 2 || !TryImm(i0[1], out ulong page)) return null;
-            if (head.Instructions[1].Mnemonic != "ldr" || i1.Count != 2
-                                                      || !TryMem(i1[1], out string reg, out ulong off)
-                                                      || reg != i0[0]) return null;
-            return page + off;
-        }
+        public ulong Resolve(ulong target) => Plt.Resolve(target);
     }
 
     private sealed class Walker(
         byte[] bin,
         IBinaryImage img,
+        IReadOnlyList<MachoSymbols.Symbol> syms,
         CallResolver calls,
         ulong familyVa,
         ulong tierVa,
@@ -247,6 +271,7 @@ public static partial class ArtifactTableExtractor {
         private readonly Dictionary<(int, long), byte> _mem = [];
         private readonly Dictionary<(int, long), Ptr> _slots = [];
         private readonly Dictionary<Ptr, int> _rarity = [];
+        private readonly Dictionary<Ptr, Ptr> _rarityElems = [];
         private readonly List<PendingTier> _tiers = [];
         private readonly List<string> _strings = [];
         private string? _prevStr;
@@ -518,9 +543,14 @@ public static partial class ArtifactTableExtractor {
         }
 
         private void RecordRarity() {
-            if (TryPtrOf(Keys[0], out var map) && TryImmOf(Keys[2], out ulong count))
-                _rarity[map.Plus(-layout.RarityMapOffset)] = (int)count;
-            else Issues.Add($"rarity map {_tiers.Count} in family {Families.Count} unresolved");
+            if (!TryPtrOf(Keys[0], out var map) || !TryImmOf(Keys[2], out ulong count)) {
+                Issues.Add($"rarity map {_tiers.Count} in family {Families.Count} unresolved");
+                return;
+            }
+
+            var tier = map.Plus(-layout.RarityMapOffset);
+            _rarity[tier] = (int)count;
+            if (layout.RarityStride > 0 && TryPtrOf(Keys[1], out var elems)) _rarityElems[tier] = elems;
         }
 
         private void CommitTier() {
@@ -531,7 +561,44 @@ public static partial class ArtifactTableExtractor {
 
             int rarity = _rarity.TryGetValue(src, out int r) ? r : 0;
             _tiers.Add(new PendingTier(ReadInt32(dest.Plus(-layout.KeyGap)) ?? -1, ReadString(src), rarity,
-                ReadRecipe(src)));
+                ReadRecipe(src), ReadEffects(src, rarity)));
+        }
+
+        private List<RarityEffect> ReadEffects(Ptr tier, int count) {
+            var outp = new List<RarityEffect>();
+            if (layout.RarityStride == 0 || !_rarityElems.TryGetValue(tier, out var elems)) return outp;
+            for (int k = 0; k < count; k++) {
+                var e = elems.Plus((long)k * layout.RarityStride);
+                int? key = ReadInt32(e.Plus(RarityKeyOffset));
+                long? bits = ReadInt64(e.Plus(RarityMagnitudeOffset));
+                string? template = DescribeTemplate(e.Plus(RarityDescribePtr));
+                if (key is null || bits is null || template is null) {
+                    string missing = key is null ? "key" : bits is null ? "magnitude" : "template";
+                    Issues.Add($"rarity {k} of tier {_tiers.Count} in family {Families.Count}: {missing} unresolved");
+                    continue;
+                }
+
+                outp.Add(new RarityEffect(key.Value, BitConverter.Int64BitsToDouble(bits.Value), template));
+            }
+
+            return outp;
+        }
+
+        private string? DescribeTemplate(Ptr fnPtrSlot) {
+            if (!_slots.TryGetValue((fnPtrSlot.Region, fnPtrSlot.Offset), out var fn))
+                return ReadInt64(fnPtrSlot) == 0 ? "" : null;
+            if (fn.Region == Binary) return null;
+            if (!_slots.TryGetValue((fn.Region, fn.Offset), out var vtable) || vtable.Region != Binary) return null;
+            if (ReadFunctionSlot((ulong)vtable.Offset + FunctionCallSlot) is not { } body) return null;
+            var trace = Arm64StringTracer.Run(bin, img, calls.Plt, syms, body, body + LambdaScan, true);
+            return trace.Template.Length == 0 ? null : trace.Template;
+        }
+
+        private ulong? ReadFunctionSlot(ulong slotVa) {
+            if (img is ElfImage elf && elf.TryResolveRelative(slotVa, out ulong target) && target != 0) return target;
+            if (!img.TryVaToFileOffset(slotVa, out int fo, out _) || fo < 0 || fo + 8 > bin.Length) return null;
+            ulong raw = BitConverter.ToUInt64(bin, fo);
+            return raw == 0 ? null : raw;
         }
 
         private void CommitFamily() {
@@ -556,16 +623,19 @@ public static partial class ArtifactTableExtractor {
 
             var tiers = _tiers
                 .Select((t, i) => new Tier(t.Level, t.Name ?? (i < streamTiers.Count ? streamTiers[i] : ""),
-                    t.RarityCount, t.Recipe))
+                    t.RarityCount, t.Recipe, t.Effects))
                 .OrderBy(t => t.Level)
                 .ToList();
-            Families.Add(new Family(afxId ?? -1, order, id ?? "", plural ?? "", kind ?? -1, dimension ?? -1, tiers));
+            string template = layout.RarityStride == 0 ? "" : DescribeTemplate(src.Plus(FamilyDescribePtr)) ?? "";
+            Families.Add(new Family(afxId ?? -1, order, id ?? "", plural ?? "", kind ?? -1, dimension ?? -1, template,
+                tiers));
             ResetFamily();
         }
 
         private void ResetFamily() {
             _tiers.Clear();
             _strings.Clear();
+            _rarityElems.Clear();
             _prevStr = null;
         }
 

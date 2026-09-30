@@ -8,4 +8,5 @@ public sealed record ArtifactFamily(
     ArtifactKind Kind,
     int Dimension,
     int Order,
+    string Description,
     IReadOnlyList<ArtifactTier> Tiers);
