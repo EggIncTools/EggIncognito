@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <Description>Android build inventory for EggIncognito: reads the manifest versionCode and versionName of every .apk/.apkm/.xapk under a directory and writes a TSV of present versionCodes, the absent ranges between them, and unreadable files.</Description>
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\EggIncognito.Core\EggIncognito.Core.csproj" />
+  </ItemGroup>
+
+</Project>

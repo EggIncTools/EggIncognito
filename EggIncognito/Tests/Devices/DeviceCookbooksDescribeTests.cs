@@ -54,8 +54,10 @@ public class DeviceCookbooksDescribeTests {
     public async Task CallerCancellation_Propagates() {
         using var cts = new CancellationTokenSource();
         await cts.CancelAsync();
-        var slow = new Book("slow", ct => Task.Delay(Timeout.Infinite, ct).ContinueWith(
-            _ => new DeviceCookbookInfo("slow", "slow", "", true), TaskScheduler.Default));
+        var slow = new Book("slow", async ct => {
+            await Task.Delay(Timeout.Infinite, ct);
+            return new DeviceCookbookInfo("slow", "slow", "", true);
+        });
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
             DeviceCookbooks.DescribeBoundedAsync(slow, Target, TimeSpan.FromSeconds(5), cts.Token));

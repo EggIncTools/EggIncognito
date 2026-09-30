@@ -37,8 +37,9 @@ public sealed class StagedEntry {
 
 public sealed record GroupStatus(
     bool Known, bool Pending, bool Offered, bool Failed = false, bool InRegistry = false,
-    bool Conflict = false, StoredMeta? Stored = null) {
+    bool Conflict = false, StoredMeta? Stored = null, bool Archived = false) {
     public bool Offerable => !Known && !InRegistry && !Conflict && !Pending && !Offered && !Failed;
+    public bool Flaggable => Known && !Archived && !Pending && !Offered && !Failed;
 }
 
 public sealed record DiffBundle(

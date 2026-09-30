@@ -8,4 +8,5 @@ public sealed record RefMeta(
     string? Source,
     string? Package,
     string? Detected,
-    string? Sha);
+    string? Sha,
+    bool? Archived = null);

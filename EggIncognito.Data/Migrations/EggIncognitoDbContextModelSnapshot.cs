@@ -1563,6 +1563,12 @@ namespace EggIncognito.Data.Migrations
                         .HasColumnType("text")
                         .HasColumnName("apk_ref");
 
+                    b.Property<bool>("ArchiveSourced")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasColumnName("archive_sourced")
+                        .HasDefaultValue(false);
+
                     b.Property<string>("AppVersion")
                         .IsRequired()
                         .HasColumnType("text")

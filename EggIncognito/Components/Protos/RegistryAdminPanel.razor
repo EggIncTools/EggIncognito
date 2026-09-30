@@ -9,17 +9,21 @@
     <div class="pwb-admin-head">
         <h3 class="pwb-admin-title">Registry admin</h3>
         <div class="settings-seg" role="radiogroup" aria-label="Registry admin action">
+            <button type="button" class="seg-btn @(_tab == TabReview ? "active" : "")"
+                    @onclick="@(() => PickTab(TabReview))">
+                Review
+            </button>
             <button type="button" class="seg-btn @(_tab == TabAdd ? "active" : "")"
-                    @onclick="@(() => SetTab(TabAdd))">
+                    @onclick="@(() => PickTab(TabAdd))">
                 Add version
             </button>
             <button type="button" class="seg-btn @(_tab == TabEdit ? "active" : "")"
-                    @onclick="@(() => SetTab(TabEdit))">
+                    @onclick="@(() => PickTab(TabEdit))">
                 Edit version
             </button>
             @if (IsAdmin) {
                 <button type="button" class="seg-btn @(_tab == TabDeleted ? "active" : "")"
-                        @onclick="@(() => SetTab(TabDeleted))">
+                        @onclick="@(() => PickTab(TabDeleted))">
                     Deleted
                 </button>
             }
@@ -30,7 +34,53 @@
         </button>
     </div>
 
-    @if (_tab == TabAdd) {
+    @if (_tab == TabReview) {
+        <StagedReviewPanel @ref="_review" IsAdmin="IsAdmin" ShowEmpty="true"
+                           EmptyText="Nothing is pending review." OnChanged="OnReviewChanged"/>
+        @if (IsAdmin && _suggestions.Count > 0) {
+            <div class="sub-section-head">
+                Suggested merges (@_suggestions.Count)
+                <button type="button" class="btn-mini" disabled="@_busy" @onclick="AcceptAllSuggestions">Merge all</button>
+            </div>
+            <div class="text-xs text-muted mb-2">Same app version and proto SHA across platforms. Merge links them under one entry.</div>
+            <div class="reg-wrap">
+                <table class="data-table">
+                    <thead>
+                    <tr>
+                        <th>App version</th>
+                        <th>Proto SHA</th>
+                        <th>Members</th>
+                        <th class="w-20 pwb-admin-row-tools">Actions</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    @foreach (var s in _suggestions) {
+                        <tr>
+                            <td class="reg-version">@s.AppVersion</td>
+                            <td><span class="code-chip">@Short(s.ProtoSha)</span></td>
+                            <td>
+                                <span class="pwb-merge-members">
+                                    @foreach (var member in s.Members) {
+                                        <span class="pwb-merge-member">
+                                            <PlatformIcon Platform="@member.Platform"/>
+                                            <span class="reg-num">@member.Build</span>
+                                        </span>
+                                    }
+                                </span>
+                            </td>
+                            <td class="pwb-admin-row-tools">
+                                <button type="button" class="btn-mini" disabled="@_busy"
+                                        @onclick="@(() => AcceptSuggestion(s))">
+                                    Merge
+                                </button>
+                            </td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        }
+    } else if (_tab == TabAdd) {
         <div class="pwb-admin-grid">
             <div class="pwb-field">
                 <span class="pwb-field-label">Platform</span>
@@ -142,7 +192,8 @@
 </section>
 
 @code {
-    const string TabAdd = "add";
+    public const string TabReview = "review";
+    public const string TabAdd = "add";
     const string TabEdit = "edit";
     const string TabDeleted = "deleted";
     const string PlatAndroid = "android";
@@ -160,9 +211,16 @@
 
     [Parameter] public EventCallback OnClose { get; set; }
 
-    string _tab = TabAdd;
+    [Parameter] public string Tab { get; set; } = TabReview;
+
+    [Parameter] public EventCallback<string> TabChanged { get; set; }
+
+    string _tab = TabReview;
+    string _appliedTab = "";
     bool _busy;
     List<DeletedVersionRow> _deleted = [];
+    List<MergeSuggestion> _suggestions = [];
+    StagedReviewPanel? _review;
     string _platform = PlatAndroid;
     string _appVersion = "";
     string _build = "";
@@ -188,9 +246,71 @@
         _platform = platform;
     }
 
+    protected override async Task OnParametersSetAsync() {
+        if (Tab == _appliedTab) return;
+        _appliedTab = Tab;
+        await SetTab(Tab);
+    }
+
+    public async Task Refresh() {
+        if (_tab != TabReview) return;
+        if (_review is { } review) await review.Load();
+        await LoadSuggestions();
+        StateHasChanged();
+    }
+
+    async Task PickTab(string tab) {
+        _appliedTab = tab;
+        await SetTab(tab);
+        await TabChanged.InvokeAsync(tab);
+    }
+
     async Task SetTab(string tab) {
         _tab = tab;
         if (tab == TabDeleted) await LoadDeleted();
+        if (tab == TabReview) await LoadSuggestions();
+    }
+
+    async Task LoadSuggestions() {
+        if (!IsAdmin) {
+            _suggestions = [];
+            return;
+        }
+
+        try {
+            _suggestions = await Client().GetFromJsonAsync<List<MergeSuggestion>>(
+                "/api/protos/versions/merge-suggestions", JsonOpts) ?? [];
+        } catch (Exception ex) when (ex is HttpRequestException or NotSupportedException or JsonException) {
+            _suggestions = [];
+        }
+    }
+
+    Task AcceptSuggestion(MergeSuggestion s) {
+        return AcceptSuggestions([s], $"merged {s.Members.Count} entries for {s.AppVersion}");
+    }
+
+    Task AcceptAllSuggestions() {
+        return AcceptSuggestions(_suggestions, $"merged {_suggestions.Count} suggestion groups");
+    }
+
+    async Task AcceptSuggestions(IReadOnlyList<MergeSuggestion> picked, string okText) {
+        var groups = picked.Where(s => s.Members.Count >= 2).Select(s => new {
+            canonical = new { s.Members[0].Platform, s.Members[0].Build },
+            aliases = s.Members.Skip(1).Select(m => new { m.Platform, m.Build }).ToList()
+        }).ToList();
+        if (groups.Count == 0) return;
+        _busy = true;
+        var ok = await PostJson("/api/protos/versions/merge-batch", new { groups });
+        _busy = false;
+        Say(ok, ok ? okText : "merge failed (admin only?)");
+        if (!ok) return;
+        await LoadSuggestions();
+        await OnChanged.InvokeAsync();
+    }
+
+    async Task OnReviewChanged() {
+        await LoadSuggestions();
+        await OnChanged.InvokeAsync();
     }
 
     async Task LoadDeleted() {

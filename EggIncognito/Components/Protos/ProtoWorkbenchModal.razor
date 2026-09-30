@@ -86,7 +86,7 @@
                         @if (_filterOpen) {
                             <div class="pwb-fil-pop">
                                 <RegistryFilterPanel Query="State.Query" QueryChanged="OnQueryChanged"
-                                                     Rows="State.Registry"/>
+                                                     Rows="State.Registry" IsAdmin="@User.IsAtLeast(UserRole.Admin)"/>
                             </div>
                         }
                         @if (State.Query.Groups.Count > 0) {
@@ -117,6 +117,16 @@
                                                        @onchange="@(() => ToggleRow(row))"/>
                                             }
                                             <PlatformIcon Platform="@row.Platform"/>
+                                            @if (row.ArchiveSourced == true && User.IsAtLeast(UserRole.Admin)) {
+                                                <Tooltip>
+                                                    <ChildContent>
+                                                        <Icon Name="shield-check" Class="icon-sm pwb-reg-arch"/>
+                                                    </ChildContent>
+                                                    <Tip>
+                                                        <span class="tt-line">Archive sourced</span>
+                                                    </Tip>
+                                                </Tooltip>
+                                            }
                                         </span>
                                         <span class="pwb-reg-ver">
                                             <VersionLine App="@row.AppVersion" Build="@row.Build" Client="@row.ClientVersion"/>
@@ -180,8 +190,9 @@
             <ProtoSelectionBar Selected="_selected" Post="PostJson" OnChanged="OnSelectionMutated" OnClear="ClearSelection"/>
         }
         @if (_adminOpen && User.IsAtLeast(UserRole.Contributor)) {
-            <RegistryAdminPanel Rows="State.Registry" CanOrder="@User.IsAtLeast(UserRole.Admin)"
-                                IsAdmin="@User.IsAtLeast(UserRole.Admin)"
+            <RegistryAdminPanel @ref="_adminPanel" Rows="State.Registry" CanOrder="@User.IsAtLeast(UserRole.Admin)"
+                                IsAdmin="@User.IsAtLeast(UserRole.Admin)" Tab="@_adminTab"
+                                TabChanged="@(t => _adminTab = t)"
                                 OnChanged="OnAdminChanged" OnClose="@(() => _adminOpen = false)"/>
         }
         <div class="pwb-slots">
@@ -230,6 +241,8 @@
                     @if (selGroup is { Conflict: true }) {
                         <span class="pwb-note-inline pwb-err">conflict</span>
                         <span class="text-muted text-xs">Pick the file to offer in the rail.</span>
+                    } else if (selGroup?.Status is { Archived: true }) {
+                        <span class="pwb-note-inline pwb-ok">archive flagged</span>
                     } else if (selGroup?.Status is { Known: true }) {
                         <span class="pwb-note-inline pwb-ok">in registry</span>
                     } else if (selGroup?.Status is { Failed: true }) {
@@ -240,7 +253,7 @@
                         </button>
                     } else if (selGroup?.Status is { Pending: true } or { Offered: true }) {
                         @if (User.IsAtLeast(UserRole.Contributor)) {
-                            <button type="button" class="pwb-pending-btn @(_queueOpen ? "active" : "")"
+                            <button type="button" class="pwb-pending-btn @(_adminOpen && _adminTab == RegistryAdminPanel.TabReview ? "active" : "")"
                                     @onclick="ToggleQueue">
                                 pending review
                             </button>
@@ -262,7 +275,11 @@
                     @if (selGroup is { } sg && CanOffer(sg)) {
                         <button type="button" class="btn-mini" disabled="@_offerBusy"
                                 @onclick="@(() => Offer(sg))">
-                            <Icon Name="upload" Class="icon-sm"/> Offer
+                            @if (CanFlag(sg)) {
+                                <Icon Name="shield-check" Class="icon-sm"/> <text>Flag archive</text>
+                            } else {
+                                <Icon Name="upload" Class="icon-sm"/> <text>Offer</text>
+                            }
                         </button>
                     }
 
@@ -315,11 +332,6 @@
                     </button>
                 </div>
             </section>
-        }
-        @if (_queueOpen && User.IsAtLeast(UserRole.Contributor)) {
-            <StagedReviewPanel @ref="_queuePanel" IsAdmin="@User.IsAtLeast(UserRole.Admin)" ShowEmpty="true"
-                               EmptyText="Nothing is pending review. This sha was staged earlier and has since been approved or rejected."
-                               OnChanged="OnQueueChanged"/>
         }
         <div class="pwb-head">
             <WorkbenchModes Modes="State.Modes" Current="@State.Mode" CurrentChanged="SetMode" Disabled="ModeDisabled"/>
@@ -506,11 +518,11 @@
 
     bool _open;
     bool _adminOpen;
-    bool _queueOpen;
+    string _adminTab = RegistryAdminPanel.TabReview;
     bool _overwriteOpen;
     bool _overwriteBusy;
     string _ovwTarget = "";
-    StagedReviewPanel? _queuePanel;
+    RegistryAdminPanel? _adminPanel;
     bool _dropWired;
     bool _offerBusy;
     bool _filterOpen;
@@ -624,28 +636,40 @@
     }
 
     public void OpenAdd() {
+        OpenAdmin(RegistryAdminPanel.TabAdd);
+    }
+
+    public void OpenReview() {
+        OpenAdmin(RegistryAdminPanel.TabReview);
+    }
+
+    void OpenAdmin(string tab) {
+        _adminTab = tab;
         _adminOpen = User.IsAtLeast(UserRole.Contributor);
         Open();
     }
 
+    public async Task RefreshReview() {
+        if (!_open || _adminPanel is not { } panel) return;
+        await panel.Refresh();
+    }
+
     async Task OnAdminChanged() {
+        foreach (var k in State.GroupStatuses.Keys.ToList()) State.GroupStatuses.Remove(k);
+        await CheckGroups();
         if (OnChanged.HasDelegate) await OnChanged.InvokeAsync();
     }
 
     async Task ToggleQueue() {
-        _queueOpen = !_queueOpen;
+        bool reviewing = _adminOpen && _adminTab == RegistryAdminPanel.TabReview;
+        if (reviewing) _adminOpen = false;
+        else OpenAdmin(RegistryAdminPanel.TabReview);
         await RefreshQueue();
     }
 
     async Task RefreshQueue() {
-        if (_queueOpen && _queuePanel is { } panel) await panel.Load();
         await Rerender();
-    }
-
-    async Task OnQueueChanged() {
-        foreach (var k in State.GroupStatuses.Keys.ToList()) State.GroupStatuses.Remove(k);
-        await CheckGroups();
-        await OnAdminChanged();
+        await RefreshReview();
     }
 
     void ToggleOverwrite(OfferGroup g) {
@@ -715,8 +739,7 @@
                 case "staged":
                     Toasts.Push(StatusNoteKind.Ok, $"overwrite staged against {target.Platform} {target.Build}");
                     _overwriteOpen = false;
-                    _queueOpen = User.IsAtLeast(UserRole.Contributor);
-                    await Rerender();
+                    OpenAdmin(RegistryAdminPanel.TabReview);
                     await RefreshQueue();
                     await OnChanged.InvokeAsync();
                     break;
@@ -774,7 +797,7 @@
         var was = _open;
         _open = false;
         _adminOpen = false;
-        _queueOpen = false;
+        _adminTab = RegistryAdminPanel.TabReview;
         _overwriteOpen = false;
         _filterOpen = false;
         _menu = null;
@@ -1005,13 +1028,19 @@
     }
 
     bool CanOffer(OfferGroup g) {
-        return User.IsAuthenticated && !g.Conflict && g.Winner is not null && g.Status is { Offerable: true };
+        if (!User.IsAuthenticated || g.Conflict || g.Winner is null) return false;
+        return g.Status is { Offerable: true } || CanFlag(g);
+    }
+
+    bool CanFlag(OfferGroup g) {
+        return User.IsAtLeast(UserRole.Admin) && g.Status is { Flaggable: true };
     }
 
     static string GroupStatusText(OfferGroup g) {
         if (g.Conflict) return "conflict";
         return g.Status switch {
             { Failed: true } => "check failed",
+            { Archived: true } => "archive flagged",
             { Known: true } => "in registry",
             { Pending: true } or { Offered: true } => "pending",
             { Conflict: true } => "conflicts with registry",
@@ -1025,6 +1054,7 @@
         if (g.Conflict) return "pwb-err";
         return g.Status switch {
             { Failed: true } => "pwb-err",
+            { Archived: true } => "pwb-ok",
             { Known: true } => "pwb-ok",
             { Pending: true } or { Offered: true } => "pwb-warn",
             { Conflict: true } => "pwb-warn",
@@ -1057,23 +1087,42 @@
     }
 
     async Task CheckGroups() {
-        List<OfferGroup> todo = [];
-        await InvokeAsync(() => { todo = Groups().Where(g => g.StatusKey is { } sk && !State.GroupStatuses.ContainsKey(sk)).ToList(); });
-        foreach (var g in todo) {
-            if (g.StatusKey is not { } sk) continue;
-            var claimed = false;
-            await InvokeAsync(() => claimed = _checking.Add(sk));
-            if (!claimed) continue;
-            try {
-                var r = await Client().OneAsync<CheckResp>(
-                    $"/api/protos/staged/check?platform={Uri.EscapeDataString(g.Platform)}&appVersion={Uri.EscapeDataString(g.AppVersion)}&build={Uri.EscapeDataString(g.Build)}&clientVersion={Uri.EscapeDataString(g.ClientVersionText)}&protoSha={Uri.EscapeDataString(g.Sha ?? "")}",
-                    Logger);
-                await InvokeAsync(() => State.GroupStatuses[sk] = r is not null
-                    ? new GroupStatus(r.KnownCombination, r.Pending, false, false, r.InRegistry, r.Conflict, r.Stored)
-                    : new GroupStatus(false, false, false, true));
-            } finally {
-                await InvokeAsync(() => _checking.Remove(sk));
+        List<(OfferGroup Group, string Key)> todo = [];
+        await InvokeAsync(() => {
+            foreach (var g in Groups()) {
+                if (g.StatusKey is { } sk && !State.GroupStatuses.ContainsKey(sk) && _checking.Add(sk)) todo.Add((g, sk));
             }
+        });
+        if (todo.Count == 0) {
+            await Rerender();
+            return;
+        }
+
+        try {
+            var items = todo.Select(t => new {
+                protoSha = t.Group.Sha ?? "", platform = t.Group.Platform, appVersion = t.Group.AppVersion,
+                build = t.Group.Build, clientVersion = t.Group.ClientVersionText
+            }).ToList();
+            List<CheckResp>? rows = null;
+            try {
+                var resp = await Client().PostAsJsonAsync("/api/protos/staged/check-batch", new { items }, SelfCallJson.Web);
+                if (resp.IsSuccessStatusCode) rows = await resp.Content.ReadFromJsonAsync<List<CheckResp>>(SelfCallJson.Web);
+            } catch (Exception ex) when (ex is HttpRequestException or JsonException or TaskCanceledException) {
+                Logger.LogDebug(ex, "batch registry check failed");
+            }
+
+            await InvokeAsync(() => {
+                for (var i = 0; i < todo.Count; i++) {
+                    var r = rows is { } list && i < list.Count ? list[i] : null;
+                    State.GroupStatuses[todo[i].Key] = r is not null
+                        ? new GroupStatus(r.KnownCombination, r.Pending, false, false, r.InRegistry, r.Conflict, r.Stored, r.Archived)
+                        : new GroupStatus(false, false, false, true);
+                }
+            });
+        } finally {
+            await InvokeAsync(() => {
+                foreach (var t in todo) _checking.Remove(t.Key);
+            });
         }
 
         await Rerender();
@@ -1084,36 +1133,48 @@
         await CheckGroups();
     }
 
-    async Task OfferAll(List<OfferGroup> groups) {
-        foreach (var g in groups.Where(CanOffer).ToList()) await Offer(g);
+    Task OfferAll(List<OfferGroup> groups) {
+        return OfferBatch([.. groups.Where(CanOffer)]);
     }
 
-    async Task Offer(OfferGroup g) {
-        var proto = g.Winner?.Result?.Proto;
-        var sha = g.Winner?.Result?.ProtoSha;
-        if (proto is not { Length: > 0 } || sha is not { Length: > 0 }) return;
+    Task Offer(OfferGroup g) {
+        return OfferBatch([g]);
+    }
+
+    async Task OfferBatch(List<OfferGroup> groups) {
+        var ready = groups.Where(g => g.Winner?.Result is { Proto.Length: > 0 } or { FileSha.Length: > 0 }).ToList();
+        if (ready.Count == 0) return;
         _offerBusy = true;
         try {
-            var body = new {
+            var items = ready.Select(g => new {
                 platform = g.Platform,
                 appVersion = string.IsNullOrWhiteSpace(g.AppVersion) ? null : g.AppVersion,
                 build = string.IsNullOrWhiteSpace(g.Build) ? null : g.Build,
                 clientVersion = string.IsNullOrWhiteSpace(g.ClientVersionText) ? null : g.ClientVersionText,
                 package = (string?)null,
-                protoSha = sha,
-                protoText = proto,
-                messageIndex = (string?)null
-            };
-            var resp = await Client().PostAsJsonAsync("/api/protos/staged/offer", body, SelfCallJson.Web);
-            if (!resp.IsSuccessStatusCode) return;
-            var outcome = await resp.Content.ReadFromJsonAsync<OfferResp>(SelfCallJson.Web);
+                fileSha = g.Winner?.Result?.FileSha,
+                protoText = g.Winner?.Result?.Proto
+            }).ToList();
+            var resp = await Client().PostAsJsonAsync("/api/protos/staged/offer-batch", new { items }, SelfCallJson.Web);
+            if (!resp.IsSuccessStatusCode) {
+                Toasts.Push(StatusNoteKind.Error, $"offer failed ({(int)resp.StatusCode})");
+                return;
+            }
+
+            var outcome = await resp.Content.ReadFromJsonAsync<OfferBatchResp>(SelfCallJson.Web);
+            var results = outcome?.Results ?? [];
             await InvokeAsync(() => {
-                if (g.StatusKey is { } sk) State.GroupStatuses[sk] = StatusOf(outcome?.Result, g.Status);
+                foreach (var r in results) {
+                    if (r.Index < 0 || r.Index >= ready.Count || ready[r.Index].StatusKey is not { } sk) continue;
+                    State.GroupStatuses[sk] = StatusOf(r.Result, ready[r.Index].Status);
+                }
             });
-            if (outcome?.Result is "staged" or "correctionstaged") await RefreshQueue();
+            if (results.FirstOrDefault(r => r.Error is { Length: > 0 }) is { } bad)
+                Toasts.Push(StatusNoteKind.Error, $"offer rejected: {bad.Error}");
+            if (results.Any(r => r.Result is "staged" or "correctionstaged")) await RefreshQueue();
             await OnChanged.InvokeAsync();
-        } catch (Exception ex) {
-            Logger.LogWarning(ex, "offering the extracted proto for {Platform} failed", g.Platform);
+        } catch (Exception ex) when (ex is HttpRequestException or JsonException or TaskCanceledException) {
+            Logger.LogWarning(ex, "offering {Count} extracted protos failed", ready.Count);
         } finally {
             _offerBusy = false;
         }
@@ -1121,6 +1182,7 @@
 
     static GroupStatus StatusOf(string? offerResult, GroupStatus? prior) {
         return offerResult switch {
+            "archiveflagged" or "alreadyarchived" => new GroupStatus(true, false, false, false, true, Archived: true),
             "alreadyinregistry" => new GroupStatus(true, false, false, false, true),
             "alreadypending" => new GroupStatus(false, true, false, false, prior?.InRegistry ?? false,
                 prior?.Conflict ?? false, prior?.Stored),
@@ -1830,13 +1892,14 @@
             row?.DetectedAt is { } seen
                 ? ViewerClock.At(Services, TimeAgo.FromUtc(seen)).ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture)
                 : null,
-            row?.ProtoSha);
+            row?.ProtoSha,
+            row?.ArchiveSourced);
     }
 
     IReadOnlyList<ProtoMetaRow> MetaRows() {
         var a = MetaOf(State.A);
         var b = MetaOf(State.B);
-        return [
+        List<ProtoMetaRow> rows = [
             new ProtoMetaRow("Platform", Dash(a.Platform), Dash(b.Platform)),
             new ProtoMetaRow("App version", Dash(a.AppVersion), Dash(b.AppVersion)),
             new ProtoMetaRow("Build", Dash(a.Build), Dash(b.Build)),
@@ -1846,6 +1909,13 @@
             new ProtoMetaRow("Detected", Dash(a.Detected), Dash(b.Detected)),
             new ProtoMetaRow("Proto SHA", Dash(a.Sha), Dash(b.Sha))
         ];
+        if (User.IsAtLeast(UserRole.Admin))
+            rows.Add(new ProtoMetaRow("Archive sourced", Dash(YesNo(a.Archived)), Dash(YesNo(b.Archived))));
+        return rows;
+    }
+
+    static string? YesNo(bool? value) {
+        return value switch { true => "yes", false => "no", null => null };
     }
 
     string ViewText() {

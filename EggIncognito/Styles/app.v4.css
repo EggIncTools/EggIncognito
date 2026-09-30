@@ -1208,6 +1208,8 @@ input[type="search"]::placeholder { @apply text-muted; }
 }
 .pwb-admin-foot > span:first-child { margin-right: auto; }
 .data-table td.pwb-admin-row-tools, .data-table th.pwb-admin-row-tools { text-align: right; white-space: nowrap; }
+.pwb-merge-members { display: inline-flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
+.pwb-merge-member { display: inline-flex; align-items: center; gap: 0.25rem; }
 .reg-wrap.pwb-admin-scroll { overflow-y: auto; max-height: 60vh; overscroll-behavior: contain; }
 
 .sr-sec { margin-bottom: 0.75rem; }
@@ -2024,6 +2026,7 @@ body .modal-body .skm { color: var(--color-fg); }
   gap: 0.375rem;
   color: var(--color-muted);
 }
+.pwb-reg-arch { color: var(--color-accent); }
 .pwb-reg-ver {
   grid-column: 2 / span 2;
   grid-row: 1;

@@ -9,6 +9,32 @@ public class StagedProtoApiTests {
     public void OfferResult_EnumNames_LowercaseForJson() {
         Assert.Equal("staged", StagedProtoStore.OfferResult.Staged.ToString().ToLowerInvariant());
         Assert.Equal("alreadyinregistry", StagedProtoStore.OfferResult.AlreadyInRegistry.ToString().ToLowerInvariant());
+        Assert.Equal("archiveflagged", StagedProtoStore.OfferResult.ArchiveFlagged.ToString().ToLowerInvariant());
+        Assert.Equal("alreadyarchived", StagedProtoStore.OfferResult.AlreadyArchived.ToString().ToLowerInvariant());
+    }
+
+    [Fact]
+    public void GroupStatus_KnownUnflagged_IsFlaggableNotOfferable() {
+        var unflagged = new GroupStatus(true, false, false, false, true);
+        var archived = unflagged with { Archived = true };
+
+        Assert.True(unflagged.Flaggable);
+        Assert.False(unflagged.Offerable);
+        Assert.False(archived.Flaggable);
+        Assert.False(archived.Offerable);
+        Assert.False((unflagged with { Pending = true }).Flaggable);
+        Assert.False(new GroupStatus(false, false, false).Flaggable);
+    }
+
+    [Fact]
+    public void Evaluate_ReportsArchivedOnlyWhenEveryCompatibleRowIsFlagged() {
+        var flagged = Android177();
+        flagged.ArchiveSourced = true;
+
+        Assert.False(StagedProtoStore.Evaluate([Android177()], false, "android", "1.7.7", "111079", "15").Archived);
+        Assert.True(StagedProtoStore.Evaluate([flagged], false, "android", "1.7.7", "111079", "15").Archived);
+        Assert.False(StagedProtoStore.Evaluate([flagged, Android177()], false, "android", "1.7.7", null, null).Archived);
+        Assert.False(StagedProtoStore.Evaluate([flagged], false, "ios", "1.7.7", null, null).Archived);
     }
 
     [Theory]

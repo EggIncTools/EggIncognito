@@ -206,12 +206,33 @@ export function discard(token) {
   stash.delete(token);
 }
 
+async function sha256Hex(blob) {
+  if (!globalThis.crypto?.subtle) return null;
+  const digest = await crypto.subtle.digest("SHA-256", await blob.arrayBuffer());
+  return Array.from(new Uint8Array(digest), b => b.toString(16).padStart(2, "0")).join("");
+}
+
+async function knownResult(endpoint, fileSha) {
+  if (!fileSha) return null;
+  try {
+    const res = await fetch(`${endpoint}/known/${fileSha}`, { credentials: "same-origin" });
+    if (!res.ok) return null;
+    const json = await res.json();
+    return json?.ok ? json : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function analyzeStored(token, endpoint, dotnetRef) {
   const file = stash.get(token);
   if (!file) return { ok: false, diagnostics: "file no longer available" };
   try {
     await report(dotnetRef, token, "extracting binary from archive");
     const picked = await extractForUpload(file);
+    await report(dotnetRef, token, "hashing binary");
+    const known = await knownResult(endpoint, await sha256Hex(picked.binary));
+    if (known) return { ...known, fileName: file.name };
     const uploadedSize = picked.binary.size + (picked.meta ? picked.meta.size : 0);
     const form = new FormData();
     form.append("binary", picked.binary, "binary.bin");

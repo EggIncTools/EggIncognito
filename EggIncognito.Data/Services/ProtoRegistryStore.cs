@@ -72,7 +72,7 @@ public sealed class ProtoRegistryStore(EggIncognitoDbContext db, TimeProvider ti
         await EnsureCanonicalAsync(protoSha, protoText, ct);
     }
 
-    private async Task EnsureCanonicalAsync(string sha, string rawText, CancellationToken ct) {
+    public async Task EnsureCanonicalAsync(string sha, string rawText, CancellationToken ct) {
         if (string.IsNullOrEmpty(sha)) return;
         if (await db.ProtoCanonicals.AsNoTracking().AnyAsync(c => c.ProtoSha == sha, ct)) return;
 
@@ -265,6 +265,15 @@ public sealed class ProtoRegistryStore(EggIncognitoDbContext db, TimeProvider ti
         row.DeletedAt = time.GetUtcNow();
         await db.SaveChangesAsync(ct);
         await NotifyRegistryAsync($"delete:{platform}:{build}", ct);
+        return true;
+    }
+
+    public async Task<bool> SetArchiveSourcedAsync(string platform, string build, CancellationToken ct = default) {
+        var row = await db.ProtoVersions.FirstOrDefaultAsync(p => p.Platform == platform && p.Build == build, ct);
+        if (row is null || row.ArchiveSourced) return false;
+        row.ArchiveSourced = true;
+        await db.SaveChangesAsync(ct);
+        await NotifyRegistryAsync($"archive:{platform}:{build}", ct);
         return true;
     }
 

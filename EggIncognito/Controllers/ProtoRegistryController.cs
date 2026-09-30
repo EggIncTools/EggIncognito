@@ -1,5 +1,7 @@
+using System.Text.Json;
 using EggIdentity.Contract;
 using EggIncognito.Core;
+using EggIncognito.Core.Services;
 using EggIncognito.Core.Services.ProtoExtract;
 using EggIncognito.Core.Services.Protos;
 using EggIncognito.Data.Services;
@@ -16,6 +18,7 @@ namespace EggIncognito.Controllers;
 [ApiAccess(ApiAccessLevel.Public)]
 [EnableRateLimiting("write")]
 public sealed class ProtoRegistryController(ICurrentUser user, TimeProvider time) : ApiControllerBase {
+    private const int MaxBatch = 500;
     private string Reviewer => user.DiscordId ?? "?";
 
     [HttpPost]
@@ -111,6 +114,24 @@ public sealed class ProtoRegistryController(ICurrentUser user, TimeProvider time
         return Ok(new { ok = true, linked });
     }
 
+    [HttpPost("merge-batch")]
+    [ApiAccess(ApiAccessLevel.Admin)]
+    [RequiresDb]
+    public async Task<IActionResult> MergeBatch([FromBody] MergeBatchRequest req,
+        [FromServices] ProtoRegistryStore store, CancellationToken ct) {
+        if (req.Groups is not [_, ..] groups) return Fail(400, "no merge groups supplied");
+        if (groups.Count > MaxBatch) return Fail(400, "too many merge groups in one call");
+        int merged = 0, linked = 0;
+        foreach (var g in groups) {
+            if (g is not { Canonical: { } canonical, Aliases: [_, ..] aliases }) continue;
+            linked += await store.MergeAsync((canonical.Platform, canonical.Build),
+                [.. aliases.Select(a => (a.Platform, a.Build))], ct);
+            merged++;
+        }
+
+        return Ok(new { ok = true, merged, linked });
+    }
+
     [HttpPost("sha-order")]
     [ApiAccess(ApiAccessLevel.Admin)]
     [RequiresDb]
@@ -144,6 +165,20 @@ public sealed class ProtoRegistryController(ICurrentUser user, TimeProvider time
         [FromServices] StagedProtoStore? s, CancellationToken ct) =>
         Ok(s is null ? default : await s.CheckAsync(platform, appVersion, build, clientVersion, protoSha, ct));
 
+    [HttpPost("/api/protos/staged/check-batch")]
+    [ApiAccess(ApiAccessLevel.Public)]
+    public async Task<IActionResult> StagedCheckBatch([FromBody] CheckBatchRequest req,
+        [FromServices] StagedProtoStore? s, CancellationToken ct) {
+        if (req.Items is not [_, ..] items) return Fail(400, "no items supplied");
+        if (items.Count > MaxBatch) return Fail(400, "too many items in one check");
+        var results = new List<StagedProtoStore.CheckOutcome>(items.Count);
+        foreach (var i in items)
+            results.Add(s is null || string.IsNullOrWhiteSpace(i.ProtoSha)
+                ? default
+                : await s.CheckAsync(i.Platform, i.AppVersion, i.Build, i.ClientVersion, i.ProtoSha.Trim(), ct));
+        return Ok(results);
+    }
+
     [HttpPost("/api/protos/staged/correction")]
     [ApiAccess(ApiAccessLevel.Admin)]
     [RequiresDb]
@@ -161,13 +196,47 @@ public sealed class ProtoRegistryController(ICurrentUser user, TimeProvider time
     [ApiAccess(ApiAccessLevel.Authenticated)]
     [RequiresDb]
     public async Task<IActionResult> StagedOffer([FromBody] OfferRequest req, [FromServices] StagedProtoStore s,
-        CancellationToken ct) {
-        if (string.IsNullOrEmpty(req.ProtoSha) || string.IsNullOrEmpty(req.ProtoText))
-            return Fail(400, "protoSha + protoText required");
-        var r = await s.OfferAsync(req.Platform, req.AppVersion, req.Build, req.ClientVersion, req.Package,
-            req.ProtoSha, req.ProtoText, req.MessageIndex, user.DiscordId, "offer", ct);
-        return Ok(new { result = r.ToString().ToLowerInvariant() });
+        [FromServices] AnalyzedFileStore files, CancellationToken ct) {
+        if (string.IsNullOrEmpty(req.ProtoText)) return Fail(400, "protoText required");
+        var r = await OfferOneAsync(0,
+            new OfferItem(req.Platform, req.AppVersion, req.Build, req.ClientVersion, req.Package, null, req.ProtoText),
+            s, files, ct);
+        return r.Error is { } error ? Fail(400, error) : Ok(new { result = r.Result, protoSha = r.ProtoSha });
     }
+
+    [HttpPost("/api/protos/staged/offer-batch")]
+    [ApiAccess(ApiAccessLevel.Authenticated)]
+    [RequiresDb]
+    public async Task<IActionResult> StagedOfferBatch([FromBody] OfferBatchRequest req,
+        [FromServices] StagedProtoStore s, [FromServices] AnalyzedFileStore files, CancellationToken ct) {
+        if (req.Items is not [_, ..] items) return Fail(400, "no items supplied");
+        if (items.Count > MaxBatch) return Fail(400, "too many items in one offer");
+        var results = new List<OfferItemResult>(items.Count);
+        for (int i = 0; i < items.Count; i++) results.Add(await OfferOneAsync(i, items[i], s, files, ct));
+        return Ok(new { results });
+    }
+
+    private async Task<OfferItemResult> OfferOneAsync(int index, OfferItem item, StagedProtoStore s,
+        AnalyzedFileStore files, CancellationToken ct) {
+        if (string.IsNullOrWhiteSpace(item.Platform)) return new OfferItemResult(index, "invalid", null, "platform required");
+        string? text = item.ProtoText is { Length: > 0 } sent
+            ? sent
+            : item.FileSha is { Length: > 0 } fileSha
+                ? (await files.FindKnownAsync(fileSha.Trim().ToLowerInvariant(), ct))?.ProtoText
+                : null;
+        if (text is null) return new OfferItemResult(index, "invalid", null, "protoText or a known fileSha required");
+
+        var norm = ProtoCanonicalForm.Normalize(text);
+        if (!norm.Ok) return new OfferItemResult(index, "invalid", null, norm.Error ?? "proto did not normalize");
+
+        string messageIndex = JsonSerializer.Serialize(ProtoTextIndex.Names(norm.Text));
+        var r = await s.OfferAsync(item.Platform, Blank(item.AppVersion), Blank(item.Build),
+            Blank(item.ClientVersion), Blank(item.Package), norm.Sha, norm.Text, messageIndex, user.DiscordId,
+            StagedProtoStore.SourceOffer, user.IsAtLeast(UserRole.Admin), ct);
+        return new OfferItemResult(index, r.ToString().ToLowerInvariant(), norm.Sha);
+    }
+
+    private static string? Blank(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
     [HttpGet("/api/protos/staged/count")]
     [ApiAccess(ApiAccessLevel.Authenticated)]

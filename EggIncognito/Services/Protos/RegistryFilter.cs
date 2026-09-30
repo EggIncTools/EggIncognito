@@ -40,7 +40,8 @@ public sealed record FilterFieldDef(
     string Label,
     FilterValueKind Kind,
     IReadOnlyList<FilterOpDef> Ops,
-    Func<IReadOnlyList<ProtoRegistryRow>, IReadOnlyList<FilterOption>>? Options);
+    Func<IReadOnlyList<ProtoRegistryRow>, IReadOnlyList<FilterOption>>? Options,
+    bool AdminOnly = false);
 
 public sealed record FilterCondition(string Field, FilterOp Op, string Value) {
     public bool Complete =>
@@ -129,8 +130,12 @@ public static class RegistryFilter {
         new("detected", "Detected", FilterValueKind.Date, DateOps, null),
         new("hasText", "Stored text", FilterValueKind.Bool, BoolOps, null),
         new("badBuild", "Bad build", FilterValueKind.Bool, BoolOps, null),
-        new("sortOrder", "Sort order", FilterValueKind.Number, Comparison, null)
+        new("sortOrder", "Sort order", FilterValueKind.Number, Comparison, null),
+        new("archived", "Archive sourced", FilterValueKind.Bool, BoolOps, null, true)
     ];
+
+    public static IReadOnlyList<FilterFieldDef> FieldsFor(bool admin) =>
+        admin ? Fields : [.. Fields.Where(f => !f.AdminOnly)];
 
     public static FilterFieldDef? Field(string? key) {
         if (string.IsNullOrWhiteSpace(key)) return null;
@@ -222,6 +227,7 @@ public static class RegistryFilter {
     private static bool BoolValue(ProtoRegistryRow row, string key) => key switch {
         "hasText" => !string.IsNullOrWhiteSpace(row.ProtoSha),
         "badBuild" => !string.IsNullOrWhiteSpace(row.BuildFlag),
+        "archived" => row.ArchiveSourced == true,
         _ => false
     };
 

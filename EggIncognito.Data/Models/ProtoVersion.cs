@@ -20,4 +20,6 @@ public sealed class ProtoVersion {
     [Column("deleted_at")] public DateTimeOffset? DeletedAt { get; set; }
 
     [Column("canonical_id")] public int? CanonicalId { get; set; }
+
+    [Column("archive_sourced")] public bool ArchiveSourced { get; set; }
 }

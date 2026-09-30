@@ -10,6 +10,7 @@ namespace EggIncognito.Data.Services;
 public sealed class StagedProtoStore(EggIncognitoDbContext db, TimeProvider time, ProtoRegistryStore registry) {
     public const string KindVersion = "version";
     public const string KindCorrection = "correction";
+    public const string SourceOffer = "offer";
 
     public enum ApproveResult {
         Ok,
@@ -24,7 +25,9 @@ public sealed class StagedProtoStore(EggIncognitoDbContext db, TimeProvider time
         Staged,
         AlreadyPending,
         AlreadyInRegistry,
-        CorrectionStaged
+        CorrectionStaged,
+        ArchiveFlagged,
+        AlreadyArchived
     }
 
     public enum CorrectionResult {
@@ -50,12 +53,14 @@ public sealed class StagedProtoStore(EggIncognitoDbContext db, TimeProvider time
         string? appVersion, string? build, string? clientVersion) {
         var rows = OnPlatform(shaRows, platform);
         bool inReg = rows.Count > 0;
-        bool known = rows.Any(p => AllCompatible(p, platform, appVersion, build, clientVersion));
+        var compatible = rows.Where(p => AllCompatible(p, platform, appVersion, build, clientVersion)).ToList();
+        bool known = compatible.Count > 0;
+        bool archived = known && compatible.TrueForAll(p => p.ArchiveSourced);
         bool conflict = inReg && !known;
         var stored = conflict
             ? new StoredMeta(rows[0].Platform, rows[0].AppVersion, rows[0].Build, rows[0].ClientVersion)
             : (StoredMeta?)null;
-        return new CheckOutcome(inReg, pending, known, conflict, stored);
+        return new CheckOutcome(inReg, pending, known, conflict, stored, archived);
     }
 
     private static int FieldScore(string? appVersion, string? build, string? clientVersion) =>
@@ -206,10 +211,25 @@ public sealed class StagedProtoStore(EggIncognitoDbContext db, TimeProvider time
     private static bool Unchanged(string? proposed, string? stored) =>
         string.IsNullOrWhiteSpace(proposed) || Same(proposed, stored);
 
+    private async Task<OfferResult?> FlagArchiveMatchAsync(string platform, string? appVersion, string? build,
+        string? clientVersion, string protoSha, CancellationToken ct) {
+        var matches = OnPlatform(await ShaRowsAsync(protoSha, ct), platform)
+            .Where(p => AllCompatible(p, platform, appVersion, build, clientVersion))
+            .ToList();
+        if (matches.Count == 0) return null;
+        var unflagged = matches.Where(p => !p.ArchiveSourced).ToList();
+        if (unflagged.Count == 0) return OfferResult.AlreadyArchived;
+        foreach (var p in unflagged) await registry.SetArchiveSourcedAsync(p.Platform, p.Build, ct);
+        return OfferResult.ArchiveFlagged;
+    }
+
     public async Task<OfferResult> OfferAsync(
         string platform, string? appVersion, string? build, string? clientVersion, string? package,
         string protoSha, string protoText, string? messageIndex, string? submittedBy, string source,
-        CancellationToken ct) {
+        bool canFlagArchive, CancellationToken ct) {
+        if (canFlagArchive && source == SourceOffer
+            && await FlagArchiveMatchAsync(platform, appVersion, build, clientVersion, protoSha, ct) is { } flagged)
+            return flagged;
         var outcome = await StageOrReviveAsync(platform, appVersion, build, clientVersion, package, protoSha,
             protoText, messageIndex, source, submittedBy, null, null, null, null, ct);
         return outcome switch {
@@ -305,6 +325,7 @@ public sealed class StagedProtoStore(EggIncognitoDbContext db, TimeProvider time
             string finalBuild = string.IsNullOrWhiteSpace(bld) ? targetBuild : bld;
             if (!string.IsNullOrEmpty(row.ProtoText) && row.ProtoSha != target.ProtoSha)
                 await registry.SetProtoAsync(targetPlatform, finalBuild, row.ProtoText, ct);
+            if (row.Source == SourceOffer) await registry.SetArchiveSourcedAsync(targetPlatform, finalBuild, ct);
 
             row.Status = "approved";
             row.ReviewedBy = reviewedBy;
@@ -331,6 +352,8 @@ public sealed class StagedProtoStore(EggIncognitoDbContext db, TimeProvider time
                 !hasProto, $"staged:{row.Id}", time.GetUtcNow(),
                 row.Source, ct);
         }
+
+        if (row.Source == SourceOffer) await registry.SetArchiveSourcedAsync(plat, bld, ct);
 
         row.Status = "approved";
         row.ReviewedBy = reviewedBy;
@@ -401,7 +424,8 @@ public sealed class StagedProtoStore(EggIncognitoDbContext db, TimeProvider time
         bool Pending,
         bool KnownCombination,
         bool Conflict,
-        StoredMeta? Stored);
+        StoredMeta? Stored,
+        bool Archived = false);
 
     public readonly record struct StoredMeta(
         string Platform,

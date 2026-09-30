@@ -36,33 +36,6 @@
                            OnOpenAdmin="OpenAdmin"/>
         </div>
         <div class="pd-mod pd-main pd-stack">
-            @if (_isAdmin || _isContributor) {
-                <StagedReviewPanel @ref="_stagedPanel" IsAdmin="_isAdmin" OnChanged="OnMutated"/>
-            }
-            @if (_isAdmin && _suggestions.Count > 0) {
-                <div class="panel">
-                    <div class="text-sm font-semibold mb-2">Suggested merges</div>
-                    <div class="text-xs text-muted mb-2">Same app version + proto SHA across platforms. Merge links them under one entry.</div>
-                    @foreach (var s in _suggestions) {
-                        <div class="flex items-center gap-2 flex-wrap mb-1">
-                            <span class="code-chip">@s.AppVersion</span>
-                            <span class="text-xs text-muted font-mono">@(s.ProtoSha.Length > 12 ? s.ProtoSha[..12] : s.ProtoSha)</span>
-                            <span class="text-xs inline-flex items-center gap-1 flex-wrap">
-                                @for (var i = 0; i < s.Members.Count; i++) {
-                                    var member = s.Members[i];
-                                    if (i > 0) {
-                                        <span class="text-muted">+</span>
-                                    }
-
-                                    <PlatformIcon Platform="@member.Platform"/>
-                                    <span>@member.Build</span>
-                                }
-                            </span>
-                            <button type="button" class="btn-mini" @onclick="@(() => AcceptSuggestion(s))">Merge</button>
-                        </div>
-                    }
-                </div>
-            }
             <section class="reg-wrap">
                 <div class="reg-toolbar">
                     <BrandPanel Rows="_rows" OnOpenVersion="OpenVersion"/>
@@ -75,6 +48,12 @@
                                 aria-label="Open the proto workbench" @onclick="@(() => _workbench?.Open())">
                             <Icon Name="chevron-right" Class="icon-sm"/>
                         </button>
+                        @if (_isContributor || _isAdmin) {
+                            <button type="button" class="reg-intake" aria-label="Review staged submissions in the proto workbench"
+                                    @onclick="OpenReview">
+                                <Icon Name="clipboard" Class="icon-sm"/>
+                            </button>
+                        }
                         @if (_isAdmin) {
                             <button type="button" class="reg-add-toggle" aria-label="Add a version in the proto workbench"
                                     @onclick="OpenAddVersion">
@@ -251,8 +230,6 @@
     string _sortCol = "appVersion";
     bool _sortDesc = true;
 
-    List<Models.Registry.MergeSuggestion> _suggestions = [];
-    StagedReviewPanel? _stagedPanel;
     NotificationsWorkbenchModal? _notificationsModal;
 
     Task OpenNotifications() {
@@ -329,7 +306,8 @@
             var isRouteAction = seg.Equals("terms", StringComparison.OrdinalIgnoreCase)
                                 || seg.Equals("privacy", StringComparison.OrdinalIgnoreCase)
                                 || seg.Equals("support", StringComparison.OrdinalIgnoreCase)
-                                || seg.Equals("add", StringComparison.OrdinalIgnoreCase);
+                                || seg.Equals("add", StringComparison.OrdinalIgnoreCase)
+                                || seg.Equals("review", StringComparison.OrdinalIgnoreCase);
             if (isRouteAction) {
                 _closingFromRoute = true;
                 try {
@@ -341,6 +319,7 @@
                 if (seg.Equals("terms", StringComparison.OrdinalIgnoreCase)) OpenTerms();
                 else if (seg.Equals("privacy", StringComparison.OrdinalIgnoreCase)) OpenPrivacy();
                 else if (seg.Equals("support", StringComparison.OrdinalIgnoreCase)) OpenSupport();
+                else if (seg.Equals("review", StringComparison.OrdinalIgnoreCase)) _workbench?.OpenReview();
                 else _workbench?.OpenAdd();
                 return;
             }
@@ -588,7 +567,7 @@
             }
 
             await Load(true);
-            if (_stagedPanel is not null) await _stagedPanel.Load();
+            if (_workbench is { } workbench) await workbench.RefreshReview();
             StateHasChanged();
         } finally {
             _refreshing = false;
@@ -608,38 +587,7 @@
             if (!background) _rows = [];
         }
 
-        await LoadSuggestions(background);
         if (!background) _loading = false;
-    }
-
-    async Task LoadSuggestions(bool background = false) {
-        if (!_isAdmin) {
-            _suggestions = [];
-            return;
-        }
-
-        try {
-            _suggestions = await Client().GetFromJsonAsync<List<Models.Registry.MergeSuggestion>>(
-                "/api/protos/versions/merge-suggestions", JsonOpts) ?? [];
-        } catch {
-            if (!background) _suggestions = [];
-        }
-    }
-
-    async Task AcceptSuggestion(Models.Registry.MergeSuggestion s) {
-        if (s.Members.Count < 2) return;
-        var canonical = new { s.Members[0].Platform, s.Members[0].Build };
-        var aliases = s.Members.Skip(1).Select(m => new { m.Platform, m.Build }).ToList();
-        var ok = await PostJson("/api/protos/versions/merge", new { canonical, aliases });
-        if (ok) await OnMutated();
-    }
-
-    async Task<bool> PostJson(string url, object body) {
-        try {
-            return (await Client().PostAsJsonAsync(url, body, JsonOpts)).IsSuccessStatusCode;
-        } catch {
-            return false;
-        }
     }
 
     Task OpenAddVersion() {
@@ -648,11 +596,16 @@
         return Task.CompletedTask;
     }
 
+    Task OpenReview() {
+        _workbench?.OpenReview();
+        _routeSync?.Push("/protos/review");
+        return Task.CompletedTask;
+    }
+
     async Task OnMutated() {
         _busyMutating = true;
         try {
             await Load();
-            if (_stagedPanel is not null) await _stagedPanel.Load();
         } finally {
             _busyMutating = false;
         }

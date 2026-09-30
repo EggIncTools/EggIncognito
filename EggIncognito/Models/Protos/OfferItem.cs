@@ -1,11 +1,10 @@
 namespace EggIncognito.Models.Protos;
 
-public sealed record OfferRequest(
+public sealed record OfferItem(
     string Platform,
     string? AppVersion,
     string? Build,
     string? ClientVersion,
     string? Package,
-    string? ProtoSha,
-    string ProtoText,
-    string? MessageIndex);
+    string? FileSha,
+    string? ProtoText);

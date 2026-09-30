@@ -22,7 +22,7 @@
                     <select class="pwb-fil-sel" value="@row.Field"
                             @onchange="@(e => SetField(groupIndex, rowIndex, Text(e)))">
                         <option value="">field...</option>
-                        @foreach (var field in RegistryFilter.Fields) {
+                        @foreach (var field in RegistryFilter.FieldsFor(IsAdmin)) {
                             <option value="@field.Key">@field.Label</option>
                         }
                     </select>
@@ -97,6 +97,8 @@
     [Parameter] public EventCallback<RegistryQuery> QueryChanged { get; set; }
 
     [Parameter] public IReadOnlyList<ProtoRegistryRow> Rows { get; set; } = [];
+
+    [Parameter] public bool IsAdmin { get; set; }
 
     readonly List<DraftGroup> _groups = [];
     readonly Dictionary<string, IReadOnlyList<FilterOption>> _options = [];

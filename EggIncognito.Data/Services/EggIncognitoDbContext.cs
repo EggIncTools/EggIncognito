@@ -119,6 +119,7 @@ public sealed class EggIncognitoDbContext(DbContextOptions<EggIncognitoDbContext
             e.HasKey(x => x.Id);
             e.HasIndex(x => new { x.Platform, x.Build }).IsUnique();
             e.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
+            e.Property(x => x.ArchiveSourced).HasDefaultValue(false);
             e.HasOne<ProtoVersion>()
                 .WithMany()
                 .HasForeignKey(x => x.CanonicalId)

@@ -113,6 +113,17 @@ public sealed class ToolsController(
         return ExtractResultJson(r, AnalyzedFileStore.Sha256Hex(bin));
     }
 
+    [HttpGet("extract-proto/known/{fileSha}")]
+    public async Task<IActionResult> KnownExtract(string fileSha, [FromServices] AnalyzedFileStore? store,
+        CancellationToken ct) {
+        if (store is null) return Fail(404, "no analysis store");
+        var known = await store.FindKnownAsync(fileSha.Trim().ToLowerInvariant(), ct);
+        if (known is null) return Fail(404, "file not analyzed yet");
+        return Ok(new ProtoExtractResult(true, known.ProtoText, "known file: served from the analysis store",
+            known.ProtoSha, ProtoTextIndex.Names(known.ProtoText), known.AppVersion, known.Build,
+            known.ClientVersion, fileSha));
+    }
+
     private static async Task<byte[]> ReadFormFileAsync(IFormFile file, CancellationToken ct) {
         byte[] bytes = new byte[file.Length];
         using var dest = new MemoryStream(bytes);
@@ -126,7 +137,7 @@ public sealed class ToolsController(
         try {
             await store.RecordAsync(new AnalyzedFileStore.Entry(
                 AnalyzedFileStore.Sha256Hex(bytes), "analyze", null, r.ProtoSha, r.AppVersion, r.Build,
-                r.ClientVersion?.ToString(CultureInfo.InvariantCulture), fileName), ct);
+                r.ClientVersion?.ToString(CultureInfo.InvariantCulture), fileName, r.Proto), ct);
         } catch (DbException ex) {
             logger.LogWarning(ex, "tools: analyzed-file record for {FileName} not persisted", fileName);
         }
