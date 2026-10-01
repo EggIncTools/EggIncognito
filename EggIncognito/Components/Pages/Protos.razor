@@ -36,7 +36,7 @@
             <IdentityPanel OnOpenSupport="OpenSupport" OnOpenTerms="OpenTerms" OnOpenPrivacy="OpenPrivacy"
                            OnOpenAdmin="OpenAdmin"/>
         </div>
-        <div class="pd-mod pd-main pd-stack pd-mobile-order-3">
+        <div class="pd-main pd-stack pd-mobile-order-3">
             <section class="reg-wrap">
                 <div class="reg-toolbar">
                     <BrandPanel Rows="_rows" OnOpenVersion="OpenVersion"/>
@@ -87,7 +87,7 @@
                             <thead>
                             <tr>
                                 <th class="reg-th-sort reg-c-app" @onclick="@(() => Sort("appVersion"))">
-                                    <span>App version</span>@Caret("appVersion")
+                                    <span>App</span>@Caret("appVersion")
                                 </th>
                                 <th class="reg-th-sort reg-c-build" @onclick="@(() => Sort("build"))">
                                     <span>Build</span>@Caret("build")
@@ -96,7 +96,7 @@
                                     <span>Client</span>@Caret("client")
                                 </th>
                                 <th class="reg-th-sort reg-c-sha" @onclick="@(() => Sort("sha"))">
-                                    <span>Proto SHA</span>@Caret("sha")
+                                    <span>SHA</span>@Caret("sha")
                                 </th>
                             </tr>
                             </thead>

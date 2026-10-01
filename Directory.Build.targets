@@ -1,5 +1,5 @@
 <Project>
   <PropertyGroup>
-    <EnableSingleFileAnalyzer Condition="$([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'net8.0'))">true</EnableSingleFileAnalyzer>
+    <EnableSingleFileAnalyzer Condition="('$(CI)' == 'true' Or '$(PublishSingleFile)' == 'true') And $([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'net8.0'))">true</EnableSingleFileAnalyzer>
   </PropertyGroup>
 </Project>

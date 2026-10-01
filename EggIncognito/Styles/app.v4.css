@@ -1286,6 +1286,7 @@ input[type="search"]::placeholder { @apply text-muted; }
   container-type: inline-size;
   container-name: pdmod;
 }
+.pd-main { grid-column: span 12; min-width: 0; }
 .pd-stack { display: flex; flex-direction: column; gap: 1rem; }
 .pd-widgets { display: flex; flex-direction: column; gap: 1rem; }
 .pd-wcol { display: contents; }
@@ -1491,9 +1492,7 @@ input[type="search"]::placeholder { @apply text-muted; }
     align-content: start;
   }
   .pd-identity { grid-column: 2; grid-row: 1; }
-  .pd-main { grid-column: 1; grid-row: 1 / span 2; min-width: 36rem; width: fit-content; }
-  .pd-main .reg-table { width: auto; min-width: 100%; }
-  .pd-main .reg-table th.reg-c-sha, .pd-main .reg-table td.reg-c-sha { width: 1%; }
+  .pd-main { grid-column: 1; grid-row: 1 / span 2; }
   .pd-side { grid-column: 2; grid-row: 2; }
 }
 @container pdmod (min-width: 60rem) {
@@ -1604,6 +1603,7 @@ input[type="search"]::placeholder { @apply text-muted; }
   }
 }
 .reg-table {
+  width: auto;
   border: 0;
   border-radius: 0;
   overflow: visible;
@@ -1619,8 +1619,7 @@ input[type="search"]::placeholder { @apply text-muted; }
   color: var(--color-muted);
 }
 .reg-table td { padding: 0.375rem 0.75rem; }
-.reg-table th, .reg-table td { width: 1%; white-space: nowrap; }
-.reg-table th.reg-c-sha, .reg-table td.reg-c-sha { width: auto; }
+.reg-table th, .reg-table td { white-space: nowrap; }
 .reg-table tbody.reg-band tr { background-color: transparent; }
 .reg-table tbody.reg-band:nth-of-type(even) { background-color: var(--color-row-alt); }
 .reg-table tbody.reg-band:hover { background-color: var(--color-panel2); }
@@ -1651,11 +1650,11 @@ input[type="search"]::placeholder { @apply text-muted; }
 .reg-build-link:hover .platform-icon,
 .reg-build-link:hover .reg-num:not(.reg-num-bad) { color: var(--color-fg); }
 
-.reg-table td.reg-sha-cell { position: relative; padding-left: calc(0.75rem + var(--reg-gutter, 0rem)); }
+.reg-table td.reg-sha-cell { position: relative; text-align: left; padding-left: 0.75rem; padding-right: calc(0.25rem + var(--reg-gutter, 0rem)); }
 .reg-lane {
   position: absolute;
   inset-block: -1px;
-  left: calc(0.75rem + var(--lane, 0) * var(--reg-lane-w));
+  right: calc(var(--lane, 0) * var(--reg-lane-w));
   width: var(--reg-lane-w);
   pointer-events: auto;
   cursor: pointer;
@@ -1694,7 +1693,7 @@ input[type="search"]::placeholder { @apply text-muted; }
   content: "";
   position: absolute;
   top: 50%;
-  left: 50%;
+  right: 50%;
   height: 1px;
   width: calc(var(--reg-gutter, 0rem) - var(--lane, 0) * var(--reg-lane-w) - var(--reg-lane-w) / 2);
   background: var(--lane-color);
@@ -1712,22 +1711,24 @@ input[type="search"]::placeholder { @apply text-muted; }
   background: color-mix(in oklab, var(--color-accent) 12%, transparent);
 }
 
-@container pdmod (max-width: 34rem) {
-  .reg-table, .reg-table tbody, .reg-table tr, .reg-table td { display: block; width: auto; }
-  .reg-table thead { display: none; }
-  .reg-table tbody.reg-band {
-    display: block;
-    border: 1px solid var(--color-border);
-    border-radius: 0.375rem;
-    margin-bottom: 0.5rem;
-    padding: 0.5rem;
+@media (max-width: 89.999rem) {
+  @container pdmod (max-width: 34rem) {
+    .reg-table, .reg-table tbody, .reg-table tr, .reg-table td { display: block; width: auto; }
+    .reg-table thead { display: none; }
+    .reg-table tbody.reg-band {
+      display: block;
+      border: 1px solid var(--color-border);
+      border-radius: 0.375rem;
+      margin-bottom: 0.5rem;
+      padding: 0.5rem;
+    }
+    .reg-table tbody.reg-band + tbody.reg-band > tr:first-child > td { border-top: 0; }
+    .reg-table td { padding: 0.125rem 0; white-space: normal; }
+    .reg-table tbody.reg-band > tr + tr > td { padding-top: 0.125rem; }
+    .reg-table td[data-label]::before { content: attr(data-label) ": "; color: var(--color-muted); }
+    .reg-table td.reg-c-sha { padding-left: 0; }
+    .reg-table .reg-lane { display: none; }
   }
-  .reg-table tbody.reg-band + tbody.reg-band > tr:first-child > td { border-top: 0; }
-  .reg-table td { padding: 0.125rem 0; white-space: normal; }
-  .reg-table tbody.reg-band > tr + tr > td { padding-top: 0.125rem; }
-  .reg-table td[data-label]::before { content: attr(data-label) ": "; color: var(--color-muted); }
-  .reg-table td.reg-c-sha { padding-left: 0; }
-  .reg-table .reg-lane { display: none; }
 }
 
 .admin-users-table select { @apply w-auto; }
