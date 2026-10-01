@@ -186,14 +186,24 @@
         </WorkbenchRail>
     </Rail>
     <ChildContent>
-        @if (_selected.Count > 0 && User.IsAtLeast(UserRole.Admin)) {
-            <ProtoSelectionBar Selected="_selected" Post="PostJson" OnChanged="OnSelectionMutated" OnClear="ClearSelection"/>
-        }
-        @if (_adminOpen && User.IsAtLeast(UserRole.Contributor)) {
-            <RegistryAdminPanel @ref="_adminPanel" Rows="State.Registry" CanOrder="@User.IsAtLeast(UserRole.Admin)"
-                                IsAdmin="@User.IsAtLeast(UserRole.Admin)" Tab="@_adminTab"
-                                TabChanged="@(t => _adminTab = t)"
-                                OnChanged="OnAdminChanged" OnClose="@(() => _adminOpen = false)"/>
+        @if (User.IsAtLeast(UserRole.Contributor)) {
+            <button type="button" class="pwb-drawer-tab @(_adminOpen ? "pwb-drawer-tab-open" : "") @(_selected.Count > 0 ? "pwb-drawer-tab-hot" : "")"
+                    aria-label="@(_adminOpen ? "Close registry admin" : "Open registry admin")" aria-expanded="@(_adminOpen ? "true" : "false")"
+                    @onclick="@(() => _adminOpen = !_adminOpen)">
+                <Icon Name="@(_adminOpen ? "chevron-right" : "chevron-left")" Class="icon-sm"/>
+                <span class="pwb-drawer-tab-label">@(_selected.Count > 0 ? $"{_selected.Count} selected" : "Registry admin")</span>
+            </button>
+            <aside class="pwb-drawer @(_adminOpen ? "pwb-drawer-open" : "")" aria-hidden="@(_adminOpen ? "false" : "true")">
+                @if (_adminOpen) {
+                    @if (_selected.Count > 0 && User.IsAtLeast(UserRole.Admin)) {
+                        <ProtoSelectionBar Selected="_selected" Post="PostJson" OnChanged="OnSelectionMutated" OnClear="ClearSelection"/>
+                    }
+                    <RegistryAdminPanel @ref="_adminPanel" Rows="State.Registry" CanOrder="@User.IsAtLeast(UserRole.Admin)"
+                                        IsAdmin="@User.IsAtLeast(UserRole.Admin)" Tab="@_adminTab"
+                                        TabChanged="@(t => _adminTab = t)"
+                                        OnChanged="OnAdminChanged" OnClose="@(() => _adminOpen = false)"/>
+                }
+            </aside>
         }
         <div class="pwb-slots">
             <div class="@SlotClass(State.A)">
@@ -525,13 +535,6 @@
                                                                            <Foot>
                                                                                @if (!e.IsDone && e.Step is { Length: > 0 } step) {
                                                                                    <span class="truncate">@step</span>
-                                                                               }
-                                                                               @if (SessionRef(e) is { } sref) {
-                                                                                   <button type="button" class="pwb-pin" aria-label="Set as B"
-                                                                                           @onclick:stopPropagation="true" @onkeydown:stopPropagation="true"
-                                                                                           @onclick="@(() => SetB(sref))">
-                                                                                       B
-                                                                                   </button>
                                                                                }
                                                                                @if (!grouped && g is { Conflict: false, Status.Offerable: true }) {
                                                                                    <span>
@@ -1247,11 +1250,13 @@
         var existing = _selected.FirstOrDefault(k => k.Platform == row.Platform && k.Build == row.Build);
         if (existing is not null) _selected.Remove(existing);
         else _selected.Add(new SelectionKey(row.Platform, row.Build));
+        if (_selected.Count > 0) _adminOpen = true;
     }
 
     void ToggleAll(IReadOnlyList<ProtoRegistryRow> rows, ChangeEventArgs e) {
         _selected.Clear();
         if (e.Value is true) _selected.AddRange(rows.Select(r => new SelectionKey(r.Platform, r.Build)));
+        if (_selected.Count > 0) _adminOpen = true;
     }
 
     void ClearSelection() {

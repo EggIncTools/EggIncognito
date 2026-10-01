@@ -129,6 +129,7 @@ public sealed class EggIncognitoDbContext(DbContextOptions<EggIncognitoDbContext
         modelBuilder.Entity<ProtoProto>(e => {
             e.HasKey(x => x.ProtoVersionId);
             e.Property(x => x.MessageIndex).HasColumnType("jsonb");
+            e.Property(x => x.ArchiveSourced).HasDefaultValue(false);
             e.HasOne<ProtoVersion>()
                 .WithMany()
                 .HasForeignKey(x => x.ProtoVersionId)

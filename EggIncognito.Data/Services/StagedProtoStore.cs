@@ -60,7 +60,10 @@ public sealed class StagedProtoStore(EggIncognitoDbContext db, TimeProvider time
         && FieldCompatible(p.ClientVersion, clientVersion);
 
     private Task<List<ProtoVersion>> ShaRowsAsync(string sha, CancellationToken ct) =>
-        db.ProtoVersions.AsNoTracking().Where(p => p.ProtoSha == sha && p.DeletedAt == null).ToListAsync(ct);
+        db.ProtoVersions.AsNoTracking()
+            .Where(p => p.ProtoSha == sha && p.DeletedAt == null)
+            .Where(p => db.ProtoProtos.Any(x => x.ProtoVersionId == p.Id && x.ArchiveSourced))
+            .ToListAsync(ct);
 
     private static bool Same(string? a, string? b) =>
         string.Equals(a?.Trim() ?? "", b?.Trim() ?? "", StringComparison.OrdinalIgnoreCase);
@@ -226,10 +229,12 @@ public sealed class StagedProtoStore(EggIncognitoDbContext db, TimeProvider time
         string? bld = string.IsNullOrWhiteSpace(build) ? row.Build : build;
         string? cv = string.IsNullOrWhiteSpace(clientVersion) ? row.ClientVersion : clientVersion;
 
-        if (string.IsNullOrWhiteSpace(bld) || string.IsNullOrWhiteSpace(appV)) return ApproveResult.MissingBuild;
+        if (string.IsNullOrWhiteSpace(bld)) return ApproveResult.MissingBuild;
 
         var existing = await db.ProtoVersions.FirstOrDefaultAsync(p => p.Platform == plat && p.Build == bld, ct);
         var result = existing is null ? ApproveResult.Ok : ApproveResult.Merged;
+        if (string.IsNullOrWhiteSpace(appV)) appV = existing?.AppVersion;
+        if (string.IsNullOrWhiteSpace(appV)) return ApproveResult.MissingBuild;
 
         if (existing is null) {
             await registry.UpsertAsync(plat, appV, bld, cv, row.Package ?? "",
@@ -237,11 +242,12 @@ public sealed class StagedProtoStore(EggIncognitoDbContext db, TimeProvider time
                 $"staged-approve:{reviewedBy}", row.ProtoText, row.Source,
                 true, ct);
         } else {
-            bool hasProto = await db.ProtoProtos.AnyAsync(x => x.ProtoVersionId == existing.Id, ct);
+            bool archive = row.Source == SourceOffer;
+            bool hasProto = !archive && await db.ProtoProtos.AnyAsync(x => x.ProtoVersionId == existing.Id, ct);
             await registry.BackfillUpsertAsync(plat, appV, bld, cv, row.Package ?? "",
                 row.ProtoText, row.ProtoSha, row.MessageIndex,
-                !hasProto, $"staged:{row.Id}", time.GetUtcNow(),
-                row.Source, ct);
+                archive || !hasProto, $"staged:{row.Id}", time.GetUtcNow(),
+                row.Source, archive, ct);
         }
 
         if (row.Source == SourceOffer) await registry.SetArchiveSourcedAsync(plat, bld, ct);

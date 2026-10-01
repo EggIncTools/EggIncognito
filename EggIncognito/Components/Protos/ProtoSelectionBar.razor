@@ -1,10 +1,7 @@
 @using EggIncognito.Models.Registry
 @inject ToastService Toasts
-@* Admin bulk-action bar, shown when >=1 registry row is selected. Soft-delete the selection, or merge
-   it into one grouped release; the canonical is picked automatically since members are the same version
-   and all platforms stay visible on the grouped row. Server ACL is the real gate. *@
 
-<div class="panel">
+<div class="pwb-selbar">
     <div class="flex items-center gap-3 flex-wrap">
         <span class="text-fg text-sm font-semibold">@Selected.Count selected</span>
 

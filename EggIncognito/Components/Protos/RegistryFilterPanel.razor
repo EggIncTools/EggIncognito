@@ -7,33 +7,44 @@
     @foreach (var groupIndex in Enumerable.Range(0, _groups.Count)) {
         var group = _groups[groupIndex];
         if (groupIndex > 0) {
-            <div class="pwb-fil-or"><span class="pwb-fil-arrow">&rarr;</span> OR</div>
+            <div class="pwb-fil-join pwb-fil-or">OR</div>
         }
 
-        <div class="@(groupIndex > 0 ? "pwb-fil-group pwb-fil-sub" : "pwb-fil-group")">
+        <div class="pwb-fil-group">
             @foreach (var rowIndex in Enumerable.Range(0, group.Rows.Count)) {
                 var row = group.Rows[rowIndex];
                 var def = RegistryFilter.Field(row.Field);
                 if (rowIndex > 0) {
-                    <div class="pwb-fil-and">AND</div>
+                    <div class="pwb-fil-join pwb-fil-and">AND</div>
                 }
 
-                <div class="pwb-fil-row">
-                    <select class="pwb-fil-sel" value="@row.Field"
-                            @onchange="@(e => SetField(groupIndex, rowIndex, Text(e)))">
-                        <option value="">field...</option>
-                        @foreach (var field in RegistryFilter.FieldsFor(IsAdmin)) {
-                            <option value="@field.Key">@field.Label</option>
+                <div class="@(def is null ? "pwb-fil-row pwb-fil-row-new" : "pwb-fil-row")">
+                    <div class="pwb-fil-row-head">
+                        <select class="pwb-fil-sel" value="@row.Field"
+                                @onchange="@(e => SetField(groupIndex, rowIndex, Text(e)))">
+                            <option value="">Add a condition...</option>
+                            @foreach (var field in RegistryFilter.FieldsFor(IsAdmin)) {
+                                <option value="@field.Key">@field.Label</option>
+                            }
+                        </select>
+                        @if (def is not null) {
+                            @if (!Complete(row)) {
+                                <span class="pwb-fil-warn" title="Incomplete condition">!</span>
+                            }
+
+                            <button type="button" class="pwb-fil-x" aria-label="Remove condition"
+                                    @onclick="@(() => RemoveRow(groupIndex, rowIndex))">
+                                <Icon Name="x" Class="icon-sm"/>
+                            </button>
                         }
-                    </select>
+                    </div>
                     @if (def is not null) {
                         @if (def.Kind == FilterValueKind.Bool) {
-                            <span class="pwb-fil-note">is</span>
                             <select class="pwb-fil-sel @(row.OpSet ? "" : "pwb-fil-bad")" value="@BoolText(row)"
                                     @onchange="@(e => SetBool(groupIndex, rowIndex, Text(e)))">
-                                <option value="">value...</option>
-                                <option value="True">True</option>
-                                <option value="False">False</option>
+                                <option value="">is...</option>
+                                <option value="True">is true</option>
+                                <option value="False">is false</option>
                             </select>
                         } else {
                             <select class="pwb-fil-sel @(row.OpSet ? "" : "pwb-fil-bad")" value="@OpText(row)"
@@ -69,24 +80,13 @@
                                 }
                             }
                         }
-
-                        @if (!Complete(row)) {
-                            <span class="pwb-fil-warn">!</span>
-                        }
-
-                        <button type="button" class="pwb-fil-x" aria-label="Remove condition"
-                                @onclick="@(() => RemoveRow(groupIndex, rowIndex))">
-                            <Icon Name="x" Class="icon-sm"/>
-                        </button>
                     }
                 </div>
             }
-            @if (groupIndex == _groups.Count - 1) {
-                <button type="button" class="pwb-fil-orbtn" disabled="@(!HasComplete(group))" @onclick="AddGroup">
-                    OR
-                </button>
-            }
         </div>
+    }
+    @if (HasComplete(_groups[^1])) {
+        <button type="button" class="pwb-fil-orbtn" @onclick="AddGroup">+ OR group</button>
     }
 </div>
 

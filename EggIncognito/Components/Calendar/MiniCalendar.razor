@@ -5,6 +5,8 @@
 @implements IAsyncDisposable
 @inject IJSRuntime JS
 @inject IWebHostEnvironment Env
+@inject ICurrentUser User
+@inject IServiceProvider Services
 @inject ILogger<MiniCalendar<TItem>> Logger
 
 @if (_note.Length > 0) {
@@ -68,8 +70,15 @@
         $"--evcal-days:{DayCount};--evcal-gap:{CalendarLayout.GapPercent(_start, _end):0.###}%;");
 
     protected override async Task OnInitializedAsync() {
+        var zone = ViewerZone.Fallback;
+        if (ViewerClock.Of(Services) is { } clock) {
+            await clock.EnsureAsync(Services, User, CancellationToken.None);
+            zone = clock.Zone;
+        }
+
         var now = DateTimeOffset.UtcNow;
-        _end = CalendarLayout.AddDays(CalendarLayout.DayStart(now), 1);
+        var today = DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(now, zone).DateTime);
+        _end = CalendarLayout.AddDays(CalendarLayout.DayStartForDate(today), 1);
         _start = CalendarLayout.AddDays(_end, -HistoryDays);
         var load = await Load(_start, _end);
         if (load.Note.Length > 0) {

@@ -1509,6 +1509,12 @@ namespace EggIncognito.Data.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("proto_version_id");
 
+                    b.Property<bool>("ArchiveSourced")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("archive_sourced");
+
                     b.Property<string>("MessageIndex")
                         .IsRequired()
                         .HasColumnType("jsonb")

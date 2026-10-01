@@ -1,18 +1,19 @@
 @using System.Globalization
 @using EggIncognito.Services.Protos
 <div class="pd-band">
-    <img class="pd-brand-logo" src="/brand/logo.png" alt="EggIncognito"/>
-    <span class="pd-band-sep" aria-hidden="true"></span>
-    <div class="pd-vergroup">
-        <div class="pd-vergroup-head">
-            <span class="ds-state-k">Server</span>
-            @if (_builtAt is { } built) {
-                <span class="verline-sep">|</span>
-                <TimeAgo Value="@built"/>
-            }
-        </div>
-        <div class="pd-serverline">
-            <VersionLine App="@_version"/><span class="verline-sep">|</span><a class="pd-server-sha" href="@_commitUrl" target="_blank" rel="noopener">@_sha</a>
+    <div class="pd-brand-col">
+        <img class="pd-brand-logo" src="/brand/logo.png" alt="EggIncognito"/>
+        <div class="pd-vergroup">
+            <div class="pd-vergroup-head">
+                <span class="ds-state-k">Server</span>
+                @if (_builtAt is { } built) {
+                    <span class="verline-sep">|</span>
+                    <TimeAgo Value="@built"/>
+                }
+            </div>
+            <div class="pd-serverline">
+                <VersionLine App="@_version"/><span class="verline-sep">|</span><a class="pd-server-sha" href="@_commitUrl" target="_blank" rel="noopener">@_sha</a>
+            </div>
         </div>
     </div>
     <span class="pd-band-sep" aria-hidden="true"></span>

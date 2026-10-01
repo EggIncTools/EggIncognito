@@ -13,7 +13,8 @@ public interface IProtoBackfillStore {
     Task BackfillUpsertAsync(
         string platform, string appVersion, string build, string? clientVersion, string package,
         string? protoText, string? protoSha, string? messageIndex, bool writeProto,
-        string apkRef, DateTimeOffset detectedAt, string source, CancellationToken ct = default);
+        string apkRef, DateTimeOffset detectedAt, string source, bool archive = false,
+        CancellationToken ct = default);
 
     Task<int> PruneEmptyAsync(CancellationToken ct = default);
 
@@ -31,7 +32,8 @@ public sealed class ProtoRegistryStore(EggIncognitoDbContext db, TimeProvider ti
     public async Task BackfillUpsertAsync(
         string platform, string appVersion, string build, string? clientVersion, string package,
         string? protoText, string? protoSha, string? messageIndex, bool writeProto,
-        string apkRef, DateTimeOffset detectedAt, string source, CancellationToken ct = default) {
+        string apkRef, DateTimeOffset detectedAt, string source, bool archive = false,
+        CancellationToken ct = default) {
         if (string.IsNullOrEmpty(build)) return;
 
         var row = await db.ProtoVersions.FirstOrDefaultAsync(p => p.Platform == platform && p.Build == build, ct);
@@ -47,10 +49,8 @@ public sealed class ProtoRegistryStore(EggIncognitoDbContext db, TimeProvider ti
         if (row.DetectedAt == default) row.DetectedAt = detectedAt;
         await db.SaveChangesAsync(ct);
 
-        if (writeProto && !string.IsNullOrEmpty(protoText)) {
-            row.ProtoSha = protoSha ?? "";
-            await UpsertProtoProtoAsync(row.Id, protoText, messageIndex ?? "[]", row.ProtoSha, ct);
-        }
+        if (writeProto && !string.IsNullOrEmpty(protoText))
+            await UpsertProtoProtoAsync(row, protoText, messageIndex ?? "[]", protoSha ?? "", archive, ct);
 
         await NotifyRegistryAsync($"backfill:{platform}:{build}", ct);
     }
@@ -58,16 +58,19 @@ public sealed class ProtoRegistryStore(EggIncognitoDbContext db, TimeProvider ti
     private Task NotifyRegistryAsync(string key, CancellationToken ct) =>
         PgNotify.SendAsync(db, PgChannels.ProtoRegistry, key, ct);
 
-    private async Task UpsertProtoProtoAsync(int protoVersionId, string protoText, string? messageIndex,
-        string protoSha, CancellationToken ct) {
-        var pp = await db.ProtoProtos.FirstOrDefaultAsync(x => x.ProtoVersionId == protoVersionId, ct);
+    private async Task UpsertProtoProtoAsync(ProtoVersion version, string protoText, string? messageIndex,
+        string protoSha, bool archive, CancellationToken ct) {
+        var pp = await db.ProtoProtos.FirstOrDefaultAsync(x => x.ProtoVersionId == version.Id, ct);
+        if (pp is { ArchiveSourced: true } && !archive) return;
         if (pp is null) {
-            pp = new ProtoProto { ProtoVersionId = protoVersionId };
+            pp = new ProtoProto { ProtoVersionId = version.Id };
             db.ProtoProtos.Add(pp);
         }
 
         pp.ProtoText = protoText;
         pp.MessageIndex = messageIndex ?? JsonSerializer.Serialize(ProtoTextIndex.Names(protoText));
+        pp.ArchiveSourced = archive;
+        version.ProtoSha = protoSha;
         await db.SaveChangesAsync(ct);
         await EnsureCanonicalAsync(protoSha, protoText, ct);
     }
@@ -147,11 +150,14 @@ public sealed class ProtoRegistryStore(EggIncognitoDbContext db, TimeProvider ti
             db.ProtoVersions.Add(row);
         }
 
+        bool archive = source == StagedProtoStore.SourceOffer;
+        bool locked = !created && !archive
+                      && await db.ProtoProtos.AnyAsync(x => x.ProtoVersionId == row.Id && x.ArchiveSourced, ct);
         row.AppVersion = appVersion;
         row.ClientVersion = clientVersion;
         row.Source = source;
         row.Package = package;
-        row.ProtoSha = protoSha;
+        if (!locked) row.ProtoSha = protoSha;
         row.ApkRef = apkRef;
         row.DetectedAt = detectedAt;
         row.DetectedBy = detectedBy;
@@ -163,7 +169,7 @@ public sealed class ProtoRegistryStore(EggIncognitoDbContext db, TimeProvider ti
         await db.SaveChangesAsync(ct);
 
         if (!string.IsNullOrEmpty(protoText))
-            await UpsertProtoProtoAsync(row.Id, protoText, null, row.ProtoSha, ct);
+            await UpsertProtoProtoAsync(row, protoText, null, protoSha, archive, ct);
 
         bool protoChanged = prevLatest is not null && prevLatest.ProtoSha != protoSha;
         var delta = VersionDeltaCalc.Classify(
@@ -352,8 +358,8 @@ public sealed class ProtoRegistryStore(EggIncognitoDbContext db, TimeProvider ti
         if (row is null) return null;
 
         var norm = ProtoCanonicalForm.Normalize(protoText);
-        row.ProtoSha = norm.Ok ? norm.Sha : ProtoHash.Of(protoText);
-        await UpsertProtoProtoAsync(row.Id, protoText, null, row.ProtoSha, ct);
+        string sha = norm.Ok ? norm.Sha : ProtoHash.Of(protoText);
+        await UpsertProtoProtoAsync(row, protoText, null, sha, false, ct);
         await NotifyRegistryAsync($"proto:{platform}:{build}", ct);
         return row.ProtoSha;
     }

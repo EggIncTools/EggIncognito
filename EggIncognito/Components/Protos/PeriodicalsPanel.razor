@@ -80,10 +80,9 @@
 
     <div class="pd-wcol">
         <section class="panel pd-w-calendar">
-            <div class="flex items-center justify-between mb-3">
-                <h3 class="text-sm font-semibold m-0">Events</h3>
-                <button type="button" class="btn-mini" @onclick="@(() => OnOpenEvents.InvokeAsync())">Open</button>
-            </div>
+            <button type="button" class="pd-cal-title" @onclick="@(() => OnOpenEvents.InvokeAsync())">
+                Events<Icon Name="chevron-right" Class="icon-sm"/>
+            </button>
             <MiniCalendar TItem="EventCalendarItem" Load="LoadMiniEvents" EmptyNote="No events in the last three weeks.">
                 <Bar>
                     @{ var e = context.Item.Event!; }
@@ -108,10 +107,9 @@
                     </Tooltip>
                 </Bar>
             </MiniCalendar>
-            <div class="flex items-center justify-between mt-4 mb-3">
-                <h3 class="text-sm font-semibold m-0">Contracts</h3>
-                <button type="button" class="btn-mini" @onclick="@(() => OnOpenContracts.InvokeAsync())">Open</button>
-            </div>
+            <button type="button" class="pd-cal-title mt-4" @onclick="@(() => OnOpenContracts.InvokeAsync())">
+                Contracts<Icon Name="chevron-right" Class="icon-sm"/>
+            </button>
             <MiniCalendar TItem="ContractCalendarItem" Load="LoadMiniContracts" EmptyNote="No contracts in the last three weeks.">
                 <Bar>
                     @{ var c = context.Item.Release!; }
