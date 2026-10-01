@@ -26,9 +26,13 @@
     var groups = Groups();
     var offerAllCount = groups.Count(CanOffer);
     var counterparts = CounterpartLinks();
-    <WorkbenchModal Open="true" Title="Proto workbench" Size="WorkbenchSize.Wide" CardClass="pwb-card"
+    <WorkbenchModal Open="true" Title="Proto workbench" Size="WorkbenchSize.Wide" CardClass="@CardCss(groups)"
                     BodyId="wbDrop" OnClose="Close">
     <HeadTools>
+        <button type="button" class="btn-mini pwb-split-btn @(State.SplitQuery is not null ? "active" : "")"
+                aria-pressed="@(State.SplitQuery is not null ? "true" : "false")" @onclick="ToggleSplit">
+            <Icon Name="layout-grid" Class="icon-sm"/> Split registry
+        </button>
         @if (User.IsAtLeast(UserRole.Contributor)) {
             <button type="button" class="btn-mini @(_adminOpen ? "active" : "")"
                     @onclick="@(() => _adminOpen = !_adminOpen)">
@@ -43,109 +47,9 @@
     </HeadTools>
     <Rail>
         <WorkbenchRail Class="wb-rail-popout">
-            <div class="wb-rail-slot pwb-rail-reg">
-                <WorkbenchSection Label="Registry">
-                    @{ var items = RegistryItems(); }
-                    <div class="pwb-reg-stack">
-                        <div class="pwb-plat" role="radiogroup" aria-label="Platform">
-                            <label class="pwb-plat-item">
-                                <input type="radio" class="pwb-plat-radio" name="@_platformGroup"
-                                       checked="@(State.Query.Platform.Length == 0)" @onchange="@(() => SetRegPlatform(""))"/>
-                                <span>all</span>
-                            </label>
-                            <label class="pwb-plat-item">
-                                <input type="radio" class="pwb-plat-radio" name="@_platformGroup"
-                                       checked="@(State.Query.Platform == "ios")" @onchange="@(() => SetRegPlatform("ios"))"/>
-                                <PlatformIcon Platform="ios"/>
-                                <span class="pwb-sr">ios</span>
-                            </label>
-                            <label class="pwb-plat-item">
-                                <input type="radio" class="pwb-plat-radio" name="@_platformGroup"
-                                       checked="@(State.Query.Platform == "android")" @onchange="@(() => SetRegPlatform("android"))"/>
-                                <PlatformIcon Platform="android"/>
-                                <span class="pwb-sr">android</span>
-                            </label>
-                        </div>
-                        <div class="pwb-filter-row">
-                            @if (User.IsAtLeast(UserRole.Admin)) {
-                                <label class="pwb-reg-selall">
-                                    <input type="checkbox" aria-label="Select all listed versions"
-                                           checked="@AllSelected(items)" @onchange="@(e => ToggleAll(items, e))"/>
-                                </label>
-                            }
-                            <FilterInput Class="pwb-filter" AriaLabel="Filter stored versions"
-                                         Value="@State.Query.Quick"
-                                         ValueChanged="OnQuickChanged"/>
-                            <button type="button" class="pwb-funnel @(State.Query.Groups.Count > 0 ? "pwb-funnel-on" : "")"
-                                    aria-label="Conditions"
-                                    aria-expanded="@(_filterOpen ? "true" : "false")"
-                                    @onclick="@(() => _filterOpen = !_filterOpen)">
-                                <Icon Name="funnel" Class="icon-sm"/>
-                            </button>
-                        </div>
-                        @if (_filterOpen) {
-                            <div class="pwb-fil-pop">
-                                <RegistryFilterPanel Query="State.Query" QueryChanged="OnQueryChanged"
-                                                     Rows="State.Registry" IsAdmin="@User.IsAtLeast(UserRole.Admin)"/>
-                            </div>
-                        }
-                        @if (State.Query.Groups.Count > 0) {
-                            <div class="pwb-cond-list">
-                                @foreach (var line in ConditionLines()) {
-                                    <div class="pwb-cond">
-                                        <span class="pwb-cond-text">@line.Text</span>
-                                        <button type="button" class="wb-x" aria-label="Remove condition"
-                                                @onclick="@(() => RemoveCondition(line.Group, line.Index))">
-                                            <Icon Name="x" Class="icon-sm"/>
-                                        </button>
-                                    </div>
-                                }
-                            </div>
-                        }
-                        @if (items.Count == 0) {
-                            <div class="wb-note pwb-reg-empty">
-                                @(State.Registry.Count == 0 ? "No stored versions yet." : "No versions match this filter.")
-                            </div>
-                        } else {
-                            <div class="pwb-reg-list">
-                                <Virtualize Items="items" Context="row" ItemSize="RegRowHeight">
-                                    <div class="pwb-reg-row @RowClass(row)" @onclick="@(args => RegistryRowClick(row, args))">
-                                        <span class="pwb-reg-icon">
-                                            @if (User.IsAtLeast(UserRole.Admin)) {
-                                                <input type="checkbox" class="pwb-reg-sel" aria-label="Select version"
-                                                       checked="@IsSelected(row)" @onclick:stopPropagation="true"
-                                                       @onchange="@(() => ToggleRow(row))"/>
-                                            }
-                                            <PlatformIcon Platform="@row.Platform"/>
-                                            @if (row.ArchiveSourced == true) {
-                                                <Tooltip>
-                                                    <ChildContent>
-                                                        <Icon Name="shield-check" Class="icon-sm pwb-reg-arch"/>
-                                                    </ChildContent>
-                                                    <Tip>
-                                                        <span class="tt-line">Archive sourced</span>
-                                                    </Tip>
-                                                </Tooltip>
-                                            }
-                                        </span>
-                                        <span class="pwb-reg-ver">
-                                            <VersionLine App="@row.AppVersion" Build="@row.Build" Client="@row.ClientVersion"/>
-                                        </span>
-                                        <span class="pwb-reg-sha">@Sha12(row.ProtoSha)</span>
-                                        @if (row.DetectedAt is { } seen) {
-                                            <span class="pwb-reg-when">
-                                                <TimeAgo Value="@TimeAgo.FromUtc(seen)" Hover="false"/>
-                                            </span>
-                                        }
-                                    </div>
-                                </Virtualize>
-                            </div>
-                        }
-                    </div>
-                </WorkbenchSection>
-            </div>
-            <div class="wb-rail-slot pwb-rail-sess">
-                <WorkbenchSection Label="Session" Scroll="true">
+            @{ var hasSession = State.Entries.Count > 0; }
+            <div class="wb-rail-slot pwb-rail-sess @(hasSession ? "" : "pwb-rail-sess-empty")">
+                <WorkbenchSection Label="Session" Scroll="@hasSession">
                     <label id="wbRailDrop" class="dropzone pwb-drop" for="wbFile">
                         <DropZonePrompt Prompt="Drop .ipa, .apk or bundle files" IconClass="pwb-drop-icon"/>
                     </label>
@@ -181,6 +85,31 @@
                             @Card(g.Members[0], g, false)
                         }
                     }
+                </WorkbenchSection>
+            </div>
+            @if (State.SplitQuery is { } split) {
+                <div class="wb-rail-slot pwb-rail-reg">
+                    <WorkbenchSection Label="Registry (split)">
+                        <Tools>
+                            <button type="button" class="wb-x" aria-label="Close split registry" @onclick="ToggleSplit">
+                                <Icon Name="x" Class="icon-sm"/>
+                            </button>
+                        </Tools>
+                        <ChildContent>
+                            <RegistryPane Query="split" QueryChanged="@(q => State.SplitQuery = q)" Rows="State.Registry"
+                                          IsAdmin="@User.IsAtLeast(UserRole.Admin)" RowClass="RowClass" IsSelected="IsSelected"
+                                          OnRowClick="@(t => RegistryRowClick(t.Row, t.Args))" OnToggleRow="ToggleRow"
+                                          OnToggleAll="@(t => ToggleAll(t.Rows, t.On))"/>
+                        </ChildContent>
+                    </WorkbenchSection>
+                </div>
+            }
+            <div class="wb-rail-slot pwb-rail-reg">
+                <WorkbenchSection Label="Registry">
+                    <RegistryPane @ref="_registryPane" Query="State.Query" QueryChanged="@(q => State.Query = q)" Rows="State.Registry"
+                                  IsAdmin="@User.IsAtLeast(UserRole.Admin)" RowClass="RowClass" IsSelected="IsSelected"
+                                  OnRowClick="@(t => RegistryRowClick(t.Row, t.Args))" OnToggleRow="ToggleRow"
+                                  OnToggleAll="@(t => ToggleAll(t.Rows, t.On))"/>
                 </WorkbenchSection>
             </div>
         </WorkbenchRail>
@@ -475,8 +404,6 @@
 
     const int FullContext = 100_000;
 
-    const int RegRowHeight = 44;
-
     [Parameter] public EventCallback OnChanged { get; set; }
 
     [Parameter] public EventCallback<WorkbenchRef> OnRefChanged { get; set; }
@@ -489,9 +416,8 @@
     RegistryAdminPanel? _adminPanel;
     bool _dropWired;
     bool _offerBusy;
-    bool _filterOpen;
     string? _menu;
-    readonly string _platformGroup = "pwbplat-" + Guid.NewGuid().ToString("N")[..8];
+    RegistryPane? _registryPane;
     IJSObjectReference? _strip;
     IJSObjectReference? _download;
     DotNetObjectReference<ProtoWorkbenchModal>? _selfRef;
@@ -646,7 +572,28 @@
             Groups = [new FilterGroup([new FilterCondition("sha", FilterOp.Is, protoSha)])]
         };
         Open();
-        if (RegistryItems().FirstOrDefault() is { } match) _ = SetA(RegistryRef(match));
+        var match = ProtoVersionOrdering.SortByRelease(
+            State.Registry.Where(r => RegistryFilter.Matches(r, State.Query)), r => r.Key()).FirstOrDefault();
+        if (match is not null) _ = SetA(RegistryRef(match));
+    }
+
+    string CardCss(List<OfferGroup> groups) {
+        var cols = 1 + (State.Entries.Count > 0 ? 1 : 0) + (State.SplitQuery is not null ? 1 : 0);
+        var css = $"pwb-card pwb-cols-{cols}";
+        return _adminOpen ? css + " pwb-drawer-on" : css;
+    }
+
+    void ToggleSplit() {
+        State.SplitQuery = State.SplitQuery is null ? OppositeOf(State.Query) : null;
+    }
+
+    static RegistryQuery OppositeOf(RegistryQuery query) {
+        var platform = query.Platform switch {
+            "ios" => "android",
+            "android" => "ios",
+            _ => "ios"
+        };
+        return RegistryQuery.Empty with { Platform = platform };
     }
 
     static string ModeOrDefault(string? mode, ProtoRef? b) {
@@ -663,7 +610,6 @@
         _open = false;
         _adminOpen = false;
         _adminTab = RegistryAdminPanel.TabReview;
-        _filterOpen = false;
         _menu = null;
         if (!was) return;
         if (OnClosed.HasDelegate) _ = OnClosed.InvokeAsync();
@@ -1055,60 +1001,6 @@
         };
     }
 
-    List<ProtoRegistryRow> _regItems = [];
-    IReadOnlyList<ProtoRegistryRow>? _regSource;
-    string _regItemsKey = "";
-
-    List<ProtoRegistryRow> RegistryItems() {
-        var key = State.Query.Signature();
-        if (ReferenceEquals(_regSource, State.Registry) && _regItemsKey == key) return _regItems;
-        _regSource = State.Registry;
-        _regItemsKey = key;
-        _regItems = [
-            .. ProtoVersionOrdering.SortByRelease(
-                State.Registry.Where(r => RegistryFilter.Matches(r, State.Query)), r => r.Key())
-        ];
-        return _regItems;
-    }
-
-    void SetRegPlatform(string platform) {
-        State.Query = State.Query with { Platform = platform };
-    }
-
-    void OnQuickChanged(string value) {
-        State.Query = State.Query with { Quick = value.Trim() };
-    }
-
-    void OnQueryChanged(RegistryQuery query) {
-        State.Query = query;
-    }
-
-    IReadOnlyList<ConditionLine> ConditionLines() {
-        var lines = new List<ConditionLine>();
-        for (var g = 0; g < State.Query.Groups.Count; g++) {
-            var conditions = State.Query.Groups[g].Conditions;
-            for (var i = 0; i < conditions.Count; i++) lines.Add(new ConditionLine(g, i, ConditionText(conditions[i])));
-        }
-
-        return lines;
-    }
-
-    static string ConditionText(FilterCondition condition) {
-        var label = RegistryFilter.Field(condition.Field)?.Label ?? condition.Field;
-        var op = RegistryFilter.OpLabel(condition.Field, condition.Op);
-        if (condition.Op is FilterOp.True or FilterOp.False) return $"{label} is {op}";
-        return $"{label} {op} {condition.Value}";
-    }
-
-    void RemoveCondition(int groupIndex, int index) {
-        if (groupIndex < 0 || groupIndex >= State.Query.Groups.Count) return;
-        var groups = State.Query.Groups.Select(g => g.Conditions.ToList()).ToList();
-        if (index < 0 || index >= groups[groupIndex].Count) return;
-        groups[groupIndex].RemoveAt(index);
-        var kept = groups.Where(c => c.Count > 0).Select(c => new FilterGroup(c)).ToList();
-        State.Query = RegistryFilter.Prune(State.Query with { Groups = kept });
-    }
-
     static ProtoRef RegistryRef(ProtoRegistryRow row) {
         return new ProtoRef(ProtoRefSource.Registry, row.Platform, row.Build, null);
     }
@@ -1253,10 +1145,6 @@
         return _selected.Any(k => k.Platform == row.Platform && k.Build == row.Build);
     }
 
-    bool AllSelected(IReadOnlyList<ProtoRegistryRow> rows) {
-        return rows.Count > 0 && rows.All(IsSelected);
-    }
-
     void ToggleRow(ProtoRegistryRow row) {
         var existing = _selected.FirstOrDefault(k => k.Platform == row.Platform && k.Build == row.Build);
         if (existing is not null) _selected.Remove(existing);
@@ -1264,9 +1152,9 @@
         if (_selected.Count > 0) _adminOpen = true;
     }
 
-    void ToggleAll(IReadOnlyList<ProtoRegistryRow> rows, ChangeEventArgs e) {
+    void ToggleAll(IReadOnlyList<ProtoRegistryRow> rows, bool on) {
         _selected.Clear();
-        if (e.Value is true) _selected.AddRange(rows.Select(r => new SelectionKey(r.Platform, r.Build)));
+        if (on) _selected.AddRange(rows.Select(r => new SelectionKey(r.Platform, r.Build)));
         if (_selected.Count > 0) _adminOpen = true;
     }
 

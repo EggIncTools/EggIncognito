@@ -55,8 +55,9 @@
                         </Tooltip>
                         <Tooltip Class="tt-ctl">
                             <ChildContent>
-                                <button type="button" class="reg-intake"
+                                <button type="button" class="reg-intake reg-intake-labeled"
                                         aria-label="Open the proto workbench" @onclick="@(() => _workbench?.Open())">
+                                    <span>Proto workbench</span>
                                     <Icon Name="chevron-right" Class="icon-sm"/>
                                 </button>
                             </ChildContent>
@@ -65,34 +66,6 @@
                                 <span class="tt-line">Browse every registered version, diff two protos side by side and inspect their messages.</span>
                             </Tip>
                         </Tooltip>
-                        @if (_isContributor || _isAdmin) {
-                            <Tooltip Class="tt-ctl">
-                                <ChildContent>
-                                    <button type="button" class="reg-intake" aria-label="Review staged submissions in the proto workbench"
-                                            @onclick="OpenReview">
-                                        <Icon Name="clipboard" Class="icon-sm"/>
-                                    </button>
-                                </ChildContent>
-                                <Tip>
-                                    <span class="tt-title">Review submissions</span>
-                                    <span class="tt-line">Builds dropped by other people wait here. Accept them into the registry or reject them.</span>
-                                </Tip>
-                            </Tooltip>
-                        }
-                        @if (_isAdmin) {
-                            <Tooltip Class="tt-ctl">
-                                <ChildContent>
-                                    <button type="button" class="reg-add-toggle" aria-label="Add a version in the proto workbench"
-                                            @onclick="OpenAddVersion">
-                                        +
-                                    </button>
-                                </ChildContent>
-                                <Tip>
-                                    <span class="tt-title">Add a version</span>
-                                    <span class="tt-line">Register a version by hand, for builds that cannot be dropped as a file.</span>
-                                </Tip>
-                            </Tooltip>
-                        }
                     </div>
                 </div>
                 @if (_loading && _rows.Count == 0) {
@@ -261,8 +234,6 @@
     List<ProtoRegistryRow> _rows = [];
 
     bool _loading = true;
-    bool _isAdmin;
-    bool _isContributor;
 
     string _sortCol = "appVersion";
     bool _sortDesc = true;
@@ -514,8 +485,6 @@
     protected override void OnInitialized() {
         base.OnInitialized();
 
-        _isAdmin = User.IsAtLeast(UserRole.Admin);
-        _isContributor = User.IsAtLeast(UserRole.Contributor);
         if (LoginError == 1) Toasts.Push(StatusNoteKind.Error, "Login failed. Try again.");
     }
 
@@ -627,18 +596,6 @@
         }
 
         if (!background) _loading = false;
-    }
-
-    Task OpenAddVersion() {
-        _workbench?.OpenAdd();
-        _routeSync?.Push("/protos/add");
-        return Task.CompletedTask;
-    }
-
-    Task OpenReview() {
-        _workbench?.OpenReview();
-        _routeSync?.Push("/protos/review");
-        return Task.CompletedTask;
     }
 
     async Task OnMutated() {

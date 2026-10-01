@@ -63,6 +63,7 @@ public sealed class ProtoWorkbenchState : WorkbenchStateBase {
     public Dictionary<string, string> TextForms { get; } = [];
     public Dictionary<string, string> CanonicalShas { get; } = [];
     public RegistryQuery Query { get; set; } = RegistryQuery.Empty;
+    public RegistryQuery? SplitQuery { get; set; }
     public Dictionary<string, string> ViewFilters { get; } = [];
     public ProtoRef? A { get; set; }
     public ProtoRef? B { get; set; }

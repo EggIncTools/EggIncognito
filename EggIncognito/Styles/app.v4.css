@@ -1133,11 +1133,6 @@ input[type="search"]::placeholder { @apply text-muted; }
 .sess-kind { @apply inline-block text-[0.65rem] font-semibold; }
 .reg-empty { @apply py-12 gap-1; }
 .reg-empty-hint { @apply text-xs opacity-80 max-w-prose leading-relaxed; }
-.reg-add-toggle {
-  @apply w-7 h-7 grid place-items-center rounded-md bg-panel2 text-muted
-         cursor-pointer text-lg leading-none border border-border;
-}
-.reg-add-toggle:hover { @apply text-fg border-accent; }
 .admin-panel-head { @apply flex items-center justify-between gap-3 mb-3; }
 .backfill-empty { @apply text-muted text-[0.8125rem] px-3 py-4; }
 
@@ -1151,7 +1146,9 @@ input[type="search"]::placeholder { @apply text-muted; }
 .reg-edit-btn:hover { @apply text-fg border-accent; }
 .reg-edit-btn.active { @apply text-accent border-accent; }
 .reg-edit-row > td { @apply bg-panel2 p-3; }
-.pwb-card .wb-body { position: relative; }
+.pwb-card .wb-body { position: relative; --pwb-drawer-w: min(100%, 40rem); }
+.wb-card.pwb-card.pwb-drawer-on { --wb-card-max: min(97vw, 120rem); }
+.pwb-drawer-on .wb-main { padding-right: calc(var(--pwb-drawer-w) + 1rem); }
 .pwb-drawer {
   position: absolute;
   top: 0;
@@ -1161,7 +1158,7 @@ input[type="search"]::placeholder { @apply text-muted; }
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
-  width: min(100%, 44rem);
+  width: var(--pwb-drawer-w);
   padding: 0.75rem;
   box-sizing: border-box;
   overflow-y: auto;
@@ -1195,7 +1192,7 @@ input[type="search"]::placeholder { @apply text-muted; }
 }
 .pwb-drawer-tab:hover { color: var(--color-fg); }
 .pwb-drawer-tab-hot { color: var(--color-accent); border-color: var(--color-accent); }
-.pwb-drawer-tab-open { right: min(100%, 44rem); }
+.pwb-drawer-tab-open { right: var(--pwb-drawer-w); }
 .pwb-drawer-tab-label {
   font-size: 0.625rem;
   font-weight: 600;
@@ -1494,8 +1491,9 @@ input[type="search"]::placeholder { @apply text-muted; }
     align-content: start;
   }
   .pd-identity { grid-column: 2; grid-row: 1; }
-  .pd-main { grid-column: 1; grid-row: 1 / span 2; width: fit-content; min-width: 30rem; max-width: 46rem; }
+  .pd-main { grid-column: 1; grid-row: 1 / span 2; min-width: 36rem; width: fit-content; }
   .pd-main .reg-table { width: auto; min-width: 100%; }
+  .pd-main .reg-table th.reg-c-sha, .pd-main .reg-table td.reg-c-sha { width: 1%; }
   .pd-side { grid-column: 2; grid-row: 2; }
 }
 @container pdmod (min-width: 60rem) {
@@ -1521,6 +1519,15 @@ input[type="search"]::placeholder { @apply text-muted; }
   cursor: pointer;
 }
 .reg-intake:hover { color: var(--color-fg); border-color: var(--color-accent); }
+.reg-intake.reg-intake-labeled {
+  width: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0 0.375rem 0 0.625rem;
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
 .reg-drop {
   display: inline-flex;
   align-items: center;
@@ -1706,30 +1713,20 @@ input[type="search"]::placeholder { @apply text-muted; }
 }
 
 @container pdmod (max-width: 34rem) {
-  .reg-table { display: block; }
+  .reg-table, .reg-table tbody, .reg-table tr, .reg-table td { display: block; width: auto; }
   .reg-table thead { display: none; }
   .reg-table tbody.reg-band {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    grid-auto-rows: auto;
-    column-gap: 0.75rem;
-    row-gap: 0.125rem;
-    align-items: start;
-    padding: 0.5rem 0.75rem;
-    border-bottom: 1px solid var(--color-border);
+    display: block;
+    border: 1px solid var(--color-border);
+    border-radius: 0.375rem;
+    margin-bottom: 0.5rem;
+    padding: 0.5rem;
   }
-  .reg-table tbody.reg-band:last-child { border-bottom: 0; }
-  .reg-table tbody.reg-band > tr { display: contents; }
-  .reg-table tbody.reg-band > tr > td { display: block; width: auto; padding: 0; white-space: normal; border: 0; }
   .reg-table tbody.reg-band + tbody.reg-band > tr:first-child > td { border-top: 0; }
-  .reg-table tbody.reg-band > tr + tr > td { padding-top: 0; }
-  .reg-table td.reg-c-app { grid-column: 1; font-size: 0.9375rem; }
-  .reg-table td.reg-c-build { grid-column: 1; }
-  .reg-table td.reg-c-build .reg-builds { flex-direction: row; flex-wrap: wrap; gap: 0.125rem 0.75rem; }
-  .reg-table td.reg-c-client { grid-column: 2; grid-row: 1; justify-self: end; text-align: right; }
-  .reg-table td.reg-c-client::before { content: "client "; color: var(--color-muted); font-family: inherit; }
-  .reg-table td.reg-c-sha { grid-column: 2; grid-row: 2 / span 4; justify-self: end; align-self: start; padding-left: 0; }
-  .reg-table td.reg-c-sha .text-muted { display: none; }
+  .reg-table td { padding: 0.125rem 0; white-space: normal; }
+  .reg-table tbody.reg-band > tr + tr > td { padding-top: 0.125rem; }
+  .reg-table td[data-label]::before { content: attr(data-label) ": "; color: var(--color-muted); }
+  .reg-table td.reg-c-sha { padding-left: 0; }
   .reg-table .reg-lane { display: none; }
 }
 
@@ -1915,9 +1912,11 @@ body .modal-body .skm { color: var(--color-fg); }
 .pwb-card .wb-rail { --wb-rail-w: 15.5rem; }
 .pwb-rail-reg { flex: 1 1 60%; }
 .pwb-rail-sess { flex: 1 1 40%; }
+.pwb-rail-sess-empty { flex: none; }
+.pwb-split-btn { display: none; }
 @media (min-width: 80rem) {
-  .wb-card.pwb-card, .wb-card.wb-card-wide.pwb-card { --wb-card-max: min(96vw, 100rem); }
-  .pwb-card .wb-rail {
+  .wb-card.pwb-card.pwb-cols-2, .wb-card.pwb-card.pwb-cols-3 { --wb-card-max: min(96vw, 100rem); }
+  .pwb-cols-2 .wb-rail, .pwb-cols-3 .wb-rail {
     --wb-rail-w: 31.5rem;
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1925,7 +1924,16 @@ body .modal-body .skm { color: var(--color-fg); }
     column-gap: 0.75rem;
     overflow: hidden;
   }
-  .pwb-rail-reg, .pwb-rail-sess { flex: none; min-height: 0; }
+  .pwb-cols-2 .wb-rail:has(.pwb-rail-sess-empty), .pwb-cols-3 .wb-rail:has(.pwb-rail-sess-empty) {
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+  .pwb-cols-2 .wb-rail-slot, .pwb-cols-3 .wb-rail-slot { flex: none; min-height: 0; }
+  .pwb-cols-2 .pwb-rail-sess-empty, .pwb-cols-3 .pwb-rail-sess-empty { grid-column: 1 / -1; grid-row: 1; }
+}
+@media (min-width: 100rem) {
+  .pwb-split-btn { display: inline-flex; }
+  .wb-card.pwb-card.pwb-cols-3 { --wb-card-max: min(97vw, 116rem); }
+  .pwb-cols-3 .wb-rail { --wb-rail-w: 47.5rem; grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 @media (max-width: 48rem) {
   .wb-card .wb-body { flex-direction: column; overflow-y: auto; }
