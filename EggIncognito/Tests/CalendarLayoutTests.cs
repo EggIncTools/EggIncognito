@@ -12,32 +12,57 @@ public class CalendarLayoutTests {
 
     [Fact]
     public void Rows_EventStartingAsAnotherEnds_SharesItsLane() {
-        var zone = TimeZoneInfo.Utc;
         var (start, end) = CalendarLayout.Window(
-            new DateTimeOffset(2026, 9, 23, 12, 0, 0, TimeSpan.Zero), CalendarZoom.Week, zone);
+            new DateTimeOffset(2026, 9, 23, 12, 0, 0, TimeSpan.Zero), CalendarZoom.Week);
         var items = new[] {
             Item("research", start.AddDays(1), start.AddDays(2)),
             Item("piggy", start.AddDays(1.5), start.AddDays(3)),
             Item("prestige", start.AddDays(2), start.AddDays(3)),
         };
 
-        var row = Assert.Single(CalendarLayout.Rows(items, start, end, CalendarZoom.Week, start, zone));
+        var row = Assert.Single(CalendarLayout.Rows(items, start, end, CalendarZoom.Week, start));
 
         Assert.Equal(2, row.Lanes.Count);
         Assert.Equal(["research", "prestige"], row.Lanes[0].Select(b => b.Item.Key));
     }
 
     [Fact]
-    public void Rows_MonthZoom_OneRowPerWeekWithOutOfMonthDaysMuted() {
-        var zone = TimeZoneInfo.Utc;
+    public void Window_WeekStartsOnSundayNoonEastern() {
         var (start, end) = CalendarLayout.Window(
-            new DateTimeOffset(2026, 9, 15, 12, 0, 0, TimeSpan.Zero), CalendarZoom.Month, zone);
+            new DateTimeOffset(2026, 9, 23, 12, 0, 0, TimeSpan.Zero), CalendarZoom.Week);
 
-        var rows = CalendarLayout.Rows(Array.Empty<Span>(), start, end, CalendarZoom.Month, start, zone);
+        var local = TimeZoneInfo.ConvertTime(start, CalendarLayout.GridZone);
+        Assert.Equal(DayOfWeek.Sunday, local.DayOfWeek);
+        Assert.Equal(new TimeSpan(12, 0, 0), local.TimeOfDay);
+        Assert.Equal(7, (int)Math.Round((end - start).TotalDays));
+    }
 
-        Assert.Equal(5, rows.Count);
-        Assert.True(rows[0].Cells[0].Muted);
-        Assert.False(rows[0].Cells[^1].Muted);
+    [Fact]
+    public void Rows_SlotToSlotSpan_NeverCutsAtAWeekBoundary() {
+        var (start, end) = CalendarLayout.Window(
+            new DateTimeOffset(2026, 9, 15, 12, 0, 0, TimeSpan.Zero), CalendarZoom.Month);
+        var monday = CalendarLayout.AddDays(start, 1);
+        var items = new[] { Item("mon-to-sun", monday, CalendarLayout.AddDays(monday, 6)) };
+
+        var rows = CalendarLayout.Rows(items, start, end, CalendarZoom.Month, start);
+        var bars = rows.SelectMany(r => r.Lanes.SelectMany(l => l)).ToList();
+
+        var bar = Assert.Single(bars);
+        Assert.False(bar.ContinuesLeft);
+        Assert.False(bar.ContinuesRight);
+    }
+
+    [Fact]
+    public void Rows_MonthZoom_FiveWeekRowsWithOutOfMonthDaysMuted() {
+        var (start, end) = CalendarLayout.Window(
+            new DateTimeOffset(2026, 9, 15, 12, 0, 0, TimeSpan.Zero), CalendarZoom.Month);
+
+        var rows = CalendarLayout.Rows(Array.Empty<Span>(), start, end, CalendarZoom.Month, start);
+
+        Assert.Equal(CalendarLayout.MonthWeeks, rows.Count);
+        Assert.Equal(7, rows[0].Cells.Count);
+        Assert.Contains(rows.SelectMany(r => r.Cells), c => c.Muted);
+        Assert.Contains(rows.SelectMany(r => r.Cells), c => !c.Muted);
     }
 }
 

@@ -71,7 +71,7 @@ public class EventsWorkbenchModalTests : BunitContext {
 
         var cut = await OpenAsync();
 
-        var currentPeriod = cut.FindAll(".cal-period")[1];
+        var currentPeriod = Assert.Single(cut.FindAll(".cal-period"), p => p.QuerySelectorAll(".cal-now").Length > 0);
         var rowsWithBars = currentPeriod.QuerySelectorAll(".cal-row")
             .Where(row => row.QuerySelectorAll(".evcal-bar").Length > 0)
             .ToList();
@@ -89,8 +89,7 @@ public class EventsWorkbenchModalTests : BunitContext {
 
         var cut = await OpenAsync();
 
-        var currentPeriod = cut.FindAll(".cal-period")[1];
-        Assert.Single(currentPeriod.QuerySelectorAll(".cal-now"));
+        Assert.Single(cut.FindAll(".cal-now"));
     }
 
     [Fact]

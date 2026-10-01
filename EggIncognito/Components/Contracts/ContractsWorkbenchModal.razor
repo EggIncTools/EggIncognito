@@ -241,16 +241,7 @@
     }
 
     string BarStyle(CalendarBar<ContractCalendarItem> bar) {
-        return (_cal?.BarStyle(bar) ?? "") + PaletteStyle(bar.Item.Kind);
-    }
-
-    static string PaletteStyle(ContractSlotKind kind) {
-        return kind switch {
-            ContractSlotKind.NewContract => ContractPalette.BarStyle(false, false, 0),
-            ContractSlotKind.Leggacy => ContractPalette.BarStyle(false, true, 0),
-            ContractSlotKind.PeLeggacy => ContractPalette.BarStyle(false, true, 1),
-            _ => ContractPalette.BarStyle(true, true, 1)
-        };
+        return (_cal?.BarStyle(bar) ?? "") + ContractPalette.BarStyle(bar.Item.Kind);
     }
 
     string Absolute(double unixSeconds) {

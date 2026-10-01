@@ -1,0 +1,108 @@
+@typeparam TItem where TItem : ICalendarSpan
+@using EggIncognito.Models.Calendar
+@using EggIncognito.Services.Calendar
+@using EggIncognito.Services.Events
+@implements IAsyncDisposable
+@inject IJSRuntime JS
+@inject IWebHostEnvironment Env
+@inject ILogger<MiniCalendar<TItem>> Logger
+
+@if (_note.Length > 0) {
+    <div class="evcal-note">@_note</div>
+} else if (_row is { } row) {
+    <div class="evcal-mini-scroll" @ref="_scroller">
+        <div class="evcal-shell evcal-view-week evcal-mini" style="@ShellStyle">
+            <div class="evcal-scale">
+                @foreach (var cell in row.Cells) {
+                    <span class="evcal-scale-label" style="@TickStyle(cell.LeftPercent)">
+                        <span class="evcal-scale-day">@DateLabels.Weekday(cell.LocalDate)</span>
+                        <span class="evcal-scale-date">@DateLabels.MonthDay(cell.LocalDate)</span>
+                    </span>
+                }
+            </div>
+            <div class="evcal-canvas">
+                <div class="evcal-row" style="@RowStyle(row)">
+                    @foreach (var cell in row.Cells) {
+                        if (cell.LeftPercent > 0) {
+                            <div class="evcal-grid" style="@TickStyle(cell.LeftPercent)"></div>
+                        }
+                    }
+                    @if (row.NowPercent is { } nowPercent) {
+                        <div class="evcal-now" style="@TickStyle(nowPercent)"></div>
+                    }
+                    <div class="evcal-lanes">
+                        @foreach (var lane in row.Lanes) {
+                            <div class="evcal-lane">
+                                @foreach (var bar in lane) {
+                                    @Bar(bar)
+                                }
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    const int HistoryDays = 21;
+
+    [Parameter, EditorRequired] public Func<DateTimeOffset, DateTimeOffset, Task<CalendarItemsLoad<TItem>>> Load { get; set; } = null!;
+
+    [Parameter, EditorRequired] public RenderFragment<CalendarBar<TItem>> Bar { get; set; } = null!;
+
+    [Parameter] public string EmptyNote { get; set; } = "Nothing in the last three weeks.";
+
+    ElementReference _scroller;
+    IJSObjectReference? _scroll;
+    CalendarLayoutRow<TItem>? _row;
+    DateTimeOffset _start;
+    DateTimeOffset _end;
+    string _note = "";
+    bool _scrolled;
+
+    int DayCount => Math.Max(1, (int)Math.Round((_end - _start).TotalDays));
+
+    string ShellStyle => FormattableString.Invariant(
+        $"--evcal-days:{DayCount};--evcal-gap:{CalendarLayout.GapPercent(_start, _end):0.###}%;");
+
+    protected override async Task OnInitializedAsync() {
+        var now = DateTimeOffset.UtcNow;
+        _end = CalendarLayout.AddDays(CalendarLayout.DayStart(now), 1);
+        _start = CalendarLayout.AddDays(_end, -HistoryDays);
+        var load = await Load(_start, _end);
+        if (load.Note.Length > 0) {
+            _note = load.Note;
+            return;
+        }
+
+        _row = CalendarLayout.Row(load.Items, _start, _end, now);
+        if (_row.Lanes.Count == 0) _note = EmptyNote;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender) {
+        if (_scrolled || _row is null || _note.Length > 0) return;
+        _scrolled = true;
+        try {
+            _scroll ??= await JS.InvokeAsync<IJSObjectReference>(
+                "import", InteropAsset.Url(Env, "./interop/scroll.js"));
+            await _scroll.InvokeVoidAsync("alignFractionToRight", _scroller, 1.0);
+        } catch (Exception ex) when (ex is JSDisconnectedException or JSException) {
+            Logger.LogDebug(ex, "the mini calendar could not scroll to today");
+        }
+    }
+
+    static string TickStyle(double leftPercent) {
+        return FormattableString.Invariant($"--tick-pos:{leftPercent:0.###};");
+    }
+
+    static string RowStyle(CalendarLayoutRow<TItem> row) {
+        return FormattableString.Invariant($"--row-weight:{Math.Max(1, row.Lanes.Count)};");
+    }
+
+    public async ValueTask DisposeAsync() {
+        await _scroll.DisposeModuleAsync(logger: Logger);
+    }
+
+}

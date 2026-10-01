@@ -2,7 +2,13 @@
 @using System.Globalization
 @using System.Text
 @using System.Text.Json
+@using EggIncognito.Components.Calendar
+@using EggIncognito.Models.Calendar
+@using EggIncognito.Models.Contracts
+@using EggIncognito.Models.Events
 @using EggIncognito.Models.Periodicals
+@using EggIncognito.Services.Assets
+@using EggIncognito.Services.Calendar
 @using EggIncognito.Services.Events
 @inherits SelfCallComponentBase
 @inject IServiceProvider Services
@@ -75,13 +81,58 @@
     <div class="pd-wcol">
         <section class="panel pd-w-calendar">
             <div class="flex items-center justify-between mb-3">
-                <h3 class="text-sm font-semibold m-0">Calendar</h3>
-                <div class="flex items-center gap-1">
-                    <button type="button" class="btn-mini" @onclick="@(() => OnOpenContracts.InvokeAsync())">Contracts</button>
-                    <button type="button" class="btn-mini" @onclick="@(() => OnOpenEvents.InvokeAsync())">Events</button>
-                </div>
+                <h3 class="text-sm font-semibold m-0">Events</h3>
+                <button type="button" class="btn-mini" @onclick="@(() => OnOpenEvents.InvokeAsync())">Open</button>
             </div>
-            <EventsMiniCalendar OnOpen="OnOpenEvents"/>
+            <MiniCalendar TItem="EventCalendarItem" Load="LoadMiniEvents" EmptyNote="No events in the last three weeks.">
+                <Bar>
+                    @{ var e = context.Item.Event!; }
+                    <Tooltip Class="evcal-bar-tip" Style="@EventBarStyle(context)">
+                        <ChildContent>
+                            <button type="button" class="@CalendarBars.Css(context)" @onclick="@(() => OnOpenEvents.InvokeAsync())">
+                                @if (EventPalette.IconUrl(e.Type, e.Ultra) is { } iconUrl) {
+                                    <img class="evcal-bar-icon" src="@iconUrl" alt="" loading="lazy" data-fallback/>
+                                }
+
+                                <span class="evcal-bar-label">@EventMagnitude.Scalar(e)</span>
+                            </button>
+                        </ChildContent>
+                        <Tip>
+                            <span class="tt-title">@EventLabel(e)</span>
+                            @if (e.Ultra) {
+                                <span class="tt-ultra">ULTRA ONLY</span>
+                            }
+
+                            <span class="tt-line">@EventCountdown.Describe(e.StartTimestamp, e.EndTimestamp, DateTimeOffset.UtcNow)</span>
+                        </Tip>
+                    </Tooltip>
+                </Bar>
+            </MiniCalendar>
+            <div class="flex items-center justify-between mt-4 mb-3">
+                <h3 class="text-sm font-semibold m-0">Contracts</h3>
+                <button type="button" class="btn-mini" @onclick="@(() => OnOpenContracts.InvokeAsync())">Open</button>
+            </div>
+            <MiniCalendar TItem="ContractCalendarItem" Load="LoadMiniContracts" EmptyNote="No contracts in the last three weeks.">
+                <Bar>
+                    @{ var c = context.Item.Release!; }
+                    <Tooltip Class="evcal-bar-tip" Style="@ContractBarStyle(context)">
+                        <ChildContent>
+                            <button type="button" class="@(CalendarBars.Css(context) + " evcal-bar-contract")"
+                                    @onclick="@(() => OnOpenContracts.InvokeAsync())">
+                                <span class="evcal-bar-label">@c.Name</span>
+                            </button>
+                        </ChildContent>
+                        <Tip>
+                            <span class="tt-title">@c.Name</span>
+                            @if (c.UltraOnly) {
+                                <span class="tt-ultra">ULTRA ONLY</span>
+                            }
+
+                            <span class="tt-line">@EventCountdown.Describe(c.StartTimestamp, c.EndTimestamp, DateTimeOffset.UtcNow)</span>
+                        </Tip>
+                    </Tooltip>
+                </Bar>
+            </MiniCalendar>
             @if (_seasons is { Count: > 0 } seasonList) {
                 var season = seasonList[Math.Clamp(_seasonIx, 0, seasonList.Count - 1)];
                 var grades = season.GradeGoals.Where(g => g.Goals.Count > 0).ToList();
@@ -261,6 +312,51 @@
 
         await LoadBoostCatalog();
         _loaded = true;
+    }
+
+    const int MiniFetchLimit = 500;
+
+    async Task<CalendarItemsLoad<EventCalendarItem>> LoadMiniEvents(DateTimeOffset start, DateTimeOffset end) {
+        var url = FormattableString.Invariant(
+            $"/api/v1/events?after={UnixSeconds.FromTime(start):0}&before={UnixSeconds.FromTime(end):0}&limit={MiniFetchLimit}");
+        try {
+            var res = await Client().GetAsync(url);
+            if ((int)res.StatusCode == 503) return CalendarItemsLoad.Failed<EventCalendarItem>("Event history needs a database. This instance has none.");
+            if (!res.IsSuccessStatusCode) return CalendarItemsLoad.Failed<EventCalendarItem>("Events could not be loaded.");
+            var body = await res.Content.ReadFromJsonAsync<GameEventListResponse>(JsonOpts);
+            return CalendarItemsLoad.Ok<EventCalendarItem>([.. (body?.Events ?? []).Select(EventCalendarItem.Of)]);
+        } catch (Exception ex) {
+            Logger.LogWarning(ex, "the mini event calendar could not be loaded");
+            return CalendarItemsLoad.Failed<EventCalendarItem>("Events could not be loaded.");
+        }
+    }
+
+    async Task<CalendarItemsLoad<ContractCalendarItem>> LoadMiniContracts(DateTimeOffset start, DateTimeOffset end) {
+        var url = FormattableString.Invariant(
+            $"/api/v1/contracts?after={UnixSeconds.FromTime(start):0}&before={UnixSeconds.FromTime(end):0}&limit={MiniFetchLimit}");
+        try {
+            var res = await Client().GetAsync(url);
+            if ((int)res.StatusCode == 503) return CalendarItemsLoad.Failed<ContractCalendarItem>("Contract history needs a database. This instance has none.");
+            if (!res.IsSuccessStatusCode) return CalendarItemsLoad.Failed<ContractCalendarItem>("Contracts could not be loaded.");
+            var body = await res.Content.ReadFromJsonAsync<ContractReleaseListResponse>(JsonOpts);
+            return CalendarItemsLoad.Ok<ContractCalendarItem>([.. (body?.Releases ?? []).Select(ContractCalendarItem.Of)]);
+        } catch (Exception ex) {
+            Logger.LogWarning(ex, "the mini contract calendar could not be loaded");
+            return CalendarItemsLoad.Failed<ContractCalendarItem>("Contracts could not be loaded.");
+        }
+    }
+
+    static string EventBarStyle(CalendarBar<EventCalendarItem> bar) {
+        var e = bar.Item.Event!;
+        return CalendarBars.PositionStyle(bar) + EventPalette.BarStyle(e.Type, e.Ultra);
+    }
+
+    static string ContractBarStyle(CalendarBar<ContractCalendarItem> bar) {
+        return CalendarBars.PositionStyle(bar) + ContractPalette.BarStyle(bar.Item.Kind);
+    }
+
+    static string EventLabel(GameEventDto e) {
+        return string.IsNullOrWhiteSpace(e.Message) ? TitleCase(e.Type) : e.Message;
     }
 
     void MoveSeason(int delta) {

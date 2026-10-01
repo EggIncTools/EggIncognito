@@ -21,7 +21,7 @@
         @Rail
     </Rail>
     <ChildContent>
-        <div class="evcal-pane">
+        <div class="@PaneCss" style="@PaneStyle">
             @if (Note is { Length: > 0 } note) {
                 <div class="evcal-note">@note</div>
             }
@@ -49,6 +49,13 @@
 @code {
     static readonly string[] WeekdayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
     static readonly IReadOnlyList<CalendarZoom> Zooms = [CalendarZoom.Week, CalendarZoom.Month];
+
+    const double MonthLaneMin = 1.75;
+    const double MonthLaneGap = 0.25;
+    const double RowHeader = 1.25;
+    const double RowInset = 0.2;
+    const double MinSlotRem = 3.5;
+    const double MaxSlotRem = 18;
 
     [Parameter, EditorRequired] public string Title { get; set; } = "";
 
@@ -84,6 +91,7 @@
     DateTimeOffset _visibleEnd;
     IReadOnlyList<CalendarLayoutRow<TItem>> _rows = [];
     IReadOnlyList<PeriodSlot<CalendarBar<TItem>>> _periods = [];
+    double _slotRem = MinSlotRem;
     TItem? _picked;
     CalendarGrid<CalendarBar<TItem>>? _grid;
     TimeZoneInfo _zone = ViewerZone.Fallback;
@@ -120,7 +128,7 @@
         _open = true;
         _loading = true;
         _center = DateTimeOffset.UtcNow;
-        (_visibleStart, _visibleEnd) = CalendarLayout.Window(_center, _zoom, _zone);
+        (_visibleStart, _visibleEnd) = CalendarLayout.Window(_center, _zoom);
         ClearSelection();
         StateHasChanged();
         await Refresh();
@@ -143,14 +151,25 @@
     public void Relayout() {
         var items = Items();
         var now = DateTimeOffset.UtcNow;
-        _rows = CalendarLayout.Rows(items, _visibleStart, _visibleEnd, _zoom, now, _zone);
-        var span = _visibleEnd - _visibleStart;
-        var (prevStart, prevEnd) = CalendarLayout.Window(_center - span, _zoom, _zone);
-        var (nextStart, nextEnd) = CalendarLayout.Window(_center + span, _zoom, _zone);
-        var prevRows = CalendarLayout.Rows(items, prevStart, prevEnd, _zoom, now, _zone);
-        var nextRows = CalendarLayout.Rows(items, nextStart, nextEnd, _zoom, now, _zone);
-        _periods = [ToPeriod(prevRows, prevStart), ToPeriod(_rows, _visibleStart), ToPeriod(nextRows, nextStart)];
+        _rows = CalendarLayout.Rows(items, _visibleStart, _visibleEnd, _zoom, now);
+        int? primaryMonth = _zoom == CalendarZoom.Month ? CalendarLayout.PrimaryMonth(_visibleStart, _visibleEnd) : null;
+        var first = CalendarLayout.AddDays(_visibleStart, -7);
+        var count = VisibleWeeks + 2;
+        var periods = new List<PeriodSlot<CalendarBar<TItem>>>(count);
+        var maxLanes = 1;
+        for (var i = 0; i < count; i++) {
+            var start = CalendarLayout.AddDays(first, 7 * i);
+            var row = CalendarLayout.Row(items, start, CalendarLayout.AddDays(start, 7), now, primaryMonth);
+            if (i > 0 && i < count - 1) maxLanes = Math.Max(maxLanes, row.Lanes.Count);
+            periods.Add(new PeriodSlot<CalendarBar<TItem>>([ToCalendarRow(row)], start.UtcTicks));
+        }
+
+        _periods = periods;
+        _slotRem = Math.Clamp(
+            RowHeader + maxLanes * MonthLaneMin + (maxLanes - 1) * MonthLaneGap + 2 * RowInset, MinSlotRem, MaxSlotRem);
     }
+
+    int VisibleWeeks => _zoom == CalendarZoom.Month ? CalendarLayout.MonthWeeks : 1;
 
     public void ApplyFilters() {
         ClearSelection();
@@ -167,11 +186,11 @@
     }
 
     async Task Refresh() {
-        (_visibleStart, _visibleEnd) = CalendarLayout.Window(_center, _zoom, _zone);
+        (_visibleStart, _visibleEnd) = CalendarLayout.Window(_center, _zoom);
         _center = _visibleStart + (_visibleEnd - _visibleStart) / 2;
-        var period = _visibleEnd - _visibleStart;
         var load = await Load(new CalendarRange(
-            UnixSeconds.FromTime(_visibleStart - period), UnixSeconds.FromTime(_visibleEnd + period)));
+            UnixSeconds.FromTime(CalendarLayout.AddDays(_visibleStart, -7)),
+            UnixSeconds.FromTime(CalendarLayout.AddDays(_visibleEnd, 7))));
         _note = load.Note;
         if (OnWindowChanged is { } changed) await changed(_visibleStart, _visibleEnd);
         _loading = false;
@@ -187,10 +206,6 @@
         }
     }
 
-    PeriodSlot<CalendarBar<TItem>> ToPeriod(IReadOnlyList<CalendarLayoutRow<TItem>> rows, DateTimeOffset start) {
-        return new PeriodSlot<CalendarBar<TItem>>(rows.Select(ToCalendarRow).ToList(), start.UtcTicks);
-    }
-
     CalendarRow<CalendarBar<TItem>> ToCalendarRow(CalendarLayoutRow<TItem> row) {
         var cellLabels = row.Cells.Select(c => new CalendarCellLabel(c.LeftPercent, CalendarLayout.CellLabel(c, _zoom), c.Muted)).ToList();
         var gridLines = row.Cells.Where(c => c.LeftPercent > 0).Select(c => c.LeftPercent).ToList();
@@ -201,22 +216,25 @@
 
     LaneGroupDef<CalendarBar<TItem>>[] LaneGroups {
         get {
-            var laneMin = _zoom == CalendarZoom.Week ? 6.75 : 1.75;
-            return [new LaneGroupDef<CalendarBar<TItem>>(Bar, laneMin, 0.25, 1.25)];
+            var laneMin = _zoom == CalendarZoom.Week ? 6.75 : MonthLaneMin;
+            return [new LaneGroupDef<CalendarBar<TItem>>(Bar, laneMin, MonthLaneGap, RowHeader)];
         }
     }
 
+    string PaneCss => _zoom == CalendarZoom.Month ? "evcal-pane evcal-month" : "evcal-pane evcal-week";
+
+    string PaneStyle => _zoom == CalendarZoom.Month
+        ? FormattableString.Invariant(
+            $"--evcal-slot-h:{_slotRem:0.###}rem;--evcal-vp-h:{_slotRem * CalendarLayout.MonthWeeks:0.###}rem;--strip-slot-h:{_slotRem:0.###}rem;--strip-h:{_slotRem * (CalendarLayout.MonthWeeks + 2):0.###}rem;--strip-top:-{_slotRem:0.###}rem;")
+        : "";
+
     public string BarStyle(CalendarBar<TItem> bar) {
         var barH = _zoom == CalendarZoom.Week ? 4.5 : 1.125;
-        return FormattableString.Invariant(
-            $"--bar-start:{bar.LeftPercent:0.###};--bar-size:{bar.WidthPercent:0.###};--evcal-bar-h:{barH:0.###}rem;");
+        return CalendarBars.PositionStyle(bar) + FormattableString.Invariant($"--evcal-bar-h:{barH:0.###}rem;");
     }
 
     public static string BarCss(CalendarBar<TItem> bar) {
-        var css = bar.Active ? "evcal-bar evcal-bar-active" : bar.Past ? "evcal-bar evcal-bar-past" : "evcal-bar";
-        if (bar.ContinuesLeft) css += " evcal-bar-cut-l";
-        if (bar.ContinuesRight) css += " evcal-bar-cut-r";
-        return css;
+        return CalendarBars.Css(bar);
     }
 
     public string Absolute(double unixSeconds) {
@@ -237,7 +255,7 @@
     }
 
     Task Pan(int direction) {
-        _center += (_visibleEnd - _visibleStart) * direction;
+        _center = CalendarLayout.AddDays(CalendarLayout.WeekStart(_center), 7 * direction).AddDays(3);
         ClearSelection();
         return Refresh();
     }
@@ -251,7 +269,7 @@
     Task JumpToDate(ChangeEventArgs e) {
         if (!DateOnly.TryParseExact(e.Value?.ToString(), "yyyy-MM-dd", CultureInfo.InvariantCulture,
                 DateTimeStyles.None, out var picked)) return Task.CompletedTask;
-        _center = CalendarLayout.ToOffset(picked.ToDateTime(new TimeOnly(12, 0)), _zone);
+        _center = CalendarLayout.DayStartForDate(picked).AddHours(1);
         ClearSelection();
         return RefreshAndReset();
     }
@@ -271,10 +289,9 @@
         StateHasChanged();
     }
 
-    void OnZoneChanged() => _ = InvokeAsync(async () => {
+    void OnZoneChanged() => _ = InvokeAsync(() => {
         if (_clock is null || _clock.Zone.Id == _zone.Id) return;
         _zone = _clock.Zone;
-        if (_open) await Refresh();
         StateHasChanged();
     });
 
@@ -313,9 +330,9 @@
         return zoom == CalendarZoom.Week ? "Week" : "Month";
     }
 
-    string CenterDate => TimeZoneInfo.ConvertTime(_center, _zone).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+    string CenterDate => CalendarLayout.GridDate(CalendarLayout.DayStart(_center)).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
 
-    string RangeLabel => CalendarLayout.RangeLabel(_visibleStart, _visibleEnd, _zoom, _zone);
+    string RangeLabel => CalendarLayout.RangeLabel(_visibleStart, _visibleEnd, _zoom);
 
     static string TickStyle(double leftPercent) {
         return FormattableString.Invariant($"--tick-pos:{leftPercent:0.###};");
