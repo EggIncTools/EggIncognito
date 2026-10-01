@@ -36,7 +36,7 @@ public sealed class StagedEntry {
 
 public sealed record GroupStatus(
     bool Known, bool Pending, bool Offered, bool Failed = false, bool InRegistry = false, bool Archived = false) {
-    public bool Offerable => !Known && !InRegistry && !Pending && !Offered && !Failed;
+    public bool Offerable => !Known && !Pending && !Offered && !Failed;
     public bool Flaggable => Known && !Archived && !Pending && !Offered && !Failed;
 }
 

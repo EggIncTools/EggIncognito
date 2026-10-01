@@ -1,8 +1,6 @@
 using System.Text;
-using EggIdentity.Contract;
 using EggIncognito.Core.Services.ProtoExtract;
 using EggIncognito.Data.Services;
-using EggIncognito.Services;
 using EggIncognito.Services.Auth;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
@@ -13,7 +11,7 @@ namespace EggIncognito.Controllers;
 [Route("api/protos")]
 [ApiAccess(ApiAccessLevel.Public)]
 [EnableRateLimiting("fetch")]
-public sealed class ProtosController(ICurrentUser user) : ApiControllerBase {
+public sealed class ProtosController : ApiControllerBase {
     private const string FormatText = "text";
     private const string FormatUnified = "unified";
     private const string FormatSplit = "split";
@@ -27,7 +25,6 @@ public sealed class ProtosController(ICurrentUser user) : ApiControllerBase {
         if (store is not { } s) return Ok(Array.Empty<object>());
         var rows = await s.ListAsync(platform, ct);
         var orders = await s.ShaOrdersAsync(ct);
-        bool admin = user.IsAtLeast(UserRole.Admin);
 
         return Ok(rows.Select(r => new {
             r.Id,
@@ -42,7 +39,7 @@ public sealed class ProtosController(ICurrentUser user) : ApiControllerBase {
             r.DetectedAt,
             buildFlag = ProtoVersionQuality.BuildQualityFlag(r.Platform, r.Build),
             sortOrder = orders.TryGetValue(r.ProtoSha ?? "", out int so) ? so : 0,
-            archiveSourced = admin ? r.ArchiveSourced : (bool?)null
+            r.ArchiveSourced
         }));
     }
 

@@ -50,8 +50,8 @@ public class StagedProtoApiTests {
         Assert.Equal(expected, StagedProtoStore.FieldCompatible(a, b));
 
     [Fact]
-    public void GroupStatus_InRegistry_IsNotOfferable() {
-        Assert.False(new GroupStatus(false, false, false, false, true).Offerable);
+    public void GroupStatus_NewBuildOfKnownSha_IsOfferable() {
+        Assert.True(new GroupStatus(false, false, false, false, true).Offerable);
         Assert.False(new GroupStatus(true, false, false).Offerable);
         Assert.False(new GroupStatus(false, true, false).Offerable);
         Assert.False(new GroupStatus(false, false, false, true).Offerable);

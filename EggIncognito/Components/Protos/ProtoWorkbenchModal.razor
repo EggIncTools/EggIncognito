@@ -117,7 +117,7 @@
                                                        @onchange="@(() => ToggleRow(row))"/>
                                             }
                                             <PlatformIcon Platform="@row.Platform"/>
-                                            @if (row.ArchiveSourced == true && User.IsAtLeast(UserRole.Admin)) {
+                                            @if (row.ArchiveSourced == true) {
                                                 <Tooltip>
                                                     <ChildContent>
                                                         <Icon Name="shield-check" Class="icon-sm pwb-reg-arch"/>
@@ -260,9 +260,10 @@
                         } else {
                             <span class="pwb-note-inline pwb-warn">pending review</span>
                         }
-                    } else if (selGroup?.Status is { InRegistry: true }) {
-                        <span class="pwb-note-inline pwb-ok">sha in registry</span>
                     } else if (selGroup?.Status is { Offerable: true }) {
+                        @if (selGroup.Status.InRegistry) {
+                            <span class="pwb-note-inline">new build of a known sha</span>
+                        }
                         @if (User.IsAuthenticated) {
                             <span class="pwb-note-inline">offerable</span>
                         } else {
@@ -790,7 +791,6 @@
             entry.Build = entry.Result?.Build ?? "";
             entry.ClientVersionText = entry.Result?.ClientVersion?.ToString(CultureInfo.InvariantCulture) ?? "";
         });
-        await BackfillBuildAndClientVersion(entry);
         await InvokeAsync(async () => {
             if (State.SelectedId != entry.Id || SessionRef(entry) is not { } sref) return;
             State.TextCache.Remove(CacheKey(sref));
@@ -897,7 +897,7 @@
             { Archived: true } => "archive flagged",
             { Known: true } => "in registry",
             { Pending: true } or { Offered: true } => "pending",
-            { InRegistry: true } => "sha in registry",
+            { InRegistry: true } => "offerable (known sha)",
             { Offerable: true } => "offerable",
             _ => "checking"
         };
@@ -910,7 +910,6 @@
             { Archived: true } => "pwb-ok",
             { Known: true } => "pwb-ok",
             { Pending: true } or { Offered: true } => "pwb-warn",
-            { InRegistry: true } => "pwb-ok",
             _ => ""
         };
     }
@@ -1759,8 +1758,7 @@
             new ProtoMetaRow("Detected", Dash(a.Detected), Dash(b.Detected)),
             new ProtoMetaRow("Proto SHA", Dash(a.Sha), Dash(b.Sha))
         ];
-        if (User.IsAtLeast(UserRole.Admin))
-            rows.Add(new ProtoMetaRow("Archive sourced", Dash(YesNo(a.Archived)), Dash(YesNo(b.Archived))));
+        rows.Add(new ProtoMetaRow("Archive sourced", Dash(YesNo(a.Archived)), Dash(YesNo(b.Archived))));
         return rows;
     }
 
@@ -1851,38 +1849,6 @@
 
     static string Dash(string? value) {
         return string.IsNullOrWhiteSpace(value) ? "-" : value;
-    }
-
-    async Task BackfillBuildAndClientVersion(StagedEntry entry) {
-        var live = await Client().OneAsync<LiveVersionResult>(
-            $"/api/tools/live-version?platform={entry.Platform}", Logger);
-        if (live is { Found: true }) {
-            await InvokeAsync(() => {
-                if (string.IsNullOrWhiteSpace(entry.Build) && !string.IsNullOrWhiteSpace(live.Build)) entry.Build = live.Build!;
-                if (string.IsNullOrWhiteSpace(entry.ClientVersionText) && live.ClientVersion is int cv) entry.ClientVersionText = cv.ToString(CultureInfo.InvariantCulture);
-            });
-        }
-
-        if ((!string.IsNullOrWhiteSpace(entry.Build) && !string.IsNullOrWhiteSpace(entry.ClientVersionText))
-            || string.IsNullOrWhiteSpace(entry.AppVersion)) {
-            return;
-        }
-
-        var all = await Client().ListAsync<RegRowDto>("/api/protos/versions", Logger);
-        var sameApp = all.Where(r => string.Equals(r.AppVersion, entry.AppVersion, StringComparison.OrdinalIgnoreCase)).ToList();
-
-        await InvokeAsync(() => {
-            if (string.IsNullOrWhiteSpace(entry.ClientVersionText)) {
-                var cv = sameApp.Select(r => r.ClientVersion).FirstOrDefault(c => !string.IsNullOrWhiteSpace(c));
-                if (!string.IsNullOrWhiteSpace(cv)) entry.ClientVersionText = cv;
-            }
-
-            if (string.IsNullOrWhiteSpace(entry.Build)) {
-                var b = sameApp.Where(r => string.Equals(r.Platform, entry.Platform, StringComparison.OrdinalIgnoreCase))
-                    .Select(r => r.Build).FirstOrDefault(x => !string.IsNullOrWhiteSpace(x));
-                if (!string.IsNullOrWhiteSpace(b)) entry.Build = b;
-            }
-        });
     }
 
     static string PlatformFor(string? fileName) {

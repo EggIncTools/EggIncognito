@@ -131,7 +131,7 @@ public static class RegistryFilter {
         new("hasText", "Stored text", FilterValueKind.Bool, BoolOps, null),
         new("badBuild", "Bad build", FilterValueKind.Bool, BoolOps, null),
         new("sortOrder", "Sort order", FilterValueKind.Number, Comparison, null),
-        new("archived", "Archive sourced", FilterValueKind.Bool, BoolOps, null, true)
+        new("archived", "Archive sourced", FilterValueKind.Bool, BoolOps, null)
     ];
 
     public static IReadOnlyList<FilterFieldDef> FieldsFor(bool admin) =>

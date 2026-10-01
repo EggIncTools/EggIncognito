@@ -19,13 +19,12 @@ public class RegistryFilterTests {
         new(1, null, platform, app, build, client, source, package, sha, detected, flag, order, archived);
 
     [Fact]
-    public void ArchivedFieldIsAdminOnlyAndTreatsUnknownAsFalse() {
+    public void ArchivedFieldIsVisibleToEveryoneAndTreatsUnknownAsFalse() {
         Assert.True(RegistryFilter.Matches(Row(archived: true), One("archived", FilterOp.True, "")));
         Assert.False(RegistryFilter.Matches(Row(archived: false), One("archived", FilterOp.True, "")));
         Assert.True(RegistryFilter.Matches(Row(archived: null), One("archived", FilterOp.False, "")));
         Assert.Contains(RegistryFilter.FieldsFor(true), f => f.Key == "archived");
-        Assert.DoesNotContain(RegistryFilter.FieldsFor(false), f => f.Key == "archived");
-        Assert.Equal(RegistryFilter.Fields.Count - 1, RegistryFilter.FieldsFor(false).Count);
+        Assert.Contains(RegistryFilter.FieldsFor(false), f => f.Key == "archived");
     }
 
     private static RegistryQuery One(string field, FilterOp op, string value) =>
