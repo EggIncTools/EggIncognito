@@ -91,6 +91,40 @@ public class StagedProtoApiTests {
     }
 
     [Fact]
+    public void Evaluate_BuildRowWithOtherSha_IsKnownAndShaDiffers() {
+        var farm = Android177();
+        farm.ProtoSha = "9a9ffabc5868";
+
+        var r = StagedProtoStore.Evaluate([], false, "android", "1.7.7", "111079", "15", [farm], "4f4397fc54e2");
+
+        Assert.False(r.InRegistry);
+        Assert.True(r.KnownCombination);
+        Assert.False(r.Archived);
+        Assert.True(r.ShaDiffers);
+        Assert.True(new GroupStatus(r.KnownCombination, r.Pending, false, false, r.InRegistry, r.Archived, r.ShaDiffers).Flaggable);
+    }
+
+    [Fact]
+    public void Evaluate_ArchivedBuildRowWithOtherSha_StaysFlaggable() {
+        var archived = Android177();
+        archived.ArchiveSourced = true;
+
+        var r = StagedProtoStore.Evaluate([], false, "android", "1.7.7", "111079", "15", [archived], "4f4397fc54e2");
+
+        Assert.True(r.Archived);
+        Assert.True(r.ShaDiffers);
+        Assert.True(new GroupStatus(r.KnownCombination, false, false, false, false, r.Archived, r.ShaDiffers).Flaggable);
+        Assert.False(new GroupStatus(r.KnownCombination, false, false, false, false, r.Archived).Flaggable);
+    }
+
+    [Fact]
+    public void OfferResult_PublishedAndRejected_LowercaseForJson() {
+        Assert.Equal("published", StagedProtoStore.OfferResult.Published.ToString().ToLowerInvariant());
+        Assert.Equal("rejected", StagedProtoStore.OfferResult.Rejected.ToString().ToLowerInvariant());
+        Assert.False(new GroupStatus(false, false, false, Rejected: true).Offerable);
+    }
+
+    [Fact]
     public void OnPlatform_PartitionsRowsBySha() {
         var ios = new ProtoVersion { Platform = "ios", Build = "1.7.7.0", ProtoSha = "eee8a15173a3" };
 

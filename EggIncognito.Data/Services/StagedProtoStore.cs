@@ -22,7 +22,9 @@ public sealed class StagedProtoStore(EggIncognitoDbContext db, TimeProvider time
         AlreadyPending,
         AlreadyInRegistry,
         ArchiveFlagged,
-        AlreadyArchived
+        AlreadyArchived,
+        Published,
+        Rejected
     }
 
     private Task NotifyStagedAsync(string key, CancellationToken ct) =>
@@ -38,13 +40,28 @@ public sealed class StagedProtoStore(EggIncognitoDbContext db, TimeProvider time
         string.IsNullOrWhiteSpace(platform) ? [.. rows] : [.. rows.Where(p => Same(p.Platform, platform))];
 
     public static CheckOutcome Evaluate(IReadOnlyList<ProtoVersion> shaRows, bool pending, string? platform,
-        string? appVersion, string? build, string? clientVersion) {
+        string? appVersion, string? build, string? clientVersion, IReadOnlyList<ProtoVersion>? buildRows = null,
+        string? protoSha = null) {
         var rows = OnPlatform(shaRows, platform);
         bool inReg = rows.Count > 0;
         var compatible = rows.Where(p => AllCompatible(p, platform, appVersion, build, clientVersion)).ToList();
-        bool known = compatible.Count > 0;
-        bool archived = known && compatible.TrueForAll(p => p.ArchiveSourced);
-        return new CheckOutcome(inReg, pending, known, archived);
+        var byBuild = buildRows ?? [];
+        bool known = compatible.Count > 0 || byBuild.Count > 0;
+        bool archived = known
+                        && compatible.TrueForAll(p => p.ArchiveSourced)
+                        && byBuild.All(p => p.ArchiveSourced);
+        bool shaDiffers = byBuild.Count > 0 && !string.IsNullOrEmpty(protoSha)
+                          && byBuild.Any(p => !Same(p.ProtoSha, protoSha));
+        return new CheckOutcome(inReg, pending, known, archived, shaDiffers);
+    }
+
+    private Task<List<ProtoVersion>> BuildRowsAsync(string? platform, string? build, CancellationToken ct) {
+        string? p = string.IsNullOrWhiteSpace(platform) ? null : platform.Trim();
+        string? b = string.IsNullOrWhiteSpace(build) ? null : build.Trim();
+        if (p is null || b is null) return Task.FromResult(new List<ProtoVersion>());
+        return db.ProtoVersions.AsNoTracking()
+            .Where(x => x.DeletedAt == null && x.Build == b && EF.Functions.ILike(x.Platform, p))
+            .ToListAsync(ct);
     }
 
     private static int FieldScore(string? appVersion, string? build, string? clientVersion) =>
@@ -155,16 +172,48 @@ public sealed class StagedProtoStore(EggIncognitoDbContext db, TimeProvider time
         string platform, string? appVersion, string? build, string? clientVersion, string? package,
         string protoSha, string protoText, string? messageIndex, string? submittedBy, string source,
         bool canFlagArchive, CancellationToken ct) {
-        if (canFlagArchive && source == SourceOffer
-            && await FlagArchiveMatchAsync(platform, appVersion, build, clientVersion, protoSha, ct) is { } flagged)
-            return flagged;
+        if (canFlagArchive && source == SourceOffer) {
+            if (await WriteArchiveAsync(platform, appVersion, build, clientVersion, package, protoSha, protoText,
+                    submittedBy, ct) is { } written)
+                return written;
+            if (await FlagArchiveMatchAsync(platform, appVersion, build, clientVersion, protoSha, ct) is { } flagged)
+                return flagged;
+        }
+
         var outcome = await StageOrReviveAsync(platform, appVersion, build, clientVersion, package, protoSha,
             protoText, messageIndex, source, submittedBy, null, null, null, null, ct);
         return outcome switch {
             StageOutcome.AlreadyInRegistry => OfferResult.AlreadyInRegistry,
-            StageOutcome.AlreadyPending or StageOutcome.StaleRejected => OfferResult.AlreadyPending,
+            StageOutcome.AlreadyPending => OfferResult.AlreadyPending,
+            StageOutcome.StaleRejected => OfferResult.Rejected,
             _ => OfferResult.Staged
         };
+    }
+
+    private async Task<OfferResult?> WriteArchiveAsync(
+        string platform, string? appVersion, string? build, string? clientVersion, string? package,
+        string protoSha, string protoText, string? submittedBy, CancellationToken ct) {
+        string plat = platform.Trim();
+        string? bld = string.IsNullOrWhiteSpace(build) ? null : build.Trim();
+        if (bld is null) return null;
+
+        var existing = (await BuildRowsAsync(plat, bld, ct)).FirstOrDefault()
+                       ?? await db.ProtoVersions.AsNoTracking()
+                           .FirstOrDefaultAsync(x => x.Build == bld && EF.Functions.ILike(x.Platform, plat), ct);
+        string? appV = string.IsNullOrWhiteSpace(appVersion) ? existing?.AppVersion : appVersion.Trim();
+        if (string.IsNullOrWhiteSpace(appV)) return null;
+
+        if (existing is { DeletedAt: null, ArchiveSourced: true } && Same(existing.ProtoSha, protoSha)
+            && await db.ProtoProtos.AnyAsync(x => x.ProtoVersionId == existing.Id && x.ArchiveSourced, ct))
+            return OfferResult.AlreadyArchived;
+
+        string platformKey = existing?.Platform ?? plat;
+        await registry.UpsertAsync(platformKey, appV, bld,
+            string.IsNullOrWhiteSpace(clientVersion) ? existing?.ClientVersion : clientVersion.Trim(),
+            string.IsNullOrWhiteSpace(package) ? existing?.Package ?? "" : package.Trim(),
+            protoSha, "archive", time.GetUtcNow(), submittedBy, protoText, SourceOffer, true, ct);
+        await registry.SetArchiveSourcedAsync(platformKey, bld, ct);
+        return existing is null ? OfferResult.Published : OfferResult.ArchiveFlagged;
     }
 
     public async Task<(int staged, int skipped)> ImportCrawlAsync(
@@ -206,7 +255,8 @@ public sealed class StagedProtoStore(EggIncognitoDbContext db, TimeProvider time
         CancellationToken ct) {
         var rows = await ShaRowsAsync(protoSha, ct);
         bool pending = await ShaPendingAsync(protoSha, platform, ct);
-        return Evaluate(rows, pending, platform, appVersion, build, clientVersion);
+        var byBuild = await BuildRowsAsync(platform, build, ct);
+        return Evaluate(rows, pending, platform, appVersion, build, clientVersion, byBuild, protoSha);
     }
 
     public Task<List<PendingRow>> PendingRowsAsync(CancellationToken ct) =>
@@ -318,7 +368,8 @@ public sealed class StagedProtoStore(EggIncognitoDbContext db, TimeProvider time
         bool InRegistry,
         bool Pending,
         bool KnownCombination,
-        bool Archived = false);
+        bool Archived = false,
+        bool ShaDiffers = false);
 
     public sealed record PendingRow(
         int Id,

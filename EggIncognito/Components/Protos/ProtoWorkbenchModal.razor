@@ -146,6 +146,9 @@
             </div>
             <div class="wb-rail-slot pwb-rail-sess">
                 <WorkbenchSection Label="Session" Scroll="true">
+                    <label id="wbRailDrop" class="dropzone pwb-drop" for="wbFile">
+                        <DropZonePrompt Prompt="Drop .ipa, .apk or bundle files" IconClass="pwb-drop-icon"/>
+                    </label>
                     @foreach (var e in State.Entries.Where(x => !x.IsAnalyzed)) {
                         @Card(e, null, false)
                     }
@@ -178,9 +181,6 @@
                             @Card(g.Members[0], g, false)
                         }
                     }
-                    <label id="wbRailDrop" class="dropzone pwb-drop" for="wbFile">
-                        <DropZonePrompt Prompt="Drop .ipa, .apk or bundle files" IconClass="pwb-drop-icon"/>
-                    </label>
                 </WorkbenchSection>
             </div>
         </WorkbenchRail>
@@ -251,6 +251,12 @@
                     @if (selGroup is { Conflict: true }) {
                         <span class="pwb-note-inline pwb-err">conflict</span>
                         <span class="text-muted text-xs">Pick the file to offer in the rail.</span>
+                    } else if (selGroup?.Status is { Rejected: true }) {
+                        <span class="pwb-note-inline pwb-warn">rejected before</span>
+                        <span class="text-muted text-xs">A reviewer rejected this proto. Resubmit with more version data to reopen it.</span>
+                    } else if (selGroup?.Status is { Known: true, ShaDiffers: true }) {
+                        <span class="pwb-note-inline pwb-warn">in registry, proto differs</span>
+                        <span class="text-muted text-xs">This build is registered with another proto. The archive text replaces it.</span>
                     } else if (selGroup?.Status is { Archived: true }) {
                         <span class="pwb-note-inline pwb-ok">archive flagged</span>
                     } else if (selGroup?.Status is { Known: true }) {
@@ -285,7 +291,7 @@
                         <button type="button" class="btn-mini" disabled="@_offerBusy"
                                 @onclick="@(() => Offer(sg))">
                             @if (CanFlag(sg)) {
-                                <Icon Name="shield-check" Class="icon-sm"/> <text>Flag archive</text>
+                                <Icon Name="shield-check" Class="icon-sm"/> <text>@(sg.Status is { ShaDiffers: true } ? "Replace with archive" : "Flag archive")</text>
                             } else {
                                 <Icon Name="upload" Class="icon-sm"/> <text>Offer</text>
                             }
@@ -897,6 +903,8 @@
         if (g.Conflict) return "conflict";
         return g.Status switch {
             { Failed: true } => "check failed",
+            { Rejected: true } => "rejected before",
+            { Known: true, ShaDiffers: true } => "in registry, proto differs",
             { Archived: true } => "archive flagged",
             { Known: true } => "in registry",
             { Pending: true } or { Offered: true } => "pending",
@@ -910,6 +918,8 @@
         if (g.Conflict) return "pwb-err";
         return g.Status switch {
             { Failed: true } => "pwb-err",
+            { Rejected: true } => "pwb-warn",
+            { Known: true, ShaDiffers: true } => "pwb-warn",
             { Archived: true } => "pwb-ok",
             { Known: true } => "pwb-ok",
             { Pending: true } or { Offered: true } => "pwb-warn",
@@ -969,7 +979,7 @@
                 for (var i = 0; i < todo.Count; i++) {
                     var r = rows is { } list && i < list.Count ? list[i] : null;
                     State.GroupStatuses[todo[i].Key] = r is not null
-                        ? new GroupStatus(r.KnownCombination, r.Pending, false, false, r.InRegistry, r.Archived)
+                        ? new GroupStatus(r.KnownCombination, r.Pending, false, false, r.InRegistry, r.Archived, r.ShaDiffers)
                         : new GroupStatus(false, false, false, true);
                 }
             });
@@ -1036,9 +1046,10 @@
 
     static GroupStatus StatusOf(string? offerResult, GroupStatus? prior) {
         return offerResult switch {
-            "archiveflagged" or "alreadyarchived" => new GroupStatus(true, false, false, false, true, Archived: true),
+            "archiveflagged" or "alreadyarchived" or "published" => new GroupStatus(true, false, false, false, true, Archived: true),
             "alreadyinregistry" => new GroupStatus(true, false, false, false, true),
             "alreadypending" => new GroupStatus(false, true, false, false, prior?.InRegistry ?? false),
+            "rejected" => new GroupStatus(false, false, false, false, prior?.InRegistry ?? false, Rejected: true),
             "staged" => new GroupStatus(false, true, true),
             _ => new GroupStatus(false, false, false, true)
         };

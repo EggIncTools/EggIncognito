@@ -154,10 +154,14 @@ public sealed class ProtoRegistryStore(EggIncognitoDbContext db, TimeProvider ti
         bool locked = !created && !archive
                       && await db.ProtoProtos.AnyAsync(x => x.ProtoVersionId == row.Id && x.ArchiveSourced, ct);
         row.AppVersion = appVersion;
-        row.ClientVersion = clientVersion;
-        row.Source = source;
-        row.Package = package;
-        if (!locked) row.ProtoSha = protoSha;
+        row.ClientVersion ??= clientVersion;
+        if (!locked) {
+            row.ClientVersion = clientVersion ?? row.ClientVersion;
+            row.Source = source;
+            row.ProtoSha = protoSha;
+        }
+
+        row.Package = string.IsNullOrEmpty(package) ? row.Package : package;
         row.ApkRef = apkRef;
         row.DetectedAt = detectedAt;
         row.DetectedBy = detectedBy;

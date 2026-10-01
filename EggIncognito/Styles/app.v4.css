@@ -1494,7 +1494,8 @@ input[type="search"]::placeholder { @apply text-muted; }
     align-content: start;
   }
   .pd-identity { grid-column: 2; grid-row: 1; }
-  .pd-main { grid-column: 1; grid-row: 1 / span 2; min-width: 36rem; }
+  .pd-main { grid-column: 1; grid-row: 1 / span 2; width: fit-content; min-width: 30rem; max-width: 46rem; }
+  .pd-main .reg-table { width: auto; min-width: 100%; }
   .pd-side { grid-column: 2; grid-row: 2; }
 }
 @container pdmod (min-width: 60rem) {
