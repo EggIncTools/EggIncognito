@@ -1,27 +1,18 @@
 @inherits SelfCallComponentBase
 @using System.Globalization
 @using System.Text.Json
-@using EggIncognito.Models.Contracts
+@using EggIncognito.Components.Calendar
+@using EggIncognito.Models.Calendar
 @using EggIncognito.Models.Events
 @using EggIncognito.Services.Assets
 @using EggIncognito.Services.Events
-@using Ei
-@implements IAsyncDisposable
-@inject IJSRuntime JS
-@inject IWebHostEnvironment Env
 @inject ICurrentUser User
-@inject IServiceProvider Services
 @inject EventsWorkbenchState State
 @inject ILogger<EventsWorkbenchModal> Logger
 
-<WorkbenchModal Open="_open" Title="Events" TitleId="eventsWorkbenchTitle" Size="WorkbenchSize.Wide"
-                OnClose="CloseAsync">
-    <HeadTools>
-        <CalendarRangePicker TZoom="EventCalendarZoom" AvailableZooms="Zooms" Zoom="_zoom" ZoomLabel="ZoomLabel"
-                             RangeLabel="@RangeLabel" DateValue="@CenterDate" ZoomChanged="SetZoom" OnPan="Pan"
-                             OnToday="Today" DateChanged="JumpToDate"/>
-        <span class="evwb-zone">@_zone.Id</span>
-    </HeadTools>
+<CalendarWorkbench TItem="EventCalendarItem" @ref="_cal" Title="Events" TitleId="eventsWorkbenchTitle" State="State"
+                   Load="LoadRange" Items="Items" DetailTitle="PopTitle" Filtering="Filtering"
+                   OnWindowChanged="OnWindowChanged">
     <Rail>
         <WorkbenchRail>
             <WorkbenchSection Label="Tier">
@@ -54,33 +45,6 @@
                     }
                 </ChildContent>
             </WorkbenchSection>
-            <WorkbenchSection Label="Contracts">
-                <button type="button" class="evwb-row @(_showContracts ? "evwb-row-on" : "")"
-                        aria-pressed="@(_showContracts ? "true" : "false")"
-                        @onclick="@(() => Toggle(ref _showContracts))">
-                    Show contracts
-                </button>
-                <button type="button" class="evwb-row evwb-row-sub @(KindCss(_showContractNew))"
-                        style="@KindRowStyle(ContractPalette.NewContract)" aria-pressed="@(_showContractNew ? "true" : "false")"
-                        @onclick="@(() => Toggle(ref _showContractNew))">
-                    New
-                </button>
-                <button type="button" class="evwb-row evwb-row-sub @(KindCss(_showContractLeggacy))"
-                        style="@KindRowStyle(ContractPalette.Leggacy)" aria-pressed="@(_showContractLeggacy ? "true" : "false")"
-                        @onclick="@(() => Toggle(ref _showContractLeggacy))">
-                    Leggacy
-                </button>
-                <button type="button" class="evwb-row evwb-row-sub @(KindCss(_showContractPe))"
-                        style="@KindRowStyle(ContractPalette.Prophecy)" aria-pressed="@(_showContractPe ? "true" : "false")"
-                        @onclick="@(() => Toggle(ref _showContractPe))">
-                    PE Leggacy
-                </button>
-                <button type="button" class="evwb-row evwb-row-sub evwb-row-ultra @(KindCss(_showContractUltra))"
-                        style="@UltraRowStyle" aria-pressed="@(_showContractUltra ? "true" : "false")"
-                        @onclick="@(() => Toggle(ref _showContractUltra))">
-                    Ultra only
-                </button>
-            </WorkbenchSection>
             @if (_isAdmin) {
                 <WorkbenchSection Label="Predictions">
                     <button type="button" class="evwb-row @(_showPredictions ? "evwb-row-on" : "")"
@@ -92,217 +56,114 @@
             }
         </WorkbenchRail>
     </Rail>
-    <ChildContent>
-        <div class="evcal-pane">
-            @if (Note is { Length: > 0 } note) {
-                <div class="evcal-note">@note</div>
+    <Bar>
+        <button type="button" class="@BarCss(context)" style="@BarStyle(context)" @onclick="@(() => Select(context.Item))">
+            @if (EventPalette.IconUrl(context.Item.Type, context.Item.Ultra) is { } iconUrl) {
+                <img class="evcal-bar-icon" src="@iconUrl" alt="" loading="lazy" data-fallback/>
             }
-            <div class="evcal-scale">
-                @for (var i = 0; i < WeekdayNames.Length; i++) {
-                    <span class="evcal-scale-label" style="@TickStyle((i + 0.5) / 7 * 100)">@WeekdayNames[i]</span>
-                }
+            <span class="evcal-bar-label">@Label(context.Item)</span>
+        </button>
+    </Bar>
+    <Detail>
+        @if (context.Event is { } e) {
+            <div class="evcal-pop-row">
+                <span class="evcal-pop-k">Type</span>
+                <span class="evcal-pop-v">@e.Type</span>
             </div>
-            <CalendarGrid TItem="EventCalendarBar" @ref="_grid" Periods="_periods" LaneGroups="LaneGroups" OnCommitScrollPan="Pan"/>
-            @if (_pickedItem is { } picked) {
-                <div class="evcal-detail">
-                    <div class="evcal-pop-head">
-                        <span class="evcal-pop-title">@PopTitle(picked)</span>
-                        <button type="button" class="reg-edit-btn" aria-label="Close details" @onclick="ClearSelection">
-                            <Icon Name="x"/>
-                        </button>
-                    </div>
-                    @if (picked.Event is { } pickedEvent) {
-                        <div class="evcal-pop-row">
-                            <span class="evcal-pop-k">Type</span>
-                            <span class="evcal-pop-v">@pickedEvent.Type</span>
-                        </div>
-                        <div class="evcal-pop-row">
-                            <span class="evcal-pop-k">Multiplier</span>
-                            <span class="evcal-pop-v">@Multiplier(pickedEvent)</span>
-                        </div>
-                        <div class="evcal-pop-row">
-                            <span class="evcal-pop-k">Ultra</span>
-                            <span class="evcal-pop-v">@(pickedEvent.Ultra ? "yes" : "no")</span>
-                        </div>
-                        <div class="evcal-pop-row">
-                            <span class="evcal-pop-k">Timing</span>
-                            <span class="evcal-pop-v">@Countdown(picked)</span>
-                        </div>
-                        <div class="evcal-pop-row">
-                            <span class="evcal-pop-k">Source</span>
-                            <span class="evcal-pop-v">@pickedEvent.Source</span>
-                        </div>
-                    } else if (picked.Contract is { } pickedContract) {
-                        <div class="evcal-pop-row">
-                            <span class="evcal-pop-k">Egg</span>
-                            <span class="evcal-pop-v">@EggLabel(pickedContract)</span>
-                        </div>
-                        <div class="evcal-pop-row">
-                            <span class="evcal-pop-k">Kind</span>
-                            <span class="evcal-pop-v">@ContractKindLabel(pickedContract)</span>
-                        </div>
-                        <div class="evcal-pop-row">
-                            <span class="evcal-pop-k">Prophecy</span>
-                            <span class="evcal-pop-v">@PeLabel(pickedContract)</span>
-                        </div>
-                        <div class="evcal-pop-row">
-                            <span class="evcal-pop-k">Coop</span>
-                            <span class="evcal-pop-v">@CoopLabel(pickedContract)</span>
-                        </div>
-                        <div class="evcal-pop-row">
-                            <span class="evcal-pop-k">Duration</span>
-                            <span class="evcal-pop-v">@DurationLabel(pickedContract)</span>
-                        </div>
-                        @if (pickedContract.SeasonId is { Length: > 0 } season) {
-                            <div class="evcal-pop-row">
-                                <span class="evcal-pop-k">Season</span>
-                                <span class="evcal-pop-v">@Pretty(season)</span>
-                            </div>
-                        }
-
-                        <div class="evcal-pop-row">
-                            <span class="evcal-pop-k">Source</span>
-                            <span class="evcal-pop-v">@pickedContract.Source</span>
-                        </div>
-                        <div class="evcal-pop-row">
-                            <span class="evcal-pop-k">Timing</span>
-                            <span class="evcal-pop-v">@Countdown(picked)</span>
-                        </div>
-                    } else if (picked.Prediction is { } pickedPrediction) {
-                        <div class="evcal-pop-row">
-                            <span class="evcal-pop-k">Kind</span>
-                            <span class="evcal-pop-v">@KindLabel(pickedPrediction.Kind)</span>
-                        </div>
-                        <div class="evcal-pop-row">
-                            <span class="evcal-pop-k">Basis</span>
-                            <span class="evcal-pop-v">@BasisLabel(pickedPrediction)</span>
-                        </div>
-                        <div class="evcal-pop-row">
-                            <span class="evcal-pop-k">Confidence</span>
-                            <span class="evcal-pop-v">@Percent(pickedPrediction.Confidence)</span>
-                        </div>
-                        @foreach (var candidate in pickedPrediction.Candidates.Take(5)) {
-                            <div class="evcal-pop-row" @key="candidate.Type">
-                                <span class="evcal-pop-k">Candidate</span>
-                                <span class="evcal-pop-v">@CandidateLabel(candidate)</span>
-                            </div>
-                        }
-
-                        <div class="evcal-pop-row">
-                            <span class="evcal-pop-k">Last occurrence</span>
-                            <span class="evcal-pop-v">@Absolute(pickedPrediction.LastStart)</span>
-                        </div>
-                        <div class="evcal-pop-row">
-                            <span class="evcal-pop-k">Predicted start</span>
-                            <span class="evcal-pop-v">@Absolute(pickedPrediction.PredictedStart)</span>
-                        </div>
-                        <div class="evcal-pop-row">
-                            <span class="evcal-pop-k">Predicted end</span>
-                            <span class="evcal-pop-v">@Absolute(pickedPrediction.PredictedEnd)</span>
-                        </div>
-                    } else if (picked.Slot is { } pickedSlot) {
-                        <div class="evcal-pop-row">
-                            <span class="evcal-pop-k">Slot time</span>
-                            <span class="evcal-pop-v">@Absolute(pickedSlot.SlotTime)</span>
-                        </div>
-                        <div class="evcal-pop-row">
-                            <span class="evcal-pop-k">Basis</span>
-                            <span class="evcal-pop-v">Assumed weekly release schedule</span>
-                        </div>
-                        @foreach (var candidate in pickedSlot.Candidates.Take(5)) {
-                            <div class="evcal-pop-row" @key="candidate.ContractId">
-                                <span class="evcal-pop-k">Candidate</span>
-                                <span class="evcal-pop-v">@CandidateLabel(candidate)</span>
-                            </div>
-                        }
-                    }
-
-                    @if (picked.Prediction is null && picked.Slot is null) {
-                        <div class="evcal-pop-row">
-                            <span class="evcal-pop-k">Start</span>
-                            <span class="evcal-pop-v">@Absolute(picked.Start)</span>
-                        </div>
-                        <div class="evcal-pop-row">
-                            <span class="evcal-pop-k">End</span>
-                            <span class="evcal-pop-v">@Absolute(picked.End)</span>
-                        </div>
-                    }
+            <div class="evcal-pop-row">
+                <span class="evcal-pop-k">Multiplier</span>
+                <span class="evcal-pop-v">@EventMagnitude.Describe(e)</span>
+            </div>
+            <div class="evcal-pop-row">
+                <span class="evcal-pop-k">Ultra</span>
+                <span class="evcal-pop-v">@(e.Ultra ? "yes" : "no")</span>
+            </div>
+            <div class="evcal-pop-row">
+                <span class="evcal-pop-k">Timing</span>
+                <span class="evcal-pop-v">@Countdown(context)</span>
+            </div>
+            <div class="evcal-pop-row">
+                <span class="evcal-pop-k">Source</span>
+                <span class="evcal-pop-v">@e.Source</span>
+            </div>
+            <div class="evcal-pop-row">
+                <span class="evcal-pop-k">Start</span>
+                <span class="evcal-pop-v">@Absolute(context.Start)</span>
+            </div>
+            <div class="evcal-pop-row">
+                <span class="evcal-pop-k">End</span>
+                <span class="evcal-pop-v">@Absolute(context.End)</span>
+            </div>
+        } else if (context.Prediction is { } p) {
+            <div class="evcal-pop-row">
+                <span class="evcal-pop-k">Rule</span>
+                <span class="evcal-pop-v">@KindLabel(p.Kind)</span>
+            </div>
+            <div class="evcal-pop-row">
+                <span class="evcal-pop-k">Evidence</span>
+                <span class="evcal-pop-v">@p.Evidence</span>
+            </div>
+            <div class="evcal-pop-row">
+                <span class="evcal-pop-k">Confidence</span>
+                <span class="evcal-pop-v">@Percent(p.Confidence)</span>
+            </div>
+            @foreach (var candidate in p.Candidates.Take(5)) {
+                <div class="evcal-pop-row" @key="candidate.Type">
+                    <span class="evcal-pop-k">Candidate</span>
+                    <span class="evcal-pop-v">@Pretty(candidate.Type) @Percent(candidate.Probability)</span>
                 </div>
             }
-        </div>
-    </ChildContent>
-</WorkbenchModal>
+
+            <div class="evcal-pop-row">
+                <span class="evcal-pop-k">Last occurrence</span>
+                <span class="evcal-pop-v">@Absolute(p.LastStart)</span>
+            </div>
+            <div class="evcal-pop-row">
+                <span class="evcal-pop-k">Predicted start</span>
+                <span class="evcal-pop-v">@Absolute(p.PredictedStart)</span>
+            </div>
+            <div class="evcal-pop-row">
+                <span class="evcal-pop-k">Predicted end</span>
+                <span class="evcal-pop-v">@Absolute(p.PredictedEnd)</span>
+            </div>
+        }
+    </Detail>
+</CalendarWorkbench>
 
 @code {
     const int FetchLimit = 1000;
-    const int ContractFetchLimit = 500;
-
     const double OverlapLookbackSeconds = 7 * 24 * 60 * 60;
-
     const double UncertainConfidence = 0.5;
-
     const int MinPredictionHorizonDays = 7;
     const int MaxPredictionHorizonDays = 90;
 
-    // Authored/approximate stopgap width; replace with the median LengthSeconds of the slot's release pool.
-    const double StopgapAuthoredContractGhostWidthSeconds = 4 * 86400;
-
     static readonly JsonSerializerOptions JsonOpts = new(JsonSerializerDefaults.Web);
-    static readonly string[] WeekdayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
     readonly Dictionary<string, GameEventDto> _events = new(StringComparer.Ordinal);
-    readonly Dictionary<string, ContractReleaseDto> _contracts = new(StringComparer.Ordinal);
 
-    bool _open;
-    bool _loading;
-    bool _hashWired;
-    string _error = "";
-    string _contractError = "";
-    EventCalendarZoom _zoom = EventCalendarZoom.Month;
-    DateTimeOffset _center = DateTimeOffset.UtcNow;
-    DateTimeOffset _visibleStart;
-    DateTimeOffset _visibleEnd;
-    IReadOnlyList<EventCalendarRow> _rows = [];
-    IReadOnlyList<PeriodSlot<EventCalendarBar>> _periods = [];
-    (double Start, double End, bool On) _covered;
-    (double Start, double End, bool On) _contractsCovered;
-    CalendarItem? _pickedItem;
-    CalendarGrid<EventCalendarBar>? _grid;
-
-    static readonly IReadOnlyList<EventCalendarZoom> Zooms = [EventCalendarZoom.Week, EventCalendarZoom.Month];
+    CalendarWorkbench<EventCalendarItem>? _cal;
+    CalendarCoverage _covered;
     HashSet<string>? _typeFilter;
     bool _showStandard = true;
     bool _showUltra = true;
     bool _showPredictions = true;
-    bool _showContracts = true;
-    bool _showContractNew = true;
-    bool _showContractLeggacy = true;
-    bool _showContractPe = true;
-    bool _showContractUltra = true;
     bool _isAdmin;
-    bool _predictionsFetched;
     DateTimeOffset _horizonEnd;
-    EventPredictionSet? _eventPredictions;
-    ContractPredictionResponse? _contractPredictions;
-    TimeZoneInfo _zone = ViewerZone.Fallback;
-    ViewerClock? _clock;
+    EventPredictionSet? _predictions;
 
-    IJSObjectReference? _nav;
-    IJSObjectReference? _navHandle;
-    DotNetObjectReference<EventsWorkbenchModal>? _selfRef;
-
-    protected override async Task OnInitializedAsync() {
+    protected override void OnInitialized() {
+        base.OnInitialized();
         _isAdmin = User.IsAtLeast(UserRole.Admin);
-        _clock = ViewerClock.Of(Services);
-        if (_clock is null) return;
-        await _clock.EnsureAsync(Services, User, CancellationToken.None);
-        _zone = _clock.Zone;
-        _clock.Changed += OnZoneChanged;
     }
 
-    bool Filtering =>
-        _typeFilter is not null || !_showStandard || !_showUltra || !_showContracts
-        || !_showContractNew || !_showContractLeggacy || !_showContractPe || !_showContractUltra;
+    public Task Open() {
+        _covered = default;
+        _predictions = null;
+        _horizonEnd = default;
+        return _cal?.Open() ?? Task.CompletedTask;
+    }
+
+    bool Filtering => _typeFilter is not null || !_showStandard || !_showUltra;
 
     IEnumerable<string> TypesPresent =>
         _events.Values
@@ -316,6 +177,12 @@
         return _typeFilter is null || _typeFilter.Contains(e.Type);
     }
 
+    bool GhostVisible(EventPrediction p) {
+        if (p.Ultra ? !_showUltra : !_showStandard) return false;
+        if (_typeFilter is null) return true;
+        return p.Type is { Length: > 0 } known && _typeFilter.Contains(known);
+    }
+
     bool TypeSelected(string type) {
         return _typeFilter is null || _typeFilter.Contains(type);
     }
@@ -327,33 +194,106 @@
         if (TypeSelected(type)) set.Remove(type);
         else set.Add(type);
         _typeFilter = set;
-        ApplyFilters();
+        _cal?.ApplyFilters();
     }
 
     void SetTier(bool ultra) {
         if (ultra) _showUltra = !_showUltra;
         else _showStandard = !_showStandard;
-        ApplyFilters();
+        _cal?.ApplyFilters();
     }
 
-    void Toggle(ref bool flag) {
-        flag = !flag;
-        ApplyFilters();
+    void SelectAllTypes() {
+        _typeFilter = null;
+        _cal?.ApplyFilters();
     }
 
-    bool ContractShown(ContractReleaseDto c) {
-        if (!_showContracts) return false;
-        if (c.UltraOnly) return _showContractUltra;
-        if (!c.Leggacy) return _showContractNew;
-        return c.ProphecyEggs > 0 ? _showContractPe : _showContractLeggacy;
+    void DeselectAllTypes() {
+        _typeFilter = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        _cal?.ApplyFilters();
     }
 
-    static string KindCss(bool on) {
-        return on ? "evwb-row-on" : "evwb-row-dim";
+    async Task TogglePredictions() {
+        _showPredictions = !_showPredictions;
+        if (_showPredictions && _cal is not null) await EnsurePredictions(_cal.VisibleStart, _cal.VisibleEnd);
+        _cal?.ApplyFilters();
     }
 
-    static string KindRowStyle(string color) {
-        return FormattableString.Invariant($"--evt-color:{color};");
+    IReadOnlyList<EventCalendarItem> Items() {
+        var items = new List<EventCalendarItem>(_events.Count);
+        items.AddRange(_events.Values.Where(Match).Select(EventCalendarItem.Of));
+        if (_isAdmin && _showPredictions && _predictions is { } set) {
+            items.AddRange(set.Predictions.Where(GhostVisible).Select(EventCalendarItem.Of));
+        }
+
+        return items;
+    }
+
+    void Select(EventCalendarItem item) {
+        _cal?.Select(item);
+    }
+
+    async Task<CalendarLoad> LoadRange(CalendarRange range) {
+        if (_covered.Covers(range.Start, range.End)) return CalendarLoad.Ok;
+        var url = FormattableString.Invariant(
+            $"/api/v1/events?after={range.Start - OverlapLookbackSeconds:0}&before={range.End:0}&limit={FetchLimit}");
+        try {
+            var res = await Client().GetAsync(url);
+            if ((int)res.StatusCode == 503) return CalendarLoad.Failed("Event history needs a database. This instance has none.");
+            if (!res.IsSuccessStatusCode) return CalendarLoad.Failed("Events could not be loaded.");
+            var body = await res.Content.ReadFromJsonAsync<GameEventListResponse>(JsonOpts);
+            if (body is null) return CalendarLoad.Failed("Events could not be loaded.");
+            foreach (var e in body.Events) _events[EventCalendarItem.Of(e).Key] = e;
+            if (body.Total <= body.Events.Count) {
+                _covered = _covered.Extend(range.Start, range.End);
+                return CalendarLoad.Ok;
+            }
+
+            return new CalendarLoad("Showing the newest 1000 events in this range.", false);
+        } catch (Exception ex) {
+            Logger.LogWarning(ex, "the event calendar window could not be loaded");
+            return CalendarLoad.Failed("Events could not be loaded.");
+        }
+    }
+
+    Task OnWindowChanged(DateTimeOffset visibleStart, DateTimeOffset visibleEnd) {
+        return EnsurePredictions(visibleStart, visibleEnd);
+    }
+
+    async Task EnsurePredictions(DateTimeOffset visibleStart, DateTimeOffset visibleEnd) {
+        if (!_isAdmin || !_showPredictions) return;
+        if (visibleEnd <= DateTimeOffset.UtcNow) return;
+        var reach = visibleEnd + (visibleEnd - visibleStart);
+        var horizon = Math.Clamp((int)Math.Ceiling((reach - DateTimeOffset.UtcNow).TotalDays),
+            MinPredictionHorizonDays, MaxPredictionHorizonDays);
+        var horizonEnd = DateTimeOffset.UtcNow.AddDays(horizon);
+        if (_predictions is not null && horizonEnd <= _horizonEnd) return;
+        try {
+            var res = await Client().GetAsync(FormattableString.Invariant($"/api/v1/events/predictions?horizon={horizon}"));
+            if (!res.IsSuccessStatusCode) return;
+            _predictions = await res.Content.ReadFromJsonAsync<EventPredictionSet>(JsonOpts);
+            _horizonEnd = horizonEnd;
+        } catch (Exception ex) {
+            Logger.LogDebug(ex, "event predictions could not be loaded");
+        }
+    }
+
+    string BarCss(CalendarBar<EventCalendarItem> bar) {
+        var css = CalendarWorkbench<EventCalendarItem>.BarCss(bar);
+        if (bar.Item.Prediction is { } p) {
+            css += " evcal-bar-ghost";
+            if (p.Confidence < UncertainConfidence) css += " evcal-bar-uncertain";
+        }
+
+        return css;
+    }
+
+    string BarStyle(CalendarBar<EventCalendarItem> bar) {
+        return (_cal?.BarStyle(bar) ?? "") + EventPalette.BarStyle(bar.Item.Type, bar.Item.Ultra);
+    }
+
+    string Absolute(double unixSeconds) {
+        return _cal?.Absolute(unixSeconds) ?? "";
     }
 
     static string TypeRowStyle(string type) {
@@ -363,510 +303,37 @@
     static string UltraRowStyle => FormattableString.Invariant(
         $"--evt-from:{EventPalette.CcGradientFrom};--evt-to:{EventPalette.CcGradientTo};");
 
-    void SelectAllTypes() {
-        _typeFilter = null;
-        ApplyFilters();
-    }
-
-    void DeselectAllTypes() {
-        _typeFilter = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        ApplyFilters();
-    }
-
-    void ApplyFilters() {
-        ClearSelection();
-        Relayout();
-    }
-
-    void Relayout() {
-        var items = Items();
-        var now = DateTimeOffset.UtcNow;
-        _rows = EventCalendarLayout.Rows(items, _visibleStart, _visibleEnd, _zoom, now, _zone);
-        var span = _visibleEnd - _visibleStart;
-        var (prevStart, prevEnd) = EventCalendarLayout.Window(_center - span, _zoom, _zone);
-        var (nextStart, nextEnd) = EventCalendarLayout.Window(_center + span, _zoom, _zone);
-        var prevRows = EventCalendarLayout.Rows(items, prevStart, prevEnd, _zoom, now, _zone);
-        var nextRows = EventCalendarLayout.Rows(items, nextStart, nextEnd, _zoom, now, _zone);
-        _periods = [
-            ToPeriod(prevRows, prevStart), ToPeriod(_rows, _visibleStart), ToPeriod(nextRows, nextStart)
-        ];
-    }
-
-    async Task ResetGridScroll() {
-        if (_grid is null) return;
-        try {
-            await _grid.ResetScrollAsync();
-        } catch (JSDisconnectedException) {
-        }
-    }
-
-    PeriodSlot<EventCalendarBar> ToPeriod(IReadOnlyList<EventCalendarRow> rows, DateTimeOffset start) {
-        return new PeriodSlot<EventCalendarBar>(rows.Select(ToCalendarRow).ToList(), start.UtcTicks);
-    }
-
-    CalendarRow<EventCalendarBar> ToCalendarRow(EventCalendarRow row) {
-        var cellLabels = row.Cells.Select(c => new CalendarCellLabel(c.LeftPercent, CellLabel(c), c.Muted)).ToList();
-        var gridLines = row.Cells.Where(c => c.LeftPercent > 0).Select(c => c.LeftPercent).ToList();
-        var lanes = row.Lanes.Count > 0 ? row.Lanes : [[]];
-        var laneGroups = new[] { new CalendarLaneGroupRow<EventCalendarBar>(lanes) };
-        return new CalendarRow<EventCalendarBar>(cellLabels, gridLines, [], row.NowPercent, laneGroups);
-    }
-
-    LaneGroupDef<EventCalendarBar>[] LaneGroups {
-        get {
-            var laneMin = _zoom == EventCalendarZoom.Week ? 6.75 : 1.75;
-            return [new LaneGroupDef<EventCalendarBar>(BarTemplate, laneMin, 0.25, 1.25)];
-        }
-    }
-
-    RenderFragment<EventCalendarBar> BarTemplate => bar =>
-        @<button type="button" class="@BarCss(bar)" style="@BarStyle(bar)" @onclick="@(() => Select(bar))">
-            @if (IconSource(bar.Item) is { } iconSrc && EventPalette.IconUrl(iconSrc.Type, iconSrc.Ultra) is { } iconUrl) {
-                <img class="evcal-bar-icon" src="@iconUrl" alt="" loading="lazy" data-fallback/>
-            }
-            <span class="evcal-bar-label">@Label(bar.Item)</span>
-        </button>;
-
-    IReadOnlyList<CalendarItem> Items() {
-        var items = new List<CalendarItem>(_events.Count + _contracts.Count);
-        items.AddRange(_events.Values.Where(Match).Select(EventItem));
-        items.AddRange(_contracts.Values.Where(ContractShown).Select(ContractItem));
-        if (_isAdmin && _showPredictions) {
-            items.AddRange(EventGhosts());
-            items.AddRange(ContractGhosts());
-        }
-
-        return items;
-    }
-
-    static CalendarItem EventItem(GameEventDto e) {
-        return new CalendarItem(
-            OccurrenceKey(e), e.StartTimestamp, e.EndTimestamp, CalendarItemKind.Event, e, null, null, null);
-    }
-
-    static CalendarItem ContractItem(ContractReleaseDto c) {
-        return new CalendarItem(
-            ContractKey(c), c.StartTimestamp, c.EndTimestamp, CalendarItemKind.Contract, null, c, null, null);
-    }
-
-    IEnumerable<CalendarItem> EventGhosts() {
-        return _eventPredictions?.Predictions.Where(EventGhostMatch).Select(EventGhostItem) ?? [];
-    }
-
-    IEnumerable<CalendarItem> ContractGhosts() {
-        return _contractPredictions?.Slots.Where(s => ContractGhostShown(s.Kind)).Select(ContractGhostItem) ?? [];
-    }
-
-    bool EventGhostMatch(EventPrediction p) {
-        return GhostVisible(p.Type, p.Ultra);
-    }
-
-    bool GhostVisible(string? type, bool ultra) {
-        if (ultra ? !_showUltra : !_showStandard) return false;
-        if (_typeFilter is null) return true;
-        return type is { Length: > 0 } known && _typeFilter.Contains(known);
-    }
-
-    bool ContractGhostShown(ContractSlotKind kind) {
-        if (!_showContracts) return false;
-        return kind switch {
-            ContractSlotKind.NewContract => _showContractNew,
-            ContractSlotKind.Leggacy => _showContractLeggacy,
-            ContractSlotKind.PeLeggacy => _showContractPe,
-            ContractSlotKind.PeLeggacyUltra => _showContractUltra,
-            _ => false
-        };
-    }
-
-    static CalendarItem EventGhostItem(EventPrediction p) {
-        return new CalendarItem(
-            FormattableString.Invariant($"pe:{p.Kind}:{p.Ultra}:{p.PredictedStart:0}"),
-            p.PredictedStart, p.PredictedEnd, CalendarItemKind.EventGhost, null, null, p, null);
-    }
-
-    static CalendarItem ContractGhostItem(ContractSlotPrediction s) {
-        return new CalendarItem(
-            FormattableString.Invariant($"pc:{s.Kind}@{s.SlotTime:0}"), s.SlotTime,
-            s.SlotTime + StopgapAuthoredContractGhostWidthSeconds, CalendarItemKind.ContractGhost, null, null, null, s);
-    }
-
-    async Task TogglePredictions() {
-        _showPredictions = !_showPredictions;
-        if (_showPredictions) await EnsurePredictions();
-        Relayout();
-    }
-
-    int HorizonDays() {
-        var reach = _visibleEnd + (_visibleEnd - _visibleStart);
-        var days = (int)Math.Ceiling((reach - DateTimeOffset.UtcNow).TotalDays);
-        return Math.Clamp(days, MinPredictionHorizonDays, MaxPredictionHorizonDays);
-    }
-
-    async Task EnsurePredictions() {
-        if (!_isAdmin || !_showPredictions) return;
-        if (_visibleEnd <= DateTimeOffset.UtcNow) return;
-        var horizon = HorizonDays();
-        var reach = DateTimeOffset.UtcNow.AddDays(horizon);
-        if (_predictionsFetched && reach <= _horizonEnd) return;
-        var url = FormattableString.Invariant($"/api/v1/events/predictions?horizon={horizon}");
-        if (await FetchPredictions<EventPredictionSet>(url) is { } events) {
-            _eventPredictions = events;
-            _horizonEnd = reach;
-        }
-
-        _contractPredictions ??=
-            await FetchPredictions<ContractPredictionResponse>("/api/v1/contracts/predictions?horizon=8");
-        _predictionsFetched = _eventPredictions is not null && _contractPredictions is not null;
-    }
-
-    async Task<T?> FetchPredictions<T>(string url) where T : class {
-        try {
-            var res = await Client().GetAsync(url);
-            if (!res.IsSuccessStatusCode) return null;
-            return await res.Content.ReadFromJsonAsync<T>(JsonOpts);
-        } catch (Exception ex) {
-            Logger.LogDebug(ex, "predictions could not be loaded");
-            return null;
-        }
-    }
-
-    public async Task Open() {
-        await OpenCore();
-        await WriteHash(true);
-        StateHasChanged();
-    }
-
-    async Task OpenCore() {
-        _open = true;
-        _loading = true;
-        _center = DateTimeOffset.UtcNow;
-        (_visibleStart, _visibleEnd) = EventCalendarLayout.Window(_center, _zoom, _zone);
-        _predictionsFetched = false;
-        _horizonEnd = default;
-        _eventPredictions = null;
-        _contractPredictions = null;
-        ClearSelection();
-        StateHasChanged();
-        await Refresh();
-    }
-
-    async Task CloseAsync() {
-        _open = false;
-        ClearSelection();
-        await WriteHash(true, true);
-    }
-
-    void ClearSelection() {
-        _pickedItem = null;
-    }
-
-    void Select(EventCalendarBar bar) {
-        _pickedItem = _pickedItem?.Key == bar.Item.Key ? null : bar.Item;
-    }
-
-    string Note {
-        get {
-            if (_loading) return "Loading events...";
-            if (_error.Length > 0) return _error;
-            if (_contractError.Length > 0) return _contractError;
-            if (_rows.Any(r => r.Lanes.Count > 0)) return "";
-            return Filtering ? "Nothing matches these filters." : "Nothing in this range.";
-        }
-    }
-
-    async Task Refresh() {
-        (_visibleStart, _visibleEnd) = EventCalendarLayout.Window(_center, _zoom, _zone);
-        _center = _visibleStart + (_visibleEnd - _visibleStart) / 2;
-        await EnsureFetched();
-        await EnsurePredictions();
-        _loading = false;
-        Relayout();
-    }
-
-    async Task RefreshAndReset() {
-        await Refresh();
-        await ResetGridScroll();
-    }
-
-    async Task EnsureFetched() {
-        var period = _visibleEnd - _visibleStart;
-        var needStart = UnixSeconds.FromTime(_visibleStart - period);
-        var needEnd = UnixSeconds.FromTime(_visibleEnd + period);
-        await EnsureEvents(needStart, needEnd);
-        await EnsureContracts(needStart, needEnd);
-    }
-
-    async Task EnsureEvents(double needStart, double needEnd) {
-        if (Covers(_covered, needStart, needEnd)) return;
-        var url = FormattableString.Invariant(
-            $"/api/v1/events?after={needStart - OverlapLookbackSeconds:0}&before={needEnd:0}&limit={FetchLimit}");
-        _error = await LoadWindow(url, needStart, needEnd);
-    }
-
-    async Task EnsureContracts(double needStart, double needEnd) {
-        if (Covers(_contractsCovered, needStart, needEnd)) return;
-        var url = FormattableString.Invariant(
-            $"/api/v1/contracts?after={needStart:0}&before={needEnd:0}&limit={ContractFetchLimit}");
-        _contractError = await LoadContracts(url, needStart, needEnd);
-    }
-
-    async Task<string> LoadWindow(string url, double needStart, double needEnd) {
-        try {
-            var res = await Client().GetAsync(url);
-            if ((int)res.StatusCode == 503) return "Event history needs a database. This instance has none.";
-            if (!res.IsSuccessStatusCode) return "Events could not be loaded.";
-            var body = await res.Content.ReadFromJsonAsync<GameEventListResponse>(JsonOpts);
-            if (body is null) return "Events could not be loaded.";
-            foreach (var e in body.Events) _events[OccurrenceKey(e)] = e;
-            if (body.Total <= body.Events.Count) _covered = Extend(_covered, needStart, needEnd);
-            return body.Total > body.Events.Count ? "Showing the newest 1000 events in this range." : "";
-        } catch (Exception ex) {
-            Logger.LogWarning(ex, "the event calendar window could not be loaded");
-            return "Events could not be loaded.";
-        }
-    }
-
-    async Task<string> LoadContracts(string url, double needStart, double needEnd) {
-        try {
-            var res = await Client().GetAsync(url);
-            if ((int)res.StatusCode == 503) return "";
-            if (!res.IsSuccessStatusCode) return "Contracts could not be loaded.";
-            var body = await res.Content.ReadFromJsonAsync<ContractReleaseListResponse>(JsonOpts);
-            if (body?.Releases is null) return "Contracts could not be loaded.";
-            foreach (var c in body.Releases) _contracts[ContractKey(c)] = c;
-            if (body.Total <= body.Releases.Count) _contractsCovered = Extend(_contractsCovered, needStart, needEnd);
-            return body.Total > body.Releases.Count ? "Showing the newest 500 contracts in this range." : "";
-        } catch (Exception ex) {
-            Logger.LogWarning(ex, "the contract calendar window could not be loaded");
-            return "Contracts could not be loaded.";
-        }
-    }
-
-    static bool Covers((double Start, double End, bool On) range, double start, double end) {
-        return range.On && start >= range.Start && end <= range.End;
-    }
-
-    static (double Start, double End, bool On) Extend(
-        (double Start, double End, bool On) range, double start, double end) {
-        if (!range.On || start > range.End || end < range.Start) return (start, end, true);
-        return (Math.Min(range.Start, start), Math.Max(range.End, end), true);
-    }
-
-    Task SetZoom(EventCalendarZoom zoom) {
-        if (_zoom == zoom) return Task.CompletedTask;
-        _zoom = zoom;
-        ClearSelection();
-        return RefreshAndReset();
-    }
-
-    Task Pan(int direction) {
-        _center += (_visibleEnd - _visibleStart) * direction;
-        ClearSelection();
-        return Refresh();
-    }
-
-    Task Today() {
-        _center = DateTimeOffset.UtcNow;
-        ClearSelection();
-        return RefreshAndReset();
-    }
-
-    Task JumpToDate(ChangeEventArgs e) {
-        if (!DateOnly.TryParseExact(e.Value?.ToString(), "yyyy-MM-dd", CultureInfo.InvariantCulture,
-                DateTimeStyles.None, out var picked)) return Task.CompletedTask;
-        _center = EventCalendarLayout.ToOffset(picked.ToDateTime(new TimeOnly(12, 0)), _zone);
-        ClearSelection();
-        return RefreshAndReset();
-    }
-
-    protected override async Task OnAfterRenderAsync(bool firstRender) {
-        if (!firstRender) return;
-        try {
-            _nav = await JS.InvokeAsync<IJSObjectReference>("import", InteropAsset.Url(Env, "./interop/hashnav.js"));
-            _selfRef = DotNetObjectReference.Create(this);
-            _navHandle = await _nav.InvokeAsync<IJSObjectReference>("listen", _selfRef);
-            _hashWired = true;
-            await ApplyHash(await _nav.InvokeAsync<string>("read"));
-        } catch (Exception ex) when (ex is JSDisconnectedException or JSException or ObjectDisposedException) {
-            Logger.LogDebug(ex, "hash navigation could not be wired");
-        }
-
-        StateHasChanged();
-    }
-
-    void OnZoneChanged() => _ = InvokeAsync(async () => {
-        if (_clock is null || _clock.Zone.Id == _zone.Id) return;
-        _zone = _clock.Zone;
-        if (_open) await Refresh();
-        StateHasChanged();
-    });
-
-    [JSInvokable]
-    public async Task OnHashChanged(string hash) {
-        await ApplyHash(hash);
-        StateHasChanged();
-    }
-
-    async Task ApplyHash(string hash) {
-        if (!State.ApplyHash(hash)) {
-            if (_open) {
-                _open = false;
-                ClearSelection();
-                StateHasChanged();
-            }
-
-            return;
-        }
-
-        if (!_open) await OpenCore();
-        StateHasChanged();
-    }
-
-    async Task WriteHash(bool push = false, bool clear = false) {
-        if (!_hashWired || _nav is null) return;
-        var hash = clear ? "" : State.Hash() ?? "";
-        try {
-            await _nav.InvokeVoidAsync(push ? "push" : "write", hash);
-        } catch (Exception ex) when (ex is JSDisconnectedException or JSException or ObjectDisposedException) {
-            Logger.LogDebug(ex, "the workbench hash could not be updated");
-        }
-    }
-
-    static string ZoomLabel(EventCalendarZoom zoom) {
-        return zoom == EventCalendarZoom.Week ? "Week" : "Month";
-    }
-
-    string CenterDate =>
-        TimeZoneInfo.ConvertTime(_center, _zone).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
-
-    string RangeLabel {
-        get {
-            var start = TimeZoneInfo.ConvertTime(_visibleStart, _zone);
-            if (_zoom == EventCalendarZoom.Month) return start.ToString("MMMM yyyy", CultureInfo.InvariantCulture);
-            var end = TimeZoneInfo.ConvertTime(_visibleEnd, _zone).AddSeconds(-1);
-            return start.ToString("MMM d", CultureInfo.InvariantCulture)
-                   + " - " + end.ToString("MMM d, yyyy", CultureInfo.InvariantCulture);
-        }
-    }
-
-    string CellLabel(EventCalendarCell cell) {
-        return _zoom == EventCalendarZoom.Month
-            ? cell.LocalDate.Day.ToString(CultureInfo.InvariantCulture)
-            : cell.LocalDate.ToString("M/d", CultureInfo.InvariantCulture);
-    }
-
-    static string BarCss(EventCalendarBar bar) {
-        var css = bar.Active ? "evcal-bar evcal-bar-active" : bar.Past ? "evcal-bar evcal-bar-past" : "evcal-bar";
-        if (bar.Item.Kind == CalendarItemKind.Contract) css += " evcal-bar-contract";
-        if (bar.Item.Kind is CalendarItemKind.EventGhost or CalendarItemKind.ContractGhost) css += " evcal-bar-ghost";
-        if (bar.Item.Prediction is { Confidence: < UncertainConfidence }) css += " evcal-bar-uncertain";
-        if (bar.ContinuesLeft) css += " evcal-bar-cut-l";
-        if (bar.ContinuesRight) css += " evcal-bar-cut-r";
-        return css;
-    }
-
-    string BarStyle(EventCalendarBar bar) {
-        var barH = _zoom == EventCalendarZoom.Week ? 4.5 : 1.125;
-        return FormattableString.Invariant(
-                   $"--bar-start:{bar.LeftPercent:0.###};--bar-size:{bar.WidthPercent:0.###};--evcal-bar-h:{barH:0.###}rem;")
-               + PaletteStyle(bar.Item);
-    }
-
-    static string PaletteStyle(CalendarItem item) {
-        if (item.Prediction is { } p) return EventPalette.BarStyle(p.Type, p.Ultra);
-        if (item.Slot is { } s) return GhostContractStyle(s.Kind);
-        return item.Contract is { } c
-            ? ContractPalette.BarStyle(c.UltraOnly, c.Leggacy, c.ProphecyEggs)
-            : EventPalette.BarStyle(item.Event?.Type, item.Event?.Ultra ?? false);
-    }
-
-    static string GhostContractStyle(ContractSlotKind kind) {
-        return kind switch {
-            ContractSlotKind.NewContract => ContractPalette.BarStyle(false, false, 0),
-            ContractSlotKind.Leggacy => ContractPalette.BarStyle(false, true, 0),
-            ContractSlotKind.PeLeggacy => ContractPalette.BarStyle(false, true, 1),
-            ContractSlotKind.PeLeggacyUltra => ContractPalette.BarStyle(true, true, 1),
-            _ => ContractPalette.BarStyle(false, false, 0)
-        };
-    }
-
-    static (string? Type, bool Ultra)? IconSource(CalendarItem item) {
-        if (item.Event is { } e) return (e.Type, e.Ultra);
-        if (item.Prediction is { } p) return (p.Type, p.Ultra);
-        return null;
-    }
-
-    static string TickStyle(double leftPercent) {
-        return FormattableString.Invariant($"--tick-pos:{leftPercent:0.###};");
-    }
-
-    static string OccurrenceKey(GameEventDto e) {
-        return FormattableString.Invariant($"{e.Id}@{e.StartTimestamp:0}");
-    }
-
-    static string ContractKey(ContractReleaseDto c) {
-        return FormattableString.Invariant($"c:{c.ContractId}@{c.StartTimestamp:0}");
-    }
-
-    string Absolute(double unixSeconds) {
-        return TimeZoneInfo.ConvertTime(UnixSeconds.ToTime(unixSeconds), _zone)
-            .ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture);
-    }
-
-    string Weekday(double unixSeconds) {
-        return TimeZoneInfo.ConvertTime(UnixSeconds.ToTime(unixSeconds), _zone)
-            .ToString("dddd", CultureInfo.InvariantCulture);
-    }
-
-    static string Countdown(CalendarItem item) {
+    static string Countdown(EventCalendarItem item) {
         return EventCountdown.Describe(item.Start, item.End, DateTimeOffset.UtcNow);
     }
 
-    static string Multiplier(GameEventDto e) {
-        return EventMagnitude.Describe(e);
-    }
+    static string Label(EventCalendarItem item) {
+        if (item.Prediction is { } p) {
+            if (p.Type is not { Length: > 0 } type) return p.Ultra ? "Ultra event" : "Standard event";
+            var pretty = Pretty(type);
+            return p.Kind is EventRuleKind.Pool or EventRuleKind.Ultra && p.Confidence < UncertainConfidence ? pretty + "?" : pretty;
+        }
 
-    static string Label(CalendarItem item) {
-        if (item.Prediction is { } p) return PredictionLabel(p);
-        if (item.Slot is { } s) return SlotKindLabel(s.Kind);
-        if (item.Contract is { } c) return c.Name;
         if (item.Event is not { } e) return "";
         return string.IsNullOrWhiteSpace(e.Message) ? Pretty(e.Type) : e.Message;
     }
 
-    static string PopTitle(CalendarItem item) {
-        if (item.Prediction is { } p) return PredictionType(p) + " Predicted";
-        if (item.Slot is { } s) return SlotKindLabel(s.Kind) + " Predicted";
+    static string PopTitle(EventCalendarItem item) {
+        if (item.Prediction is { } p) {
+            var type = p.Type is { Length: > 0 } t ? Pretty(t) : p.Ultra ? "Ultra event" : "Standard event";
+            return type + " Predicted";
+        }
+
         return Label(item);
     }
 
-    static string PredictionType(EventPrediction p) {
-        if (p.Type is { Length: > 0 } type) return Pretty(type);
-        return p.Ultra ? "Ultra event" : "Standard event";
-    }
-
-    static string PredictionLabel(EventPrediction p) {
-        if (p.Type is not { Length: > 0 } type) return PredictionType(p);
-        var pretty = Pretty(type);
-        return p.Kind != EventPredictionKind.Fixed && p.Confidence < UncertainConfidence ? pretty + "?" : pretty;
-    }
-
-    static string KindLabel(EventPredictionKind kind) {
+    static string KindLabel(EventRuleKind kind) {
         return kind switch {
-            EventPredictionKind.Fixed => "Weekday lane",
-            EventPredictionKind.Pool => "Weekday slot",
-            _ => "Ultra slot"
-        };
-    }
-
-    string BasisLabel(EventPrediction p) {
-        var weekday = Weekday(p.PredictedStart);
-        return p.Kind switch {
-            EventPredictionKind.Fixed => FormattableString.Invariant(
-                $"{weekday}, every {p.PeriodDays} days, {p.Observed} of {p.Expected}"),
-            EventPredictionKind.Pool => FormattableString.Invariant(
-                $"{weekday} slot, {p.Observed} of {p.Expected} days"),
-            _ => FormattableString.Invariant($"Every {p.PeriodDays} days, {p.Observed} of {p.Expected}")
+            EventRuleKind.WeekdayLane => "Weekday lane",
+            EventRuleKind.Alternating => "Alternating lane",
+            EventRuleKind.Periodic => "Periodic lane",
+            EventRuleKind.Pool => "Weekday pool",
+            _ => "Ultra cadence"
         };
     }
 
@@ -874,61 +341,9 @@
         return (value * 100).ToString("0", CultureInfo.InvariantCulture) + "%";
     }
 
-    static string SlotKindLabel(ContractSlotKind kind) {
-        return kind switch {
-            ContractSlotKind.NewContract => "New",
-            ContractSlotKind.Leggacy => "Leggacy",
-            ContractSlotKind.PeLeggacy => "PE Leggacy",
-            ContractSlotKind.PeLeggacyUltra => "PE Leggacy, ultra only",
-            _ => "Contract"
-        };
-    }
-
-    string CandidateLabel(ContractCandidate c) {
-        var releases = c.Releases == 1 ? "1 release" : FormattableString.Invariant($"{c.Releases} releases");
-        return $"{c.Name}, {releases}, last seen {Absolute(c.LastReleased)}";
-    }
-
-    static string CandidateLabel(EventCandidate c) {
-        return $"{Pretty(c.Type)} {Percent(c.Probability)}";
-    }
-
-    static string ContractKindLabel(ContractReleaseDto c) {
-        var kind = !c.Leggacy ? "New" : c.ProphecyEggs > 0 ? "PE Leggacy" : "Leggacy";
-        return c.UltraOnly ? kind + ", ultra only" : kind;
-    }
-
-    static string EggLabel(ContractReleaseDto c) {
-        if (c.CustomEggId is { Length: > 0 } custom) return Pretty(custom);
-        if (!Enum.IsDefined((Egg)c.Egg)) return c.Egg.ToString(CultureInfo.InvariantCulture);
-        var name = ((Egg)c.Egg).ToString();
-        return string.Concat(name.SelectMany<char, char>((ch, i) => i > 0 && char.IsUpper(ch) ? [' ', ch] : [ch]));
-    }
-
-    static string PeLabel(ContractReleaseDto c) {
-        return c.ProphecyEggs.ToString(CultureInfo.InvariantCulture);
-    }
-
-    static string CoopLabel(ContractReleaseDto c) {
-        return c.CoopAllowed
-            ? FormattableString.Invariant($"up to {c.MaxCoopSize}")
-            : "solo";
-    }
-
-    static string DurationLabel(ContractReleaseDto c) {
-        return EventCountdown.Span(TimeSpan.FromSeconds(c.LengthSeconds));
-    }
-
     static string Pretty(string raw) {
         var words = raw.Replace('-', ' ').Replace('_', ' ').Split(' ', StringSplitOptions.RemoveEmptyEntries);
         return string.Join(' ', words.Select(w => char.ToUpperInvariant(w[0]) + w[1..].ToLowerInvariant()));
-    }
-
-    public async ValueTask DisposeAsync() {
-        await _navHandle.DisposeModuleAsync("dispose", Logger);
-        if (_clock is not null) _clock.Changed -= OnZoneChanged;
-        await _nav.DisposeModuleAsync(logger: Logger);
-        _selfRef?.Dispose();
     }
 
 }

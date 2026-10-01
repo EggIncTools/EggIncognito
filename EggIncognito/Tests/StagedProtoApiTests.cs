@@ -55,7 +55,6 @@ public class StagedProtoApiTests {
         Assert.False(new GroupStatus(true, false, false).Offerable);
         Assert.False(new GroupStatus(false, true, false).Offerable);
         Assert.False(new GroupStatus(false, false, false, true).Offerable);
-        Assert.False(new GroupStatus(false, false, false, false, false, true).Offerable);
         Assert.True(new GroupStatus(false, false, false).Offerable);
     }
 
@@ -68,23 +67,19 @@ public class StagedProtoApiTests {
     };
 
     [Fact]
-    public void Evaluate_ShaOnOtherPlatform_IsOfferableNotConflict() {
+    public void Evaluate_ShaOnOtherPlatform_IsOfferable() {
         var r = StagedProtoStore.Evaluate([Android177()], false, "ios", "1.7.7", "1.7.7.0", "15");
 
         Assert.False(r.InRegistry);
         Assert.False(r.KnownCombination);
-        Assert.False(r.Conflict);
-        Assert.Null(r.Stored);
     }
 
     [Fact]
-    public void Evaluate_SamePlatformDifferentMetadata_IsConflictWithStored() {
+    public void Evaluate_SamePlatformDifferentMetadata_IsNewVersionOfSameSha() {
         var r = StagedProtoStore.Evaluate([Android177()], false, "android", "1.7.8", "111080", "15");
 
         Assert.True(r.InRegistry);
         Assert.False(r.KnownCombination);
-        Assert.True(r.Conflict);
-        Assert.Equal("111079", r.Stored?.Build);
     }
 
     [Fact]
@@ -93,7 +88,6 @@ public class StagedProtoApiTests {
 
         Assert.True(r.InRegistry);
         Assert.True(r.KnownCombination);
-        Assert.False(r.Conflict);
     }
 
     [Fact]

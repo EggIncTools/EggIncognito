@@ -18,45 +18,66 @@ public class EventPredictorTests {
         NoonEastern.LocalDate(prediction.PredictedStart).DayOfWeek;
 
     [Theory]
-    [InlineData("prestige-boost", DayOfWeek.Saturday, 7)]
-    [InlineData("piggy-boost", DayOfWeek.Saturday, 7)]
-    [InlineData("piggy-boost", DayOfWeek.Wednesday, 7)]
-    [InlineData("earnings-boost", DayOfWeek.Monday, 7)]
-    [InlineData("research-sale", DayOfWeek.Friday, 7)]
-    [InlineData("epic-research-sale", DayOfWeek.Sunday, 14)]
-    [InlineData("crafting-sale", DayOfWeek.Sunday, 14)]
-    [InlineData("mission-capacity", DayOfWeek.Sunday, 28)]
-    public void Predict_TemplateHistory_DerivesFixedLanePeriod(string type, DayOfWeek weekday, int period) {
+    [InlineData("prestige-boost", DayOfWeek.Saturday)]
+    [InlineData("piggy-boost", DayOfWeek.Saturday)]
+    [InlineData("piggy-boost", DayOfWeek.Wednesday)]
+    [InlineData("earnings-boost", DayOfWeek.Monday)]
+    [InlineData("research-sale", DayOfWeek.Friday)]
+    public void Predict_TemplateHistory_DerivesWeekdayLanes(string type, DayOfWeek weekday) {
         var lane = Predictions(56)
-            .Where(p => p.Kind == EventPredictionKind.Fixed && p.Type == type && Weekday(p) == weekday)
+            .Where(p => p.Kind == EventRuleKind.WeekdayLane && p.Type == type && Weekday(p) == weekday)
             .ToList();
 
         Assert.NotEmpty(lane);
         Assert.All(lane, p => {
-            Assert.Equal(period, p.PeriodDays);
+            Assert.Equal(7, p.PeriodDays);
             Assert.False(p.Ultra);
             Assert.True(p.Confidence >= 0.8);
             Assert.Equal(type, Assert.Single(p.Candidates).Type);
+            Assert.Contains("every 7 days", p.Evidence);
         });
     }
 
     [Fact]
     public void Predict_TemplateHistory_EpicAndCraftingSundaysAlternate() {
         var sundays = Predictions(56)
-            .Where(p => p.Kind == EventPredictionKind.Fixed && p.Type is "epic-research-sale" or "crafting-sale")
+            .Where(p => p.Kind == EventRuleKind.Alternating)
             .OrderBy(p => p.PredictedStart)
             .ToList();
 
         Assert.True(sundays.Count >= 4);
+        Assert.All(sundays, p => Assert.Equal(DayOfWeek.Sunday, Weekday(p)));
         for (int i = 1; i < sundays.Count; i++) {
             Assert.NotEqual(sundays[i - 1].Type, sundays[i].Type);
             Assert.Equal(7, Days(sundays[i - 1], sundays[i]));
         }
+
+        Assert.Equal(["crafting-sale", "epic-research-sale"], sundays.Select(p => p.Type).Distinct().Order().ToList());
+    }
+
+    [Fact]
+    public void Predict_TemplateHistory_MissionCapacityIsPeriodicOnCraftingSundays() {
+        var capacity = Predictions(84)
+            .Where(p => p.Kind == EventRuleKind.Periodic && p.Type == "mission-capacity")
+            .OrderBy(p => p.PredictedStart)
+            .ToList();
+        var crafting = Predictions(84)
+            .Where(p => p.Type == "crafting-sale")
+            .Select(p => NoonEastern.LocalDate(p.PredictedStart))
+            .ToHashSet();
+
+        Assert.True(capacity.Count >= 2);
+        Assert.All(capacity, p => {
+            Assert.Equal(28, p.PeriodDays);
+            Assert.Equal(2 * Day, p.PredictedEnd - p.PredictedStart);
+            Assert.Contains(NoonEastern.LocalDate(p.PredictedStart), crafting);
+            Assert.Contains("on crafting-sale", p.Evidence);
+        });
     }
 
     [Fact]
     public void Predict_TemplateHistory_PoolSlotsOnlyOnMidweekDays() {
-        var pool = Predictions(28).Where(p => p.Kind == EventPredictionKind.Pool).ToList();
+        var pool = Predictions(28).Where(p => p.Kind == EventRuleKind.Pool).ToList();
 
         Assert.Equal(12, pool.Count);
         Assert.All(pool.GroupBy(p => NoonEastern.LocalDate(p.PredictedStart)), g => Assert.Single(g));
@@ -71,13 +92,14 @@ public class EventPredictorTests {
     }
 
     [Fact]
-    public void Predict_TemplateHistory_PoolCandidatesAreNormalisedAndCapped() {
-        var pool = Predictions(28).First(p => p.Kind == EventPredictionKind.Pool);
+    public void Predict_TemplateHistory_PoolCandidatesAreAFullDistribution() {
+        var pool = Predictions(28).First(p => p.Kind == EventRuleKind.Pool);
 
-        Assert.InRange(pool.Candidates.Count, 1, 5);
-        Assert.True(pool.Candidates.Sum(c => c.Probability) <= 1.0000001);
+        Assert.True(pool.Candidates.Count >= 2);
+        Assert.InRange(pool.Candidates.Sum(c => c.Probability), 0.9999999, 1.0000001);
         Assert.Equal(pool.Candidates[0].Type, pool.Type);
         Assert.Equal(pool.Candidates[0].Probability, pool.Confidence);
+        Assert.Equal(pool.Candidates.OrderByDescending(c => c.Probability).Select(c => c.Type), pool.Candidates.Select(c => c.Type));
     }
 
     [Fact]
@@ -96,7 +118,7 @@ public class EventPredictorTests {
         var rows = TemplateRows();
         double asOf = EventTemplate.AsOf;
         var ultra = EventPredictor.Predict(rows, asOf, 28)
-            .Where(p => p.Kind == EventPredictionKind.Ultra)
+            .Where(p => p.Kind == EventRuleKind.Ultra)
             .OrderBy(p => p.PredictedStart)
             .ToList();
         var lastActual = rows.Where(r => r.Ultra && r.Start < asOf).OrderBy(r => r.Start).ToList()[^1];
@@ -116,6 +138,20 @@ public class EventPredictorTests {
     }
 
     [Fact]
+    public void Predict_TemplateHistory_UltraSlotsRankEveryTypeAndNeverRepeatTheLastGuess() {
+        var ultra = Predictions(28).Where(p => p.Kind == EventRuleKind.Ultra).OrderBy(p => p.PredictedStart).ToList();
+
+        Assert.Equal(14, ultra.Count);
+        Assert.All(ultra, p => {
+            Assert.NotNull(p.Type);
+            Assert.True(p.Candidates.Count >= 2);
+            Assert.Equal(p.Type, p.Candidates[0].Type);
+            Assert.InRange(p.Candidates.Sum(c => c.Probability), 0.99, 1.01);
+        });
+        for (int i = 1; i < ultra.Count; i++) Assert.NotEqual(ultra[i - 1].Type, ultra[i].Type);
+    }
+
+    [Fact]
     public void Predict_LaneStoppedTenWeeksAgo_DropsLaneAndScoresTypeLow() {
         var rows = TemplateRows("research-sale", EventTemplate.End.AddDays(-70));
 
@@ -129,18 +165,18 @@ public class EventPredictorTests {
     }
 
     [Fact]
-    public void Predict_LaneCadenceTightenedMidWindow_QualifiesOnTrailingRun() {
+    public void Predict_MixedPeriodicGaps_UsesTheLatestGap() {
         var anchor = EventTemplate.End.AddDays(-13);
         var rows = TemplateRows().Where(r => r.Type != "mission-capacity").ToList();
         foreach (int back in new[] { 0, 28, 56, 84, 126, 168 }) rows.Add(TwoDayRow("mission-capacity", anchor.AddDays(-back)));
 
         var lane = EventPredictor.Predict(rows, EventTemplate.AsOf, 56)
-            .Where(p => p.Kind == EventPredictionKind.Fixed && p.Type == "mission-capacity")
+            .Where(p => p.Kind == EventRuleKind.Periodic && p.Type == "mission-capacity")
             .ToList();
 
         var first = Assert.Single(lane, p => NoonEastern.LocalDate(p.PredictedStart) == anchor.AddDays(28));
         Assert.Equal(28, first.PeriodDays);
-        Assert.InRange(first.Confidence, 0.7, 0.8);
+        Assert.Contains("42 before", first.Evidence);
     }
 
     [Fact]
@@ -152,7 +188,7 @@ public class EventPredictorTests {
         var predictions = EventPredictor.Predict(rows, EventTemplate.AsOf, 28);
 
         Assert.DoesNotContain(
-            predictions, p => p.Kind == EventPredictionKind.Fixed && p.Type == "hab-sale" && Weekday(p) == DayOfWeek.Monday);
+            predictions, p => p.Kind == EventRuleKind.WeekdayLane && p.Type == "hab-sale" && Weekday(p) == DayOfWeek.Monday);
     }
 
     private static EventRow TwoDayRow(string type, DateOnly day) {
@@ -195,12 +231,23 @@ public class EventPredictorTests {
     }
 
     [Fact]
+    public void Train_TemplateHistory_ReportsEveryRuleKindWithEvidence() {
+        var model = EventPredictor.Train(TemplateRows(), EventTemplate.AsOf);
+
+        var kinds = model.Rules.Select(r => r.Kind).Distinct().Order().ToList();
+        Assert.Equal([.. Enum.GetValues<EventRuleKind>().Order()], kinds);
+        Assert.All(model.Rules, r => Assert.False(string.IsNullOrWhiteSpace(r.Evidence.Summary)));
+        Assert.All(model.Rules, r => Assert.True(r.Evidence.Expected > 0));
+    }
+
+    [Fact]
     public async Task GetAsync_CacheVersionMatchesCurrent_PredictsFromCachedRowsWithoutQuerying() {
         var opts = new DbContextOptionsBuilder<EggIncognitoDbContext>()
             .UseNpgsql("Host=127.0.0.1;Port=1;Database=x;Username=x;Password=x;Timeout=1").Options;
         var db = new EggIncognitoDbContext(opts);
         var version = new EventDataVersion();
-        var cache = new EventPredictionCache { Version = version.Version, Value = TemplateRows() };
+        var cache = new EventPredictionCache();
+        cache.Set(version.Version, TemplateRows());
         var predictor = new EventPredictor(db, version, cache, TimeProvider.System);
 
         var result = await predictor.GetAsync(28, EventTemplate.AsOf);

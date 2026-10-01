@@ -15,8 +15,6 @@ public sealed class StagedProto {
     [Column("proto_text")] public string ProtoText { get; set; } = "";
     [Column("message_index")] public string? MessageIndex { get; set; }
     [Column("source")] public string Source { get; set; } = "offer";
-    [Column("kind")] public string Kind { get; set; } = "version";
-    [Column("target_id")] public int? TargetId { get; set; }
     [Column("status")] public string Status { get; set; } = "pending";
     [Column("submitted_by")] public string? SubmittedBy { get; set; }
     [Column("submitted_at")] public DateTimeOffset SubmittedAt { get; set; }

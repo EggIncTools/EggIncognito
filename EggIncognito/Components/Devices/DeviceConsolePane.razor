@@ -7,6 +7,7 @@
 @inject ILogger<DeviceConsolePane> Logger
 @using System.Globalization
 @using System.Text.Json
+@using EggIncognito.Components.Api
 @using EggIncognito.Core.Services.Devices
 @using EggIncognito.Models.Devices
 @using EggIncognito.Services.Devices
@@ -116,181 +117,87 @@
                             <Icon Name="@(_mode == DeviceConsoleMode.Record ? "circle-check" : "circle")" Class="icon-sm"/>
                             Record
                         </button>
-                        @if (IsAndroid) {
-                            <button type="button" class="btn-mini @(_locking || _watch.Points.Count > 0 ? "dcon-on" : "")"
-                                    title="@WatchTitle()" @onclick="ToggleLocking">
-                                <Icon Name="eye" Class="icon-sm"/>
-                                @WatchLabel()
-                            </button>
-                            @if (_watch.Points.Count > 0) {
-                                <button type="button" class="btn-mini" title="Stop every watch point on this device"
-                                        @onclick="StopAllWatchesAsync">
-                                    Clear @_watch.Points.Count
-                                </button>
-                            }
-                        }
-                    </span>
-                </div>
-
-                <div class="dwb-bar">
-                    <span class="dwb-bar-group">
-                        <span class="dcon-k">Workflows</span>
-                        @if (_runLine is { } run) {
-                            <span class="dcon-run-title">@run.Title</span>
-                            <span class="font-mono text-muted text-xs">@run.Elapsed</span>
-                            <span class="dcon-status">
-                                <Icon Name="@run.Icon" Class="@("icon-sm " + run.IconClass)"/>
-                                <span>@run.State</span>
-                            </span>
-                        } else {
-                            <span class="text-muted text-xs">nothing running</span>
-                        }
-                    </span>
-                    <span class="dwb-bar-group">
-                        <button type="button" class="btn-mini" @onclick="OpenRunPanel">
-                            <Icon Name="play" Class="icon-sm"/>
-                            @(_runLine is null ? "Open" : "Show run")
-                        </button>
                     </span>
                 </div>
 
                 @if (IsAndroid) {
-                    <DeviceSection Title="Island" Open="@State.IsOpen(DeviceWorkbenchState.SectionIsland)"
-                                   OpenChanged="@(o => State.SetOpen(DeviceWorkbenchState.SectionIsland, o))">
-                        <Summary>
-                            <span class="text-muted text-xs">@CurrentIslandLabel()</span>
-                        </Summary>
-                        <Tools>
-                            @if (!_newIslandOpen) {
-                                <button type="button" class="btn-mini" disabled="@_islandBusy" @onclick="OpenNewIsland">
-                                    <Icon Name="plus" Class="icon-sm"/>
-                                    New island
-                                </button>
-                            }
-                            <button type="button" class="btn-mini" disabled="@_islandBusy" @onclick="LoadIslandsAsync">
-                                <Icon Name="refresh-cw" Class="icon-sm"/>
-                                @(_islandBusy ? "Refreshing..." : "Refresh")
-                            </button>
-                        </Tools>
-                        <ChildContent>
-                            <div class="text-muted text-xs">islands run one at a time; only the foreground user renders</div>
-                            <div class="reg-wrap dcon-island-wrap">
-                                <table class="data-table dcon-list">
-                                    <tbody>
-                                    <tr>
-                                        <td class="dcon-cur">
-                                            @if (_selectedAndroidUserId is null) {
-                                                <Icon Name="check" Class="icon-sm text-ok"/>
-                                            }
-                                        </td>
-                                        <td class="dcon-list-title">Device (no island)</td>
-                                        <td class="font-mono text-muted text-xs">user @IslandScope.Owner</td>
-                                        <td class="dcon-row-tools">
-                                            @if (_selectedAndroidUserId is not null) {
-                                                <button type="button" class="btn-mini" disabled="@_islandBusy"
-                                                        @onclick="@(() => SwitchIslandAsync(IslandScope.Owner))">
-                                                    Switch
-                                                </button>
-                                            }
-                                        </td>
-                                    </tr>
-                                    @foreach (var island in _islands) {
-                                        var current = _selectedAndroidUserId == island.AndroidUserId;
-                                        <tr @key="island.AndroidUserId">
-                                            <td class="dcon-cur">
-                                                @if (current) {
-                                                    <Icon Name="check" Class="icon-sm text-ok"/>
-                                                }
-                                            </td>
-                                            <td class="dcon-list-title">@IslandLabel(island)</td>
-                                            <td class="font-mono text-muted text-xs"
-                                                title="@(island.Provisioned ? null : "setup wizard not marked complete for this user; interstitials may cover the app")">
-                                                user @island.AndroidUserId@(island.Provisioned ? "" : ", unprovisioned")
-                                            </td>
-                                            <td class="dcon-row-tools">
-                                                @if (!current) {
-                                                    <button type="button" class="btn-mini" disabled="@_islandBusy"
-                                                            @onclick="@(() => SwitchIslandAsync(island.AndroidUserId))">
-                                                        Switch
-                                                    </button>
-                                                }
-                                                <button type="button" class="btn-mini btn-danger" disabled="@_islandBusy"
-                                                        @onclick="@(() => RemoveIslandAsync(island.AndroidUserId))">
-                                                    Remove
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    }
-                                    </tbody>
-                                </table>
-                            </div>
-                            @if (_newIslandOpen) {
-                                <div class="dcon-run-row">
-                                    <input class="field-input" placeholder="island label" aria-label="New island label"
-                                           @bind="_newIslandLabel" @bind:event="oninput" @onkeydown="NewIslandKeyAsync"/>
-                                    <button type="button" class="btn-mini" disabled="@(_islandBusy || _newIslandLabel.Trim().Length == 0)"
-                                            @onclick="CreateIslandAsync">
-                                        Create
-                                    </button>
-                                    <button type="button" class="btn-mini" disabled="@_islandBusy" @onclick="CancelNewIsland">Cancel</button>
-                                </div>
-                            }
-                        </ChildContent>
-                    </DeviceSection>
+                    <DeviceIslandSelect Islands="_islands" Selected="_selectedAndroidUserId" Busy="_islandBusy"
+                                        OnSwitch="SwitchIslandAsync" OnRemove="RemoveIslandAsync"
+                                        OnCreate="CreateIslandAsync" OnRefresh="LoadIslandsAsync"/>
                 }
 
-                <DeviceSection Title="Input" Open="@State.IsOpen(DeviceWorkbenchState.SectionInput)"
-                               OpenChanged="@(o => State.SetOpen(DeviceWorkbenchState.SectionInput, o))">
-                    <Tools>
+                <div class="dwb-bar">
+                    <span class="dwb-bar-group dcon-fill">
+                        <span class="dcon-k">Input</span>
+                        @if (_captureKeys) {
+                            <span class="text-muted text-xs">Keys go to the device as you type, anywhere on this page. Ctrl, Alt and Cmd shortcuts still reach the browser.</span>
+                        } else {
+                            <input class="field-input font-mono dcon-text" placeholder="paste or type a whole string"
+                                   aria-label="Text to send" @bind="_text" @bind:event="oninput" @onkeydown="TextKeyAsync"/>
+                            <button type="button" class="btn-mini" disabled="@(_text.Length == 0)" @onclick="SendTextAsync">
+                                <Icon Name="send" Class="icon-sm"/>
+                                Send
+                            </button>
+                        }
+                    </span>
+                    <span class="dwb-bar-group">
                         <button type="button" class="btn-mini @(_captureKeys ? "dcon-on" : "")" @onclick="ToggleCapture"
                                 title="Send every keystroke to the device as you type">
                             <Icon Name="@(_captureKeys ? "circle-check" : "circle")" Class="icon-sm"/>
                             Live keys
                         </button>
                         <button type="button" class="btn-mini" @onclick="@(() => KeyAsync("enter"))">Enter</button>
-                    </Tools>
-                    <ChildContent>
-                    @if (_captureKeys) {
-                        <div class="dcon-status text-xs">
-                            <Icon Name="circle-check" Class="icon-sm text-accent"/>
-                            <span class="text-muted">Keys go to the device as you type, anywhere on this page. Ctrl, Alt and Cmd shortcuts still reach the browser.</span>
-                        </div>
-                    } else {
-                        <div class="dcon-typing">
-                            <input class="field-input font-mono" placeholder="paste or type a whole string"
-                                   aria-label="Text to send" @bind="_text" @bind:event="oninput" @onkeydown="TextKeyAsync"/>
-                            <button type="button" class="btn-mini" disabled="@(_text.Length == 0)" @onclick="SendTextAsync">
-                                <Icon Name="send" Class="icon-sm"/>
-                                Send
-                            </button>
-                        </div>
-                    }
-                    </ChildContent>
-                </DeviceSection>
+                    </span>
+                </div>
 
-                @if (_mode == DeviceConsoleMode.Record) {
-                    <div class="dcon-activity">
-                        <div class="dcon-activity-head">
-                            <span class="dcon-activity-title">
-                                <span class="dcon-k">Record</span>
-                                <span class="text-muted text-xs">@_recorded.Count @(_recorded.Count == 1 ? "step" : "steps")</span>
+                <div class="dcon-shelf">
+                    <div class="dcon-shelf-tabs">
+                        <WorkbenchModes Modes="ShelfTabs()" Current="@State.Shelf" CurrentChanged="SetShelf" Label="Shelf"/>
+                        @if (_runLine is { } run) {
+                            <span class="dcon-status dcon-shelf-run">
+                                <Icon Name="@run.Icon" Class="@("icon-sm " + run.IconClass)"/>
+                                <span>@run.Title</span>
+                                <span class="font-mono text-muted text-xs">@run.Elapsed</span>
+                                <span class="text-muted text-xs">@run.State</span>
                             </span>
-                            <span class="dcon-activity-tools">
-                                <CopyButton GetText="@(() => RecordedGesture.FlowText(_recorded))" Label="Copy flow" CopiedLabel="Copied"
-                                            ShowIcon="false" ButtonClass="btn-mini"/>
-                                <button type="button" class="btn-mini" disabled="@(_recorded.Count == 0 || _replaying)" @onclick="ReplayAllAsync">
-                                    <Icon Name="play" Class="icon-sm"/>
-                                    @(_replaying ? "Replaying..." : "Replay")
-                                </button>
-                                <button type="button" class="btn-mini" disabled="@(_recorded.Count == 0)" @onclick="ClearRecorded">Clear</button>
-                                <button type="button" class="btn-mini" @onclick="CloseRecord">Close</button>
-                            </span>
-                        </div>
-                        <div class="dcon-activity-body">
+                        }
+                    </div>
+                    <div class="dcon-shelf-body">
+                        @if (IsAndroid) {
+                            <DeviceLocksPane @ref="_locks" DeviceId="@_deviceId" Visible="@State.ShelfIs(DeviceWorkbenchState.ShelfLocks)"
+                                             Watch="_watch" WatchChanged="OnWatchState" Arming="_locking" ArmingChanged="SetLocking"
+                                             OnNotice="OnNotice"/>
+                        } else {
+                            <div class="dcon-status text-xs" hidden="@(!State.ShelfIs(DeviceWorkbenchState.ShelfLocks))">
+                                <Icon Name="circle" Class="icon-sm text-muted"/>
+                                <span class="text-muted">Locks need the Android screen stream.</span>
+                            </div>
+                        }
+
+                        <DeviceWorkflowsPane DeviceId="@_deviceId" Active="@Active" Visible="@State.ShelfIs(DeviceWorkbenchState.ShelfWorkflows)"
+                                             AndroidUserId="@_selectedAndroidUserId" OnNotice="OnNotice"
+                                             OnChanged="AfterRunAsync" OnRunChanged="RunLineChanged"/>
+
+                        <div class="dcon-record" hidden="@(!State.ShelfIs(DeviceWorkbenchState.ShelfRecord))">
+                            <div class="dwb-bar">
+                                <span class="dwb-bar-group">
+                                    <span class="dcon-k">Record</span>
+                                    <span class="text-muted text-xs">@_recorded.Count @(_recorded.Count == 1 ? "step" : "steps")</span>
+                                </span>
+                                <span class="dwb-bar-group">
+                                    <CopyButton GetText="@(() => RecordedGesture.FlowText(_recorded))" Label="Copy flow" CopiedLabel="Copied"
+                                                ShowIcon="false" ButtonClass="btn-mini"/>
+                                    <button type="button" class="btn-mini" disabled="@(_recorded.Count == 0 || _replaying)" @onclick="ReplayAllAsync">
+                                        <Icon Name="play" Class="icon-sm"/>
+                                        @(_replaying ? "Replaying..." : "Replay")
+                                    </button>
+                                    <button type="button" class="btn-mini" disabled="@(_recorded.Count == 0)" @onclick="ClearRecorded">Clear</button>
+                                </span>
+                            </div>
                             @if (_recorded.Count == 0) {
                                 <div class="dcon-status text-xs">
                                     <Icon Name="circle" Class="icon-sm text-muted"/>
-                                    <span class="text-muted">Tap, hold or swipe the screen. Each gesture lands here as a flow step at device pixels.</span>
+                                    <span class="text-muted">@(_mode == DeviceConsoleMode.Record ? "Tap, hold or swipe the screen. Each gesture lands here as a flow step at device pixels." : "Press Record in the stream bar, then tap, hold or swipe the screen.")</span>
                                 </div>
                             } else {
                                 <div class="reg-wrap dcon-tree">
@@ -320,7 +227,6 @@
                                     </table>
                                 </div>
                             }
-
                             @if (_selectedGesture is { } sel) {
                                 <div class="dcon-sel">
                                     <div class="dcon-snip-row">
@@ -331,17 +237,17 @@
                                 </div>
                             }
                         </div>
-                    </div>
-                }
 
-                @Sections
+                        @Sections
+
+                        <div hidden="@(!State.ShelfIs(DeviceWorkbenchState.ShelfCoverage))">
+                            <ConsumeCoveragePane/>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
-
-    <DeviceRunPanel DeviceId="@_deviceId" Active="@Active" Open="@RunPanelOpen" AndroidUserId="@_selectedAndroidUserId"
-                    OnClose="CloseRunPanel" OnOpenRequested="OpenRunPanel" OnNotice="OnNotice"
-                    OnChanged="AfterRunAsync" OnRunChanged="RunLineChanged"/>
 }
 
 @code {
@@ -356,20 +262,24 @@
 
     [Parameter] public EventCallback OnChanged { get; set; }
 
+    [Parameter] public EventCallback<string> OnShelfChanged { get; set; }
+
     [Parameter] public RenderFragment? Actions { get; set; }
 
     [Parameter] public RenderFragment? ActionNotes { get; set; }
 
     [Parameter] public RenderFragment? Sections { get; set; }
 
-    string CurrentIslandLabel() {
-        return SelectedIsland() is { } island ? $"{IslandLabel(island)}, user {island.AndroidUserId}" : "device, no island";
-    }
+    [Parameter] public int? CaptureCount { get; set; }
+
+    [Parameter] public int? JobCount { get; set; }
+
+    [Parameter] public int? BinaryCount { get; set; }
 
     static readonly int[] Rates = [5, 4, 3, 2, 1];
     const int StreamBusyStatus = 409;
     const int WatchTolerance = 48;
-    const int WatchCooldownMs = 2500;
+    const int WatchSettleFrames = 2;
     static readonly TimeSpan StreamRetryDelay = TimeSpan.FromSeconds(1);
     static readonly TimeSpan VideoReprobeDelay = TimeSpan.FromSeconds(20);
     static readonly TimeSpan UiPollInterval = TimeSpan.FromSeconds(5);
@@ -388,7 +298,6 @@
     bool _replaying;
     bool _captureKeys;
     bool _islandBusy;
-    bool _newIslandOpen;
     bool _uiProbed;
     bool _uiBusy;
     bool _waking;
@@ -413,7 +322,6 @@
     DateTimeOffset _restartWindowAt;
     StreamQuality _quality = StreamQuality.Balanced;
     string _text = "";
-    string _newIslandLabel = "";
     string _streamKey = "";
     string _videoKey = "";
     string _stageKey = "";
@@ -429,6 +337,7 @@
     List<RecordedGesture> _recorded = [];
     List<IslandRow> _islands = [];
     RecordedGesture? _selectedGesture;
+    DeviceLocksPane? _locks;
 
     ElementReference _img;
     ElementReference _canvas;
@@ -458,9 +367,27 @@
 
     bool Asleep => _uiProbed && _uiState is { } s && (!s.Awake || s.Locked);
 
-    bool RunPanelOpen => State.RunPanelFor == _deviceId && _deviceId is not null;
-
     DeviceConsoleCache? Cache => _deviceId is { } id ? State.ConsoleFor(id) : null;
+
+    IReadOnlyList<(string Key, string Label, int? Count)> ShelfTabs() {
+        List<(string, string, int?)> tabs = [
+            (DeviceWorkbenchState.ShelfLocks, "Locks", _watch.Points.Count > 0 ? _watch.Points.Count : null),
+            (DeviceWorkbenchState.ShelfWorkflows, "Workflows", null)
+        ];
+        if (_mode == DeviceConsoleMode.Record || _recorded.Count > 0)
+            tabs.Add((DeviceWorkbenchState.ShelfRecord, "Record", _recorded.Count > 0 ? _recorded.Count : null));
+        tabs.Add((DeviceWorkbenchState.ShelfCapture, "Capture", CaptureCount));
+        tabs.Add((DeviceWorkbenchState.ShelfJobs, "Jobs", JobCount));
+        tabs.Add((DeviceWorkbenchState.ShelfBinaries, "Binaries", BinaryCount));
+        tabs.Add((DeviceWorkbenchState.ShelfCoverage, "Coverage", null));
+        return tabs;
+    }
+
+    async Task SetShelf(string tab) {
+        if (State.ShelfIs(tab)) return;
+        State.Shelf = tab;
+        if (OnShelfChanged.HasDelegate) await OnShelfChanged.InvokeAsync(tab);
+    }
 
     protected override async Task OnParametersSetAsync() {
         SubscribeWatches();
@@ -532,8 +459,6 @@
         ResetVideoHealth();
         _islands = [];
         _islandBusy = false;
-        _newIslandOpen = false;
-        _newIslandLabel = "";
         _selectedAndroidUserId = null;
         _captureKeys = false;
         _uiState = null;
@@ -548,14 +473,6 @@
         if (next == _useVideo) return false;
         _useVideo = next;
         return true;
-    }
-
-    void OpenRunPanel() {
-        State.RunPanelFor = _deviceId;
-    }
-
-    void CloseRunPanel() {
-        State.RunPanelFor = null;
     }
 
     void RunLineChanged(DeviceRunLine? line) {
@@ -718,18 +635,15 @@
         if (_captureKeys) _text = "";
     }
 
-    void ToggleRecord() {
+    async Task ToggleRecord() {
         if (_mode == DeviceConsoleMode.Record) {
-            CloseRecord();
+            _selectedGesture = null;
+            _mode = DeviceConsoleMode.Idle;
             return;
         }
 
         _mode = DeviceConsoleMode.Record;
-    }
-
-    void CloseRecord() {
-        _selectedGesture = null;
-        _mode = DeviceConsoleMode.Idle;
+        await SetShelf(DeviceWorkbenchState.ShelfRecord);
     }
 
     void Record(RecordedGesture gesture) {
@@ -747,9 +661,11 @@
         _recorded.RemoveAt(index);
     }
 
-    void ClearRecorded() {
+    async Task ClearRecorded() {
         _recorded = [];
         _selectedGesture = null;
+        if (_mode != DeviceConsoleMode.Record && State.ShelfIs(DeviceWorkbenchState.ShelfRecord))
+            await SetShelf(DeviceWorkbenchState.ShelfLocks);
     }
 
     Task ReplayAsync(RecordedGesture g) {
@@ -826,47 +742,25 @@
 
     PixelWatchService? Watches => Services.GetService(typeof(PixelWatchService)) as PixelWatchService;
 
-    string WatchLabel() {
-        if (_watch.Points.Count == 0) return _locking ? "Tap the button" : "Lock";
-        int taps = _watch.Points.Sum(p => p.Taps);
-        string points = _watch.Points.Count == 1 ? "1 point" : $"{_watch.Points.Count} points";
-        return _locking ? $"{points}, tap another" : $"{points}, {taps} taps";
+    void SetLocking(bool on) {
+        _locking = on;
     }
 
-    string WatchTitle() {
-        if (_watch.Points.Count == 0) {
-            return _locking
-                ? "Now tap the popup button on the screen; its colour at that point becomes the trigger"
-                : "Lock a point: tap a popup button once and it gets tapped again every time it reappears";
-        }
-
-        var lines = _watch.Points.Select(p => p.Error is { } err
-            ? $"{p.X},{p.Y} for {p.Color} - {p.Taps} taps; last error: {err}"
-            : $"{p.X},{p.Y} for {p.Color} - {p.Taps} taps");
-        string head = _locking ? "Tap another popup button to add a point." : "Click to add another point.";
-        return head + Environment.NewLine + string.Join(Environment.NewLine, lines);
-    }
-
-    void ToggleLocking() => _locking = !_locking;
-
-    async Task StopAllWatchesAsync() {
-        if (_deviceId is null) return;
-        _locking = false;
-        var res = await Client().DeleteAsync($"/api/devices/{_deviceId}/ui/watch");
-        if (!res.IsSuccessStatusCode) await Fail(await ReadError(res));
-        _watch = PixelWatchState.Empty;
+    void OnWatchState(PixelWatchState state) {
+        _watch = state;
     }
 
     async Task LockWatchAsync(int x, int y) {
         _locking = false;
-        var res = await Client().PostAsJsonAsync($"/api/devices/{_deviceId}/ui/watch",
-            new PixelWatchRequest(x, y), SelfCallJson.Web);
+        var req = _locks?.NewPoint(x, y) ?? new PixelWatchRequest(x, y);
+        var res = await Client().PostAsJsonAsync($"/api/devices/{_deviceId}/ui/watch", req, SelfCallJson.Web);
         if (!res.IsSuccessStatusCode) {
             await Fail(await ReadError(res));
             return;
         }
 
         _watch = await res.Content.ReadFromJsonAsync<PixelWatchState>(SelfCallJson.Web) ?? PixelWatchState.Empty;
+        await SetShelf(DeviceWorkbenchState.ShelfLocks);
     }
 
     void SubscribeWatches() {
@@ -884,13 +778,6 @@
         });
     }
 
-    [JSInvokable]
-    public async Task OnWatchHit(string pointId) {
-        if (_deviceId is null) return;
-        if (_watch.Points.All(p => p.Id != pointId)) return;
-        await Client().PostAsync($"/api/devices/{_deviceId}/ui/watch/{pointId}/hit", null);
-    }
-
     void SetClientWatching(string deviceId, bool on) {
         if (on == _clientWatching && (!on || deviceId == _clientWatchingFor)) return;
         _clientWatching = on;
@@ -906,7 +793,7 @@
         return (r, g, b);
     }
 
-    const int StageBlockMs = 600;
+    const int StageBlockMs = 300;
 
     async Task BlockStageAsync(bool blocked) {
         if (_module is not { } module || _stageKey.Length == 0) return;
@@ -1074,20 +961,11 @@
         _islandBusy = false;
     }
 
-    IslandRow? SelectedIsland() {
-        return _selectedAndroidUserId is { } uid ? _islands.FirstOrDefault(i => i.AndroidUserId == uid) : null;
-    }
-
-    static string IslandLabel(IslandRow island) {
-        return string.IsNullOrWhiteSpace(island.Label) ? $"user {island.AndroidUserId}" : island.Label;
-    }
-
     async Task SwitchIslandAsync(int androidUserId) {
         if (_deviceId is not { } id || _islandBusy) return;
         var previous = _selectedAndroidUserId;
         _selectedAndroidUserId = androidUserId == IslandScope.Owner ? null : androidUserId;
         _islandBusy = true;
-        StateHasChanged();
         var res = await Client().PostAsync($"/api/devices/{id}/islands/{androidUserId}/switch", null);
         if (Stale(id)) return;
         _islandBusy = false;
@@ -1101,26 +979,8 @@
         await Fail(await ReadError(res));
     }
 
-    void OpenNewIsland() {
-        _newIslandOpen = true;
-        _newIslandLabel = "";
-    }
-
-    void CancelNewIsland() {
-        _newIslandOpen = false;
-        _newIslandLabel = "";
-    }
-
-    Task NewIslandKeyAsync(KeyboardEventArgs e) {
-        if (e.Key == "Enter") return CreateIslandAsync();
-        if (e.Key == "Escape") CancelNewIsland();
-        return Task.CompletedTask;
-    }
-
-    async Task CreateIslandAsync() {
-        if (_deviceId is null) return;
-        var label = _newIslandLabel.Trim();
-        if (label.Length == 0) return;
+    async Task CreateIslandAsync(string label) {
+        if (_deviceId is null || label.Length == 0) return;
         _islandBusy = true;
         var res = await Client().PostAsJsonAsync($"/api/devices/{_deviceId}/islands",
             new NewIslandRequest(label), SelfCallJson.Web);
@@ -1131,15 +991,12 @@
             return;
         }
 
-        _newIslandLabel = "";
-        _newIslandOpen = false;
         await LoadIslandsAsync();
     }
 
     async Task RemoveIslandAsync(int androidUserId) {
         if (_deviceId is null) return;
         _islandBusy = true;
-        StateHasChanged();
         var res = await Client().DeleteAsync($"/api/devices/{_deviceId}/islands/{androidUserId}");
         _islandBusy = false;
         if (!res.IsSuccessStatusCode) {
@@ -1242,7 +1099,7 @@
     async Task SyncWatchAsync(IJSObjectReference module) {
         var points = _useVideo && _hasFrame && TapWidth > 0 && !string.IsNullOrEmpty(_canvas.Id) ? WatchPayload() : [];
         var desired = points.Count == 0 ? "" : _canvas.Id + "|" + string.Join(";", points.Select(p => string.Create(CultureInfo.InvariantCulture,
-            $"{p.Id} {p.Fx:0.####} {p.Fy:0.####} {p.R} {p.G} {p.B}")));
+            $"{p.Id} {p.Fx:0.####} {p.Fy:0.####} {p.R} {p.G} {p.B} {p.RateMs}")));
         if (desired == _watchKey) return;
         _watchKey = desired;
         if (points.Count == 0) {
@@ -1252,17 +1109,19 @@
         }
 
         await SafeAsync(module, "watchPoints", _canvas, points,
-            new { tolerance = WatchTolerance, cooldownMs = WatchCooldownMs });
+            new { tolerance = WatchTolerance, settleFrames = WatchSettleFrames, hitUrl = $"/api/devices/{_deviceId}/ui/watch/" });
         if (_deviceId is { } id) SetClientWatching(id, true);
     }
 
     List<WatchPoint> WatchPayload() {
         List<WatchPoint> list = [];
+        var leads = _watch.Groups.Select(g => g.PointIds.Count > 0 ? g.PointIds[0] : "").ToHashSet(StringComparer.Ordinal);
         foreach (var point in _watch.Points) {
+            if (point.GroupId is not null && !leads.Contains(point.Id)) continue;
             if (Rgb(point.Color) is not { } rgb) continue;
             var (fx, fy) = Fraction(point.X, point.Y);
             if (fx < 0) continue;
-            list.Add(new WatchPoint(point.Id, fx, fy, rgb.R, rgb.G, rgb.B));
+            list.Add(new WatchPoint(point.Id, fx, fy, rgb.R, rgb.G, rgb.B, point.RateMs));
         }
 
         return list;

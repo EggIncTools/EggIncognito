@@ -70,6 +70,13 @@ public sealed class EventsController : ApiControllerBase {
         return Ok(await predictor.GetAsync(horizon, asOf, ct));
     }
 
+    [HttpGet("model")]
+    [EnableRateLimiting("read")]
+    [ApiAccess(ApiAccessLevel.Admin)]
+    [Requires<EventPredictor>("no database configured")]
+    public async Task<IActionResult> Model([FromServices] EventPredictor predictor, CancellationToken ct = default) =>
+        Ok(await predictor.GetModelAsync(ct));
+
     [HttpGet("predictions/backtest")]
     [EnableRateLimiting("read")]
     [ApiAccess(ApiAccessLevel.Admin)]

@@ -2,6 +2,14 @@ export function scrollToBottom(el) {
   if (el) el.scrollTop = el.scrollHeight;
 }
 
+export function alignFractionToRight(el, fraction) {
+  if (!el) return;
+  const span = el.scrollWidth - el.clientWidth;
+  if (span <= 0) return;
+  const target = el.scrollWidth * fraction - el.clientWidth;
+  el.scrollLeft = Math.max(0, Math.min(span, target));
+}
+
 export function centerOnFraction(el, fraction) {
   if (!el) return;
   const span = el.scrollWidth - el.clientWidth;

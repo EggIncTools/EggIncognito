@@ -103,10 +103,10 @@ public sealed class ToolsController(
         byte[] bin = await ReadFormFileAsync(binary, ct);
         byte[]? metaBytes = meta is { Length: > 0 } ? await ReadFormFileAsync(meta, ct) : null;
 
-        var r = DescriptorProtoCarver.Extract(bin);
+        var r = ArchiveProtoExtractor.Extract(bin);
         if (r.Ok) {
             (string? appVersion, string? build) = AppMetaReader.Read(metaBytes);
-            r = r with { AppVersion = appVersion, Build = build };
+            r = r with { AppVersion = appVersion ?? r.AppVersion, Build = build ?? r.Build };
             await RecordAnalyzedAsync(store, bin, r, fileName ?? binary.FileName, ct);
         }
 

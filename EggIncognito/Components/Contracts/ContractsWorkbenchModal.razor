@@ -1,0 +1,307 @@
+@inherits SelfCallComponentBase
+@using System.Globalization
+@using System.Text.Json
+@using EggIncognito.Components.Calendar
+@using EggIncognito.Models.Calendar
+@using EggIncognito.Models.Contracts
+@using EggIncognito.Services.Assets
+@using EggIncognito.Services.Contracts
+@using EggIncognito.Services.Events
+@using Ei
+@inject ICurrentUser User
+@inject ContractsWorkbenchState State
+@inject ILogger<ContractsWorkbenchModal> Logger
+
+<CalendarWorkbench TItem="ContractCalendarItem" @ref="_cal" Title="Contracts" TitleId="contractsWorkbenchTitle" State="State"
+                   Load="LoadRange" Items="Items" DetailTitle="PopTitle" Filtering="Filtering"
+                   OnWindowChanged="OnWindowChanged">
+    <Rail>
+        <WorkbenchRail HasFilter="true" Filter="@_search" FilterChanged="SetSearch" FilterLabel="Filter contracts">
+            <WorkbenchSection Label="Kinds">
+                <button type="button" class="evwb-row @(KindCss(_showNew))" style="@KindRowStyle(ContractPalette.NewContract)"
+                        aria-pressed="@(_showNew ? "true" : "false")" @onclick="@(() => Toggle(ref _showNew))">
+                    New
+                </button>
+                <button type="button" class="evwb-row @(KindCss(_showLeggacy))" style="@KindRowStyle(ContractPalette.Leggacy)"
+                        aria-pressed="@(_showLeggacy ? "true" : "false")" @onclick="@(() => Toggle(ref _showLeggacy))">
+                    Leggacy
+                </button>
+                <button type="button" class="evwb-row @(KindCss(_showPe))" style="@KindRowStyle(ContractPalette.Prophecy)"
+                        aria-pressed="@(_showPe ? "true" : "false")" @onclick="@(() => Toggle(ref _showPe))">
+                    PE leggacy
+                </button>
+                <button type="button" class="evwb-row evwb-row-ultra @(KindCss(_showUltra))" style="@UltraRowStyle"
+                        aria-pressed="@(_showUltra ? "true" : "false")" @onclick="@(() => Toggle(ref _showUltra))">
+                    Ultra only
+                </button>
+            </WorkbenchSection>
+            @if (_isAdmin) {
+                <WorkbenchSection Label="Predictions">
+                    <button type="button" class="evwb-row @(_showPredictions ? "evwb-row-on" : "")"
+                            aria-pressed="@(_showPredictions ? "true" : "false")"
+                            @onclick="TogglePredictions">
+                        Show predictions
+                    </button>
+                </WorkbenchSection>
+            }
+        </WorkbenchRail>
+    </Rail>
+    <Bar>
+        <button type="button" class="@BarCss(context)" style="@BarStyle(context)" @onclick="@(() => Select(context.Item))">
+            <span class="evcal-bar-label">@Label(context.Item)</span>
+        </button>
+    </Bar>
+    <Detail>
+        @if (context.Release is { } c) {
+            <div class="evcal-pop-row">
+                <span class="evcal-pop-k">Egg</span>
+                <span class="evcal-pop-v">@EggLabel(c)</span>
+            </div>
+            <div class="evcal-pop-row">
+                <span class="evcal-pop-k">Kind</span>
+                <span class="evcal-pop-v">@KindLabel(ContractCalendarItem.KindOf(c))</span>
+            </div>
+            <div class="evcal-pop-row">
+                <span class="evcal-pop-k">Prophecy</span>
+                <span class="evcal-pop-v">@c.ProphecyEggs.ToString(CultureInfo.InvariantCulture)</span>
+            </div>
+            <div class="evcal-pop-row">
+                <span class="evcal-pop-k">Coop</span>
+                <span class="evcal-pop-v">@(c.CoopAllowed ? FormattableString.Invariant($"up to {c.MaxCoopSize}") : "solo")</span>
+            </div>
+            <div class="evcal-pop-row">
+                <span class="evcal-pop-k">Duration</span>
+                <span class="evcal-pop-v">@EventCountdown.Span(TimeSpan.FromSeconds(c.LengthSeconds))</span>
+            </div>
+            @if (c.SeasonId is { Length: > 0 } season) {
+                <div class="evcal-pop-row">
+                    <span class="evcal-pop-k">Season</span>
+                    <span class="evcal-pop-v">@Pretty(season)</span>
+                </div>
+            }
+
+            <div class="evcal-pop-row">
+                <span class="evcal-pop-k">Source</span>
+                <span class="evcal-pop-v">@c.Source</span>
+            </div>
+            <div class="evcal-pop-row">
+                <span class="evcal-pop-k">Timing</span>
+                <span class="evcal-pop-v">@EventCountdown.Describe(context.Start, context.End, DateTimeOffset.UtcNow)</span>
+            </div>
+            <div class="evcal-pop-row">
+                <span class="evcal-pop-k">Start</span>
+                <span class="evcal-pop-v">@Absolute(context.Start)</span>
+            </div>
+            <div class="evcal-pop-row">
+                <span class="evcal-pop-k">End</span>
+                <span class="evcal-pop-v">@Absolute(context.End)</span>
+            </div>
+        } else if (context.Slot is { } s) {
+            <div class="evcal-pop-row">
+                <span class="evcal-pop-k">Slot time</span>
+                <span class="evcal-pop-v">@Absolute(s.SlotTime)</span>
+            </div>
+            <div class="evcal-pop-row">
+                <span class="evcal-pop-k">Evidence</span>
+                <span class="evcal-pop-v">@s.Evidence</span>
+            </div>
+            @foreach (var (candidate, ix) in s.Candidates.Take(5).Select((c2, i) => (c2, i))) {
+                <div class="evcal-pop-row" @key="candidate.ContractId">
+                    <span class="evcal-pop-k">@(ix == 0 ? "Likely" : "Then")</span>
+                    <span class="evcal-pop-v">@CandidateLabel(candidate)</span>
+                </div>
+            }
+        }
+    </Detail>
+</CalendarWorkbench>
+
+@code {
+    const int FetchLimit = 500;
+    const int PredictionHorizonSlots = 12;
+
+    static readonly JsonSerializerOptions JsonOpts = new(JsonSerializerDefaults.Web);
+
+    readonly Dictionary<string, ContractReleaseDto> _contracts = new(StringComparer.Ordinal);
+
+    CalendarWorkbench<ContractCalendarItem>? _cal;
+    CalendarCoverage _covered;
+    string _search = "";
+    bool _showNew = true;
+    bool _showLeggacy = true;
+    bool _showPe = true;
+    bool _showUltra = true;
+    bool _showPredictions = true;
+    bool _isAdmin;
+    ContractPredictionResponse? _predictions;
+
+    protected override void OnInitialized() {
+        base.OnInitialized();
+        _isAdmin = User.IsAtLeast(UserRole.Admin);
+    }
+
+    public Task Open() {
+        _covered = default;
+        _predictions = null;
+        return _cal?.Open() ?? Task.CompletedTask;
+    }
+
+    bool Filtering => _search.Length > 0 || !_showNew || !_showLeggacy || !_showPe || !_showUltra;
+
+    bool KindShown(ContractSlotKind kind) {
+        return kind switch {
+            ContractSlotKind.NewContract => _showNew,
+            ContractSlotKind.Leggacy => _showLeggacy,
+            ContractSlotKind.PeLeggacy => _showPe,
+            ContractSlotKind.PeLeggacyUltra => _showUltra,
+            _ => false
+        };
+    }
+
+    bool Match(ContractReleaseDto c) {
+        if (!KindShown(ContractCalendarItem.KindOf(c))) return false;
+        if (_search.Length == 0) return true;
+        return c.ContractId.Contains(_search, StringComparison.OrdinalIgnoreCase)
+               || c.Name.Contains(_search, StringComparison.OrdinalIgnoreCase);
+    }
+
+    void Toggle(ref bool flag) {
+        flag = !flag;
+        _cal?.ApplyFilters();
+    }
+
+    void SetSearch(string value) {
+        _search = value.Trim();
+        _cal?.ApplyFilters();
+    }
+
+    async Task TogglePredictions() {
+        _showPredictions = !_showPredictions;
+        if (_showPredictions && _cal is not null) await EnsurePredictions(_cal.VisibleEnd);
+        _cal?.ApplyFilters();
+    }
+
+    IReadOnlyList<ContractCalendarItem> Items() {
+        var items = new List<ContractCalendarItem>(_contracts.Count);
+        items.AddRange(_contracts.Values.Where(Match).Select(ContractCalendarItem.Of));
+        if (_isAdmin && _showPredictions && _search.Length == 0 && _predictions is { } set) {
+            items.AddRange(set.Slots.Where(s => KindShown(s.Kind)).Select(ContractCalendarItem.Of));
+        }
+
+        return items;
+    }
+
+    void Select(ContractCalendarItem item) {
+        _cal?.Select(item);
+    }
+
+    async Task<CalendarLoad> LoadRange(CalendarRange range) {
+        if (_covered.Covers(range.Start, range.End)) return CalendarLoad.Ok;
+        var url = FormattableString.Invariant(
+            $"/api/v1/contracts?after={range.Start:0}&before={range.End:0}&limit={FetchLimit}");
+        try {
+            var res = await Client().GetAsync(url);
+            if ((int)res.StatusCode == 503) return CalendarLoad.Failed("Contract history needs a database. This instance has none.");
+            if (!res.IsSuccessStatusCode) return CalendarLoad.Failed("Contracts could not be loaded.");
+            var body = await res.Content.ReadFromJsonAsync<ContractReleaseListResponse>(JsonOpts);
+            if (body?.Releases is null) return CalendarLoad.Failed("Contracts could not be loaded.");
+            foreach (var c in body.Releases) _contracts[ContractCalendarItem.Of(c).Key] = c;
+            if (body.Total <= body.Releases.Count) {
+                _covered = _covered.Extend(range.Start, range.End);
+                return CalendarLoad.Ok;
+            }
+
+            return new CalendarLoad("Showing the newest 500 contracts in this range.", false);
+        } catch (Exception ex) {
+            Logger.LogWarning(ex, "the contract calendar window could not be loaded");
+            return CalendarLoad.Failed("Contracts could not be loaded.");
+        }
+    }
+
+    Task OnWindowChanged(DateTimeOffset visibleStart, DateTimeOffset visibleEnd) {
+        return EnsurePredictions(visibleEnd);
+    }
+
+    async Task EnsurePredictions(DateTimeOffset visibleEnd) {
+        if (!_isAdmin || !_showPredictions || _predictions is not null) return;
+        if (visibleEnd <= DateTimeOffset.UtcNow) return;
+        try {
+            var res = await Client().GetAsync(
+                FormattableString.Invariant($"/api/v1/contracts/predictions?horizon={PredictionHorizonSlots}"));
+            if (!res.IsSuccessStatusCode) return;
+            _predictions = await res.Content.ReadFromJsonAsync<ContractPredictionResponse>(JsonOpts);
+        } catch (Exception ex) {
+            Logger.LogDebug(ex, "contract predictions could not be loaded");
+        }
+    }
+
+    static string BarCss(CalendarBar<ContractCalendarItem> bar) {
+        var css = CalendarWorkbench<ContractCalendarItem>.BarCss(bar) + " evcal-bar-contract";
+        if (bar.Item.Ghost) css += " evcal-bar-ghost";
+        return css;
+    }
+
+    string BarStyle(CalendarBar<ContractCalendarItem> bar) {
+        return (_cal?.BarStyle(bar) ?? "") + PaletteStyle(bar.Item.Kind);
+    }
+
+    static string PaletteStyle(ContractSlotKind kind) {
+        return kind switch {
+            ContractSlotKind.NewContract => ContractPalette.BarStyle(false, false, 0),
+            ContractSlotKind.Leggacy => ContractPalette.BarStyle(false, true, 0),
+            ContractSlotKind.PeLeggacy => ContractPalette.BarStyle(false, true, 1),
+            _ => ContractPalette.BarStyle(true, true, 1)
+        };
+    }
+
+    string Absolute(double unixSeconds) {
+        return _cal?.Absolute(unixSeconds) ?? "";
+    }
+
+    static string KindCss(bool on) {
+        return on ? "evwb-row-on" : "evwb-row-dim";
+    }
+
+    static string KindRowStyle(string color) {
+        return FormattableString.Invariant($"--evt-color:{color};");
+    }
+
+    static string UltraRowStyle => FormattableString.Invariant(
+        $"--evt-from:{EventPalette.CcGradientFrom};--evt-to:{EventPalette.CcGradientTo};");
+
+    static string Label(ContractCalendarItem item) {
+        if (item.Slot is { } s) return s.Candidates.Count > 0 ? s.Candidates[0].Name + "?" : KindLabel(s.Kind);
+        return item.Release?.Name ?? "";
+    }
+
+    static string PopTitle(ContractCalendarItem item) {
+        return item.Slot is { } s ? KindLabel(s.Kind) + " Predicted" : Label(item);
+    }
+
+    static string KindLabel(ContractSlotKind kind) {
+        return kind switch {
+            ContractSlotKind.NewContract => "New",
+            ContractSlotKind.Leggacy => "Leggacy",
+            ContractSlotKind.PeLeggacy => "PE Leggacy",
+            ContractSlotKind.PeLeggacyUltra => "PE Leggacy, ultra only",
+            _ => "Contract"
+        };
+    }
+
+    string CandidateLabel(ContractCandidate c) {
+        var releases = c.Releases == 1 ? "1 release" : FormattableString.Invariant($"{c.Releases} releases");
+        return $"{c.Name}, {releases}, last seen {Absolute(c.LastReleased)}";
+    }
+
+    static string EggLabel(ContractReleaseDto c) {
+        if (c.CustomEggId is { Length: > 0 } custom) return Pretty(custom);
+        if (!Enum.IsDefined((Egg)c.Egg)) return c.Egg.ToString(CultureInfo.InvariantCulture);
+        var name = ((Egg)c.Egg).ToString();
+        return string.Concat(name.SelectMany<char, char>((ch, i) => i > 0 && char.IsUpper(ch) ? [' ', ch] : [ch]));
+    }
+
+    static string Pretty(string raw) {
+        var words = raw.Replace('-', ' ').Replace('_', ' ').Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        return string.Join(' ', words.Select(w => char.ToUpperInvariant(w[0]) + w[1..].ToLowerInvariant()));
+    }
+
+}

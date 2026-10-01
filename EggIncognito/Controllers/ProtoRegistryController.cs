@@ -179,19 +179,6 @@ public sealed class ProtoRegistryController(ICurrentUser user, TimeProvider time
         return Ok(results);
     }
 
-    [HttpPost("/api/protos/staged/correction")]
-    [ApiAccess(ApiAccessLevel.Admin)]
-    [RequiresDb]
-    public async Task<IActionResult> StagedCorrection([FromBody] CorrectionRequest req,
-        [FromServices] StagedProtoStore s, CancellationToken ct) {
-        if (string.IsNullOrWhiteSpace(req.TargetPlatform) || string.IsNullOrWhiteSpace(req.TargetBuild))
-            return Fail(400, "targetPlatform + targetBuild required");
-        var r = await s.StageCorrectionAsync(req.TargetPlatform, req.TargetBuild, req.Platform, req.AppVersion,
-            req.Build, req.ClientVersion, req.Package, req.ProtoSha, req.ProtoText, req.MessageIndex, user.DiscordId,
-            ct);
-        return Ok(new { result = r.ToString().ToLowerInvariant() });
-    }
-
     [HttpPost("/api/protos/staged/offer")]
     [ApiAccess(ApiAccessLevel.Authenticated)]
     [RequiresDb]
@@ -246,7 +233,7 @@ public sealed class ProtoRegistryController(ICurrentUser user, TimeProvider time
     [HttpGet("/api/protos/staged")]
     [ApiAccess(ApiAccessLevel.Contributor)]
     public async Task<IActionResult> StagedList([FromServices] StagedProtoStore? s, CancellationToken ct) =>
-        Ok(s is null ? [] : await s.PendingWithTargetsAsync(ct));
+        Ok(s is null ? [] : await s.PendingRowsAsync(ct));
 
     [HttpGet("/api/protos/staged/{id:int}/proto")]
     [ApiAccess(ApiAccessLevel.Contributor)]
@@ -261,14 +248,11 @@ public sealed class ProtoRegistryController(ICurrentUser user, TimeProvider time
     [RequiresDb]
     public async Task<IActionResult> StagedApprove(int id, [FromBody] ApproveRequest req,
         [FromServices] StagedProtoStore s, CancellationToken ct) {
-        var r = await s.ApproveAsync(id, req.Platform, req.AppVersion, req.Build, req.ClientVersion, Reviewer,
-            user.IsAtLeast(UserRole.Admin), ct);
+        var r = await s.ApproveAsync(id, req.Platform, req.AppVersion, req.Build, req.ClientVersion, Reviewer, ct);
         return r switch {
             StagedProtoStore.ApproveResult.Ok => Ok(new { ok = true, merged = false }),
             StagedProtoStore.ApproveResult.Merged => Ok(new { ok = true, merged = true }),
             StagedProtoStore.ApproveResult.MissingBuild => Fail(400, "appVersion + build required to approve"),
-            StagedProtoStore.ApproveResult.BuildCollision => Fail(409, "build already taken"),
-            StagedProtoStore.ApproveResult.Forbidden => Fail(403, "admin+ only"),
             _ => Fail(404, "staged proto not found")
         };
     }
@@ -288,7 +272,7 @@ public sealed class ProtoRegistryController(ICurrentUser user, TimeProvider time
         var r = await s.BulkApproveAsync(
             [.. (req.Items ?? []).Select(i =>
                 new StagedProtoStore.ApproveItem(i.Id, i.Platform, i.AppVersion, i.Build, i.ClientVersion))],
-            Reviewer, user.IsAtLeast(UserRole.Admin), ct);
+            Reviewer, ct);
         return Ok(new { ok = true, approved = r.Approved, skipped = r.Skipped, failed = r.Failed });
     }
 

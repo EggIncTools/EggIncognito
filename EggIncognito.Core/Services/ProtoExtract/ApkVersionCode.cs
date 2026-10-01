@@ -59,9 +59,11 @@ public static class ApkVersionCode {
         }
     }
 
-    public static string? ReadVersionName(byte[] data) {
+    public static string? ReadVersionName(byte[] data) => ReadStringAttr(data, "versionName");
+
+    public static string? ReadStringAttr(byte[] data, string attr) {
         try {
-            if (data.Length < 8 || ReadU16(data, 0) != ResXmlType) return null;
+            if (data is null || data.Length < 8 || ReadU16(data, 0) != ResXmlType) return null;
             int pos = 8;
             string[]? strings = null;
             while (pos + 8 <= data.Length) {
@@ -72,8 +74,8 @@ public static class ApkVersionCode {
                 if (type == ResStringPoolType) {
                     strings = ReadStringPool(data, pos);
                 } else if (type == ResXmlStartElementType && strings is not null) {
-                    string? name = ReadStartElementStringAttr(data, pos, headerSize, strings, "versionName");
-                    if (name is not null) return name;
+                    string? value = ReadStartElementStringAttr(data, pos, headerSize, strings, attr);
+                    if (value is not null) return value;
                 }
 
                 pos += size;

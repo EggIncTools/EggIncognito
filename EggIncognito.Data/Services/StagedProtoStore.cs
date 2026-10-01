@@ -8,33 +8,21 @@ using Microsoft.EntityFrameworkCore;
 namespace EggIncognito.Data.Services;
 
 public sealed class StagedProtoStore(EggIncognitoDbContext db, TimeProvider time, ProtoRegistryStore registry) {
-    public const string KindVersion = "version";
-    public const string KindCorrection = "correction";
     public const string SourceOffer = "offer";
 
     public enum ApproveResult {
         Ok,
         Merged,
         NotFound,
-        MissingBuild,
-        BuildCollision,
-        Forbidden
+        MissingBuild
     }
 
     public enum OfferResult {
         Staged,
         AlreadyPending,
         AlreadyInRegistry,
-        CorrectionStaged,
         ArchiveFlagged,
         AlreadyArchived
-    }
-
-    public enum CorrectionResult {
-        Staged,
-        AlreadyPending,
-        NoChange,
-        NotFound
     }
 
     private Task NotifyStagedAsync(string key, CancellationToken ct) =>
@@ -56,11 +44,7 @@ public sealed class StagedProtoStore(EggIncognitoDbContext db, TimeProvider time
         var compatible = rows.Where(p => AllCompatible(p, platform, appVersion, build, clientVersion)).ToList();
         bool known = compatible.Count > 0;
         bool archived = known && compatible.TrueForAll(p => p.ArchiveSourced);
-        bool conflict = inReg && !known;
-        var stored = conflict
-            ? new StoredMeta(rows[0].Platform, rows[0].AppVersion, rows[0].Build, rows[0].ClientVersion)
-            : (StoredMeta?)null;
-        return new CheckOutcome(inReg, pending, known, conflict, stored, archived);
+        return new CheckOutcome(inReg, pending, known, archived);
     }
 
     private static int FieldScore(string? appVersion, string? build, string? clientVersion) =>
@@ -78,16 +62,6 @@ public sealed class StagedProtoStore(EggIncognitoDbContext db, TimeProvider time
     private Task<List<ProtoVersion>> ShaRowsAsync(string sha, CancellationToken ct) =>
         db.ProtoVersions.AsNoTracking().Where(p => p.ProtoSha == sha && p.DeletedAt == null).ToListAsync(ct);
 
-    private async Task<bool> CorrectionPendingAsync(int targetId, string? appVersion, string? build,
-        string? clientVersion, CancellationToken ct) {
-        var pending = await db.StagedProtos.AsNoTracking()
-            .Where(s => s.Status == "pending" && s.Kind == KindCorrection && s.TargetId == targetId)
-            .Select(s => new { s.AppVersion, s.Build, s.ClientVersion })
-            .ToListAsync(ct);
-        return pending.Any(p => Same(p.AppVersion, appVersion) && Same(p.Build, build)
-                                                              && Same(p.ClientVersion, clientVersion));
-    }
-
     private static bool Same(string? a, string? b) =>
         string.Equals(a?.Trim() ?? "", b?.Trim() ?? "", StringComparison.OrdinalIgnoreCase);
 
@@ -97,27 +71,8 @@ public sealed class StagedProtoStore(EggIncognitoDbContext db, TimeProvider time
         string? originRepo, string? originCommit, DateTimeOffset? originDate, string? confidence,
         CancellationToken ct) {
         var shaRows = OnPlatform(await ShaRowsAsync(protoSha, ct), platform);
-        if (shaRows.Count > 0) {
-            if (shaRows.Any(p => AllCompatible(p, platform, appVersion, build, clientVersion)))
-                return StageOutcome.AlreadyInRegistry;
-
-            var target = shaRows[0];
-            if (await CorrectionPendingAsync(target.Id, appVersion, build, clientVersion, ct))
-                return StageOutcome.AlreadyPending;
-
-            var correction = NewStaged(platform, appVersion, build, clientVersion, package, protoSha, protoText,
-                messageIndex, source, submittedBy, time.GetUtcNow());
-            correction.Kind = KindCorrection;
-            correction.TargetId = target.Id;
-            correction.OriginRepo = originRepo;
-            correction.OriginCommit = originCommit;
-            correction.OriginDate = originDate;
-            correction.Confidence = confidence;
-            db.StagedProtos.Add(correction);
-            await db.SaveChangesAsync(ct);
-            await NotifyStagedAsync($"stage:{correction.Id}", ct);
-            return StageOutcome.CorrectionStaged;
-        }
+        if (shaRows.Any(p => AllCompatible(p, platform, appVersion, build, clientVersion)))
+            return StageOutcome.AlreadyInRegistry;
 
         if (await ShaPendingAsync(protoSha, platform, ct)) return StageOutcome.AlreadyPending;
 
@@ -181,36 +136,6 @@ public sealed class StagedProtoStore(EggIncognitoDbContext db, TimeProvider time
             SubmittedAt = now
         };
 
-    public async Task<CorrectionResult> StageCorrectionAsync(
-        string targetPlatform, string targetBuild, string platform, string? appVersion, string? build,
-        string? clientVersion, string? package, string protoSha, string protoText, string? messageIndex,
-        string? submittedBy, CancellationToken ct) {
-        var target = await db.ProtoVersions.AsNoTracking().FirstOrDefaultAsync(
-            p => p.Platform == targetPlatform && p.Build == targetBuild && p.DeletedAt == null, ct);
-        if (target is null) return CorrectionResult.NotFound;
-
-        bool metaSame = Unchanged(appVersion, target.AppVersion)
-                        && Unchanged(build, target.Build)
-                        && Unchanged(clientVersion, target.ClientVersion);
-        bool shaSame = Same(protoSha, target.ProtoSha);
-        if (metaSame && shaSame) return CorrectionResult.NoChange;
-
-        if (await CorrectionPendingAsync(target.Id, appVersion, build, clientVersion, ct))
-            return CorrectionResult.AlreadyPending;
-
-        var row = NewStaged(platform, appVersion, build, clientVersion, package, protoSha, protoText,
-            messageIndex, "overwrite", submittedBy, time.GetUtcNow());
-        row.Kind = KindCorrection;
-        row.TargetId = target.Id;
-        db.StagedProtos.Add(row);
-        await db.SaveChangesAsync(ct);
-        await NotifyStagedAsync($"stage:{row.Id}", ct);
-        return CorrectionResult.Staged;
-    }
-
-    private static bool Unchanged(string? proposed, string? stored) =>
-        string.IsNullOrWhiteSpace(proposed) || Same(proposed, stored);
-
     private async Task<OfferResult?> FlagArchiveMatchAsync(string platform, string? appVersion, string? build,
         string? clientVersion, string protoSha, CancellationToken ct) {
         var matches = OnPlatform(await ShaRowsAsync(protoSha, ct), platform)
@@ -234,7 +159,6 @@ public sealed class StagedProtoStore(EggIncognitoDbContext db, TimeProvider time
             protoText, messageIndex, source, submittedBy, null, null, null, null, ct);
         return outcome switch {
             StageOutcome.AlreadyInRegistry => OfferResult.AlreadyInRegistry,
-            StageOutcome.CorrectionStaged => OfferResult.CorrectionStaged,
             StageOutcome.AlreadyPending or StageOutcome.StaleRejected => OfferResult.AlreadyPending,
             _ => OfferResult.Staged
         };
@@ -250,7 +174,7 @@ public sealed class StagedProtoStore(EggIncognitoDbContext db, TimeProvider time
             var outcome = await StageOrReviveAsync(r.Platform, r.AppVersion, r.Build, r.ClientVersion, null,
                 sha, r.ProtoText, messageIndex, "crawl", null, r.OriginRepo, r.OriginCommit, r.OriginDate,
                 r.Confidence, ct);
-            if (outcome is StageOutcome.Staged or StageOutcome.Revived or StageOutcome.CorrectionStaged) staged++;
+            if (outcome is StageOutcome.Staged or StageOutcome.Revived) staged++;
             else skipped++;
         }
 
@@ -282,58 +206,25 @@ public sealed class StagedProtoStore(EggIncognitoDbContext db, TimeProvider time
         return Evaluate(rows, pending, platform, appVersion, build, clientVersion);
     }
 
-    public Task<List<PendingRow>> PendingWithTargetsAsync(CancellationToken ct) =>
+    public Task<List<PendingRow>> PendingRowsAsync(CancellationToken ct) =>
         db.StagedProtos.AsNoTracking()
             .Where(s => s.Status == "pending")
-            .LeftJoin(db.ProtoVersions.AsNoTracking(), s => s.TargetId, p => (int?)p.Id, (s, t) => new { s, t })
-            .OrderByDescending(x => x.s.SubmittedAt)
-            .Select(x => new PendingRow(
-                x.s.Id, x.s.Source, x.s.Platform, x.s.AppVersion, x.s.Build, x.s.ClientVersion, x.s.ProtoSha,
-                x.s.SubmittedBy, x.s.SubmittedAt, x.s.OriginRepo, x.s.OriginCommit, x.s.OriginDate, x.s.Confidence,
-                x.s.Kind, x.s.TargetId,
-                x.t == null
-                    ? null
-                    : new TargetMeta(x.t.Platform, x.t.AppVersion, x.t.Build, x.t.ClientVersion, x.t.ProtoSha)))
+            .OrderByDescending(s => s.SubmittedAt)
+            .Select(s => new PendingRow(
+                s.Id, s.Source, s.Platform, s.AppVersion, s.Build, s.ClientVersion, s.ProtoSha,
+                s.SubmittedBy, s.SubmittedAt, s.OriginRepo, s.OriginCommit, s.OriginDate, s.Confidence))
             .ToListAsync(ct);
 
     public async Task<ApproveResult> ApproveAsync(
         int id, string? platform, string? appVersion, string? build, string? clientVersion,
-        string reviewedBy, bool allowCorrection, CancellationToken ct) {
+        string reviewedBy, CancellationToken ct) {
         var row = await db.StagedProtos.FirstOrDefaultAsync(s => s.Id == id && s.Status == "pending", ct);
         if (row is null) return ApproveResult.NotFound;
-        if (row.Kind == KindCorrection && !allowCorrection) return ApproveResult.Forbidden;
 
         string plat = string.IsNullOrWhiteSpace(platform) ? row.Platform : platform;
         string? appV = string.IsNullOrWhiteSpace(appVersion) ? row.AppVersion : appVersion;
         string? bld = string.IsNullOrWhiteSpace(build) ? row.Build : build;
         string? cv = string.IsNullOrWhiteSpace(clientVersion) ? row.ClientVersion : clientVersion;
-
-        if (row.Kind == KindCorrection) {
-            var target = row.TargetId is { } tid
-                ? await db.ProtoVersions.FirstOrDefaultAsync(p => p.Id == tid, ct)
-                : null;
-            if (target is null) return ApproveResult.NotFound;
-
-            string targetPlatform = target.Platform;
-            string targetBuild = target.Build;
-            string? newAppV = string.IsNullOrWhiteSpace(appV) ? null : appV;
-            string? newCv = string.IsNullOrWhiteSpace(cv) ? null : cv;
-            var meta = await registry.UpdateMetadataAsync(targetPlatform, targetBuild, newAppV, newCv, null, bld, ct);
-            if (meta == ProtoRegistryStore.MetadataUpdate.BuildCollision) return ApproveResult.BuildCollision;
-            if (meta == ProtoRegistryStore.MetadataUpdate.NotFound) return ApproveResult.NotFound;
-
-            string finalBuild = string.IsNullOrWhiteSpace(bld) ? targetBuild : bld;
-            if (!string.IsNullOrEmpty(row.ProtoText) && row.ProtoSha != target.ProtoSha)
-                await registry.SetProtoAsync(targetPlatform, finalBuild, row.ProtoText, ct);
-            if (row.Source == SourceOffer) await registry.SetArchiveSourcedAsync(targetPlatform, finalBuild, ct);
-
-            row.Status = "approved";
-            row.ReviewedBy = reviewedBy;
-            row.ReviewedAt = time.GetUtcNow();
-            await db.SaveChangesAsync(ct);
-            await NotifyStagedAsync($"approve:{row.Id}", ct);
-            return ApproveResult.Merged;
-        }
 
         if (string.IsNullOrWhiteSpace(bld) || string.IsNullOrWhiteSpace(appV)) return ApproveResult.MissingBuild;
 
@@ -376,14 +267,13 @@ public sealed class StagedProtoStore(EggIncognitoDbContext db, TimeProvider time
     }
 
     public async Task<BulkApproveResult> BulkApproveAsync(
-        IReadOnlyList<ApproveItem> items, string reviewedBy, bool allowCorrections, CancellationToken ct) {
+        IReadOnlyList<ApproveItem> items, string reviewedBy, CancellationToken ct) {
         int ok = 0, skipped = 0, failed = 0;
         foreach (var it in items) {
-            var r = await ApproveAsync(it.Id, it.Platform, it.AppVersion, it.Build, it.ClientVersion, reviewedBy,
-                allowCorrections, ct);
+            var r = await ApproveAsync(it.Id, it.Platform, it.AppVersion, it.Build, it.ClientVersion, reviewedBy, ct);
             switch (r) {
                 case ApproveResult.Ok or ApproveResult.Merged: ok++; break;
-                case ApproveResult.MissingBuild or ApproveResult.Forbidden: skipped++; break;
+                case ApproveResult.MissingBuild: skipped++; break;
                 default: failed++; break;
             }
         }
@@ -415,30 +305,14 @@ public sealed class StagedProtoStore(EggIncognitoDbContext db, TimeProvider time
         Revived,
         AlreadyPending,
         AlreadyInRegistry,
-        StaleRejected,
-        CorrectionStaged
+        StaleRejected
     }
 
     public readonly record struct CheckOutcome(
         bool InRegistry,
         bool Pending,
         bool KnownCombination,
-        bool Conflict,
-        StoredMeta? Stored,
         bool Archived = false);
-
-    public readonly record struct StoredMeta(
-        string Platform,
-        string? AppVersion,
-        string? Build,
-        string? ClientVersion);
-
-    public sealed record TargetMeta(
-        string Platform,
-        string? AppVersion,
-        string? Build,
-        string? ClientVersion,
-        string? ProtoSha);
 
     public sealed record PendingRow(
         int Id,
@@ -453,10 +327,7 @@ public sealed class StagedProtoStore(EggIncognitoDbContext db, TimeProvider time
         string? OriginRepo,
         string? OriginCommit,
         DateTimeOffset? OriginDate,
-        string? Confidence,
-        string Kind,
-        int? TargetId,
-        TargetMeta? Target);
+        string? Confidence);
 
     public readonly record struct ApproveItem(
         int Id,

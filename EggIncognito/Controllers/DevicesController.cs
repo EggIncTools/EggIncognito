@@ -661,7 +661,7 @@ public sealed partial class DevicesController(
         (IActionResult? err, var platform, var target) = await ResolveUiAsync(id, fleet, platforms, ct);
         if (err is not null) return err;
 
-        var r = await platform.TapPointAsync(target, req.X, req.Y, ct);
+        var r = await DeviceInputLane.RunAsync(target.Id, t => platform.TapPointAsync(target, req.X, req.Y, t), ct);
         return r.Ok ? Ok(new UiActionResult(true, DeviceOutcomes.Label(r), r.Note)) : UiFailure(r.Outcome, r.Note);
     }
 
@@ -673,11 +673,44 @@ public sealed partial class DevicesController(
         [FromServices] PixelWatchService watches, [FromServices] IDeviceFleet? fleet,
         [FromServices] IDevicePlatforms? platforms, CancellationToken ct) {
         if (req.X < 0 || req.Y < 0) return Fail(400, "x and y must be non-negative");
+        if (req.Kind is { Length: > 0 } && !PixelWatchKinds.IsKnown(req.Kind))
+            return Fail(400, $"kind must be one of: {string.Join(", ", PixelWatchKinds.All)}");
         (IActionResult? err, var platform, var target) = await ResolveUiAsync(id, fleet, platforms, ct);
         if (err is not null) return err;
 
-        var r = await watches.AddAsync(platform, target, req.X, req.Y, ct);
+        var r = await watches.AddAsync(platform, target, req, ct);
         return r.Ok ? Ok(r.Value) : UiFailure(r.Outcome, r.Note);
+    }
+
+    [HttpPatch("{id}/ui/watch/{point}")]
+    [ApiAccess(ApiAccessLevel.Admin)]
+    [Requires<PixelWatchService>("pixel watch not configured")]
+    [EnableRateLimiting("write")]
+    public IActionResult UiWatchUpdate(string id, string point, [FromBody] PixelWatchPointUpdate req,
+        [FromServices] PixelWatchService watches) {
+        if (req.Kind is { Length: > 0 } && !PixelWatchKinds.IsKnown(req.Kind))
+            return Fail(400, $"kind must be one of: {string.Join(", ", PixelWatchKinds.All)}");
+        if (!watches.Update(id, point, req)) return Fail(404, "unknown watch point");
+        return Ok(watches.State(id));
+    }
+
+    [HttpPost("{id}/ui/watch/groups")]
+    [ApiAccess(ApiAccessLevel.Admin)]
+    [Requires<PixelWatchService>("pixel watch not configured")]
+    [EnableRateLimiting("write")]
+    public IActionResult UiWatchGroup(string id, [FromBody] PixelWatchGroupRequest req,
+        [FromServices] PixelWatchService watches) {
+        var r = watches.AddGroup(id, req);
+        return r.Ok ? Ok(r.Value) : Fail(400, r.Note ?? "group failed");
+    }
+
+    [HttpDelete("{id}/ui/watch/groups/{group}")]
+    [ApiAccess(ApiAccessLevel.Admin)]
+    [Requires<PixelWatchService>("pixel watch not configured")]
+    [EnableRateLimiting("write")]
+    public IActionResult UiWatchUngroup(string id, string group, [FromServices] PixelWatchService watches) {
+        if (!watches.Ungroup(id, group)) return Fail(404, "unknown watch group");
+        return Ok(watches.State(id));
     }
 
     [HttpGet("{id}/ui/watch")]
@@ -732,7 +765,7 @@ public sealed partial class DevicesController(
         (IActionResult? err, var platform, var target) = await ResolveUiAsync(id, fleet, platforms, ct);
         if (err is not null) return err;
 
-        var r = await platform.TouchAsync(target, phase, req.X, req.Y, ct);
+        var r = await DeviceInputLane.RunAsync(target.Id, t => platform.TouchAsync(target, phase, req.X, req.Y, t), ct);
         return r.Ok ? Ok(new UiActionResult(true, DeviceOutcomes.Label(r), r.Note)) : UiFailure(r.Outcome, r.Note);
     }
 
@@ -746,7 +779,8 @@ public sealed partial class DevicesController(
         (IActionResult? err, var platform, var target) = await ResolveUiAsync(id, fleet, platforms, ct);
         if (err is not null) return err;
 
-        var r = await platform.SwipeAsync(target, req.X1, req.Y1, req.X2, req.Y2, req.DurationMs, ct);
+        var r = await DeviceInputLane.RunAsync(target.Id,
+            t => platform.SwipeAsync(target, req.X1, req.Y1, req.X2, req.Y2, req.DurationMs, t), ct);
         return r.Ok ? Ok(new UiActionResult(true, DeviceOutcomes.Label(r), r.Note)) : UiFailure(r.Outcome, r.Note);
     }
 

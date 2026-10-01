@@ -40,6 +40,17 @@ public class ProtoVersionOrderingTests {
     }
 
     [Fact]
+    public void HigherBuildCodeSortsNewerEvenWhenDetectedLater() {
+        var rows = new[] {
+            new Row("android", "1.33.3", "111294", Client: "67", Seen: new DateTime(2026, 8, 1, 0, 0, 0, DateTimeKind.Utc)),
+            new Row("android", "1.33.3", "111297", Client: "67", Seen: new DateTime(2025, 8, 1, 0, 0, 0, DateTimeKind.Utc)),
+            new Row("android", "1.33.3", "111296", Client: "67", Seen: new DateTime(2026, 8, 2, 0, 0, 0, DateTimeKind.Utc)),
+        };
+        var sorted = ProtoVersionOrdering.Sort(rows, Key);
+        Assert.Equal(new[] { "111297", "111296", "111294" }, sorted.Select(r => r.Build).ToArray());
+    }
+
+    [Fact]
     public void PreviousReturnsTheNextOlderSamePlatformEntry() {
         var rows = new[] {
             new Row("ios", "1.37.0", "1.37.0.1"),

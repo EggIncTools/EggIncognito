@@ -17,13 +17,47 @@ public static class ArchiveProtoExtractor {
 
         (string? appVersion, string? build) = ReadVersion(archiveZipBytes);
 
+        bool anyCandidate = false;
         foreach (byte[] entryBytes in CandidateBinaries(archiveZipBytes)) {
+            anyCandidate = true;
             var r = DescriptorProtoCarver.Extract(entryBytes);
             if (r.Ok) return r with { AppVersion = appVersion, Build = build };
         }
 
         var raw = DescriptorProtoCarver.Extract(archiveZipBytes);
-        return raw.Ok ? raw with { AppVersion = appVersion, Build = build } : raw;
+        if (raw.Ok) return raw with { AppVersion = appVersion, Build = build };
+        return raw with {
+            Diagnostics = anyCandidate ? raw.Diagnostics : NoBinaryDiagnostics(archiveZipBytes, raw.Diagnostics),
+            AppVersion = appVersion,
+            Build = build,
+        };
+    }
+
+    private static string NoBinaryDiagnostics(byte[] zipBytes, string fallback) {
+        if (!IsZip(zipBytes)) return fallback;
+        byte[]? manifest = ReadAndroidManifest(zipBytes);
+        string? splitTypes = manifest is null ? null : ApkVersionCode.ReadStringAttr(manifest, "requiredSplitTypes");
+        if (!string.IsNullOrEmpty(splitTypes)) {
+            return $"base module of a split install (requiredSplitTypes={splitTypes}): the native library ships in "
+                   + "the config.arm64_v8a split, so there is no ei.proto descriptor here; upload the full bundle "
+                   + "(.apkm/.xapk) or the arm64 config split apk";
+        }
+
+        return "no native library in the archive (expected lib/<abi>/libegginc.so) and no ei.proto descriptor in any entry";
+    }
+
+    private static bool IsZip(byte[] b) =>
+        b.Length > 4 && b[0] == 0x50 && b[1] == 0x4B && b[2] == 0x03 && b[3] == 0x04;
+
+    private static byte[]? ReadAndroidManifest(byte[] zipBytes) {
+        try {
+            using var ms = new MemoryStream(zipBytes, false);
+            using var zip = new ZipArchive(ms, ZipArchiveMode.Read);
+            var manifest = zip.GetEntry("AndroidManifest.xml");
+            return manifest is null ? null : ReadEntry(manifest);
+        } catch {
+            return null;
+        }
     }
 
     private static bool TryReadArmBundle(byte[] zipBytes, out byte[] armApk, out byte[]? baseApk) {

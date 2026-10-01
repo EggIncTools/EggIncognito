@@ -1,0 +1,150 @@
+@using EggIncognito.Core.Services.Devices
+@using EggIncognito.Models.Devices
+
+<div class="dis">
+    <button type="button" class="dis-btn" aria-haspopup="listbox" aria-expanded="@(_open ? "true" : "false")"
+            disabled="@Busy" title="Switch island" @onclick="Toggle">
+        <span class="dis-btn-main">
+            <span class="dcon-k">Island</span>
+            <span class="dis-name">@CurrentLabel()</span>
+            <span class="font-mono text-muted text-xs">user @CurrentUser()</span>
+        </span>
+        <Icon Name="chevron-down" Class="icon-sm"/>
+    </button>
+    @if (_open) {
+        <div class="popover-backdrop" @onmousedown="Close" @onwheel="Close"></div>
+        <div class="dis-pop" role="listbox" aria-label="Islands">
+            <div class="dis-row @(Selected is null ? "dis-row-on" : "")" role="option" aria-selected="@(Selected is null ? "true" : "false")">
+                <button type="button" class="dis-pick" @onclick="@(() => PickAsync(IslandScope.Owner))">
+                    <span class="dcon-cur">
+                        @if (Selected is null) {
+                            <Icon Name="check" Class="icon-sm text-ok"/>
+                        }
+                    </span>
+                    <span class="dis-name">Device, no island</span>
+                    <span class="font-mono text-muted text-xs">user @IslandScope.Owner</span>
+                </button>
+            </div>
+            @foreach (var island in Islands) {
+                var current = Selected == island.AndroidUserId;
+                <div class="dis-row @(current ? "dis-row-on" : "")" role="option" aria-selected="@(current ? "true" : "false")" @key="island.AndroidUserId">
+                    <button type="button" class="dis-pick" @onclick="@(() => PickAsync(island.AndroidUserId))">
+                        <span class="dcon-cur">
+                            @if (current) {
+                                <Icon Name="check" Class="icon-sm text-ok"/>
+                            }
+                        </span>
+                        <span class="dis-name">@Label(island)</span>
+                        <span class="font-mono text-muted text-xs"
+                              title="@(island.Provisioned ? null : "setup wizard not marked complete for this user; interstitials may cover the app")">
+                            user @island.AndroidUserId@(island.Provisioned ? "" : ", unprovisioned")
+                        </span>
+                    </button>
+                    <button type="button" class="btn-mini btn-danger" title="Remove this island" disabled="@Busy"
+                            @onclick="@(() => RemoveAsync(island.AndroidUserId))">
+                        <Icon Name="x" Class="icon-sm"/>
+                    </button>
+                </div>
+            }
+            <div class="dis-foot">
+                @if (_creating) {
+                    <input class="field-input" placeholder="island label" aria-label="New island label"
+                           @bind="_label" @bind:event="oninput" @onkeydown="LabelKeyAsync"/>
+                    <button type="button" class="btn-mini" disabled="@(Busy || _label.Trim().Length == 0)" @onclick="CreateAsync">Create</button>
+                    <button type="button" class="btn-mini" @onclick="CancelCreate">Cancel</button>
+                } else {
+                    <button type="button" class="btn-mini" disabled="@Busy" @onclick="StartCreate">
+                        <Icon Name="plus" Class="icon-sm"/>
+                        New island
+                    </button>
+                    <button type="button" class="btn-mini" disabled="@Busy" @onclick="@(() => OnRefresh.InvokeAsync())">
+                        <Icon Name="refresh-cw" Class="icon-sm"/>
+                        Refresh
+                    </button>
+                    <span class="text-muted text-xs dis-note">one island runs at a time</span>
+                }
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+
+    [Parameter] public IReadOnlyList<IslandRow> Islands { get; set; } = [];
+
+    [Parameter] public int? Selected { get; set; }
+
+    [Parameter] public bool Busy { get; set; }
+
+    [Parameter] public EventCallback<int> OnSwitch { get; set; }
+
+    [Parameter] public EventCallback<int> OnRemove { get; set; }
+
+    [Parameter] public EventCallback<string> OnCreate { get; set; }
+
+    [Parameter] public EventCallback OnRefresh { get; set; }
+
+    bool _open;
+    bool _creating;
+    string _label = "";
+
+    IslandRow? Current => Selected is { } uid ? Islands.FirstOrDefault(i => i.AndroidUserId == uid) : null;
+
+    string CurrentLabel() {
+        return Current is { } island ? Label(island) : "Device, no island";
+    }
+
+    int CurrentUser() {
+        return Selected ?? IslandScope.Owner;
+    }
+
+    static string Label(IslandRow island) {
+        return string.IsNullOrWhiteSpace(island.Label) ? $"user {island.AndroidUserId}" : island.Label;
+    }
+
+    void Toggle() {
+        _open = !_open;
+        if (!_open) CancelCreate();
+    }
+
+    void Close() {
+        _open = false;
+        CancelCreate();
+    }
+
+    async Task PickAsync(int androidUserId) {
+        _open = false;
+        if (androidUserId == CurrentUser()) return;
+        await OnSwitch.InvokeAsync(androidUserId);
+    }
+
+    Task RemoveAsync(int androidUserId) {
+        return OnRemove.InvokeAsync(androidUserId);
+    }
+
+    void StartCreate() {
+        _creating = true;
+        _label = "";
+    }
+
+    void CancelCreate() {
+        _creating = false;
+        _label = "";
+    }
+
+    Task LabelKeyAsync(KeyboardEventArgs e) {
+        if (e.Key == "Enter") return CreateAsync();
+        if (e.Key == "Escape") CancelCreate();
+        return Task.CompletedTask;
+    }
+
+    async Task CreateAsync() {
+        var label = _label.Trim();
+        if (label.Length == 0) return;
+        _creating = false;
+        _label = "";
+        _open = false;
+        await OnCreate.InvokeAsync(label);
+    }
+
+}

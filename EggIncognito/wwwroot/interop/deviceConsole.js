@@ -433,6 +433,23 @@ function near(a, b, tolerance) {
   return Math.abs(a - b) <= tolerance;
 }
 
+function fireWatch(w, p, now) {
+  p.firedAt = now;
+  p.fired = true;
+  p.inFlight = true;
+  const done = () => { p.inFlight = false; };
+  try {
+    fetch(w.hitUrl + encodeURIComponent(p.id) + "/hit", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { "X-EGI-Internal": "1" },
+      cache: "no-store"
+    }).then(done, done);
+  } catch {
+    done();
+  }
+}
+
 function checkWatch(s, frame, fw, fh, now) {
   const w = watchSessions.get(s.canvas);
   if (!w || w.points.length === 0) return;
@@ -440,7 +457,6 @@ function checkWatch(s, frame, fw, fh, now) {
   w.checkedAt = now;
   const due = [];
   for (const p of w.points) {
-    if (now < (w.cooldowns.get(p.id) || 0)) continue;
     if (!(p.fx >= 0) || p.fx > 1 || !(p.fy >= 0) || p.fy > 1) continue;
     due.push(p);
   }
@@ -459,12 +475,22 @@ function checkWatch(s, frame, fw, fh, now) {
     return;
   }
   for (let i = 0; i < due.length; i++) {
-    const p = due[i];
     const o = i * 4;
-    if (!near(data[o], p.r, w.tolerance) || !near(data[o + 1], p.g, w.tolerance) || !near(data[o + 2], p.b, w.tolerance)) continue;
-    w.cooldowns.set(p.id, now + w.cooldownMs);
-    safeInvoke(s, "OnWatchHit", p.id);
+    judgeWatch(w, due[i], [data[o], data[o + 1], data[o + 2]], now);
   }
+}
+
+function judgeWatch(w, p, rgb, now) {
+  const match = near(rgb[0], p.r, w.tolerance) && near(rgb[1], p.g, w.tolerance) && near(rgb[2], p.b, w.tolerance);
+  if (!match) {
+    p.seen = 0;
+    p.fired = false;
+    return;
+  }
+  p.seen++;
+  if (p.seen < w.settleFrames || p.inFlight) return;
+  if (p.fired && now - p.firedAt < p.rateMs) return;
+  fireWatch(w, p, now);
 }
 
 function paint(s, frame, arrival) {
@@ -790,12 +816,26 @@ export function watchPoints(canvas, points, opts) {
     watchSessions.delete(canvas);
     return true;
   }
-  const o = { tolerance: 48, cooldownMs: 2500, ...(opts || {}) };
+  const o = { tolerance: 48, settleFrames: 2, hitUrl: "", ...(opts || {}) };
+  if (!o.hitUrl) return false;
+  const prior = watchSessions.get(canvas);
+  const carried = new Map();
+  if (prior) for (const p of prior.points) carried.set(p.id, p);
   watchSessions.set(canvas, {
-    points: list.map((p) => ({ id: p.id, fx: p.fx, fy: p.fy, r: p.r, g: p.g, b: p.b })),
+    points: list.map((p) => {
+      const was = carried.get(p.id);
+      return {
+        id: p.id, fx: p.fx, fy: p.fy, r: p.r, g: p.g, b: p.b,
+        rateMs: p.rateMs > 0 ? p.rateMs : 300,
+        seen: was ? was.seen : 0,
+        fired: was ? was.fired : false,
+        firedAt: was ? was.firedAt : 0,
+        inFlight: was ? was.inFlight : false
+      };
+    }),
     tolerance: o.tolerance,
-    cooldownMs: o.cooldownMs,
-    cooldowns: new Map(),
+    settleFrames: Math.max(1, o.settleFrames),
+    hitUrl: o.hitUrl,
     checkedAt: 0
   });
   return true;

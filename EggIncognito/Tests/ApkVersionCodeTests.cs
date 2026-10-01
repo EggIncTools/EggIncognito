@@ -26,6 +26,20 @@ public class ApkVersionCodeTests {
         Assert.Equal(ExpectedVersionCode, ApkVersionCode.Read(ZipWithEntry("AndroidManifest.xml", fx)));
     }
 
+    [Fact]
+    public void ReadStringAttr_BaseSplitManifest_ReadsRequiredSplitTypes() {
+        if (!TestFixtureFiles.TryRead(Path.Combine("base_split_111354", "AndroidManifest.xml"), out byte[] fx)) return;
+        string? types = ApkVersionCode.ReadStringAttr(fx, "requiredSplitTypes");
+        Assert.NotNull(types);
+        Assert.Contains("base__abi", types);
+    }
+
+    [Fact]
+    public void ReadStringAttr_ArmSplitManifest_HasNoRequiredSplitTypes() {
+        if (!TryFixture(out byte[] fx)) return;
+        Assert.Null(ApkVersionCode.ReadStringAttr(fx, "requiredSplitTypes"));
+    }
+
     private static bool TryFixture(out byte[] bytes) =>
         TestFixtureFiles.TryRead("arm_split_AndroidManifest.bin", out bytes);
 

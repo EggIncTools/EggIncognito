@@ -2,6 +2,7 @@ using EggIncognito.Data.Services;
 using EggIncognito.Models.Contracts;
 using EggIncognito.Services.Events;
 using EggIncognito.Services.Predictions;
+using EggIncognito.Services.Predictions.Contracts;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using Npgsql;
@@ -9,20 +10,8 @@ using Npgsql;
 namespace EggIncognito.Tests.Predictions;
 
 public class ContractPredictorTests {
-    private static readonly DateTimeOffset Base = new(2026, 6, 1, 16, 0, 0, TimeSpan.Zero);
-
     private static readonly TimeZoneInfo Zone = TimeZoneInfo.FindSystemTimeZoneById("America/New_York");
-
-    private static ContractReleaseSample Sample(
-        string contractId, int dayOffset, int prophecyEggs = 0, bool ultra = false, string? name = null) =>
-        new(contractId, name ?? contractId, UnixSeconds.FromTime(Base.AddDays(dayOffset)), prophecyEggs, ultra);
-
-    private static ContractReleaseSample At(
-        string contractId, DateTimeOffset start, int prophecyEggs = 0, bool ultra = false) =>
-        new(contractId, contractId, UnixSeconds.FromTime(start), prophecyEggs, ultra);
-
-    private static double Utc(int year, int month, int day, int hour) =>
-        UnixSeconds.FromTime(new DateTimeOffset(year, month, day, hour, 0, 0, TimeSpan.Zero));
+    private const double Week = 7 * 86400d;
 
     private static DateTimeOffset Local(double unixSeconds) =>
         TimeZoneInfo.ConvertTime(UnixSeconds.ToTime(unixSeconds), Zone);
@@ -31,245 +20,201 @@ public class ContractPredictorTests {
         new(new DbContextOptionsBuilder<EggIncognitoDbContext>()
             .UseNpgsql("Host=127.0.0.1;Port=1;Database=none;Username=none;Password=none;Timeout=1").Options);
 
-    private static (ContractPredictor Predictor, ContractDataVersion Version, ContractPredictionCache Cache) Primed(
+    private static (ContractPredictor Predictor, ContractDataVersion Version) Primed(
         IReadOnlyList<ContractReleaseSample> samples) {
         var version = new ContractDataVersion();
-        var cache = new ContractPredictionCache {
-            Value = ContractPredictor.BuildData(samples),
-            Version = version.Version
-        };
+        var cache = new ContractPredictionCache();
+        cache.Set(version.Version, samples);
         var predictor = new ContractPredictor(
             UnreachableDb(), version, cache, NullLogger<ContractPredictor>.Instance, TimeProvider.System);
-        return (predictor, version, cache);
+        return (predictor, version);
+    }
+
+    private static double AsOf => UnixSeconds.FromTime(ContractTemplate.AsOf);
+
+    [Fact]
+    public void Grid_IsTheStandingWeekdayRuleWithConformanceEvidence() {
+        var model = ContractModel.Train(ContractTemplate.Build(26), AsOf);
+
+        var grid = model.Grid.Slots.ToDictionary(s => s.Kind);
+        Assert.Equal(DayOfWeek.Monday, grid[ContractSlotKind.NewContract].Weekday);
+        Assert.Equal(DayOfWeek.Wednesday, grid[ContractSlotKind.Leggacy].Weekday);
+        Assert.Equal(DayOfWeek.Friday, grid[ContractSlotKind.PeLeggacy].Weekday);
+        Assert.Equal(DayOfWeek.Friday, grid[ContractSlotKind.PeLeggacyUltra].Weekday);
+        Assert.All(grid.Values, s => Assert.Equal(new TimeOnly(12, 0), s.Time));
+        Assert.All(grid.Values, s => Assert.Equal(s.Evidence.Expected, s.Evidence.Observed));
+        Assert.All(grid.Values, s => Assert.True(s.Evidence.Expected > 0));
+        Assert.All(grid.Values, s => Assert.Contains("standing rule", s.Evidence.Summary));
     }
 
     [Fact]
-    public void BuildData_AssignsPoolsByProphecyEggsAndUltra() {
-        ContractReleaseSample[] samples = [
-            Sample("plain", 0),
-            Sample("pe", 0, prophecyEggs: 1),
-            Sample("ultra", 0, prophecyEggs: 3, ultra: true)
-        ];
+    public void Grid_NoRecentReleasesOfAKind_KeepsTheSlotWithEmptyEvidence() {
+        var samples = ContractTemplate.Build(26).Where(s => s.ReleaseKind != ContractSlotKind.Leggacy).ToList();
 
-        var data = ContractPredictor.BuildData(samples);
+        var model = ContractModel.Train(samples, AsOf);
 
-        Assert.Equal("plain", Assert.Single(data.Pools[ContractSlotKind.Leggacy]).ContractId);
-        Assert.Equal("pe", Assert.Single(data.Pools[ContractSlotKind.PeLeggacy]).ContractId);
-        Assert.Equal("ultra", Assert.Single(data.Pools[ContractSlotKind.PeLeggacyUltra]).ContractId);
-        Assert.Empty(data.Pools[ContractSlotKind.NewContract]);
-        Assert.Null(data.PoolGapSeconds[ContractSlotKind.NewContract]);
+        Assert.Equal(4, model.Grid.Slots.Count);
+        Assert.Equal(0, model.Grid.SlotFor(ContractSlotKind.Leggacy).Evidence.Expected);
     }
 
     [Fact]
-    public void BuildData_AnyUltraReleaseMakesTheContractUltra() {
-        ContractReleaseSample[] samples = [
-            Sample("a", -14, prophecyEggs: 1),
-            Sample("a", 0, prophecyEggs: 1, ultra: true)
-        ];
+    public void Grid_OffGridRelease_CountsAgainstConformance() {
+        var samples = ContractTemplate.Build(26);
+        var moved = samples.First(s => s.ReleaseKind == ContractSlotKind.Leggacy);
+        samples[samples.IndexOf(moved)] = moved with { Start = moved.Start + 86400d };
 
-        var data = ContractPredictor.BuildData(samples);
+        var model = ContractModel.Train(samples, AsOf);
 
-        Assert.Empty(data.Pools[ContractSlotKind.PeLeggacy]);
-        Assert.Equal("a", Assert.Single(data.Pools[ContractSlotKind.PeLeggacyUltra]).ContractId);
+        var slot = model.Grid.SlotFor(ContractSlotKind.Leggacy);
+        Assert.Equal(slot.Evidence.Expected - 1, slot.Evidence.Observed);
+        Assert.False(ReleaseGrid.IsGridSlot(moved.Start + 86400d));
+        Assert.True(ReleaseGrid.IsGridSlot(moved.Start));
     }
 
     [Fact]
-    public void BuildData_CandidatesOldestFirstNamedByNewestRelease() {
-        ContractReleaseSample[] samples = [
-            Sample("a", -30), Sample("a", -2, name: "A Latest"),
-            Sample("b", -10),
-            Sample("c", -20)
-        ];
-        string[] expected = ["c", "b", "a"];
+    public void Slots_FromThursday_StartWithTheFridayPairThenMonday() {
+        var model = ContractModel.Train(ContractTemplate.Build(26), AsOf);
+        var thursday = ContractTemplate.Day(ContractTemplate.LastMonday.AddDays(3)).AddHours(2);
 
-        var pool = ContractPredictor.BuildData(samples).Pools[ContractSlotKind.Leggacy];
+        var slots = model.Slots(thursday, 4, UnixSeconds.FromTime(thursday));
 
-        Assert.Equal(expected, pool.Select(c => c.ContractId).ToList());
-        var newest = pool.Single(c => c.ContractId == "a");
-        Assert.Equal("A Latest", newest.Name);
-        Assert.Equal(UnixSeconds.FromTime(Base.AddDays(-2)), newest.LastReleased);
-        Assert.Equal(2, newest.Releases);
+        Assert.Equal(
+            [ContractSlotKind.PeLeggacy, ContractSlotKind.PeLeggacyUltra, ContractSlotKind.NewContract, ContractSlotKind.Leggacy],
+            slots.Select(s => s.Kind).ToList());
+        Assert.Equal(slots[0].SlotTime, slots[1].SlotTime);
+        Assert.Equal(DayOfWeek.Friday, Local(slots[0].SlotTime).DayOfWeek);
+        Assert.Equal(12, Local(slots[0].SlotTime).Hour);
     }
 
     [Fact]
-    public void Top_TakesFiveOldestCandidates() {
-        var samples = Enumerable.Range(0, 8).Select(i => Sample($"c{i}", -i)).ToList();
-        double now = UnixSeconds.FromTime(Base);
+    public void Pools_PeContractAlternatesStandardAndUltraOnEveryRelease() {
+        var samples = ContractTemplate.Build(26);
+        var pools = OldestFirstPools.Fit(samples);
 
-        var top = ContractPredictor.Top(ContractPredictor.BuildData(samples), ContractSlotKind.Leggacy, now);
+        var standard = pools[ContractSlotKind.PeLeggacy].Candidates.Select(c => c.ContractId).ToHashSet();
+        var ultra = pools[ContractSlotKind.PeLeggacyUltra].Candidates.Select(c => c.ContractId).ToHashSet();
+        var lastKind = samples.Where(s => s.ProphecyEggs > 0).GroupBy(s => s.ContractId)
+            .ToDictionary(g => g.Key, g => g.MaxBy(s => s.Start).UltraOnly);
 
-        Assert.Equal(5, top.Count);
-        Assert.Equal("c7", top[0].ContractId);
-        Assert.Equal("c3", top[4].ContractId);
+        Assert.NotEmpty(standard);
+        Assert.NotEmpty(ultra);
+        Assert.Empty(standard.Intersect(ultra));
+        Assert.All(standard, id => Assert.True(lastKind[id]));
+        Assert.All(ultra, id => Assert.False(lastKind[id]));
+    }
+
+    [Fact]
+    public void Pools_CandidatesAreOldestLastReleaseFirst() {
+        var pools = OldestFirstPools.Fit(ContractTemplate.Build(26));
+
+        foreach (var kind in new[] { ContractSlotKind.Leggacy, ContractSlotKind.PeLeggacy, ContractSlotKind.PeLeggacyUltra }) {
+            var last = pools[kind].Candidates.Select(c => c.LastReleased).ToList();
+            Assert.Equal([.. last.Order()], last);
+        }
+
+        Assert.Empty(pools[ContractSlotKind.NewContract].Candidates);
+    }
+
+    [Fact]
+    public void Pools_NewContractsAreLeggacyCandidatesFromTheirFirstRelease() {
+        var pools = OldestFirstPools.Fit(ContractTemplate.Build(26));
+
+        var leggacy = pools[ContractSlotKind.Leggacy];
+        Assert.Equal(1, leggacy.Candidates.Single(c => c.ContractId == "new-25").Releases);
+        Assert.True(leggacy.Candidates.Single(c => c.ContractId == "seed-0").Releases >= 2);
+        Assert.NotNull(leggacy.GapSeconds);
+        Assert.InRange(leggacy.GapSeconds.Value / (7 * 86400d), 10, 20);
+    }
+
+    [Fact]
+    public void Pools_LengthIsTheMedianReleaseLengthOfTheKind() {
+        var pools = OldestFirstPools.Fit(ContractTemplate.Build(26));
+
+        Assert.Equal(ContractTemplate.LeggacyLengthDays * 86400d, pools[ContractSlotKind.Leggacy].LengthSeconds);
+        Assert.Equal(ContractTemplate.PeLengthDays * 86400d, pools[ContractSlotKind.PeLeggacy].LengthSeconds);
     }
 
     [Fact]
     public void Top_GatedGap_ExcludesCandidatesOlderThanTwiceThePoolGap() {
+        double now = UnixSeconds.FromTime(ContractTemplate.AsOf);
         ContractReleaseSample[] samples = [
-            Sample("gapper", -56), Sample("gapper", -42), Sample("gapper", -28), Sample("gapper", -14),
-            Sample("gapper2", -30), Sample("gapper2", -16),
-            Sample("stale", -100),
-            Sample("fresh", -20)
+            Leggacy("gapper", now - 8 * Week), Leggacy("gapper", now - 6 * Week), Leggacy("gapper", now - 4 * Week),
+            Leggacy("gapper", now - 2 * Week),
+            Leggacy("gapper2", now - 5 * Week), Leggacy("gapper2", now - 3 * Week),
+            Leggacy("stale", now - 30 * Week),
+            Leggacy("fresh", now - 1 * Week)
         ];
-        double now = UnixSeconds.FromTime(Base);
-        string[] expected = ["fresh", "gapper2", "gapper"];
 
-        var top = ContractPredictor.Top(ContractPredictor.BuildData(samples), ContractSlotKind.Leggacy, now);
+        var top = OldestFirstPools.Top(OldestFirstPools.Fit(samples)[ContractSlotKind.Leggacy], now);
 
-        Assert.Equal(expected, top.Select(c => c.ContractId).ToList());
+        Assert.Equal(["gapper2", "gapper", "fresh"], top.Select(c => c.ContractId).ToList());
     }
 
     [Fact]
     public void Top_NoGatedGap_UsesThreeYearCutoff() {
-        ContractReleaseSample[] samples = [
-            Sample("ancient", -1461),
-            Sample("recent", -365)
-        ];
-        double now = UnixSeconds.FromTime(Base);
+        double now = UnixSeconds.FromTime(ContractTemplate.AsOf);
+        ContractReleaseSample[] samples = [Leggacy("ancient", now - 209 * Week), Leggacy("recent", now - 52 * Week)];
 
-        var top = ContractPredictor.Top(ContractPredictor.BuildData(samples), ContractSlotKind.Leggacy, now);
+        var top = OldestFirstPools.Top(OldestFirstPools.Fit(samples)[ContractSlotKind.Leggacy], now);
 
         Assert.Equal("recent", Assert.Single(top).ContractId);
     }
 
     [Fact]
-    public void BuildData_PoolGapIsMedianOfSuccessiveGaps() {
-        ContractReleaseSample[] samples = [
-            Sample("a", -35), Sample("a", -21), Sample("a", -7),
-            Sample("b", -30), Sample("b", -16), Sample("b", -2)
-        ];
+    public void Backtest_TemplateHistory_HitsEverySlotAndKeepsTheActualInTheTopFive() {
+        var samples = ContractTemplate.Build(3 * ContractTemplate.PePoolSize);
+        double asOf = UnixSeconds.FromTime(ContractTemplate.Day(ContractTemplate.LastMonday.AddDays(-28)).AddHours(-1));
 
-        var data = ContractPredictor.BuildData(samples);
+        var result = ContractBacktest.Run(samples, asOf, 9);
 
-        Assert.Equal(14 * 86400d, data.PoolGapSeconds[ContractSlotKind.Leggacy]);
-        Assert.Equal(4, data.PoolGapSamples[ContractSlotKind.Leggacy]);
-    }
+        Assert.Equal(0, result.ActualUncovered);
+        Assert.All(result.Kinds, k => Assert.Equal(k.Predicted, k.SlotHit));
+        foreach (var kind in new[] { ContractSlotKind.Leggacy, ContractSlotKind.PeLeggacy, ContractSlotKind.PeLeggacyUltra }) {
+            var row = result.Kinds.Single(k => k.Kind == kind);
+            Assert.True(row.Predicted > 0);
+            Assert.True(row.Predicted == row.Top5Hit, $"{kind} top-5 {row.Top5Hit} of {row.Predicted}");
+        }
 
-    [Fact]
-    public void BuildData_FewerThanFourGaps_NoGapEstimate() {
-        ContractReleaseSample[] samples = [
-            Sample("a", -21), Sample("a", -14), Sample("a", 0),
-            Sample("b", -30), Sample("b", -16)
-        ];
-
-        var data = ContractPredictor.BuildData(samples);
-
-        Assert.Null(data.PoolGapSeconds[ContractSlotKind.Leggacy]);
-        Assert.Equal(3, data.PoolGapSamples[ContractSlotKind.Leggacy]);
-    }
-
-    [Fact]
-    public void BuildData_ZeroGaps_NoGapEstimate() {
-        ContractReleaseSample[] samples = [
-            Sample("a", 0, prophecyEggs: 1),
-            Sample("b", -3, prophecyEggs: 1)
-        ];
-
-        var data = ContractPredictor.BuildData(samples);
-
-        Assert.Null(data.PoolGapSeconds[ContractSlotKind.PeLeggacy]);
-        Assert.Equal(0, data.PoolGapSamples[ContractSlotKind.PeLeggacy]);
-    }
-
-    [Fact]
-    public void SnapToSlot_EstimateOnASlot_KeepsIt() {
-        double slot = Utc(2026, 6, 17, 16);
-        Assert.Equal(slot, ContractPredictor.SnapToSlot(slot, ContractSlotKind.Leggacy));
-    }
-
-    [Fact]
-    public void SnapToSlot_EstimateBetweenSlots_MovesForward() {
-        Assert.Equal(
-            Utc(2026, 6, 19, 16),
-            ContractPredictor.SnapToSlot(Utc(2026, 6, 17, 20), ContractSlotKind.PeLeggacyUltra));
+        var ultra = result.Kinds.Single(k => k.Kind == ContractSlotKind.PeLeggacyUltra);
+        Assert.True(ultra.Predicted == ultra.Top1Hit, $"ultra top-1 {ultra.Top1Hit} of {ultra.Predicted}");
     }
 
     [Fact]
     public async Task GetContractAsync_UnknownId_ReturnsNull() {
-        var (predictor, _, _) = Primed([Sample("known", 0)]);
+        var (predictor, _) = Primed(ContractTemplate.Build(26));
         Assert.Null(await predictor.GetContractAsync("missing"));
     }
 
     [Fact]
-    public async Task GetContractAsync_KnownId_EstimateSnapsToPoolWeekday() {
-        var now = DateTimeOffset.UtcNow;
-        ContractReleaseSample[] samples = [
-            At("a", now.AddDays(-56), 1),
-            At("a", now.AddDays(-42), 1),
-            At("a", now.AddDays(-28), 1),
-            At("a", now.AddDays(-14), 1),
-            At("a", now, 1)
-        ];
-        var (predictor, _, _) = Primed(samples);
+    public async Task GetContractAsync_KnownPeContract_EstimateSnapsToFridayNoon() {
+        var samples = ContractTemplate.Build(26);
+        var (predictor, _) = Primed(samples);
+        var pe = samples.Where(s => s.ProphecyEggs > 0).GroupBy(s => s.ContractId).First(g => g.Count() >= 2);
 
-        var estimate = await predictor.GetContractAsync("a");
+        var estimate = await predictor.GetContractAsync(pe.Key);
 
         Assert.NotNull(estimate);
-        Assert.Equal(ContractSlotKind.PeLeggacy, estimate.Pool);
-        Assert.Equal(5, estimate.Samples);
-        Assert.Equal(4, estimate.GapSamples);
-        Assert.Equal(UnixSeconds.FromTime(now), estimate.LastReleased);
         Assert.NotNull(estimate.EstimatedNext);
-        Assert.True(estimate.EstimatedNext >= estimate.LastReleased + 14 * 86400d);
+        Assert.True(estimate.EstimatedNext >= UnixSeconds.FromTime(DateTimeOffset.UtcNow));
         Assert.Equal(DayOfWeek.Friday, Local(estimate.EstimatedNext.Value).DayOfWeek);
         Assert.Equal(12, Local(estimate.EstimatedNext.Value).Hour);
     }
 
     [Fact]
-    public async Task GetContractAsync_LastReleasedLongAgo_EstimateIsNotInThePast() {
-        var now = DateTimeOffset.UtcNow;
-        ContractReleaseSample[] samples = [
-            At("a", now.AddDays(-856), 1),
-            At("a", now.AddDays(-842), 1),
-            At("a", now.AddDays(-828), 1),
-            At("a", now.AddDays(-814), 1),
-            At("a", now.AddDays(-800), 1)
-        ];
-        var (predictor, _, _) = Primed(samples);
-
-        var estimate = await predictor.GetContractAsync("a");
-
-        Assert.NotNull(estimate);
-        Assert.Equal(UnixSeconds.FromTime(now.AddDays(-800)), estimate.LastReleased);
-        Assert.NotNull(estimate.EstimatedNext);
-        Assert.True(estimate.EstimatedNext >= UnixSeconds.FromTime(now));
-        Assert.Equal(DayOfWeek.Friday, Local(estimate.EstimatedNext.Value).DayOfWeek);
-        Assert.Equal(12, Local(estimate.EstimatedNext.Value).Hour);
-    }
-
-    [Fact]
-    public async Task GetContractAsync_PoolWithoutGatedGap_OmitsEstimate() {
-        var now = DateTimeOffset.UtcNow;
-        ContractReleaseSample[] samples = [
-            At("a", now.AddDays(-14), 1),
-            At("a", now, 1)
-        ];
-        var (predictor, _, _) = Primed(samples);
-
-        var estimate = await predictor.GetContractAsync("a");
-
-        Assert.NotNull(estimate);
-        Assert.Null(estimate.EstimatedNext);
-        Assert.Equal(2, estimate.Samples);
-        Assert.Equal(1, estimate.GapSamples);
-    }
-
-    [Fact]
-    public async Task GetSlotsAsync_CacheCurrent_ReusesCachedDataWithoutDatabase() {
-        var (predictor, _, _) = Primed([Sample("a", 0)]);
+    public async Task GetSlotsAsync_CacheCurrent_ReusesCachedSamplesWithoutDatabase() {
+        var (predictor, _) = Primed(ContractTemplate.Build(26, DateTimeOffset.UtcNow));
 
         var response = await predictor.GetSlotsAsync(3);
 
         Assert.InRange(response.Slots.Count, 3, 4);
         Assert.All(response.Slots, s => Assert.True(s.Candidates.Count <= 5));
-        Assert.All(
-            response.Slots.Where(s => s.Kind == ContractSlotKind.NewContract),
-            s => Assert.Empty(s.Candidates));
+        Assert.All(response.Slots, s => Assert.True(s.LengthSeconds > 0));
+        Assert.All(response.Slots.Where(s => s.Kind == ContractSlotKind.NewContract), s => Assert.Empty(s.Candidates));
     }
 
     [Fact]
     public async Task GetSlotsAsync_AfterVersionBump_RecomputesAndReachesDatabase() {
-        var (predictor, version, _) = Primed([Sample("a", 0)]);
+        var (predictor, version) = Primed(ContractTemplate.Build(26));
         version.Bump();
 
         var thrown = await Record.ExceptionAsync(() => predictor.GetSlotsAsync(3));
@@ -277,4 +222,7 @@ public class ContractPredictorTests {
         Assert.NotNull(thrown);
         Assert.True(thrown is NpgsqlException or InvalidOperationException, thrown.ToString());
     }
+
+    private static ContractReleaseSample Leggacy(string id, double start) =>
+        new(id, id, start, 5 * 86400d, true, 0, false);
 }

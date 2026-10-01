@@ -1,8 +1,9 @@
 @inherits SelfCallComponentBase
-@using System.Globalization
 @using System.Text.Json
+@using EggIncognito.Models.Calendar
 @using EggIncognito.Models.Events
 @using EggIncognito.Services.Assets
+@using EggIncognito.Services.Calendar
 @using EggIncognito.Services.Events
 @implements IAsyncDisposable
 @inject IJSRuntime JS
@@ -18,7 +19,10 @@
         <div class="evcal-shell evcal-view-week evcal-mini" style="@ShellStyle">
             <div class="evcal-scale">
                 @foreach (var cell in _days) {
-                    <span class="evcal-scale-label" style="@TickStyle(cell.LeftPercent)">@DayLabel(cell)</span>
+                    <span class="evcal-scale-label" style="@TickStyle(cell.LeftPercent)">
+                        <span class="evcal-scale-day">@DateLabels.Weekday(cell.LocalDate)</span>
+                        <span class="evcal-scale-date">@DateLabels.MonthDay(cell.LocalDate)</span>
+                    </span>
                 }
             </div>
             <div class="evcal-canvas">
@@ -80,9 +84,9 @@
     ElementReference _scroller;
     IJSObjectReference? _scroll;
     ViewerClock? _clock;
-    IReadOnlyList<EventCalendarRow> _rows = [];
-    IReadOnlyList<EventCalendarCell> _days = [];
-    IReadOnlyList<CalendarItem> _items = [];
+    IReadOnlyList<CalendarLayoutRow<EventCalendarItem>> _rows = [];
+    IReadOnlyList<CalendarCell> _days = [];
+    IReadOnlyList<EventCalendarItem> _items = [];
     TimeZoneInfo _zone = ViewerZone.Fallback;
     DateTimeOffset _start;
     DateTimeOffset _end;
@@ -92,7 +96,7 @@
     int DayCount => Math.Max(1, (int)Math.Round((_end - _start).TotalDays));
 
     string ShellStyle => FormattableString.Invariant(
-        $"--evcal-days:{DayCount};--evcal-gap:{EventCalendarLayout.GapPercent(_start, _end):0.###}%;");
+        $"--evcal-days:{DayCount};--evcal-gap:{CalendarLayout.GapPercent(_start, _end):0.###}%;");
 
     protected override async Task OnInitializedAsync() {
         _clock = ViewerClock.Of(Services);
@@ -108,7 +112,7 @@
     }
 
     void SetWindow(DateTimeOffset now) {
-        (_, _end) = EventCalendarLayout.Window(now, EventCalendarZoom.Week, _zone);
+        (_, _end) = CalendarLayout.Window(now, CalendarZoom.Week, _zone);
         _start = _end.AddDays(-HistoryDays);
     }
 
@@ -136,13 +140,13 @@
             return;
         }
 
-        _items = [.. events.Select(Item)];
+        _items = [.. events.Select(EventCalendarItem.Of)];
         Relayout(now);
         if (_rows.All(r => r.Lanes.Count == 0)) _note = "No events in the last three weeks.";
     }
 
     void Relayout(DateTimeOffset now) {
-        _rows = EventCalendarLayout.Rows(_items, _start, _end, EventCalendarZoom.Week, now, _zone);
+        _rows = CalendarLayout.Rows(_items, _start, _end, CalendarZoom.Week, now, _zone);
         _days = _rows.Count > 0 ? _rows[0].Cells : [];
     }
 
@@ -152,9 +156,9 @@
         try {
             _scroll ??= await JS.InvokeAsync<IJSObjectReference>(
                 "import", InteropAsset.Url(Env, "./interop/scroll.js"));
-            await _scroll.InvokeVoidAsync("centerOnFraction", _scroller, NowFraction);
+            await _scroll.InvokeVoidAsync("alignFractionToRight", _scroller, TodayEndFraction);
         } catch (Exception ex) when (ex is JSDisconnectedException or JSException) {
-            Logger.LogDebug(ex, "the calendar could not scroll to now");
+            Logger.LogDebug(ex, "the calendar could not scroll to today");
         }
     }
 
@@ -168,46 +172,37 @@
         StateHasChanged();
     });
 
-    double NowFraction => _rows.Count > 0 && _rows[0].NowPercent is { } percent ? percent / 100 : 1;
+    double TodayEndFraction {
+        get {
+            var today = TimeZoneInfo.ConvertTime(DateTimeOffset.UtcNow, _zone).Date;
+            var dayEnd = CalendarLayout.ToOffset(today.AddDays(1), _zone);
+            var span = (_end - _start).TotalSeconds;
+            return span <= 0 ? 1 : Math.Clamp((dayEnd - _start).TotalSeconds / span, 0, 1);
+        }
+    }
 
     static string Countdown(GameEventDto e) {
         return EventCountdown.Describe(e.StartTimestamp, e.EndTimestamp, DateTimeOffset.UtcNow);
     }
 
-    static string DayLabel(EventCalendarCell cell) {
-        return cell.LocalDate.ToString("d/M", CultureInfo.InvariantCulture);
-    }
-
-    static string BarCss(EventCalendarBar bar) {
+    static string BarCss(CalendarBar<EventCalendarItem> bar) {
         var css = bar.Active ? "evcal-bar evcal-bar-active" : bar.Past ? "evcal-bar evcal-bar-past" : "evcal-bar";
         if (bar.ContinuesLeft) css += " evcal-bar-cut-l";
         if (bar.ContinuesRight) css += " evcal-bar-cut-r";
         return css;
     }
 
-    static string BarStyle(EventCalendarBar bar) {
+    static string BarStyle(CalendarBar<EventCalendarItem> bar) {
         var e = bar.Item.Event!;
         return FormattableString.Invariant($"--bar-start:{bar.LeftPercent:0.###};--bar-size:{bar.WidthPercent:0.###};")
                + EventPalette.BarStyle(e.Type, e.Ultra);
-    }
-
-    static CalendarItem Item(GameEventDto e) {
-        return new CalendarItem(
-            FormattableString.Invariant($"{e.Id}@{e.StartTimestamp:0}"),
-            e.StartTimestamp,
-            e.EndTimestamp,
-            CalendarItemKind.Event,
-            e,
-            null,
-            null,
-            null);
     }
 
     static string TickStyle(double leftPercent) {
         return FormattableString.Invariant($"--tick-pos:{leftPercent:0.###};");
     }
 
-    static string RowStyle(EventCalendarRow row) {
+    static string RowStyle(CalendarLayoutRow<EventCalendarItem> row) {
         return FormattableString.Invariant($"--row-weight:{Math.Max(1, row.Lanes.Count)};");
     }
 

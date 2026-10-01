@@ -260,8 +260,6 @@
                         } else {
                             <span class="pwb-note-inline pwb-warn">pending review</span>
                         }
-                    } else if (selGroup?.Status is { Conflict: true }) {
-                        <span class="pwb-note-inline pwb-warn">conflicts with registry</span>
                     } else if (selGroup?.Status is { InRegistry: true }) {
                         <span class="pwb-note-inline pwb-ok">sha in registry</span>
                     } else if (selGroup?.Status is { Offerable: true }) {
@@ -282,56 +280,8 @@
                             }
                         </button>
                     }
-
-                    @if (selGroup is { Winner: not null } og && User.IsAtLeast(UserRole.Admin)) {
-                        <button type="button" class="btn-mini @(_overwriteOpen ? "active" : "")"
-                                @onclick="@(() => ToggleOverwrite(og))">
-                            Overwrite...
-                        </button>
-                    }
                 }
             </div>
-        }
-        @if (selGroup?.Status is { Conflict: true, Stored: { } stored }) {
-            <dl class="pwb-cmp">
-                @CmpFact("App version", stored.AppVersion, selGroup.AppVersion)
-                @CmpFact("Build", stored.Build, selGroup.Build)
-                @CmpFact("Client version", stored.ClientVersion, selGroup.ClientVersionText)
-            </dl>
-        }
-        @if (_overwriteOpen && selGroup is { Winner: not null } owg && User.IsAtLeast(UserRole.Admin)) {
-            <section class="pwb-ovw">
-                <div class="pwb-ovw-head">
-                    <h3 class="pwb-admin-title">Overwrite a registry row</h3>
-                    <button type="button" class="reg-edit-btn pwb-admin-close" aria-label="Close overwrite"
-                            @onclick="@(() => _overwriteOpen = false)">
-                        <Icon Name="x"/>
-                    </button>
-                </div>
-                <label class="pwb-field pwb-field-pick">
-                    <span class="pwb-field-label">Target row<span class="pwb-field-req">*</span></span>
-                    <select class="field-input" value="@_ovwTarget" @onchange="OnPickOverwriteTarget">
-                        <option value="">pick the registry row to overwrite</option>
-                        @foreach (var row in OrderedRegistry()) {
-                            <option value="@TargetKey(row)">@row.Platform @Dash(row.AppVersion) (@row.Build) @Sha12(row.ProtoSha)</option>
-                        }
-                    </select>
-                </label>
-                @if (OverwriteTargetRow() is { } target) {
-                    <dl class="pwb-cmp">
-                        @CmpFact("App version", target.AppVersion, owg.AppVersion)
-                        @CmpFact("Build", target.Build, owg.Build)
-                        @CmpFact("Client version", target.ClientVersion, owg.ClientVersionText)
-                        @CmpFact("Proto SHA", Sha12(target.ProtoSha), Sha12(owg.Sha))
-                    </dl>
-                }
-                <div class="pwb-admin-foot">
-                    <button type="button" class="btn-primary" disabled="@(_overwriteBusy || OverwriteTargetRow() is null)"
-                            @onclick="@(() => StageOverwrite(owg))">
-                        @(_overwriteBusy ? "Staging..." : "Stage overwrite")
-                    </button>
-                </div>
-            </section>
         }
         <div class="pwb-head">
             <WorkbenchModes Modes="State.Modes" Current="@State.Mode" CurrentChanged="SetMode" Disabled="ModeDisabled"/>
@@ -519,9 +469,6 @@
     bool _open;
     bool _adminOpen;
     string _adminTab = RegistryAdminPanel.TabReview;
-    bool _overwriteOpen;
-    bool _overwriteBusy;
-    string _ovwTarget = "";
     RegistryAdminPanel? _adminPanel;
     bool _dropWired;
     bool _offerBusy;
@@ -672,98 +619,6 @@
         await RefreshReview();
     }
 
-    void ToggleOverwrite(OfferGroup g) {
-        _overwriteOpen = !_overwriteOpen;
-        if (!_overwriteOpen) return;
-        _ovwTarget = g.Status?.Stored is { } s ? $"{s.Platform}/{s.Build}" : "";
-    }
-
-    void OnPickOverwriteTarget(ChangeEventArgs e) {
-        _ovwTarget = e.Value?.ToString() ?? "";
-    }
-
-    static string TargetKey(ProtoRegistryRow row) {
-        return $"{row.Platform}/{row.Build}";
-    }
-
-    ProtoRegistryRow? OverwriteTargetRow() {
-        return _ovwTarget.Length == 0 ? null : State.Registry.FirstOrDefault(r => TargetKey(r) == _ovwTarget);
-    }
-
-    static string CmpClass(string? stored, string? proposed) {
-        var a = stored?.Trim() ?? "";
-        var b = proposed?.Trim() ?? "";
-        return string.Equals(a, b, StringComparison.OrdinalIgnoreCase) ? "sr-same" : "sr-diff";
-    }
-
-    RenderFragment CmpFact(string label, string? stored, string? proposed) => @<div class="@CmpClass(stored, proposed)">
-                                                                                   <dt>@label</dt>
-                                                                                   <dd class="sr-field">
-                                                                                       <span class="sr-stored">@Dash(stored)</span>
-                                                                                       <span class="sr-arrow">&rarr;</span>
-                                                                                       <span class="sr-prop-text">@Dash(proposed)</span>
-                                                                                   </dd>
-                                                                               </div>;
-
-    async Task StageOverwrite(OfferGroup g) {
-        if (OverwriteTargetRow() is not { } target) return;
-        var proto = g.Winner?.Result?.Proto;
-        var sha = g.Winner?.Result?.ProtoSha;
-        if (proto is not { Length: > 0 } || sha is not { Length: > 0 }) {
-            Toasts.Push(StatusNoteKind.Error, "no extracted proto text to stage");
-            return;
-        }
-
-        _overwriteBusy = true;
-        try {
-            var body = new {
-                targetPlatform = target.Platform,
-                targetBuild = target.Build,
-                platform = g.Platform,
-                appVersion = string.IsNullOrWhiteSpace(g.AppVersion) ? null : g.AppVersion,
-                build = string.IsNullOrWhiteSpace(g.Build) ? null : g.Build,
-                clientVersion = string.IsNullOrWhiteSpace(g.ClientVersionText) ? null : g.ClientVersionText,
-                package = (string?)null,
-                protoSha = sha,
-                protoText = proto,
-                messageIndex = (string?)null
-            };
-            var resp = await Client().PostAsJsonAsync("/api/protos/staged/correction", body, SelfCallJson.Web);
-            if (!resp.IsSuccessStatusCode) {
-                Toasts.Push(StatusNoteKind.Error, $"overwrite failed ({(int)resp.StatusCode})");
-                return;
-            }
-
-            var outcome = await resp.Content.ReadFromJsonAsync<OfferResp>(SelfCallJson.Web);
-            switch (outcome?.Result) {
-                case "staged":
-                    Toasts.Push(StatusNoteKind.Ok, $"overwrite staged against {target.Platform} {target.Build}");
-                    _overwriteOpen = false;
-                    OpenAdmin(RegistryAdminPanel.TabReview);
-                    await RefreshQueue();
-                    await OnChanged.InvokeAsync();
-                    break;
-                case "alreadypending":
-                    Toasts.Push(StatusNoteKind.Info, "an identical overwrite is already pending review");
-                    break;
-                case "nochange":
-                    Toasts.Push(StatusNoteKind.Info, "nothing to overwrite, the stored row already matches");
-                    break;
-                case "notfound":
-                    Toasts.Push(StatusNoteKind.Error, "target registry row not found");
-                    break;
-                default:
-                    Toasts.Push(StatusNoteKind.Error, "overwrite returned an unknown result");
-                    break;
-            }
-        } catch (Exception ex) when (ex is HttpRequestException or NotSupportedException or JsonException) {
-            Logger.LogWarning(ex, "staging an overwrite for {Platform} failed", g.Platform);
-            Toasts.Push(StatusNoteKind.Error, "overwrite request failed");
-        } finally {
-            _overwriteBusy = false;
-        }
-    }
-
     public void OpenAt(ProtoRef a, ProtoRef? b, string? mode) {
         State.A = a;
         State.B = b;
@@ -798,7 +653,6 @@
         _open = false;
         _adminOpen = false;
         _adminTab = RegistryAdminPanel.TabReview;
-        _overwriteOpen = false;
         _filterOpen = false;
         _menu = null;
         if (!was) return;
@@ -1043,7 +897,6 @@
             { Archived: true } => "archive flagged",
             { Known: true } => "in registry",
             { Pending: true } or { Offered: true } => "pending",
-            { Conflict: true } => "conflicts with registry",
             { InRegistry: true } => "sha in registry",
             { Offerable: true } => "offerable",
             _ => "checking"
@@ -1057,7 +910,6 @@
             { Archived: true } => "pwb-ok",
             { Known: true } => "pwb-ok",
             { Pending: true } or { Offered: true } => "pwb-warn",
-            { Conflict: true } => "pwb-warn",
             { InRegistry: true } => "pwb-ok",
             _ => ""
         };
@@ -1115,7 +967,7 @@
                 for (var i = 0; i < todo.Count; i++) {
                     var r = rows is { } list && i < list.Count ? list[i] : null;
                     State.GroupStatuses[todo[i].Key] = r is not null
-                        ? new GroupStatus(r.KnownCombination, r.Pending, false, false, r.InRegistry, r.Conflict, r.Stored, r.Archived)
+                        ? new GroupStatus(r.KnownCombination, r.Pending, false, false, r.InRegistry, r.Archived)
                         : new GroupStatus(false, false, false, true);
                 }
             });
@@ -1171,7 +1023,7 @@
             });
             if (results.FirstOrDefault(r => r.Error is { Length: > 0 }) is { } bad)
                 Toasts.Push(StatusNoteKind.Error, $"offer rejected: {bad.Error}");
-            if (results.Any(r => r.Result is "staged" or "correctionstaged")) await RefreshQueue();
+            if (results.Any(r => r.Result is "staged")) await RefreshQueue();
             await OnChanged.InvokeAsync();
         } catch (Exception ex) when (ex is HttpRequestException or JsonException or TaskCanceledException) {
             Logger.LogWarning(ex, "offering {Count} extracted protos failed", ready.Count);
@@ -1184,9 +1036,7 @@
         return offerResult switch {
             "archiveflagged" or "alreadyarchived" => new GroupStatus(true, false, false, false, true, Archived: true),
             "alreadyinregistry" => new GroupStatus(true, false, false, false, true),
-            "alreadypending" => new GroupStatus(false, true, false, false, prior?.InRegistry ?? false,
-                prior?.Conflict ?? false, prior?.Stored),
-            "correctionstaged" => new GroupStatus(false, true, true, false, true, true, prior?.Stored),
+            "alreadypending" => new GroupStatus(false, true, false, false, prior?.InRegistry ?? false),
             "staged" => new GroupStatus(false, true, true),
             _ => new GroupStatus(false, false, false, true)
         };

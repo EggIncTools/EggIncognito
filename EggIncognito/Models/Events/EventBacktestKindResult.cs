@@ -1,7 +1,7 @@
 namespace EggIncognito.Models.Events;
 
 public sealed record EventBacktestKindResult(
-    EventPredictionKind Kind,
+    EventRuleKind Kind,
     int Predicted,
     int SlotHit,
     int TypeHit,

@@ -61,6 +61,25 @@ public sealed class ContractsController : ApiControllerBase {
         return Ok(await predictor.GetSlotsAsync(Math.Clamp(horizon, 1, 30), ct));
     }
 
+    [HttpGet("predictions/backtest")]
+    [EnableRateLimiting("read")]
+    [ApiAccess(ApiAccessLevel.Admin)]
+    [Requires<ContractPredictor>("no database configured")]
+    public async Task<IActionResult> PredictionsBacktest(
+        [FromServices] ContractPredictor predictor,
+        [FromQuery] double? asOf, [FromQuery] int horizon = 9, CancellationToken ct = default) {
+        if (asOf is not { } at) return Fail(400, "asOf is required");
+        if (!UnixSeconds.IsValid(at)) return Fail(400, "asOf is out of range");
+        return Ok(ContractBacktest.Run(await predictor.SamplesAsync(ct), at, horizon));
+    }
+
+    [HttpGet("model")]
+    [EnableRateLimiting("read")]
+    [ApiAccess(ApiAccessLevel.Admin)]
+    [Requires<ContractPredictor>("no database configured")]
+    public async Task<IActionResult> Model([FromServices] ContractPredictor predictor, CancellationToken ct = default) =>
+        Ok(await predictor.GetModelAsync(ct));
+
     internal static ContractReleaseDto ToDto(ContractRelease r) => new(
         r.Id, r.ContractId, r.Name, r.Egg, r.CustomEggId, r.SeasonId,
         UnixSeconds.FromTime(r.StartTime), UnixSeconds.FromTime(r.EndTime), r.LengthSeconds,

@@ -45,7 +45,9 @@
         } else {
             <div class="dwb-pane dwb-pane-fill">
                 <DeviceConsolePane DeviceId="@dev.Id" Platform="@dev.Platform" Active="true"
-                                   OnNotice="Notice" OnChanged="ReloadDevices">
+                                   OnNotice="Notice" OnChanged="ReloadDevices" OnShelfChanged="ShelfChanged"
+                                   CaptureCount="@(_hub is null ? null : _flows.Count)" JobCount="@_jobs?.Count"
+                                   BinaryCount="@BinaryCount(dev)">
                     <Actions>
                         <button type="button" class="btn-primary" disabled="@Busy" @onclick="ProbeNow">
                             <Icon Name="refresh-cw" Class="icon-sm"/>
@@ -67,18 +69,18 @@
                     </Actions>
                     <ActionNotes>@ActionLines(dev)</ActionNotes>
                     <Sections>
-                <DeviceSection Title="Capture" Count="@_flows.Count" Open="@State.IsOpen(DeviceWorkbenchState.SectionCapture)"
-                               OpenChanged="ToggleCapture">
-                    <Summary>
-                        @if (_hub is null) {
-                            <span class="text-muted text-xs">not configured on this host</span>
-                        } else {
-                            <span class="text-muted text-xs">@(_connected ? "connected" : "waiting for the device")</span>
-                        }
-                    </Summary>
-                    <ChildContent>
-                    @if (_hub is not null) {
+                <div hidden="@(!State.ShelfIs(DeviceWorkbenchState.ShelfCapture))">
+                    @if (_hub is null) {
+                        <div class="dcon-status text-xs">
+                            <Icon Name="circle" Class="icon-sm text-muted"/>
+                            <span class="text-muted">Capture is not configured on this host.</span>
+                        </div>
+                    } else {
                         <div class="dwb-capture">
+                            <div class="dcon-status text-xs">
+                                <Icon Name="@(_connected ? "circle-check" : "circle")" Class="@("icon-sm " + (_connected ? "text-ok" : "text-muted"))"/>
+                                <span class="text-muted">@(_connected ? "connected" : "waiting for the device")</span>
+                            </div>
                             <div class="dwb-capture-bar">
                                 <CaptureControlsPanel View="State.Capture" ReadOnly="true"
                                                       OnViewChanged="StateHasChanged"/>
@@ -107,19 +109,12 @@
                             <ContributePanel @ref="_contribute" ClientFactory="Client"/>
                         </div>
                     }
-                    </ChildContent>
-                </DeviceSection>
+                </div>
 
-                <DeviceSection Title="Jobs" Count="@_jobs?.Count" Open="@State.IsOpen(DeviceWorkbenchState.SectionJobs)"
-                               OpenChanged="ToggleJobs">
-                    <Summary>
+                <div hidden="@(!State.ShelfIs(DeviceWorkbenchState.ShelfJobs))">
                         @if (RunningFor(dev.Id) is { } running) {
-                            <span class="dwb-status wb-st-run"><Icon Name="play" Class="icon-sm"/><span>@running.Kind</span></span>
-                        } else if (_jobs is { Count: > 0 } latest) {
-                            <span class="text-muted text-xs">last @latest[0].Kind @(latest[0].Outcome ?? latest[0].State) at @Stamp(latest[0].LastAt)</span>
+                            <div class="dwb-status wb-st-run text-xs"><Icon Name="play" Class="icon-sm"/><span>@running.Kind</span></div>
                         }
-                    </Summary>
-                    <ChildContent>
                         <WorkbenchLoad T="JobGroupRow" Items="_jobs" EmptyText="No jobs yet." Context="jobs">
                             <div class="reg-wrap">
                                 <table class="data-table dwb-jobs-table">
@@ -190,12 +185,9 @@
                                 </button>
                             }
                         </WorkbenchLoad>
-                    </ChildContent>
-                </DeviceSection>
+                </div>
 
-                <DeviceSection Title="Binaries" Count="@BinaryCount(dev)" Open="@State.IsOpen(DeviceWorkbenchState.SectionBinaries)"
-                               OpenChanged="@(o => State.SetOpen(DeviceWorkbenchState.SectionBinaries, o))">
-                    <ChildContent>
+                <div hidden="@(!State.ShelfIs(DeviceWorkbenchState.ShelfBinaries))">
                         <div class="reg-wrap">
                             <table class="data-table">
                                 <thead>
@@ -253,8 +245,7 @@
                                 </table>
                             </div>
                         }
-                    </ChildContent>
-                </DeviceSection>
+                </div>
                     </Sections>
                 </DeviceConsolePane>
             </div>
@@ -375,15 +366,10 @@
         return _binaries?.Count(x => x.Platform == dev.Platform);
     }
 
-    void ToggleCapture(bool open) {
-        State.SetOpen(DeviceWorkbenchState.SectionCapture, open);
-        if (open) AttachCapture();
+    async Task ShelfChanged(string tab) {
+        if (tab == DeviceWorkbenchState.ShelfCapture) AttachCapture();
         else DetachCapture();
-    }
-
-    async Task ToggleJobs(bool open) {
-        State.SetOpen(DeviceWorkbenchState.SectionJobs, open);
-        if (open && _jobs is null) await LoadJobsAsync();
+        if (tab == DeviceWorkbenchState.ShelfJobs && _jobs is null) await LoadJobsAsync();
     }
 
     string Stamp(DateTimeOffset at) {
@@ -428,7 +414,7 @@
     }
 
     public async Task OpenCapture(string? deviceId = null) {
-        State.SetOpen(DeviceWorkbenchState.SectionCapture, true);
+        State.Shelf = DeviceWorkbenchState.ShelfCapture;
         await Open(deviceId);
     }
 
@@ -469,7 +455,7 @@
         try {
             await LoadLiveAsync();
             if (_devicesFailed || _live.Any(j => _devices.All(d => d.Id != j.Device))) await LoadAsync();
-            if (Current is not null && (State.IsOpen(DeviceWorkbenchState.SectionJobs) || _jobs is not null)) await RefreshJobsAsync();
+            if (Current is not null && (State.ShelfIs(DeviceWorkbenchState.ShelfJobs) || _jobs is not null)) await RefreshJobsAsync();
             if (_subscription is null) ResolveHub();
             StateHasChanged();
         } finally {
@@ -494,7 +480,7 @@
         ResolveHub();
         await LoadHarvestAsync();
         await LoadJobsAsync();
-        if (State.IsOpen(DeviceWorkbenchState.SectionCapture)) AttachCapture();
+        if (State.ShelfIs(DeviceWorkbenchState.ShelfCapture)) AttachCapture();
     }
 
     async Task LoadLiveAsync() {

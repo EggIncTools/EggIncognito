@@ -32,11 +32,75 @@
     <input class="reg-filter-input w-auto" placeholder="@CarpetPlaceholder" @bind="_carpetUrl"/>
     <button type="button" class="btn-mini" disabled="@_busy" @onclick="ImportCarpet">Import carpet</button>
 </div>
+@if (_model is { } model) {
+    <div class="sub-section-head">Model</div>
+    <div class="reg-wrap">
+        <table class="data-table">
+            <thead>
+            <tr>
+                <th>Slot</th>
+                <th>Grid</th>
+                <th>Pool</th>
+            </tr>
+            </thead>
+            <tbody>
+            @foreach (var pool in model.Pools) {
+                var grid = model.Grid.FirstOrDefault(g => g.Kind == pool.Kind);
+                <tr>
+                    <td>@KindLabel(pool.Kind)</td>
+                    <td class="text-xs text-muted">@(grid?.Summary ?? "no weekday in the last 180 days")</td>
+                    <td class="text-xs text-muted">@pool.Summary</td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+    <div class="sub-section-head">Backtest, last @model.Sweep.Windows.Count windows of @EggIncognito.Services.Predictions.ContractBacktest.SweepHorizonSlots slots</div>
+    <div class="reg-wrap">
+        <table class="data-table">
+            <thead>
+            <tr>
+                <th>Slot</th>
+                <th>Predicted</th>
+                <th>Slot hit</th>
+                <th>Top 1 hit</th>
+                <th>Top 5 hit</th>
+            </tr>
+            </thead>
+            <tbody>
+            @foreach (var k in model.Sweep.Totals.Where(t => t.Predicted > 0)) {
+                <tr>
+                    <td>@KindLabel(k.Kind)</td>
+                    <td class="mono">@k.Predicted</td>
+                    <td class="mono">@Rate(k.SlotHit, k.Predicted)</td>
+                    <td class="mono">@Rate(k.Top1Hit, k.Predicted)</td>
+                    <td class="mono">@Rate(k.Top5Hit, k.Predicted)</td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+}
 <div class="text-xs text-muted">Historical data courtesy of carpetsage/egg.</div>
 
 @code {
     PaneNotice? _notice;
     ContractStatsResponse? _stats;
+    ContractModelResponse? _model;
+
+    static string KindLabel(ContractSlotKind kind) {
+        return kind switch {
+            ContractSlotKind.NewContract => "New",
+            ContractSlotKind.Leggacy => "Leggacy",
+            ContractSlotKind.PeLeggacy => "PE leggacy",
+            ContractSlotKind.PeLeggacyUltra => "PE leggacy, ultra only",
+            _ => kind.ToString()
+        };
+    }
+
+    static string Rate(int hit, int total) {
+        return total == 0 ? "-" : $"{hit}/{total} ({hit * 100 / total}%)";
+    }
     bool _busy;
     string _carpetUrl = "";
 
@@ -66,6 +130,9 @@
         }
 
         _stats = res.Json<ContractStatsResponse>();
+
+        var modelRes = await Api.GetAsync("/api/v1/contracts/model");
+        _model = modelRes.Ok ? modelRes.Json<ContractModelResponse>() : null;
     }
 
     async Task SweepSnapshots() {

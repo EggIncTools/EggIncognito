@@ -21,10 +21,16 @@ public static class ProtoVersionOrdering {
         cmp = CompareDotted(x.ClientVersion, y.ClientVersion);
         if (cmp != 0) return cmp;
 
+        cmp = CompareBuild(x.Build, y.Build);
+        if (cmp != 0) return cmp;
+
         cmp = CompareDescending(x.DetectedAt, y.DetectedAt);
         if (cmp != 0) return cmp;
 
-        cmp = CompareBuild(x.Build, y.Build);
+        cmp = PlatformRank(x.Platform).CompareTo(PlatformRank(y.Platform));
+        if (cmp != 0) return cmp;
+
+        cmp = string.CompareOrdinal(y.Build, x.Build);
         return cmp != 0 ? cmp : string.CompareOrdinal(x.Platform, y.Platform);
     }
 
@@ -147,7 +153,7 @@ public static class ProtoVersionOrdering {
         if (string.IsNullOrWhiteSpace(x) || string.IsNullOrWhiteSpace(y)) return 0;
         if (TryParseCode(x, out long cx) && TryParseCode(y, out long cy)) return cy.CompareTo(cx);
         if (DottedBuildKey(x) is { } dx && DottedBuildKey(y) is { } dy) return dy.CompareTo(dx);
-        return string.CompareOrdinal(y, x);
+        return 0;
     }
 
     private static bool TryParseCode(string value, out long code) =>

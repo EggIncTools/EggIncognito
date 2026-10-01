@@ -82,6 +82,32 @@ public class ArchiveProtoExtractorTests {
     public void Extract_Empty_FailsCleanly() => Assert.False(ArchiveProtoExtractor.Extract([]).Ok);
 
     [Fact]
+    public void Extract_Apk_WithoutNativeLib_ReportsMissingLibrary() {
+        byte[] apk = ZipWith("classes.dex", [1, 2, 3]);
+        var r = ArchiveProtoExtractor.Extract(apk);
+        Assert.False(r.Ok);
+        Assert.Contains("no native library", r.Diagnostics);
+    }
+
+    [Fact]
+    public void Extract_BaseSplitModule_ReportsSplitAndKeepsVersion() {
+        if (!TestFixtureFiles.TryRead(Path.Combine("base_split_111354", "AndroidManifest.xml"), out byte[] manifest))
+            return;
+        using var ms = new MemoryStream();
+        using (var zip = new ZipArchive(ms, ZipArchiveMode.Create, true)) {
+            Write(zip, "AndroidManifest.xml", manifest);
+            Write(zip, "classes.dex", [1, 2, 3]);
+        }
+
+        var r = ArchiveProtoExtractor.Extract(ms.ToArray());
+        Assert.False(r.Ok);
+        Assert.Contains("split", r.Diagnostics);
+        Assert.Contains("base__abi", r.Diagnostics);
+        Assert.Equal("1.37", r.AppVersion);
+        Assert.Equal("111354", r.Build);
+    }
+
+    [Fact]
     public void Extract_NotAZip_RawScanCarves() {
         if (!TryFixture(out byte[] fx)) return;
         var r = ArchiveProtoExtractor.Extract(fx);

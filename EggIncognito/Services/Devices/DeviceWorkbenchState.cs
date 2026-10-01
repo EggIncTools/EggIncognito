@@ -5,31 +5,23 @@ using EggIncognito.Models.Devices;
 namespace EggIncognito.Services.Devices;
 
 public sealed class DeviceWorkbenchState : WorkbenchStateBase {
-    public const string SectionIsland = "island";
-    public const string SectionInput = "input";
-    public const string SectionCapture = "capture";
-    public const string SectionJobs = "jobs";
-    public const string SectionBinaries = "binaries";
+    public const string ShelfLocks = "locks";
+    public const string ShelfWorkflows = "workflows";
+    public const string ShelfRecord = "record";
+    public const string ShelfCapture = "capture";
+    public const string ShelfJobs = "jobs";
+    public const string ShelfBinaries = "binaries";
+    public const string ShelfCoverage = "coverage";
 
     public override IReadOnlyList<(string Key, string Label, int? Count)> Modes { get; } = [];
 
     public string? SelectedId { get; set; }
-    public string? RunPanelFor { get; set; }
-    public double? RunPanelLeft { get; set; }
-    public double? RunPanelTop { get; set; }
-    public double? RunPanelWidth { get; set; }
-    public double? RunPanelHeight { get; set; }
+    public string Shelf { get; set; } = ShelfLocks;
     public HashSet<long> Expanded { get; } = [];
-    public HashSet<string> Open { get; } = [SectionInput];
     public CaptureViewState Capture { get; } = new();
     public Dictionary<string, DeviceConsoleCache> Console { get; } = [with(StringComparer.Ordinal)];
 
-    public bool IsOpen(string section) => Open.Contains(section);
-
-    public void SetOpen(string section, bool open) {
-        if (open) Open.Add(section);
-        else Open.Remove(section);
-    }
+    public bool ShelfIs(string tab) => string.Equals(Shelf, tab, StringComparison.Ordinal);
 
     public DeviceConsoleCache ConsoleFor(string deviceId) {
         if (Console.TryGetValue(deviceId, out var cached)) return cached;

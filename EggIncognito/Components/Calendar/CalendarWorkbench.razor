@@ -1,0 +1,331 @@
+@typeparam TItem where TItem : ICalendarSpan
+@using System.Globalization
+@using EggIncognito.Models.Calendar
+@using EggIncognito.Services.Calendar
+@using EggIncognito.Services.Events
+@implements IAsyncDisposable
+@inject IJSRuntime JS
+@inject IWebHostEnvironment Env
+@inject ICurrentUser User
+@inject IServiceProvider Services
+@inject ILogger<CalendarWorkbench<TItem>> Logger
+
+<WorkbenchModal Open="_open" Title="@Title" TitleId="@TitleId" Size="WorkbenchSize.Wide" OnClose="CloseAsync">
+    <HeadTools>
+        <CalendarRangePicker TZoom="CalendarZoom" AvailableZooms="Zooms" Zoom="_zoom" ZoomLabel="ZoomLabel"
+                             RangeLabel="@RangeLabel" DateValue="@CenterDate" ZoomChanged="SetZoom" OnPan="Pan"
+                             OnToday="Today" DateChanged="JumpToDate"/>
+        <span class="evwb-zone">@_zone.Id</span>
+    </HeadTools>
+    <Rail>
+        @Rail
+    </Rail>
+    <ChildContent>
+        <div class="evcal-pane">
+            @if (Note is { Length: > 0 } note) {
+                <div class="evcal-note">@note</div>
+            }
+            <div class="evcal-scale">
+                @for (var i = 0; i < WeekdayNames.Length; i++) {
+                    <span class="evcal-scale-label" style="@TickStyle((i + 0.5) / 7 * 100)">@WeekdayNames[i]</span>
+                }
+            </div>
+            <CalendarGrid TItem="CalendarBar<TItem>" @ref="_grid" Periods="_periods" LaneGroups="LaneGroups" OnCommitScrollPan="Pan"/>
+            @if (_picked is { } picked) {
+                <div class="evcal-detail">
+                    <div class="evcal-pop-head">
+                        <span class="evcal-pop-title">@DetailTitle(picked)</span>
+                        <button type="button" class="reg-edit-btn" aria-label="Close details" @onclick="ClearSelection">
+                            <Icon Name="x"/>
+                        </button>
+                    </div>
+                    @Detail(picked)
+                </div>
+            }
+        </div>
+    </ChildContent>
+</WorkbenchModal>
+
+@code {
+    static readonly string[] WeekdayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    static readonly IReadOnlyList<CalendarZoom> Zooms = [CalendarZoom.Week, CalendarZoom.Month];
+
+    [Parameter, EditorRequired] public string Title { get; set; } = "";
+
+    [Parameter, EditorRequired] public string TitleId { get; set; } = "";
+
+    [Parameter, EditorRequired] public WorkbenchStateBase State { get; set; } = null!;
+
+    [Parameter, EditorRequired] public RenderFragment Rail { get; set; } = null!;
+
+    [Parameter, EditorRequired] public Func<CalendarRange, Task<CalendarLoad>> Load { get; set; } = null!;
+
+    [Parameter, EditorRequired] public Func<IReadOnlyList<TItem>> Items { get; set; } = null!;
+
+    [Parameter, EditorRequired] public RenderFragment<CalendarBar<TItem>> Bar { get; set; } = null!;
+
+    [Parameter, EditorRequired] public RenderFragment<TItem> Detail { get; set; } = null!;
+
+    [Parameter, EditorRequired] public Func<TItem, string> DetailTitle { get; set; } = null!;
+
+    [Parameter] public Func<DateTimeOffset, DateTimeOffset, Task>? OnWindowChanged { get; set; }
+
+    [Parameter] public string FilterNote { get; set; } = "Nothing matches these filters.";
+
+    [Parameter] public bool Filtering { get; set; }
+
+    bool _open;
+    bool _loading;
+    bool _hashWired;
+    string _note = "";
+    CalendarZoom _zoom = CalendarZoom.Month;
+    DateTimeOffset _center = DateTimeOffset.UtcNow;
+    DateTimeOffset _visibleStart;
+    DateTimeOffset _visibleEnd;
+    IReadOnlyList<CalendarLayoutRow<TItem>> _rows = [];
+    IReadOnlyList<PeriodSlot<CalendarBar<TItem>>> _periods = [];
+    TItem? _picked;
+    CalendarGrid<CalendarBar<TItem>>? _grid;
+    TimeZoneInfo _zone = ViewerZone.Fallback;
+    ViewerClock? _clock;
+    IJSObjectReference? _nav;
+    IJSObjectReference? _navHandle;
+    DotNetObjectReference<CalendarWorkbench<TItem>>? _selfRef;
+
+    public bool IsOpen => _open;
+
+    public TimeZoneInfo Zone => _zone;
+
+    public CalendarZoom Zoom => _zoom;
+
+    public DateTimeOffset VisibleStart => _visibleStart;
+
+    public DateTimeOffset VisibleEnd => _visibleEnd;
+
+    protected override async Task OnInitializedAsync() {
+        _clock = ViewerClock.Of(Services);
+        if (_clock is null) return;
+        await _clock.EnsureAsync(Services, User, CancellationToken.None);
+        _zone = _clock.Zone;
+        _clock.Changed += OnZoneChanged;
+    }
+
+    public async Task Open() {
+        await OpenCore();
+        await WriteHash(true);
+        StateHasChanged();
+    }
+
+    async Task OpenCore() {
+        _open = true;
+        _loading = true;
+        _center = DateTimeOffset.UtcNow;
+        (_visibleStart, _visibleEnd) = CalendarLayout.Window(_center, _zoom, _zone);
+        ClearSelection();
+        StateHasChanged();
+        await Refresh();
+    }
+
+    async Task CloseAsync() {
+        _open = false;
+        ClearSelection();
+        await WriteHash(true, true);
+    }
+
+    public void ClearSelection() {
+        _picked = default;
+    }
+
+    public void Select(TItem item) {
+        _picked = _picked is not null && _picked.Key == item.Key ? default : item;
+    }
+
+    public void Relayout() {
+        var items = Items();
+        var now = DateTimeOffset.UtcNow;
+        _rows = CalendarLayout.Rows(items, _visibleStart, _visibleEnd, _zoom, now, _zone);
+        var span = _visibleEnd - _visibleStart;
+        var (prevStart, prevEnd) = CalendarLayout.Window(_center - span, _zoom, _zone);
+        var (nextStart, nextEnd) = CalendarLayout.Window(_center + span, _zoom, _zone);
+        var prevRows = CalendarLayout.Rows(items, prevStart, prevEnd, _zoom, now, _zone);
+        var nextRows = CalendarLayout.Rows(items, nextStart, nextEnd, _zoom, now, _zone);
+        _periods = [ToPeriod(prevRows, prevStart), ToPeriod(_rows, _visibleStart), ToPeriod(nextRows, nextStart)];
+    }
+
+    public void ApplyFilters() {
+        ClearSelection();
+        Relayout();
+    }
+
+    string Note {
+        get {
+            if (_loading) return "Loading...";
+            if (_note.Length > 0) return _note;
+            if (_rows.Any(r => r.Lanes.Count > 0)) return "";
+            return Filtering ? FilterNote : "Nothing in this range.";
+        }
+    }
+
+    async Task Refresh() {
+        (_visibleStart, _visibleEnd) = CalendarLayout.Window(_center, _zoom, _zone);
+        _center = _visibleStart + (_visibleEnd - _visibleStart) / 2;
+        var period = _visibleEnd - _visibleStart;
+        var load = await Load(new CalendarRange(
+            UnixSeconds.FromTime(_visibleStart - period), UnixSeconds.FromTime(_visibleEnd + period)));
+        _note = load.Note;
+        if (OnWindowChanged is { } changed) await changed(_visibleStart, _visibleEnd);
+        _loading = false;
+        Relayout();
+    }
+
+    async Task RefreshAndReset() {
+        await Refresh();
+        if (_grid is null) return;
+        try {
+            await _grid.ResetScrollAsync();
+        } catch (JSDisconnectedException) {
+        }
+    }
+
+    PeriodSlot<CalendarBar<TItem>> ToPeriod(IReadOnlyList<CalendarLayoutRow<TItem>> rows, DateTimeOffset start) {
+        return new PeriodSlot<CalendarBar<TItem>>(rows.Select(ToCalendarRow).ToList(), start.UtcTicks);
+    }
+
+    CalendarRow<CalendarBar<TItem>> ToCalendarRow(CalendarLayoutRow<TItem> row) {
+        var cellLabels = row.Cells.Select(c => new CalendarCellLabel(c.LeftPercent, CalendarLayout.CellLabel(c, _zoom), c.Muted)).ToList();
+        var gridLines = row.Cells.Where(c => c.LeftPercent > 0).Select(c => c.LeftPercent).ToList();
+        var lanes = row.Lanes.Count > 0 ? row.Lanes : [[]];
+        var laneGroups = new[] { new CalendarLaneGroupRow<CalendarBar<TItem>>(lanes) };
+        return new CalendarRow<CalendarBar<TItem>>(cellLabels, gridLines, [], row.NowPercent, laneGroups);
+    }
+
+    LaneGroupDef<CalendarBar<TItem>>[] LaneGroups {
+        get {
+            var laneMin = _zoom == CalendarZoom.Week ? 6.75 : 1.75;
+            return [new LaneGroupDef<CalendarBar<TItem>>(Bar, laneMin, 0.25, 1.25)];
+        }
+    }
+
+    public string BarStyle(CalendarBar<TItem> bar) {
+        var barH = _zoom == CalendarZoom.Week ? 4.5 : 1.125;
+        return FormattableString.Invariant(
+            $"--bar-start:{bar.LeftPercent:0.###};--bar-size:{bar.WidthPercent:0.###};--evcal-bar-h:{barH:0.###}rem;");
+    }
+
+    public static string BarCss(CalendarBar<TItem> bar) {
+        var css = bar.Active ? "evcal-bar evcal-bar-active" : bar.Past ? "evcal-bar evcal-bar-past" : "evcal-bar";
+        if (bar.ContinuesLeft) css += " evcal-bar-cut-l";
+        if (bar.ContinuesRight) css += " evcal-bar-cut-r";
+        return css;
+    }
+
+    public string Absolute(double unixSeconds) {
+        return TimeZoneInfo.ConvertTime(UnixSeconds.ToTime(unixSeconds), _zone)
+            .ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture);
+    }
+
+    public string Weekday(double unixSeconds) {
+        return TimeZoneInfo.ConvertTime(UnixSeconds.ToTime(unixSeconds), _zone)
+            .ToString("dddd", CultureInfo.InvariantCulture);
+    }
+
+    Task SetZoom(CalendarZoom zoom) {
+        if (_zoom == zoom) return Task.CompletedTask;
+        _zoom = zoom;
+        ClearSelection();
+        return RefreshAndReset();
+    }
+
+    Task Pan(int direction) {
+        _center += (_visibleEnd - _visibleStart) * direction;
+        ClearSelection();
+        return Refresh();
+    }
+
+    Task Today() {
+        _center = DateTimeOffset.UtcNow;
+        ClearSelection();
+        return RefreshAndReset();
+    }
+
+    Task JumpToDate(ChangeEventArgs e) {
+        if (!DateOnly.TryParseExact(e.Value?.ToString(), "yyyy-MM-dd", CultureInfo.InvariantCulture,
+                DateTimeStyles.None, out var picked)) return Task.CompletedTask;
+        _center = CalendarLayout.ToOffset(picked.ToDateTime(new TimeOnly(12, 0)), _zone);
+        ClearSelection();
+        return RefreshAndReset();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender) {
+        if (!firstRender) return;
+        try {
+            _nav = await JS.InvokeAsync<IJSObjectReference>("import", InteropAsset.Url(Env, "./interop/hashnav.js"));
+            _selfRef = DotNetObjectReference.Create(this);
+            _navHandle = await _nav.InvokeAsync<IJSObjectReference>("listen", _selfRef);
+            _hashWired = true;
+            await ApplyHash(await _nav.InvokeAsync<string>("read"));
+        } catch (Exception ex) when (ex is JSDisconnectedException or JSException or ObjectDisposedException) {
+            Logger.LogDebug(ex, "hash navigation could not be wired");
+        }
+
+        StateHasChanged();
+    }
+
+    void OnZoneChanged() => _ = InvokeAsync(async () => {
+        if (_clock is null || _clock.Zone.Id == _zone.Id) return;
+        _zone = _clock.Zone;
+        if (_open) await Refresh();
+        StateHasChanged();
+    });
+
+    [JSInvokable]
+    public async Task OnHashChanged(string hash) {
+        await ApplyHash(hash);
+        StateHasChanged();
+    }
+
+    async Task ApplyHash(string hash) {
+        if (!State.ApplyHash(hash)) {
+            if (_open) {
+                _open = false;
+                ClearSelection();
+                StateHasChanged();
+            }
+
+            return;
+        }
+
+        if (!_open) await OpenCore();
+        StateHasChanged();
+    }
+
+    async Task WriteHash(bool push = false, bool clear = false) {
+        if (!_hashWired || _nav is null) return;
+        var hash = clear ? "" : State.Hash() ?? "";
+        try {
+            await _nav.InvokeVoidAsync(push ? "push" : "write", hash);
+        } catch (Exception ex) when (ex is JSDisconnectedException or JSException or ObjectDisposedException) {
+            Logger.LogDebug(ex, "the workbench hash could not be updated");
+        }
+    }
+
+    static string ZoomLabel(CalendarZoom zoom) {
+        return zoom == CalendarZoom.Week ? "Week" : "Month";
+    }
+
+    string CenterDate => TimeZoneInfo.ConvertTime(_center, _zone).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+
+    string RangeLabel => CalendarLayout.RangeLabel(_visibleStart, _visibleEnd, _zoom, _zone);
+
+    static string TickStyle(double leftPercent) {
+        return FormattableString.Invariant($"--tick-pos:{leftPercent:0.###};");
+    }
+
+    public async ValueTask DisposeAsync() {
+        await _navHandle.DisposeModuleAsync("dispose", Logger);
+        if (_clock is not null) _clock.Changed -= OnZoneChanged;
+        await _nav.DisposeModuleAsync(logger: Logger);
+        _selfRef?.Dispose();
+    }
+
+}

@@ -73,23 +73,20 @@
     </div>
 
     <div class="pd-wcol">
-        <section class="panel pd-w-events">
+        <section class="panel pd-w-calendar">
             <div class="flex items-center justify-between mb-3">
-                <h3 class="text-sm font-semibold m-0">Game events</h3>
-                <button type="button" class="dropzone-open" aria-label="Open the events calendar"
-                        @onclick="@(() => OnOpenEvents.InvokeAsync())">
-                    <Icon Name="chevron-right" Class="icon-sm"/>
-                </button>
+                <h3 class="text-sm font-semibold m-0">Calendar</h3>
+                <div class="flex items-center gap-1">
+                    <button type="button" class="btn-mini" @onclick="@(() => OnOpenContracts.InvokeAsync())">Contracts</button>
+                    <button type="button" class="btn-mini" @onclick="@(() => OnOpenEvents.InvokeAsync())">Events</button>
+                </div>
             </div>
             <EventsMiniCalendar OnOpen="OnOpenEvents"/>
-        </section>
-
-        @if (_seasons is { Count: > 0 } seasonList) {
-            var season = seasonList[Math.Clamp(_seasonIx, 0, seasonList.Count - 1)];
-            var grades = season.GradeGoals.Where(g => g.Goals.Count > 0).ToList();
-            <section class="panel pd-w-season">
-                <div class="flex items-center justify-between mb-3">
-                    <h3 class="text-sm font-semibold m-0">Seasons</h3>
+            @if (_seasons is { Count: > 0 } seasonList) {
+                var season = seasonList[Math.Clamp(_seasonIx, 0, seasonList.Count - 1)];
+                var grades = season.GradeGoals.Where(g => g.Goals.Count > 0).ToList();
+                <div class="flex items-center justify-between mt-4 mb-3">
+                    <div class="sub-section-head m-0">Season</div>
                     <div class="flex items-center gap-1">
                         <button type="button" class="reg-edit-btn disabled:opacity-40 disabled:cursor-default disabled:hover:border-border"
                                 disabled="@(_seasonIx >= seasonList.Count - 1)"
@@ -208,8 +205,8 @@
                 } else {
                     <div class="text-muted text-sm">No reward data captured for this season.</div>
                 }
-            </section>
-        }
+            }
+        </section>
 
         <SupportPanel OnOpenCapture="OnOpenCapture" OnOpenSupport="OnOpenSupport"/>
 
@@ -235,6 +232,8 @@
     [Parameter] public EventCallback OnOpenApiWorkbench { get; set; }
 
     [Parameter] public EventCallback OnOpenEvents { get; set; }
+
+    [Parameter] public EventCallback OnOpenContracts { get; set; }
 
     [Parameter] public EventCallback OnOpenCapture { get; set; }
 

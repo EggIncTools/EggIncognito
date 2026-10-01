@@ -1,0 +1,291 @@
+@rendermode @(RenderModes.InteractiveServer)
+@inherits SelfCallComponentBase
+@inject ILogger<DeviceLocksPane> Logger
+@using System.Globalization
+@using System.Text.Json
+@using EggIncognito.Models.Devices
+@using EggIncognito.Services.Devices
+@using EggIncognito.Services.Events
+
+<div class="dlk" hidden="@(!Visible)">
+    <div class="dwb-bar">
+        <span class="dwb-bar-group">
+            <button type="button" class="btn-mini @(Arming ? "dcon-on" : "")" title="@ArmTitle()" @onclick="ToggleArm">
+                <Icon Name="eye" Class="icon-sm"/>
+                @(Arming ? "Tap the screen" : "Lock a point")
+            </button>
+            <select class="field-input dlk-kind" aria-label="Click type for new points" value="@_newKind" @onchange="NewKindChanged">
+                <option value="@PixelWatchKinds.Tap">tap</option>
+                <option value="@PixelWatchKinds.Double">double</option>
+                <option value="@PixelWatchKinds.Hold">hold</option>
+            </select>
+            @if (_newKind == PixelWatchKinds.Hold) {
+                <label class="dlk-num-label">hold
+                    <input type="number" class="field-input dlk-num" aria-label="Hold length in ms" min="@PixelWatchService.MinHoldMs"
+                           max="@PixelWatchService.MaxHoldMs" step="50" @bind="_newHoldMs"/>
+                    <span class="text-muted text-xs">ms</span>
+                </label>
+            }
+            <label class="dlk-num-label">every
+                <input type="number" class="field-input dlk-num" aria-label="Click rate in ms" min="@PixelWatchService.MinRateMs"
+                       max="@PixelWatchService.MaxRateMs" step="50" @bind="_newRateMs"/>
+                <span class="text-muted text-xs">ms</span>
+            </label>
+        </span>
+        <span class="dwb-bar-group">
+            @if (CanGroup()) {
+                <label class="dlk-num-label">offset
+                    <input type="number" class="field-input dlk-num" aria-label="Gap between grouped taps in ms" min="0"
+                           max="@PixelWatchService.MaxOffsetMs" step="10" @bind="_offsetMs"/>
+                    <span class="text-muted text-xs">ms</span>
+                </label>
+                <button type="button" class="btn-mini" disabled="@_busy" @onclick="GroupSelectedAsync">
+                    <Icon Name="link" Class="icon-sm"/>
+                    Group @_selected.Count
+                </button>
+            } else if (_selected.Count >= 2) {
+                <span class="text-muted text-xs">grouped points must share a colour</span>
+            }
+            @if (Watch.Points.Count > 0) {
+                <button type="button" class="btn-mini btn-danger" disabled="@_busy" @onclick="ClearAllAsync">Clear all</button>
+            }
+        </span>
+    </div>
+
+    @if (Watch.Points.Count == 0) {
+        <div class="dcon-status text-xs">
+            <Icon Name="circle" Class="icon-sm text-muted"/>
+            <span class="text-muted">@(Arming ? "Tap a button on the screen. Its colour at that point becomes the trigger." : "No points locked. Lock a point and it is tapped again every time its colour returns.")</span>
+        </div>
+    } else {
+        <div class="reg-wrap dlk-wrap">
+            <table class="data-table dcon-list dlk-table">
+                <thead>
+                <tr>
+                    <th></th>
+                    <th></th>
+                    <th>at</th>
+                    <th>type</th>
+                    <th>every</th>
+                    <th>group</th>
+                    <th>taps</th>
+                    <th>last</th>
+                    <th></th>
+                </tr>
+                </thead>
+                <tbody>
+                @foreach (var p in Watch.Points) {
+                    <tr @key="p.Id" class="@(p.Error is not null ? "dlk-row-err" : "")">
+                        <td class="dcon-cur">
+                            <input type="checkbox" aria-label="Select point" checked="@_selected.Contains(p.Id)"
+                                   @onchange="@(e => Select(p.Id, e.Value is true))"/>
+                        </td>
+                        <td class="dcon-cur">
+                            <span class="dlk-swatch" style="@($"background:{p.Color}")" title="@p.Color"></span>
+                        </td>
+                        <td class="font-mono">@p.X,@p.Y</td>
+                        <td>
+                            <span class="dlk-cell">
+                                <select class="field-input dlk-kind" aria-label="Click type" value="@p.Kind"
+                                        @onchange="@(e => UpdateAsync(p.Id, new PixelWatchPointUpdate(Kind: e.Value?.ToString())))">
+                                    <option value="@PixelWatchKinds.Tap">tap</option>
+                                    <option value="@PixelWatchKinds.Double">double</option>
+                                    <option value="@PixelWatchKinds.Hold">hold</option>
+                                </select>
+                                @if (p.Kind == PixelWatchKinds.Hold) {
+                                    <input type="number" class="field-input dlk-num" aria-label="Hold length in ms" value="@p.HoldMs"
+                                           min="@PixelWatchService.MinHoldMs" max="@PixelWatchService.MaxHoldMs" step="50"
+                                           @onchange="@(e => UpdateAsync(p.Id, new PixelWatchPointUpdate(HoldMs: ParseInt(e.Value))))"/>
+                                }
+                            </span>
+                        </td>
+                        <td>
+                            <span class="dlk-cell">
+                                <input type="number" class="field-input dlk-num" aria-label="Click rate in ms" value="@p.RateMs"
+                                       min="@PixelWatchService.MinRateMs" max="@PixelWatchService.MaxRateMs" step="50"
+                                       @onchange="@(e => UpdateAsync(p.Id, new PixelWatchPointUpdate(RateMs: ParseInt(e.Value))))"/>
+                                <span class="text-muted text-xs">ms</span>
+                            </span>
+                        </td>
+                        <td class="text-xs">
+                            @if (GroupOf(p) is { } g) {
+                                <span class="dlk-cell">
+                                    <span class="font-mono text-muted">@GroupLabel(g)</span>
+                                    <span class="text-muted">@(g.Position(p.Id) + 1)/@g.PointIds.Count, @g.OffsetMs ms</span>
+                                    <button type="button" class="btn-mini" title="Dissolve this group" disabled="@_busy"
+                                            @onclick="@(() => UngroupAsync(g.Id))">
+                                        <Icon Name="x" Class="icon-sm"/>
+                                    </button>
+                                </span>
+                            }
+                        </td>
+                        <td class="font-mono">@p.Taps</td>
+                        <td class="font-mono text-muted text-xs" title="@p.Error">@LastText(p)</td>
+                        <td class="dcon-row-tools">
+                            <button type="button" class="btn-mini" title="Remove this point" disabled="@_busy"
+                                    @onclick="@(() => RemoveAsync(p.Id))">
+                                <Icon Name="x" Class="icon-sm"/>
+                            </button>
+                        </td>
+                    </tr>
+                    @if (p.Error is { } err) {
+                        <tr class="dlk-err-row">
+                            <td colspan="9" class="text-err text-xs">@err</td>
+                        </tr>
+                    }
+                }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
+
+@code {
+
+    [Parameter] public string? DeviceId { get; set; }
+
+    [Parameter] public bool Visible { get; set; }
+
+    [Parameter] public PixelWatchState Watch { get; set; } = PixelWatchState.Empty;
+
+    [Parameter] public bool Arming { get; set; }
+
+    [Parameter] public EventCallback<bool> ArmingChanged { get; set; }
+
+    [Parameter] public EventCallback<PixelWatchState> WatchChanged { get; set; }
+
+    [Parameter] public EventCallback<DeviceNotice> OnNotice { get; set; }
+
+    bool _busy;
+    string _newKind = PixelWatchKinds.Tap;
+    int _newHoldMs = PixelWatchService.DefaultHoldMs;
+    int _newRateMs = PixelWatchService.DefaultRateMs;
+    int _offsetMs = 150;
+    readonly HashSet<string> _selected = new(StringComparer.Ordinal);
+
+    public PixelWatchRequest NewPoint(int x, int y) {
+        return new PixelWatchRequest(x, y, _newKind, _newKind == PixelWatchKinds.Hold ? _newHoldMs : null, _newRateMs);
+    }
+
+    protected override void OnParametersSet() {
+        _selected.RemoveWhere(id => Watch.Points.All(p => p.Id != id));
+    }
+
+    string ArmTitle() {
+        return Arming
+            ? "Now tap the button on the screen; its colour at that point becomes the trigger"
+            : "Lock a point: tap a button once and it is tapped again every time it reappears";
+    }
+
+    Task ToggleArm() {
+        return ArmingChanged.InvokeAsync(!Arming);
+    }
+
+    void NewKindChanged(ChangeEventArgs e) {
+        _newKind = PixelWatchKinds.Normalize(e.Value?.ToString());
+    }
+
+    void Select(string id, bool on) {
+        if (on) _selected.Add(id);
+        else _selected.Remove(id);
+    }
+
+    bool CanGroup() {
+        if (_selected.Count < 2) return false;
+        var picked = Watch.Points.Where(p => _selected.Contains(p.Id)).ToList();
+        if (picked.Count != _selected.Count || picked.Any(p => p.GroupId is not null)) return false;
+        return picked.Select(p => p.Color).Distinct(StringComparer.OrdinalIgnoreCase).Count() == 1;
+    }
+
+    PixelWatchGroup? GroupOf(PixelWatchStatus p) {
+        return p.GroupId is { } gid ? Watch.Groups.FirstOrDefault(g => g.Id == gid) : null;
+    }
+
+    string GroupLabel(PixelWatchGroup g) {
+        var index = Watch.Groups.ToList().IndexOf(g);
+        return index < 0 ? g.Id : $"G{index + 1}";
+    }
+
+    static string LastText(PixelWatchStatus p) {
+        if (p.LastTapAt is not { } at) return "";
+        var ago = DateTimeOffset.UtcNow - at;
+        if (ago < TimeSpan.FromSeconds(1)) return "now";
+        if (ago < TimeSpan.FromMinutes(1)) return string.Create(CultureInfo.InvariantCulture, $"{ago.TotalSeconds:0}s ago");
+        if (ago < TimeSpan.FromHours(1)) return string.Create(CultureInfo.InvariantCulture, $"{ago.TotalMinutes:0}m ago");
+        return at.ToString("HH:mm:ss", CultureInfo.InvariantCulture);
+    }
+
+    static int? ParseInt(object? raw) {
+        return int.TryParse(raw?.ToString(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var n) ? n : null;
+    }
+
+    async Task UpdateAsync(string pointId, PixelWatchPointUpdate update) {
+        if (DeviceId is null) return;
+        if (update is { Kind: null, HoldMs: null, RateMs: null }) return;
+        await Send(() => Client().PatchAsJsonAsync($"/api/devices/{DeviceId}/ui/watch/{pointId}", update, SelfCallJson.Web));
+    }
+
+    async Task GroupSelectedAsync() {
+        if (DeviceId is null || !CanGroup()) return;
+        var ordered = Watch.Points.Where(p => _selected.Contains(p.Id)).Select(p => p.Id).ToList();
+        var req = new PixelWatchGroupRequest(ordered, Math.Clamp(_offsetMs, 0, PixelWatchService.MaxOffsetMs));
+        await Send(() => Client().PostAsJsonAsync($"/api/devices/{DeviceId}/ui/watch/groups", req, SelfCallJson.Web));
+        _selected.Clear();
+    }
+
+    async Task UngroupAsync(string groupId) {
+        if (DeviceId is null) return;
+        await Send(() => Client().DeleteAsync($"/api/devices/{DeviceId}/ui/watch/groups/{groupId}"));
+    }
+
+    async Task RemoveAsync(string pointId) {
+        if (DeviceId is null) return;
+        _selected.Remove(pointId);
+        await Send(() => Client().DeleteAsync($"/api/devices/{DeviceId}/ui/watch?point={pointId}"), "state");
+    }
+
+    async Task ClearAllAsync() {
+        if (DeviceId is null) return;
+        _selected.Clear();
+        await Send(() => Client().DeleteAsync($"/api/devices/{DeviceId}/ui/watch"), "state");
+    }
+
+    async Task Send(Func<Task<HttpResponseMessage>> call, string? stateProperty = null) {
+        _busy = true;
+        try {
+            using var res = await call();
+            if (!res.IsSuccessStatusCode) {
+                await OnNotice.InvokeAsync(new DeviceNotice(await ReadError(res), StatusNoteKind.Error));
+                return;
+            }
+
+            var state = await ReadState(res, stateProperty);
+            if (state is not null) await WatchChanged.InvokeAsync(state);
+        } catch (Exception ex) when (ex is HttpRequestException or JsonException or TaskCanceledException) {
+            Logger.LogDebug(ex, "watch call failed for {DeviceId}", DeviceId);
+            await OnNotice.InvokeAsync(new DeviceNotice("the lock call failed", StatusNoteKind.Error));
+        } finally {
+            _busy = false;
+        }
+    }
+
+    static async Task<PixelWatchState?> ReadState(HttpResponseMessage res, string? property) {
+        if (property is null) return await res.Content.ReadFromJsonAsync<PixelWatchState>(SelfCallJson.Web);
+        var body = await res.Content.ReadFromJsonAsync<JsonElement>(SelfCallJson.Web);
+        if (body.ValueKind != JsonValueKind.Object || !body.TryGetProperty(property, out var inner)) return null;
+        return inner.Deserialize<PixelWatchState>(SelfCallJson.Web);
+    }
+
+    static async Task<string> ReadError(HttpResponseMessage resp) {
+        try {
+            var body = await resp.Content.ReadFromJsonAsync<JsonElement>();
+            if (body.ValueKind == JsonValueKind.Object && body.TryGetProperty("error", out var e))
+                return e.GetString() ?? $"failed [{(int)resp.StatusCode}]";
+        } catch (Exception ex) when (ex is JsonException or HttpRequestException or NotSupportedException) {
+            return $"failed [{(int)resp.StatusCode}]";
+        }
+
+        return $"failed [{(int)resp.StatusCode}]";
+    }
+
+}

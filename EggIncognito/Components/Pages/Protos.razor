@@ -18,6 +18,7 @@
 @inject IServiceProvider Services
 @using System.Text.Json
 @using EggIncognito.Components.Api
+@using EggIncognito.Components.Contracts
 @using EggIncognito.Components.Events
 @using EggIncognito.Components.Protos
 @using EggIncognito.Core.Services.ProtoExtract
@@ -39,26 +40,58 @@
             <section class="reg-wrap">
                 <div class="reg-toolbar">
                     <BrandPanel Rows="_rows" OnOpenVersion="OpenVersion"/>
-                    <div class="reg-toolbar-end">
-                        <label id="protoPageDrop" class="reg-drop" for="wbFile">
-                            <Icon Name="upload" Class="icon-sm"/>
-                            <span>Drop a build</span>
-                        </label>
-                        <button type="button" class="reg-intake"
-                                aria-label="Open the proto workbench" @onclick="@(() => _workbench?.Open())">
-                            <Icon Name="chevron-right" Class="icon-sm"/>
-                        </button>
+                    <div class="reg-toolbar-controls">
+                        <Tooltip Class="tt-ctl">
+                            <ChildContent>
+                                <label id="protoPageDrop" class="reg-drop" for="wbFile">
+                                    <Icon Name="upload" Class="icon-sm"/>
+                                    <span>Drop a build</span>
+                                </label>
+                            </ChildContent>
+                            <Tip>
+                                <span class="tt-title">Drop a build</span>
+                                <span class="tt-line">Drag an APK, APKM, XAPK or IPA onto this, or click to pick one. The proto inside is extracted and submitted to the registry.</span>
+                            </Tip>
+                        </Tooltip>
+                        <Tooltip Class="tt-ctl">
+                            <ChildContent>
+                                <button type="button" class="reg-intake"
+                                        aria-label="Open the proto workbench" @onclick="@(() => _workbench?.Open())">
+                                    <Icon Name="chevron-right" Class="icon-sm"/>
+                                </button>
+                            </ChildContent>
+                            <Tip>
+                                <span class="tt-title">Proto workbench</span>
+                                <span class="tt-line">Browse every registered version, diff two protos side by side and inspect their messages.</span>
+                            </Tip>
+                        </Tooltip>
                         @if (_isContributor || _isAdmin) {
-                            <button type="button" class="reg-intake" aria-label="Review staged submissions in the proto workbench"
-                                    @onclick="OpenReview">
-                                <Icon Name="clipboard" Class="icon-sm"/>
-                            </button>
+                            <Tooltip Class="tt-ctl">
+                                <ChildContent>
+                                    <button type="button" class="reg-intake" aria-label="Review staged submissions in the proto workbench"
+                                            @onclick="OpenReview">
+                                        <Icon Name="clipboard" Class="icon-sm"/>
+                                    </button>
+                                </ChildContent>
+                                <Tip>
+                                    <span class="tt-title">Review submissions</span>
+                                    <span class="tt-line">Builds dropped by other people wait here. Accept them into the registry or reject them.</span>
+                                </Tip>
+                            </Tooltip>
                         }
                         @if (_isAdmin) {
-                            <button type="button" class="reg-add-toggle" aria-label="Add a version in the proto workbench"
-                                    @onclick="OpenAddVersion">
-                                +
-                            </button>
+                            <Tooltip Class="tt-ctl">
+                                <ChildContent>
+                                    <button type="button" class="reg-add-toggle" aria-label="Add a version in the proto workbench"
+                                            @onclick="OpenAddVersion">
+                                        +
+                                    </button>
+                                </ChildContent>
+                                <Tip>
+                                    <span class="tt-title">Add a version</span>
+                                    <span class="tt-line">Register a version by hand, for builds that cannot be dropped as a file.</span>
+                                </Tip>
+                            </Tooltip>
                         }
                     </div>
                 </div>
@@ -70,10 +103,10 @@
                         <div class="reg-empty-hint">Drop a build on the toolbar, or open the proto workbench, to add one.</div>
                     </div>
                 } else {
-                    var releases = SortedReleases;
+                    var bands = SortedBands;
                     _laneLayout = ShaLanes.Build(
-                        releases.Select(r => r.Key).ToList(),
-                        releases.Select(r => r.Primary.Key()).ToList(),
+                        bands.Select(b => b.Key).ToList(),
+                        bands.Select(b => b.Primary.Key()).ToList(),
                         AllReleases.Select(r => r.Primary.Key()).ToList());
                     var laneRows = _laneLayout.Rows;
                     <div class="reg-scroll">
@@ -92,68 +125,66 @@
                                 <th class="reg-th-sort reg-c-sha" @onclick="@(() => Sort("sha"))">
                                     <span>Proto SHA</span>@Caret("sha")
                                 </th>
-                                <th class="reg-th-sort reg-c-det" @onclick="@(() => Sort("detected"))">
-                                    <span>Detected</span>@Caret("detected")
-                                </th>
                             </tr>
                             </thead>
-                            <tbody>
-                            @foreach (var rel in releases) {
-                                var primary = rel.Primary;
-                                var lane = laneRows.GetValueOrDefault(rel.Key);
-                                <tr class="reg-row cursor-pointer" @onclick="@(() => OpenVersion(primary))">
-                                    <td class="reg-version reg-c-app" data-label="App version">@primary.AppVersion</td>
-                                    <td class="reg-c-build" data-label="Build">
-                                        <span class="reg-builds">
-                                            @foreach (var m in rel.Members) {
-                                                <a class="reg-build-link" href="@VersionHref(m)" @onclick:stopPropagation="true"
-                                                   @onclick:preventDefault="true" @onclick="@(() => OpenVersion(m))">
-                                                    <PlatformIcon Platform="@m.Platform"/>
-                                                    @if (m.BuildFlag is { } memberFlag) {
-                                                        <Tooltip>
-                                                            <ChildContent>
-                                                                <span class="reg-num reg-num-bad">@m.Build</span>
-                                                            </ChildContent>
-                                                            <Tip>
-                                                                <span class="tt-line tt-bad">@FlagLabel(memberFlag)</span>
-                                                            </Tip>
-                                                        </Tooltip>
-                                                    } else {
-                                                        <span class="reg-num">@m.Build</span>
+                            @foreach (var band in bands) {
+                                var lane = laneRows.GetValueOrDefault(band.Key);
+                                var span = band.Releases.Count;
+                                <tbody class="reg-band">
+                                @for (var i = 0; i < span; i++) {
+                                    var rel = band.Releases[i];
+                                    var primary = rel.Primary;
+                                    <tr class="reg-row" @onclick="@(() => OpenVersion(primary))">
+                                        <td class="reg-version reg-c-app" data-label="App version">@primary.AppVersion</td>
+                                        <td class="reg-c-build" data-label="Build">
+                                            <span class="reg-builds">
+                                                @foreach (var m in rel.Members) {
+                                                    <a class="reg-build-link" href="@VersionHref(m)" @onclick:stopPropagation="true"
+                                                       @onclick:preventDefault="true" @onclick="@(() => OpenVersion(m))">
+                                                        <PlatformIcon Platform="@m.Platform"/>
+                                                        @if (m.BuildFlag is { } memberFlag) {
+                                                            <Tooltip>
+                                                                <ChildContent>
+                                                                    <span class="reg-num reg-num-bad">@m.Build</span>
+                                                                </ChildContent>
+                                                                <Tip>
+                                                                    <span class="tt-line tt-bad">@FlagLabel(memberFlag)</span>
+                                                                </Tip>
+                                                            </Tooltip>
+                                                        } else {
+                                                            <span class="reg-num">@m.Build</span>
+                                                        }
+                                                    </a>
+                                                }
+                                            </span>
+                                        </td>
+                                        @if (i == 0) {
+                                            <td class="reg-num reg-c-client" data-label="Client" rowspan="@span">@ClientText(band.Primary)</td>
+                                            <td class="reg-c-sha reg-sha-cell" data-label="Proto SHA" rowspan="@span">
+                                                @if (lane is not null) {
+                                                    foreach (var seg in lane.Segments) {
+                                                        <span class="@LaneSpanClass(seg)" style="--lane: @seg.Lane"
+                                                              role="button" aria-label="Open proto group"
+                                                              @onclick:stopPropagation="true" @onclick="@(() => OpenGroup(seg.GroupId))"
+                                                              @onmouseenter="@(() => SetHotGroup(seg.GroupId))"
+                                                              @onmouseleave="@(() => SetHotGroup(null))">
+                                                        </span>
                                                     }
-                                                </a>
-                                            }
-                                        </span>
-                                    </td>
-                                    <td class="reg-num reg-c-client" data-label="Client">@ClientText(primary)</td>
-                                    <td class="reg-c-sha reg-sha-cell" data-label="Proto SHA">
-                                        @if (lane is not null) {
-                                            foreach (var seg in lane.Segments) {
-                                                <span class="@LaneSpanClass(seg)" style="--lane: @seg.Lane"
-                                                      role="button" aria-label="Open proto group"
-                                                      @onclick:stopPropagation="true" @onclick="@(() => OpenGroup(seg.GroupId))"
-                                                      @onmouseenter="@(() => SetHotGroup(seg.GroupId))"
+                                                }
+                                                <span class="inline-flex items-center gap-1"
+                                                      @onmouseenter="@(() => SetHotGroup(lane?.GroupId))"
                                                       @onmouseleave="@(() => SetHotGroup(null))">
+                                                    <span class="@ShaChipClass(lane)">@Short(band.Primary.ProtoSha)</span>
+                                                    @if (band.Primary.SortOrder is { } so && so != 0) {
+                                                        <span class="text-muted text-xs">@OrderLabel(so)</span>
+                                                    }
                                                 </span>
-                                            }
+                                            </td>
                                         }
-                                        <span class="inline-flex items-center gap-1"
-                                              @onmouseenter="@(() => SetHotGroup(lane?.GroupId))"
-                                              @onmouseleave="@(() => SetHotGroup(null))">
-                                            <span class="@ShaChipClass(lane)">@Short(primary.ProtoSha)</span>
-                                            @if (primary.SortOrder is { } so && so != 0) {
-                                                <span class="text-muted text-xs">@OrderLabel(so)</span>
-                                            }
-                                        </span>
-                                    </td>
-                                    <td class="text-muted text-xs reg-c-det" data-label="Detected">
-                                        @if (primary.DetectedAt is { } detected) {
-                                            <TimeAgo Value="@TimeAgo.FromUtc(detected)"/>
-                                        }
-                                    </td>
-                                </tr>
+                                    </tr>
+                                }
+                                </tbody>
                             }
-                            </tbody>
                         </table>
                     </div>
                 }
@@ -162,7 +193,7 @@
         <div class="pd-mod pd-side">
             <PeriodicalsPanel OnManageDevices="OpenDeviceWorkbench" OnOpenNotifications="OpenNotifications"
                               OnOpenApiWorkbench="OpenApiWorkbench" OnOpenCapture="OpenCaptureWorkbench"
-                              OnOpenEvents="OpenEvents" OnOpenSupport="OpenSupport"/>
+                              OnOpenEvents="OpenEvents" OnOpenContracts="OpenContracts" OnOpenSupport="OpenSupport"/>
         </div>
     </div>
 </main>
@@ -172,6 +203,7 @@
 <DeviceWorkbenchModal @ref="_deviceWorkbench" OnChanged="OnMutated"/>
 <ApiWorkbenchModal @ref="_apiWorkbench"/>
 <EventsWorkbenchModal @ref="_eventsModal"/>
+<ContractsWorkbenchModal @ref="_contractsModal"/>
 <AdminWorkbenchModal @ref="_adminWorkbench"/>
 <SupportModal @ref="_supportModal"/>
 <TermsModal @ref="_termsModal"/>
@@ -183,6 +215,7 @@
     ApiWorkbenchModal? _apiWorkbench;
     AdminWorkbenchModal? _adminWorkbench;
     EventsWorkbenchModal? _eventsModal;
+    ContractsWorkbenchModal? _contractsModal;
     SupportModal? _supportModal;
     TermsModal? _termsModal;
     PrivacyModal? _privacyModal;
@@ -217,6 +250,10 @@
 
     Task OpenEvents() {
         return _eventsModal?.Open() ?? Task.CompletedTask;
+    }
+
+    Task OpenContracts() {
+        return _contractsModal?.Open() ?? Task.CompletedTask;
     }
 
     static readonly JsonSerializerOptions JsonOpts = new(JsonSerializerDefaults.Web);
@@ -343,7 +380,7 @@
                 },
                 "client" => (a, b) => CompareNumeric(a.ClientVersion, b.ClientVersion),
                 "sha" => (a, b) => string.Compare(a.ProtoSha, b.ProtoSha, StringComparison.OrdinalIgnoreCase),
-                _ => (a, b) => a.DetectedAt.GetValueOrDefault().CompareTo(b.DetectedAt.GetValueOrDefault())
+                _ => ByVersion
             };
             return (a, b) => {
                 var v = primary(a, b);
@@ -381,6 +418,8 @@
             return releases;
         }
     }
+
+    List<Models.Registry.ReleaseBand> SortedBands => Models.Registry.ReleaseBand.Of(SortedReleases);
 
     void Sort(string col) {
         if (_sortCol == col) _sortDesc = !_sortDesc;

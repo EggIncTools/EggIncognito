@@ -35,12 +35,75 @@
         </table>
     </div>
 }
+@if (_model is { } model) {
+    <div class="sub-section-head">Model</div>
+    <div class="reg-wrap">
+        <table class="data-table">
+            <thead>
+            <tr>
+                <th>Rule</th>
+                <th>Type</th>
+                <th>Evidence</th>
+            </tr>
+            </thead>
+            <tbody>
+            @foreach (var rule in model.Rules) {
+                <tr>
+                    <td>@KindLabel(rule.Kind)</td>
+                    <td class="mono text-xs">@(rule.Type ?? (rule.Ultra ? "ultra" : "pool"))</td>
+                    <td class="text-xs text-muted">@rule.Summary</td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+    <div class="sub-section-head">Backtest, last @model.Sweep.Windows.Count windows of @EggIncognito.Services.Predictions.EventBacktest.SweepHorizonDays days</div>
+    <div class="reg-wrap">
+        <table class="data-table">
+            <thead>
+            <tr>
+                <th>Rule</th>
+                <th>Predicted</th>
+                <th>Slot hit</th>
+                <th>Type hit</th>
+                <th>Top 3 hit</th>
+            </tr>
+            </thead>
+            <tbody>
+            @foreach (var k in model.Sweep.Totals.Where(t => t.Predicted > 0)) {
+                <tr>
+                    <td>@KindLabel(k.Kind)</td>
+                    <td class="mono">@k.Predicted</td>
+                    <td class="mono">@Rate(k.SlotHit, k.Predicted)</td>
+                    <td class="mono">@Rate(k.TypeHit, k.Predicted)</td>
+                    <td class="mono">@Rate(k.Top3Hit, k.Predicted)</td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+}
 <div class="text-xs text-muted mt-2">Historical data courtesy of carpetsage/egg. Backfill tools live in the Maintenance pane.</div>
 
 @code {
     PaneNotice? _notice;
     EventStatsResponse? _stats;
+    EventModelResponse? _model;
     List<GameEventDto> _latest = [];
+
+    static string KindLabel(EventRuleKind kind) {
+        return kind switch {
+            EventRuleKind.WeekdayLane => "Weekday lane",
+            EventRuleKind.Alternating => "Alternating lane",
+            EventRuleKind.Periodic => "Periodic lane",
+            EventRuleKind.Pool => "Weekday pool",
+            _ => "Ultra cadence"
+        };
+    }
+
+    static string Rate(int hit, int total) {
+        return total == 0 ? "-" : $"{hit}/{total} ({hit * 100 / total}%)";
+    }
 
     IEnumerable<string> Stats => _stats is null
         ? []
@@ -68,6 +131,9 @@
 
         var latestRes = await Api.GetAsync("/api/v1/events?limit=3");
         _latest = latestRes.Ok ? latestRes.Json<GameEventListResponse>()?.Events.ToList() ?? [] : [];
+
+        var modelRes = await Api.GetAsync("/api/v1/events/model");
+        _model = modelRes.Ok ? modelRes.Json<EventModelResponse>() : null;
     }
 
 }
