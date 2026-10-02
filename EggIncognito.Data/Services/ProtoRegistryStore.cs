@@ -43,8 +43,10 @@ public sealed class ProtoRegistryStore(EggIncognitoDbContext db, TimeProvider ti
         }
 
         row.Package = package;
-        if (string.IsNullOrEmpty(row.AppVersion) || source == "farm") row.AppVersion = appVersion;
-        row.ClientVersion ??= clientVersion;
+        if (archive || string.IsNullOrEmpty(row.AppVersion) || source == "farm") row.AppVersion = appVersion;
+        if (archive && !string.IsNullOrWhiteSpace(clientVersion)) row.ClientVersion = clientVersion;
+        else row.ClientVersion ??= clientVersion;
+        if (archive) row.Source = source;
         if (string.IsNullOrEmpty(row.ApkRef)) row.ApkRef = apkRef;
         if (row.DetectedAt == default) row.DetectedAt = detectedAt;
         await db.SaveChangesAsync(ct);
@@ -246,28 +248,73 @@ public sealed class ProtoRegistryStore(EggIncognitoDbContext db, TimeProvider ti
 
     public async Task<List<MergeSuggestion>> SuggestMergesAsync(CancellationToken ct = default) {
         var rows = await db.ProtoVersions.AsNoTracking()
-            .Where(p => p.DeletedAt == null && p.CanonicalId == null)
+            .Where(p => p.DeletedAt == null)
             .Where(p => p.Build != null && p.Build != "" && p.AppVersion != null && p.AppVersion != "")
             .Where(p => p.ProtoSha != null && p.ProtoSha != "")
-            .Select(p => new { p.Platform, p.Build, p.AppVersion, p.ProtoSha })
+            .Select(p => new {
+                p.Id,
+                p.CanonicalId,
+                p.Platform,
+                p.AppVersion,
+                p.Build,
+                p.ClientVersion,
+                p.ProtoSha,
+                p.DetectedAt
+            })
             .ToListAsync(ct);
 
-        return [
-            .. rows
-                .GroupBy(r => new { r.AppVersion, r.ProtoSha })
-                .Where(g => g.Select(r => r.Platform).Distinct().Count() >= 2)
-                .Select(g => new MergeSuggestion(g.Key.AppVersion, g.Key.ProtoSha,
-                    g.Select(r => new MergeMember(r.Platform, r.Build))
-                        .OrderBy(m => m.Platform).ToList()))
-                .OrderBy(s => s.AppVersion)
-        ];
+        return SuggestMerges([
+            .. rows.Select(r => new MergeCandidate(
+                r.Id, r.CanonicalId, r.Platform, r.AppVersion, r.Build, r.ClientVersion, r.ProtoSha, r.DetectedAt))
+        ]);
     }
+
+    public static List<MergeSuggestion> SuggestMerges(IReadOnlyList<MergeCandidate> rows) {
+        var canonicals = rows.Where(r => r.CanonicalId is null).ToDictionary(r => r.Id);
+        var suggestions = new List<(MergeSuggestion Suggestion, VersionKey Lead)>();
+        foreach (var group in rows
+                     .Where(r => !string.IsNullOrWhiteSpace(r.ClientVersion) && !string.IsNullOrWhiteSpace(r.ProtoSha))
+                     .GroupBy(r => (Sha: r.ProtoSha.Trim().ToLowerInvariant(), Client: r.ClientVersion!.Trim()))) {
+            var releases = group
+                .Select(r => canonicals.GetValueOrDefault(r.CanonicalId ?? r.Id))
+                .OfType<MergeCandidate>()
+                .DistinctBy(c => c.Id)
+                .OrderBy(c => c.Platform, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(KeyOf, KeyComparer)
+                .ToList();
+            if (releases.Count < 2) continue;
+
+            var members = releases.Select(c => new MergeMember(c.Platform, c.Build, c.AppVersion)).ToList();
+            suggestions.Add((new MergeSuggestion(group.Key.Client, releases[0].ProtoSha, members), KeyOf(releases[0])));
+        }
+
+        return [.. ProtoVersionOrdering.SortByRelease(suggestions, s => s.Lead).Select(s => s.Suggestion)];
+    }
+
+    private static readonly IComparer<VersionKey> KeyComparer = Comparer<VersionKey>.Create(ProtoVersionOrdering.Compare);
+
+    private static VersionKey KeyOf(MergeCandidate c) =>
+        new(c.Platform, c.AppVersion, c.Build, c.ClientVersion, null, c.DetectedAt.UtcDateTime, c.Id, c.ProtoSha);
 
     public Task<List<ProtoVersion>> DeletedAsync(CancellationToken ct = default) =>
         db.ProtoVersions.AsNoTracking()
             .Where(p => p.DeletedAt != null)
             .OrderByDescending(p => p.DeletedAt)
             .ToListAsync(ct);
+
+    public async Task<bool> PurgeAsync(string platform, string build, CancellationToken ct = default) {
+        int purged = await db.ProtoVersions
+            .Where(p => p.Platform == platform && p.Build == build && p.DeletedAt != null)
+            .ExecuteDeleteAsync(ct);
+        if (purged > 0) await NotifyRegistryAsync($"purge:{platform}:{build}", ct);
+        return purged > 0;
+    }
+
+    public async Task<int> PurgeDeletedAsync(CancellationToken ct = default) {
+        int purged = await db.ProtoVersions.Where(p => p.DeletedAt != null).ExecuteDeleteAsync(ct);
+        if (purged > 0) await NotifyRegistryAsync("purge:all", ct);
+        return purged;
+    }
 
     public async Task<bool> SoftDeleteAsync(string platform, string build, CancellationToken ct = default) {
         var row = await db.ProtoVersions.FirstOrDefaultAsync(p => p.Platform == platform && p.Build == build, ct);
@@ -416,9 +463,19 @@ public sealed class ProtoRegistryStore(EggIncognitoDbContext db, TimeProvider ti
         string? PrevAppVersion,
         string? PrevBuild);
 
-    public sealed record MergeSuggestion(string AppVersion, string ProtoSha, IReadOnlyList<MergeMember> Members);
+    public sealed record MergeSuggestion(string ClientVersion, string ProtoSha, IReadOnlyList<MergeMember> Members);
 
-    public sealed record MergeMember(string Platform, string Build);
+    public sealed record MergeMember(string Platform, string Build, string AppVersion);
+
+    public sealed record MergeCandidate(
+        int Id,
+        int? CanonicalId,
+        string Platform,
+        string AppVersion,
+        string Build,
+        string? ClientVersion,
+        string ProtoSha,
+        DateTimeOffset DetectedAt);
 
     public sealed record CanonicalText(bool Ok, string? Text, string? Sha, string? Error);
 }

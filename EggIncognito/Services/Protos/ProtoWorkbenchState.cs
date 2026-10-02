@@ -1,5 +1,6 @@
 using EggIdentity.UI;
 using EggIncognito.Core.Services.ProtoExtract;
+using EggIncognito.Services.Filtering;
 using EggIncognito.Services.Workbench;
 
 namespace EggIncognito.Services.Protos;
@@ -36,9 +37,9 @@ public sealed class StagedEntry {
 
 public sealed record GroupStatus(
     bool Known, bool Pending, bool Offered, bool Failed = false, bool InRegistry = false, bool Archived = false,
-    bool ShaDiffers = false, bool Rejected = false) {
+    bool ShaDiffers = false, bool Rejected = false, bool MetaDiffers = false) {
     public bool Offerable => !Known && !Pending && !Offered && !Failed && !Rejected;
-    public bool Flaggable => Known && (!Archived || ShaDiffers) && !Pending && !Offered && !Failed;
+    public bool Flaggable => Known && (!Archived || ShaDiffers || MetaDiffers) && !Pending && !Offered && !Failed;
 }
 
 public sealed record DiffBundle(
@@ -62,8 +63,9 @@ public sealed class ProtoWorkbenchState : WorkbenchStateBase {
     public Dictionary<string, string> TextCache { get; } = [];
     public Dictionary<string, string> TextForms { get; } = [];
     public Dictionary<string, string> CanonicalShas { get; } = [];
-    public RegistryQuery Query { get; set; } = RegistryQuery.Empty;
-    public RegistryQuery? SplitQuery { get; set; }
+    public ListQuery Query { get; set; } = ListQuery.Empty;
+    public ListQuery? SplitQuery { get; set; }
+    public ListQuery SessionQuery { get; set; } = ListQuery.Empty;
     public Dictionary<string, string> ViewFilters { get; } = [];
     public ProtoRef? A { get; set; }
     public ProtoRef? B { get; set; }

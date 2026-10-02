@@ -17,8 +17,15 @@
     <div class="wb-note">Pick a device.</div>
 } else {
     <div class="dcon">
-        <div class="dcon-body">
+        <div class="dcon-body @(IsAndroid ? "dcon-body-ear" : "")">
             <div class="dcon-stage-col">
+                @if (IsAndroid) {
+                    <div class="dcon-ear">
+                        <DeviceIslandSelect Islands="_islands" Selected="_selectedAndroidUserId" Busy="_islandBusy"
+                                            OnSwitch="SwitchIslandAsync" OnRemove="RemoveIslandAsync"
+                                            OnCreate="CreateIslandAsync" OnRefresh="LoadIslandsAsync"/>
+                    </div>
+                }
                 <div class="dcon-stage">
                     <button type="button" class="dcon-shot" @ref="_stage"
                             aria-label="Device screen: tap, hold for long-press, drag or scroll to swipe">
@@ -74,75 +81,75 @@
                         </button>
                     </div>
                 }
+                <div class="dcon-input">
+                    @if (_captureKeys) {
+                        <span class="dcon-keys-note">keys go to the device</span>
+                    } else {
+                        <input class="field-input dcon-text" aria-label="Text to send" @bind="_text" @bind:event="oninput"
+                               @onkeydown="TextKeyAsync"/>
+                        <button type="button" class="btn-mini" disabled="@(_text.Length == 0)" @onclick="SendTextAsync">
+                            <Icon Name="send" Class="icon-sm"/>
+                            Send
+                        </button>
+                    }
+                    <button type="button" class="btn-mini @(_captureKeys ? "dcon-on" : "")" @onclick="ToggleCapture"
+                            title="Send every keystroke to the device as you type">
+                        <Icon Name="@(_captureKeys ? "circle-check" : "circle")" Class="icon-sm"/>
+                        Live keys
+                    </button>
+                </div>
             </div>
 
             <div class="dcon-side">
-                @if (Actions is not null) {
-                    <ToolBar Start="true">
-                        <span class="tbar-group">@Actions</span>
-                    </ToolBar>
-                    @ActionNotes
-                }
+                <div class="dcon-deck">
+                    @if (Actions is not null) {
+                        <div class="dcon-row">
+                            <ToolBar Start="true" Flat="true">
+                                <span class="tbar-group">@Actions</span>
+                            </ToolBar>
+                            <div class="dcon-notes">@ActionNotes</div>
+                        </div>
+                    }
 
-                <ToolBar>
-                    <span class="tbar-group">
-                        <span class="tbar-k">Stream</span>
-                        <DeviceStatusLine Icon="@StreamIcon()" IconClass="@StreamIconClass()" Text="@StreamLabel()" Detail="@StreamDetail()"/>
-                    </span>
-                    <span class="tbar-group">
-                        <span class="dcon-codec" title="@(_videoFallback ? "h264 gave no frame, retrying shortly" : null)">@(_useVideo ? "h264" : _videoFallback ? "jpeg, h264 retry pending" : "jpeg")</span>
-                        <select class="field-input dcon-rate" aria-label="Quality" value="@QualityValue()" @onchange="QualityPicked">
-                            @if (_useVideo) {
-                                <option value="@StreamQuality.Fluid">Fluid</option>
-                                <option value="@StreamQuality.Balanced">Balanced</option>
-                                <option value="@StreamQuality.Crisp">Crisp</option>
-                            } else {
-                                @foreach (var fps in Rates) {
-                                    <option value="@fps">@fps fps</option>
-                                }
-                            }
-                        </select>
-                        <button type="button" class="btn-mini" @onclick="ToggleStreamAsync">
-                            <Icon Name="@(_live ? "pause" : "play")" Class="icon-sm"/>
-                            @(_live ? "Pause" : "Resume")
-                        </button>
-                        <button type="button" class="btn-mini @(_mode == DeviceConsoleMode.Record ? "dcon-on" : "")"
-                                title="Record every tap, hold and swipe on the stage as flow steps" @onclick="ToggleRecord">
-                            <Icon Name="@(_mode == DeviceConsoleMode.Record ? "circle-check" : "circle")" Class="icon-sm"/>
-                            Record
-                        </button>
-                    </span>
-                </ToolBar>
+                    <div class="dcon-row">
+                        <ToolBar Flat="true">
+                            <span class="tbar-group">
+                                <span class="tbar-k">Stream</span>
+                                <DeviceStatusLine Icon="@StreamIcon()" IconClass="@StreamIconClass()" Text="@StreamLabel()" Detail="@StreamDetail()"/>
+                            </span>
+                            <span class="tbar-group">
+                                <span class="dcon-codec" title="@(_videoFallback ? "h264 gave no frame, retrying shortly" : null)">@(_useVideo ? "h264" : _videoFallback ? "jpeg, h264 retry pending" : "jpeg")</span>
+                                <select class="field-input dcon-rate" aria-label="Quality" value="@QualityValue()" @onchange="QualityPicked">
+                                    @if (_useVideo) {
+                                        <option value="@StreamQuality.Fluid">Fluid</option>
+                                        <option value="@StreamQuality.Balanced">Balanced</option>
+                                        <option value="@StreamQuality.Crisp">Crisp</option>
+                                    } else {
+                                        @foreach (var fps in Rates) {
+                                            <option value="@fps">@fps fps</option>
+                                        }
+                                    }
+                                </select>
+                                <button type="button" class="btn-mini" @onclick="ToggleStreamAsync">
+                                    <Icon Name="@(_live ? "pause" : "play")" Class="icon-sm"/>
+                                    @(_live ? "Pause" : "Resume")
+                                </button>
+                                <button type="button" class="btn-mini @(_mode == DeviceConsoleMode.Record ? "dcon-on" : "")"
+                                        title="Record every tap, hold and swipe on the stage as flow steps" @onclick="ToggleRecord">
+                                    <Icon Name="@(_mode == DeviceConsoleMode.Record ? "circle-check" : "circle")" Class="icon-sm"/>
+                                    Record
+                                </button>
+                            </span>
+                        </ToolBar>
+                    </div>
 
-                @if (IsAndroid) {
-                    <DeviceIslandSelect Islands="_islands" Selected="_selectedAndroidUserId" Busy="_islandBusy"
-                                        OnSwitch="SwitchIslandAsync" OnRemove="RemoveIslandAsync"
-                                        OnCreate="CreateIslandAsync" OnRefresh="LoadIslandsAsync"/>
-                }
-
-                <ToolBar>
-                    <span class="tbar-group tbar-fill">
-                        <span class="tbar-k">Input</span>
-                        @if (_captureKeys) {
-                            <span class="dcon-keys-note">Keys go to the device as you type, anywhere on this page. Ctrl, Alt and Cmd shortcuts still reach the browser.</span>
-                        } else {
-                            <input class="field-input dcon-text" placeholder="paste or type a whole string"
-                                   aria-label="Text to send" @bind="_text" @bind:event="oninput" @onkeydown="TextKeyAsync"/>
-                            <button type="button" class="btn-mini" disabled="@(_text.Length == 0)" @onclick="SendTextAsync">
-                                <Icon Name="send" Class="icon-sm"/>
-                                Send
-                            </button>
-                        }
-                    </span>
-                    <span class="tbar-group">
-                        <button type="button" class="btn-mini @(_captureKeys ? "dcon-on" : "")" @onclick="ToggleCapture"
-                                title="Send every keystroke to the device as you type">
-                            <Icon Name="@(_captureKeys ? "circle-check" : "circle")" Class="icon-sm"/>
-                            Live keys
-                        </button>
-                        <button type="button" class="btn-mini" @onclick="@(() => KeyAsync("enter"))">Enter</button>
-                    </span>
-                </ToolBar>
+                    @if (IsAndroid) {
+                        <div class="dcon-row">
+                            <DeviceLocksPane @ref="_locks" DeviceId="@_deviceId" Watch="_watch" WatchChanged="OnWatchState"
+                                             Arming="_locking" ArmingChanged="SetLocking" OnNotice="OnNotice"/>
+                        </div>
+                    }
+                </div>
 
                 <div class="dcon-shelf">
                     <div class="dcon-shelf-tabs">
@@ -157,16 +164,6 @@
                         }
                     </div>
                     <div class="dcon-shelf-body">
-                        @if (IsAndroid) {
-                            <DeviceLocksPane @ref="_locks" DeviceId="@_deviceId" Visible="@State.ShelfIs(DeviceWorkbenchState.ShelfLocks)"
-                                             Watch="_watch" WatchChanged="OnWatchState" Arming="_locking" ArmingChanged="SetLocking"
-                                             OnNotice="OnNotice"/>
-                        } else {
-                            <div hidden="@(!State.ShelfIs(DeviceWorkbenchState.ShelfLocks))">
-                                <DeviceStatusLine Muted="true" Text="Locks need the Android screen stream."/>
-                            </div>
-                        }
-
                         <DeviceWorkflowsPane DeviceId="@_deviceId" Active="@Active" Visible="@State.ShelfIs(DeviceWorkbenchState.ShelfWorkflows)"
                                              AndroidUserId="@_selectedAndroidUserId" OnNotice="OnNotice"
                                              OnChanged="AfterRunAsync" OnRunChanged="RunLineChanged"/>
@@ -360,10 +357,7 @@
     DeviceConsoleCache? Cache => _deviceId is { } id ? State.ConsoleFor(id) : null;
 
     IReadOnlyList<(string Key, string Label, int? Count)> ShelfTabs() {
-        List<(string, string, int?)> tabs = [
-            (DeviceWorkbenchState.ShelfLocks, "Locks", _watch.Points.Count > 0 ? _watch.Points.Count : null),
-            (DeviceWorkbenchState.ShelfWorkflows, "Workflows", null)
-        ];
+        List<(string, string, int?)> tabs = [(DeviceWorkbenchState.ShelfWorkflows, "Workflows", null)];
         if (_mode == DeviceConsoleMode.Record || _recorded.Count > 0)
             tabs.Add((DeviceWorkbenchState.ShelfRecord, "Record", _recorded.Count > 0 ? _recorded.Count : null));
         tabs.Add((DeviceWorkbenchState.ShelfCapture, "Capture", CaptureCount));
@@ -655,7 +649,7 @@
         _recorded = [];
         _selectedGesture = null;
         if (_mode != DeviceConsoleMode.Record && State.ShelfIs(DeviceWorkbenchState.ShelfRecord))
-            await SetShelf(DeviceWorkbenchState.ShelfLocks);
+            await SetShelf(DeviceWorkbenchState.ShelfWorkflows);
     }
 
     Task ReplayAsync(RecordedGesture g) {
@@ -750,7 +744,6 @@
         }
 
         _watch = await res.Content.ReadFromJsonAsync<PixelWatchState>(SelfCallJson.Web) ?? PixelWatchState.Empty;
-        await SetShelf(DeviceWorkbenchState.ShelfLocks);
     }
 
     void SubscribeWatches() {
@@ -1105,6 +1098,7 @@
 
     List<WatchPoint> WatchPayload() {
         List<WatchPoint> list = [];
+        if (_watch.Paused) return list;
         var leads = _watch.Groups.Select(g => g.PointIds.Count > 0 ? g.PointIds[0] : "").ToHashSet(StringComparer.Ordinal);
         foreach (var point in _watch.Points) {
             if (point.GroupId is not null && !leads.Contains(point.Id)) continue;

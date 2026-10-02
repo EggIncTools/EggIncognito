@@ -1,38 +1,34 @@
-@using EggIncognito.Models.Registry
-@using EggIncognito.Services.Protos
-@using FilterFieldDef = EggIncognito.Services.Protos.FilterFieldDef
-@using FilterOption = EggIncognito.Services.Protos.FilterOption
-@using FilterValueKind = EggIncognito.Services.Protos.FilterValueKind
-<div class="pwb-fil">
+@typeparam TItem
+<div class="fl-fil">
     @foreach (var groupIndex in Enumerable.Range(0, _groups.Count)) {
         var group = _groups[groupIndex];
         if (groupIndex > 0) {
-            <div class="pwb-fil-join pwb-fil-or">OR</div>
+            <div class="fl-fil-join fl-fil-or">OR</div>
         }
 
-        <div class="pwb-fil-group">
+        <div class="fl-fil-group">
             @foreach (var rowIndex in Enumerable.Range(0, group.Rows.Count)) {
                 var row = group.Rows[rowIndex];
-                var def = RegistryFilter.Field(row.Field);
+                var def = Schema.Field(row.Field);
                 if (rowIndex > 0) {
-                    <div class="pwb-fil-join pwb-fil-and">AND</div>
+                    <div class="fl-fil-join">AND</div>
                 }
 
-                <div class="@(def is null ? "pwb-fil-row pwb-fil-row-new" : "pwb-fil-row")">
-                    <div class="pwb-fil-row-head">
-                        <select class="pwb-fil-sel" value="@row.Field"
+                <div class="@(def is null ? "fl-fil-row fl-fil-row-new" : "fl-fil-row")">
+                    <div class="fl-fil-row-head">
+                        <select class="fl-fil-sel" value="@row.Field"
                                 @onchange="@(e => SetField(groupIndex, rowIndex, Text(e)))">
                             <option value="">Add a condition...</option>
-                            @foreach (var field in RegistryFilter.FieldsFor(IsAdmin)) {
+                            @foreach (var field in Schema.FieldsFor(IsAdmin)) {
                                 <option value="@field.Key">@field.Label</option>
                             }
                         </select>
                         @if (def is not null) {
                             @if (!Complete(row)) {
-                                <span class="pwb-fil-warn" title="Incomplete condition">!</span>
+                                <span class="fl-fil-warn" title="Incomplete condition">!</span>
                             }
 
-                            <button type="button" class="pwb-fil-x" aria-label="Remove condition"
+                            <button type="button" class="fl-fil-x" aria-label="Remove condition"
                                     @onclick="@(() => RemoveRow(groupIndex, rowIndex))">
                                 <Icon Name="x" Class="icon-sm"/>
                             </button>
@@ -40,14 +36,14 @@
                     </div>
                     @if (def is not null) {
                         @if (def.Kind == FilterValueKind.Bool) {
-                            <select class="pwb-fil-sel @(row.OpSet ? "" : "pwb-fil-bad")" value="@BoolText(row)"
+                            <select class="fl-fil-sel @(row.OpSet ? "" : "fl-fil-bad")" value="@BoolText(row)"
                                     @onchange="@(e => SetBool(groupIndex, rowIndex, Text(e)))">
                                 <option value="">is...</option>
                                 <option value="True">is true</option>
                                 <option value="False">is false</option>
                             </select>
                         } else {
-                            <select class="pwb-fil-sel @(row.OpSet ? "" : "pwb-fil-bad")" value="@OpText(row)"
+                            <select class="fl-fil-sel @(row.OpSet ? "" : "fl-fil-bad")" value="@OpText(row)"
                                     @onchange="@(e => SetOp(groupIndex, rowIndex, Text(e)))">
                                 <option value="">operator...</option>
                                 @foreach (var op in def.Ops) {
@@ -56,7 +52,7 @@
                             </select>
                             @if (row.OpSet) {
                                 @if (def.Kind is FilterValueKind.Select or FilterValueKind.Version) {
-                                    <select class="pwb-fil-val @(row.Value.Length == 0 ? "pwb-fil-bad" : "")"
+                                    <select class="fl-fil-val @(row.Value.Length == 0 ? "fl-fil-bad" : "")"
                                             value="@row.Value" @onchange="@(e => SetValue(groupIndex, rowIndex, Text(e)))">
                                         <option value="">value...</option>
                                         @foreach (var option in Options(def)) {
@@ -64,10 +60,10 @@
                                         }
                                     </select>
                                 } else if (def.Kind == FilterValueKind.Date) {
-                                    <input type="date" class="pwb-fil-val @(row.Value.Length == 0 ? "pwb-fil-bad" : "")"
+                                    <input type="date" class="fl-fil-val @(row.Value.Length == 0 ? "fl-fil-bad" : "")"
                                            value="@row.Value" @onchange="@(e => SetValue(groupIndex, rowIndex, Text(e)))"/>
                                 } else {
-                                    <input type="text" class="pwb-fil-val @(row.Value.Length == 0 ? "pwb-fil-bad" : "")"
+                                    <input type="text" class="fl-fil-val @(row.Value.Length == 0 ? "fl-fil-bad" : "")"
                                            list="@ListId(def, groupIndex, rowIndex)" placeholder="value" autocomplete="off"
                                            value="@row.Value" @onchange="@(e => SetValue(groupIndex, rowIndex, Text(e)))"/>
                                     @if (def.Options is not null) {
@@ -86,24 +82,27 @@
         </div>
     }
     @if (HasComplete(_groups[^1])) {
-        <button type="button" class="pwb-fil-orbtn" @onclick="AddGroup">+ OR group</button>
+        <button type="button" class="fl-fil-orbtn" @onclick="AddGroup">+ OR group</button>
     }
 </div>
 
 @code {
 
-    [Parameter] public RegistryQuery Query { get; set; } = RegistryQuery.Empty;
+    [Parameter, EditorRequired] public FilterSchema<TItem> Schema { get; set; } = null!;
 
-    [Parameter] public EventCallback<RegistryQuery> QueryChanged { get; set; }
+    [Parameter] public ListQuery Query { get; set; } = ListQuery.Empty;
 
-    [Parameter] public IReadOnlyList<ProtoRegistryRow> Rows { get; set; } = [];
+    [Parameter] public EventCallback<ListQuery> QueryChanged { get; set; }
+
+    [Parameter] public IReadOnlyList<TItem> Rows { get; set; } = [];
 
     [Parameter] public bool IsAdmin { get; set; }
 
+    readonly string _listPrefix = "flfil-" + Guid.NewGuid().ToString("N")[..8];
     readonly List<DraftGroup> _groups = [];
     readonly Dictionary<string, IReadOnlyList<FilterOption>> _options = [];
 
-    IReadOnlyList<ProtoRegistryRow>? _optionSource;
+    IReadOnlyList<TItem>? _optionSource;
     string _signature = "";
     bool _seeded;
 
@@ -149,7 +148,7 @@
         if (last.Rows.Count == 0 || last.Rows[^1].Field.Length > 0) last.Rows.Add(new DraftRow());
     }
 
-    IReadOnlyList<FilterOption> Options(FilterFieldDef def) {
+    IReadOnlyList<FilterOption> Options(FilterFieldDef<TItem> def) {
         if (def.Options is null) return [];
         if (_options.TryGetValue(def.Key, out var cached)) return cached;
         var built = def.Options(Rows);
@@ -157,8 +156,8 @@
         return built;
     }
 
-    static string ListId(FilterFieldDef def, int groupIndex, int rowIndex) {
-        return $"pwbfil-{def.Key}-{groupIndex}-{rowIndex}";
+    string ListId(FilterFieldDef<TItem> def, int groupIndex, int rowIndex) {
+        return $"{_listPrefix}-{def.Key}-{groupIndex}-{rowIndex}";
     }
 
     static string Text(ChangeEventArgs e) {
@@ -243,7 +242,7 @@
             if (conditions.Count > 0) groups.Add(new FilterGroup(conditions));
         }
 
-        var next = RegistryFilter.Prune(Query with { Groups = groups });
+        var next = FilterOps.Prune(Query with { Groups = groups });
         _signature = next.Signature();
         return QueryChanged.InvokeAsync(next);
     }

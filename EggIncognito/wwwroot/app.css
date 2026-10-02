@@ -36,8 +36,11 @@
   --color-scroll-track: #232329;
   --color-scroll-thumb: #6b6b78;
   --color-scroll-thumb-hover: #82828f;
+  --color-ultra-from: #f5a709;
+  --color-ultra-to: #900fb1;
   --font-mono: "Cascadia Code", "Fira Code", Consolas, monospace;
-  --font-sans: ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+  --font-sans: var(--font-mono);
+  --default-font-family: var(--font-mono);
   --radius-pill: 999px;
   --scrollbar-size: 0.875rem;
   --nav-h: 0rem;
@@ -77,21 +80,21 @@
 }
 
 *, *::before, *::after { box-sizing: border-box; border-color: var(--color-border); }
+[hidden] { display: none !important; }
+.segmented-opt.active .wb-seg-count { color: inherit; }
 hr { border: 0; border-top: 1px solid var(--color-border); }
 a { color: var(--color-accent); }
 button, input, select, textarea, optgroup, option { font: inherit; letter-spacing: inherit; }
-html { font-size: clamp(1rem, 0.875rem + 0.15625vw, 1.125rem); }
+html { font-size: clamp(1rem, 0.875rem + 0.15625vw, 1.125rem); color-scheme: dark; scrollbar-gutter: stable; }
 body {
   margin: 0;
   background-color: var(--color-bg);
   color: var(--color-fg);
-  font-family: var(--font-sans);
+  font-family: var(--font-mono);
   background-image: radial-gradient(1100px 520px at 50% -260px, var(--color-panel-glow) 0%, transparent 72%);
   background-repeat: no-repeat;
   background-attachment: fixed;
 }
-
-html { color-scheme: dark; scrollbar-gutter: stable; }
 
 ::-webkit-scrollbar { width: var(--scrollbar-size); height: var(--scrollbar-size); }
 ::-webkit-scrollbar-button { display: none; width: 0; height: 0; }
@@ -112,19 +115,10 @@ html { color-scheme: dark; scrollbar-gutter: stable; }
   * { scrollbar-width: thin; scrollbar-color: var(--color-scroll-thumb) var(--color-scroll-track); }
 }
 
-@keyframes egi-spin { to { transform: rotate(360deg); } }
-.icon.spinning, .spinning .icon { animation: egi-spin 0.6s linear infinite; transform-origin: 50% 50%; }
-
-@keyframes egi-fade-in { from { opacity: 0; } to { opacity: 1; } }
-main.router-fade { animation: egi-fade-in 0.14s ease both; }
-@media (prefers-reduced-motion: reduce) { main.router-fade { animation: none; } }
-
 input[type="search"]::placeholder { color: var(--color-muted); }
 
 .page { width: 100%; max-width: var(--page-w, 100%); padding-inline: 1rem; }
 .page-wide { --page-w: 2100px; margin-inline: auto; }
-.page-app { --page-w: 76rem; }
-.page-doc { --page-w: 54rem; }
 @media (min-width: 40rem) {
   .page { padding-inline: 2rem; }
 }
@@ -368,21 +362,6 @@ input[type="search"]::placeholder { color: var(--color-muted); }
 
 .popover-backdrop { position: fixed; inset: 0; z-index: 1040; }
 
-.col-gutter { cursor: col-resize; align-self: stretch; position: relative; border-radius: 3px; touch-action: none; }
-.col-gutter::before {
-  content: "";
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 2px;
-  height: 28px;
-  transform: translate(-50%, -50%);
-  background: var(--color-border);
-  border-radius: 2px;
-  transition: background 0.12s;
-}
-.col-gutter:hover::before, .col-gutter.dragging::before { background: var(--color-accent); height: 44px; }
-
 .tok-plain { color: var(--code-tok-plain); }
 .tok-key { color: var(--code-tok-key); }
 .tok-string { color: var(--code-tok-string); }
@@ -471,10 +450,9 @@ input[type="search"]::placeholder { color: var(--color-muted); }
   .account-modal { max-width: 42rem; }
 }
 
-.pwb-card .wb-body { position: relative; --pwb-drawer-w: min(100%, 40rem); }
+.pwb-card { --wb-drawer-border: var(--color-border-strong); }
 .wb-card.pwb-card, .wb-card.wb-card-wide.pwb-card { --wb-card-w: 94vw; --wb-card-max: min(94vw, 76rem); }
-.wb-card.pwb-card.pwb-drawer-on { --wb-card-w: 97vw; --wb-card-max: min(97vw, 120rem); }
-.pwb-drawer-on .wb-main { margin-right: var(--pwb-drawer-w); padding-right: 2rem; }
+.wb-card.pwb-card.wb-drawer-on { --wb-card-w: 97vw; --wb-card-max: min(97vw, 120rem); }
 .pwb-card .wb-rail { --wb-rail-w: 15.5rem; }
 @media (min-width: 80rem) {
   .wb-card.pwb-card.pwb-cols-2, .wb-card.pwb-card.pwb-cols-3 { --wb-card-max: min(96vw, 100rem); }
@@ -505,5 +483,5 @@ input[type="search"]::placeholder { color: var(--color-muted); }
   }
   .wb-card .wb-main { flex: none; overflow: visible; padding: 0.75rem; }
   .pwb-card .wb-rail { max-height: none; overflow: visible; }
-  .pwb-drawer-on .wb-main { margin-right: 0; padding-right: 0.75rem; }
+  .wb-card.wb-drawer-on .wb-main { margin-right: 0; padding-right: 0.75rem; }
 }

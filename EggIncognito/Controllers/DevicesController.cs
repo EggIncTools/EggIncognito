@@ -730,6 +730,15 @@ public sealed partial class DevicesController(
         return Ok(new { ok = true, stopped, state = watches.State(id) });
     }
 
+    [HttpPost("{id}/ui/watch/pause")]
+    [ApiAccess(ApiAccessLevel.Admin)]
+    [Requires<PixelWatchService>("pixel watch not configured")]
+    [EnableRateLimiting("write")]
+    public IActionResult UiWatchPause(string id, [FromServices] PixelWatchService watches, [FromQuery] bool on) {
+        if (!watches.SetPaused(id, on)) return Fail(404, "no watch points are armed for this device");
+        return Ok(watches.State(id));
+    }
+
     [HttpPost("{id}/ui/watch/client")]
     [ApiAccess(ApiAccessLevel.Admin)]
     [Requires<PixelWatchService>("pixel watch not configured")]

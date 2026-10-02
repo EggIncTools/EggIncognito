@@ -118,6 +118,44 @@ public class StagedProtoApiTests {
     }
 
     [Fact]
+    public void Evaluate_ArchivedBuildRowWithOtherClientVersion_IsMetaDiffersAndFlaggable() {
+        var stale = Android177();
+        stale.ArchiveSourced = true;
+        stale.ClientVersion = "14";
+
+        var r = StagedProtoStore.Evaluate([stale], false, "android", "1.7.7", "111079", "15", [stale], "eee8a15173a3");
+
+        Assert.True(r.KnownCombination);
+        Assert.True(r.Archived);
+        Assert.False(r.ShaDiffers);
+        Assert.True(r.MetaDiffers);
+        Assert.True(new GroupStatus(r.KnownCombination, false, false, false, r.InRegistry, r.Archived, r.ShaDiffers,
+            MetaDiffers: r.MetaDiffers).Flaggable);
+    }
+
+    [Fact]
+    public void Evaluate_ArchivedBuildRowWithOtherAppVersion_IsMetaDiffers() {
+        var stale = Android177();
+        stale.ArchiveSourced = true;
+
+        var r = StagedProtoStore.Evaluate([stale], false, "android", "1.7.8", "111079", "15", [stale], "eee8a15173a3");
+
+        Assert.True(r.MetaDiffers);
+    }
+
+    [Fact]
+    public void Evaluate_BlankExtractedMetadata_DoesNotDiffer() {
+        var archived = Android177();
+        archived.ArchiveSourced = true;
+
+        var r = StagedProtoStore.Evaluate([archived], false, "android", "", "111079", null, [archived], "eee8a15173a3");
+
+        Assert.False(r.MetaDiffers);
+        Assert.False(new GroupStatus(r.KnownCombination, false, false, false, r.InRegistry, r.Archived, r.ShaDiffers,
+            MetaDiffers: r.MetaDiffers).Flaggable);
+    }
+
+    [Fact]
     public void OfferResult_PublishedAndRejected_LowercaseForJson() {
         Assert.Equal("published", StagedProtoStore.OfferResult.Published.ToString().ToLowerInvariant());
         Assert.Equal("rejected", StagedProtoStore.OfferResult.Rejected.ToString().ToLowerInvariant());

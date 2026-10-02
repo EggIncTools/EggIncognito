@@ -87,6 +87,24 @@ public class PixelWatchServiceTests {
     }
 
     [Fact]
+    public async Task SetPaused_StopsHitsUntilResumed() {
+        using var svc = NewService();
+        var platform = new StubPlatform(Png());
+        svc.SetClientWatching(Target.Id, true);
+        var id = (await svc.AddAsync(platform, Target, new PixelWatchRequest(2, 2), CancellationToken.None)).Value!.Points[0].Id;
+
+        Assert.True(svc.SetPaused(Target.Id, true));
+        var paused = await svc.HitAsync(platform, Target, id, CancellationToken.None);
+        Assert.True(svc.State(Target.Id).Paused);
+        Assert.True(svc.SetPaused(Target.Id, false));
+        await svc.HitAsync(platform, Target, id, CancellationToken.None);
+
+        Assert.Equal("paused", paused.Note);
+        Assert.Equal(1, platform.Taps);
+        Assert.False(svc.State(Target.Id).Paused);
+    }
+
+    [Fact]
     public async Task AddGroup_RejectsMixedColours() {
         using var svc = NewService();
         var platform = new StubPlatform(Png(i => i[5, 5] = new Rgba32(200, 20, 20)));

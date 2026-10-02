@@ -1,4 +1,5 @@
 using System.Globalization;
+using EggIncognito.Services.Filtering;
 using EggIncognito.Services.Protos;
 
 namespace EggIncognito.Tests;
@@ -27,35 +28,35 @@ public class RegistryFilterTests {
         Assert.Contains(RegistryFilter.FieldsFor(false), f => f.Key == "archived");
     }
 
-    private static RegistryQuery One(string field, FilterOp op, string value) =>
+    private static ListQuery One(string field, FilterOp op, string value) =>
         new("", "", [new FilterGroup([new FilterCondition(field, op, value)])]);
 
     [Fact]
     public void EmptyQueryPassesEverything() {
-        Assert.True(RegistryFilter.Matches(Row(), RegistryQuery.Empty));
-        Assert.True(RegistryQuery.Empty.IsEmpty);
+        Assert.True(RegistryFilter.Matches(Row(), ListQuery.Empty));
+        Assert.True(ListQuery.Empty.IsEmpty);
     }
 
     [Fact]
     public void QuickMatchesAppVersionBuildAndClientVersion() {
         ProtoRegistryRow row = Row();
-        Assert.True(RegistryFilter.Matches(row, RegistryQuery.Empty with { Quick = "1.36" }));
-        Assert.True(RegistryFilter.Matches(row, RegistryQuery.Empty with { Quick = "0.2" }));
-        Assert.True(RegistryFilter.Matches(row, RegistryQuery.Empty with { Quick = "74" }));
-        Assert.False(RegistryFilter.Matches(row, RegistryQuery.Empty with { Quick = "nothing" }));
+        Assert.True(RegistryFilter.Matches(row, ListQuery.Empty with { Quick = "1.36" }));
+        Assert.True(RegistryFilter.Matches(row, ListQuery.Empty with { Quick = "0.2" }));
+        Assert.True(RegistryFilter.Matches(row, ListQuery.Empty with { Quick = "74" }));
+        Assert.False(RegistryFilter.Matches(row, ListQuery.Empty with { Quick = "nothing" }));
     }
 
     [Fact]
     public void QuickMatchesShaByPrefixOnly() {
         ProtoRegistryRow row = Row(sha: "abcdef0123456789");
-        Assert.True(RegistryFilter.Matches(row, RegistryQuery.Empty with { Quick = "abcdef" }));
-        Assert.False(RegistryFilter.Matches(row, RegistryQuery.Empty with { Quick = "0123456789" }));
+        Assert.True(RegistryFilter.Matches(row, ListQuery.Empty with { Quick = "abcdef" }));
+        Assert.False(RegistryFilter.Matches(row, ListQuery.Empty with { Quick = "0123456789" }));
     }
 
     [Fact]
     public void PlatformIsCaseInsensitiveAndExact() {
-        Assert.True(RegistryFilter.Matches(Row(platform: "ios"), RegistryQuery.Empty with { Platform = "IOS" }));
-        Assert.False(RegistryFilter.Matches(Row(platform: "ios"), RegistryQuery.Empty with { Platform = "android" }));
+        Assert.True(RegistryFilter.Matches(Row(platform: "ios"), ListQuery.Empty with { Platform = "IOS" }));
+        Assert.False(RegistryFilter.Matches(Row(platform: "ios"), ListQuery.Empty with { Platform = "android" }));
     }
 
     [Fact]
@@ -140,7 +141,7 @@ public class RegistryFilterTests {
     [Fact]
     public void GroupsOrWhileConditionsAnd() {
         ProtoRegistryRow row = Row(app: "1.36.0", source: "device");
-        var both = new RegistryQuery("", "", [
+        var both = new ListQuery("", "", [
             new FilterGroup([
                 new FilterCondition("appVersion", FilterOp.Is, "1.36.0"),
                 new FilterCondition("source", FilterOp.Is, "crawl")
@@ -148,7 +149,7 @@ public class RegistryFilterTests {
         ]);
         Assert.False(RegistryFilter.Matches(row, both));
 
-        var either = new RegistryQuery("", "", [
+        var either = new ListQuery("", "", [
             new FilterGroup([new FilterCondition("source", FilterOp.Is, "crawl")]),
             new FilterGroup([new FilterCondition("appVersion", FilterOp.Is, "1.36.0")])
         ]);
@@ -164,7 +165,7 @@ public class RegistryFilterTests {
 
     [Fact]
     public void PruneDropsIncompleteConditionsAndThenEmptyGroups() {
-        var query = new RegistryQuery("", "", [
+        var query = new ListQuery("", "", [
             new FilterGroup([new FilterCondition("appVersion", FilterOp.Is, "")]),
             new FilterGroup([
                 new FilterCondition("", FilterOp.Is, "x"),
@@ -173,7 +174,7 @@ public class RegistryFilterTests {
             new FilterGroup([new FilterCondition("hasText", FilterOp.True, "")])
         ]);
 
-        RegistryQuery pruned = RegistryFilter.Prune(query);
+        ListQuery pruned = RegistryFilter.Prune(query);
         Assert.Equal(2, pruned.Groups.Count);
         Assert.Single(pruned.Groups[0].Conditions);
         Assert.Equal("source", pruned.Groups[0].Conditions[0].Field);
@@ -182,10 +183,10 @@ public class RegistryFilterTests {
 
     [Fact]
     public void SignatureIsStableAndSeparatesEveryPart() {
-        var a = new RegistryQuery("ios", "1.36", [
+        var a = new ListQuery("ios", "1.36", [
             new FilterGroup([new FilterCondition("appVersion", FilterOp.AtLeast, "1.36.0")])
         ]);
-        var b = new RegistryQuery("ios", "1.36", [
+        var b = new ListQuery("ios", "1.36", [
             new FilterGroup([new FilterCondition("appVersion", FilterOp.AtLeast, "1.36.0")])
         ]);
         Assert.Equal(a.Signature(), b.Signature());
@@ -195,12 +196,12 @@ public class RegistryFilterTests {
         Assert.NotEqual(a.Signature(), (a with { Groups = [] }).Signature());
         Assert.NotEqual(
             a.Signature(),
-            new RegistryQuery("ios", "1.36", [
+            new ListQuery("ios", "1.36", [
                 new FilterGroup([new FilterCondition("appVersion", FilterOp.AtMost, "1.36.0")])
             ]).Signature());
         Assert.NotEqual(
-            new RegistryQuery("", "ab", []).Signature(),
-            new RegistryQuery("a", "b", []).Signature());
+            new ListQuery("", "ab", []).Signature(),
+            new ListQuery("a", "b", []).Signature());
     }
 
     [Fact]

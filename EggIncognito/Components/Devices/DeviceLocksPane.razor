@@ -7,9 +7,17 @@
 @using EggIncognito.Services.Devices
 @using EggIncognito.Services.Events
 
-<div class="dlk" hidden="@(!Visible)">
-    <ToolBar>
+<div class="dlk @(Watch.Paused ? "dlk-paused" : "")">
+    <ToolBar Flat="true">
         <span class="tbar-group">
+            <span class="tbar-k">Locks</span>
+            @if (Watch.Points.Count > 0) {
+                <button type="button" class="btn-mini @(Watch.Paused ? "dlk-on" : "")" disabled="@_busy" @onclick="TogglePauseAsync"
+                        title="@(Watch.Paused ? "Resume tapping every locked point" : "Stop tapping every locked point; the points stay")">
+                    <Icon Name="@(Watch.Paused ? "play" : "pause")" Class="icon-sm"/>
+                    @(Watch.Paused ? "Resume all" : "Pause all")
+                </button>
+            }
             <button type="button" class="btn-mini @(Arming ? "active" : "")" title="@ArmTitle()" @onclick="ToggleArm">
                 <Icon Name="eye" Class="icon-sm"/>
                 @(Arming ? "Tap the screen" : "Lock a point")
@@ -50,14 +58,18 @@
                 <button type="button" class="btn-mini btn-danger" disabled="@_busy" @onclick="ClearAllAsync">Clear all</button>
             }
         </span>
+        @if (Watch.Points.Count == 0 || Arming) {
+            <span class="tbar-group tbar-fill">
+                <span class="tbar-note">@(Arming ? "Tap a button on the screen. Its colour at that point becomes the trigger." : "No points locked. Lock a point and it is tapped again every time its colour returns.")</span>
+            </span>
+        } else if (Watch.Paused) {
+            <span class="tbar-group tbar-fill">
+                <DeviceStatusLine Icon="pause" Text="paused" Detail="no point is tapped until you resume" Muted="true"/>
+            </span>
+        }
     </ToolBar>
 
-    @if (Watch.Points.Count == 0) {
-        <div class="dlk-empty">
-            <Icon Name="circle" Class="icon-sm dlk-empty-ico"/>
-            <span class="dlk-empty-text">@(Arming ? "Tap a button on the screen. Its colour at that point becomes the trigger." : "No points locked. Lock a point and it is tapped again every time its colour returns.")</span>
-        </div>
-    } else {
+    @if (Watch.Points.Count > 0) {
         <TableScroll MaxHeight="24rem">
             <table class="data-table dlk-table">
                 <thead>
@@ -143,8 +155,6 @@
 @code {
 
     [Parameter] public string? DeviceId { get; set; }
-
-    [Parameter] public bool Visible { get; set; }
 
     [Parameter] public PixelWatchState Watch { get; set; } = PixelWatchState.Empty;
 
@@ -242,6 +252,12 @@
         if (DeviceId is null) return;
         _selected.Remove(pointId);
         await Send(() => Client().DeleteAsync($"/api/devices/{DeviceId}/ui/watch?point={pointId}"), "state");
+    }
+
+    async Task TogglePauseAsync() {
+        if (DeviceId is null) return;
+        var on = Watch.Paused ? "false" : "true";
+        await Send(() => Client().PostAsync($"/api/devices/{DeviceId}/ui/watch/pause?on={on}", null));
     }
 
     async Task ClearAllAsync() {

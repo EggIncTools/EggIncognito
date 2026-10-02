@@ -40,6 +40,10 @@ namespace EggIncognito.Data.Migrations
                         .HasColumnType("text")
                         .HasColumnName("client_version");
 
+                    b.Property<string>("Extractor")
+                        .HasColumnType("text")
+                        .HasColumnName("extractor");
+
                     b.Property<string>("FileName")
                         .HasColumnType("text")
                         .HasColumnName("file_name");

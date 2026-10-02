@@ -1,9 +1,10 @@
-<div class="tbar @(Start ? "tbar-start" : "") @Class">
+<div class="tbar @(Start ? "tbar-start" : "") @(Flat ? "tbar-flat" : "") @Class">
     @ChildContent
 </div>
 
 @code {
     [Parameter] public bool Start { get; set; }
+    [Parameter] public bool Flat { get; set; }
     [Parameter] public string? Class { get; set; }
     [Parameter] public RenderFragment? ChildContent { get; set; }
 }

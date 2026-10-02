@@ -1,6 +1,6 @@
-using EggIncognito.Services.Protos;
+using EggIncognito.Services.Filtering;
 
-namespace EggIncognito.Models.Registry;
+namespace EggIncognito.Models.Filtering;
 
 public sealed class DraftRow {
     public string Field { get; set; } = "";

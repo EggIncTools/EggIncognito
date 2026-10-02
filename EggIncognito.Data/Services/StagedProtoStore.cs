@@ -52,8 +52,13 @@ public sealed class StagedProtoStore(EggIncognitoDbContext db, TimeProvider time
                         && byBuild.All(p => p.ArchiveSourced);
         bool shaDiffers = byBuild.Count > 0 && !string.IsNullOrEmpty(protoSha)
                           && byBuild.Any(p => !Same(p.ProtoSha, protoSha));
-        return new CheckOutcome(inReg, pending, known, archived, shaDiffers);
+        bool metaDiffers = byBuild.Any(p =>
+            FieldDiffers(p.AppVersion, appVersion) || FieldDiffers(p.ClientVersion, clientVersion));
+        return new CheckOutcome(inReg, pending, known, archived, shaDiffers, metaDiffers);
     }
+
+    private static bool FieldDiffers(string? stored, string? extracted) =>
+        !string.IsNullOrWhiteSpace(extracted) && !Same(stored, extracted);
 
     private Task<List<ProtoVersion>> BuildRowsAsync(string? platform, string? build, CancellationToken ct) {
         string? p = string.IsNullOrWhiteSpace(platform) ? null : platform.Trim();
@@ -202,14 +207,17 @@ public sealed class StagedProtoStore(EggIncognitoDbContext db, TimeProvider time
                            .FirstOrDefaultAsync(x => x.Build == bld && EF.Functions.ILike(x.Platform, plat), ct);
         string? appV = string.IsNullOrWhiteSpace(appVersion) ? existing?.AppVersion : appVersion.Trim();
         if (string.IsNullOrWhiteSpace(appV)) return null;
+        string? cv = string.IsNullOrWhiteSpace(clientVersion) ? null : clientVersion.Trim();
 
-        if (existing is { DeletedAt: null, ArchiveSourced: true } && Same(existing.ProtoSha, protoSha)
+        bool metaDiffers = existing is not null
+                           && (!Same(existing.AppVersion, appV) || (cv is not null && !Same(existing.ClientVersion, cv)));
+        if (existing is { DeletedAt: null, ArchiveSourced: true } && Same(existing.ProtoSha, protoSha) && !metaDiffers
             && await db.ProtoProtos.AnyAsync(x => x.ProtoVersionId == existing.Id && x.ArchiveSourced, ct))
             return OfferResult.AlreadyArchived;
 
         string platformKey = existing?.Platform ?? plat;
         await registry.UpsertAsync(platformKey, appV, bld,
-            string.IsNullOrWhiteSpace(clientVersion) ? existing?.ClientVersion : clientVersion.Trim(),
+            cv ?? existing?.ClientVersion,
             string.IsNullOrWhiteSpace(package) ? existing?.Package ?? "" : package.Trim(),
             protoSha, "archive", time.GetUtcNow(), submittedBy, protoText, SourceOffer, true, ct);
         await registry.SetArchiveSourcedAsync(platformKey, bld, ct);
@@ -369,7 +377,8 @@ public sealed class StagedProtoStore(EggIncognitoDbContext db, TimeProvider time
         bool Pending,
         bool KnownCombination,
         bool Archived = false,
-        bool ShaDiffers = false);
+        bool ShaDiffers = false,
+        bool MetaDiffers = false);
 
     public sealed record PendingRow(
         int Id,

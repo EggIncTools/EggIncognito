@@ -1,5 +1,6 @@
 using System.Globalization;
 using EggIncognito.Core;
+using EggIncognito.Core.Services.ProtoExtract;
 using EggIncognito.Data.Models;
 using Microsoft.EntityFrameworkCore;
 
@@ -14,6 +15,7 @@ public sealed class AnalyzedFileStore(EggIncognitoDbContext db, TimeProvider tim
         var file = await FindAsync(fileSha, ct);
         if (file is not { ProtoSha: { Length: > 0 } sha, AppVersion.Length: > 0, Build.Length: > 0, ClientVersion.Length: > 0 })
             return null;
+        if (file.Extractor != ProtoExtractorVersion.Current) return null;
         string? text = await CanonicalTextAsync(sha, ct);
         if (text is null) return null;
         int? cv = int.TryParse(file.ClientVersion, NumberStyles.Integer, CultureInfo.InvariantCulture, out int v) ? v : null;
@@ -38,15 +40,17 @@ public sealed class AnalyzedFileStore(EggIncognitoDbContext db, TimeProvider tim
                 AppVersion = entry.AppVersion,
                 Build = entry.Build,
                 ClientVersion = entry.ClientVersion,
-                FileName = entry.FileName
+                FileName = entry.FileName,
+                Extractor = ProtoExtractorVersion.Current
             });
         } else {
             row.Platform = Fresh(entry.Platform, row.Platform);
             row.ProtoSha = Fresh(entry.ProtoSha, row.ProtoSha);
             row.AppVersion = Fresh(entry.AppVersion, row.AppVersion);
             row.Build = Fresh(entry.Build, row.Build);
-            row.ClientVersion = Fresh(entry.ClientVersion, row.ClientVersion);
+            row.ClientVersion = entry.ClientVersion;
             row.FileName = Fresh(entry.FileName, row.FileName);
+            row.Extractor = ProtoExtractorVersion.Current;
         }
 
         try {

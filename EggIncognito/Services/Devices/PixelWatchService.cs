@@ -125,6 +125,13 @@ public sealed class PixelWatchService(ILogger<PixelWatchService> logger, TimePro
         return true;
     }
 
+    public bool SetPaused(string deviceId, bool paused) {
+        if (!_watches.TryGetValue(deviceId, out var watch)) return false;
+        watch.Paused = paused;
+        Publish(deviceId, watch.State);
+        return true;
+    }
+
     public async Task<DeviceResult<PixelWatchState>> HitAsync(
         IDevicePlatform platform, DeviceTarget target, string pointId, CancellationToken ct) {
         if (!_watches.TryGetValue(target.Id, out var watch))
@@ -132,6 +139,7 @@ public sealed class PixelWatchService(ILogger<PixelWatchService> logger, TimePro
 
         var point = watch.Snapshot().Find(p => p.Id == pointId);
         if (point is null) return DeviceResult<PixelWatchState>.Error("unknown watch point");
+        if (watch.Paused) return DeviceResult<PixelWatchState>.Success(watch.State, "paused");
         if (!Ready(point)) return DeviceResult<PixelWatchState>.Success(watch.State, "cycling");
 
         await FireAsync(platform, watch, point, ct);
@@ -174,7 +182,7 @@ public sealed class PixelWatchService(ILogger<PixelWatchService> logger, TimePro
         try {
             while (!ct.IsCancellationRequested) {
                 await Task.Delay(PollEvery, ct);
-                if (ClientWatching(w.Target.Id)) continue;
+                if (w.Paused || ClientWatching(w.Target.Id)) continue;
                 var points = w.Snapshot().Where(p => w.IsLead(p) && Ready(p)).ToList();
                 if (points.Count == 0) continue;
 
@@ -217,7 +225,7 @@ public sealed class PixelWatchService(ILogger<PixelWatchService> logger, TimePro
             var byId = w.Snapshot().ToDictionary(p => p.Id, StringComparer.Ordinal);
             var members = g.PointIds.Where(byId.ContainsKey).Select(id => byId[id]).ToList();
             for (int i = 0; i < members.Count; i++) {
-                if (ct.IsCancellationRequested) return;
+                if (ct.IsCancellationRequested || w.Paused) return;
                 if (i > 0 && g.OffsetMs > 0) await Task.Delay(g.OffsetMs, ct);
                 await TapAsync(platform, w, members[i], ct);
             }
@@ -298,6 +306,7 @@ public sealed class PixelWatchService(ILogger<PixelWatchService> logger, TimePro
         public List<Group> Groups { get; } = [];
         public Lock Gate { get; } = new();
         public int TapDepth;
+        public volatile bool Paused;
 
         public List<Point> Snapshot() {
             lock (Gate) return [.. Points];
@@ -318,7 +327,8 @@ public sealed class PixelWatchService(ILogger<PixelWatchService> logger, TimePro
                     return new PixelWatchState(
                         [.. Points.Select(p => p.Status)],
                         [.. Groups.Select(g => g.Status)],
-                        Volatile.Read(ref TapDepth) > 0);
+                        Volatile.Read(ref TapDepth) > 0,
+                        Paused);
                 }
             }
         }

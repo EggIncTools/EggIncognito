@@ -17,7 +17,7 @@ public static class ThemeTokens {
         "panel-hi", "panel-lo", "panel-glow", "popover", "scrim", "row-alt", "surface-tint",
         "token-literal", "method-read", "method-write", "method-replace", "method-remove",
         "diff-add-bg", "diff-del-bg", "err-soft", "separator", "scroll-track", "scroll-thumb",
-        "scroll-thumb-hover"
+        "scroll-thumb-hover", "ultra-from", "ultra-to"
     ];
 
     public static readonly IReadOnlyList<string> StatusTokens = ["accent", "ok", "err", "info"];

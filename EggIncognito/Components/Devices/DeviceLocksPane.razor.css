@@ -1,5 +1,7 @@
-.dlk { display: flex; flex-direction: column; gap: 0.5rem; min-width: 0; }
-.dlk-wrap { max-height: 24rem; overflow-y: auto; }
+.dlk { display: flex; flex-direction: column; min-width: 0; }
+.dlk ::deep .tscroll { border-width: 1px 0 0; border-radius: 0; }
+.dlk-paused .dlk-table { opacity: 0.55; }
+.dlk-on { border-color: var(--color-accent); color: var(--color-accent); }
 .dlk-table th { white-space: nowrap; }
 .dlk-swatch { display: inline-block; width: 1rem; height: 1rem; border: 1px solid var(--color-border); border-radius: 50%; vertical-align: middle; }
 .dlk-kind { width: auto; min-width: 5rem; padding-block: 0.125rem; }
@@ -15,6 +17,3 @@
 .dlk-err-row td { padding-top: 0; }
 .dlk-err { font-size: 0.75rem; color: var(--color-err); }
 .dlk-cur { width: 1.5rem; padding-right: 0; }
-.dlk-empty { display: inline-flex; align-items: center; gap: 0.375rem; min-width: 0; font-size: 0.75rem; }
-.dlk-empty-ico { color: var(--color-muted); }
-.dlk-empty-text { color: var(--color-muted); }

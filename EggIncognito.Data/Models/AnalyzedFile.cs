@@ -14,4 +14,5 @@ public sealed class AnalyzedFile {
     [Column("build")] public string? Build { get; set; }
     [Column("client_version")] public string? ClientVersion { get; set; }
     [Column("file_name")] public string? FileName { get; set; }
+    [Column("extractor")] public string? Extractor { get; set; }
 }

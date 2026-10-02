@@ -80,7 +80,7 @@
                                 <CaptureControlsPanel View="State.Capture" ReadOnly="true" MenusAlignLeft="true"
                                                       OnViewChanged="StateHasChanged"/>
                                 <label class="form-check">
-                                    <input type="checkbox" checked="@_autoOffer" @onchange="ToggleAutoOffer"/>
+                                    <input type="checkbox" checked="@State.AutoOffer" @onchange="ToggleAutoOffer"/>
                                     Offer new captures for review automatically
                                 </label>
                             </ToolBar>
@@ -284,7 +284,6 @@
     bool _offerBusy;
     readonly HashSet<long> _offered = [];
     ContributePanel? _contribute;
-    bool _autoOffer;
     bool _flushing;
     readonly List<long> _autoQueue = [];
     CancellationTokenSource? _flushTimer;
@@ -362,8 +361,6 @@
     }
 
     async Task ShelfChanged(string tab) {
-        if (tab == DeviceWorkbenchState.ShelfCapture) AttachCapture();
-        else DetachCapture();
         if (tab == DeviceWorkbenchState.ShelfJobs && _jobs is null) await LoadJobsAsync();
     }
 
@@ -416,7 +413,6 @@
     void CloseModal() {
         _open = false;
         Unsubscribe();
-        _offered.Clear();
         DetachCapture();
     }
 
@@ -451,7 +447,11 @@
             await LoadLiveAsync();
             if (_devicesFailed || _live.Any(j => _devices.All(d => d.Id != j.Device))) await LoadAsync();
             if (Current is not null && (State.ShelfIs(DeviceWorkbenchState.ShelfJobs) || _jobs is not null)) await RefreshJobsAsync();
-            if (_subscription is null) ResolveHub();
+            if (_subscription is null) {
+                ResolveHub();
+                AttachCapture();
+            }
+
             StateHasChanged();
         } finally {
             _refreshing = false;
@@ -473,9 +473,9 @@
     async Task LoadForDeviceAsync() {
         if (Current is null) return;
         ResolveHub();
+        AttachCapture();
         await LoadHarvestAsync();
         await LoadJobsAsync();
-        if (State.ShelfIs(DeviceWorkbenchState.ShelfCapture)) AttachCapture();
     }
 
     async Task LoadLiveAsync() {
@@ -628,11 +628,13 @@
     }
 
     void ToggleAutoOffer(ChangeEventArgs e) {
-        _autoOffer = e.Value is true;
+        State.AutoOffer = e.Value is true;
+        if (State.AutoOffer && _hub is { } hub)
+            foreach (var f in hub.Snapshot()) AutoOffer(f);
     }
 
     void AutoOffer(DashboardFlow flow) {
-        if (!_autoOffer || Current is null) return;
+        if (!State.AutoOffer || Current is null) return;
         if (_offered.Contains(flow.Id)) return;
         if (flow.RequestJsonRaw is null || flow.ResponseJsonRaw is null) return;
         if (Kinds.For(flow.Path) is null) return;
@@ -692,7 +694,7 @@
         var res = await Client().PostAsJsonAsync("/api/contributions/offer-batch",
             new ContributionOfferBatchRequest(dev.Id, batch), SelfCallJson.Web);
         if (!res.IsSuccessStatusCode) {
-            _autoOffer = false;
+            State.AutoOffer = false;
             CancelFlush();
             foreach (long id in batch) _offered.Remove(id);
             foreach (long id in _autoQueue) _offered.Remove(id);
@@ -810,7 +812,6 @@
         _selectedFlow = null;
         _connected = false;
         _port = 0;
-        _autoOffer = false;
         _autoQueue.Clear();
         CancelFlush();
     }

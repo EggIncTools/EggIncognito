@@ -1,0 +1,198 @@
+@typeparam TItem
+@using Microsoft.AspNetCore.Components.Web.Virtualization
+
+<div class="fl-stack @Class">
+    @if (Platforms) {
+        <div class="fl-plat" role="radiogroup" aria-label="Platform">
+            <label class="fl-plat-item">
+                <input type="radio" class="fl-sr" name="@_radioGroup"
+                       checked="@(Query.Platform.Length == 0)" @onchange="@(() => SetPlatform(""))"/>
+                <span>all</span>
+            </label>
+            <label class="fl-plat-item">
+                <input type="radio" class="fl-sr" name="@_radioGroup"
+                       checked="@(Query.Platform == "ios")" @onchange="@(() => SetPlatform("ios"))"/>
+                <PlatformIcon Platform="ios"/>
+                <span class="fl-sr">ios</span>
+            </label>
+            <label class="fl-plat-item">
+                <input type="radio" class="fl-sr" name="@_radioGroup"
+                       checked="@(Query.Platform == "android")" @onchange="@(() => SetPlatform("android"))"/>
+                <PlatformIcon Platform="android"/>
+                <span class="fl-sr">android</span>
+            </label>
+        </div>
+    }
+    <div class="fl-filter-row">
+        @Lead
+        <FilterInput Class="fl-filter" AriaLabel="@FilterLabel"
+                     Value="@Query.Quick" ValueChanged="OnQuickChanged"/>
+        <button type="button" class="fl-funnel @(Query.Groups.Count > 0 ? "fl-funnel-on" : "")"
+                aria-label="Conditions" aria-expanded="@(_filterOpen ? "true" : "false")"
+                @onclick="@(() => _filterOpen = !_filterOpen)">
+            <Icon Name="funnel" Class="icon-sm"/>
+        </button>
+    </div>
+    @if (_filterOpen) {
+        <div class="fl-pop">
+            <FilterConditions TItem="TItem" Schema="Schema" Query="Query" QueryChanged="OnQueryChanged" Rows="Items" IsAdmin="IsAdmin"/>
+        </div>
+    }
+    @if (Query.Groups.Count > 0) {
+        <div class="fl-cond-list">
+            @foreach (var line in ConditionLines()) {
+                <div class="fl-cond">
+                    <span class="fl-cond-text">@line.Text</span>
+                    <button type="button" class="fl-cond-x" aria-label="Remove condition"
+                            @onclick="@(() => RemoveCondition(line.Group, line.Index))">
+                        <Icon Name="x" Class="icon-sm"/>
+                    </button>
+                </div>
+            }
+        </div>
+    }
+    @Head
+    @if (Listed.Count == 0) {
+        <EmptyState Icon="@(Items.Count == 0 ? EmptyIcon : "funnel")" Class="fl-empty">
+            @(Items.Count == 0 ? EmptyText : "Nothing matches this filter.")
+        </EmptyState>
+    } else if (Sections is null) {
+        <div class="fl-list">
+            @if (RowHeight > 0) {
+                <Virtualize TItem="TItem" Items="_listed" Context="item" ItemSize="RowHeight">
+                    @Row(item)
+                </Virtualize>
+            } else {
+                @foreach (var item in Listed) {
+                    @Row(item)
+                }
+            }
+        </div>
+    } else {
+        <div class="fl-list fl-list-sectioned">
+            @foreach (var section in SectionsOf()) {
+                var open = IsOpen(section);
+                <section class="fl-sec @(section.Tone is { Length: > 0 } tone ? "fl-sec-" + tone : "")">
+                    <button type="button" class="fl-sec-head" aria-expanded="@(open ? "true" : "false")"
+                            @onclick="@(() => Toggle(section))">
+                        <Icon Name="@(open ? "chevron-down" : "chevron-right")" Class="icon-sm"/>
+                        <span class="fl-sec-label">@section.Label</span>
+                        <span class="fl-sec-count">@section.Items.Count</span>
+                    </button>
+                    @if (open) {
+                        <div class="fl-sec-body">
+                            @if (SectionBody is not null) {
+                                @SectionBody(section)
+                            } else {
+                                @foreach (var item in section.Items) {
+                                    @Row(item)
+                                }
+                            }
+                        </div>
+                    }
+                </section>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public FilterSchema<TItem> Schema { get; set; } = null!;
+
+    [Parameter, EditorRequired] public IReadOnlyList<TItem> Items { get; set; } = [];
+
+    [Parameter, EditorRequired] public RenderFragment<TItem> Row { get; set; } = null!;
+
+    [Parameter] public ListQuery Query { get; set; } = ListQuery.Empty;
+
+    [Parameter] public EventCallback<ListQuery> QueryChanged { get; set; }
+
+    [Parameter] public Func<IEnumerable<TItem>, IEnumerable<TItem>>? Order { get; set; }
+
+    [Parameter] public Func<IReadOnlyList<TItem>, IReadOnlyList<FilterListSection<TItem>>>? Sections { get; set; }
+
+    [Parameter] public RenderFragment<FilterListSection<TItem>>? SectionBody { get; set; }
+
+    [Parameter] public bool Platforms { get; set; } = true;
+
+    [Parameter] public bool IsAdmin { get; set; }
+
+    [Parameter] public float RowHeight { get; set; }
+
+    [Parameter] public string FilterLabel { get; set; } = "Filter";
+
+    [Parameter] public string EmptyText { get; set; } = "Nothing here yet.";
+
+    [Parameter] public string EmptyIcon { get; set; } = "list";
+
+    [Parameter] public string? Class { get; set; }
+
+    [Parameter] public RenderFragment? Lead { get; set; }
+
+    [Parameter] public RenderFragment? Head { get; set; }
+
+    readonly string _radioGroup = "flplat-" + Guid.NewGuid().ToString("N")[..8];
+    readonly Dictionary<string, bool> _open = [];
+    bool _filterOpen;
+    List<TItem> _listed = [];
+    IReadOnlyList<TItem>? _listedSource;
+    string _listedKey = "";
+    int _listedCount = -1;
+
+    public IReadOnlyList<TItem> Listed {
+        get {
+            var key = Query.Signature();
+            if (ReferenceEquals(_listedSource, Items) && _listedKey == key && _listedCount == Items.Count) return _listed;
+            _listedSource = Items;
+            _listedKey = key;
+            _listedCount = Items.Count;
+            var matched = Items.Where(i => Schema.Matches(i, Query));
+            _listed = [.. Order is null ? matched : Order(matched)];
+            return _listed;
+        }
+    }
+
+    IReadOnlyList<FilterListSection<TItem>> SectionsOf() {
+        return Sections is null ? [] : Sections(Listed);
+    }
+
+    bool IsOpen(FilterListSection<TItem> section) {
+        return _open.TryGetValue(section.Key, out var open) ? open : !section.Collapsed;
+    }
+
+    void Toggle(FilterListSection<TItem> section) {
+        _open[section.Key] = !IsOpen(section);
+    }
+
+    Task SetPlatform(string platform) {
+        return QueryChanged.InvokeAsync(Query with { Platform = platform });
+    }
+
+    Task OnQuickChanged(string value) {
+        return QueryChanged.InvokeAsync(Query with { Quick = value.Trim() });
+    }
+
+    Task OnQueryChanged(ListQuery query) {
+        return QueryChanged.InvokeAsync(query);
+    }
+
+    IReadOnlyList<ConditionLine> ConditionLines() {
+        var lines = new List<ConditionLine>();
+        for (var g = 0; g < Query.Groups.Count; g++) {
+            var conditions = Query.Groups[g].Conditions;
+            for (var i = 0; i < conditions.Count; i++) lines.Add(new ConditionLine(g, i, Schema.ConditionText(conditions[i])));
+        }
+
+        return lines;
+    }
+
+    Task RemoveCondition(int groupIndex, int index) {
+        if (groupIndex < 0 || groupIndex >= Query.Groups.Count) return Task.CompletedTask;
+        var groups = Query.Groups.Select(g => g.Conditions.ToList()).ToList();
+        if (index < 0 || index >= groups[groupIndex].Count) return Task.CompletedTask;
+        groups[groupIndex].RemoveAt(index);
+        var kept = groups.Where(c => c.Count > 0).Select(c => new FilterGroup(c)).ToList();
+        return QueryChanged.InvokeAsync(FilterOps.Prune(Query with { Groups = kept }));
+    }
+
+}

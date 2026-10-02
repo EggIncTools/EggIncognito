@@ -158,6 +158,21 @@ public sealed class ProtoRegistryController(ICurrentUser user, TimeProvider time
         CancellationToken ct) =>
         await store.RestoreAsync(platform, build, ct) ? Ok(new { ok = true }) : Fail(404, "version not found");
 
+    [HttpDelete("{platform}/{build}/purge")]
+    [ApiAccess(ApiAccessLevel.Admin)]
+    [RequiresDb]
+    public async Task<IActionResult> Purge(string platform, string build, [FromServices] ProtoRegistryStore store,
+        CancellationToken ct) =>
+        await store.PurgeAsync(platform, build, ct)
+            ? Ok(new { ok = true })
+            : Fail(404, "no soft-deleted version to purge");
+
+    [HttpPost("deleted/purge")]
+    [ApiAccess(ApiAccessLevel.Admin)]
+    [RequiresDb]
+    public async Task<IActionResult> PurgeDeleted([FromServices] ProtoRegistryStore store, CancellationToken ct) =>
+        Ok(new { ok = true, purged = await store.PurgeDeletedAsync(ct) });
+
     [HttpGet("/api/protos/staged/check")]
     [ApiAccess(ApiAccessLevel.Public)]
     public async Task<IActionResult> StagedCheck([FromQuery] string protoSha, [FromQuery] string? platform,

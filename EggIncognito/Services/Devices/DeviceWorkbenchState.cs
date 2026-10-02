@@ -5,7 +5,6 @@ using EggIncognito.Models.Devices;
 namespace EggIncognito.Services.Devices;
 
 public sealed class DeviceWorkbenchState : WorkbenchStateBase {
-    public const string ShelfLocks = "locks";
     public const string ShelfWorkflows = "workflows";
     public const string ShelfRecord = "record";
     public const string ShelfCapture = "capture";
@@ -16,7 +15,8 @@ public sealed class DeviceWorkbenchState : WorkbenchStateBase {
     public override IReadOnlyList<(string Key, string Label, int? Count)> Modes { get; } = [];
 
     public string? SelectedId { get; set; }
-    public string Shelf { get; set; } = ShelfLocks;
+    public string Shelf { get; set; } = ShelfWorkflows;
+    public bool AutoOffer { get; set; }
     public HashSet<long> Expanded { get; } = [];
     public CaptureViewState Capture { get; } = new();
     public Dictionary<string, DeviceConsoleCache> Console { get; } = [with(StringComparer.Ordinal)];

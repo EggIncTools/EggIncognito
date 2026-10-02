@@ -49,46 +49,32 @@
         <WorkbenchRail Class="wb-rail-popout">
             @{ var hasSession = State.Entries.Count > 0; }
             <div class="wb-rail-slot pwb-rail-sess @(hasSession ? "" : "pwb-rail-sess-empty")">
-                <WorkbenchSection Label="Session" Scroll="@hasSession">
+                <WorkbenchSection Label="Session">
                     <label id="wbRailDrop" class="pwb-drop" for="wbFile">
                         <DropZonePrompt Prompt="Drop .ipa, .apk or bundle files"/>
                     </label>
-                    @foreach (var e in State.Entries.Where(x => !x.IsAnalyzed)) {
-                        @Card(e, null, false)
-                    }
-                    @foreach (var g in groups) {
-                        @if (g.Members.Count > 1) {
-                            <div class="pwb-group @(g.Conflict ? "pwb-group-conflict" : "")">
-                                <div class="pwb-group-head">
-                                    <VersionLine App="@g.AppVersion" Build="@g.Build" Client="@g.ClientVersionText"/>
-                                    @if (g is { Conflict: false, Status.Offerable: true }) {
-                                        <span class="pwb-offer">
-                                            <Icon Name="upload" Class="icon-sm"/>
-                                        </span>
-                                    } else {
-                                        <span class="pwb-note-inline @GroupStatusTone(g)">@GroupStatusText(g)</span>
+                    @if (hasSession) {
+                        <FilterList TItem="StagedEntry" Schema="SessionFilter.Schema" Items="State.Entries"
+                                    Query="State.SessionQuery" QueryChanged="@(q => State.SessionQuery = q)"
+                                    Sections="SessionSections" FilterLabel="Filter session files" Class="pwb-sess-list">
+                            <Row Context="e">
+                                @Card(e, null, false)
+                            </Row>
+                            <SectionBody Context="section">
+                                @if (section.Key == SessionFilter.Analysed) {
+                                    @AnalysedBody(section.Items, groups)
+                                } else {
+                                    @foreach (var e in section.Items) {
+                                        @Card(e, null, false)
                                     }
-                                    @if (g.Status is { Failed: true }) {
-                                        <button type="button" class="btn-mini pwb-retry" aria-label="Retry check"
-                                                @onclick="@(() => RetryCheck(g))">
-                                            <Icon Name="refresh-cw" Class="icon-sm"/> Retry
-                                        </button>
-                                    }
-                                </div>
-                                <div class="pwb-group-body">
-                                    @foreach (var e in g.Members) {
-                                        @Card(e, g, true)
-                                    }
-                                </div>
-                            </div>
-                        } else {
-                            @Card(g.Members[0], g, false)
-                        }
+                                }
+                            </SectionBody>
+                        </FilterList>
                     }
                 </WorkbenchSection>
             </div>
             @if (State.SplitQuery is { } split) {
-                <div class="wb-rail-slot pwb-rail-reg">
+                <div class="wb-rail-slot pwb-rail-reg wb-pane-in">
                     <WorkbenchSection Label="Registry (split)">
                         <Tools>
                             <button type="button" class="pwb-x pwb-x-head" aria-label="Close split registry" @onclick="ToggleSplit">
@@ -106,7 +92,7 @@
             }
             <div class="wb-rail-slot pwb-rail-reg">
                 <WorkbenchSection Label="Registry">
-                    <RegistryPane @ref="_registryPane" Query="State.Query" QueryChanged="@(q => State.Query = q)" Rows="State.Registry"
+                    <RegistryPane Query="State.Query" QueryChanged="@(q => State.Query = q)" Rows="State.Registry"
                                   IsAdmin="@User.IsAtLeast(UserRole.Admin)" RowClass="RowClass" IsSelected="IsSelected"
                                   OnRowClick="@(t => RegistryRowClick(t.Row, t.Args))" OnToggleRow="ToggleRow"
                                   OnToggleAll="@(t => ToggleAll(t.Rows, t.On))"/>
@@ -116,13 +102,13 @@
     </Rail>
     <ChildContent>
         @if (User.IsAtLeast(UserRole.Contributor)) {
-            <button type="button" class="pwb-drawer-tab @(_adminOpen ? "pwb-drawer-tab-open" : "") @(_selected.Count > 0 ? "pwb-drawer-tab-hot" : "")"
+            <button type="button" class="wb-drawer-tab @(_adminOpen ? "wb-drawer-tab-open" : "") @(_selected.Count > 0 ? "pwb-drawer-tab-hot" : "")"
                     aria-label="@(_adminOpen ? "Close registry admin" : "Open registry admin")" aria-expanded="@(_adminOpen ? "true" : "false")"
                     @onclick="@(() => _adminOpen = !_adminOpen)">
                 <Icon Name="@(_adminOpen ? "chevron-right" : "chevron-left")" Class="icon-sm"/>
-                <span class="pwb-drawer-tab-label">@(_selected.Count > 0 ? $"{_selected.Count} selected" : "Registry admin")</span>
+                <span class="wb-drawer-tab-label">@(_selected.Count > 0 ? $"{_selected.Count} selected" : "Registry admin")</span>
             </button>
-            <aside class="pwb-drawer @(_adminOpen ? "pwb-drawer-open" : "")" aria-hidden="@(_adminOpen ? "false" : "true")">
+            <aside class="wb-drawer @(_adminOpen ? "wb-drawer-open" : "")" aria-hidden="@(_adminOpen ? "false" : "true")">
                 @if (_adminOpen) {
                     @if (_selected.Count > 0 && User.IsAtLeast(UserRole.Admin)) {
                         <ProtoSelectionBar Selected="_selected" Post="PostJson" OnChanged="OnSelectionMutated" OnClear="ClearSelection"/>
@@ -186,6 +172,9 @@
                     } else if (selGroup?.Status is { Known: true, ShaDiffers: true }) {
                         <span class="pwb-note-inline pwb-warn">in registry, proto differs</span>
                         <span class="pwb-dim-note">This build is registered with another proto. The archive text replaces it.</span>
+                    } else if (selGroup?.Status is { Known: true, MetaDiffers: true }) {
+                        <span class="pwb-note-inline pwb-warn">in registry, version data differs</span>
+                        <span class="pwb-dim-note">This build is registered with a different app or client version. The extracted values replace them.</span>
                     } else if (selGroup?.Status is { Archived: true }) {
                         <span class="pwb-note-inline pwb-ok">archive flagged</span>
                     } else if (selGroup?.Status is { Known: true }) {
@@ -220,7 +209,7 @@
                         <button type="button" class="btn-mini" disabled="@_offerBusy"
                                 @onclick="@(() => Offer(sg))">
                             @if (CanFlag(sg)) {
-                                <Icon Name="shield-check" Class="icon-sm"/> <text>@(sg.Status is { ShaDiffers: true } ? "Replace with archive" : "Flag archive")</text>
+                                <Icon Name="shield-check" Class="icon-sm"/> <text>@(sg.Status is { ShaDiffers: true } ? "Replace with archive" : sg.Status is { MetaDiffers: true } ? "Correct from archive" : "Flag archive")</text>
                             } else {
                                 <Icon Name="upload" Class="icon-sm"/> <text>Offer</text>
                             }
@@ -417,11 +406,12 @@
     bool _dropWired;
     bool _offerBusy;
     string? _menu;
-    RegistryPane? _registryPane;
     IJSObjectReference? _strip;
     IJSObjectReference? _download;
     DotNetObjectReference<ProtoWorkbenchModal>? _selfRef;
-    readonly SemaphoreSlim _gate = new(2, 2);
+    const int AnalyzeSlots = 4;
+    const int PendingOpenLimit = 3;
+    readonly SemaphoreSlim _gate = new(AnalyzeSlots, AnalyzeSlots);
     readonly HashSet<string> _checking = [];
     readonly Dictionary<string, bool> _legacy = [];
     bool _degraded;
@@ -460,8 +450,11 @@
                                                                                </button>
                                                                            </Trail>
                                                                            <MetaLine>
-                                                                               @if (Sha12(e.Result?.ProtoSha) is { Length: > 0 } sha) {
-                                                                                   @sha
+                                                                               @if (Sha12(e.Result?.FileSha) is { Length: > 0 } fsha) {
+                                                                                   <span class="pwb-hash"><span class="pwb-hash-k" title="File SHA-256">F</span>@fsha</span>
+                                                                               }
+                                                                               @if (Sha12(e.Result?.ProtoSha) is { Length: > 0 } psha) {
+                                                                                   <span class="pwb-hash"><span class="pwb-hash-k" title="Proto SHA">P</span>@psha</span>
                                                                                }
                                                                            </MetaLine>
                                                                            <Foot>
@@ -477,6 +470,57 @@
                                                                                <PlatformIcon Platform="@e.Platform"/>
                                                                            </Foot>
                                                                        </WorkbenchEntry>;
+
+    RenderFragment AnalysedBody(IReadOnlyList<StagedEntry> listed, List<OfferGroup> groups) => __builder => {
+        var shown = listed.Select(e => e.Id).ToHashSet();
+        foreach (var g in groups) {
+            var members = g.Members.Where(m => shown.Contains(m.Id)).ToList();
+            if (members.Count == 0) continue;
+            if (g.Members.Count > 1) {
+                <div class="pwb-group @(g.Conflict ? "pwb-group-conflict" : "")">
+                    <div class="pwb-group-head">
+                        <VersionLine App="@g.AppVersion" Build="@g.Build" Client="@g.ClientVersionText"/>
+                        @if (g is { Conflict: false, Status.Offerable: true }) {
+                            <span class="pwb-offer">
+                                <Icon Name="upload" Class="icon-sm"/>
+                            </span>
+                        } else {
+                            <span class="pwb-note-inline @GroupStatusTone(g)">@GroupStatusText(g)</span>
+                        }
+                        @if (g.Status is { Failed: true }) {
+                            <button type="button" class="btn-mini pwb-retry" aria-label="Retry check"
+                                    @onclick="@(() => RetryCheck(g))">
+                                <Icon Name="refresh-cw" Class="icon-sm"/> Retry
+                            </button>
+                        }
+                    </div>
+                    <div class="pwb-group-body">
+                        @foreach (var e in members) {
+                            @Card(e, g, true)
+                        }
+                    </div>
+                </div>
+            } else {
+                @Card(members[0], g, false)
+            }
+        }
+    };
+
+    static IReadOnlyList<FilterListSection<StagedEntry>> SessionSections(IReadOnlyList<StagedEntry> listed) {
+        var sections = new List<FilterListSection<StagedEntry>>();
+        var pending = listed.Where(e => SessionFilter.StateOf(e) == SessionFilter.Pending).ToList();
+        var failed = listed.Where(e => SessionFilter.StateOf(e) == SessionFilter.Failed).ToList();
+        var analysed = listed.Where(e => SessionFilter.StateOf(e) == SessionFilter.Analysed).ToList();
+        if (pending.Count > 0) {
+            var running = pending.Count(e => e.Status != "queued");
+            sections.Add(new(SessionFilter.Pending, running > 0 ? $"Pending ({running} running)" : "Pending", pending,
+                pending.Count > PendingOpenLimit, "warn"));
+        }
+
+        if (failed.Count > 0) sections.Add(new(SessionFilter.Failed, "Failed", failed, Tone: "bad"));
+        if (analysed.Count > 0) sections.Add(new(SessionFilter.Analysed, "Analysed", analysed));
+        return sections;
+    }
 
     RenderFragment LineFilter() => @<FilterInput Class="code-filter" AriaLabel="Filter lines"
                                                  Value="@ViewFilter" ValueChanged="OnLineFilterChanged"/>;
@@ -568,7 +612,7 @@
 
     public void OpenGroup(string protoSha) {
         if (string.IsNullOrWhiteSpace(protoSha)) return;
-        State.Query = RegistryQuery.Empty with {
+        State.Query = ListQuery.Empty with {
             Groups = [new FilterGroup([new FilterCondition("sha", FilterOp.Is, protoSha)])]
         };
         Open();
@@ -580,20 +624,20 @@
     string CardCss(List<OfferGroup> groups) {
         var cols = 1 + (State.Entries.Count > 0 ? 1 : 0) + (State.SplitQuery is not null ? 1 : 0);
         var css = $"pwb-card pwb-cols-{cols}";
-        return _adminOpen ? css + " pwb-drawer-on" : css;
+        return _adminOpen ? css + " wb-drawer-on" : css;
     }
 
     void ToggleSplit() {
         State.SplitQuery = State.SplitQuery is null ? OppositeOf(State.Query) : null;
     }
 
-    static RegistryQuery OppositeOf(RegistryQuery query) {
+    static ListQuery OppositeOf(ListQuery query) {
         var platform = query.Platform switch {
             "ios" => "android",
             "android" => "ios",
             _ => "ios"
         };
-        return RegistryQuery.Empty with { Platform = platform };
+        return ListQuery.Empty with { Platform = platform };
     }
 
     static string ModeOrDefault(string? mode, ProtoRef? b) {
@@ -851,6 +895,7 @@
             { Failed: true } => "check failed",
             { Rejected: true } => "rejected before",
             { Known: true, ShaDiffers: true } => "in registry, proto differs",
+            { Known: true, MetaDiffers: true } => "in registry, version data differs",
             { Archived: true } => "archive flagged",
             { Known: true } => "in registry",
             { Pending: true } or { Offered: true } => "pending",
@@ -866,6 +911,7 @@
             { Failed: true } => "pwb-err",
             { Rejected: true } => "pwb-warn",
             { Known: true, ShaDiffers: true } => "pwb-warn",
+            { Known: true, MetaDiffers: true } => "pwb-warn",
             { Archived: true } => "pwb-ok",
             { Known: true } => "pwb-ok",
             { Pending: true } or { Offered: true } => "pwb-warn",
@@ -925,7 +971,8 @@
                 for (var i = 0; i < todo.Count; i++) {
                     var r = rows is { } list && i < list.Count ? list[i] : null;
                     State.GroupStatuses[todo[i].Key] = r is not null
-                        ? new GroupStatus(r.KnownCombination, r.Pending, false, false, r.InRegistry, r.Archived, r.ShaDiffers)
+                        ? new GroupStatus(r.KnownCombination, r.Pending, false, false, r.InRegistry, r.Archived, r.ShaDiffers,
+                            MetaDiffers: r.MetaDiffers)
                         : new GroupStatus(false, false, false, true);
                 }
             });

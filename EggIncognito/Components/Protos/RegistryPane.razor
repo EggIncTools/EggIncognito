@@ -1,108 +1,56 @@
 @using EggIncognito.Core.Services.ProtoExtract
-@using EggIncognito.Models.Registry
 @using EggIncognito.Services.Protos
-@using Microsoft.AspNetCore.Components.Web.Virtualization
 
-<div class="pwb-reg-stack">
-    <div class="pwb-plat" role="radiogroup" aria-label="Platform">
-        <label class="pwb-plat-item">
-            <input type="radio" class="pwb-plat-radio" name="@_platformGroup"
-                   checked="@(Query.Platform.Length == 0)" @onchange="@(() => SetPlatform(""))"/>
-            <span>all</span>
-        </label>
-        <label class="pwb-plat-item">
-            <input type="radio" class="pwb-plat-radio" name="@_platformGroup"
-                   checked="@(Query.Platform == "ios")" @onchange="@(() => SetPlatform("ios"))"/>
-            <PlatformIcon Platform="ios"/>
-            <span class="pwb-sr">ios</span>
-        </label>
-        <label class="pwb-plat-item">
-            <input type="radio" class="pwb-plat-radio" name="@_platformGroup"
-                   checked="@(Query.Platform == "android")" @onchange="@(() => SetPlatform("android"))"/>
-            <PlatformIcon Platform="android"/>
-            <span class="pwb-sr">android</span>
-        </label>
-    </div>
-    <div class="pwb-filter-row">
+<FilterList TItem="ProtoRegistryRow" Schema="RegistryFilter.Schema" Items="Rows" Query="Query" QueryChanged="QueryChanged"
+            Order="SortRows" IsAdmin="IsAdmin" RowHeight="RowHeight" FilterLabel="Filter stored versions"
+            EmptyText="No stored versions yet." EmptyIcon="database" @ref="_list">
+    <Lead>
         @if (IsAdmin) {
             <label class="pwb-reg-selall">
                 <input type="checkbox" aria-label="Select all listed versions"
-                       checked="@AllSelected" @onchange="@(e => OnToggleAll.InvokeAsync((Items, e.Value is true)))"/>
+                       checked="@AllSelected" @onchange="@(e => OnToggleAll.InvokeAsync((Listed, e.Value is true)))"/>
             </label>
         }
-        <FilterInput Class="pwb-filter" AriaLabel="Filter stored versions"
-                     Value="@Query.Quick" ValueChanged="OnQuickChanged"/>
-        <button type="button" class="pwb-funnel @(Query.Groups.Count > 0 ? "pwb-funnel-on" : "")"
-                aria-label="Conditions" aria-expanded="@(_filterOpen ? "true" : "false")"
-                @onclick="@(() => _filterOpen = !_filterOpen)">
-            <Icon Name="funnel" Class="icon-sm"/>
-        </button>
-    </div>
-    @if (_filterOpen) {
-        <div class="pwb-fil-pop">
-            <RegistryFilterPanel Query="Query" QueryChanged="OnQueryChanged" Rows="Rows" IsAdmin="IsAdmin"/>
-        </div>
-    }
-    @if (Query.Groups.Count > 0) {
-        <div class="pwb-cond-list">
-            @foreach (var line in ConditionLines()) {
-                <div class="pwb-cond">
-                    <span class="pwb-cond-text">@line.Text</span>
-                    <button type="button" class="pwb-cond-x" aria-label="Remove condition"
-                            @onclick="@(() => RemoveCondition(line.Group, line.Index))">
-                        <Icon Name="x" Class="icon-sm"/>
-                    </button>
-                </div>
+    </Lead>
+    <Row Context="row">
+        <div class="pwb-reg-row @RowClass(row)" @onclick="@(args => OnRowClick.InvokeAsync((row, args)))">
+            <span class="pwb-reg-icon">
+                @if (IsAdmin) {
+                    <input type="checkbox" aria-label="Select version"
+                           checked="@IsSelected(row)" @onclick:stopPropagation="true"
+                           @onchange="@(() => OnToggleRow.InvokeAsync(row))"/>
+                }
+                <PlatformIcon Platform="@row.Platform"/>
+                @if (row.ArchiveSourced == true) {
+                    <Tooltip>
+                        <ChildContent>
+                            <Icon Name="shield-check" Class="icon-sm pwb-reg-arch"/>
+                        </ChildContent>
+                        <Tip>
+                            <span class="tt-line">Archive sourced</span>
+                        </Tip>
+                    </Tooltip>
+                }
+            </span>
+            <span class="pwb-reg-ver">
+                <VersionLine App="@row.AppVersion" Build="@row.Build" Client="@row.ClientVersion"/>
+            </span>
+            <span class="pwb-reg-sha">@Sha12(row.ProtoSha)</span>
+            @if (row.DetectedAt is { } seen) {
+                <span class="pwb-reg-when">
+                    <TimeAgo Value="@TimeAgo.FromUtc(seen)" Hover="false"/>
+                </span>
             }
         </div>
-    }
-    @if (Items.Count == 0) {
-        <div class="wb-note pwb-reg-empty">
-            @(Rows.Count == 0 ? "No stored versions yet." : "No versions match this filter.")
-        </div>
-    } else {
-        <div class="pwb-reg-list">
-            <Virtualize Items="Items" Context="row" ItemSize="RowHeight">
-                <div class="pwb-reg-row @RowClass(row)" @onclick="@(args => OnRowClick.InvokeAsync((row, args)))">
-                    <span class="pwb-reg-icon">
-                        @if (IsAdmin) {
-                            <input type="checkbox" class="pwb-reg-sel" aria-label="Select version"
-                                   checked="@IsSelected(row)" @onclick:stopPropagation="true"
-                                   @onchange="@(() => OnToggleRow.InvokeAsync(row))"/>
-                        }
-                        <PlatformIcon Platform="@row.Platform"/>
-                        @if (row.ArchiveSourced == true) {
-                            <Tooltip>
-                                <ChildContent>
-                                    <Icon Name="shield-check" Class="icon-sm pwb-reg-arch"/>
-                                </ChildContent>
-                                <Tip>
-                                    <span class="tt-line">Archive sourced</span>
-                                </Tip>
-                            </Tooltip>
-                        }
-                    </span>
-                    <span class="pwb-reg-ver">
-                        <VersionLine App="@row.AppVersion" Build="@row.Build" Client="@row.ClientVersion"/>
-                    </span>
-                    <span class="pwb-reg-sha">@Sha12(row.ProtoSha)</span>
-                    @if (row.DetectedAt is { } seen) {
-                        <span class="pwb-reg-when">
-                            <TimeAgo Value="@TimeAgo.FromUtc(seen)" Hover="false"/>
-                        </span>
-                    }
-                </div>
-            </Virtualize>
-        </div>
-    }
-</div>
+    </Row>
+</FilterList>
 
 @code {
     const int RowHeight = 44;
 
-    [Parameter, EditorRequired] public RegistryQuery Query { get; set; } = RegistryQuery.Empty;
+    [Parameter, EditorRequired] public ListQuery Query { get; set; } = ListQuery.Empty;
 
-    [Parameter] public EventCallback<RegistryQuery> QueryChanged { get; set; }
+    [Parameter] public EventCallback<ListQuery> QueryChanged { get; set; }
 
     [Parameter, EditorRequired] public IReadOnlyList<ProtoRegistryRow> Rows { get; set; } = [];
 
@@ -118,63 +66,14 @@
 
     [Parameter] public EventCallback<(IReadOnlyList<ProtoRegistryRow> Rows, bool On)> OnToggleAll { get; set; }
 
-    readonly string _platformGroup = "pwbplat-" + Guid.NewGuid().ToString("N")[..8];
-    bool _filterOpen;
-    List<ProtoRegistryRow> _items = [];
-    IReadOnlyList<ProtoRegistryRow>? _itemSource;
-    string _itemsKey = "";
+    FilterList<ProtoRegistryRow>? _list;
 
-    List<ProtoRegistryRow> Items {
-        get {
-            var key = Query.Signature();
-            if (ReferenceEquals(_itemSource, Rows) && _itemsKey == key) return _items;
-            _itemSource = Rows;
-            _itemsKey = key;
-            _items = [.. ProtoVersionOrdering.SortByRelease(Rows.Where(r => RegistryFilter.Matches(r, Query)), r => r.Key())];
-            return _items;
-        }
-    }
+    public IReadOnlyList<ProtoRegistryRow> Listed => _list?.Listed ?? [];
 
-    public IReadOnlyList<ProtoRegistryRow> Listed => Items;
+    bool AllSelected => Listed.Count > 0 && Listed.All(IsSelected);
 
-    bool AllSelected => Items.Count > 0 && Items.All(IsSelected);
-
-    Task SetPlatform(string platform) {
-        return QueryChanged.InvokeAsync(Query with { Platform = platform });
-    }
-
-    Task OnQuickChanged(string value) {
-        return QueryChanged.InvokeAsync(Query with { Quick = value.Trim() });
-    }
-
-    Task OnQueryChanged(RegistryQuery query) {
-        return QueryChanged.InvokeAsync(query);
-    }
-
-    IReadOnlyList<ConditionLine> ConditionLines() {
-        var lines = new List<ConditionLine>();
-        for (var g = 0; g < Query.Groups.Count; g++) {
-            var conditions = Query.Groups[g].Conditions;
-            for (var i = 0; i < conditions.Count; i++) lines.Add(new ConditionLine(g, i, ConditionText(conditions[i])));
-        }
-
-        return lines;
-    }
-
-    static string ConditionText(FilterCondition condition) {
-        var label = RegistryFilter.Field(condition.Field)?.Label ?? condition.Field;
-        var op = RegistryFilter.OpLabel(condition.Field, condition.Op);
-        if (condition.Op is FilterOp.True or FilterOp.False) return $"{label} is {op}";
-        return $"{label} {op} {condition.Value}";
-    }
-
-    Task RemoveCondition(int groupIndex, int index) {
-        if (groupIndex < 0 || groupIndex >= Query.Groups.Count) return Task.CompletedTask;
-        var groups = Query.Groups.Select(g => g.Conditions.ToList()).ToList();
-        if (index < 0 || index >= groups[groupIndex].Count) return Task.CompletedTask;
-        groups[groupIndex].RemoveAt(index);
-        var kept = groups.Where(c => c.Count > 0).Select(c => new FilterGroup(c)).ToList();
-        return QueryChanged.InvokeAsync(RegistryFilter.Prune(Query with { Groups = kept }));
+    static IEnumerable<ProtoRegistryRow> SortRows(IEnumerable<ProtoRegistryRow> rows) {
+        return ProtoVersionOrdering.SortByRelease(rows, r => r.Key());
     }
 
     static string Sha12(string? sha) {
