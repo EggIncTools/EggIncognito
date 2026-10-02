@@ -13,7 +13,7 @@ public class BlazorShellTests(SharedAppFactory f) {
         var r = await c.GetAsync("/");
         Assert.Equal(HttpStatusCode.OK, r.StatusCode);
         string html = await r.Content.ReadAsStringAsync();
-        Assert.Contains("/styles.css", html);
+        Assert.Contains("/app.css", html);
         Assert.Contains("blazor.web.js", html);
     }
 

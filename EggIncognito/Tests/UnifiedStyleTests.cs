@@ -10,10 +10,14 @@ public partial class UnifiedStyleTests(SharedAppFactory f) {
     [Theory]
     [InlineData("/protos")]
     [InlineData("/capture")]
-    public async Task Page_LinksCompiledSheet_NotTailwind(string path) {
+    public async Task Page_LinksSharedThenAppThenScoped(string path) {
         var c = _f.CreateClient();
         string html = await c.GetStringAsync(path);
-        Assert.Contains("/styles.css", html);
+        int shared = html.IndexOf(SheetFetch.SharedPath, StringComparison.Ordinal);
+        int app = html.IndexOf("\"" + SheetFetch.AppPath, StringComparison.Ordinal);
+        int scoped = html.IndexOf("/EggIncognito.styles.css", StringComparison.Ordinal);
+        Assert.True(shared >= 0 && app > shared && scoped > app, "expected shared.css, then app.css, then the scoped bundle");
+        Assert.DoesNotContain("/styles.css", html.Replace("/EggIncognito.styles.css", "", StringComparison.Ordinal));
         Assert.DoesNotContain("/tailwind.css", html);
     }
 
@@ -54,7 +58,7 @@ public partial class UnifiedStyleTests(SharedAppFactory f) {
     [Fact]
     public async Task BtnPrimary_IsAccentOrange_NotAccent2Blue() {
         var c = _f.CreateClient();
-        string css = await c.GetStringAsync("/styles.css");
+        string css = await c.GetStringAsync(SheetFetch.AppPath);
 
         Assert.Contains("#ef7559", css);
 

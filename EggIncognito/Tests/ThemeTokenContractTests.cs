@@ -21,7 +21,7 @@ public partial class ThemeTokenContractTests {
         }
 
         Assert.True(unclassified.Count == 0,
-            "unclassified @theme color tokens, add each to ThemeTokens.Settable or ThemeTokens.Locked: " +
+            "unclassified :root color tokens, add each to ThemeTokens.Settable or ThemeTokens.Locked: " +
             string.Join(", ", unclassified));
         Assert.True(doubled.Count == 0,
             "tokens in two buckets: " + string.Join(", ", doubled));
@@ -54,18 +54,18 @@ public partial class ThemeTokenContractTests {
         var drift = new List<string>();
         foreach (string name in ThemeTokens.Settable) {
             Assert.True(block.TryGetValue(name, out string? css),
-                $"settable token '{name}' has no --color-{name} in the app.v4.css @theme block");
+                $"settable token '{name}' has no --color-{name} in the app.css :root block");
             string? themeHex = ThemeColor.FromHex(css)?.Hex;
             Assert.True(themeHex is not null,
                 $"--color-{name} is '{css}', which is not a hex literal; ThemePresets cannot mirror it");
             string? presetHex = ThemePresets.DefaultToken(name).Hex;
             if (!string.Equals(themeHex, presetHex, StringComparison.Ordinal)) {
-                drift.Add($"{name}: app.v4.css has {themeHex}, ThemePresets.DefaultHex has {presetHex}");
+                drift.Add($"{name}: app.css has {themeHex}, ThemePresets.DefaultHex has {presetHex}");
             }
         }
 
         Assert.True(drift.Count == 0,
-            "ThemePresets.DefaultHex has drifted from the app.v4.css @theme block: " + string.Join("; ", drift));
+            "ThemePresets.DefaultHex has drifted from the app.css :root block: " + string.Join("; ", drift));
     }
 
     private static IReadOnlyDictionary<string, string> ThemeBlockColorValues() {
@@ -81,9 +81,9 @@ public partial class ThemeTokenContractTests {
         ColorTokenRegex().Matches(ThemeBlock()).Select(m => m.Groups[1].Value).ToList();
 
     private static string ThemeBlock() {
-        string css = File.ReadAllText(Path.Combine(FindRepoRoot(), "EggIncognito", "Styles", "app.v4.css"));
-        int start = css.IndexOf("@theme", StringComparison.Ordinal);
-        Assert.True(start >= 0, "@theme block not found in app.v4.css");
+        string css = File.ReadAllText(Path.Combine(FindRepoRoot(), "EggIncognito", "wwwroot", "app.css"));
+        int start = css.IndexOf(":root", StringComparison.Ordinal);
+        Assert.True(start >= 0, ":root block not found in app.css");
         int open = css.IndexOf('{', start);
         int close = css.IndexOf('}', open);
         return css[(open + 1)..close];

@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk.Web" InitialTargets="SyncFixtures;BuildStyles">
+<Project Sdk="Microsoft.NET.Sdk.Web" InitialTargets="SyncFixtures">
   <PropertyGroup>
     <UserSecretsId>e7aa6a77-af5b-41a6-90e6-4d9b1e792645</UserSecretsId>
     <DefaultItemExcludes>$(DefaultItemExcludes);Tests\**</DefaultItemExcludes>
@@ -44,25 +44,9 @@
     <EmbeddedResource Include="DeviceTools\ios\frida\*.js" />
   </ItemGroup>
 
-  <ItemGroup>
-    <_StylesInput Include="Styles\app.v4.css" />
-    <_StylesInput Include="Components\**\*.razor" />
-    <_StylesInput Include="wwwroot\**\*.js" />
-    <_StylesInput Include="wwwroot\**\*.html" />
-    <_StylesInput Include="**\*.cs" Exclude="bin\**;obj\**;Tests\**" />
-    <_StylesInput Include="..\EggIncognito.Core\Services\MarkdownRenderer.cs" Condition="Exists('..\EggIncognito.Core\Services\MarkdownRenderer.cs')" />
-    <_StylesInput Include="..\EggIncognito.CssBuild\**\*.cs" Exclude="..\EggIncognito.CssBuild\bin\**;..\EggIncognito.CssBuild\obj\**" />
-  </ItemGroup>
   <Target Name="SyncFixtures"
           Condition="'$(SyncFixtures)' != 'false' And '$(EGI_PROD_URL)' != '' And '$(EGI_PROD_API_KEY)' != '' And Exists('$(MSBuildProjectDirectory)/../EggIncognito.FixtureSync/Program.cs')"
           Returns="">
     <Exec Command="dotnet run --project &quot;$(MSBuildProjectDirectory)/../EggIncognito.FixtureSync&quot; --configuration Release -- &quot;$(MSBuildProjectDirectory)&quot;" ContinueOnError="true" />
-  </Target>
-  <Target Name="BuildStyles"
-          Condition="'$(BuildStylesCss)' != 'false' And Exists('$(MSBuildProjectDirectory)/../EggIncognito.CssBuild/Program.cs')"
-          Inputs="@(_StylesInput)"
-          Outputs="$(MSBuildProjectDirectory)\wwwroot\styles.css"
-          Returns="">
-    <Exec Command="dotnet run --project &quot;$(MSBuildProjectDirectory)/../EggIncognito.CssBuild&quot; --configuration Release -- &quot;$(MSBuildProjectDirectory)&quot;" />
   </Target>
 </Project>

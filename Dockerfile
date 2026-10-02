@@ -11,7 +11,6 @@ COPY EggIncognito.Bot/EggIncognito.Bot.csproj EggIncognito.Bot/
 COPY EggIncognito.RouteGenerator/EggIncognito.RouteGenerator.csproj EggIncognito.RouteGenerator/
 COPY EggIncognito.GameData/EggIncognito.GameData.csproj EggIncognito.GameData/
 COPY EggIncognito.Artifacts/EggIncognito.Artifacts.csproj EggIncognito.Artifacts/
-COPY EggIncognito.CssBuild/EggIncognito.CssBuild.csproj EggIncognito.CssBuild/
 COPY EggIncognito/EggIncognito.csproj EggIncognito/
 ARG GITHUB_PACKAGES_USER
 RUN --mount=type=secret,id=github_token \
@@ -20,8 +19,7 @@ RUN --mount=type=secret,id=github_token \
       --password "$(cat /run/secrets/github_token)" \
       --store-password-in-clear-text \
       --configfile nuget.config \
-    && dotnet restore EggIncognito/EggIncognito.csproj \
-    && dotnet restore EggIncognito.CssBuild/EggIncognito.CssBuild.csproj
+    && dotnet restore EggIncognito/EggIncognito.csproj
 
 COPY EggIncognito.Core/ EggIncognito.Core/
 COPY EggIncognito.Capture/ EggIncognito.Capture/
@@ -30,7 +28,6 @@ COPY EggIncognito.Bot/ EggIncognito.Bot/
 COPY EggIncognito.RouteGenerator/ EggIncognito.RouteGenerator/
 COPY EggIncognito.GameData/ EggIncognito.GameData/
 COPY EggIncognito.Artifacts/ EggIncognito.Artifacts/
-COPY EggIncognito.CssBuild/ EggIncognito.CssBuild/
 COPY EggIncognito/ EggIncognito/
 
 ARG GIT_SHA
@@ -41,8 +38,8 @@ RUN set -eux; \
     [ -n "$APP_VERSION" ] && STAMP="$STAMP -p:MinVerVersionOverride=$APP_VERSION"; \
     dotnet publish EggIncognito/EggIncognito.csproj -c Release -o /app/publish \
         -p:EmitTypes=false $STAMP; \
-    test -s /app/publish/wwwroot/styles.css; \
-    grep -q "btn-primary" /app/publish/wwwroot/styles.css; \
+    grep -q "btn-primary" /app/publish/wwwroot/app.css; \
+    test -s /app/publish/wwwroot/EggIncognito.styles.css; \
     test -s /app/publish/wwwroot/_framework/blazor.web.js
 
 FROM mcr.microsoft.com/dotnet/aspnet:11.0.0-rc.1 AS runtime

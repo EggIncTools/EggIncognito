@@ -26,7 +26,6 @@ EggIncognito.DiscordMcp/
 EggIncognito.LocalPlugins/
 EggIncognito/extensions/
 *.trx
-EggIncognito/wwwroot/styles.css
 .sonarqube/
 scratch/
 EggIncognito/DeviceTools/ios/tweaks/*/.theos/

@@ -1,49 +1,3 @@
-@theme {
-  --color-bg: #1b1b1f;
-  --color-panel0: #202027;
-  --color-panel: #25252b;
-  --color-panel2: #2e2e36;
-  --color-fg: #e7e7ea;
-  --color-muted: #9a9aa5;
-  --color-accent: #ef7559;
-  --color-accent2: #ef7559;
-  --color-info: #5aa9e6;
-  --color-ok: #5ec27e;
-  --color-err: #e0685f;
-  --color-warn: oklch(87.9% 0.169 91.605);
-  --color-border: #3a3a44;
-  --color-border-strong: #40404b;
-  --color-border-input: #4d4d59;
-  --color-control-border: #6b6b78;
-  --color-fg-soft: #c7c7cf;
-  --color-fg-max: #ffffff;
-  --color-panel-hi: #2a2a31;
-  --color-panel-lo: #232329;
-  --color-panel-glow: #27272f;
-  --color-popover: #23232a;
-  --color-scrim: rgba(0, 0, 0, .6);
-  --color-row-alt: rgba(255, 255, 255, .04);
-  --color-surface-tint: rgba(255, 255, 255, .02);
-  --color-token-literal: #c084f5;
-  --color-method-read: oklch(84.5% 0.143 164.978);
-  --color-method-write: oklch(83.7% 0.128 66.29);
-  --color-method-replace: oklch(82.8% 0.111 230.318);
-  --color-method-remove: oklch(80.8% 0.114 19.571);
-  --color-diff-add-bg: rgba(94, 194, 126, .09);
-  --color-diff-del-bg: rgba(224, 104, 95, .09);
-  --color-err-soft: #d88;
-  --color-separator: #5c5c66;
-  --color-scroll-track: #232329;
-  --color-scroll-thumb: #6b6b78;
-  --color-scroll-thumb-hover: #82828f;
-
-  --font-mono: "Cascadia Code", "Fira Code", Consolas, monospace;
-
-  --spacing-nav: 3rem;
-
-  --radius-pill: 999px;
-}
-
 :root {
   --color-bg: #1b1b1f;
   --color-panel0: #202027;
@@ -122,21 +76,19 @@
   --code-tok-invalid: var(--color-err);
 }
 
-@layer base {
-  *, *::before, *::after { box-sizing: border-box; border-color: var(--color-border); }
-  hr { border: 0; border-top: 1px solid var(--color-border); }
-  a { color: var(--color-accent); }
-  button, input, select, textarea, optgroup, option { font: inherit; letter-spacing: inherit; }
-  html { font-size: clamp(1rem, 0.875rem + 0.15625vw, 1.125rem); }
-  body {
-    margin: 0;
-    background-color: var(--color-bg);
-    color: var(--color-fg);
-    font-family: var(--font-sans);
-    background-image: radial-gradient(1100px 520px at 50% -260px, var(--color-panel-glow) 0%, transparent 72%);
-    background-repeat: no-repeat;
-    background-attachment: fixed;
-  }
+*, *::before, *::after { box-sizing: border-box; border-color: var(--color-border); }
+hr { border: 0; border-top: 1px solid var(--color-border); }
+a { color: var(--color-accent); }
+button, input, select, textarea, optgroup, option { font: inherit; letter-spacing: inherit; }
+html { font-size: clamp(1rem, 0.875rem + 0.15625vw, 1.125rem); }
+body {
+  margin: 0;
+  background-color: var(--color-bg);
+  color: var(--color-fg);
+  font-family: var(--font-sans);
+  background-image: radial-gradient(1100px 520px at 50% -260px, var(--color-panel-glow) 0%, transparent 72%);
+  background-repeat: no-repeat;
+  background-attachment: fixed;
 }
 
 html { color-scheme: dark; scrollbar-gutter: stable; }
