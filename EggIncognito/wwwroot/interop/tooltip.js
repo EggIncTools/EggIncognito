@@ -7,9 +7,29 @@
 
     const triggerFor = target => (target instanceof Element ? target.closest('.tt') : null);
 
+    function visibleRect(el) {
+        const r = el.getBoundingClientRect();
+        let left = r.left, right = r.right, top = r.top, bottom = r.bottom;
+        for (let p = el.parentElement; p && p !== document.body; p = p.parentElement) {
+            const s = getComputedStyle(p);
+            if (s.overflowX === 'visible' && s.overflowY === 'visible') continue;
+            const c = p.getBoundingClientRect();
+            if (s.overflowX !== 'visible') {
+                left = Math.max(left, c.left);
+                right = Math.min(right, c.right);
+            }
+            if (s.overflowY !== 'visible') {
+                top = Math.max(top, c.top);
+                bottom = Math.min(bottom, c.bottom);
+            }
+        }
+        if (right <= left || bottom <= top) return r;
+        return { left, right, top, bottom, width: right - left, height: bottom - top };
+    }
+
     function place(trigger, pop) {
         pop.classList.add(OPEN);
-        const anchor = trigger.getBoundingClientRect();
+        const anchor = visibleRect(trigger);
         const box = pop.getBoundingClientRect();
         const maxLeft = window.innerWidth - box.width - EDGE;
         const left = Math.max(EDGE, Math.min(anchor.left + (anchor.width - box.width) / 2, maxLeft));

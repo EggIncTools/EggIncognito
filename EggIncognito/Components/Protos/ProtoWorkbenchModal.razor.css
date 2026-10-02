@@ -29,11 +29,12 @@
 .pwb-offer { color: var(--color-info); }
 .pwb-x { display: grid; place-items: center; width: 1.25rem; height: 1.25rem; flex-shrink: 0; padding: 0; border: 0; border-radius: 0.25rem; background: transparent; color: var(--color-muted); cursor: pointer; }
 .pwb-x:hover { color: var(--color-fg); }
+.pwb-x-head { margin-block: -0.25rem; }
 .pwb-radio { accent-color: var(--color-accent); margin: 2px 0 0 0; flex: none; }
 .pwb-size { color: var(--color-muted); }
 .pwb-step { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-.pwb-drawer { position: absolute; top: 0; right: 0; bottom: 0; z-index: 30; display: flex; flex-direction: column; gap: 0.75rem; width: var(--pwb-drawer-w); padding: 0.75rem; box-sizing: border-box; overflow-y: auto; overscroll-behavior: contain; border-left: 1px solid var(--color-border-strong); background-color: var(--color-panel); box-shadow: -12px 0 32px rgba(0, 0, 0, .45); transform: translateX(100%); visibility: hidden; transition: transform .18s ease-out, visibility 0s linear .18s; }
+.pwb-drawer { position: absolute; top: 0; right: 0; bottom: 0; z-index: 30; display: flex; flex-direction: column; gap: 0.75rem; width: var(--pwb-drawer-w); padding: 0.75rem; box-sizing: border-box; overflow-y: auto; overscroll-behavior: contain; border-left: 1px solid var(--color-border-strong); background-color: var(--color-panel); transform: translateX(100%); visibility: hidden; transition: transform .18s ease-out, visibility 0s linear .18s; }
 .pwb-drawer.pwb-drawer-open { transform: none; visibility: visible; transition: transform .18s ease-out; }
 .pwb-drawer-tab { position: absolute; top: 50%; right: 0; z-index: 31; display: flex; flex-direction: column; align-items: center; gap: 0.375rem; padding: 0.5rem 0.25rem; border: 1px solid var(--color-border-strong); border-right: 0; border-radius: 0.5rem 0 0 0.5rem; background-color: var(--color-panel2); color: var(--color-muted); cursor: pointer; transform: translateY(-50%); transition: right .18s ease-out, color .12s; }
 .pwb-drawer-tab:hover { color: var(--color-fg); }

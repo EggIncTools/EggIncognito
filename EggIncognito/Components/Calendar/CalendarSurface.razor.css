@@ -10,7 +10,7 @@
   gap: 0.3rem;
   min-width: 0;
   padding: 0 var(--evcal-bar-pad, 0.4rem);
-  overflow: hidden;
+  overflow: clip;
   cursor: pointer;
   text-align: left;
   font-family: inherit;
@@ -74,7 +74,7 @@
 .cal-surface ::deep .evcal-bar-ghost .evcal-bar-icon { opacity: 0.55; }
 .cal-surface ::deep .evcal-bar-uncertain .evcal-bar-label { opacity: 0.6; }
 .cal-surface ::deep .evcal-bar-uncertain .evcal-bar-icon { opacity: 0.3; }
-.cal-surface ::deep .evcal-bar-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cal-surface ::deep .evcal-bar-label { position: sticky; left: var(--evcal-bar-pad, 0.4rem); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cal-surface ::deep .evcal-bar-tip {
   position: absolute;
   top: calc(50% - var(--evcal-bar-h, 1.5rem) / 2);

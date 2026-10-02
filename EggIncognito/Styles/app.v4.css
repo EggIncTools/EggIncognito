@@ -521,8 +521,8 @@ input[type="search"]::placeholder { color: var(--color-muted); }
 
 .pwb-card .wb-body { position: relative; --pwb-drawer-w: min(100%, 40rem); }
 .wb-card.pwb-card, .wb-card.wb-card-wide.pwb-card { --wb-card-w: 94vw; --wb-card-max: min(94vw, 76rem); }
-.wb-card.pwb-card.pwb-drawer-on { --wb-card-max: min(97vw, 120rem); }
-.pwb-drawer-on .wb-main { padding-right: calc(var(--pwb-drawer-w) + 1rem); }
+.wb-card.pwb-card.pwb-drawer-on { --wb-card-w: 97vw; --wb-card-max: min(97vw, 120rem); }
+.pwb-drawer-on .wb-main { margin-right: var(--pwb-drawer-w); padding-right: 2rem; }
 .pwb-card .wb-rail { --wb-rail-w: 15.5rem; }
 @media (min-width: 80rem) {
   .wb-card.pwb-card.pwb-cols-2, .wb-card.pwb-card.pwb-cols-3 { --wb-card-max: min(96vw, 100rem); }
@@ -553,4 +553,5 @@ input[type="search"]::placeholder { color: var(--color-muted); }
   }
   .wb-card .wb-main { flex: none; overflow: visible; padding: 0.75rem; }
   .pwb-card .wb-rail { max-height: none; overflow: visible; }
+  .pwb-drawer-on .wb-main { margin-right: 0; padding-right: 0.75rem; }
 }
