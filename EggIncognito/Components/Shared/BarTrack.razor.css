@@ -1,0 +1,14 @@
+.bar-track {
+  display: block;
+  height: 0.375rem;
+  border-radius: 0.1875rem;
+  background-color: var(--color-panel2);
+  overflow: hidden;
+}
+.bar-fill {
+  display: block;
+  height: 100%;
+  width: var(--fill, 0%);
+  border-radius: inherit;
+  background-color: var(--color-accent);
+}

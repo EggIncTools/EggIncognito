@@ -30,12 +30,14 @@
                     <span class="evcal-scale-label" style="@TickStyle((i + 0.5) / 7 * 100)">@WeekdayNames[i]</span>
                 }
             </div>
-            <CalendarGrid TItem="CalendarBar<TItem>" @ref="_grid" Periods="_periods" LaneGroups="LaneGroups" OnCommitScrollPan="Pan"/>
+            <CalendarSurface>
+                <CalendarGrid TItem="CalendarBar<TItem>" @ref="_grid" Periods="_periods" LaneGroups="LaneGroups" OnCommitScrollPan="Pan"/>
+            </CalendarSurface>
             @if (_picked is { } picked) {
                 <div class="evcal-detail">
                     <div class="evcal-pop-head">
                         <span class="evcal-pop-title">@DetailTitle(picked)</span>
-                        <button type="button" class="reg-edit-btn" aria-label="Close details" @onclick="ClearSelection">
+                        <button type="button" class="icon-btn icon-btn-sm" aria-label="Close details" @onclick="ClearSelection">
                             <Icon Name="x"/>
                         </button>
                     </div>

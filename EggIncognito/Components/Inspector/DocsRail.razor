@@ -17,8 +17,8 @@
                     <div class="ep @(row.Depth > 0 ? "ep-nested" : "") @(IsActive(row.Leaf) ? "active" : "")"
                          style="@DepthStyle(row.Depth)" @onclick="@(() => Select(row.Leaf))">
                         @if (row.HasChildren) {
-                            <span class="ep-caret @(row.Expanded ? "ep-caret-open" : "")"
-                                  @onclick="@(() => ToggleMessage(row.Key))" @onclick:stopPropagation="true">
+                            <span class="ep-caret-hit" @onclick="@(() => ToggleMessage(row.Key))" @onclick:stopPropagation="true">
+                                <Caret Open="row.Expanded"/>
                             </span>
                         }
                         <span class="ep-name">@row.Label</span>
@@ -38,7 +38,7 @@
                 <Virtualize Items="_endpointRows" Context="row" ItemSize="24" OverscanCount="12">
                     @if (row.Leaf is null) {
                         <div class="ep-ns" @onclick="@(() => ToggleEndpoints(row.Key))">
-                            <span class="ep-caret @(row.Expanded ? "ep-caret-open" : "")"></span>@row.Label
+                            <Caret Open="row.Expanded"/>@row.Label
                         </div>
                     } else {
                         <div class="ep @(IsActive(row.Leaf) ? "active" : "")" @onclick="@(() => Select(row.Leaf))">

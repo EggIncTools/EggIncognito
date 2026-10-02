@@ -25,7 +25,6 @@
     <meta name="twitter:description" content="@_meta.Description"/>
     <meta name="twitter:image" content="https://eggincognito.egginc.tools/brand/logo.png"/>
 
-    <link rel="stylesheet" href="@($"/nav.css?v={_assetVersion}")"/>
     <link rel="stylesheet" href="@($"/styles.css?v={_assetVersion}")"/>
     <link rel="stylesheet" href="@($"/EggIncognito.styles.css?v={_assetVersion}")"/>
     @if (_subProd) {
@@ -41,26 +40,10 @@
     <script src="_content/EggIdentity.UI/timezone.js"></script>
     <HeadOutlet/>
 </head>
-<body class="m-0 bg-bg text-fg font-sans">
+<body>
 <Routes/>
 
-<dialog id="components-reconnect-modal">
-    <div class="reconnect-card">
-        <div class="components-rejoining-animation reconnect-spinner" aria-hidden="true"></div>
-        <p class="reconnect-msg reconnect-first">Lost the connection to the server. Trying to get you back...</p>
-        <p class="reconnect-msg reconnect-repeated">
-            Still trying to reconnect. Next attempt in
-            <span id="components-seconds-to-next-attempt"></span>s...
-        </p>
-        <p class="reconnect-msg reconnect-failed">Could not reconnect. Check your network, then try again.</p>
-        <p class="reconnect-msg reconnect-pause">Connection paused. Picking it back up...</p>
-        <p class="reconnect-msg reconnect-resume-failed">This session has expired. Reload to pick up where you left off.</p>
-        <div class="reconnect-actions">
-            <button type="button" id="components-reconnect-button" class="btn-primary">Try again</button>
-            <button type="button" id="components-resume-button" class="btn-primary">Reload</button>
-        </div>
-    </div>
-</dialog>
+<ReconnectModal/>
 
 <script src="_framework/blazor.web.js"></script>
 <script src="_content/EggIdentity.UI/outsideClick.js"></script>
@@ -69,7 +52,6 @@
 <script src="_content/EggIdentity.UI/calendarScroll.js"></script>
 <script src="_content/EggIdentity.Consent/consent.js"></script>
 <script src="_content/EggIdentity.Visits/visits.js"></script>
-<script src="@($"/interop/reconnectWatcher.js?v={_assetVersion}")"></script>
 <script src="@($"/interop/tooltip.js?v={_assetVersion}")"></script>
 </body>
 </html>

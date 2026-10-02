@@ -1,0 +1,3 @@
+.phead { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; margin-bottom: 0.75rem; }
+.phead-title { font-size: 0.875rem; font-weight: 600; margin: 0; }
+.phead-tools { display: flex; align-items: center; gap: 0.25rem; }

@@ -1,0 +1,3 @@
+.dzp-icon { --icon-size: 2rem; color: var(--color-accent); }
+.dzp-text { font-size: 0.95rem; }
+.dzp-prompt { color: var(--color-fg); font-weight: 600; }

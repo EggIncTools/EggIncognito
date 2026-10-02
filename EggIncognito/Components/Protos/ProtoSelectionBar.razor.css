@@ -1,0 +1,11 @@
+.pwb-selbar {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.625rem 0.75rem;
+  border: 1px solid var(--color-accent);
+  border-radius: 0.5rem;
+  background-color: color-mix(in oklab, var(--color-accent) 8%, var(--color-panel2));
+}
+.pwb-selbar-row { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
+.pwb-selbar-count { color: var(--color-fg); font-size: 0.875rem; font-weight: 600; }

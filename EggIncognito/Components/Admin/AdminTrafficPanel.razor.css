@@ -1,0 +1,11 @@
+.atp ::deep .skm { color: var(--color-fg); }
+.atp ::deep .skm .skm-muted { color: var(--color-muted); }
+.atp ::deep .skm .skm-warn { color: var(--color-warn); }
+.atp ::deep .skm .skm-tile { background: var(--color-panel2); border-color: var(--color-border); }
+.atp ::deep .skm .skm-tile-n { color: var(--color-fg); }
+.atp ::deep .skm .skm-tile-l { color: var(--color-muted); }
+.atp ::deep .skm .skm-spark { color: var(--color-accent); }
+.atp ::deep .skm .skm-tab, .atp ::deep .skm .skm-refresh { background: var(--color-panel2); color: var(--color-fg-soft); border-color: var(--color-border-input); }
+.atp ::deep .skm .skm-tab-on { background: var(--color-accent); border-color: var(--color-accent); color: var(--color-fg-max); }
+.atp ::deep .skm .skm-table th { color: var(--color-muted); }
+.atp ::deep .skm .skm-table th, .atp ::deep .skm .skm-table td { border-bottom-color: var(--color-border); }

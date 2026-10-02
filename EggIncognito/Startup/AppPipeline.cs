@@ -5,6 +5,7 @@ using EggIdentity.DbClone;
 using EggIdentity.Fallback;
 using EggIdentity.Metrics;
 using EggIdentity.Settings.Api;
+using EggIdentity.UI;
 using EggIdentity.Visits;
 using EggIncognito.Bot;
 using EggIncognito.Components;
@@ -117,6 +118,7 @@ public static class AppPipeline {
         }
 
         app.MapRazorComponents<App>().AddInteractiveServerRenderMode();
+        app.MapAppVersion();
         app.MapGet("/health", () => Results.Ok());
         app.MapGet("/api/app/mode", (IAppMode m, AuthState auth, ICurrentUser user) =>
             Results.Ok(new {

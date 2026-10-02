@@ -1,0 +1,4 @@
+.ep-types { display: inline-flex; align-items: center; gap: 0.375rem; flex-wrap: wrap; min-width: 0; font-size: 0.75rem; }
+.ep-note { color: var(--color-muted); }
+.ep-signed { flex: none; display: inline-flex; color: var(--color-accent); }
+.ep-types ::deep .ep-arrow { flex: none; color: var(--color-muted); }

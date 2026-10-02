@@ -14,7 +14,7 @@
 
     <h4 class="contrib-sub">By contributor</h4>
     @if (_tallies.Count == 0) {
-        <p class="text-muted text-sm my-0">Nothing awaiting review.</p>
+        <Note>Nothing awaiting review.</Note>
     } else {
         <table class="data-table contrib-table">
             <thead>
@@ -53,7 +53,7 @@
 
     <h4 class="contrib-sub">Rows @(_total > 0 ? $"({_shown} of {_total})" : "")</h4>
     @if (_rows.Count == 0) {
-        <p class="text-muted text-sm my-0">No submitted rows.</p>
+        <Note>No submitted rows.</Note>
     } else {
         <div class="contrib-rows">
             @foreach (var r in _rows) {

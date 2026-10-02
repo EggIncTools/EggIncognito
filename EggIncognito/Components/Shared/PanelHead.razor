@@ -1,0 +1,11 @@
+<div class="phead">
+    <h3 class="phead-title">@Title</h3>
+    @if (Tools is not null) {
+        <div class="phead-tools">@Tools</div>
+    }
+</div>
+
+@code {
+    [Parameter] public string Title { get; set; } = "";
+    [Parameter] public RenderFragment? Tools { get; set; }
+}

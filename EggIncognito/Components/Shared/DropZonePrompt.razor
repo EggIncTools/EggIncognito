@@ -1,9 +1,8 @@
-<div class="text-accent" aria-hidden="true">
-    <Icon Name="upload" Class="@IconClass"/>
+<div class="dzp-icon" aria-hidden="true">
+    <Icon Name="upload"/>
 </div>
-<div class="text-[0.95rem]"><strong class="text-fg font-semibold">@Prompt</strong> or click to browse</div>
+<div class="dzp-text"><strong class="dzp-prompt">@Prompt</strong> or click to browse</div>
 
 @code {
     [Parameter] public string Prompt { get; set; } = "";
-    [Parameter] public string IconClass { get; set; } = "dropzone-icon";
 }

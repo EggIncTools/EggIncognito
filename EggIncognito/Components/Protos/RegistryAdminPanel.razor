@@ -8,27 +8,27 @@
 <section class="pwb-admin">
     <div class="pwb-admin-head">
         <h3 class="pwb-admin-title">Registry admin</h3>
-        <div class="settings-seg" role="radiogroup" aria-label="Registry admin action">
-            <button type="button" class="seg-btn @(_tab == TabReview ? "active" : "")"
+        <div class="segmented pwb-admin-seg" role="radiogroup" aria-label="Registry admin action">
+            <button type="button" class="segmented-opt @(_tab == TabReview ? "active" : "")"
                     @onclick="@(() => PickTab(TabReview))">
                 Review
             </button>
-            <button type="button" class="seg-btn @(_tab == TabAdd ? "active" : "")"
+            <button type="button" class="segmented-opt @(_tab == TabAdd ? "active" : "")"
                     @onclick="@(() => PickTab(TabAdd))">
                 Add version
             </button>
-            <button type="button" class="seg-btn @(_tab == TabEdit ? "active" : "")"
+            <button type="button" class="segmented-opt @(_tab == TabEdit ? "active" : "")"
                     @onclick="@(() => PickTab(TabEdit))">
                 Edit version
             </button>
             @if (IsAdmin) {
-                <button type="button" class="seg-btn @(_tab == TabDeleted ? "active" : "")"
+                <button type="button" class="segmented-opt @(_tab == TabDeleted ? "active" : "")"
                         @onclick="@(() => PickTab(TabDeleted))">
                     Deleted
                 </button>
             }
         </div>
-        <button type="button" class="reg-edit-btn pwb-admin-close" aria-label="Close registry admin"
+        <button type="button" class="icon-btn icon-btn-sm pwb-admin-close" aria-label="Close registry admin"
                 @onclick="@(() => OnClose.InvokeAsync())">
             <Icon Name="x"/>
         </button>
@@ -38,19 +38,21 @@
         <StagedReviewPanel @ref="_review" IsAdmin="IsAdmin" ShowEmpty="true"
                            EmptyText="Nothing is pending review." OnChanged="OnReviewChanged"/>
         @if (IsAdmin && _suggestions.Count > 0) {
-            <div class="sub-section-head">
-                Suggested merges (@_suggestions.Count)
-                <button type="button" class="btn-mini" disabled="@_busy" @onclick="AcceptAllSuggestions">Merge all</button>
-            </div>
-            <div class="text-xs text-muted mb-2">Same app version and proto SHA across platforms. Merge links them under one entry.</div>
-            <div class="reg-wrap">
+            <SubSectionHead>
+                <ChildContent>Suggested merges (@_suggestions.Count)</ChildContent>
+                <Tools>
+                    <button type="button" class="btn-mini" disabled="@_busy" @onclick="AcceptAllSuggestions">Merge all</button>
+                </Tools>
+            </SubSectionHead>
+            <Note Small="true">Same app version and proto SHA across platforms. Merge links them under one entry.</Note>
+            <TableScroll>
                 <table class="data-table">
                     <thead>
                     <tr>
                         <th>App version</th>
                         <th>Proto SHA</th>
                         <th>Members</th>
-                        <th class="w-20 pwb-admin-row-tools">Actions</th>
+                        <th class="tools pwb-admin-row-tools">Actions</th>
                     </tr>
                     </thead>
                     <tbody>
@@ -78,18 +80,18 @@
                     }
                     </tbody>
                 </table>
-            </div>
+            </TableScroll>
         }
     } else if (_tab == TabAdd) {
         <div class="pwb-admin-grid">
             <div class="pwb-field">
                 <span class="pwb-field-label">Platform</span>
-                <div class="settings-seg" role="radiogroup" aria-label="Platform">
-                    <button type="button" class="seg-btn @(_platform == PlatAndroid ? "active" : "")"
+                <div class="segmented pwb-field-seg" role="radiogroup" aria-label="Platform">
+                    <button type="button" class="segmented-opt @(_platform == PlatAndroid ? "active" : "")"
                             @onclick="@(() => SetPlatform(PlatAndroid))">
                         android
                     </button>
-                    <button type="button" class="seg-btn @(_platform == PlatIos ? "active" : "")"
+                    <button type="button" class="segmented-opt @(_platform == PlatIos ? "active" : "")"
                             @onclick="@(() => SetPlatform(PlatIos))">
                         ios
                     </button>
@@ -117,18 +119,20 @@
             <textarea class="pwb-code-input" rows="6" spellcheck="false" aria-label="Proto" @bind="_proto"></textarea>
         </label>
         <div class="pwb-admin-foot">
-            <span class="text-xs text-muted">Platform, app version and build are required.</span>
+            <span class="pwb-admin-foot-note">Platform, app version and build are required.</span>
             <button type="button" class="btn-primary" disabled="@_busy" @onclick="Add">@(_busy ? "Saving..." : "Save")</button>
         </div>
     } else if (_tab == TabDeleted) {
-        <div class="admin-panel-head">
-            <div class="sub-section-head">Soft-deleted versions (@_deleted.Count)</div>
-            <button type="button" class="btn-mini" disabled="@_busy" @onclick="LoadDeleted">@(_busy ? "Loading..." : "Reload")</button>
-        </div>
+        <SubSectionHead>
+            <ChildContent>Soft-deleted versions (@_deleted.Count)</ChildContent>
+            <Tools>
+                <button type="button" class="btn-mini" disabled="@_busy" @onclick="LoadDeleted">@(_busy ? "Loading..." : "Reload")</button>
+            </Tools>
+        </SubSectionHead>
         @if (_deleted.Count == 0) {
-            <div class="text-xs text-muted">Nothing deleted.</div>
+            <Note Small="true">Nothing deleted.</Note>
         } else {
-            <div class="reg-wrap pwb-admin-scroll">
+            <TableScroll MaxHeight="60vh">
                 <table class="data-table">
                     <thead>
                     <tr>
@@ -138,7 +142,7 @@
                         <th>Client</th>
                         <th>Proto SHA</th>
                         <th>Deleted</th>
-                        <th class="w-20 pwb-admin-row-tools">Actions</th>
+                        <th class="tools pwb-admin-row-tools">Actions</th>
                     </tr>
                     </thead>
                     <tbody>
@@ -155,12 +159,12 @@
                                     <span class="code-chip">@sha</span>
                                 }
                             </td>
-                            <td class="text-xs text-muted">
+                            <td class="muted">
                                 @if (d.DeletedAt is { } at) {
                                     <TimeAgo Value="@at"/>
                                 }
                             </td>
-                            <td class="pwb-admin-row-tools">
+                            <td class="tools">
                                 <button type="button" class="btn-mini" disabled="@_busy"
                                         @onclick="@(() => Restore(d))">
                                     Restore
@@ -170,7 +174,7 @@
                     }
                     </tbody>
                 </table>
-            </div>
+            </TableScroll>
         }
     } else {
         <label class="pwb-field pwb-field-pick">

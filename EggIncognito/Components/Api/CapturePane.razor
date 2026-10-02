@@ -17,7 +17,7 @@
 @inject ILogger<CapturePane> Logger
 
 @if (_hub is not null) {
-    <div class="awb-pane h-full">
+    <div class="awb-pane awb-pane-fill">
         @if (_session is not null && _hosted && _prefsLoaded) {
             <HostedSetupCard Port="HostedOptions.FrontDoorPort"
                              ClientFactory="Client" InviteUrl="@Config["Discord:InviteUrl"]"
@@ -28,7 +28,7 @@
             <LocalSetupCard Port="_session.Port" Expanded="SetupExpanded" ExpandedChanged="SetSetupExpanded"/>
         }
 
-        <div class="capture-body grid gap-3 min-h-0">
+        <div class="capture-body">
             <FlowList Flows="_flows" SelectedId="_selectedId" Connected="_connected" View="_view" OnSelect="SelectFlow"
                       CanSelect="CanSelectFlow">
                 <Tools>
@@ -47,15 +47,12 @@
                 </Foot>
             </FlowList>
 
-            <section id="detailPanel" class="panel">
+            <section id="detailPanel" class="panel detail-panel">
                 <h2>Detail</h2>
                 @if (_selectedFlow is null) {
-                    <div class="empty-state flow-empty">
-                        <Icon Name="list" Class="flow-empty-icon"/>
-                        <span>Select a request to read it.</span>
-                    </div>
+                    <EmptyState Icon="list" Fill="true">Select a request to read it.</EmptyState>
                 } else {
-                    <DetailPane Flow="_selectedFlow" View="_view" ClientFactory="Client"/>
+                    <DetailPane Flow="_selectedFlow" View="_view" ClientFactory="Client" Fill="true"/>
                 }
             </section>
         </div>
@@ -65,7 +62,7 @@
         <h4 class="awb-pane-title">Live capture</h4>
         @if (!_isAuthenticated) {
             <div class="panel" id="hostedLogin">
-                <p class="text-muted text-sm mt-0 mb-3">
+                <p class="capture-note">
                     Log in to start a capture session. Any account can record crafting, consume and demote
                     results; supporters get full capture.
                 </p>
@@ -73,7 +70,7 @@
             </div>
         } else {
             <div class="panel" id="hostedCapacity">
-                <p class="text-muted text-sm my-0">
+                <p class="capture-note capture-note-tight">
                     All capture slots are in use right now. Try again in a few
                     minutes.
                 </p>
@@ -83,7 +80,7 @@
 } else {
     <div class="awb-pane">
         <h4 class="awb-pane-title">Live capture</h4>
-        <p class="text-muted text-sm mt-0 mb-3">Capture runs a local proxy + CA and writes to disk, so it cannot run on this hosted instance.</p>
+        <p class="capture-note">Capture runs a local proxy + CA and writes to disk, so it cannot run on this hosted instance.</p>
         <LocalCaptureGuide/>
     </div>
 }

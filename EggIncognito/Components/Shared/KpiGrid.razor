@@ -1,0 +1,12 @@
+<div class="kpi-grid @Class" style="@Style">
+    @ChildContent
+</div>
+
+@code {
+    [Parameter] public int Columns { get; set; } = 3;
+    [Parameter] public string? MaxWidth { get; set; }
+    [Parameter] public string? Class { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    string Style => $"--kpi-cols:{Columns};" + (MaxWidth is { Length: > 0 } w ? $"--kpi-max:{w};" : "");
+}

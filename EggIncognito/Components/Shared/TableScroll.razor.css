@@ -1,0 +1,27 @@
+.tscroll {
+  border: 1px solid var(--color-border);
+  border-radius: 0.375rem;
+  background-color: var(--egi-panel-tint, var(--color-panel));
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+.tscroll-y { overflow-y: auto; max-height: var(--tscroll-max); min-height: var(--tscroll-min, auto); overscroll-behavior: contain; }
+.tscroll ::deep .data-table { border: 0; border-radius: 0; }
+.tscroll ::deep .data-table td.num, .tscroll ::deep .data-table th.num { text-align: right; font-family: var(--font-mono); }
+.tscroll ::deep .data-table td.mono, .tscroll ::deep .data-table .mono { font-family: var(--font-mono); font-size: 0.75rem; }
+.tscroll ::deep .data-table td.tools, .tscroll ::deep .data-table th.tools { text-align: right; white-space: nowrap; }
+.tscroll ::deep .data-table td.tools .btn-mini + .btn-mini { margin-left: 0.25rem; }
+.tscroll ::deep .data-table td.small, .tscroll ::deep .data-table td.muted { font-size: 0.75rem; }
+.tscroll ::deep .data-table tbody tr.row-click { cursor: pointer; }
+.tscroll ::deep .data-table tbody tr.row-click:hover { background-color: var(--color-panel2); }
+.tscroll ::deep .data-table tbody tr.row-open > td, .tscroll ::deep .data-table tbody tr.row-detail > td { background-color: var(--color-panel2); }
+.tscroll ::deep .data-table tbody tr.row-detail > td { padding-left: 1.5rem; }
+.tscroll ::deep .data-table tbody tr.row-day td {
+  padding-top: 0.75rem;
+  font-size: 0.6875rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
+.tscroll ::deep .data-table tbody tr.row-edit > td { background-color: var(--color-panel2); padding: 0.75rem; }
+.tscroll ::deep .data-table tbody tr.row-hot { background: color-mix(in oklab, var(--color-accent) 10%, transparent); }

@@ -10,15 +10,15 @@
 </AdminPaneHead>
 <PaneNotice @ref="_notice"/>
 @if (_feed is { Total: > 0 } feed) {
-    <div class="meta-dots text-xs text-muted mb-2">
+    <div class="meta-dots an-facts">
         @foreach (var fact in Summary(feed)) {
             <span>@fact</span>
         }
     </div>
 }
 @if (_owners.Count > 0) {
-    <div class="sub-section-head">Owners</div>
-    <div class="reg-wrap">
+    <SubSectionHead>Owners</SubSectionHead>
+    <TableScroll>
         <table class="data-table">
             <tbody>
             @foreach (var owner in _owners) {
@@ -28,9 +28,9 @@
             }
             </tbody>
         </table>
-    </div>
+    </TableScroll>
 } else {
-    <div class="text-sm text-muted">no subscriptions</div>
+    <Note>no subscriptions</Note>
 }
 
 <NotificationsWorkbenchModal AdminScope="true" @ref="_workbench"/>

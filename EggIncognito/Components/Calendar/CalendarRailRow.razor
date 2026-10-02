@@ -1,0 +1,17 @@
+<button type="button" class="evwb-row @(On ? "evwb-row-on" : DimWhenOff ? "evwb-row-dim" : "") @(Ultra ? "evwb-row-ultra" : "")"
+        style="@Style" aria-pressed="@(On ? "true" : "false")" @onclick="OnClick">
+    @if (IconUrl is { Length: > 0 }) {
+        <img class="evwb-row-icon" src="@IconUrl" alt="" loading="lazy" data-fallback/>
+    }
+    @ChildContent
+</button>
+
+@code {
+    [Parameter] public bool On { get; set; }
+    [Parameter] public bool DimWhenOff { get; set; }
+    [Parameter] public bool Ultra { get; set; }
+    [Parameter] public string? Style { get; set; }
+    [Parameter] public string? IconUrl { get; set; }
+    [Parameter] public EventCallback OnClick { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+}

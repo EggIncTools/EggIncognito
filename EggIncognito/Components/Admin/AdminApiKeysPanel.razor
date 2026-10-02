@@ -9,7 +9,7 @@
     </Tools>
 </AdminPaneHead>
 @if (_rows.Count == 0) {
-    <p class="text-muted text-sm m-0">no api keys</p>
+    <Note>no api keys</Note>
 } else {
     <ApiKeysTable Rows="@_rows" ShowOwner="true" Busy="_busy" OnRevoke="Revoke" OnDelete="Delete"/>
 }

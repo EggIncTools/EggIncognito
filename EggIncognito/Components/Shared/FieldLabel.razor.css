@@ -1,0 +1,3 @@
+.fld { display: flex; flex-direction: column; gap: 0.25rem; min-width: 0; }
+.fld-label { font-size: 0.75rem; color: var(--color-muted); }
+.fld ::deep .field-input, .fld ::deep .form-input, .fld ::deep .form-select { width: 100%; }

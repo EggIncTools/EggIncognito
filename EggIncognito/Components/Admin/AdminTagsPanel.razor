@@ -9,9 +9,9 @@
 </AdminPaneHead>
 <PaneNotice @ref="_notice"/>
 @if (_tags.Count == 0) {
-    <p class="text-muted text-sm m-0">No tags yet. Create one below, then attach it from any documented subject.</p>
+    <Note>No tags yet. Create one below, then attach it from any documented subject.</Note>
 } else {
-    <div class="reg-wrap">
+    <TableScroll>
         <table class="data-table">
             <thead>
             <tr>
@@ -22,32 +22,30 @@
             @foreach (var t in _tags) {
                 <tr>
                     <td style="@TagStyle(t.Color)">@t.Label</td>
-                    <td class="mono text-xs">@t.Slug</td>
-                    <td class="mono text-xs">@(string.IsNullOrEmpty(t.Color) ? "inherit" : t.Color)</td>
+                    <td class="mono">@t.Slug</td>
+                    <td class="mono">@(string.IsNullOrEmpty(t.Color) ? "inherit" : t.Color)</td>
                     <td>
                         @if (Subjects(t.Id).Count == 0) {
-                            <span class="text-muted text-xs">nothing</span>
+                            <span class="muted">nothing</span>
                         } else {
                             <button type="button" class="btn-mini" @onclick="() => Expand(t.Id)">
                                 @Subjects(t.Id).Count subject@(Subjects(t.Id).Count == 1 ? "" : "s")
                             </button>
                         }
                     </td>
-                    <td>
-                        <div class="flex gap-1 justify-end">
-                            <button type="button" class="btn-mini btn-danger" disabled="@_busy"
-                                    @onclick="() => Delete(t)">
-                                @(_confirmId == t.Id ? "Confirm, detaches too" : "Delete")
-                            </button>
-                        </div>
+                    <td class="tools">
+                        <button type="button" class="btn-mini btn-danger" disabled="@_busy"
+                                @onclick="() => Delete(t)">
+                            @(_confirmId == t.Id ? "Confirm, detaches too" : "Delete")
+                        </button>
                     </td>
                 </tr>
                 @if (_expandedId == t.Id) {
                     <tr>
                         <td colspan="5">
-                            <div class="flex flex-col gap-0.5">
+                            <div class="at-subjects">
                                 @foreach (var s in Subjects(t.Id)) {
-                                    <span class="mono text-xs">@s</span>
+                                    <span class="mono">@s</span>
                                 }
                             </div>
                         </td>
@@ -56,20 +54,18 @@
             }
             </tbody>
         </table>
-    </div>
+    </TableScroll>
 }
 
-<div class="admin-panel-head mt-4">
-    <div class="sub-section-head">New tag</div>
-</div>
-<div class="flex gap-1 items-center flex-wrap">
-    <input class="reg-filter-input w-auto" placeholder="slug" value="@_newSlug" @oninput="OnSlug"/>
-    <input class="reg-filter-input w-auto" placeholder="label" value="@_newLabel" @oninput="OnLabel"/>
-    <input class="reg-filter-input w-auto" placeholder="#rrggbb (optional)" value="@_newColor" @oninput="OnColor"/>
+<SubSectionHead>New tag</SubSectionHead>
+<FlexRow>
+    <input class="reg-filter-input at-input" placeholder="slug" value="@_newSlug" @oninput="OnSlug"/>
+    <input class="reg-filter-input at-input" placeholder="label" value="@_newLabel" @oninput="OnLabel"/>
+    <input class="reg-filter-input at-input" placeholder="#rrggbb (optional)" value="@_newColor" @oninput="OnColor"/>
     <button type="button" class="btn-mini" disabled="@(_busy || !CanCreate())" @onclick="Create">
         @(_busy ? "Working..." : "Create")
     </button>
-</div>
+</FlexRow>
 
 @code {
     PaneNotice? _notice;

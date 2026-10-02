@@ -1,0 +1,18 @@
+.ped { margin-bottom: 0.75rem; }
+.ped-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem; }
+.ped-title { margin: 0; font-size: 0.875rem; }
+.ped-title span { font-family: var(--font-mono); }
+.ped-grid { display: grid; grid-template-columns: 1fr; gap: 0.5rem; margin-bottom: 0.5rem; }
+.ped-grid-3 { grid-template-columns: 1fr; }
+@media (min-width: 48rem) {
+  .ped-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .ped-grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+.ped-field { display: block; font-size: 0.75rem; color: var(--color-muted); }
+.ped-field .protos-filter { width: 100%; }
+.ped-member { margin-bottom: 0.5rem; padding-top: 0.5rem; border-top: 1px solid var(--color-border); }
+.ped-member-head { display: flex; align-items: center; gap: 0.375rem; margin-bottom: 0.25rem; font-size: 0.75rem; font-weight: 600; }
+.ped-proto { margin-top: 0.5rem; }
+.ped-proto-text { font-family: var(--font-mono); font-size: 0.75rem; }
+.ped-actions { display: flex; align-items: center; gap: 0.5rem; }
+.ped-actions-gap { margin-top: 0.25rem; }

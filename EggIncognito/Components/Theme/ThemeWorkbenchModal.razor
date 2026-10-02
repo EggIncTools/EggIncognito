@@ -21,7 +21,7 @@
             @if (User.IsAuthenticated) {
                 <WorkbenchSection Label="My themes">
                     <WorkbenchLoad T="ThemeRow" Items="_themes" EmptyText="No saved themes yet."
-                                   Class="wb-rail-empty text-muted text-xs" Context="themes">
+                                   Class="wb-note" Context="themes">
                         @foreach (var t in themes) {
                             <WorkbenchEntry @key="t.Slug" Selected="@(State.SelectedSlug == t.Slug)"
                                             OnClick="@(_ => SelectThemeAsync(t.Slug))">
@@ -32,11 +32,11 @@
                     </WorkbenchLoad>
                 </WorkbenchSection>
             } else {
-                <div class="wb-rail-empty text-muted text-xs">Log in to save themes. A theme chosen here applies in this browser only.</div>
+                <div class="theme-rail-note">Log in to save themes. A theme chosen here applies in this browser only.</div>
             }
             <WorkbenchSection Label="Presets">
                 @foreach (var preset in ThemePresets.All) {
-                    <WorkbenchEntry @key="preset.Slug" Class="theme-preset-entry" Style="@PresetBorder(preset)"
+                    <WorkbenchEntry @key="preset.Slug" Style="@PresetBorder(preset)"
                                     OnClick="@(_ => LoadPresetAsync(preset))">
                         <Name>
                             <span style="color: @PresetAccentCss(preset)">@preset.Name</span>
@@ -67,7 +67,7 @@
                         @foreach (var token in ThemeTokens.Settable) {
                             <label class="theme-token-row">
                                 <span class="theme-token-name">@token</span>
-                                <input type="color" class="bg-picker-input" value="@TokenHex(token)" @oninput="e => OnTokenChangedAsync(token, e)"/>
+                                <input type="color" class="theme-color-input" value="@TokenHex(token)" @oninput="e => OnTokenChangedAsync(token, e)"/>
                                 <span class="theme-token-hex">@TokenHex(token)</span>
                             </label>
                         }
@@ -109,10 +109,10 @@
                     </div>
                     <div class="theme-contrast">
                         @if (_contrast is { Passes: true }) {
-                            <div class="text-ok text-xs">Contrast checks pass.</div>
+                            <div class="theme-ok">Contrast checks pass.</div>
                         } else if (_contrast is not null) {
                             @foreach (var f in _contrast.Failures) {
-                                <div class="theme-contrast-row text-err text-xs">
+                                <div class="theme-contrast-row theme-err">
                                     @f.Check: @f.A on @f.B measured @f.Measured, needs @f.Required@(f.AtHue is { } hue ? $" (at hue {Fmt(hue)})" : "")
                                 </div>
                             }
@@ -120,18 +120,18 @@
                     </div>
                 } else if (State.Mode == ThemeWorkbenchState.ModeCss) {
                     @if (!_cssEligible) {
-                        <p class="text-muted text-xs m-0">Custom CSS needs the contributor role and the admin switch. The rest of the theme works without it.</p>
+                        <p class="theme-note">Custom CSS needs the contributor role and the admin switch. The rest of the theme works without it.</p>
                     }
 
                     <textarea class="theme-css-input" spellcheck="false" value="@State.Draft.Css" @onchange="OnCssChangedAsync" disabled="@(!_cssEligible)"></textarea>
                     @if (_cssErrors.Count > 0) {
                         <div class="theme-css-errors">
                             @foreach (var err in _cssErrors) {
-                                <div class="text-err text-xs">line @err.Line:@err.Col @err.Message</div>
+                                <div class="theme-err">line @err.Line:@err.Col @err.Message</div>
                             }
                         </div>
                     } else if (_cssEligible && State.Draft.Css.Length > 0) {
-                        <div class="text-ok text-xs">Custom CSS parses.</div>
+                        <div class="theme-ok">Custom CSS parses.</div>
                     }
 
                     @if (_cssEligible) {
@@ -501,7 +501,7 @@
     }
 
     static string PresetBorder(ThemeModel preset) {
-        return $"border-color: {PresetAccentCss(preset)}";
+        return $"border: 2px solid {PresetAccentCss(preset)}";
     }
 
     string DraftJson() {

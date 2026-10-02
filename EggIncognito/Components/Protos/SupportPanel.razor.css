@@ -1,0 +1,4 @@
+.pd-w-support { display: flex; flex-direction: column; gap: 0.5rem; }
+.pd-w-support ::deep .phead { margin-bottom: 0; }
+.sp-lede { margin: 0; font-size: 0.75rem; color: var(--color-muted); }
+.sp-capture { width: fit-content; }

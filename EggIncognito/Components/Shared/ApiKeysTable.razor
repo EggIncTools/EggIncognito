@@ -1,8 +1,8 @@
 @using EggIncognito.Models.Admin
 @using EggIncognito.Services.Events
 @inject IServiceProvider Services
-<div class="reg-wrap">
-    <table class="data-table">
+<TableScroll>
+    <table class="data-table akt">
         <thead>
         <tr>
             @if (ShowOwner) {
@@ -18,28 +18,26 @@
         </thead>
         <tbody>
         @foreach (var k in Rows) {
-            <tr class="@(!ShowOwner && k.Revoked ? "text-muted" : null)">
+            <tr class="@(!ShowOwner && k.Revoked ? "akt-revoked" : null)">
                 @if (ShowOwner) {
-                    <td class="mono text-xs">@k.OwnerUserId</td>
-                    <td class="font-medium">@k.Name</td>
-                    <td class="mono text-xs">@k.Prefix</td>
+                    <td class="mono">@k.OwnerUserId</td>
+                    <td class="akt-name">@k.Name</td>
+                    <td class="mono">@k.Prefix</td>
                 } else {
-                    <td class="mono text-xs">@($"{k.Prefix}…")</td>
-                    <td class="font-medium">@k.Name</td>
+                    <td class="mono">@($"{k.Prefix}…")</td>
+                    <td class="akt-name">@k.Name</td>
                 }
-                <td class="text-muted text-xs">@(k.LastUsedAt is { } used ? ViewerClock.At(Services, used).ToString("yyyy-MM-dd HH:mm:ss") : "never")</td>
-                <td class="mono text-xs">@k.RequestCount</td>
+                <td class="muted">@(k.LastUsedAt is { } used ? ViewerClock.At(Services, used).ToString("yyyy-MM-dd HH:mm:ss") : "never")</td>
+                <td class="mono">@k.RequestCount</td>
                 <td>
-                    <span class="@(k.Revoked ? "text-muted" : "text-ok")">@(k.Revoked ? "revoked" : "active")</span>
+                    <span class="@(k.Revoked ? "muted" : "text-ok")">@(k.Revoked ? "revoked" : "active")</span>
                 </td>
-                <td>
+                <td class="tools">
                     @if (OnDelete.HasDelegate) {
-                        <div class="flex gap-1 justify-end">
-                            @if (!k.Revoked) {
-                                <button type="button" class="btn-mini" disabled="@Busy" @onclick="() => OnRevoke.InvokeAsync(k.Id)">Revoke</button>
-                            }
-                            <button type="button" class="btn-mini btn-danger" disabled="@Busy" @onclick="() => OnDelete.InvokeAsync(k.Id)">Delete</button>
-                        </div>
+                        @if (!k.Revoked) {
+                            <button type="button" class="btn-mini" disabled="@Busy" @onclick="() => OnRevoke.InvokeAsync(k.Id)">Revoke</button>
+                        }
+                        <button type="button" class="btn-mini btn-danger" disabled="@Busy" @onclick="() => OnDelete.InvokeAsync(k.Id)">Delete</button>
                     } else {
                         @if (!k.Revoked) {
                             <button type="button" class="btn-mini btn-danger" disabled="@Busy" @onclick="() => OnRevoke.InvokeAsync(k.Id)">Revoke</button>
@@ -50,7 +48,7 @@
         }
         </tbody>
     </table>
-</div>
+</TableScroll>
 
 @code {
     [Parameter] [EditorRequired] public List<ApiKeyRow> Rows { get; set; } = [];

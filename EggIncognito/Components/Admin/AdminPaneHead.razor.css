@@ -1,0 +1,12 @@
+.admin-pane-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--color-border);
+}
+.admin-pane-title { margin: 0; font-size: 1rem; font-weight: 600; color: var(--color-fg); }
+.admin-pane-tools { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; justify-content: flex-end; }
+.admin-pane-facts { font-size: 0.75rem; color: var(--color-muted); }

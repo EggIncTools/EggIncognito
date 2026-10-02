@@ -11,10 +11,10 @@
 </AdminPaneHead>
 <PaneNotice @ref="_notice"/>
 @if (_rows.Count == 0) {
-    <p class="text-muted text-sm m-0">No stored APKs. Splits land here from device harvest and from the install-app cookbook when it pulls off a physical android device.</p>
+    <p class="ap-note">No stored APKs. Splits land here from device harvest and from the install-app cookbook when it pulls off a physical android device.</p>
 } else {
-    <div class="reg-wrap">
-        <table class="data-table">
+    <TableScroll>
+        <table class="data-table apk-table">
             <thead>
             <tr>
                 <th>Split</th><th>SHA-256</th><th>Size</th><th>Source</th><th>Captured</th><th></th>
@@ -22,38 +22,36 @@
             </thead>
             @foreach (var v in _rows) {
                 <tbody>
-                <tr class="apk-version-row">
+                <tr class="row-open">
                     <td colspan="5">
                         <div class="apk-version-cell">
                             <PlatformIcon Platform="@v.Platform"/>
                             <VersionLine App="@v.AppVersion" Build="@v.Build"/>
-                            <span class="mono text-xs text-muted">@v.Package</span>
-                            <span class="text-muted text-xs">@v.Splits.Count splits, @ByteFormat.Mb(v.ByteSize, "F1")</span>
+                            <span class="mono muted">@v.Package</span>
+                            <span class="apk-fact">@v.Splits.Count splits, @ByteFormat.Mb(v.ByteSize, "F1")</span>
                             @if (!v.Installable) {
-                                <span class="text-xs text-red-400">no base split, not installable</span>
+                                <span class="apk-bad">no base split, not installable</span>
                             }
                         </div>
                     </td>
-                    <td>
-                        <div class="flex gap-1 justify-end">
-                            <button type="button" class="btn-mini btn-danger" disabled="@_busy" @onclick="() => Delete(v)">Delete</button>
-                        </div>
+                    <td class="tools">
+                        <button type="button" class="btn-mini btn-danger" disabled="@_busy" @onclick="() => Delete(v)">Delete</button>
                     </td>
                 </tr>
                 @foreach (var s in v.Splits) {
                     <tr>
-                        <td class="mono text-xs apk-split-cell">@s.Split</td>
-                        <td class="mono text-xs">@ShaShort(s.Sha256)</td>
-                        <td class="mono text-xs">@ByteFormat.Mb(s.ByteSize, "F1")</td>
-                        <td class="text-xs">@(s.SourceDeviceId ?? "unknown")</td>
-                        <td class="text-muted text-xs">@ViewerClock.At(Services, s.CapturedAt).ToString("yyyy-MM-dd HH:mm:ss")</td>
+                        <td class="mono apk-split-cell">@s.Split</td>
+                        <td class="mono">@ShaShort(s.Sha256)</td>
+                        <td class="mono">@ByteFormat.Mb(s.ByteSize, "F1")</td>
+                        <td>@(s.SourceDeviceId ?? "unknown")</td>
+                        <td class="muted">@ViewerClock.At(Services, s.CapturedAt).ToString("yyyy-MM-dd HH:mm:ss")</td>
                         <td></td>
                     </tr>
                 }
                 </tbody>
             }
         </table>
-    </div>
+    </TableScroll>
 }
 
 @code {

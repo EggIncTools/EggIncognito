@@ -50,32 +50,32 @@
             @{ var hasSession = State.Entries.Count > 0; }
             <div class="wb-rail-slot pwb-rail-sess @(hasSession ? "" : "pwb-rail-sess-empty")">
                 <WorkbenchSection Label="Session" Scroll="@hasSession">
-                    <label id="wbRailDrop" class="dropzone pwb-drop" for="wbFile">
-                        <DropZonePrompt Prompt="Drop .ipa, .apk or bundle files" IconClass="pwb-drop-icon"/>
+                    <label id="wbRailDrop" class="pwb-drop" for="wbFile">
+                        <DropZonePrompt Prompt="Drop .ipa, .apk or bundle files"/>
                     </label>
                     @foreach (var e in State.Entries.Where(x => !x.IsAnalyzed)) {
                         @Card(e, null, false)
                     }
                     @foreach (var g in groups) {
                         @if (g.Members.Count > 1) {
-                            <div class="wb-group @(g.Conflict ? "conflict" : "")">
-                                <div class="wb-group-head">
+                            <div class="pwb-group @(g.Conflict ? "pwb-group-conflict" : "")">
+                                <div class="pwb-group-head">
                                     <VersionLine App="@g.AppVersion" Build="@g.Build" Client="@g.ClientVersionText"/>
                                     @if (g is { Conflict: false, Status.Offerable: true }) {
-                                        <span>
-                                            <Icon Name="upload" Class="icon-sm wb-st-offer"/>
+                                        <span class="pwb-offer">
+                                            <Icon Name="upload" Class="icon-sm"/>
                                         </span>
                                     } else {
                                         <span class="pwb-note-inline @GroupStatusTone(g)">@GroupStatusText(g)</span>
                                     }
                                     @if (g.Status is { Failed: true }) {
-                                        <button type="button" class="btn-mini ml-auto" aria-label="Retry check"
+                                        <button type="button" class="btn-mini pwb-retry" aria-label="Retry check"
                                                 @onclick="@(() => RetryCheck(g))">
                                             <Icon Name="refresh-cw" Class="icon-sm"/> Retry
                                         </button>
                                     }
                                 </div>
-                                <div class="wb-group-body">
+                                <div class="pwb-group-body">
                                     @foreach (var e in g.Members) {
                                         @Card(e, g, true)
                                     }
@@ -91,7 +91,7 @@
                 <div class="wb-rail-slot pwb-rail-reg">
                     <WorkbenchSection Label="Registry (split)">
                         <Tools>
-                            <button type="button" class="wb-x" aria-label="Close split registry" @onclick="ToggleSplit">
+                            <button type="button" class="pwb-x" aria-label="Close split registry" @onclick="ToggleSplit">
                                 <Icon Name="x" Class="icon-sm"/>
                             </button>
                         </Tools>
@@ -174,18 +174,18 @@
                 @if (sel.Status == "error") {
                     <span class="pwb-note-inline pwb-err">@(sel.Error ?? "failed")</span>
                 } else if (!sel.IsDone) {
-                    <span class="text-muted text-xs">@sel.Status@(sel.Step is { Length: > 0 } ? $": {sel.Step}" : "")...</span>
+                    <span class="pwb-dim-note">@sel.Status@(sel.Step is { Length: > 0 } ? $": {sel.Step}" : "")...</span>
                 } else if (sel.Result is { } r) {
-                    <span class="font-mono text-muted text-xs">@(r.Messages.Count) - @Sha12(r.ProtoSha)</span>
+                    <span class="pwb-mono-note">@(r.Messages.Count) - @Sha12(r.ProtoSha)</span>
                     @if (selGroup is { Conflict: true }) {
                         <span class="pwb-note-inline pwb-err">conflict</span>
-                        <span class="text-muted text-xs">Pick the file to offer in the rail.</span>
+                        <span class="pwb-dim-note">Pick the file to offer in the rail.</span>
                     } else if (selGroup?.Status is { Rejected: true }) {
                         <span class="pwb-note-inline pwb-warn">rejected before</span>
-                        <span class="text-muted text-xs">A reviewer rejected this proto. Resubmit with more version data to reopen it.</span>
+                        <span class="pwb-dim-note">A reviewer rejected this proto. Resubmit with more version data to reopen it.</span>
                     } else if (selGroup?.Status is { Known: true, ShaDiffers: true }) {
                         <span class="pwb-note-inline pwb-warn">in registry, proto differs</span>
-                        <span class="text-muted text-xs">This build is registered with another proto. The archive text replaces it.</span>
+                        <span class="pwb-dim-note">This build is registered with another proto. The archive text replaces it.</span>
                     } else if (selGroup?.Status is { Archived: true }) {
                         <span class="pwb-note-inline pwb-ok">archive flagged</span>
                     } else if (selGroup?.Status is { Known: true }) {
@@ -212,7 +212,7 @@
                         @if (User.IsAuthenticated) {
                             <span class="pwb-note-inline">offerable</span>
                         } else {
-                            <span class="text-muted text-xs">Log in to offer this version to the registry.</span>
+                            <span class="pwb-dim-note">Log in to offer this version to the registry.</span>
                         }
                     }
 
@@ -344,9 +344,9 @@
                     <tbody>
                     @foreach (var row in MetaRows()) {
                         <tr class="@(row.Same ? "" : "pwb-meta-diff")">
-                            <td class="text-muted">@row.Key</td>
-                            <td class="font-mono text-xs pwb-wrap">@row.A</td>
-                            <td class="font-mono text-xs pwb-wrap">@row.B</td>
+                            <td class="pwb-key">@row.Key</td>
+                            <td class="pwb-wrap">@row.A</td>
+                            <td class="pwb-wrap">@row.B</td>
                         </tr>
                     }
                     </tbody>
@@ -360,7 +360,7 @@
                         <Tools>@LineFilter()</Tools>
                     </CodeSurface>
                 } else {
-                    <div class="text-muted text-xs">loading...</div>
+                    <div class="pwb-dim-note">loading...</div>
                 }
             } else if (State.B is not { } viewB) {
                 <div class="pwb-note">Pick a B side in the rail to diff against.</div>
@@ -390,7 +390,7 @@
                               EmptyText="No structural differences."/>
                 }
             } else {
-                <div class="text-muted text-xs">comparing...</div>
+                <div class="pwb-dim-note">comparing...</div>
             }
         </div>
     </ChildContent>
@@ -438,7 +438,7 @@
                                                                                         OnClick="@(args => Select(e, args))">
                                                                            <Lead>
                                                                                @if (g is { MultiSha: true } grp) {
-                                                                                   <input type="radio" class="wb-radio" name="@("wbg-" + grp.Key)"
+                                                                                   <input type="radio" class="pwb-radio" name="@("wbg-" + grp.Key)"
                                                                                           checked="@(grp.Winner?.Id == e.Id)"
                                                                                           @onclick:stopPropagation="true"
                                                                                           @onkeydown:stopPropagation="true"
@@ -449,11 +449,11 @@
                                                                                @if (!grouped && e.IsAnalyzed) {
                                                                                    <VersionLine App="@e.AppVersion" Build="@e.Build" Client="@e.ClientVersionText"/>
                                                                                } else if (!e.IsAnalyzed) {
-                                                                                   <span class="text-muted">@ByteFormat.Mb(e.Size, culture: CultureInfo.InvariantCulture)</span>
+                                                                                   <span class="pwb-size">@ByteFormat.Mb(e.Size, culture: CultureInfo.InvariantCulture)</span>
                                                                                }
                                                                            </Name>
                                                                            <Trail>
-                                                                               <button type="button" class="wb-x" aria-label="Remove"
+                                                                               <button type="button" class="pwb-x" aria-label="Remove"
                                                                                        @onclick:stopPropagation="true" @onkeydown:stopPropagation="true"
                                                                                        @onclick="@(() => Remove(e))">
                                                                                    <Icon Name="x" Class="icon-sm"/>
@@ -466,11 +466,11 @@
                                                                            </MetaLine>
                                                                            <Foot>
                                                                                @if (!e.IsDone && e.Step is { Length: > 0 } step) {
-                                                                                   <span class="truncate">@step</span>
+                                                                                   <span class="pwb-step">@step</span>
                                                                                }
                                                                                @if (!grouped && g is { Conflict: false, Status.Offerable: true }) {
-                                                                                   <span>
-                                                                                       <Icon Name="upload" Class="icon-sm wb-st-offer"/>
+                                                                                   <span class="pwb-offer">
+                                                                                       <Icon Name="upload" Class="icon-sm"/>
                                                                                    </span>
                                                                                }
                                                                                <Icon Name="clock" Class="icon-sm"/>

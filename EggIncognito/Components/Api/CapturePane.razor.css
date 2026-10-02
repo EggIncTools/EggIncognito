@@ -1,0 +1,11 @@
+.awb-pane { display: flex; flex-direction: column; gap: 0.75rem; min-height: 0; }
+.awb-pane-fill { height: 100%; }
+.awb-pane-title { margin: 0; font-size: 0.875rem; font-weight: 600; }
+.capture-body { display: grid; grid-template-columns: 1fr; gap: 0.75rem; flex: 1 1 0; min-height: 0; }
+.capture-note { margin: 0 0 0.75rem; font-size: 0.875rem; color: var(--color-muted); }
+.capture-note-tight { margin-bottom: 0; }
+.detail-panel h2 { margin: 0.25rem 0 0.625rem; font-size: 0.8125rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--color-muted); }
+@media (min-width: 64rem) {
+  .capture-body { grid-template-columns: 2fr 3fr; }
+  .capture-body > ::deep .panel { min-height: 0; overflow: auto; }
+}

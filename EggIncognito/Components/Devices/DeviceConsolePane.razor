@@ -46,14 +46,14 @@
                         <button type="button" class="dcon-wake" disabled="@_waking" @onclick="WakeAsync">
                             <Icon Name="power" Class="icon-md"/>
                             <span>@(_waking ? "Waking..." : "Click to wake")</span>
-                            <span class="text-muted dcon-stage-reason">@AsleepReason()</span>
+                            <span class="dcon-stage-reason">@AsleepReason()</span>
                         </button>
                     } else if (!_hasFrame) {
                         <span class="dcon-stage-empty">
                             <Icon Name="@StreamIcon()" Class="@("icon-sm " + StreamIconClass())"/>
                             <span>@StageEmptyText()</span>
                             @if (_streamError is { } stageErr) {
-                                <span class="text-muted dcon-stage-reason">@stageErr</span>
+                                <span class="dcon-stage-reason">@stageErr</span>
                             }
                         </span>
                     }
@@ -78,25 +78,19 @@
 
             <div class="dcon-side">
                 @if (Actions is not null) {
-                    <div class="dwb-bar dcon-actions">
-                        <span class="dwb-bar-group">@Actions</span>
-                    </div>
+                    <ToolBar Start="true">
+                        <span class="tbar-group">@Actions</span>
+                    </ToolBar>
                     @ActionNotes
                 }
 
-                <div class="dwb-bar">
-                    <span class="dwb-bar-group">
-                        <span class="dcon-k">Stream</span>
-                        <span class="dcon-status">
-                            <Icon Name="@StreamIcon()" Class="@("icon-sm " + StreamIconClass())"/>
-                            <span>@StreamLabel()</span>
-                        </span>
-                        @if (StreamDetail() is { } streamDetail) {
-                            <span class="text-muted text-xs dcon-status-detail">@streamDetail</span>
-                        }
+                <ToolBar>
+                    <span class="tbar-group">
+                        <span class="tbar-k">Stream</span>
+                        <DeviceStatusLine Icon="@StreamIcon()" IconClass="@StreamIconClass()" Text="@StreamLabel()" Detail="@StreamDetail()"/>
                     </span>
-                    <span class="dwb-bar-group">
-                        <span class="text-muted text-xs" title="@(_videoFallback ? "h264 gave no frame, retrying shortly" : null)">@(_useVideo ? "h264" : _videoFallback ? "jpeg, h264 retry pending" : "jpeg")</span>
+                    <span class="tbar-group">
+                        <span class="dcon-codec" title="@(_videoFallback ? "h264 gave no frame, retrying shortly" : null)">@(_useVideo ? "h264" : _videoFallback ? "jpeg, h264 retry pending" : "jpeg")</span>
                         <select class="field-input dcon-rate" aria-label="Quality" value="@QualityValue()" @onchange="QualityPicked">
                             @if (_useVideo) {
                                 <option value="@StreamQuality.Fluid">Fluid</option>
@@ -118,7 +112,7 @@
                             Record
                         </button>
                     </span>
-                </div>
+                </ToolBar>
 
                 @if (IsAndroid) {
                     <DeviceIslandSelect Islands="_islands" Selected="_selectedAndroidUserId" Busy="_islandBusy"
@@ -126,13 +120,13 @@
                                         OnCreate="CreateIslandAsync" OnRefresh="LoadIslandsAsync"/>
                 }
 
-                <div class="dwb-bar">
-                    <span class="dwb-bar-group dcon-fill">
-                        <span class="dcon-k">Input</span>
+                <ToolBar>
+                    <span class="tbar-group tbar-fill">
+                        <span class="tbar-k">Input</span>
                         @if (_captureKeys) {
-                            <span class="text-muted text-xs">Keys go to the device as you type, anywhere on this page. Ctrl, Alt and Cmd shortcuts still reach the browser.</span>
+                            <span class="dcon-keys-note">Keys go to the device as you type, anywhere on this page. Ctrl, Alt and Cmd shortcuts still reach the browser.</span>
                         } else {
-                            <input class="field-input font-mono dcon-text" placeholder="paste or type a whole string"
+                            <input class="field-input dcon-text" placeholder="paste or type a whole string"
                                    aria-label="Text to send" @bind="_text" @bind:event="oninput" @onkeydown="TextKeyAsync"/>
                             <button type="button" class="btn-mini" disabled="@(_text.Length == 0)" @onclick="SendTextAsync">
                                 <Icon Name="send" Class="icon-sm"/>
@@ -140,7 +134,7 @@
                             </button>
                         }
                     </span>
-                    <span class="dwb-bar-group">
+                    <span class="tbar-group">
                         <button type="button" class="btn-mini @(_captureKeys ? "dcon-on" : "")" @onclick="ToggleCapture"
                                 title="Send every keystroke to the device as you type">
                             <Icon Name="@(_captureKeys ? "circle-check" : "circle")" Class="icon-sm"/>
@@ -148,17 +142,17 @@
                         </button>
                         <button type="button" class="btn-mini" @onclick="@(() => KeyAsync("enter"))">Enter</button>
                     </span>
-                </div>
+                </ToolBar>
 
                 <div class="dcon-shelf">
                     <div class="dcon-shelf-tabs">
                         <WorkbenchModes Modes="ShelfTabs()" Current="@State.Shelf" CurrentChanged="SetShelf" Label="Shelf"/>
                         @if (_runLine is { } run) {
-                            <span class="dcon-status dcon-shelf-run">
-                                <Icon Name="@run.Icon" Class="@("icon-sm " + run.IconClass)"/>
-                                <span>@run.Title</span>
-                                <span class="font-mono text-muted text-xs">@run.Elapsed</span>
-                                <span class="text-muted text-xs">@run.State</span>
+                            <span class="dcon-shelf-run">
+                                <DeviceStatusLine Icon="@run.Icon" IconClass="@run.IconClass" Text="@run.Title">
+                                    <span class="dcon-run-elapsed">@run.Elapsed</span>
+                                    <span class="dcon-run-state">@run.State</span>
+                                </DeviceStatusLine>
                             </span>
                         }
                     </div>
@@ -168,9 +162,8 @@
                                              Watch="_watch" WatchChanged="OnWatchState" Arming="_locking" ArmingChanged="SetLocking"
                                              OnNotice="OnNotice"/>
                         } else {
-                            <div class="dcon-status text-xs" hidden="@(!State.ShelfIs(DeviceWorkbenchState.ShelfLocks))">
-                                <Icon Name="circle" Class="icon-sm text-muted"/>
-                                <span class="text-muted">Locks need the Android screen stream.</span>
+                            <div hidden="@(!State.ShelfIs(DeviceWorkbenchState.ShelfLocks))">
+                                <DeviceStatusLine Muted="true" Text="Locks need the Android screen stream."/>
                             </div>
                         }
 
@@ -179,12 +172,12 @@
                                              OnChanged="AfterRunAsync" OnRunChanged="RunLineChanged"/>
 
                         <div class="dcon-record" hidden="@(!State.ShelfIs(DeviceWorkbenchState.ShelfRecord))">
-                            <div class="dwb-bar">
-                                <span class="dwb-bar-group">
-                                    <span class="dcon-k">Record</span>
-                                    <span class="text-muted text-xs">@_recorded.Count @(_recorded.Count == 1 ? "step" : "steps")</span>
+                            <ToolBar>
+                                <span class="tbar-group">
+                                    <span class="tbar-k">Record</span>
+                                    <span class="dcon-count">@_recorded.Count @(_recorded.Count == 1 ? "step" : "steps")</span>
                                 </span>
-                                <span class="dwb-bar-group">
+                                <span class="tbar-group">
                                     <CopyButton GetText="@(() => RecordedGesture.FlowText(_recorded))" Label="Copy flow" CopiedLabel="Copied"
                                                 ShowIcon="false" ButtonClass="btn-mini"/>
                                     <button type="button" class="btn-mini" disabled="@(_recorded.Count == 0 || _replaying)" @onclick="ReplayAllAsync">
@@ -193,23 +186,20 @@
                                     </button>
                                     <button type="button" class="btn-mini" disabled="@(_recorded.Count == 0)" @onclick="ClearRecorded">Clear</button>
                                 </span>
-                            </div>
+                            </ToolBar>
                             @if (_recorded.Count == 0) {
-                                <div class="dcon-status text-xs">
-                                    <Icon Name="circle" Class="icon-sm text-muted"/>
-                                    <span class="text-muted">@(_mode == DeviceConsoleMode.Record ? "Tap, hold or swipe the screen. Each gesture lands here as a flow step at device pixels." : "Press Record in the stream bar, then tap, hold or swipe the screen.")</span>
-                                </div>
+                                <DeviceStatusLine Muted="true" Text="@(_mode == DeviceConsoleMode.Record ? "Tap, hold or swipe the screen. Each gesture lands here as a flow step at device pixels." : "Press Record in the stream bar, then tap, hold or swipe the screen.")"/>
                             } else {
-                                <div class="reg-wrap dcon-tree">
+                                <TableScroll MaxHeight="26rem" MinHeight="8rem">
                                     <table class="data-table dcon-list">
                                         <tbody>
                                         @foreach (var index in Enumerable.Range(0, _recorded.Count)) {
                                             var g = _recorded[index];
                                             <tr @key="index" class="dcon-node @(ReferenceEquals(_selectedGesture, g) ? "dcon-node-on" : "")"
                                                 @onclick="@(() => SelectGesture(g))">
-                                                <td class="dcon-cur text-muted">@(index + 1)</td>
+                                                <td class="dcon-cur">@(index + 1)</td>
                                                 <td class="dcon-node-kind">@GestureKind(g)</td>
-                                                <td class="dcon-list-title font-mono">@g.Where</td>
+                                                <td class="dcon-list-title">@g.Where</td>
                                                 <td class="dcon-node-kind">@(g.DurationMs > 0 ? $"{g.DurationMs}ms" : "")</td>
                                                 <td class="dcon-row-tools">
                                                     <button type="button" class="btn-mini" disabled="@_replaying" title="Replay this step"
@@ -225,7 +215,7 @@
                                         }
                                         </tbody>
                                     </table>
-                                </div>
+                                </TableScroll>
                             }
                             @if (_selectedGesture is { } sel) {
                                 <div class="dcon-sel">

@@ -1,0 +1,24 @@
+.pwb-admin { padding: 0.75rem; border: 1px solid var(--color-border-strong); border-radius: 0.5rem; background-color: var(--color-panel2); }
+.pwb-admin-head { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; padding-bottom: 0.625rem; margin-bottom: 0.75rem; border-bottom: 1px solid var(--color-border); }
+.pwb-admin-title { flex: none; margin: 0; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--color-muted); }
+.pwb-admin-seg { width: auto; }
+.pwb-admin-close { margin-left: auto; flex: none; }
+.pwb-admin-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr)); gap: 0.5rem 0.75rem; }
+.pwb-field { display: flex; flex-direction: column; gap: 0.25rem; min-width: 0; }
+.pwb-field-block { margin-top: 0.625rem; }
+.pwb-field-pick { margin-bottom: 0.5rem; max-width: 24rem; }
+.pwb-field-label { display: flex; align-items: baseline; gap: 0.375rem; font-size: 0.6875rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--color-muted); }
+.pwb-field-req { color: var(--color-accent); }
+.pwb-field-hint { font-size: 0.625rem; text-transform: none; letter-spacing: normal; opacity: 0.7; }
+.pwb-field-seg { width: 100%; }
+.pwb-field-seg .segmented-opt { padding-block: 0.25rem; font-family: var(--font-mono); }
+.pwb-field ::deep .reg-filter-input { width: 100%; }
+.pwb-code-input { display: block; width: 100%; box-sizing: border-box; padding: 0.375rem 0.5rem; border: 1px solid var(--color-border); border-radius: 0.25rem; background-color: var(--color-bg); box-shadow: inset 0 1px 2px rgb(0 0 0 / 0.25); font-family: var(--font-mono); font-size: 0.75rem; line-height: 1.45; color: var(--color-fg); resize: vertical; }
+.pwb-code-input:focus { outline: none; border-color: var(--color-accent); }
+.pwb-admin-foot { display: flex; align-items: center; justify-content: flex-end; gap: 0.75rem; flex-wrap: wrap; padding-top: 0.625rem; margin-top: 0.75rem; border-top: 1px solid var(--color-border); }
+.pwb-admin-foot-note { margin-right: auto; font-size: 0.75rem; color: var(--color-muted); }
+.pwb-admin-row-tools { text-align: right; white-space: nowrap; }
+.pwb-merge-members { display: inline-flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
+.pwb-merge-member { display: inline-flex; align-items: center; gap: 0.25rem; }
+.reg-version { font-family: var(--font-mono); color: var(--color-accent); }
+.reg-num { font-family: var(--font-mono); color: var(--color-muted); }

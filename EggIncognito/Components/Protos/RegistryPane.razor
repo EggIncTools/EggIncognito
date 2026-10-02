@@ -48,7 +48,7 @@
             @foreach (var line in ConditionLines()) {
                 <div class="pwb-cond">
                     <span class="pwb-cond-text">@line.Text</span>
-                    <button type="button" class="wb-x" aria-label="Remove condition"
+                    <button type="button" class="pwb-cond-x" aria-label="Remove condition"
                             @onclick="@(() => RemoveCondition(line.Group, line.Index))">
                         <Icon Name="x" Class="icon-sm"/>
                     </button>

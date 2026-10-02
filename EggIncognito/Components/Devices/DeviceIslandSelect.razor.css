@@ -1,0 +1,60 @@
+.dis { position: relative; display: flex; min-width: 0; }
+.dis-btn {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  min-width: 0;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.5rem;
+  background-color: var(--color-panel2);
+  color: var(--color-fg);
+  font-size: 0.75rem;
+  text-align: left;
+  cursor: pointer;
+}
+.dis-btn:hover:not(:disabled) { border-color: var(--color-accent); }
+.dis-btn:disabled { cursor: progress; opacity: 0.7; }
+.dis-k { flex: none; font-size: 0.75rem; font-weight: 500; color: var(--color-muted); }
+.dis-btn-main { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.5rem; min-width: 0; }
+.dis-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--color-fg); }
+.dis-user { font-family: var(--font-mono); font-size: 0.75rem; color: var(--color-muted); }
+.dis-pop {
+  position: absolute;
+  top: calc(100% + 0.25rem);
+  left: 0;
+  z-index: 1050;
+  display: flex;
+  flex-direction: column;
+  width: min(26rem, 100%);
+  max-height: 60vh;
+  overflow-y: auto;
+  border: 1px solid var(--color-border);
+  border-radius: 0.5rem;
+  background-color: var(--color-panel);
+  box-shadow: 0 10px 32px -8px rgba(0, 0, 0, 0.6);
+}
+.dis-row { display: flex; align-items: center; gap: 0.25rem; padding-right: 0.5rem; border-bottom: 1px solid var(--color-border); }
+.dis-row:hover { background-color: var(--color-panel2); }
+.dis-row-on { background-color: color-mix(in oklab, var(--color-accent) 12%, transparent); }
+.dis-pick {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+  padding: 0.5rem 0.75rem;
+  border: 0;
+  background: transparent;
+  color: var(--color-fg);
+  font-size: 0.75rem;
+  text-align: left;
+  cursor: pointer;
+}
+.dis-cur { display: inline-flex; width: 1rem; flex: none; }
+.dis-cur-on { color: var(--color-ok); }
+.dis-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 0.375rem; padding: 0.5rem 0.75rem; }
+.dis-foot .field-input { flex: 1 1 8rem; min-width: 0; }
+.dis-note { margin-left: auto; font-size: 0.75rem; color: var(--color-muted); }

@@ -9,7 +9,7 @@
 </AdminPaneHead>
 <PaneNotice @ref="_notice"/>
 @if (_data is not null) {
-    <div class="reg-wrap">
+    <TableScroll>
         <table class="data-table">
             <thead>
             <tr>
@@ -19,39 +19,39 @@
             <tbody>
             @foreach (var d in _data.Documents) {
                 <tr>
-                    <td class="mono text-xs">@d.Id</td>
-                    <td class="text-xs">@(d.Present ? "yes" : "no")</td>
-                    <td class="text-xs">
+                    <td class="mono">@d.Id</td>
+                    <td class="small">@(d.Present ? "yes" : "no")</td>
+                    <td class="small">
                         @if (d.UpdatedAt is { } updated) {
                             <TimeAgo Value="@updated"/>
                         }
                     </td>
-                    <td class="mono text-xs">@d.Bytes</td>
+                    <td class="mono">@d.Bytes</td>
                 </tr>
             }
             </tbody>
         </table>
-    </div>
+    </TableScroll>
 }
 
-<div class="sub-section-head">Rebuild</div>
-<div class="flex gap-1 items-center">
-    <label class="text-xs flex gap-1 items-center">
+<SubSectionHead>Rebuild</SubSectionHead>
+<FlexRow>
+    <label class="form-check">
         <input type="checkbox" checked="@_force" @onchange="e => _force = e.Value is true"/>
         force
     </label>
     <button type="button" class="btn-mini" disabled="@_busy" @onclick="Rebuild">Rebuild</button>
-</div>
+</FlexRow>
 @if (_rebuildResult is not null) {
     <pre class="result-pre">@RebuildLines()</pre>
 }
 
-<div class="sub-section-head">Import</div>
-<div class="flex gap-1 items-center">
-    <input class="reg-filter-input w-auto" placeholder="document id" @bind="_importId"/>
+<SubSectionHead>Import</SubSectionHead>
+<FlexRow>
+    <input class="reg-filter-input agd-input" placeholder="document id" @bind="_importId"/>
     <button type="button" class="btn-mini" disabled="@_busy" @onclick="Import">Import</button>
-</div>
-<textarea class="reg-filter-input w-full mono text-xs" rows="6" placeholder="{ }" @bind="_importJson"></textarea>
+</FlexRow>
+<textarea class="reg-filter-input agd-json" rows="6" placeholder="{ }" @bind="_importJson"></textarea>
 
 @code {
     PaneNotice? _notice;

@@ -5,8 +5,8 @@
 
 <AdminPaneHead Title="Contracts" Facts="@Stats"/>
 <PaneNotice @ref="_notice"/>
-<div class="sub-section-head">Store</div>
-<div class="reg-wrap">
+<SubSectionHead>Store</SubSectionHead>
+<TableScroll>
     <table class="data-table">
         <tbody>
         <tr>
@@ -23,18 +23,18 @@
         </tr>
         </tbody>
     </table>
-</div>
-<div class="sub-section-head">Backfill</div>
-<div class="flex gap-1 items-center">
+</TableScroll>
+<SubSectionHead>Backfill</SubSectionHead>
+<FlexRow>
     <button type="button" class="btn-mini" disabled="@_busy" @onclick="SweepSnapshots">Sweep snapshots</button>
-</div>
-<div class="flex gap-1 items-center flex-wrap">
-    <input class="reg-filter-input w-auto" placeholder="@CarpetPlaceholder" @bind="_carpetUrl"/>
+</FlexRow>
+<FlexRow Gap="true">
+    <input class="reg-filter-input ac-input" placeholder="@CarpetPlaceholder" @bind="_carpetUrl"/>
     <button type="button" class="btn-mini" disabled="@_busy" @onclick="ImportCarpet">Import carpet</button>
-</div>
+</FlexRow>
 @if (_model is { } model) {
-    <div class="sub-section-head">Model</div>
-    <div class="reg-wrap">
+    <SubSectionHead>Model</SubSectionHead>
+    <TableScroll>
         <table class="data-table">
             <thead>
             <tr>
@@ -48,15 +48,15 @@
                 var grid = model.Grid.FirstOrDefault(g => g.Kind == pool.Kind);
                 <tr>
                     <td>@KindLabel(pool.Kind)</td>
-                    <td class="text-xs text-muted">@(grid?.Summary ?? "no weekday in the last 180 days")</td>
-                    <td class="text-xs text-muted">@pool.Summary</td>
+                    <td class="muted">@(grid?.Summary ?? "no weekday in the last 180 days")</td>
+                    <td class="muted">@pool.Summary</td>
                 </tr>
             }
             </tbody>
         </table>
-    </div>
-    <div class="sub-section-head">Backtest, last @model.Sweep.Windows.Count windows of @EggIncognito.Services.Predictions.ContractBacktest.SweepHorizonSlots slots</div>
-    <div class="reg-wrap">
+    </TableScroll>
+    <SubSectionHead>Backtest, last @model.Sweep.Windows.Count windows of @EggIncognito.Services.Predictions.ContractBacktest.SweepHorizonSlots slots</SubSectionHead>
+    <TableScroll>
         <table class="data-table">
             <thead>
             <tr>
@@ -79,9 +79,9 @@
             }
             </tbody>
         </table>
-    </div>
+    </TableScroll>
 }
-<div class="text-xs text-muted">Historical data courtesy of carpetsage/egg.</div>
+<Note Small="true" Gap="true">Historical data courtesy of carpetsage/egg.</Note>
 
 @code {
     PaneNotice? _notice;

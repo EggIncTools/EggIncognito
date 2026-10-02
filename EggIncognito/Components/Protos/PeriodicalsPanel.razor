@@ -24,9 +24,9 @@
 
         @if (_summary?.Colleggtibles is { } c) {
             <section class="panel pd-w-cegg">
-                <div class="flex items-center justify-between mb-3">
-                    <h3 class="text-sm font-semibold m-0">Colleggtibles</h3>
-                    <a class="reg-edit-btn" href="/api/v1/data/periodical/get_periodicals/colleggtibles" download="colleggtibles.json" aria-label="Download JSON">
+                <div class="cegg-head">
+                    <h3 class="cegg-title">Colleggtibles</h3>
+                    <a class="icon-btn icon-btn-sm" href="/api/v1/data/periodical/get_periodicals/colleggtibles" download="colleggtibles.json" aria-label="Download JSON">
                         <Icon Name="download"/>
                     </a>
                 </div>
@@ -36,7 +36,7 @@
                 <table class="data-table cegg-table">
                     <thead>
                     <tr>
-                        <th class="w-8" rowspan="2"></th>
+                        <th class="cegg-icon-col" rowspan="2"></th>
                         <th rowspan="2">Name</th>
                         <th rowspan="2">Dimension</th>
                         <th rowspan="2"></th>
@@ -53,21 +53,21 @@
                         <tr>
                             <td>
                                 @if (!string.IsNullOrEmpty(e.Icon)) {
-                                    <img class="w-[1.875rem] h-[1.875rem] object-contain" src="@e.Icon" alt="@e.Identifier"
+                                    <img class="cegg-icon" src="@e.Icon" alt="@e.Identifier"
                                          loading="lazy" data-fallback/>
-                                    <span class="text-muted text-xs" data-fallback-for style="display:none">-</span>
+                                    <span class="cegg-none" data-fallback-for hidden>-</span>
                                 } else {
-                                    <span class="text-muted text-xs">-</span>
+                                    <span class="cegg-none">-</span>
                                 }
                             </td>
-                            <td class="text-accent">@EggName(e)</td>
-                            <td class="text-muted text-xs">@(e.TierValues.Count == 0 ? "-" : TitleCase(e.Dimension))</td>
+                            <td class="cegg-name">@EggName(e)</td>
+                            <td class="cegg-dim">@(e.TierValues.Count == 0 ? "-" : TitleCase(e.Dimension))</td>
                             @if (e.TierValues.Count == 0) {
-                                <td class="text-muted text-xs" colspan="@(tierCount + 1)">buffs not yet published</td>
+                                <td class="cegg-dim" colspan="@(tierCount + 1)">buffs not yet published</td>
                             } else {
-                                <td class="mono text-xs cegg-unit">@TierUnit(e.TierValues)</td>
+                                <td class="mono cegg-unit">@TierUnit(e.TierValues)</td>
                                 @for (var t = 0; t < tierCount; t++) {
-                                    <td class="mono text-xs @TierCellClass(t)">@(t < e.TierValues.Count ? TierMagnitude(e.TierValues[t]) : "")</td>
+                                    <td class="mono @TierCellClass(t)">@(t < e.TierValues.Count ? TierMagnitude(e.TierValues[t]) : "")</td>
                                 }
                             }
                         </tr>
@@ -107,7 +107,7 @@
                     </Tooltip>
                 </Bar>
             </MiniCalendar>
-            <button type="button" class="pd-cal-title mt-4" @onclick="@(() => OnOpenContracts.InvokeAsync())">
+            <button type="button" class="pd-cal-title pd-cal-title-gap" @onclick="@(() => OnOpenContracts.InvokeAsync())">
                 Contracts<Icon Name="chevron-right" Class="icon-sm"/>
             </button>
             <MiniCalendar TItem="ContractCalendarItem" Load="LoadMiniContracts" EmptyNote="No contracts in the last three weeks.">
@@ -134,15 +134,15 @@
             @if (_seasons is { Count: > 0 } seasonList) {
                 var season = seasonList[Math.Clamp(_seasonIx, 0, seasonList.Count - 1)];
                 var grades = season.GradeGoals.Where(g => g.Goals.Count > 0).ToList();
-                <div class="flex items-center justify-between mt-4 mb-3">
-                    <div class="sub-section-head m-0">Season</div>
-                    <div class="flex items-center gap-1">
-                        <button type="button" class="reg-edit-btn disabled:opacity-40 disabled:cursor-default disabled:hover:border-border"
+                <div class="season-top">
+                    <SubSectionHead>Season</SubSectionHead>
+                    <div class="season-nav">
+                        <button type="button" class="icon-btn icon-btn-sm season-nav-btn"
                                 disabled="@(_seasonIx >= seasonList.Count - 1)"
                                 aria-label="Older season" @onclick="() => MoveSeason(1)">
                             <Icon Name="chevron-left"/>
                         </button>
-                        <button type="button" class="reg-edit-btn disabled:opacity-40 disabled:cursor-default disabled:hover:border-border"
+                        <button type="button" class="icon-btn icon-btn-sm season-nav-btn"
                                 disabled="@(_seasonIx <= 0)"
                                 aria-label="Newer season" @onclick="() => MoveSeason(-1)">
                             <Icon Name="chevron-right"/>
@@ -150,34 +150,34 @@
                     </div>
                 </div>
                 <div class="season-head">
-                    <div class="flex items-center gap-3 min-w-0">
-                        <div class="bg-bg border border-border rounded overflow-hidden text-center w-14 shrink-0">
-                            <div class="bg-accent text-bg text-[0.625rem] font-semibold uppercase py-0.5">@StartDate(season).ToString("MMM")</div>
-                            <div class="text-lg font-semibold py-1">@StartDate(season).Day</div>
+                    <div class="season-id">
+                        <div class="season-date">
+                            <div class="season-date-m">@StartDate(season).ToString("MMM")</div>
+                            <div class="season-date-d">@StartDate(season).Day</div>
                         </div>
-                        <div class="min-w-0">
-                            <div class="text-sm font-semibold">@season.Name</div>
+                        <div class="season-id-body">
+                            <div class="season-name">@season.Name</div>
                             @if (IsActive(season)) {
-                                <div class="text-muted text-xs">Next season ~@NextStartLabel(season)</div>
-                                <div class="text-muted text-xs">@ContractsLeftLabel(season)</div>
+                                <div class="season-sub">Next season ~@NextStartLabel(season)</div>
+                                <div class="season-sub">@ContractsLeftLabel(season)</div>
                             } else {
-                                <div class="text-muted text-xs">@StartLabel(season)</div>
+                                <div class="season-sub">@StartLabel(season)</div>
                             }
                         </div>
                     </div>
                     @if (season.Colleggtibles is { Count: > 0 } ceggs) {
-                        <div class="min-w-0">
-                            <div class="text-xs font-semibold mb-1">@(ceggs.Count == 1 ? "Season Colleggtible" : "Season Colleggtibles")</div>
-                            <div class="flex flex-col gap-1.5">
+                        <div class="season-ceggs">
+                            <div class="season-ceggs-title">@(ceggs.Count == 1 ? "Season Colleggtible" : "Season Colleggtibles")</div>
+                            <div class="season-cegg-list">
                                 @foreach (var egg in ceggs) {
-                                    <div class="flex items-center gap-2">
+                                    <div class="season-cegg">
                                         @if (egg.Icon is not null) {
                                             <img class="season-cegg-icon" src="@egg.Icon" alt="@egg.Id" loading="lazy" data-fallback/>
                                         }
-                                        <div class="min-w-0">
-                                            <div class="text-xs font-medium">@TitleCase(egg.Id)</div>
+                                        <div class="season-cegg-body">
+                                            <div class="season-cegg-name">@TitleCase(egg.Id)</div>
                                             @if (egg.Contracts is { Count: > 0 } cnames) {
-                                                <div class="text-muted text-[0.6875rem]">@string.Join(", ", cnames)</div>
+                                                <div class="season-cegg-contracts">@string.Join(", ", cnames)</div>
                                             }
                                         </div>
                                     </div>
@@ -191,12 +191,12 @@
                     <table class="data-table season-table" @key="season.Id">
                         <thead>
                         <tr>
-                            <th class="w-12">Goal</th>
+                            <th>Goal</th>
                             @foreach (var g in grades) {
                                 <th>
                                     @if (!string.IsNullOrEmpty(g.GradeIcon)) {
                                         <img class="season-grade-icon" src="@g.GradeIcon" alt="@GradeLabel(g.Grade)" loading="lazy" data-fallback/>
-                                        <span data-fallback-for style="display:none">@GradeLabel(g.Grade)</span>
+                                        <span data-fallback-for hidden>@GradeLabel(g.Grade)</span>
                                     } else {
                                         @GradeLabel(g.Grade)
                                     }
@@ -207,9 +207,9 @@
                         <tbody>
                         @foreach (var goalIx in Enumerable.Range(0, goalCount)) {
                             <tr>
-                                <td class="mono text-xs text-muted">@(goalIx + 1)</td>
+                                <td class="season-goal-ix">@(goalIx + 1)</td>
                                 @foreach (var g in grades) {
-                                    <td class="text-xs">
+                                    <td>
                                         @if (goalIx < g.Goals.Count) {
                                             var goal = g.Goals[goalIx];
                                             <Tooltip>
@@ -252,7 +252,7 @@
                         </tbody>
                     </table>
                 } else {
-                    <div class="text-muted text-sm">No reward data captured for this season.</div>
+                    <div class="season-none">No reward data captured for this season.</div>
                 }
             }
         </section>
@@ -260,7 +260,7 @@
         <SupportPanel OnOpenCapture="OnOpenCapture" OnOpenSupport="OnOpenSupport"/>
 
         @if (!_loaded) {
-            <section class="panel pd-w-note text-muted text-sm">Loading…</section>
+            <section class="panel pd-w-note">Loading…</section>
         }
     </div>
 </div>

@@ -5,9 +5,9 @@
 <AdminPaneHead Title="Capture sessions" Facts="@Stats()"/>
 <PaneNotice @ref="_notice"/>
 @if (_rows.Count == 0) {
-    <p class="text-muted text-sm m-0">No active capture sessions.</p>
+    <Note>No active capture sessions.</Note>
 } else {
-    <div class="reg-wrap">
+    <TableScroll>
         <table class="data-table">
             <thead>
             <tr>
@@ -17,21 +17,21 @@
             <tbody>
             @foreach (var s in _rows) {
                 <tr>
-                    <td class="mono text-xs">@Label(s.Key)</td>
+                    <td class="mono">@Label(s.Key)</td>
                     <td>
                         <span class="sess-kind @KindClass(s.Kind)">@s.Kind</span>
                     </td>
                     <td>
-                        <span class="@(s.Running ? "text-green-400" : "text-muted")">@(s.Running ? "running" : "stopped")</span>
+                        <span class="@(s.Running ? "text-ok" : "muted")">@(s.Running ? "running" : "stopped")</span>
                     </td>
-                    <td class="mono text-xs">@s.Port</td>
-                    <td class="mono text-xs">@s.Flows</td>
-                    <td class="mono text-xs">@s.Connections</td>
-                    <td class="mono text-xs">@s.Devices</td>
-                    <td class="mono text-xs">@s.DecryptOk ok / <span class="@(s.DecryptErr > 0 ? "text-err" : "")">@s.DecryptErr err</span></td>
+                    <td class="mono">@s.Port</td>
+                    <td class="mono">@s.Flows</td>
+                    <td class="mono">@s.Connections</td>
+                    <td class="mono">@s.Devices</td>
+                    <td class="mono">@s.DecryptOk ok / <span class="@(s.DecryptErr > 0 ? "text-err" : "")">@s.DecryptErr err</span></td>
                     <td>
                         @if (s.Kind == "device") {
-                            <a class="btn-mini no-underline" href="#capture/@DeviceId(s.Key)">View</a>
+                            <a class="btn-mini as-link" href="#capture/@DeviceId(s.Key)">View</a>
                         } else if (s.Killable) {
                             <button type="button" class="btn-mini btn-danger" disabled="@_busy" @onclick="() => Kill(s.Key)">Kill</button>
                         }
@@ -40,7 +40,7 @@
             }
             </tbody>
         </table>
-    </div>
+    </TableScroll>
 }
 
 @code {

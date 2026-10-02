@@ -1,0 +1,11 @@
+@using System.Globalization
+<span class="bar-track @Class" style="@Style">
+    <span class="bar-fill"></span>
+</span>
+
+@code {
+    [Parameter] public double Fraction { get; set; }
+    [Parameter] public string? Class { get; set; }
+
+    string Style => FormattableString.Invariant($"--fill:{Math.Clamp(Fraction, 0, 1) * 100:0.#}%;");
+}

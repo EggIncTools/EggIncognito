@@ -1,0 +1,36 @@
+<div class="insp-disc @(Open ? "" : "collapsed") @Class">
+    <div class="insp-disc-head" @onclick="HeadClick">
+        <button type="button" class="insp-disc-toggle" aria-expanded="@(Open ? "true" : "false")"
+                aria-controls="@BodyId" @onclick="Toggle" @onclick:stopPropagation="HeadToggles">
+            <Caret Open="Open"/>@Label
+        </button>
+        @Head
+        @if (Tools is not null) {
+            <span class="insp-disc-tools">@Tools</span>
+        }
+    </div>
+    <div class="insp-disc-body" id="@BodyId">
+        @ChildContent
+    </div>
+</div>
+
+@code {
+    [Parameter] public bool Open { get; set; }
+    [Parameter] public EventCallback<bool> OpenChanged { get; set; }
+    [Parameter] public string Label { get; set; } = "";
+    [Parameter] public string? BodyId { get; set; }
+    [Parameter] public string? Class { get; set; }
+    [Parameter] public bool HeadToggles { get; set; }
+    [Parameter] public RenderFragment? Head { get; set; }
+    [Parameter] public RenderFragment? Tools { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    Task Toggle() {
+        return OpenChanged.InvokeAsync(!Open);
+    }
+
+    Task HeadClick() {
+        return HeadToggles ? Toggle() : Task.CompletedTask;
+    }
+
+}

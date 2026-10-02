@@ -1,0 +1,10 @@
+.field-row { display: grid; grid-template-columns: minmax(9rem, 13rem) 1fr auto; align-items: center; gap: 0.5rem; padding: 0.125rem 0; }
+.field-row.nested { margin-left: 0.25rem; padding-left: 0.5rem; border-left: 2px solid var(--color-border); }
+.field-name { min-width: 0; font-family: var(--font-mono); font-size: 0.75rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ftype { margin-left: 0.25rem; font-size: 0.625rem; color: var(--color-accent); }
+.field-span { grid-column: 1 / -1; }
+.field-note { font-size: 0.75rem; color: var(--color-muted); }
+.repeated-items { display: flex; flex-direction: column; gap: 3px; width: 100%; }
+.repeated-item { display: flex; gap: 0.25rem; }
+.field-row .field-input { width: 100%; }
+.field-row .env-locked { opacity: 0.7; cursor: not-allowed; background: color-mix(in oklab, var(--color-panel0) 20%, transparent); }

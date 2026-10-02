@@ -1,0 +1,17 @@
+<span class="dsl @(Muted ? "dsl-muted" : "")">
+    <Icon Name="@Icon" Class="@("icon-sm " + IconClass)"/>
+    <span>@Text</span>
+    @if (Detail is { Length: > 0 }) {
+        <span class="dsl-detail">@Detail</span>
+    }
+    @ChildContent
+</span>
+
+@code {
+    [Parameter] public string Icon { get; set; } = "circle";
+    [Parameter] public string IconClass { get; set; } = "text-muted";
+    [Parameter] public string Text { get; set; } = "";
+    [Parameter] public string? Detail { get; set; }
+    [Parameter] public bool Muted { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+}

@@ -9,10 +9,10 @@
 </AdminPaneHead>
 <PaneNotice @ref="_notice"/>
 @if (_data is null) {
-    <div class="text-sm text-muted">no data</div>
+    <Note>no data</Note>
 } else {
-    <div class="sub-section-head">Game data families</div>
-    <div class="reg-wrap">
+    <SubSectionHead>Game data families</SubSectionHead>
+    <TableScroll>
         <table class="data-table">
             <thead>
             <tr>
@@ -24,16 +24,16 @@
                 <tr>
                     <td>@g.Key</td>
                     <td class="mono">@g.Count</td>
-                    <td class="mono text-xs">@g.Provenance</td>
-                    <td class="text-xs text-muted">@g.GameVersion</td>
+                    <td class="mono">@g.Provenance</td>
+                    <td class="muted">@g.GameVersion</td>
                 </tr>
             }
             </tbody>
         </table>
-    </div>
+    </TableScroll>
 
-    <div class="sub-section-head">Config platforms</div>
-    <div class="reg-wrap">
+    <SubSectionHead>Config platforms</SubSectionHead>
+    <TableScroll>
         <table class="data-table">
             <thead>
             <tr>
@@ -43,25 +43,25 @@
             <tbody>
             @if (_data.Config.Platforms.Count == 0) {
                 <tr>
-                    <td colspan="3" class="text-muted text-xs">no stored config</td>
+                    <td colspan="3" class="muted">no stored config</td>
                 </tr>
             } else {
                 @foreach (var p in _data.Config.Platforms) {
                     <tr>
                         <td>@p.Platform</td>
-                        <td class="text-xs">
+                        <td class="small">
                             <TimeAgo Value="@p.SavedAt"/>
                         </td>
-                        <td class="mono text-xs">@p.Bytes</td>
+                        <td class="mono">@p.Bytes</td>
                     </tr>
                 }
             }
             </tbody>
         </table>
-    </div>
+    </TableScroll>
 
-    <div class="sub-section-head">Fixtures</div>
-    <div class="reg-wrap">
+    <SubSectionHead>Fixtures</SubSectionHead>
+    <TableScroll>
         <table class="data-table">
             <thead>
             <tr>
@@ -71,17 +71,17 @@
             <tbody>
             @foreach (var f in _data.Fixtures) {
                 <tr>
-                    <td class="mono text-xs">@f.Name</td>
-                    <td class="mono text-xs">@f.Bytes</td>
-                    <td class="text-xs">
+                    <td class="mono">@f.Name</td>
+                    <td class="mono">@f.Bytes</td>
+                    <td class="small">
                         <TimeAgo Value="@f.UpdatedAt"/>
                     </td>
-                    <td class="text-xs">@f.Status</td>
+                    <td class="small">@f.Status</td>
                 </tr>
             }
             </tbody>
         </table>
-    </div>
+    </TableScroll>
 }
 
 @code {

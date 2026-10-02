@@ -6,9 +6,6 @@
 @inject AdminNotifier Notifier
 @inject ToastService Toasts
 
-@if (_tagMenuOpen) {
-    <div class="popover-backdrop" @onclick="@(() => _tagMenuOpen = false)"></div>
-}
 <div class="doc-head">
     <h2 class="doc-title">@Title</h2>
     @if (Taggable) {
@@ -25,25 +22,26 @@
                 </span>
             }
             @if (_canTag) {
-                <span class="settings-wrap">
-                    <button type="button" class="doc-tag-plus" aria-label="Attach tags" title="Attach tags"
-                            aria-haspopup="true" aria-expanded="@_tagMenuOpen" disabled="@_busy" @onclick="ToggleTagMenu">
-                        <Icon Name="plus" Class="icon-sm"/>
-                    </button>
-                    <div class="settings-menu doc-tag-menu @(_tagMenuOpen ? "open" : "")">
-                        <div class="settings-title">Tags</div>
+                <SettingsMenu Open="_tagMenuOpen" OpenChanged="@(o => _tagMenuOpen = o)" Title="Tags" AlignLeft="true">
+                    <Trigger>
+                        <button type="button" class="doc-tag-plus" aria-label="Attach tags" title="Attach tags"
+                                aria-haspopup="true" aria-expanded="@_tagMenuOpen" disabled="@_busy" @onclick="ToggleTagMenu">
+                            <Icon Name="plus" Class="icon-sm"/>
+                        </button>
+                    </Trigger>
+                    <ChildContent>
                         @if (_allTags.Count == 0) {
                             <div class="settings-hint">No tags defined yet.</div>
                         }
                         @foreach (var t in _allTags) {
-                            <label class="settings-check" @key="t.Id">
+                            <label class="form-check" @key="t.Id">
                                 <input type="checkbox" checked="@IsAttached(t.Id)" disabled="@_busy"
                                        @onchange="() => ToggleTag(t.Id)"/>
                                 <span style="@TagStyle(t.Color)">@t.Label</span>
                             </label>
                         }
-                    </div>
-                </span>
+                    </ChildContent>
+                </SettingsMenu>
             }
         </span>
     }

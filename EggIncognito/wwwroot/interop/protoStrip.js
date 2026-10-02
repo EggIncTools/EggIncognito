@@ -212,10 +212,12 @@ async function sha256Hex(blob) {
   return Array.from(new Uint8Array(digest), b => b.toString(16).padStart(2, "0")).join("");
 }
 
-async function knownResult(endpoint, fileSha) {
+async function knownResult(endpoint, fileSha, picked) {
   if (!fileSha) return null;
   try {
-    const res = await fetch(`${endpoint}/known/${fileSha}`, { credentials: "same-origin" });
+    const form = new FormData();
+    if (picked.meta) form.append("meta", picked.meta, picked.metaName || "meta.bin");
+    const res = await fetch(`${endpoint}/known/${fileSha}`, { method: "POST", body: form, credentials: "same-origin" });
     if (!res.ok) return null;
     const json = await res.json();
     return json?.ok ? json : null;
@@ -231,7 +233,7 @@ export async function analyzeStored(token, endpoint, dotnetRef) {
     await report(dotnetRef, token, "extracting binary from archive");
     const picked = await extractForUpload(file);
     await report(dotnetRef, token, "hashing binary");
-    const known = await knownResult(endpoint, await sha256Hex(picked.binary));
+    const known = await knownResult(endpoint, await sha256Hex(picked.binary), picked);
     if (known) return { ...known, fileName: file.name };
     const uploadedSize = picked.binary.size + (picked.meta ? picked.meta.size : 0);
     const form = new FormData();

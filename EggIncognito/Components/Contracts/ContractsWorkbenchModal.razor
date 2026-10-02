@@ -18,30 +18,18 @@
     <Rail>
         <WorkbenchRail HasFilter="true" Filter="@_search" FilterChanged="SetSearch" FilterLabel="Filter contracts">
             <WorkbenchSection Label="Kinds">
-                <button type="button" class="evwb-row @(KindCss(_showNew))" style="@KindRowStyle(ContractPalette.NewContract)"
-                        aria-pressed="@(_showNew ? "true" : "false")" @onclick="@(() => Toggle(ref _showNew))">
-                    New
-                </button>
-                <button type="button" class="evwb-row @(KindCss(_showLeggacy))" style="@KindRowStyle(ContractPalette.Leggacy)"
-                        aria-pressed="@(_showLeggacy ? "true" : "false")" @onclick="@(() => Toggle(ref _showLeggacy))">
-                    Leggacy
-                </button>
-                <button type="button" class="evwb-row @(KindCss(_showPe))" style="@KindRowStyle(ContractPalette.Prophecy)"
-                        aria-pressed="@(_showPe ? "true" : "false")" @onclick="@(() => Toggle(ref _showPe))">
-                    PE leggacy
-                </button>
-                <button type="button" class="evwb-row evwb-row-ultra @(KindCss(_showUltra))" style="@UltraRowStyle"
-                        aria-pressed="@(_showUltra ? "true" : "false")" @onclick="@(() => Toggle(ref _showUltra))">
-                    Ultra only
-                </button>
+                <CalendarRailRow On="_showNew" DimWhenOff="true" Style="@KindRowStyle(ContractPalette.NewContract)"
+                                 OnClick="@(() => Toggle(ref _showNew))">New</CalendarRailRow>
+                <CalendarRailRow On="_showLeggacy" DimWhenOff="true" Style="@KindRowStyle(ContractPalette.Leggacy)"
+                                 OnClick="@(() => Toggle(ref _showLeggacy))">Leggacy</CalendarRailRow>
+                <CalendarRailRow On="_showPe" DimWhenOff="true" Style="@KindRowStyle(ContractPalette.Prophecy)"
+                                 OnClick="@(() => Toggle(ref _showPe))">PE leggacy</CalendarRailRow>
+                <CalendarRailRow On="_showUltra" DimWhenOff="true" Ultra="true" Style="@UltraRowStyle"
+                                 OnClick="@(() => Toggle(ref _showUltra))">Ultra only</CalendarRailRow>
             </WorkbenchSection>
             @if (_isAdmin) {
                 <WorkbenchSection Label="Predictions">
-                    <button type="button" class="evwb-row @(_showPredictions ? "evwb-row-on" : "")"
-                            aria-pressed="@(_showPredictions ? "true" : "false")"
-                            @onclick="TogglePredictions">
-                        Show predictions
-                    </button>
+                    <CalendarRailRow On="_showPredictions" OnClick="TogglePredictions">Show predictions</CalendarRailRow>
                 </WorkbenchSection>
             }
         </WorkbenchRail>
@@ -246,10 +234,6 @@
 
     string Absolute(double unixSeconds) {
         return _cal?.Absolute(unixSeconds) ?? "";
-    }
-
-    static string KindCss(bool on) {
-        return on ? "evwb-row-on" : "evwb-row-dim";
     }
 
     static string KindRowStyle(string color) {

@@ -28,7 +28,7 @@
 
 <PageTitle>EggIncognito</PageTitle>
 
-<main class="page page-wide pt-6 pb-8">
+<main class="page page-wide pd-page">
     <h1 class="sr-only">EggIncognito</h1>
 
     <div class="pd-grid">
@@ -55,7 +55,7 @@
                         </Tooltip>
                         <Tooltip Class="tt-ctl">
                             <ChildContent>
-                                <button type="button" class="reg-intake reg-intake-labeled"
+                                <button type="button" class="reg-intake"
                                         aria-label="Open the proto workbench" @onclick="@(() => _workbench?.Open())">
                                     <span>Proto workbench</span>
                                     <Icon Name="chevron-right" Class="icon-sm"/>
@@ -69,7 +69,7 @@
                     </div>
                 </div>
                 @if (_loading && _rows.Count == 0) {
-                    <div class="backfill-empty">Loading...</div>
+                    <div class="reg-loading">Loading...</div>
                 } else if (_rows.Count == 0) {
                     <div class="reg-empty">
                         <div>No proto versions yet.</div>
@@ -144,12 +144,12 @@
                                                         </span>
                                                     }
                                                 }
-                                                <span class="inline-flex items-center gap-1"
+                                                <span class="reg-sha-group"
                                                       @onmouseenter="@(() => SetHotGroup(lane?.GroupId))"
                                                       @onmouseleave="@(() => SetHotGroup(null))">
                                                     <span class="@ShaChipClass(lane)">@Short(band.Primary.ProtoSha)</span>
                                                     @if (band.Primary.SortOrder is { } so && so != 0) {
-                                                        <span class="text-muted text-xs">@OrderLabel(so)</span>
+                                                        <span class="reg-order">@OrderLabel(so)</span>
                                                     }
                                                 </span>
                                             </td>

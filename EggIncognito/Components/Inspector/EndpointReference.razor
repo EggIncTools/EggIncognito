@@ -1,9 +1,9 @@
 @using EggIncognito.Services.Inspector
 @if (Route is null) {
-    <div class="empty-state">
-        No endpoint selected.
-        <div class="empty-hint">Pick an endpoint in the rail to read and edit its documentation.</div>
-    </div>
+    <EmptyState>
+        <ChildContent>No endpoint selected.</ChildContent>
+        <Hint>Pick an endpoint in the rail to read and edit its documentation.</Hint>
+    </EmptyState>
 } else {
     <DocSubjectView Kind="DocSubjectKind.Endpoint" Key="@Route.Path" Title="@Route.Path" Taggable="true">
         <Aside>

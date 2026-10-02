@@ -1,0 +1,86 @@
+.pd-widgets { display: flex; flex-direction: column; gap: 1rem; }
+.pd-wcol { display: contents; }
+.pd-widgets ::deep .pd-w-devices { order: 1; }
+.pd-widgets ::deep .pd-w-workbench { order: 2; }
+.pd-w-calendar, .pd-w-note { order: 3; }
+.pd-w-cegg { order: 5; }
+.pd-widgets ::deep .pd-w-support { order: 6; }
+@container pdmod (min-width: 60rem) {
+  .pd-widgets { flex-direction: row; align-items: flex-start; }
+  .pd-wcol { display: flex; flex-direction: column; gap: 1rem; flex: 1 1 0; min-width: 0; }
+}
+.pd-w-note { font-size: 0.875rem; color: var(--color-muted); }
+.cegg-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem; }
+.cegg-title { margin: 0; font-size: 0.875rem; font-weight: 600; }
+.cegg-table th, .cegg-table td { white-space: nowrap; }
+.cegg-table thead th { vertical-align: bottom; }
+.cegg-table .cegg-tier-group { text-align: center; }
+.cegg-table .cegg-unit { text-align: right; padding-right: 0.25rem; color: var(--color-muted); }
+.cegg-table .cegg-tier { text-align: right; width: 3rem; }
+.cegg-table .cegg-tier-first { border-left: 1px solid var(--color-border); }
+.cegg-icon-col { width: 2rem; }
+.cegg-icon { width: 1.875rem; height: 1.875rem; object-fit: contain; }
+.cegg-none { font-size: 0.75rem; color: var(--color-muted); }
+.cegg-name { color: var(--color-accent); }
+.cegg-dim { font-size: 0.75rem; color: var(--color-muted); }
+.cegg-table td.mono { font-size: 0.75rem; }
+.pd-cal-title {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  width: 100%;
+  margin: 0 0 0.75rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font-family: inherit;
+  font-size: 1.125rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  color: var(--color-fg);
+  text-align: left;
+  cursor: pointer;
+}
+.pd-cal-title ::deep .icon { color: var(--color-muted); }
+.pd-cal-title:hover { color: var(--color-accent); }
+.pd-cal-title:hover ::deep .icon { color: var(--color-accent); }
+.pd-cal-title-gap { margin-top: 1rem; }
+.season-top { display: flex; align-items: center; justify-content: space-between; margin: 1rem 0 0.75rem; }
+.season-top ::deep .subhead { margin: 0; }
+.season-nav { display: flex; align-items: center; gap: 0.25rem; }
+.season-nav-btn:disabled { opacity: 0.4; cursor: default; }
+.season-nav-btn:disabled:hover { color: var(--color-muted); }
+.season-head { display: grid; gap: 1rem; grid-template-columns: 1fr; margin-bottom: 0.75rem; }
+@container pdmod (min-width: 34rem) {
+  .season-head { grid-template-columns: auto 1fr; align-items: center; }
+}
+.season-id { display: flex; align-items: center; gap: 0.75rem; min-width: 0; }
+.season-date { width: 3.5rem; flex-shrink: 0; overflow: hidden; text-align: center; border: 1px solid var(--color-border); border-radius: 0.25rem; background-color: var(--color-bg); }
+.season-date-m { padding: 0.125rem 0; background-color: var(--color-accent); color: var(--color-bg); font-size: 0.625rem; font-weight: 600; text-transform: uppercase; }
+.season-date-d { padding: 0.25rem 0; font-size: 1.125rem; font-weight: 600; }
+.season-id-body { min-width: 0; }
+.season-name { font-size: 0.875rem; font-weight: 600; }
+.season-sub { font-size: 0.75rem; color: var(--color-muted); }
+.season-ceggs { min-width: 0; }
+.season-ceggs-title { margin-bottom: 0.25rem; font-size: 0.75rem; font-weight: 600; }
+.season-cegg-list { display: flex; flex-direction: column; gap: 0.375rem; }
+.season-cegg { display: flex; align-items: center; gap: 0.5rem; }
+.season-cegg-body { min-width: 0; }
+.season-cegg-name { font-size: 0.75rem; font-weight: 500; }
+.season-cegg-contracts { font-size: 0.6875rem; color: var(--color-muted); }
+.season-cegg-icon { width: 2.5rem; height: 2.5rem; object-fit: contain; }
+.season-table { table-layout: fixed; }
+.season-table td { white-space: normal; }
+.season-table thead th { text-align: center; vertical-align: bottom; }
+.season-table thead th:first-child { text-align: left; width: 3rem; }
+.season-table tbody td { text-align: center; vertical-align: middle; font-size: 0.75rem; }
+.season-table tbody td:first-child { text-align: left; }
+.season-goal-ix { font-family: var(--font-mono); color: var(--color-muted); }
+.season-grade-icon { width: 1.75rem; height: 1.75rem; object-fit: contain; display: inline-block; }
+.season-goal { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.125rem; }
+.season-goal-reward { flex: none; display: inline-flex; align-items: center; gap: 0.125rem; }
+.season-goal-img { width: 1.125rem; height: 1.125rem; object-fit: contain; display: block; }
+.season-goal-cs { color: var(--color-fg-soft); font-family: var(--font-mono); font-size: 0.6875rem; font-weight: 600; letter-spacing: -0.01em; white-space: nowrap; }
+.season-goal-unit { color: var(--color-muted); font-weight: 400; font-size: 0.5625rem; margin-left: 0.15rem; }
+.season-goal-amt { color: var(--color-muted); font-family: var(--font-mono); font-size: 0.625rem; font-weight: 400; }
+.season-none { font-size: 0.875rem; color: var(--color-muted); }

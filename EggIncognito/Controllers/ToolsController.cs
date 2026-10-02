@@ -113,14 +113,17 @@ public sealed class ToolsController(
         return ExtractResultJson(r, AnalyzedFileStore.Sha256Hex(bin));
     }
 
-    [HttpGet("extract-proto/known/{fileSha}")]
-    public async Task<IActionResult> KnownExtract(string fileSha, [FromServices] AnalyzedFileStore? store,
-        CancellationToken ct) {
+    [HttpPost("extract-proto/known/{fileSha}")]
+    public async Task<IActionResult> KnownExtract(string fileSha, IFormFile? meta,
+        [FromServices] AnalyzedFileStore? store, CancellationToken ct) {
         if (store is null) return Fail(404, "no analysis store");
         var known = await store.FindKnownAsync(fileSha.Trim().ToLowerInvariant(), ct);
         if (known is null) return Fail(404, "file not analyzed yet");
+        (string? appVersion, string? build) = meta is { Length: > 0 }
+            ? AppMetaReader.Read(await ReadFormFileAsync(meta, ct))
+            : (known.AppVersion, known.Build);
         return Ok(new ProtoExtractResult(true, known.ProtoText, "known file: served from the analysis store",
-            known.ProtoSha, ProtoTextIndex.Names(known.ProtoText), known.AppVersion, known.Build,
+            known.ProtoSha, ProtoTextIndex.Names(known.ProtoText), appVersion, build,
             known.ClientVersion, fileSha));
     }
 

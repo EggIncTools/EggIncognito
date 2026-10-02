@@ -17,8 +17,7 @@ public partial class StylesBuildTests(SharedAppFactory f) {
 
     [Fact]
     public async Task EveryReferencedColorToken_IsDefinedInTheCompiledSheet() {
-        var c = f.CreateClient();
-        string css = await c.GetStringAsync("/styles.css");
+        string css = await SheetFetch.AllAsync(f.CreateClient());
 
         var defined = DefinitionRegex().Matches(css).Select(m => m.Groups[1].Value)
             .ToHashSet(StringComparer.Ordinal);

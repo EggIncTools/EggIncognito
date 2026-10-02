@@ -1,0 +1,8 @@
+<button type="button" class="pane-open" aria-label="@AriaLabel" @onclick="OnClick">
+    <Icon Name="chevron-right" Class="icon-sm"/>
+</button>
+
+@code {
+    [Parameter] public string AriaLabel { get; set; } = "Open";
+    [Parameter] public EventCallback OnClick { get; set; }
+}

@@ -9,6 +9,11 @@ public static class ContentSafelist {
         "segmented", "segmented-opt", "active", "wb-seg-count",
         "toast-host", "toast", "toast-text", "toast-info", "toast-busy", "toast-ok",
         "toast-error", "status-note-x", "icon", "icon-xs", "icon-sm", "icon-md",
-        "icon-lg", "icon-btn"
+        "icon-lg", "icon-btn", "icon-btn-sm", "form-check", "form-select", "form-input",
+        "popover", "popover-wrap", "popover-combo", "popover-combo-opt", "combo-highlighted", "open",
+        "badge", "filter-field", "filter-glass", "panel", "panel-head", "panel-title", "data-table",
+        "cell-clip", "data-table-actions", "stat-tile", "stat-tile-label", "stat-tile-value",
+        "modal-backdrop", "modal-card", "modal-card-sm", "modal-card-lg", "modal-head", "modal-title",
+        "modal-body", "btn-primary", "btn-secondary", "btn-mini", "btn-danger", "btn-accent", "prose-legal"
     ];
 }

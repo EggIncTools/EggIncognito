@@ -1,0 +1,10 @@
+<div class="kpi @(Warn ? "kpi-warn" : "")">
+    <span class="kpi-n">@Value</span>
+    <span class="kpi-k">@Label</span>
+</div>
+
+@code {
+    [Parameter] public string Value { get; set; } = "";
+    [Parameter] public string Label { get; set; } = "";
+    [Parameter] public bool Warn { get; set; }
+}

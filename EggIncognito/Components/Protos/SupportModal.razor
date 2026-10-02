@@ -62,13 +62,13 @@
                                 <div>
                                     <div class="connect-name">@User.Username</div>
                                     @if (User.IsSupporter) {
-                                        <div class="text-accent text-xs">Supporter active</div>
+                                        <div class="connect-state connect-state-on">Supporter active</div>
                                     } else {
-                                        <div class="text-muted text-xs">No supporter role yet</div>
+                                        <div class="connect-state">No supporter role yet</div>
                                     }
                                 </div>
                             </div>
-                            <form method="post" action="/api/account/refresh-benefits" style="margin:0;">
+                            <form class="connect-form" method="post" action="/api/account/refresh-benefits">
                                 <button type="submit" class="btn-primary">Refresh benefits</button>
                             </form>
                         </div>
@@ -108,8 +108,8 @@
 
             <p class="support-legal-note">
                 Supporting is voluntary and handled by third-party platforms. See the
-                <a class="text-accent no-underline hover:underline" href="/terms">Terms of Service</a> and
-                <a class="text-accent no-underline hover:underline" href="/privacy">Privacy &amp; Cookies</a> for the details.
+                <a href="/terms">Terms of Service</a> and
+                <a href="/privacy">Privacy &amp; Cookies</a> for the details.
             </p>
         </div>
     </ModalShell>

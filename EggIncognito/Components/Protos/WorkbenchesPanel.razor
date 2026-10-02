@@ -1,35 +1,23 @@
 @using EggIncognito.Models.Periodicals
 <section class="panel pd-w-workbench">
-    <div class="flex items-center justify-between mb-3 gap-2">
-        <h3 class="text-sm font-semibold m-0">Workbenches</h3>
-        <div class="flex items-center gap-1">
+    <PanelHead Title="Workbenches">
+        <Tools>
             <button type="button" class="btn-mini" @onclick="@(() => OnOpenNotifications.InvokeAsync())">Notifications</button>
             <button type="button" class="btn-mini" @onclick="@(() => OnOpenApiWorkbench.InvokeAsync())">API &amp; Data</button>
-        </div>
-    </div>
+        </Tools>
+    </PanelHead>
     @if (Summary is { } s) {
-        <div class="wbx-kpis">
-            <div class="wbx-kpi">
-                <span class="wbx-kpi-n">@s.Extracted.Count</span>
-                <span class="wbx-kpi-k">sets</span>
-            </div>
-            <div class="wbx-kpi">
-                <span class="wbx-kpi-n">@TotalRows(s)</span>
-                <span class="wbx-kpi-k">rows</span>
-            </div>
-            <div class="wbx-kpi @(FeedsPresent(s) < s.Feeds.Count ? "wbx-kpi-warn" : "")">
-                <span class="wbx-kpi-n">@FeedsPresent(s)/@s.Feeds.Count</span>
-                <span class="wbx-kpi-k">feeds</span>
-            </div>
-        </div>
+        <KpiGrid>
+            <KpiTile Value="@s.Extracted.Count.ToString()" Label="sets"/>
+            <KpiTile Value="@TotalRows(s).ToString()" Label="rows"/>
+            <KpiTile Value="@($"{FeedsPresent(s)}/{s.Feeds.Count}")" Label="feeds" Warn="@(FeedsPresent(s) < s.Feeds.Count)"/>
+        </KpiGrid>
         @if (TopSets(s) is { Count: > 0 } sets) {
             <div class="wbx-bars">
                 @foreach (var row in sets) {
                     <div class="wbx-bar">
                         <span class="wbx-bar-k">@row.Key</span>
-                        <span class="wbx-bar-track">
-                            <span class="wbx-bar-fill" style="@FillStyle(row.Count, sets[0].Count)"></span>
-                        </span>
+                        <BarTrack Fraction="@(sets[0].Count > 0 ? row.Count / (double)sets[0].Count : 0)"/>
                         <span class="wbx-bar-n">@row.Count</span>
                     </div>
                 }

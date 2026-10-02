@@ -147,7 +147,7 @@
                                     <RouteTypes Route="sel" OnSelectType="SelectMessageDocs"/>
                                 </div>
                             } else {
-                                <span class="text-xs text-muted">Pick an endpoint to see its transaction here.</span>
+                                <span class="insp-reader-hint">Pick an endpoint to see its transaction here.</span>
                             }
                             <button type="button" class="btn-mini insp-docs-btn" disabled="@(State.Selected is null)"
                                     @onclick="@(() => SelectDocsSubject(new DocSubjectRef(DocSubjectKind.Endpoint, State.Selected!.Path)))">

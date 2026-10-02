@@ -6,6 +6,7 @@
    lines, then the Request and Response panes carrying the body (CodeFormats), URL params, and optional headers. *@
 
 @if (Flow is not null) {
+    <div class="detail-root @(Fill ? "detail-fill" : "")">
     <div class="detail-head">
         <span class="dpath">@Flow.Path</span>
         <span class="dstatus">
@@ -43,6 +44,7 @@
             @ResponsePane()
         </div>
     </div>
+    </div>
 }
 
 @code {
@@ -50,6 +52,7 @@
     [Parameter] public CaptureViewState View { get; set; } = new();
     [Parameter] public Func<HttpClient> ClientFactory { get; set; } = default!;
     [Parameter] public RenderFragment? Tools { get; set; }
+    [Parameter] public bool Fill { get; set; }
 
     static readonly JsonSerializerOptions JsonOpts = new(JsonSerializerDefaults.Web);
 
@@ -232,7 +235,7 @@
         builder.CloseElement();
 
         builder.OpenElement(seq++, "div");
-        builder.AddAttribute(seq++, "class", "muted image-meta");
+        builder.AddAttribute(seq++, "class", "image-meta muted");
         builder.AddContent(seq, $"{mime}, ~{ByteFormat.Humanize(bytes, "0.#")}");
         builder.CloseElement();
 

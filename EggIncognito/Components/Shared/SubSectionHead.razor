@@ -1,0 +1,12 @@
+<div class="subhead @Class">
+    <div class="subhead-title">@ChildContent</div>
+    @if (Tools is not null) {
+        <div class="subhead-tools">@Tools</div>
+    }
+</div>
+
+@code {
+    [Parameter] public string? Class { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public RenderFragment? Tools { get; set; }
+}

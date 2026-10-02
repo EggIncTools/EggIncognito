@@ -1,0 +1,3 @@
+.frow { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem; min-width: 0; }
+.frow-gap { margin-top: 0.5rem; }
+.frow-end { justify-content: flex-end; }

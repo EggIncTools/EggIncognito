@@ -9,7 +9,7 @@
     <a class="btn-mini" href="/api/tools/postman-collection" download>
         <Icon Name="download" Class="icon-sm"/> Postman
     </a>
-    <button type="button" class="btn-mini @(State.HasSalt ? "awb-tool-ok" : "text-muted")" @onclick="OnOpenSalt">
+    <button type="button" class="btn-mini @(State.HasSalt ? "awb-tool-ok" : "muted")" @onclick="OnOpenSalt">
         <Icon Name="@(State.HasSalt ? "check" : "key")" Class="icon-sm"/> Salt
     </button>
 </div>
@@ -47,7 +47,7 @@
             <Virtualize Items="EndpointRows()" Context="row" ItemSize="24" OverscanCount="12">
                 @if (row.Route is null) {
                     <div class="ep-ns" @onclick="@(() => ToggleGroup(row.Ns))">
-                        <span class="ep-caret @(_collapsed.Contains(row.Ns) ? "" : "ep-caret-open")"></span>@(row.Ns)/
+                        <Caret Open="@(!_collapsed.Contains(row.Ns))"/>@(row.Ns)/
                     </div>
                 } else {
                     <div class="ep @(State.Selected?.Path == row.Route.Path ? "active" : "")"
@@ -66,21 +66,18 @@
 </div>
 
 <div class="wb-rail-slot awb-rail-hist @(State.HistoryOpen ? "awb-rail-hist-open" : "")">
-    <div class="insp-disc awb-hist @(State.HistoryOpen ? "" : "collapsed")">
-        <div class="insp-disc-head">
-            <button type="button" class="insp-disc-toggle" @onclick="ToggleHistory">
-                <span class="ep-caret @(State.HistoryOpen ? "ep-caret-open" : "")"></span>@HistoryLabel
-            </button>
+    <Disclosure Open="State.HistoryOpen" OpenChanged="@(_ => ToggleHistory())" Label="@HistoryLabel">
+        <Head>
             @if (State.HistoryOpen && State.History.Count > 0) {
                 <button type="button" class="btn-mini btn-danger" @onclick="OnClearHistory">
                     <Icon Name="trash-2" Class="icon-sm"/> Clear
                 </button>
             }
-        </div>
-        <div class="insp-disc-body awb-hist-body">
+        </Head>
+        <ChildContent>
             <HistoryPanel History="State.History" OnRestoreHistory="OnRestoreHistory" OnDeleteHistory="OnDeleteHistory"/>
-        </div>
-    </div>
+        </ChildContent>
+    </Disclosure>
 </div>
 
 @code {

@@ -8,11 +8,11 @@
     </Tools>
 </AdminPaneHead>
 @if (_failed) {
-    <div class="text-sm text-muted">design and showcase counts are unavailable</div>
+    <Note>design and showcase counts are unavailable</Note>
 } else if (_designs == 0) {
-    <div class="text-sm text-muted">no farms saved yet</div>
+    <Note>no farms saved yet</Note>
 } else {
-    <div class="reg-wrap">
+    <TableScroll>
         <table class="data-table">
             <thead>
             <tr>
@@ -22,15 +22,15 @@
             <tbody>
             @foreach (var d in Recent()) {
                 <tr>
-                    <td class="truncate">@d.Name</td>
-                    <td class="text-muted text-xs">
+                    <td class="apg-name">@d.Name</td>
+                    <td class="muted">
                         <TimeAgo Value="@d.UpdatedAt"/>
                     </td>
                 </tr>
             }
             </tbody>
         </table>
-    </div>
+    </TableScroll>
 }
 
 @code {

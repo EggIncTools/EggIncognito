@@ -1,0 +1,22 @@
+.pd-vergroup { display: flex; flex-direction: column; align-items: stretch; gap: 0.125rem; min-width: 0; white-space: nowrap; }
+.pd-vergroup-head { display: flex; align-items: baseline; gap: 0.25rem; }
+.pd-vergroup-head ::deep .verline-sep { margin-inline: 0; }
+.pv-k { font-size: 0.6875rem; text-transform: uppercase; letter-spacing: 0.025em; color: var(--color-muted); }
+.pv-sep { color: var(--color-separator); }
+.pv-none { font-size: 0.75rem; color: var(--color-muted); }
+.pv-latest-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.25rem 0.375rem;
+  border: 0;
+  border-radius: 0.25rem;
+  background: transparent;
+  font-size: 0.75rem;
+  color: var(--color-fg);
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.pv-latest-row:hover { background-color: var(--color-panel2); }
+.pv-latest-row-behind { opacity: 0.6; }

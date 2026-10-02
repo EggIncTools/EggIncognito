@@ -5,9 +5,9 @@
     <button type="button" class="dis-btn" aria-haspopup="listbox" aria-expanded="@(_open ? "true" : "false")"
             disabled="@Busy" title="Switch island" @onclick="Toggle">
         <span class="dis-btn-main">
-            <span class="dcon-k">Island</span>
+            <span class="dis-k">Island</span>
             <span class="dis-name">@CurrentLabel()</span>
-            <span class="font-mono text-muted text-xs">user @CurrentUser()</span>
+            <span class="dis-user">user @CurrentUser()</span>
         </span>
         <Icon Name="chevron-down" Class="icon-sm"/>
     </button>
@@ -16,26 +16,26 @@
         <div class="dis-pop" role="listbox" aria-label="Islands">
             <div class="dis-row @(Selected is null ? "dis-row-on" : "")" role="option" aria-selected="@(Selected is null ? "true" : "false")">
                 <button type="button" class="dis-pick" @onclick="@(() => PickAsync(IslandScope.Owner))">
-                    <span class="dcon-cur">
+                    <span class="dis-cur dis-cur-on">
                         @if (Selected is null) {
-                            <Icon Name="check" Class="icon-sm text-ok"/>
+                            <Icon Name="check" Class="icon-sm"/>
                         }
                     </span>
                     <span class="dis-name">Device, no island</span>
-                    <span class="font-mono text-muted text-xs">user @IslandScope.Owner</span>
+                    <span class="dis-user">user @IslandScope.Owner</span>
                 </button>
             </div>
             @foreach (var island in Islands) {
                 var current = Selected == island.AndroidUserId;
                 <div class="dis-row @(current ? "dis-row-on" : "")" role="option" aria-selected="@(current ? "true" : "false")" @key="island.AndroidUserId">
                     <button type="button" class="dis-pick" @onclick="@(() => PickAsync(island.AndroidUserId))">
-                        <span class="dcon-cur">
+                        <span class="dis-cur dis-cur-on">
                             @if (current) {
-                                <Icon Name="check" Class="icon-sm text-ok"/>
+                                <Icon Name="check" Class="icon-sm"/>
                             }
                         </span>
                         <span class="dis-name">@Label(island)</span>
-                        <span class="font-mono text-muted text-xs"
+                        <span class="dis-user"
                               title="@(island.Provisioned ? null : "setup wizard not marked complete for this user; interstitials may cover the app")">
                             user @island.AndroidUserId@(island.Provisioned ? "" : ", unprovisioned")
                         </span>
@@ -61,7 +61,7 @@
                         <Icon Name="refresh-cw" Class="icon-sm"/>
                         Refresh
                     </button>
-                    <span class="text-muted text-xs dis-note">one island runs at a time</span>
+                    <span class="dis-note">one island runs at a time</span>
                 }
             </div>
         </div>

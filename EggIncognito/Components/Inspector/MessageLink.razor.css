@@ -1,0 +1,3 @@
+.ep-type { font-family: var(--font-mono); }
+.ep-type-link { padding: 0; border: 0; background: transparent; font-family: var(--font-mono); font-size: inherit; color: var(--color-accent); text-decoration: underline; cursor: pointer; }
+.ep-type-link:hover { color: var(--color-fg); }

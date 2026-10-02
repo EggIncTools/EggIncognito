@@ -1,0 +1,16 @@
+.env-box { margin: 0.5rem 0; padding: 0.5rem; border: 1px solid var(--color-border); border-radius: 0.375rem; background-color: var(--color-panel2); }
+.env-head { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; }
+.env-box > .env-head:only-child { margin-bottom: 0; }
+.env-title { display: flex; align-items: center; gap: 0.375rem; padding: 0; border: 0; background: transparent; font-size: 0.75rem; font-weight: 600; color: var(--color-fg); cursor: pointer; }
+.env-state { margin-left: auto; font-size: 0.6875rem; color: var(--color-muted); }
+.env-state.ok { color: var(--color-ok); }
+.env-error { margin-top: 0.375rem; font-size: 0.75rem; color: var(--color-err); }
+.env-foot { display: flex; align-items: center; justify-content: flex-end; gap: 0.5rem; margin-top: 0.5rem; }
+.env-validate { padding: 0.25rem 0.75rem; font-size: 0.75rem; }
+.env-rowgroup { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 0.375rem 0.75rem; margin-bottom: 0.375rem; }
+.env-rowgroup:last-child { margin-bottom: 0; }
+.env-rowgroup ::deep .env-w-eid { width: 10.5rem; max-width: 100%; }
+.env-rowgroup ::deep .env-w-sm { width: 6rem; }
+.env-rowgroup ::deep .env-w-tiny { width: 5rem; }
+.env-rowgroup ::deep .env-w-code { width: 3.25rem; }
+.env-rowgroup ::deep .env-w-bool { width: auto; }

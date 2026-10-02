@@ -16,54 +16,42 @@
             @if (_binary is { } b && !string.IsNullOrWhiteSpace(b.BinaryVersion)) {
                 <VersionLine App="@b.BinaryVersion"/>
             } else {
-                <span class="text-muted">binary unknown</span>
+                <span class="muted">binary unknown</span>
             }
             @if (_binary?.LastRefresh is { } lr) {
-                <span class="text-muted">last refresh <TimeAgo Value="@lr"/></span>
+                <span class="muted">last refresh <TimeAgo Value="@lr"/></span>
             } else {
-                <span class="text-muted">never refreshed</span>
+                <span class="muted">never refreshed</span>
             }
             <button type="button" class="btn-mini" disabled="@(_refreshing || _binaryUnavailable)" @onclick="RefreshBinary">@(_refreshing ? "Refreshing..." : "Refresh")</button>
         </div>
     </div>
     @if (_binaryUnavailable) {
-        <p class="text-muted text-xs m-0">Binary route status unavailable (no database).</p>
+        <p class="routes-note">Binary route status unavailable (no database).</p>
     }
-    <div class="wbx-kpis routes-kpis">
-        <div class="wbx-kpi">
-            <span class="wbx-kpi-n">@Kpi(_binary?.Discovered)</span>
-            <span class="wbx-kpi-k">discovered</span>
-        </div>
-        <div class="wbx-kpi @(_binary is { NewCount: > 0 } ? "wbx-kpi-warn" : "")">
-            <span class="wbx-kpi-n">@Kpi(_binary?.NewCount)</span>
-            <span class="wbx-kpi-k">new</span>
-        </div>
-        <div class="wbx-kpi @(_binary is { DriftCount: > 0 } ? "wbx-kpi-warn" : "")">
-            <span class="wbx-kpi-n">@Kpi(_binary?.DriftCount)</span>
-            <span class="wbx-kpi-k">drift</span>
-        </div>
-        <div class="wbx-kpi">
-            <span class="wbx-kpi-n">@EditedCount</span>
-            <span class="wbx-kpi-k">edited</span>
-        </div>
-    </div>
+    <KpiGrid Columns="4" MaxWidth="26rem">
+        <KpiTile Value="@Kpi(_binary?.Discovered)" Label="discovered"/>
+        <KpiTile Value="@Kpi(_binary?.NewCount)" Label="new" Warn="@(_binary is { NewCount: > 0 })"/>
+        <KpiTile Value="@Kpi(_binary?.DriftCount)" Label="drift" Warn="@(_binary is { DriftCount: > 0 })"/>
+        <KpiTile Value="@EditedCount.ToString()" Label="edited"/>
+    </KpiGrid>
 
     <div class="routes-filter-row">
         <FilterInput Class="reg-filter-input" AriaLabel="Filter routes by path" @bind-Value="_filter"/>
-        <div class="settings-seg routes-seg" role="radiogroup" aria-label="Route source">
-            <button type="button" class="seg-btn @(_view == ViewAll ? "active" : "")" @onclick="() => _view = ViewAll">All</button>
-            <button type="button" class="seg-btn @(_view == ViewEdited ? "active" : "")" @onclick="() => _view = ViewEdited">Edited</button>
-            <button type="button" class="seg-btn @(_view == ViewDrift ? "active" : "")" @onclick="() => _view = ViewDrift">Drift</button>
-            <button type="button" class="seg-btn @(_view == ViewOrphan ? "active" : "")" @onclick="() => _view = ViewOrphan">Orphan</button>
+        <div class="segmented routes-seg" role="radiogroup" aria-label="Route source">
+            <button type="button" class="segmented-opt @(_view == ViewAll ? "active" : "")" @onclick="() => _view = ViewAll">All</button>
+            <button type="button" class="segmented-opt @(_view == ViewEdited ? "active" : "")" @onclick="() => _view = ViewEdited">Edited</button>
+            <button type="button" class="segmented-opt @(_view == ViewDrift ? "active" : "")" @onclick="() => _view = ViewDrift">Drift</button>
+            <button type="button" class="segmented-opt @(_view == ViewOrphan ? "active" : "")" @onclick="() => _view = ViewOrphan">Orphan</button>
         </div>
     </div>
 
     @if (_loading) {
-        <p class="text-muted text-sm m-0">Loading routes...</p>
+        <p class="routes-note">Loading routes...</p>
     } else if (FilteredRows().Count == 0) {
-        <p class="text-muted text-sm m-0">No routes match this filter.</p>
+        <p class="routes-note">No routes match this filter.</p>
     } else {
-        <div class="reg-wrap admin-routes-scroll">
+        <TableScroll MaxHeight="34rem">
             <table class="data-table">
                 <thead>
                 <tr>
@@ -73,14 +61,14 @@
                 <tbody>
                 @foreach (var row in FilteredRows()) {
                     var drift = DriftFor(row.Path);
-                    <tr class="reg-row cursor-pointer @(drift.Count > 0 ? "route-drift-row" : "")" @onclick="() => ToggleExpand(row)">
-                        <td class="mono text-xs">@row.Path</td>
+                    <tr class="row-click @(drift.Count > 0 ? "row-hot" : "")" @onclick="() => ToggleExpand(row)">
+                        <td class="mono">@row.Path</td>
                         <td>
                             <RouteTypes Request="@row.Effective?.Request" Response="@row.Effective?.Response"
                                         RequestWrapped="@(row.Effective?.RequestWrapped == true)"
                                         ResponseWrapped="@(row.Effective?.ResponseWrapped == true)"/>
                         </td>
-                        <td class="text-muted text-xs">@(row.Effective?.PathParam == true ? "path param" : "")</td>
+                        <td class="muted">@(row.Effective?.PathParam == true ? "path param" : "")</td>
                         <td class="routes-state-cell">
                             @if (row.Override is not null) {
                                 <span class="route-flag"><Icon Name="pencil" Class="icon-sm"/> edited</span>
@@ -100,10 +88,10 @@
                         </td>
                     </tr>
                     @if (_expandedPath == row.Path) {
-                        <tr class="reg-edit-row">
+                        <tr class="row-edit">
                             <td colspan="4">
                                 <div class="routes-editor">
-                                    <p class="text-muted text-xs m-0">@(row.Source == "orphan" ? "No matching route in routes.yaml or the binary catalog." : "Saved overrides persist to the database and win over routes.yaml.")</p>
+                                    <p class="routes-note">@(row.Source == "orphan" ? "No matching route in routes.yaml or the binary catalog." : "Saved overrides persist to the database and win over routes.yaml.")</p>
                                     <div class="routes-editor-grid">
                                         <label class="routes-editor-field">
                                             Request type
@@ -145,24 +133,24 @@
                                         </label>
                                     </div>
                                     <div class="routes-editor-checks">
-                                        <label class="settings-check"><input type="checkbox" checked="@_draftRequestWrapped" @onchange="e => _draftRequestWrapped = e.Value is true"/> Request wrapped (AuthenticatedMessage)</label>
-                                        <label class="settings-check"><input type="checkbox" checked="@_draftResponseWrapped" @onchange="e => _draftResponseWrapped = e.Value is true"/> Response wrapped (AuthenticatedMessage)</label>
-                                        <label class="settings-check"><input type="checkbox" checked="@_draftPathParam" @onchange="e => _draftPathParam = e.Value is true"/> Path param</label>
+                                        <label class="form-check"><input type="checkbox" checked="@_draftRequestWrapped" @onchange="e => _draftRequestWrapped = e.Value is true"/> Request wrapped (AuthenticatedMessage)</label>
+                                        <label class="form-check"><input type="checkbox" checked="@_draftResponseWrapped" @onchange="e => _draftResponseWrapped = e.Value is true"/> Response wrapped (AuthenticatedMessage)</label>
+                                        <label class="form-check"><input type="checkbox" checked="@_draftPathParam" @onchange="e => _draftPathParam = e.Value is true"/> Path param</label>
                                     </div>
                                     @if (drift.Count > 0) {
-                                        <div class="flex flex-col gap-1">
+                                        <div class="routes-drift-list">
                                             @foreach (var d in drift) {
                                                 <div class="routes-drift-row">
                                                     <span class="route-flag">
                                                         <Icon Name="@(d.Reliable ? "circle-alert" : "info")" Class="icon-sm"/> @(d.Reliable ? "drift" : "advisory")
                                                     </span>
-                                                    <span class="text-muted">@d.Field: effective @(d.EffectiveValue ?? "-") vs binary @(d.BinaryValue ?? "-")</span>
+                                                    <span class="muted">@d.Field: effective @(d.EffectiveValue ?? "-") vs binary @(d.BinaryValue ?? "-")</span>
                                                     <button type="button" class="btn-mini" disabled="@_busy" @onclick="() => ApplyDrift(d)">Apply</button>
                                                 </div>
                                             }
                                         </div>
                                     }
-                                    <div class="flex gap-1">
+                                    <div class="routes-editor-actions">
                                         @if (row.Source != "orphan") {
                                             <button type="button" class="btn-mini" disabled="@_busy" @onclick="() => Save(row)">Save</button>
                                         }
@@ -177,7 +165,7 @@
                 }
                 </tbody>
             </table>
-        </div>
+        </TableScroll>
     }
 
 </div>

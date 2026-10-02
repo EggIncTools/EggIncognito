@@ -5,13 +5,13 @@
 @if (Auth.Enabled) {
     <LoginWidgetButton CssClass="@CssClass" Label="@Label" Placement="@Placement"/>
 } else if (Auth.LocalIdentityActive) {
-    <span class="text-muted">Local identity active.</span>
+    <span class="muted">Local identity active.</span>
 } else {
-    <span class="text-muted">Login is not configured.</span>
+    <span class="muted">Login is not configured.</span>
 }
 
 @code {
-    [Parameter] public string CssClass { get; set; } = "btn-primary inline-block no-underline";
+    [Parameter] public string CssClass { get; set; } = "btn-primary";
     [Parameter] public string Label { get; set; } = "Log in";
     [Parameter] public LoginMenuPlacement Placement { get; set; } = LoginMenuPlacement.BottomRight;
 }

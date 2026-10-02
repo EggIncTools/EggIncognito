@@ -6,7 +6,7 @@
     @if (facts.Count > 0 || Tools is not null) {
         <div class="admin-pane-tools">
             @if (facts.Count > 0) {
-                <span class="meta-dots text-muted text-xs">
+                <span class="meta-dots admin-pane-facts">
                     @foreach (var fact in facts) {
                         <span>@fact</span>
                     }

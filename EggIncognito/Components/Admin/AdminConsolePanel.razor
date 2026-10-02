@@ -6,9 +6,9 @@
 <AdminPaneHead Title="API console" Facts="[Stat]"/>
 <PaneNotice @ref="_notice"/>
 @if (_endpoints.Count == 0) {
-    <p class="text-muted text-sm m-0">No endpoints available.</p>
+    <Note>No endpoints available.</Note>
 } else {
-    <select class="reg-filter-input w-full" @onchange="OnSelect">
+    <select class="reg-filter-input console-pick" @onchange="OnSelect">
         <option value="">Pick an endpoint…</option>
         @foreach (var group in Grouped()) {
             <optgroup label="@group.Key">
@@ -20,38 +20,38 @@
     </select>
 
     @if (_selected is not null) {
-        <div class="mt-2 mb-2">
+        <div class="console-line">
             <span class="console-method console-@(_selected.Method.ToLower())">@_selected.Method</span>
-            <span class="font-mono text-xs console-route">@_selected.Route</span>
+            <span class="console-route">@_selected.Route</span>
         </div>
 
         @foreach (var p in _selected.Query) {
-            <label class="block text-xs text-muted mt-1">
-                @p.Name <span class="opacity-60">(@p.Source, @p.Type)</span>
-                <input class="reg-filter-input w-full" @bind="_paramValues[p.Name]"/>
+            <label class="console-param">
+                @p.Name <span class="console-param-meta">(@p.Source, @p.Type)</span>
+                <input class="reg-filter-input" @bind="_paramValues[p.Name]"/>
             </label>
         }
 
         @if (_selected.HasFile) {
-            <div class="settings-title mt-2">File</div>
-            <InputFile OnChange="OnFile" class="text-xs"/>
+            <div class="console-k">File</div>
+            <InputFile OnChange="OnFile" class="console-file"/>
             @if (_fileName is not null) {
-                <div class="text-xs text-muted">@_fileName (@(_fileBytes?.Length ?? 0) bytes)</div>
+                <div class="console-note">@_fileName (@(_fileBytes?.Length ?? 0) bytes)</div>
             }
         }
 
         @if (_selected.HasBody) {
-            <div class="settings-title mt-2">JSON body @(_selected.BodyType is not null ? $"({_selected.BodyType})" : "")</div>
-            <textarea class="reg-filter-input w-full font-mono text-xs" rows="4" @bind="_body" placeholder="{ }"></textarea>
+            <div class="console-k">JSON body @(_selected.BodyType is not null ? $"({_selected.BodyType})" : "")</div>
+            <textarea class="reg-filter-input console-body" rows="4" @bind="_body" placeholder="{ }"></textarea>
         }
 
-        <button class="btn-primary mt-2" @onclick="Send" disabled="@_busy">@(_busy ? "Sending…" : "Send")</button>
+        <button class="btn-primary console-send" @onclick="Send" disabled="@_busy">@(_busy ? "Sending…" : "Send")</button>
 
         @if (_status is not null) {
             @if (_isBinary) {
-                <div class="text-xs text-muted mt-1">Binary response (@_respBytes bytes). <a class="underline" href="@_blobUrl" download="@_downloadName">Download</a></div>
+                <div class="console-note">Binary response (@_respBytes bytes). <a href="@_blobUrl" download="@_downloadName">Download</a></div>
             } else {
-                <pre class="result-pre mt-1" style="max-height:40vh;overflow:auto;">@_response</pre>
+                <pre class="result-pre console-out">@_response</pre>
             }
         }
     }

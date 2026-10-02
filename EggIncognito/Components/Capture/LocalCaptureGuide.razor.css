@@ -1,0 +1,8 @@
+.lcg-opt { margin-bottom: 1rem; }
+.lcg-opt:last-child { margin-bottom: 0; }
+.lcg-title { margin-bottom: 0.25rem; font-size: 0.875rem; font-weight: 600; }
+.lcg-note { margin: 0 0 0.5rem; font-size: 0.75rem; color: var(--color-muted); }
+.lcg-note-gap { margin: 0.75rem 0 0; }
+.lcg-note a { color: var(--color-accent); text-decoration: underline; }
+.lcg-dl { display: inline-block; margin-top: 0.5rem; text-decoration: none; }
+.lcg-steps { margin: 0; padding-left: 1.25rem; font-size: 0.875rem; line-height: 1.625; color: var(--color-muted); }

@@ -1,0 +1,16 @@
+.theme-picker { display: flex; flex-direction: column; gap: 0.75rem; margin-top: 1rem; padding-top: 0.75rem; border-top: 1px solid var(--color-border); }
+.theme-preset-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.5rem; }
+.theme-preset-card {
+  padding: 0.5rem;
+  border: 2px solid var(--color-border);
+  border-radius: 0.375rem;
+  background-color: var(--color-panel2);
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-align: center;
+  cursor: pointer;
+}
+.theme-preset-card:hover { filter: brightness(1.1); }
+.theme-field { display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.75rem; color: var(--color-muted); }
+.theme-select { width: auto; }
+.theme-picker-actions { display: flex; align-items: center; gap: 0.5rem; }

@@ -7,37 +7,35 @@
 @implements IDisposable
 
 <div class="@(string.IsNullOrEmpty(Class) ? "panel pd-devices" : $"panel pd-devices {Class}")">
-    <div class="flex items-center justify-between mb-2">
-        <h3 class="text-sm font-semibold my-0">Devices</h3>
-        @if (_isAdmin) {
-            <button type="button" class="dropzone-open" aria-label="Open device workbench"
-                    @onclick="@(() => OnManage.InvokeAsync(null))">
-                <Icon Name="chevron-right" Class="icon-sm"/>
-            </button>
-        }
-    </div>
+    <PanelHead Title="Devices">
+        <Tools>
+            @if (_isAdmin) {
+                <PaneOpenButton AriaLabel="Open device workbench" OnClick="@(() => OnManage.InvokeAsync(null))"/>
+            }
+        </Tools>
+    </PanelHead>
     @if (_devices.Count == 0) {
-        <p class="text-muted text-xs">No devices declared on this host.</p>
+        <p class="pd-devices-empty">No devices declared on this host.</p>
     } else {
         <div class="pd-devlist">
             @foreach (var d in _devices.OrderBy(x => x.Label, StringComparer.OrdinalIgnoreCase)) {
-                <div class="pd-devrow @(_isAdmin ? "dwb-row-click" : "")"
+                <div class="pd-devrow @(_isAdmin ? "pd-devrow-click" : "")"
                      @onclick="@(() => {
                                    if (_isAdmin) OnManage.InvokeAsync(d.Id);
                                })">
-                    <span class="@(d.Reachable ? "text-ok" : "text-err") shrink-0">
+                    <span class="pd-devplat @(d.Reachable ? "text-ok" : "text-err")">
                         <PlatformIcon Platform="@d.Platform"/>
                     </span>
-                    <div class="min-w-0 flex-1">
-                        <div class="flex items-baseline gap-2">
-                            <span class="text-sm font-medium truncate">@d.Label</span>
+                    <div class="pd-devbody">
+                        <div class="pd-devname-row">
+                            <span class="pd-devname">@d.Label</span>
                             @if (DataChip(d) is { } chip) {
-                                <span class="@chip.Color shrink-0 self-center inline-flex">
+                                <span class="pd-devchip @chip.Color">
                                     <Icon Name="@chip.Icon" Class="icon-sm"/>
                                 </span>
                             }
                         </div>
-                        <div class="text-xs mt-0.5 flex items-center gap-2">
+                        <div class="pd-devver">
                             <VersionLine App="@d.InstalledAppVersion" Build="@d.InstalledBuild" Client="@ClientText(d)"/>
                         </div>
                     </div>
@@ -59,7 +57,7 @@
         if (!d.Reachable) return null;
         var icon = d.ClientVersion is null ? "info" : "check";
         if (d.Result == "new_version") return (icon, "text-accent");
-        return d.ClientVersion is null ? (icon, "text-muted") : (icon, "text-ok");
+        return d.ClientVersion is null ? (icon, "muted") : (icon, "text-ok");
     }
 
     static string? ClientText(Models.Registry.DeviceStatus d) {

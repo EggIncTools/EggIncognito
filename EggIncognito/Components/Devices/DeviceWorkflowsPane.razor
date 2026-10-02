@@ -15,7 +15,7 @@
 @implements IDisposable
 
 <div class="drm" hidden="@(!Visible)">
-    <div class="dwb-bar drm-pick">
+    <ToolBar Class="drm-pick">
         @if (_books.Count > 0) {
             <select class="field-input drm-book" aria-label="Cookbook" value="@_bookId"
                     disabled="@_runBusy" @onchange="BookChanged">
@@ -47,10 +47,10 @@
                 Run
             </button>
             @if (AndroidUserId is { } target) {
-                <span class="text-xs text-muted">to user @target</span>
+                <span class="drm-hint">to user @target</span>
             }
         } else {
-            <span class="text-xs text-muted">@(_booksBusy ? "loading cookbooks" : _booksError ?? "no cookbooks for this device")</span>
+            <span class="drm-hint">@(_booksBusy ? "loading cookbooks" : _booksError ?? "no cookbooks for this device")</span>
             @if (!_booksBusy) {
                 <button type="button" class="btn-mini" @onclick="RetryCookbooks">
                     <Icon Name="refresh-cw" Class="icon-sm"/>
@@ -58,10 +58,10 @@
                 </button>
             }
         }
-    </div>
+    </ToolBar>
 
     @if (Chosen() is { Unavailable: { Length: > 0 } why, Available: false }) {
-        <div class="text-xs text-muted">@why</div>
+        <div class="drm-hint">@why</div>
     }
 
     @if (_runTitle is not null) {
@@ -69,14 +69,8 @@
             <div class="drm-head">
                 <span class="drm-title">@_runTitle</span>
                 <span class="meta-dots">
-                    <span class="font-mono text-muted text-xs">@Line().Elapsed</span>
-                    <span class="dcon-status">
-                        <Icon Name="@Line().Icon" Class="@("icon-sm " + Line().IconClass)"/>
-                        <span>@Line().State</span>
-                    </span>
-                    @if (RunDetail() is { } detail) {
-                        <span class="text-muted text-xs dcon-status-detail">@detail</span>
-                    }
+                    <span class="drm-elapsed">@Line().Elapsed</span>
+                    <DeviceStatusLine Icon="@Line().Icon" IconClass="@Line().IconClass" Text="@Line().State" Detail="@RunDetail()"/>
                 </span>
                 <span class="drm-head-tools">
                     @if (!_runDone && !_runReadOnly && _runJobId is not null) {
@@ -93,76 +87,72 @@
             </div>
 
             @if (_steps.Count > 0 || RunNote() is not null) {
-                <div class="reg-wrap drm-steps">
-                    <table class="data-table dcon-list">
+                <TableScroll MaxHeight="22rem">
+                    <table class="data-table drm-steps">
                         <tbody>
                         @for (var i = 0; i < _steps.Count; i++) {
                             var step = _steps[i];
                             <tr @key="i">
-                                <td class="dcon-cur">
+                                <td class="drm-cur">
                                     <Icon Name="@StepIcon(step.Status)" Class="@("icon-sm " + StepIconClass(step.Status))"/>
                                 </td>
-                                <td class="dcon-check-label">@step.Title</td>
-                                <td class="text-muted text-xs dcon-list-title">
+                                <td class="drm-step-title">@step.Title</td>
+                                <td class="drm-step-note">
                                     @(step.Status != CookbookStepStatus.Ok && step.Note is { Length: > 0 } note ? note : StepStateWord(step.Status))
                                 </td>
                             </tr>
                         }
                         @if (RunNote() is { } runNote) {
                             <tr>
-                                <td class="dcon-cur">
+                                <td class="drm-cur">
                                     <Icon Name="@Line().Icon" Class="@("icon-sm " + Line().IconClass)"/>
                                 </td>
-                                <td class="dcon-check-label">@_runTitle</td>
-                                <td class="text-muted text-xs dcon-list-title">@runNote</td>
+                                <td class="drm-step-title">@_runTitle</td>
+                                <td class="drm-step-note">@runNote</td>
                             </tr>
                         }
                         </tbody>
                     </table>
-                </div>
+                </TableScroll>
             }
 
-            <div class="insp-disc drm-disc @(_logOpen ? "" : "collapsed")">
-                <div class="insp-disc-head">
-                    <button type="button" class="insp-disc-toggle" aria-expanded="@(_logOpen ? "true" : "false")"
-                            aria-controls="deviceRunLog" @onclick="ToggleLog">
-                        <span class="ep-caret @(_logOpen ? "ep-caret-open" : "")"></span>Log
-                    </button>
-                    <span class="text-muted text-xs">@_runLog.Count @(_runLog.Count == 1 ? "line" : "lines")</span>
-                    <span class="insp-disc-tools">
-                        <button type="button" class="btn-mini" @onclick="ToggleWrap">@(_wrap ? "Nowrap" : "Wrap")</button>
-                    </span>
-                </div>
-                <div class="insp-disc-body" id="deviceRunLog">
-                    <div class="reg-wrap drm-log-wrap">
+            <Disclosure Open="_logOpen" OpenChanged="@(v => _logOpen = v)" Label="Log" BodyId="deviceRunLog">
+                <Head>
+                    <span class="drm-log-count">@_runLog.Count @(_runLog.Count == 1 ? "line" : "lines")</span>
+                </Head>
+                <Tools>
+                    <button type="button" class="btn-mini" @onclick="ToggleWrap">@(_wrap ? "Nowrap" : "Wrap")</button>
+                </Tools>
+                <ChildContent>
+                    <TableScroll Class="drm-log-wrap">
                         <div class="drm-log @(_wrap ? "" : "drm-log-nowrap")">
                             @for (var i = _runLog.Count - 1; i >= 0; i--) {
                                 <div class="drm-log-line">@_runLog[i]</div>
                             }
                         </div>
-                    </div>
-                </div>
-            </div>
+                    </TableScroll>
+                </ChildContent>
+            </Disclosure>
         </div>
     }
 
     @if (_lastRuns.Count > 0) {
-        <div class="reg-wrap drm-last">
-            <table class="data-table dcon-list">
+        <TableScroll MaxHeight="12rem">
+            <table class="data-table drm-steps">
                 <tbody>
                 @foreach (var job in _lastRuns) {
-                    <tr class="dcon-last-row" @key="job.Id" title="@job.Message" @onclick="@(() => OpenRunAsync(job))">
-                        <td class="dcon-cur">
+                    <tr class="row-click" @key="job.Id" title="@job.Message" @onclick="@(() => OpenRunAsync(job))">
+                        <td class="drm-cur">
                             <Icon Name="@OutcomeIcon(job.State)" Class="@("icon-sm " + OutcomeIconClass(job.State))"/>
                         </td>
-                        <td class="font-mono text-muted text-xs">@Stamp(job.LastAt)</td>
-                        <td class="dcon-list-title">@RunTitle(job)</td>
-                        <td class="text-muted text-xs">@(job.Outcome ?? job.State)</td>
+                        <td class="drm-stamp">@Stamp(job.LastAt)</td>
+                        <td class="drm-step-title drm-run-name">@RunTitle(job)</td>
+                        <td class="drm-step-note">@(job.Outcome ?? job.State)</td>
                     </tr>
                 }
                 </tbody>
             </table>
-        </div>
+        </TableScroll>
     }
 </div>
 
@@ -560,10 +550,6 @@
     async Task Done() {
         ResetRun();
         await PublishAsync();
-    }
-
-    void ToggleLog() {
-        _logOpen = !_logOpen;
     }
 
     void ToggleWrap() {

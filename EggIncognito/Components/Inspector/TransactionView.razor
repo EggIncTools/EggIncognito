@@ -1,48 +1,29 @@
 @using EggIncognito.Models.Inspector
 @if (Build is not null) {
-    <div class="insp-disc @(_sentOpen ? "" : "collapsed")">
-        <div class="insp-disc-head">
-            <button type="button" class="insp-disc-toggle" @onclick="ToggleSent">
-                <span class="ep-caret @(_sentOpen ? "ep-caret-open" : "")"></span>Sent
-            </button>
-        </div>
-        <div class="insp-disc-body">
-            <Pipeline Stages="Build"/>
-        </div>
-    </div>
+    <Disclosure Open="_sentOpen" OpenChanged="@(_ => ToggleSent())" Label="Sent">
+        <Pipeline Stages="Build"/>
+    </Disclosure>
 }
 
 @if (Response is not null) {
-    <div class="insp-disc @(_receivedOpen ? "" : "collapsed")">
-        <div class="insp-disc-head">
-            <button type="button" class="insp-disc-toggle" @onclick="@(() => _receivedOpen = !_receivedOpen)">
-                <span class="ep-caret @(_receivedOpen ? "ep-caret-open" : "")"></span>Received
-            </button>
+    <Disclosure Open="_receivedOpen" OpenChanged="@(o => _receivedOpen = o)" Label="Received">
+        <Tools>
             @if (CanSaveDb && Response.Json is not null) {
-                <span class="insp-disc-tools">
-                    <button type="button" class="btn-mini" @onclick="OnSaveToDb">
-                        <Icon Name="database" Class="icon-sm"/> Save to DB
-                    </button>
-                </span>
+                <button type="button" class="btn-mini" @onclick="OnSaveToDb">
+                    <Icon Name="database" Class="icon-sm"/> Save to DB
+                </button>
             }
-        </div>
-        <div class="insp-disc-body">
+        </Tools>
+        <ChildContent>
             <ResponsePanel Response="Response" IsAdmin="IsAdmin" FixBusy="FixBusy" OnFixWrapped="OnFixWrapped"/>
-        </div>
-    </div>
+        </ChildContent>
+    </Disclosure>
 }
 
 @if (Diagnosis is not null) {
-    <div class="insp-disc @(_diagOpen ? "" : "collapsed")">
-        <div class="insp-disc-head">
-            <button type="button" class="insp-disc-toggle" @onclick="@(() => _diagOpen = !_diagOpen)">
-                <span class="ep-caret @(_diagOpen ? "ep-caret-open" : "")"></span>Diagnosis
-            </button>
-        </div>
-        <div class="insp-disc-body">
-            <Forensics Result="Diagnosis" RootType="@RootType" ClientFactory="ClientFactory"/>
-        </div>
-    </div>
+    <Disclosure Open="_diagOpen" OpenChanged="@(o => _diagOpen = o)" Label="Diagnosis">
+        <Forensics Result="Diagnosis" RootType="@RootType" ClientFactory="ClientFactory"/>
+    </Disclosure>
 }
 
 @code {

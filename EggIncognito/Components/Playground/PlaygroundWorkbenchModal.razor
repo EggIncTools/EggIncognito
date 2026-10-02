@@ -19,18 +19,18 @@
                 Size="WorkbenchSize.Wide" OnClose="CloseModal">
 <ChildContent>
 <div @onclick="CloseMenus">
-<p class="text-muted text-xs mb-4">
+<p class="pg-lede">
     A farm is a fixed slot graph, not a scene. Set the farm state, dress it with shells, or load one of the
     showcase farms; every coordinate comes from the placement engine. Drag to orbit, scroll to zoom.
 </p>
 
-<div class="flex gap-4 flex-wrap">
-<section class="panel flex-1 min-w-[480px]" style="overflow: visible;">
-    <div class="canvas-wrap relative">
+<div class="pg-layout">
+<section class="panel pg-stage">
+    <div class="canvas-wrap">
         <canvas @ref="_canvas" id="playgroundCanvas"></canvas>
 
         <div class="pg-menubar" @onclick:stopPropagation="true">
-            <div class="relative">
+            <div class="pg-menu-wrap">
                 <button class="pg-menu-btn @(_fileMenuOpen ? "active" : "")" @onclick="ToggleFileMenu">File</button>
                 @if (_fileMenuOpen) {
                     <div class="pg-menu">
@@ -41,7 +41,7 @@
                         <div class="pg-menu-sep"></div>
                         <div class="pg-menu-label">Open</div>
                         @if (_savedDesigns.Count == 0) {
-                            <div class="pg-menu-item text-muted">No saved designs</div>
+                            <div class="pg-menu-item pg-muted">No saved designs</div>
                         }
                         @foreach (var n in _savedDesigns) {
                             <button class="pg-menu-item" @onclick="() => MenuOpen(n)">@n@(n == _currentDesign ? " (open)" : "")</button>
@@ -56,12 +56,12 @@
                             }
 
                             <div class="pg-menu-sep"></div>
-                            <button class="pg-menu-item text-red-400" @onclick="MenuDelete">Delete this design</button>
+                            <button class="pg-menu-item pg-menu-item-danger" @onclick="MenuDelete">Delete this design</button>
                         }
                     </div>
                 }
             </div>
-            <div class="relative">
+            <div class="pg-menu-wrap">
                 <button class="pg-menu-btn @(_toolsMenuOpen ? "active" : "")" @onclick="ToggleToolsMenu">Tools</button>
                 @if (_toolsMenuOpen) {
                     <div class="pg-menu">
@@ -70,7 +70,7 @@
                     </div>
                 }
             </div>
-            <div class="relative">
+            <div class="pg-menu-wrap">
                 <button class="pg-menu-btn @(_viewMenuOpen ? "active" : "")" @onclick="ToggleViewMenu">View</button>
                 @if (_viewMenuOpen) {
                     <div class="pg-menu">
@@ -79,7 +79,7 @@
                     </div>
                 }
             </div>
-            <div class="ml-2 text-[0.6875rem] text-muted truncate">
+            <div class="pg-title">
                 @(string.IsNullOrEmpty(_currentDesign) ? "Untitled" : _currentDesign)@(_dirty ? " (unsaved)" : "")
             </div>
         </div>
@@ -91,8 +91,8 @@
                     <button class="element-del" @onclick="() => _namePromptOpen = false">x</button>
                 </div>
                 <div class="pg-popover-body">
-                    <input class="reg-filter-input w-full" placeholder="Design name" value="@_designName" @oninput="OnDesignNameInput"/>
-                    <input class="reg-filter-input w-full" placeholder="Version note (optional)" value="@_versionNote" @oninput="e => _versionNote = e.Value?.ToString() ?? string.Empty"/>
+                    <input class="reg-filter-input pg-input" placeholder="Design name" value="@_designName" @oninput="OnDesignNameInput"/>
+                    <input class="reg-filter-input pg-input" placeholder="Version note (optional)" value="@_versionNote" @oninput="e => _versionNote = e.Value?.ToString() ?? string.Empty"/>
                     <button class="btn-primary" @onclick="ConfirmNamePrompt" disabled="@(string.IsNullOrWhiteSpace(_designName))">Save</button>
                 </div>
             </div>
@@ -107,11 +107,11 @@
                 <div class="pg-popover-body">
                     <label class="light-field">
                         <span>FPS</span>
-                        <input type="number" min="5" max="30" class="reg-filter-input w-[70px]" @bind="_gifFps"/>
+                        <input type="number" min="5" max="30" class="reg-filter-input pg-input-sm" @bind="_gifFps"/>
                     </label>
                     <label class="light-field">
                         <span>Size</span>
-                        <select class="reg-filter-input w-full" @bind="_gifMaxWidth">
+                        <select class="reg-filter-input pg-input" @bind="_gifMaxWidth">
                             <option value="0">Full</option>
                             <option value="640">Medium (640)</option>
                             <option value="400">Small (400)</option>
@@ -121,10 +121,10 @@
                         @(_recording ? "Recording" : "Record GIF")
                     </button>
                     @if (!_anyAnimated) {
-                        <div class="text-muted">Nothing is moving. Raise the chicken count or hire vehicles first.</div>
+                        <div class="pg-muted">Nothing is moving. Raise the chicken count or hire vehicles first.</div>
                     }
                     @if (_recording) {
-                        <div class="text-muted">@_recordStage @($"{_recordFraction * 100:0}%")</div>
+                        <div class="pg-muted">@_recordStage @($"{_recordFraction * 100:0}%")</div>
                     }
                 </div>
             </div>
@@ -133,16 +133,16 @@
         @if (!string.IsNullOrEmpty(_fatalError)) {
             <div class="canvas-error-overlay">
                 <div class="canvas-error-box">
-                    <div class="font-semibold mb-1">Playground error</div>
-                    <div class="text-xs mb-3">@_fatalError</div>
+                    <div class="canvas-error-title">Playground error</div>
+                    <div class="canvas-error-text">@_fatalError</div>
                     <button class="btn-secondary" @onclick="DismissFatal">Dismiss</button>
                 </div>
             </div>
         } else if (_layoutFailed) {
             <div class="canvas-error-overlay">
                 <div class="canvas-error-box">
-                    <div class="font-semibold mb-1">No farm to draw</div>
-                    <div class="text-xs mb-3">@(_diagnostics ?? "the layout API returned no placements")</div>
+                    <div class="canvas-error-title">No farm to draw</div>
+                    <div class="canvas-error-text">@(_diagnostics ?? "the layout API returned no placements")</div>
                     <button class="btn-secondary" @onclick="MenuRebuild" disabled="@_busy">Rebuild</button>
                 </div>
             </div>
@@ -150,15 +150,15 @@
     </div>
 </section>
 
-<section class="w-[340px] flex flex-col gap-2 self-start max-h-[85vh] overflow-auto">
+<section class="pg-side pg-side-wide">
     <div class="designer-section">
         <div class="designer-section-head">Farm state</div>
-        <div class="designer-section-body flex flex-col gap-3 text-xs">
+        <div class="designer-section-body">
             <div class="picker-group-title">Hab slots</div>
             @foreach (var slot in Enumerable.Range(0, FarmState.HabSlots)) {
                 <label class="light-field">
                     <span>Slot @slot</span>
-                    <select class="reg-filter-input w-full" value="@HabTier(slot)" @onchange="e => SetHab(slot, e)">
+                    <select class="reg-filter-input pg-input" value="@HabTier(slot)" @onchange="e => SetHab(slot, e)">
                         <option value="@FarmState.EmptyHabTier">Empty</option>
                         @foreach (var opt in TierOptions("HenHouse", 19)) {
                             <option value="@opt.Value">@opt.Label</option>
@@ -170,11 +170,11 @@
             <div class="picker-group-title">Silos</div>
             <label class="light-field">
                 <span>Owned (@_state.SilosOwned)</span>
-                <input type="range" min="0" max="@FarmState.MaxSilos" class="w-full" @bind="_state.SilosOwned" @bind:event="oninput" @bind:after="QueueApply"/>
+                <input type="range" min="0" max="@FarmState.MaxSilos" class="pg-range" @bind="_state.SilosOwned" @bind:event="oninput" @bind:after="QueueApply"/>
             </label>
             <label class="light-field">
                 <span>Silo asset</span>
-                <select class="reg-filter-input w-full" @bind="_state.SiloAssetType" @bind:after="QueueApply">
+                <select class="reg-filter-input pg-input" @bind="_state.SiloAssetType" @bind:after="QueueApply">
                     @foreach (var opt in TierOptions("Silo", 6)) {
                         <option value="@opt.Label">@opt.Label</option>
                     }
@@ -184,7 +184,7 @@
             <div class="picker-group-title">Buildings</div>
             <label class="light-field">
                 <span>Egg</span>
-                <select class="reg-filter-input w-full" @bind="_state.EggType" @bind:after="QueueApply">
+                <select class="reg-filter-input pg-input" @bind="_state.EggType" @bind:after="QueueApply">
                     @foreach (var egg in EggOptions()) {
                         <option value="@egg">@egg</option>
                     }
@@ -192,7 +192,7 @@
             </label>
             <label class="light-field">
                 <span>Lab</span>
-                <select class="reg-filter-input w-full" @bind="_state.LabTier" @bind:after="QueueApply">
+                <select class="reg-filter-input pg-input" @bind="_state.LabTier" @bind:after="QueueApply">
                     @foreach (var opt in TierOptions("Lab", 6)) {
                         <option value="@opt.Value">@opt.Label</option>
                     }
@@ -200,7 +200,7 @@
             </label>
             <label class="light-field">
                 <span>Depot</span>
-                <select class="reg-filter-input w-full" @bind="_state.DepotTier" @bind:after="QueueApply">
+                <select class="reg-filter-input pg-input" @bind="_state.DepotTier" @bind:after="QueueApply">
                     @foreach (var opt in TierOptions("Depot", 7)) {
                         <option value="@opt.Value">@opt.Label</option>
                     }
@@ -208,7 +208,7 @@
             </label>
             <label class="light-field">
                 <span>Artifact hall</span>
-                <select class="reg-filter-input w-full" @bind="_state.HoaTier" @bind:after="QueueApply">
+                <select class="reg-filter-input pg-input" @bind="_state.HoaTier" @bind:after="QueueApply">
                     @foreach (var opt in TierOptions("Hoa", 3)) {
                         <option value="@opt.Value">@opt.Label</option>
                     }
@@ -216,7 +216,7 @@
             </label>
             <label class="light-field">
                 <span>Mission control</span>
-                <select class="reg-filter-input w-full" @bind="_state.MissionControlLevel" @bind:after="QueueApply">
+                <select class="reg-filter-input pg-input" @bind="_state.MissionControlLevel" @bind:after="QueueApply">
                     @foreach (var opt in TierOptions("MissionControl", 3)) {
                         <option value="@opt.Value">@opt.Label</option>
                     }
@@ -224,7 +224,7 @@
             </label>
             <label class="light-field">
                 <span>Fuel tank</span>
-                <select class="reg-filter-input w-full" @bind="_state.FuelTankTier" @bind:after="QueueApply">
+                <select class="reg-filter-input pg-input" @bind="_state.FuelTankTier" @bind:after="QueueApply">
                     @foreach (var opt in TierOptions("FuelTank", 4)) {
                         <option value="@opt.Value">@opt.Label</option>
                     }
@@ -232,79 +232,79 @@
             </label>
 
             <div class="picker-group-title">Flags</div>
-            <label class="settings-check">
-                <input type="checkbox" @bind="_state.HyperloopStation" @bind:after="QueueApply"/><span class="ml-1">Hyperloop station</span>
+            <label class="form-check">
+                <input type="checkbox" @bind="_state.HyperloopStation" @bind:after="QueueApply"/><span class="pg-check-text">Hyperloop station</span>
             </label>
-            <label class="settings-check">
-                <input type="checkbox" @bind="_state.HyperloopUnderConstruction" @bind:after="QueueApply"/><span class="ml-1">Hyperloop under construction</span>
+            <label class="form-check">
+                <input type="checkbox" @bind="_state.HyperloopUnderConstruction" @bind:after="QueueApply"/><span class="pg-check-text">Hyperloop under construction</span>
             </label>
-            <label class="settings-check">
-                <input type="checkbox" @bind="_state.ArtifactsEnabled" @bind:after="QueueApply"/><span class="ml-1">Artifacts enabled</span>
+            <label class="form-check">
+                <input type="checkbox" @bind="_state.ArtifactsEnabled" @bind:after="QueueApply"/><span class="pg-check-text">Artifacts enabled</span>
             </label>
-            <label class="settings-check">
-                <input type="checkbox" @bind="_state.HomeFarm" @bind:after="QueueApply"/><span class="ml-1">Home farm</span>
+            <label class="form-check">
+                <input type="checkbox" @bind="_state.HomeFarm" @bind:after="QueueApply"/><span class="pg-check-text">Home farm</span>
             </label>
-            <label class="settings-check">
-                <input type="checkbox" @bind="_state.FuelTankUnlocked" @bind:after="QueueApply"/><span class="ml-1">Fuel tank unlocked</span>
+            <label class="form-check">
+                <input type="checkbox" @bind="_state.FuelTankUnlocked" @bind:after="QueueApply"/><span class="pg-check-text">Fuel tank unlocked</span>
             </label>
-            <label class="settings-check">
-                <input type="checkbox" @bind="_state.HasUnreadMail" @bind:after="QueueApply"/><span class="ml-1">Unread mail</span>
+            <label class="form-check">
+                <input type="checkbox" @bind="_state.HasUnreadMail" @bind:after="QueueApply"/><span class="pg-check-text">Unread mail</span>
             </label>
 
             <div class="picker-group-title">Chickens</div>
             <label class="light-field">
                 <span>Running (@_chickenCount)</span>
-                <input type="range" min="0" max="200" class="w-full" @bind="_chickenCount" @bind:event="oninput" @bind:after="QueueApply"/>
+                <input type="range" min="0" max="200" class="pg-range" @bind="_chickenCount" @bind:event="oninput" @bind:after="QueueApply"/>
             </label>
-            <div class="text-muted">The game spawns chickens on tap, so the count is a viewer control, not saved state.</div>
+            <div class="pg-muted">The game spawns chickens on tap, so the count is a viewer control, not saved state.</div>
 
-            <button class="btn-secondary w-full" @onclick="MenuRebuild" disabled="@_busy">Rebuild farm</button>
+            <button class="btn-secondary pg-full" @onclick="MenuRebuild" disabled="@_busy">Rebuild farm</button>
         </div>
     </div>
 
     <div class="designer-section">
-        <button class="designer-section-head flex w-full items-center justify-between" @onclick="() => _presetsOpen = !_presetsOpen">
+        <button class="designer-section-head designer-section-toggle" @onclick="() => _presetsOpen = !_presetsOpen">
             <span>Presets (@_presets.Count)</span>
-            <span class="text-muted">@(_presetsOpen ? "open" : "closed")</span>
+            <span class="pg-muted">@(_presetsOpen ? "open" : "closed")</span>
         </button>
         @if (_presetsOpen) {
-            <div class="designer-section-body flex flex-col gap-2 text-xs">
+            <div class="designer-section-body designer-section-body-tight">
                 @if (!string.IsNullOrEmpty(_showcaseDiagnostics)) {
                     <StatusNote Severity="StatusNoteKind.Error">@_showcaseDiagnostics</StatusNote>
                 }
                 @if (_presets.Count > 0) {
-                    <input class="reg-filter-input w-full" placeholder="Search showcase farms" value="@_presetSearch" @oninput="e => _presetSearch = e.Value?.ToString() ?? string.Empty"/>
+                    <input class="reg-filter-input pg-input" placeholder="Search showcase farms" value="@_presetSearch" @oninput="e => _presetSearch = e.Value?.ToString() ?? string.Empty"/>
                     <div class="picker-body">
                         @foreach (var p in FilteredPresets()) {
                             <button class="picker-item" disabled="@_busy" @onclick="() => LoadPreset(p.Id)">
-                                @(p.Name ?? p.Id) <span class="text-muted">(@p.Bucket)</span>
+                                @(p.Name ?? p.Id) <span class="pg-muted">(@p.Bucket)</span>
                             </button>
                         }
                     </div>
                 }
                 @if (!string.IsNullOrEmpty(_presetId)) {
-                    <div class="text-muted">Loaded from showcase @_presetId.</div>
+                    <div class="pg-muted">Loaded from showcase @_presetId.</div>
                 }
             </div>
         }
     </div>
 </section>
 
-<section class="w-[320px] flex flex-col gap-2 self-start max-h-[85vh] overflow-auto">
+<section class="pg-side pg-side-narrow">
     <div class="designer-section">
         <div class="designer-section-head">Shells</div>
-        <div class="designer-section-body flex flex-col gap-3 text-xs">
+        <div class="designer-section-body">
             @if (_slots.Count == 0) {
-                <div class="text-muted">No slots yet. Build a farm first.</div>
+                <div class="pg-muted">No slots yet. Build a farm first.</div>
             }
 
-            <div class="max-h-96 overflow-auto flex flex-col gap-2">
+            <div class="picker-scroll">
                 @foreach (var bucket in _slots.GroupBy(s => s.Element)) {
                     <div class="picker-group-title">@bucket.Key</div>
                     @foreach (var slot in bucket) {
                         <label class="light-field">
                             <span>@slot.AssetType @(slot.Index > 0 ? $"#{slot.Index}" : "")</span>
-                            <select class="reg-filter-input w-full" value="@ShellOf(slot)" @onchange="e => SetShell(SlotKey(slot), e)">
+                            <select class="reg-filter-input pg-input" value="@ShellOf(slot)" @onchange="e => SetShell(SlotKey(slot), e)">
                                 <option value="">Base mesh</option>
                                 @foreach (var s in ShellsFor(slot.AssetType)) {
                                     <option value="@s.Identifier">@(s.Name ?? s.Identifier)</option>
@@ -319,15 +319,15 @@
 
     <div class="designer-section">
         <div class="designer-section-head">Sets</div>
-        <div class="designer-section-body flex flex-col gap-3 text-xs">
+        <div class="designer-section-body">
             @if (_slots.Count == 0) {
-                <div class="text-muted">No slots yet. Build a farm first.</div>
+                <div class="pg-muted">No slots yet. Build a farm first.</div>
             }
 
             @foreach (var element in ElementsWithSets()) {
                 <label class="light-field">
                     <span>@element</span>
-                    <select class="reg-filter-input w-full" value="@_setByElement.GetValueOrDefault(element)" @onchange="e => SetElementSet(element, e)">
+                    <select class="reg-filter-input pg-input" value="@_setByElement.GetValueOrDefault(element)" @onchange="e => SetElementSet(element, e)">
                         <option value="">Default shells</option>
                         @foreach (var id in SetIdsForElement(element)) {
                             <option value="@id">@id</option>
@@ -339,7 +339,7 @@
             @if (_decorators.Count > 0) {
                 <label class="light-field">
                     <span>Farm decorator</span>
-                    <select class="reg-filter-input w-full" value="@_decoratorId" @onchange="SetDecorator">
+                    <select class="reg-filter-input pg-input" value="@_decoratorId" @onchange="SetDecorator">
                         <option value="">None</option>
                         @foreach (var d in _decorators) {
                             <option value="@d.Identifier">@(d.Name ?? d.Identifier)</option>
@@ -352,14 +352,14 @@
 
     <div class="designer-section">
         <div class="designer-section-head">Chickens</div>
-        <div class="designer-section-body flex flex-col gap-3 text-xs">
+        <div class="designer-section-body">
             @if (_chickens.Count == 0) {
-                <div class="text-muted">No chicken objects. Ingest a config in Admin.</div>
+                <div class="pg-muted">No chicken objects. Ingest a config in Admin.</div>
             }
 
             <label class="light-field">
                 <span>Chicken</span>
-                <select class="reg-filter-input w-full" value="@_chickenId" @onchange="SetChicken">
+                <select class="reg-filter-input pg-input" value="@_chickenId" @onchange="SetChicken">
                     <option value="">Default chicken</option>
                     @foreach (var c in _chickens) {
                         <option value="@c.Identifier">@(c.Name ?? c.Identifier)</option>
@@ -368,68 +368,68 @@
             </label>
             <label class="light-field">
                 <span>Hat</span>
-                <select class="reg-filter-input w-full" value="@_hatId" @onchange="SetHat">
+                <select class="reg-filter-input pg-input" value="@_hatId" @onchange="SetHat">
                     <option value="">No hat</option>
                     @foreach (var h in _hats) {
                         <option value="@h.Identifier">@(h.Name ?? h.Identifier)</option>
                     }
                 </select>
             </label>
-            <div class="text-muted">Hats are stored in the farm configuration; the renderer draws the chicken body only.</div>
+            <div class="pg-muted">Hats are stored in the farm configuration; the renderer draws the chicken body only.</div>
         </div>
     </div>
 
     <div class="designer-section">
         <div class="designer-section-head">Lighting</div>
-        <div class="designer-section-body flex flex-col gap-3 text-xs">
-            <label class="settings-check">
-                <input type="checkbox" @bind="_lighting.Enabled" @bind:after="PushLighting"/><span class="ml-1">Custom lighting saved with the farm</span>
+        <div class="designer-section-body">
+            <label class="form-check">
+                <input type="checkbox" @bind="_lighting.Enabled" @bind:after="PushLighting"/><span class="pg-check-text">Custom lighting saved with the farm</span>
             </label>
             <div class="picker-group-title">light_dir</div>
-            <div class="flex gap-1">
-                <input type="number" step="0.05" class="reg-filter-input w-full min-w-0" @bind="_lighting.DirX" @bind:after="PushLighting"/>
-                <input type="number" step="0.05" class="reg-filter-input w-full min-w-0" @bind="_lighting.DirY" @bind:after="PushLighting"/>
-                <input type="number" step="0.05" class="reg-filter-input w-full min-w-0" @bind="_lighting.DirZ" @bind:after="PushLighting"/>
+            <div class="pg-row">
+                <input type="number" step="0.05" class="reg-filter-input pg-input" @bind="_lighting.DirX" @bind:after="PushLighting"/>
+                <input type="number" step="0.05" class="reg-filter-input pg-input" @bind="_lighting.DirY" @bind:after="PushLighting"/>
+                <input type="number" step="0.05" class="reg-filter-input pg-input" @bind="_lighting.DirZ" @bind:after="PushLighting"/>
             </div>
             <label class="light-field">
                 <span>light_direct_color</span>
-                <input type="color" class="bg-picker-input" @bind="_lighting.DirectColor" @bind:event="oninput" @bind:after="PushLighting"/>
+                <input type="color" class="pg-color" @bind="_lighting.DirectColor" @bind:event="oninput" @bind:after="PushLighting"/>
             </label>
             <label class="light-field">
                 <span>light_direct_intensity @(_lighting.DirectIntensity.ToString("0.00", CultureInfo.InvariantCulture))</span>
-                <input type="range" min="0" max="4" step="0.05" class="w-full" @bind="_lighting.DirectIntensity" @bind:event="oninput" @bind:after="PushLighting"/>
+                <input type="range" min="0" max="4" step="0.05" class="pg-range" @bind="_lighting.DirectIntensity" @bind:event="oninput" @bind:after="PushLighting"/>
             </label>
             <label class="light-field">
                 <span>light_ambient_color</span>
-                <input type="color" class="bg-picker-input" @bind="_lighting.AmbientColor" @bind:event="oninput" @bind:after="PushLighting"/>
+                <input type="color" class="pg-color" @bind="_lighting.AmbientColor" @bind:event="oninput" @bind:after="PushLighting"/>
             </label>
             <label class="light-field">
                 <span>light_ambient_intensity @(_lighting.AmbientIntensity.ToString("0.00", CultureInfo.InvariantCulture))</span>
-                <input type="range" min="0" max="4" step="0.05" class="w-full" @bind="_lighting.AmbientIntensity" @bind:event="oninput" @bind:after="PushLighting"/>
+                <input type="range" min="0" max="4" step="0.05" class="pg-range" @bind="_lighting.AmbientIntensity" @bind:event="oninput" @bind:after="PushLighting"/>
             </label>
             <label class="light-field">
                 <span>fog_color</span>
-                <input type="color" class="bg-picker-input" @bind="_lighting.FogColor" @bind:event="oninput" @bind:after="PushLighting"/>
+                <input type="color" class="pg-color" @bind="_lighting.FogColor" @bind:event="oninput" @bind:after="PushLighting"/>
             </label>
             <label class="light-field">
                 <span>fog_near</span>
-                <input type="number" step="1" class="reg-filter-input w-full" @bind="_lighting.FogNear" @bind:after="PushLighting"/>
+                <input type="number" step="1" class="reg-filter-input pg-input" @bind="_lighting.FogNear" @bind:after="PushLighting"/>
             </label>
             <label class="light-field">
                 <span>fog_far</span>
-                <input type="number" step="1" class="reg-filter-input w-full" @bind="_lighting.FogFar" @bind:after="PushLighting"/>
+                <input type="number" step="1" class="reg-filter-input pg-input" @bind="_lighting.FogFar" @bind:after="PushLighting"/>
             </label>
             <label class="light-field">
                 <span>fog_density @(_lighting.FogDensity.ToString("0.0000", CultureInfo.InvariantCulture))</span>
-                <input type="range" min="0" max="0.05" step="0.0005" class="w-full" @bind="_lighting.FogDensity" @bind:event="oninput" @bind:after="PushLighting"/>
+                <input type="range" min="0" max="0.05" step="0.0005" class="pg-range" @bind="_lighting.FogDensity" @bind:event="oninput" @bind:after="PushLighting"/>
             </label>
             <div class="picker-group-title">Viewer</div>
             <label class="light-field">
                 <span>Background</span>
-                <span class="flex items-center gap-2">
-                    <input type="color" class="bg-picker-input" @bind="_bgColor" @bind:event="oninput" @bind:after="ApplyBackground" disabled="@_bgTransparent"/>
-                    <label class="settings-check">
-                        <input type="checkbox" @bind="_bgTransparent" @bind:after="ApplyBackground"/><span class="text-muted ml-1">None</span>
+                <span class="pg-row-mid">
+                    <input type="color" class="pg-color" @bind="_bgColor" @bind:event="oninput" @bind:after="ApplyBackground" disabled="@_bgTransparent"/>
+                    <label class="form-check">
+                        <input type="checkbox" @bind="_bgTransparent" @bind:after="ApplyBackground"/><span class="pg-muted pg-check-text">None</span>
                     </label>
                 </span>
             </label>
@@ -438,14 +438,14 @@
 
     <div class="designer-section">
         <div class="designer-section-head">Placements</div>
-        <div class="designer-section-body flex flex-col gap-2 text-xs">
-            <div class="text-muted">
+        <div class="designer-section-body designer-section-body-tight">
+            <div class="pg-muted">
                 @_placements.Length placed@(string.IsNullOrEmpty(_binaryVersion) ? "" : $" from binary {_binaryVersion}")
             </div>
             @if (_extents is { } ext) {
-                <div class="text-muted">extents lab @ext.Lab / depot @ext.Depot / hatchery @ext.Hatchery</div>
+                <div class="pg-muted">extents lab @ext.Lab / depot @ext.Depot / hatchery @ext.Hatchery</div>
             }
-            <div class="font-mono text-muted">
+            <div class="pg-mono">
                 @{ var firstOrigin = true; }
                 @foreach (var g in OriginCounts()) {
                     if (!firstOrigin) {
@@ -453,7 +453,7 @@
                     }
 
                     firstOrigin = false;
-                    <span class="@(g.Key == nameof(PlacementOrigin.Authored) && g.Value > 0 ? "text-err" : "")">@g.Key.ToLowerInvariant() @g.Value</span>
+                    <span class="@(g.Key == nameof(PlacementOrigin.Authored) && g.Value > 0 ? "pg-err" : "")">@g.Key.ToLowerInvariant() @g.Value</span>
                 }
             </div>
             @if (AuthoredCount > 0) {
@@ -472,7 +472,7 @@
                         <span class="tag-chip">@u</span>
                     }
                 </div>
-                <div class="text-muted">No shell in the catalog resolves these asset types, so no mesh was drawn.</div>
+                <div class="pg-muted">No shell in the catalog resolves these asset types, so no mesh was drawn.</div>
             }
             @if (_skipped.Length > 0) {
                 <div class="picker-group-title">Skipped meshes</div>
@@ -486,8 +486,8 @@
                 <div class="picker-group-title">Slots (click to focus)</div>
                 <div class="picker-body">
                     @foreach (var p in _placements) {
-                        <button class="picker-item flex items-center justify-between gap-2" @onclick="() => FocusPlacement(p.Key)">
-                            <span class="truncate">@p.Key</span>
+                        <button class="picker-item picker-item-row" @onclick="() => FocusPlacement(p.Key)">
+                            <span class="pg-clip">@p.Key</span>
                             <span class="@OriginChipClass(p.Provenance?.Origin)">@(p.Provenance?.Origin ?? "?")</span>
                         </button>
                     }
@@ -497,7 +497,7 @@
             <div class="picker-group-title">Camera</div>
             <label class="light-field">
                 <span>Element</span>
-                <select class="reg-filter-input w-full" @bind="_cameraElement">
+                <select class="reg-filter-input pg-input" @bind="_cameraElement">
                     @foreach (var e in CameraElements()) {
                         <option value="@e">@e</option>
                     }
@@ -505,13 +505,13 @@
             </label>
             <label class="light-field">
                 <span>Index</span>
-                <input type="number" min="0" max="9" class="reg-filter-input w-[80px]" @bind="_cameraIndex"/>
+                <input type="number" min="0" max="9" class="reg-filter-input pg-input-md" @bind="_cameraIndex"/>
             </label>
-            <button class="btn-secondary w-full" @onclick="ApplyCamera" disabled="@_busy">Frame element</button>
+            <button class="btn-secondary pg-full" @onclick="ApplyCamera" disabled="@_busy">Frame element</button>
             @if (!string.IsNullOrEmpty(_cameraLocator)) {
-                <div class="text-muted truncate">@_cameraLocator</div>
+                <div class="pg-muted pg-clip">@_cameraLocator</div>
             }
-            <button class="btn-secondary w-full" @onclick="MenuResetView">Reset view</button>
+            <button class="btn-secondary pg-full" @onclick="MenuResetView">Reset view</button>
         </div>
     </div>
 </section>
@@ -1644,9 +1644,9 @@
 
     static string OriginChipClass(string? origin) {
         return origin switch {
-            nameof(PlacementOrigin.Binary) => "text-ok",
-            nameof(PlacementOrigin.Authored) => "text-err",
-            _ => "text-muted"
+            nameof(PlacementOrigin.Binary) => "pg-ok",
+            nameof(PlacementOrigin.Authored) => "pg-err",
+            _ => "pg-muted"
         };
     }
 

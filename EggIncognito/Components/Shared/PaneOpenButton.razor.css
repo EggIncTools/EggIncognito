@@ -1,0 +1,14 @@
+.pane-open {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  flex-shrink: 0;
+  cursor: pointer;
+  border: 1.5px dashed var(--color-border);
+  border-radius: 0.5rem;
+  background-color: var(--color-bg);
+  color: var(--color-muted);
+  transition: border-color .12s, color .12s;
+}
+.pane-open:hover { color: var(--color-fg); border-color: var(--color-accent); }

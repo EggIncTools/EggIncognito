@@ -25,55 +25,55 @@
             @if (Auth.WidgetEnabled && !string.IsNullOrEmpty(_sessionToken)) {
                 <ProfilePanel SessionToken="@_sessionToken" ReturnUrl="@_returnUrl">
                     <AvatarTemplate Context="ctx">
-                        <div class="flex items-center gap-4 mb-4">
+                        <div class="acct-avatar-row">
                             @if (!string.IsNullOrEmpty(ctx.AvatarUrl)) {
-                                <img class="w-16 h-16 rounded-full bg-panel2 object-cover shrink-0" src="@LinkHref(ctx.AvatarUrl!)" alt="Profile picture"/>
+                                <img class="acct-avatar" src="@LinkHref(ctx.AvatarUrl!)" alt="Profile picture"/>
                             } else {
-                                <div class="w-16 h-16 rounded-full bg-panel2 shrink-0"></div>
+                                <div class="acct-avatar"></div>
                             }
-                            <div class="flex flex-col gap-1.5 min-w-0">
-                                <label class="btn-mini w-fit cursor-pointer">
+                            <div class="acct-avatar-tools">
+                                <label class="btn-mini acct-upload">
                                     <Icon Name="upload" Class="icon-sm"/> Upload picture
-                                    <InputFile class="hidden" OnChange="@ctx.OnFileSelected" accept="image/png,image/jpeg,image/webp"/>
+                                    <InputFile OnChange="@ctx.OnFileSelected" accept="image/png,image/jpeg,image/webp"/>
                                 </label>
-                                <span class="text-muted text-xs">PNG, JPEG, or WebP, up to 2 MB.</span>
+                                <span class="acct-hint">PNG, JPEG, or WebP, up to 2 MB.</span>
                                 @if (ctx.Error is not null) {
-                                    <span class="text-err text-xs">@ctx.Error</span>
+                                    <span class="acct-err">@ctx.Error</span>
                                 }
                             </div>
                         </div>
                     </AvatarTemplate>
                     <ProvidersTemplate Context="ctx">
-                        <hr class="my-3 border-0 border-t border-border"/>
+                        <hr class="acct-rule"/>
                         @if (ctx.Banner is not null) {
-                            <div class="text-muted text-sm mb-2">@ctx.Banner</div>
+                            <div class="acct-banner">@ctx.Banner</div>
                         }
-                        <table class="w-full border-collapse text-sm">
+                        <table class="acct-table">
                             <tbody>
                             @foreach (var item in ctx.Items) {
                                 <tr>
-                                    <td class="py-2 pr-2 border-b border-border align-middle w-32">
-                                        <span class="flex items-center gap-2 font-medium">
+                                    <td>
+                                        <span class="acct-prov">
                                             <img class="acct-prov-icon" src="@LinkHref(_identity!.IconUrl(item.Provider))" alt="" loading="lazy"/>
                                             @Cap(item.Provider)
                                         </span>
                                     </td>
-                                    <td class="py-2 px-2 border-b border-border align-middle min-w-0">
+                                    <td>
                                         @if (item.Identity is { } id) {
-                                            <span class="flex items-center gap-2 min-w-0">
+                                            <span class="acct-id">
                                                 @if (!string.IsNullOrEmpty(id.Avatar)) {
                                                     <button type="button" class="acct-chip" aria-label="Use this picture" @onclick="item.OnSelectAvatar">
                                                         <img src="@LinkHref(id.Avatar!)" alt=""/>
                                                     </button>
                                                 }
-                                                <span class="truncate">@(id.Username ?? id.Subject)</span>
-                                                <span class="text-xs text-muted shrink-0">@ViewerClock.At(Services, id.LinkedAt).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)</span>
+                                                <span class="acct-id-name">@(id.Username ?? id.Subject)</span>
+                                                <span class="acct-id-date">@ViewerClock.At(Services, id.LinkedAt).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)</span>
                                             </span>
                                         } else {
-                                            <span class="text-xs text-muted">Not linked</span>
+                                            <span class="acct-hint">Not linked</span>
                                         }
                                     </td>
-                                    <td class="py-2 pl-2 border-b border-border align-middle whitespace-nowrap text-right">
+                                    <td>
                                         @if (!item.Linked) {
                                             <a class="btn-mini" href="@LinkHref(item.LinkUrl)">Link</a>
                                         } else {
@@ -91,9 +91,9 @@
                     </ProvidersTemplate>
                 </ProfilePanel>
             } else if (Auth.LocalIdentityActive) {
-                <p class="text-muted m-0">Local identity session; linked logins and avatars are not available.</p>
+                <p class="acct-note">Local identity session; linked logins and avatars are not available.</p>
             } else {
-                <p class="text-muted m-0">Log in to manage your linked logins and avatar.</p>
+                <p class="acct-note">Log in to manage your linked logins and avatar.</p>
             }
             @if (User.IsAuthenticated && !string.IsNullOrEmpty(_sessionToken)) {
                 <ProfilePreferences SessionToken="@_sessionToken" OnChanged="OnProfileChanged"/>

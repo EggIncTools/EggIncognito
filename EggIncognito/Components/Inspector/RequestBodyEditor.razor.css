@@ -1,0 +1,19 @@
+.tree-head { display: flex; justify-content: space-between; align-items: center; margin: 0.75rem 0 0.375rem; }
+.raw-toggle { font-size: 0.75rem; color: var(--color-muted); cursor: pointer; }
+.raw-toggle input[type="checkbox"] { width: 1rem; height: 1rem; vertical-align: middle; accent-color: var(--color-accent); }
+.raw-json {
+  width: 100%;
+  min-height: 200px;
+  padding: 0.5rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.25rem;
+  background-color: var(--color-panel2);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  line-height: 1rem;
+  color: var(--color-fg);
+}
+.fields { display: flex; flex-direction: column; gap: 0.25rem; }
+.fields-body { max-width: 30rem; margin-left: 0.25rem; }
+.no-fields-note { max-width: 30rem; padding: 0.5rem 0.75rem; border: 1px solid var(--color-border); border-radius: 0.375rem; background-color: var(--color-panel2); font-size: 0.875rem; color: var(--color-muted); }
+.wrap-note { margin-bottom: 0.5rem; padding: 0.375rem 0.5rem; border-left: 2px solid var(--color-accent); background: color-mix(in oklab, var(--color-accent) 6%, transparent); font-size: 0.6875rem; color: var(--color-accent); }

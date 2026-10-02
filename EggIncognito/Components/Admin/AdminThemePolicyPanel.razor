@@ -4,18 +4,18 @@
 
 <AdminPaneHead Title="Theme policy" Facts="@Stats()"/>
 <PaneNotice @ref="_notice"/>
-<div class="flex flex-col gap-3">
-    <label class="flex items-center gap-2 text-sm">
+<div class="atp">
+    <label class="form-check">
         <input type="checkbox" checked="@_customCssEnabled" disabled="@(!_configFloor || _busy)" @onchange="ToggleCustomCss"/>
         <span>Allow contributor custom CSS</span>
     </label>
     @if (!_configFloor) {
-        <p class="text-muted text-xs m-0">Theme:CustomCss is false in configuration. That floor cannot be lifted from here.</p>
+        <Note Small="true">Theme:CustomCss is false in configuration. That floor cannot be lifted from here.</Note>
     }
     <label class="theme-field">
         <span>Default theme for users without one (yours only, no custom CSS)</span>
-        <div class="flex items-center gap-2">
-            <input class="reg-filter-input w-auto" placeholder="theme slug or empty" value="@_defaultThemeSlug" @onchange="OnDefaultSlugChanged"/>
+        <div class="atp-row">
+            <input class="reg-filter-input atp-input" placeholder="theme slug or empty" value="@_defaultThemeSlug" @onchange="OnDefaultSlugChanged"/>
             <button type="button" class="btn-mini" disabled="@_busy" @onclick="SaveDefault">Save</button>
         </div>
     </label>

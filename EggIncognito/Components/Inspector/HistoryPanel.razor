@@ -7,7 +7,7 @@
             <WorkbenchEntry @key="h.Id" OnClick="@(_ => OnRestoreHistory.InvokeAsync(h))">
                 <Name>@h.Path</Name>
                 <Trail>
-                    <button type="button" class="wb-x" aria-label="Remove"
+                    <button type="button" class="hist-x" aria-label="Remove"
                             @onclick:stopPropagation="true" @onclick="@(() => OnDeleteHistory.InvokeAsync(h.Id))">
                         <Icon Name="x" Class="icon-sm"/>
                     </button>

@@ -1,0 +1,4 @@
+.akt td.muted { font-size: 0.75rem; }
+.akt-name { font-weight: 500; }
+.akt-revoked td { color: var(--color-muted); }
+.akt td.tools .btn-mini + .btn-mini { margin-left: 0.25rem; }

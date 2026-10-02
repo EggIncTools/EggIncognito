@@ -1,0 +1,10 @@
+<label class="fld @Class">
+    <span class="fld-label">@Label</span>
+    @ChildContent
+</label>
+
+@code {
+    [Parameter] public string Label { get; set; } = "";
+    [Parameter] public string? Class { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+}

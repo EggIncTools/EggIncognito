@@ -9,7 +9,7 @@ namespace EggIncognito.Tests;
 public partial class CodeStyleContractTests(SharedAppFactory f) {
     [Fact]
     public async Task CompiledSheet_ShipsEveryTokenClass() {
-        string css = await f.CreateClient().GetStringAsync("/styles.css");
+        string css = await SheetFetch.AllAsync(f.CreateClient());
         foreach (string cls in TokenClasses.All) {
             Assert.Contains("." + cls, css, StringComparison.Ordinal);
         }
@@ -19,7 +19,7 @@ public partial class CodeStyleContractTests(SharedAppFactory f) {
 
     [Fact]
     public async Task TokenClassRules_CarryNoHexLiteral() {
-        string css = await f.CreateClient().GetStringAsync("/styles.css");
+        string css = await SheetFetch.AllAsync(f.CreateClient());
         foreach (string cls in TokenClasses.All) {
             var m = Regex.Match(css, @"^\s*\." + Regex.Escape(cls) + @"\s*\{[^}]*\}", RegexOptions.Multiline);
             Assert.True(m.Success, "rule not found for ." + cls);
@@ -30,7 +30,7 @@ public partial class CodeStyleContractTests(SharedAppFactory f) {
 
     [Fact]
     public async Task CodeRowHeightVariable_MatchesTheVirtualizeRowSize() {
-        string css = await f.CreateClient().GetStringAsync("/styles.css");
+        string css = await SheetFetch.AllAsync(f.CreateClient());
         var m = CodeRowHeightRegex().Match(css);
         Assert.True(m.Success, "--code-row-h not found in the compiled sheet");
         float declared = float.Parse(m.Groups[1].Value, CultureInfo.InvariantCulture);
@@ -39,13 +39,13 @@ public partial class CodeStyleContractTests(SharedAppFactory f) {
 
     [Fact]
     public async Task DiffRowHeightVariable_IsGone() {
-        string css = await f.CreateClient().GetStringAsync("/styles.css");
+        string css = await SheetFetch.AllAsync(f.CreateClient());
         Assert.DoesNotContain("--diff-row-h", css, StringComparison.Ordinal);
     }
 
     [Fact]
     public async Task RetiredCodeClasses_AreGoneFromTheSheet() {
-        string css = await f.CreateClient().GetStringAsync("/styles.css");
+        string css = await SheetFetch.AllAsync(f.CreateClient());
         foreach (string cls in new[] {
                      ".ctv-row", ".ctv-num", ".ctv-line", ".ctv-note",
                      ".dsp-row", ".dsp-txt", ".duni-row", ".duni-head",
@@ -57,7 +57,7 @@ public partial class CodeStyleContractTests(SharedAppFactory f) {
 
     [Fact]
     public async Task CodeWrapRule_NeverBreaksOnAHyphen() {
-        string css = await f.CreateClient().GetStringAsync("/styles.css");
+        string css = await SheetFetch.AllAsync(f.CreateClient());
         var m = CodeWrapRuleRegex().Match(css);
         Assert.True(m.Success, ".code-wrap .code-line rule not found");
         Assert.Contains("overflow-wrap: break-word", m.Value, StringComparison.Ordinal);
@@ -68,7 +68,7 @@ public partial class CodeStyleContractTests(SharedAppFactory f) {
 
     [Fact]
     public async Task CodeSurfaceClasses_AreDefined() {
-        string css = await f.CreateClient().GetStringAsync("/styles.css");
+        string css = await SheetFetch.AllAsync(f.CreateClient());
         foreach (string cls in new[] {
                      ".code-surface", ".code-toolbar", ".code-scroll", ".code-rows", ".code-row",
                      ".code-toolbar-gap", ".code-lang", ".code-select", ".code-filter", ".code-toggle-on",
@@ -86,6 +86,6 @@ public partial class CodeStyleContractTests(SharedAppFactory f) {
     [GeneratedRegex(@"--code-row-h:\s*([0-9.]+)px")]
     private static partial Regex CodeRowHeightRegex();
 
-    [GeneratedRegex(@"\.code-wrap \.code-line\s*\{[^}]*\}", RegexOptions.Multiline)]
+    [GeneratedRegex(@"\.code-wrap(\[b-[a-z0-9]+\])? \.code-line(\[b-[a-z0-9]+\])?\s*\{[^}]*\}", RegexOptions.Multiline)]
     private static partial Regex CodeWrapRuleRegex();
 }

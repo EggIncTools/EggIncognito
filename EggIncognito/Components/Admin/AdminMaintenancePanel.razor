@@ -7,7 +7,7 @@
 
 <AdminPaneHead Title="Maintenance" Facts="[Stat]"/>
 <PaneNotice @ref="_notice"/>
-<div class="reg-wrap">
+<TableScroll>
     <table class="data-table">
         <tbody>
         <tr>
@@ -15,41 +15,41 @@
             <td>
                 <button type="button" class="btn-mini" disabled="@_busy" @onclick="BackfillCaptureUserIds">Run</button>
             </td>
-            <td class="text-xs">@Result("backfill-capture")</td>
+            <td class="small">@Result("backfill-capture")</td>
         </tr>
         <tr>
             <td>Backfill owner/author user ids</td>
             <td>
                 <button type="button" class="btn-mini" disabled="@_busy" @onclick="BackfillOwnerAuthorUserIds">Run</button>
             </td>
-            <td class="text-xs">@Result("backfill-owner")</td>
+            <td class="small">@Result("backfill-owner")</td>
         </tr>
         <tr>
             <td>Proto realign</td>
             <td>
                 <button type="button" class="btn-mini" disabled="@_busy" @onclick="RealignProtos">@(_realignArmed ? "Confirm realign" : "Run")</button>
             </td>
-            <td class="text-xs">@Result("realign")</td>
+            <td class="small">@Result("realign")</td>
         </tr>
         <tr>
             <td>Refresh endpoint catalog</td>
             <td>
                 <button type="button" class="btn-mini" disabled="@_busy" @onclick="RefreshEndpoints">Run</button>
             </td>
-            <td class="text-xs">@Result("refresh-endpoints")</td>
+            <td class="small">@Result("refresh-endpoints")</td>
         </tr>
         <tr>
             <td>Check App Store versions (ipatool)</td>
             <td>
                 <button type="button" class="btn-mini" disabled="@_busy" @onclick="CheckIpaToolVersions">Run</button>
             </td>
-            <td class="text-xs">@Result("ipatool-versions")</td>
+            <td class="small">@Result("ipatool-versions")</td>
         </tr>
         <tr>
             <td>
-                <div class="flex gap-1 items-center flex-wrap">
+                <div class="am-row">
                     <span>Config refresh-live</span>
-                    <select class="reg-filter-input w-auto" @bind="_livePlatform">
+                    <select class="reg-filter-input am-input" @bind="_livePlatform">
                         <option value="ios">ios</option>
                         <option value="android">android</option>
                     </select>
@@ -58,71 +58,71 @@
             <td>
                 <button type="button" class="btn-mini" disabled="@_busy" @onclick="RefreshLive">Run</button>
             </td>
-            <td class="text-xs">@Result("refresh-live")</td>
+            <td class="small">@Result("refresh-live")</td>
         </tr>
         <tr>
             <td>
-                <div class="flex gap-1 items-center flex-wrap">
+                <div class="am-row">
                     <span>Config ingest JSON</span>
-                    <select class="reg-filter-input w-auto" @bind="_ingestPlatform">
+                    <select class="reg-filter-input am-input" @bind="_ingestPlatform">
                         <option value="ios">ios</option>
                         <option value="android">android</option>
                     </select>
                 </div>
-                <textarea class="reg-filter-input w-full mono text-xs" rows="3" placeholder="ConfigResponse JSON" @bind="_ingestJson"></textarea>
+                <textarea class="reg-filter-input am-json" rows="3" placeholder="ConfigResponse JSON" @bind="_ingestJson"></textarea>
             </td>
             <td>
                 <button type="button" class="btn-mini" disabled="@_busy" @onclick="IngestJson">Run</button>
             </td>
-            <td class="text-xs">@Result("ingest-json")</td>
+            <td class="small">@Result("ingest-json")</td>
         </tr>
         <tr>
             <td>
-                <div class="flex gap-1 items-center flex-wrap">
+                <div class="am-row">
                     <span>Icon import</span>
-                    <input class="reg-filter-input w-auto" placeholder="name" @bind="_iconName"/>
-                    <InputFile OnChange="OnIconFile" class="text-xs"/>
+                    <input class="reg-filter-input am-input" placeholder="name" @bind="_iconName"/>
+                    <InputFile OnChange="OnIconFile" class="am-file"/>
                 </div>
             </td>
             <td>
                 <button type="button" class="btn-mini" disabled="@_busy" @onclick="ImportIcon">Run</button>
             </td>
-            <td class="text-xs">@Result("icon-import")</td>
+            <td class="small">@Result("icon-import")</td>
         </tr>
         <tr>
             <td>Sweep event snapshots</td>
             <td>
                 <button type="button" class="btn-mini" disabled="@_busy" @onclick="SweepEvents">Run</button>
             </td>
-            <td class="text-xs">@Result("event-sweep")</td>
+            <td class="small">@Result("event-sweep")</td>
         </tr>
         <tr>
             <td>
-                <div class="flex gap-1 items-center flex-wrap">
+                <div class="am-row">
                     <span>Import carpet events</span>
-                    <input class="reg-filter-input w-auto" placeholder="@CarpetPlaceholder" @bind="_carpetUrl"/>
+                    <input class="reg-filter-input am-input" placeholder="@CarpetPlaceholder" @bind="_carpetUrl"/>
                 </div>
             </td>
             <td>
                 <button type="button" class="btn-mini" disabled="@_busy" @onclick="ImportCarpetEvents">Run</button>
             </td>
-            <td class="text-xs">@Result("event-carpet")</td>
+            <td class="small">@Result("event-carpet")</td>
         </tr>
         </tbody>
     </table>
-</div>
+</TableScroll>
 
-<div class="admin-panel-head mt-4">
-    <div class="sub-section-head">Stored icons</div>
-    <div class="flex gap-1 items-center">
-        <span class="text-muted text-xs">@_icons.Count stored</span>
+<SubSectionHead>
+    <ChildContent>Stored icons</ChildContent>
+    <Tools>
+        <span class="subhead-fact">@_icons.Count stored</span>
         <button type="button" class="btn-mini" disabled="@_iconBusy" @onclick="LoadIcons">Refresh</button>
-    </div>
-</div>
+    </Tools>
+</SubSectionHead>
 @if (_icons.Count == 0) {
-    <p class="text-muted text-sm m-0">No stored icons. Import one above; the name is how the app asks for it.</p>
+    <Note>No stored icons. Import one above; the name is how the app asks for it.</Note>
 } else {
-    <div class="reg-wrap">
+    <TableScroll>
         <table class="data-table">
             <thead>
             <tr>
@@ -132,22 +132,20 @@
             <tbody>
             @foreach (var icon in _icons) {
                 <tr>
-                    <td class="mono text-xs">@icon.Name</td>
-                    <td class="text-xs">@icon.Platform</td>
-                    <td class="text-xs">@icon.ContentType</td>
-                    <td class="mono text-xs">@icon.Bytes.ToString("N0")</td>
-                    <td class="mono text-xs">@ShaShort(icon.Sha256)</td>
-                    <td class="text-muted text-xs">@ViewerClock.At(Services, icon.UpdatedAt).ToString("yyyy-MM-dd HH:mm:ss")</td>
-                    <td>
-                        <div class="flex gap-1 justify-end">
-                            <button type="button" class="btn-mini btn-danger" disabled="@_iconBusy" @onclick="() => DeleteIcon(icon.Name)">Delete</button>
-                        </div>
+                    <td class="mono">@icon.Name</td>
+                    <td class="small">@icon.Platform</td>
+                    <td class="small">@icon.ContentType</td>
+                    <td class="mono">@icon.Bytes.ToString("N0")</td>
+                    <td class="mono">@ShaShort(icon.Sha256)</td>
+                    <td class="muted">@ViewerClock.At(Services, icon.UpdatedAt).ToString("yyyy-MM-dd HH:mm:ss")</td>
+                    <td class="tools">
+                        <button type="button" class="btn-mini btn-danger" disabled="@_iconBusy" @onclick="() => DeleteIcon(icon.Name)">Delete</button>
                     </td>
                 </tr>
             }
             </tbody>
         </table>
-    </div>
+    </TableScroll>
 }
 
 @code {

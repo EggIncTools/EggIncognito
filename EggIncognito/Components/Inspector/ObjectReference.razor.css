@@ -1,0 +1,23 @@
+.doc-section-title { margin: 16px 0 6px; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--color-muted); }
+.doc-none { font-size: 0.75rem; color: var(--color-muted); }
+.doc-link {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--color-accent);
+  text-decoration: underline;
+  text-align: left;
+  cursor: pointer;
+}
+.doc-link:hover { color: var(--color-fg); }
+.doc-usedby-static { color: var(--color-muted); }
+.doc-field-num { width: 2rem; font-family: var(--font-mono); color: var(--color-muted); text-align: right; }
+.doc-name-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr)); gap: 0.25rem 0.75rem; padding: 0.5rem 0.75rem; }
+.doc-name-grid .doc-link { display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.doc-group-row { cursor: pointer; user-select: none; }
+.doc-group-row td { background-color: var(--color-panel2); }
+.doc-group-head { display: flex; align-items: center; gap: 0.375rem; font-size: 0.75rem; }
+.doc-lock-col { width: 2.5rem; }
+.doc-signed { flex: none; display: inline-flex; color: var(--color-accent); }

@@ -11,7 +11,7 @@
             <div class="ds-head-row">
                 <h4 class="ds-title">@s.DisplayName</h4>
                 @if (!s.AcceptsName) {
-                    <a class="btn-mini no-underline" href="@s.Url" download="@DownloadName(s)"
+                    <a class="btn-mini ds-link" href="@s.Url" download="@DownloadName(s)"
                        target="_blank" rel="noopener">
                         Download
                     </a>
@@ -32,7 +32,7 @@
                     </span>
                 }
                 @if (s.Bytes is { } bytes) {
-                    <span class="font-mono">@ByteFormat.Humanize(bytes, "0")</span>
+                    <span class="ds-bytes">@ByteFormat.Humanize(bytes, "0")</span>
                 }
                 @if (s.Meta?.BinaryVersion is { Length: > 0 } binaryVersion) {
                     <span>
@@ -40,7 +40,7 @@
                     </span>
                 }
             </div>
-            <a class="ds-route font-mono" href="@s.Url" target="_blank" rel="noopener">@s.Url</a>
+            <a class="ds-route" href="@s.Url" target="_blank" rel="noopener">@s.Url</a>
             <div class="ds-curl">
                 <code class="ds-curl-text">@CurlLine(s)</code>
                 <CopyButton GetText="@(() => CurlLine(s))" ButtonClass="btn-mini ds-curl-copy" IconClass="icon-sm"
@@ -50,15 +50,14 @@
         <div class="ds-body">
             @if (s.AcceptsName) {
                 var name = State.NameFor(State.DatasetKey);
-                <label class="sub-field ds-field">
-                    <span class="sub-field-label">Asset name</span>
-                    <input class="field-input font-mono" placeholder="afx_ornate_gusset_2" value="@name"
+                <FieldLabel Label="Asset name" Class="ds-field">
+                    <input class="field-input ds-name" placeholder="afx_ornate_gusset_2" value="@name"
                            @oninput="OnNameInput"/>
-                </label>
+                </FieldLabel>
                 @if (name.Length > 0) {
                     <img class="ds-asset" src="@AssetUrl(s, name)" alt="@name"/>
                     <div>
-                        <a class="btn-mini no-underline" href="@AssetUrl(s, name)"
+                        <a class="btn-mini ds-link" href="@AssetUrl(s, name)"
                            download="@($"{name}.png")" target="_blank" rel="noopener">
                             Download
                         </a>

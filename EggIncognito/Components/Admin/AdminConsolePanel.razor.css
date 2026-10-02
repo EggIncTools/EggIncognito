@@ -1,0 +1,18 @@
+.console-pick { width: 100%; }
+.console-line { margin: 0.5rem 0; }
+.console-method { display: inline-block; flex-shrink: 0; width: 52px; font-family: var(--font-mono); font-size: 0.625rem; font-weight: 700; text-align: center; }
+.console-get { color: var(--color-method-read); }
+.console-post { color: var(--color-method-write); }
+.console-put, .console-patch { color: var(--color-method-replace); }
+.console-delete { color: var(--color-method-remove); }
+.console-route { font-family: var(--font-mono); font-size: 0.75rem; overflow-wrap: break-word; word-break: normal; hyphens: none; -webkit-hyphens: none; }
+.console-param { display: block; margin-top: 0.25rem; font-size: 0.75rem; color: var(--color-muted); }
+.console-param-meta { opacity: 0.6; }
+.console-param .reg-filter-input, .console-body { width: 100%; }
+.console-body { font-family: var(--font-mono); font-size: 0.75rem; }
+.console-k { margin-top: 0.5rem; font-size: 0.8125rem; font-weight: 600; color: var(--color-fg); }
+.console-file { font-size: 0.75rem; }
+.console-note { margin-top: 0.25rem; font-size: 0.75rem; color: var(--color-muted); }
+.console-note a { text-decoration: underline; }
+.console-send { margin-top: 0.5rem; }
+.console-out { margin-top: 0.25rem; max-height: 40vh; overflow: auto; }

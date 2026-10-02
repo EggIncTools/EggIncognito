@@ -25,14 +25,14 @@
     } else {
         <div class="awb-pane">
             <h4 class="awb-pane-title">Consume coverage</h4>
-            <div class="wbx-kpis cov-kpis">
-                <div class="wbx-kpi"><span class="wbx-kpi-n">@Pct(_map.Validity)</span><span class="wbx-kpi-k">Validity</span></div>
-                <div class="wbx-kpi"><span class="wbx-kpi-n">@_map.CellsComplete/@_map.CellsInScope</span><span class="wbx-kpi-k">Cells complete</span></div>
-                <div class="wbx-kpi"><span class="wbx-kpi-n">@_map.Items</span><span class="wbx-kpi-k">Items</span></div>
-                <div class="wbx-kpi"><span class="wbx-kpi-n">@_map.Observations</span><span class="wbx-kpi-k">Observations</span></div>
-                <div class="wbx-kpi"><span class="wbx-kpi-n">@_map.PendingItems</span><span class="wbx-kpi-k">Pending items</span></div>
-            </div>
-            <div class="reg-wrap cov-wrap">
+            <KpiGrid Columns="5" MaxWidth="34rem">
+                <KpiTile Value="@Pct(_map.Validity)" Label="Validity"/>
+                <KpiTile Value="@($"{_map.CellsComplete}/{_map.CellsInScope}")" Label="Cells complete"/>
+                <KpiTile Value="@_map.Items.ToString()" Label="Items"/>
+                <KpiTile Value="@_map.Observations.ToString()" Label="Observations"/>
+                <KpiTile Value="@_map.PendingItems.ToString()" Label="Pending items"/>
+            </KpiGrid>
+            <TableScroll MaxHeight="70vh">
                 <table class="data-table cov-table">
                     <thead>
                     <tr>
@@ -45,20 +45,20 @@
                     </thead>
                     <tbody>
                     @foreach (var f in _map.Families) {
-                        <tr class="reg-row cursor-pointer" @key="f.SpecName" @onclick="() => Toggle(f.SpecName)">
+                        <tr class="row-click" @key="f.SpecName" @onclick="() => Toggle(f.SpecName)">
                             <td>
                                 <span class="cov-fam">
-                                    <span class="ep-caret @(Open(f) ? "ep-caret-open" : "")"></span>
+                                    <Caret Open="Open(f)"/>
                                     @if (f.Tiers.Count > 0) {
                                         <img class="cov-fam-ico" src="@IconSrc(f.SpecName, f.Tiers[^1].AfxLevel)" alt="" loading="lazy"/>
                                     }
                                     @f.PluralName
                                 </span>
                             </td>
-                            <td><span class="wbx-bar-track cov-bar"><span class="wbx-bar-fill" style="@Fill(f.Validity)"></span></span></td>
-                            <td class="font-mono">@f.CellsComplete/@f.CellsInScope</td>
-                            <td class="font-mono">@f.Items</td>
-                            <td class="font-mono">@f.Observations</td>
+                            <td class="cov-bar"><BarTrack Fraction="f.Validity"/></td>
+                            <td class="mono">@f.CellsComplete/@f.CellsInScope</td>
+                            <td class="mono">@f.Items</td>
+                            <td class="mono">@f.Observations</td>
                         </tr>
                         @if (Open(f)) {
                             <tr class="cov-grid-row">
@@ -95,7 +95,7 @@
                     }
                     </tbody>
                 </table>
-            </div>
+            </TableScroll>
         </div>
     }
 }
@@ -210,8 +210,6 @@
 
     static string IconSrc(string spec, int level) => ArtifactAssets.IconPath(ArtifactAssets.KeyFor(spec), level + 1);
 
-    static string Fill(double v) => FormattableString.Invariant($"--fill:{v * 100:0.#}%;");
-
     static string CellStyle(CoverageCell c) => FormattableString.Invariant($"--v:{c.Validity:0.###};");
 
     static string Pct(double v) => FormattableString.Invariant($"{v * 100:0.#}%");
@@ -224,13 +222,13 @@
             <div><dt>Short</dt><dd>@c.ItemsShort items, @c.ObservationsShort obs</dd></div>
             <div><dt>Next</dt><dd>@c.ObservationsShort x consume @c.SuggestedBatch</dd></div>
         </dl>
-        <div class="dwb-bar">
-            <div class="dwb-bar-group">
+        <ToolBar>
+            <div class="tbar-group">
                 @foreach (var sc in ScopeNames) {
                     <label class="cov-scope"><input type="radio" class="wb-radio" name="cov-scope" checked="@(_scope == sc)" @onchange="() => _scope = sc"/>@sc</label>
                 }
             </div>
-            <div class="dwb-bar-group">
+            <div class="tbar-group">
                 <input type="number" min="1" class="reg-filter-input cov-num" aria-label="Item target" @bind="_itemTarget"/>
                 <input type="number" min="1" class="reg-filter-input cov-num" aria-label="Observation target" @bind="_obsTarget"/>
                 <label class="cov-scope"><input type="checkbox" checked="@_enabled" @onchange="e => _enabled = e.Value is true"/>Enabled</label>
@@ -239,6 +237,6 @@
                     <button type="button" class="btn-mini" disabled="@_busy" @onclick="() => Remove(id)">Reset</button>
                 }
             </div>
-        </div>
+        </ToolBar>
     </div>;
 }

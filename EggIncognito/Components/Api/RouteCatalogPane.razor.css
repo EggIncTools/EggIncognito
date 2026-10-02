@@ -1,0 +1,18 @@
+.awb-pane { display: flex; flex-direction: column; gap: 0.75rem; min-height: 0; }
+.awb-pane-title { margin: 0; font-size: 0.875rem; font-weight: 600; }
+.routes-head { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; flex-wrap: wrap; }
+.routes-head-meta { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; font-size: 0.75rem; }
+.routes-note { margin: 0; font-size: 0.75rem; color: var(--color-muted); }
+.routes-filter-row { display: flex; align-items: center; gap: 0.5rem; }
+.routes-filter-row ::deep .reg-filter-input { flex: 1 1 auto; min-width: 0; }
+.routes-seg { width: auto; flex: 0 0 auto; }
+.routes-seg .segmented-opt { padding-inline: 0.625rem; flex: 0 0 auto; }
+.route-flag { display: inline-flex; align-items: center; gap: 0.25rem; font-size: 0.75rem; white-space: nowrap; color: var(--color-muted); }
+.routes-state-cell .route-flag + .route-flag { margin-left: 0.5rem; }
+.routes-editor { display: flex; flex-direction: column; gap: 0.5rem; padding: 0.25rem; }
+.routes-editor-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.5rem 1rem; }
+.routes-editor-field { display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.75rem; color: var(--color-muted); }
+.routes-editor-checks { display: flex; flex-wrap: wrap; gap: 0.75rem; }
+.routes-editor-actions { display: flex; gap: 0.25rem; }
+.routes-drift-list { display: flex; flex-direction: column; gap: 0.25rem; }
+.routes-drift-row { display: flex; align-items: center; gap: 0.5rem; font-size: 0.75rem; flex-wrap: wrap; }

@@ -1,0 +1,6 @@
+.format-view { min-width: 0; }
+.section-head { display: flex; align-items: center; justify-content: space-between; margin: 14px 0 6px; }
+.section-head h3 { margin: 0; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--color-muted); }
+.no-json { margin-bottom: 0.375rem; font-size: 0.75rem; color: var(--color-muted); }
+.raw-box { max-height: 120px; overflow: auto; padding: 0.375rem; border: 1px solid var(--color-border); border-radius: 0.25rem; background-color: var(--color-bg); font-family: var(--font-mono); font-size: 0.6875rem; color: var(--color-muted); word-break: break-all; hyphens: none; }
+.data-body { display: block; }

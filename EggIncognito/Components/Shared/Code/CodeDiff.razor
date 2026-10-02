@@ -8,7 +8,7 @@
 @inject IWebHostEnvironment Env
 @if (Mode == CodeDiffMode.Structured) {
     @if (Structural is null || Structural.IsEmpty) {
-        <p class="text-muted text-sm m-0">@EmptyText</p>
+        <p class="cdiff-empty">@EmptyText</p>
     } else {
         <div class="code-surface">
             @if (ShowToolbar && StructuredBarHasContent) {
@@ -27,7 +27,7 @@
                             <div class="cstruct-head">
                                 @if (e.Kind == MessageDiffKind.Renamed) {
                                     <span class="cstruct-path cstruct-rem">@e.OldPath</span>
-                                    <span class="text-muted">-&gt;</span>
+                                    <span class="cstruct-arrow">-&gt;</span>
                                     <span class="cstruct-path cstruct-add">@e.NewPath</span>
                                 } else {
                                     <span class="cstruct-path @PathClass(e.Kind)">@e.DisplayPath</span>
@@ -35,7 +35,7 @@
                             </div>
                             @if (e.Kind is MessageDiffKind.Added or MessageDiffKind.Removed) {
                                 <details>
-                                    <summary class="text-muted cursor-pointer text-xs">@e.Body.Count lines</summary>
+                                    <summary class="cstruct-toggle">@e.Body.Count lines</summary>
                                     <div class="cstruct-rows">
                                         @foreach (var line in e.Body) {
                                             <span class="@(e.Kind == MessageDiffKind.Added ? "cstruct-add" : "cstruct-rem")">@(e.Kind == MessageDiffKind.Added ? "+" : "-")@line</span>
@@ -71,7 +71,7 @@
         </div>
     }
 } else if (_total == 0) {
-    <p class="text-muted text-sm m-0">@EmptyText</p>
+    <p class="cdiff-empty">@EmptyText</p>
 } else {
     <div class="code-surface">
         @if (ShowToolbar) {

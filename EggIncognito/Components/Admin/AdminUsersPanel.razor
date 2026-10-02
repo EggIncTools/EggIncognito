@@ -6,8 +6,8 @@
 
 <AdminPaneHead Title="Users" Facts="@Stats()"/>
 <PaneNotice @ref="_notice"/>
-<div class="reg-wrap admin-users-scroll">
-    <table class="data-table admin-users-table">
+<TableScroll MaxHeight="36rem">
+    <table class="data-table">
         <thead>
         <tr>
             <th>User</th><th>OIDC Sources</th><th>Role</th><th>Last login</th>
@@ -16,12 +16,12 @@
         <tbody>
         @foreach (var u in _users) {
             <tr>
-                <td class="font-medium">@u.Username</td>
+                <td class="au-name">@u.Username</td>
                 <td>
                     @{ var provs = u.Providers ?? []; }
                     <div class="oidc-sources">
                         @if (provs.Count == 0) {
-                            <span class="text-muted text-xs">none</span>
+                            <span class="muted">none</span>
                         } else {
                             @foreach (var p in provs) {
                                 <span class="oidc-icon">
@@ -32,18 +32,18 @@
                     </div>
                 </td>
                 <td>
-                    <select class="reg-filter-input w-auto" value="@u.Role" @onchange="e => SetRole(u.DiscordId, (string?)e.Value)">
+                    <select class="reg-filter-input au-select" value="@u.Role" @onchange="e => SetRole(u.DiscordId, (string?)e.Value)">
                         @foreach (var role in Roles) {
                             <option value="@role">@role</option>
                         }
                     </select>
                 </td>
-                <td class="text-muted text-xs">@ViewerClock.At(Services, u.LastLoginAt).ToString("yyyy-MM-dd HH:mm:ss")</td>
+                <td class="muted">@ViewerClock.At(Services, u.LastLoginAt).ToString("yyyy-MM-dd HH:mm:ss")</td>
             </tr>
         }
         </tbody>
     </table>
-</div>
+</TableScroll>
 
 @code {
     static readonly string[] Roles = Enum.GetValues<UserRole>().Select(UserRoles.ToName).ToArray();

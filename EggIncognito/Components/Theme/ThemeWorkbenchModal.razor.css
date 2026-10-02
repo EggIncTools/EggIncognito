@@ -1,0 +1,47 @@
+.theme-rail-note { padding: 0.75rem; border: 1px dashed var(--color-border); border-radius: 0.375rem; font-size: 0.75rem; color: var(--color-muted); }
+.theme-main { display: flex; gap: 1rem; min-height: 0; height: 100%; }
+.theme-editor { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0.75rem; overflow-y: auto; padding-right: 0.5rem; }
+.theme-head-row { display: flex; gap: 0.75rem; flex-wrap: wrap; }
+.theme-field { display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.75rem; color: var(--color-muted); }
+.theme-token-grid { display: grid; grid-template-columns: 1fr; column-gap: 1.5rem; row-gap: 0.375rem; }
+@media (min-width: 48rem) {
+  .theme-token-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+.theme-token-row { display: flex; align-items: center; gap: 0.5rem; font-size: 0.75rem; }
+.theme-token-name { width: 4rem; flex-shrink: 0; font-family: var(--font-mono); color: var(--color-muted); }
+.theme-token-hex { font-family: var(--font-mono); color: var(--color-muted); }
+.theme-color-input { width: 2rem; height: 2rem; padding: 0; border: 1px solid var(--color-border); border-radius: 0.375rem; background: transparent; cursor: pointer; }
+.theme-oklch-row { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; font-size: 0.75rem; color: var(--color-muted); }
+.theme-num { width: 5rem; padding: 0.125rem 0.375rem; border: 1px solid var(--color-border); border-radius: 0.25rem; background-color: var(--color-bg); font-family: var(--font-mono); font-size: 0.75rem; }
+.theme-chroma-grid { display: flex; flex-direction: column; gap: 0.625rem; max-width: 28rem; }
+.theme-knob { display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.75rem; color: var(--color-muted); }
+.theme-knob input[type="range"] { accent-color: var(--color-accent); }
+.theme-knob-toggle { flex-direction: row; align-items: center; gap: 0.5rem; }
+.theme-contrast { display: flex; flex-direction: column; gap: 0.125rem; margin-top: 0.25rem; }
+.theme-contrast-row { font-family: var(--font-mono); }
+.theme-ok { font-size: 0.75rem; color: var(--color-ok); }
+.theme-err { font-size: 0.75rem; color: var(--color-err); }
+.theme-note { margin: 0; font-size: 0.75rem; color: var(--color-muted); }
+.theme-css-input { width: 100%; min-height: 10rem; padding: 0.5rem; border: 1px solid var(--color-border); border-radius: 0.375rem; background-color: var(--color-bg); font-family: var(--font-mono); font-size: 0.75rem; color: var(--color-fg); }
+.theme-import-input { min-height: 6rem; }
+.theme-css-errors { display: flex; flex-direction: column; gap: 0.125rem; font-family: var(--font-mono); }
+.theme-json-actions { display: flex; gap: 0.5rem; }
+.theme-actions { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; margin-top: auto; padding-top: 0.75rem; }
+.theme-preview { width: 20rem; flex-shrink: 0; display: flex; flex-direction: column; gap: 0.75rem; padding: 0.75rem; border: 1px solid var(--color-border); border-radius: 0.375rem; background-color: var(--color-bg); overflow-y: auto; }
+.theme-pv-nav { display: flex; align-items: center; gap: 0.75rem; padding: 0.375rem 0.5rem; border-radius: 0.25rem; font-size: 0.75rem; background-color: var(--color-panel2); }
+.theme-pv-brand { font-weight: 600; color: var(--color-fg); }
+.theme-pv-nav-link { color: var(--color-muted); }
+.theme-pv-nav-link.active { color: var(--color-accent); }
+.theme-pv-panel { display: flex; flex-direction: column; gap: 0.625rem; padding: 0.625rem; border: 1px solid var(--color-border); border-radius: 0.375rem; background-color: var(--color-panel); }
+.theme-pv-panel-title { font-size: 0.8125rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--color-muted); }
+.theme-pv-table { width: 100%; font-size: 0.75rem; border-collapse: collapse; }
+.theme-pv-table th { padding: 0.25rem 0.375rem; border-bottom: 1px solid var(--color-border); text-align: left; color: var(--color-muted); }
+.theme-pv-table td { padding: 0.25rem 0.375rem; border-bottom: 1px solid var(--color-border); font-family: var(--font-mono); color: var(--color-fg); }
+.theme-pv-buttons { display: flex; align-items: center; gap: 0.5rem; }
+.theme-pv-code { display: flex; gap: 0.5rem; padding: 0.375rem; border-radius: 0.25rem; overflow-x: auto; font-family: var(--font-mono); font-size: 0.75rem; background-color: var(--color-bg); color: var(--color-fg); }
+.theme-pv-gutter { color: var(--color-muted); }
+.theme-pv-lines { display: flex; flex-direction: column; gap: 0.125rem; font-family: var(--font-mono); font-size: 0.75rem; }
+.theme-pv-ok { color: var(--color-ok); }
+.theme-pv-err { color: var(--color-err); }
+.theme-pv-info { color: var(--color-info); }
+.theme-pv-muted { color: var(--color-muted); }

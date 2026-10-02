@@ -1,6 +1,6 @@
 <span class="ep-types">
     @if (PathParamOnly) {
-        <span class="text-muted">no request body, identity via URL path param</span>
+        <span class="ep-note">no request body, identity via URL path param</span>
     } else if (RequestName is { } req) {
         @if (RequestLocked) {
             <span class="ep-signed">
@@ -10,7 +10,7 @@
 
         <MessageLink Name="@req" Link="Links" OnSelect="OnSelectType"/>
     } else {
-        <span class="text-muted">no request type</span>
+        <span class="ep-note">no request type</span>
     }
     <Icon Name="arrow-right" Class="icon-sm ep-arrow"/>
     @if (ResponseName is { } res) {
@@ -22,9 +22,9 @@
 
         <MessageLink Name="@res" Link="Links" OnSelect="OnSelectType"/>
     } else if (RawName is { } raw) {
-        <span class="text-muted">raw response @raw</span>
+        <span class="ep-note">raw response @raw</span>
     } else {
-        <span class="text-muted">no response type</span>
+        <span class="ep-note">no response type</span>
     }
 </span>
 

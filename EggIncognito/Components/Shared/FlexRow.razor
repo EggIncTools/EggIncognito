@@ -1,0 +1,9 @@
+<div class="frow @(Gap ? "frow-gap" : "") @(End ? "frow-end" : "")">
+    @ChildContent
+</div>
+
+@code {
+    [Parameter] public bool Gap { get; set; }
+    [Parameter] public bool End { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+}

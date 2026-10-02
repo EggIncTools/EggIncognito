@@ -1,0 +1,31 @@
+<div class="settings-wrap @Class">
+    @if (Open) {
+        <div class="popover-backdrop" @onclick="Close"></div>
+    }
+    @Trigger
+    <div class="settings-menu @(Open ? "open" : "") @(Wide ? "settings-menu-lg" : "") @(AlignLeft ? "settings-menu-left" : "")" style="@Style">
+        @if (Title is { Length: > 0 }) {
+            <div class="settings-title">@Title</div>
+        }
+        @ChildContent
+    </div>
+</div>
+
+@code {
+    [Parameter] public bool Open { get; set; }
+    [Parameter] public EventCallback<bool> OpenChanged { get; set; }
+    [Parameter] public string? Title { get; set; }
+    [Parameter] public bool Wide { get; set; }
+    [Parameter] public bool AlignLeft { get; set; }
+    [Parameter] public string? MaxHeight { get; set; }
+    [Parameter] public string? Class { get; set; }
+    [Parameter] public RenderFragment? Trigger { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    string? Style => MaxHeight is { Length: > 0 } h ? $"--settings-menu-max:{h}" : null;
+
+    Task Close() {
+        return OpenChanged.InvokeAsync(false);
+    }
+
+}

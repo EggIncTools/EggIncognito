@@ -1,0 +1,85 @@
+.cal-surface { display: contents; }
+.cal-surface ::deep .evcal-bar {
+  position: absolute;
+  top: calc(50% - var(--evcal-bar-h, 1.5rem) / 2);
+  left: calc(var(--bar-start) * 1% + var(--evcal-gap, 0.7%) / 2);
+  width: calc(var(--bar-size) * 1% - var(--evcal-gap, 0.7%));
+  height: var(--evcal-bar-h, 1.5rem);
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  min-width: 0;
+  padding: 0 var(--evcal-bar-pad, 0.4rem);
+  overflow: hidden;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  font-size: 0.6875rem;
+  border: 1px solid color-mix(in oklab, var(--evt-color, var(--color-border-input)) 60%, transparent);
+  border-left: 3px solid var(--evt-from, var(--evt-color, var(--color-border-input)));
+  border-radius: 0.25rem;
+  background:
+    linear-gradient(to right,
+      color-mix(in oklab, var(--evt-from, var(--color-panel2)) 26%, var(--color-panel2)),
+      color-mix(in oklab, var(--evt-to, var(--color-panel2)) 26%, var(--color-panel2)));
+  color: var(--color-fg-soft);
+}
+.cal-surface ::deep .evcal-bar:hover {
+  border-color: var(--evt-color, var(--color-accent));
+  border-left-color: var(--evt-color, var(--color-accent));
+  color: var(--color-fg);
+}
+.cal-surface ::deep .evcal-bar-icon {
+  flex: none;
+  width: var(--evcal-bar-h, 1.5rem);
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  margin-left: calc(-1 * var(--evcal-bar-pad, 0.4rem));
+  border-right: 1px solid color-mix(in oklab, black 25%, transparent);
+}
+.cal-surface ::deep .evcal-bar-active {
+  border-color: color-mix(in oklab, var(--evt-color, var(--color-accent)) 85%, transparent);
+  background:
+    linear-gradient(to right,
+      color-mix(in oklab, var(--evt-from, var(--color-accent)) 62%, var(--color-panel2)),
+      color-mix(in oklab, var(--evt-to, var(--color-accent)) 62%, var(--color-panel2)));
+  color: var(--color-fg);
+}
+.cal-surface ::deep .evcal-bar-past {
+  border-color: color-mix(in oklab, var(--evt-color, var(--color-border)) 45%, transparent);
+  border-left-color: color-mix(in oklab, var(--evt-from, var(--color-border)) 55%, transparent);
+  background:
+    linear-gradient(to right,
+      color-mix(in oklab, var(--evt-from, var(--color-panel2)) 14%, var(--color-panel2)),
+      color-mix(in oklab, var(--evt-to, var(--color-panel2)) 14%, var(--color-panel2)));
+  color: var(--color-fg-soft);
+}
+.cal-surface ::deep .evcal-bar-past .evcal-bar-icon { opacity: 0.75; }
+.cal-surface ::deep .evcal-bar-contract {
+  border-radius: 0;
+  border-top: 2px solid color-mix(in oklab, var(--evt-color, var(--color-border)) 70%, transparent);
+}
+.cal-surface ::deep .evcal-bar-cut-l { border-left-style: dashed; border-top-left-radius: 0; border-bottom-left-radius: 0; }
+.cal-surface ::deep .evcal-bar-cut-r { border-right-style: dashed; border-top-right-radius: 0; border-bottom-right-radius: 0; }
+.cal-surface ::deep .evcal-bar-ghost {
+  border: 1px dashed var(--evt-color, var(--color-border-input));
+  background: color-mix(in oklab, var(--evt-color, var(--color-panel2)) 12%, var(--color-panel2));
+}
+.cal-surface ::deep .evcal-bar-ghost:hover {
+  border-color: var(--evt-color, var(--color-accent));
+  background: color-mix(in oklab, var(--evt-color, var(--color-panel2)) 20%, var(--color-panel2));
+}
+.cal-surface ::deep .evcal-bar-ghost .evcal-bar-label { color: var(--color-muted); }
+.cal-surface ::deep .evcal-bar-ghost .evcal-bar-icon { opacity: 0.55; }
+.cal-surface ::deep .evcal-bar-uncertain .evcal-bar-label { opacity: 0.6; }
+.cal-surface ::deep .evcal-bar-uncertain .evcal-bar-icon { opacity: 0.3; }
+.cal-surface ::deep .evcal-bar-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cal-surface ::deep .evcal-bar-tip {
+  position: absolute;
+  top: calc(50% - var(--evcal-bar-h, 1.5rem) / 2);
+  left: calc(var(--bar-start) * 1% + var(--evcal-gap, 0.7%) / 2);
+  width: calc(var(--bar-size) * 1% - var(--evcal-gap, 0.7%));
+  height: var(--evcal-bar-h, 1.5rem);
+}
+.cal-surface ::deep .evcal-bar-tip .evcal-bar { position: static; width: 100%; height: 100%; }

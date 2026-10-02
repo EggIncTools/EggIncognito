@@ -1,0 +1,40 @@
+.evwb-zone { flex: none; font-size: 0.6875rem; color: var(--color-muted); white-space: nowrap; }
+.evcal-pane { display: flex; flex-direction: column; gap: 0.5rem; min-height: 0; height: 100%; }
+.evcal-note { flex: none; font-size: 0.8125rem; color: var(--color-muted); }
+.evcal-pane.evcal-month ::deep .cal-viewport { flex: none; height: var(--evcal-vp-h, 20rem); min-height: 0; }
+.evcal-pane.evcal-month ::deep .cal-period { height: var(--evcal-slot-h, 4rem); }
+.evcal-pane.evcal-month ::deep .cal-canvas { overflow: hidden; }
+.evcal-pane.evcal-month ::deep .cal-period-context { opacity: 0.35; }
+.evcal-scale { position: relative; height: 1.25rem; flex: none; margin-bottom: 0.25rem; }
+.evcal-scale-label {
+  position: absolute;
+  top: 0;
+  left: calc(var(--tick-pos) * 1%);
+  transform: translateX(-50%);
+  font-size: 0.6875rem;
+  line-height: 1.25rem;
+  color: var(--color-muted);
+  white-space: nowrap;
+}
+.evcal-detail {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.5rem;
+  background: var(--color-panel2);
+}
+.evcal-pop-head { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.25rem; }
+.evcal-pop-title { flex: 1; min-width: 0; font-size: 0.8125rem; font-weight: 600; color: var(--color-fg); }
+.evcal-detail ::deep .evcal-pop-row { display: flex; align-items: baseline; gap: 0.5rem; }
+.evcal-detail ::deep .evcal-pop-k {
+  width: 4.5rem;
+  flex: none;
+  font-size: 0.625rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-muted);
+}
+.evcal-detail ::deep .evcal-pop-v { min-width: 0; font-size: 0.6875rem; color: var(--color-fg-soft); overflow-wrap: anywhere; }

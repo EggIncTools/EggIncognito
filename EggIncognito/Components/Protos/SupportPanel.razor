@@ -2,18 +2,16 @@
 @inject ICurrentUser User
 
 <section class="panel pd-w-support">
-    <div class="flex items-center justify-between gap-2">
-        <h3 class="text-sm font-semibold m-0">Support</h3>
-        <button type="button" class="dropzone-open" aria-label="Support the project"
-                @onclick="@(() => OnOpenSupport.InvokeAsync())">
-            <Icon Name="chevron-right" Class="icon-sm"/>
-        </button>
-    </div>
-    <p class="text-muted text-xs m-0">
+    <PanelHead Title="Support">
+        <Tools>
+            <PaneOpenButton AriaLabel="Support the project" OnClick="@(() => OnOpenSupport.InvokeAsync())"/>
+        </Tools>
+    </PanelHead>
+    <p class="sp-lede">
         EggIncognito, EggIdentity, and EggLedger are free open-source tools; the hosting runs at a monthly deficit.
     </p>
     @if (_canCapture) {
-        <button type="button" class="btn-primary w-fit" @onclick="@(() => OnOpenCapture.InvokeAsync())">Open capture</button>
+        <button type="button" class="btn-primary sp-capture" @onclick="@(() => OnOpenCapture.InvokeAsync())">Open capture</button>
     }
 </section>
 

@@ -13,7 +13,7 @@
         </button>
     </div>
     @if (InspectorTargets.IsLive(Target)) {
-        <span class="text-xs text-muted">via</span>
+        <span class="insp-via">via</span>
         <div class="insp-target" role="radiogroup" aria-label="Live route">
             <button type="button" class="insp-target-opt @(Target == InspectorTarget.LiveViaServer ? "on" : "")"
                     @onclick="@(() => Choose(InspectorTarget.LiveViaServer))">
@@ -47,7 +47,7 @@
 
         @if (Target == InspectorTarget.LiveViaServer && SealedAvailable) {
             <div class="sealed-config">
-                <label class="settings-check">
+                <label class="form-check">
                     <input type="checkbox" checked="@Sealed" @onchange="OnSealedToggle"/>
                     Sealed API proxy
                 </label>

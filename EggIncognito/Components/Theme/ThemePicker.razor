@@ -13,9 +13,9 @@
 @implements IAsyncDisposable
 
 <div class="theme-picker">
-    <div class="sub-section-head">Appearance</div>
+    <SubSectionHead>Appearance</SubSectionHead>
     @if (!User.IsAuthenticated) {
-        <p class="text-muted text-xs m-0">Pick a preset to retheme this browser. Logging in saves themes and syncs them across devices.</p>
+        <Note Small="true">Pick a preset to retheme this browser. Logging in saves themes and syncs them across devices.</Note>
     }
     <div class="theme-preset-grid">
         @foreach (var preset in ThemePresets.All) {
@@ -27,7 +27,7 @@
     @if (User.IsAuthenticated) {
         <label class="theme-field">
             <span>My themes</span>
-            <select class="reg-filter-input w-auto" value="@_activeSlug" @onchange="OnThemeSelectedAsync">
+            <select class="reg-filter-input theme-select" value="@_activeSlug" @onchange="OnThemeSelectedAsync">
                 <option value="">Default (no theme)</option>
                 @foreach (var t in _themes) {
                     <option value="@t.Slug">@t.Name</option>

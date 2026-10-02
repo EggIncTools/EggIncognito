@@ -1,0 +1,9 @@
+<p class="note @(Small ? "note-sm" : "") @(Gap ? "note-gap" : "")">
+    @ChildContent
+</p>
+
+@code {
+    [Parameter] public bool Small { get; set; }
+    [Parameter] public bool Gap { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+}

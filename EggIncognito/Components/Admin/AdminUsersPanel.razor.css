@@ -1,0 +1,5 @@
+.au-name { font-weight: 500; }
+.au-select { width: auto; }
+.oidc-sources { display: flex; align-items: center; gap: 0.375rem; }
+.oidc-icon { display: inline-flex; align-items: center; color: var(--color-muted); }
+.oidc-icon:hover { color: var(--color-fg); }

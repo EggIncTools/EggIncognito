@@ -1,0 +1,81 @@
+.pwb-fil { display: flex; flex-direction: column; gap: 0.375rem; }
+.pwb-fil-group { display: flex; flex-direction: column; gap: 0.375rem; }
+.pwb-fil-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.375rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.375rem;
+  background-color: var(--color-bg);
+}
+.pwb-fil-row-new { border-style: dashed; background-color: transparent; }
+.pwb-fil-row-new .pwb-fil-sel { border-color: transparent; background-color: transparent; color: var(--color-muted); }
+.pwb-fil-row-head { display: flex; align-items: center; gap: 0.25rem; min-width: 0; }
+.pwb-fil-row-head .pwb-fil-sel { font-weight: 600; }
+.pwb-fil-join {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: var(--color-muted);
+}
+.pwb-fil-join::before, .pwb-fil-join::after {
+  content: "";
+  flex: 1 1 auto;
+  height: 1px;
+  background-color: var(--color-border);
+}
+.pwb-fil-or { color: var(--color-accent); }
+.pwb-fil-sel, .pwb-fil-val {
+  flex: 1 1 auto;
+  width: 100%;
+  min-width: 0;
+  height: 1.75rem;
+  box-sizing: border-box;
+  padding-inline: 0.375rem;
+  border: 1px solid var(--color-border-input);
+  border-radius: 0.25rem;
+  background-color: var(--color-bg);
+  font-size: 0.75rem;
+  color: var(--color-fg);
+}
+.pwb-fil-sel:focus, .pwb-fil-val:focus { outline: none; border-color: var(--color-accent); }
+.pwb-fil-bad { border-color: color-mix(in oklab, var(--color-warn) 60%, transparent); }
+.pwb-fil-warn {
+  flex: none;
+  font-family: var(--font-mono);
+  font-weight: 600;
+  color: var(--color-warn);
+  cursor: help;
+}
+.pwb-fil-x {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  padding: 0;
+  border: 0;
+  border-radius: 0.25rem;
+  background-color: transparent;
+  color: var(--color-muted);
+  cursor: pointer;
+}
+.pwb-fil-x:hover { color: var(--color-err); }
+.pwb-fil-orbtn {
+  align-self: stretch;
+  height: 1.75rem;
+  padding-inline: 0.5rem;
+  border: 1px dashed var(--color-border);
+  border-radius: 0.375rem;
+  background-color: transparent;
+  font-size: 0.6875rem;
+  letter-spacing: 0.06em;
+  color: var(--color-muted);
+  cursor: pointer;
+}
+.pwb-fil-orbtn:hover { color: var(--color-accent); border-color: var(--color-accent); }

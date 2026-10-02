@@ -1,0 +1,6 @@
+.wbx-bars { display: flex; flex-direction: column; gap: 0.1875rem; margin-top: 0.5rem; }
+.wbx-bar { display: grid; grid-template-columns: 5.5rem 1fr auto; align-items: center; gap: 0.375rem; }
+.wbx-bar-k { font-size: 0.625rem; color: var(--color-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wbx-bar-n { font-family: var(--font-mono); font-size: 0.625rem; color: var(--color-fg-soft); }
+.wbx-foot { display: flex; align-items: center; flex-wrap: wrap; gap: 0.25rem 0.625rem; margin-top: 0.5rem; }
+.wbx-foot-item { display: inline-flex; align-items: center; gap: 0.25rem; }

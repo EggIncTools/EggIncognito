@@ -71,24 +71,19 @@
                     <Sections>
                 <div hidden="@(!State.ShelfIs(DeviceWorkbenchState.ShelfCapture))">
                     @if (_hub is null) {
-                        <div class="dcon-status text-xs">
-                            <Icon Name="circle" Class="icon-sm text-muted"/>
-                            <span class="text-muted">Capture is not configured on this host.</span>
-                        </div>
+                        <DeviceStatusLine Muted="true" Text="Capture is not configured on this host."/>
                     } else {
                         <div class="dwb-capture">
-                            <div class="dcon-status text-xs">
-                                <Icon Name="@(_connected ? "circle-check" : "circle")" Class="@("icon-sm " + (_connected ? "text-ok" : "text-muted"))"/>
-                                <span class="text-muted">@(_connected ? "connected" : "waiting for the device")</span>
-                            </div>
-                            <div class="dwb-capture-bar">
-                                <CaptureControlsPanel View="State.Capture" ReadOnly="true"
+                            <DeviceStatusLine Icon="@(_connected ? "circle-check" : "circle")" IconClass="@(_connected ? "text-ok" : "text-muted")"
+                                              Muted="true" Text="@(_connected ? "connected" : "waiting for the device")"/>
+                            <ToolBar>
+                                <CaptureControlsPanel View="State.Capture" ReadOnly="true" MenusAlignLeft="true"
                                                       OnViewChanged="StateHasChanged"/>
-                                <label class="settings-check">
+                                <label class="form-check">
                                     <input type="checkbox" checked="@_autoOffer" @onchange="ToggleAutoOffer"/>
                                     Offer new captures for review automatically
                                 </label>
-                            </div>
+                            </ToolBar>
                             <div class="dwb-capture-body">
                                 <FlowList Flows="_flows" SelectedId="_selectedFlowId" Connected="_connected"
                                           View="State.Capture" OnSelect="SelectFlow"/>
@@ -113,10 +108,10 @@
 
                 <div hidden="@(!State.ShelfIs(DeviceWorkbenchState.ShelfJobs))">
                         @if (RunningFor(dev.Id) is { } running) {
-                            <div class="dwb-status wb-st-run text-xs"><Icon Name="play" Class="icon-sm"/><span>@running.Kind</span></div>
+                            <div class="dwb-status wb-st-run"><Icon Name="play" Class="icon-sm"/><span>@running.Kind</span></div>
                         }
                         <WorkbenchLoad T="JobGroupRow" Items="_jobs" EmptyText="No jobs yet." Context="jobs">
-                            <div class="reg-wrap">
+                            <TableScroll>
                                 <table class="data-table dwb-jobs-table">
                                     <thead>
                                     <tr>
@@ -132,13 +127,13 @@
                                         var day = DateOnly.FromDateTime(ViewerClock.At(Services, j.LastAt).DateTime);
                                         if (day != lastDay) {
                                             lastDay = day;
-                                            <tr class="dwb-job-day">
+                                            <tr class="row-day">
                                                 <td colspan="6">@day.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)</td>
                                             </tr>
                                         }
 
-                                        <tr class="dwb-job-row @(open ? "dwb-job-open" : "")" @key="j.Id" @onclick="@(() => ToggleJob(j))">
-                                            <td class="font-mono">@Stamp(j.LastAt)</td>
+                                        <tr class="row-click @(open ? "row-open" : "")" @key="j.Id" @onclick="@(() => ToggleJob(j))">
+                                            <td class="mono">@Stamp(j.LastAt)</td>
                                             <td>@j.Kind</td>
                                             <td>
                                                 <span class="dwb-status">
@@ -146,28 +141,28 @@
                                                     <span>@(j.Outcome ?? j.State)</span>
                                                 </span>
                                             </td>
-                                            <td class="font-mono text-accent" title="@(j.Repeat > 1 ? $"since {Stamp(j.StartedAt)}" : null)">
+                                            <td class="mono text-accent" title="@(j.Repeat > 1 ? $"since {Stamp(j.StartedAt)}" : null)">
                                                 @(j.Repeat > 1 ? $"x{j.Repeat}" : "")
                                             </td>
-                                            <td class="font-mono">@Duration(j)</td>
+                                            <td class="mono">@Duration(j)</td>
                                             <td class="dwb-job-trigger" title="@j.Trigger">@j.Trigger</td>
                                         </tr>
                                         @if (open) {
-                                            <tr class="dwb-job-detail">
+                                            <tr class="row-detail">
                                                 <td colspan="6">
                                                     <div class="dwb-job-lines">
                                                         @if (!string.IsNullOrEmpty(j.Message)) {
-                                                            <div class="dwb-job-line text-muted">@j.Message</div>
+                                                            <div class="dwb-job-line muted">@j.Message</div>
                                                         }
                                                         @foreach (var l in LinesFor(j.Id)) {
                                                             <div class="dwb-job-line">
-                                                                <span class="font-mono text-muted">@ViewerClock.At(Services, l.At).ToString("HH:mm:ss")</span>
+                                                                <span class="dwb-mono muted">@ViewerClock.At(Services, l.At).ToString("HH:mm:ss")</span>
                                                                 @if (l.Entry is not null) {
-                                                                    <span class="font-mono">@l.Entry</span>
+                                                                    <span class="dwb-mono">@l.Entry</span>
                                                                 }
                                                                 <span class="@LevelClass(l.Level)">@l.Text</span>
                                                                 @if (l.Bytes is > 0) {
-                                                                    <span class="text-muted font-mono">@ByteFormat.Mb(l.Bytes.Value, "F1")</span>
+                                                                    <span class="dwb-mono muted">@ByteFormat.Mb(l.Bytes.Value, "F1")</span>
                                                                 }
                                                             </div>
                                                         }
@@ -178,9 +173,9 @@
                                     }
                                     </tbody>
                                 </table>
-                            </div>
+                            </TableScroll>
                             @if (_jobsMore is not null) {
-                                <button type="button" class="btn-mini mt-2" disabled="@_jobsBusy" @onclick="LoadMoreJobsAsync">
+                                <button type="button" class="btn-mini dwb-gap" disabled="@_jobsBusy" @onclick="LoadMoreJobsAsync">
                                     @(_jobsBusy ? "Loading..." : "Older jobs")
                                 </button>
                             }
@@ -188,8 +183,8 @@
                 </div>
 
                 <div hidden="@(!State.ShelfIs(DeviceWorkbenchState.ShelfBinaries))">
-                        <div class="reg-wrap">
-                            <table class="data-table">
+                        <TableScroll>
+                            <table class="data-table dwb-table">
                                 <thead>
                                 <tr>
                                     <th>Version</th><th>SHA-256</th><th>Size</th><th>Symbols</th><th>Source</th><th>Pulled</th>
@@ -204,13 +199,13 @@
                                         <td>
                                             <VersionLine App="@b.Version"/>
                                         </td>
-                                        <td class="font-mono text-xs">@(b.Sha256.Length >= 12 ? b.Sha256[..12] : b.Sha256)</td>
-                                        <td class="font-mono text-xs">@ByteFormat.Mb(b.ByteSize, "F1")</td>
-                                        <td class="font-mono text-xs">@(b.EffectiveSymbols > 0 ? b.EffectiveSymbols : b.NativeSymbols)</td>
-                                        <td class="text-xs">@b.Source</td>
-                                        <td class="text-muted text-xs">@ViewerClock.At(Services, b.PulledAt).ToString("yyyy-MM-dd HH:mm")</td>
+                                        <td class="mono">@(b.Sha256.Length >= 12 ? b.Sha256[..12] : b.Sha256)</td>
+                                        <td class="mono">@ByteFormat.Mb(b.ByteSize, "F1")</td>
+                                        <td class="mono">@(b.EffectiveSymbols > 0 ? b.EffectiveSymbols : b.NativeSymbols)</td>
+                                        <td>@b.Source</td>
+                                        <td class="muted">@ViewerClock.At(Services, b.PulledAt).ToString("yyyy-MM-dd HH:mm")</td>
                                         @if (_isContributor) {
-                                            <td class="dwb-row-tools">
+                                            <td class="tools">
                                                 <a class="btn-mini" href="@DownloadUrl(b)" download>
                                                     <Icon Name="download" Class="icon-sm"/>
                                                     Download
@@ -221,11 +216,11 @@
                                 }
                                 </tbody>
                             </table>
-                        </div>
+                        </TableScroll>
                         @if (_harvest is { Entries.Count: > 0 }) {
-                            <div class="sub-section-head mt-4 mb-2">Latest harvest</div>
-                            <div class="reg-wrap">
-                                <table class="data-table">
+                            <SubSectionHead>Latest harvest</SubSectionHead>
+                            <TableScroll>
+                                <table class="data-table dwb-table">
                                     <thead>
                                     <tr>
                                         <th>Entry</th><th>Outcome</th><th>Size</th><th>Detail</th><th>When</th>
@@ -234,16 +229,16 @@
                                     <tbody>
                                     @foreach (var e in _harvest.Entries) {
                                         <tr>
-                                            <td class="font-mono text-xs">@e.Entry</td>
-                                            <td class="text-xs">@e.Outcome</td>
-                                            <td class="font-mono text-xs">@ByteFormat.Mb(e.Bytes, "F1")</td>
-                                            <td class="text-muted text-xs">@e.Note</td>
-                                            <td class="text-muted text-xs">@ViewerClock.At(Services, e.RanAt).ToString("HH:mm:ss")</td>
+                                            <td class="mono">@e.Entry</td>
+                                            <td>@e.Outcome</td>
+                                            <td class="mono">@ByteFormat.Mb(e.Bytes, "F1")</td>
+                                            <td class="muted">@e.Note</td>
+                                            <td class="muted">@ViewerClock.At(Services, e.RanAt).ToString("HH:mm:ss")</td>
                                         </tr>
                                     }
                                     </tbody>
                                 </table>
-                            </div>
+                            </TableScroll>
                         }
                 </div>
                     </Sections>
@@ -329,19 +324,19 @@
 
     RenderFragment ActionLines(DeviceRow dev) => @<text>
                                                       @if (!string.IsNullOrEmpty(dev.Note)) {
-                                                          <div class="font-mono text-xs text-muted mt-2">@dev.Note</div>
+                                                          <div class="dwb-note">@dev.Note</div>
                                                       }
                                                       @if (RunningFor(dev.Id) is { } run) {
-                                                          <div class="dwb-job-line mt-2">
+                                                          <div class="dwb-job-line dwb-gap">
                                                               <span class="dwb-status wb-st-run">
                                                                   <Icon Name="play" Class="icon-sm"/>
                                                                   <span>@run.Kind</span>
                                                               </span>
-                                                              <span class="text-muted">@run.Message</span>
+                                                              <span class="muted">@run.Message</span>
                                                           </div>
                                                       }
                                                       @if (_recert is { } rc) {
-                                                          <div class="dwb-job-lines mt-2">
+                                                          <div class="dwb-job-lines dwb-gap">
                                                               <div class="dwb-job-line">
                                                                   <span class="dwb-status">
                                                                       <Icon Name="@(rc.Ok ? "circle-check" : "circle-x")"
@@ -349,14 +344,14 @@
                                                                       <span>@(rc.Ok ? "recert ok" : "recert failed")</span>
                                                                   </span>
                                                                   @if (!rc.Ok) {
-                                                                      <span class="text-muted">at @(rc.FailedStep ?? "an unknown step")</span>
+                                                                      <span class="muted">at @(rc.FailedStep ?? "an unknown step")</span>
                                                                   }
                                                               </div>
                                                               @if (rc.Fields.TryGetValue("expiry", out var expiry)) {
-                                                                  <div class="dwb-job-line text-muted">expiry @expiry</div>
+                                                                  <div class="dwb-job-line muted">expiry @expiry</div>
                                                               }
                                                               @foreach (var line in rc.Log) {
-                                                                  <div class="dwb-job-line font-mono text-xs text-muted">@line</div>
+                                                                  <div class="dwb-job-line dwb-mono muted">@line</div>
                                                               }
                                                           </div>
                                                       }

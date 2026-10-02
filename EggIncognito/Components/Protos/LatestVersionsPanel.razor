@@ -2,14 +2,14 @@
 @using EggIncognito.Services.Protos
 <div class="pd-vergroup">
     <div class="pd-vergroup-head">
-        <span class="ds-state-k">Game version</span>
+        <span class="pv-k">Game version</span>
         @if (Updated is { } u) {
-            <span class="verline-sep">|</span>
+            <span class="pv-sep">|</span>
             <TimeAgo Value="@TimeAgo.FromUtc(u)"/>
         }
     </div>
     @if (_latest.Count == 0) {
-        <span class="text-muted text-xs">none yet</span>
+        <span class="pv-none">none yet</span>
     }
     @foreach (var r in _latest) {
         <button type="button" class="pv-latest-row @(IsBehind(r) ? "pv-latest-row-behind" : "")"

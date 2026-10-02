@@ -1,0 +1,6 @@
+.ap-note { margin: 0; font-size: 0.875rem; color: var(--color-muted); }
+.apk-table { font-size: 0.75rem; }
+.apk-version-cell { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+.apk-fact { font-size: 0.75rem; color: var(--color-muted); }
+.apk-bad { font-size: 0.75rem; color: var(--color-err); }
+.apk-split-cell { padding-left: 1.5rem; }

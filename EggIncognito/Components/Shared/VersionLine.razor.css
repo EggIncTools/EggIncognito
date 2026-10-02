@@ -1,0 +1,7 @@
+.verline { display: inline-flex; align-items: center; font-family: var(--font-mono); white-space: nowrap; }
+.verline ::deep .platform-icon { margin-right: 0.25rem; }
+.verline-app { color: var(--color-accent); }
+.verline-num { color: var(--color-muted); }
+.verline-sep { color: var(--color-separator); margin-inline: 0.25rem; }
+.verline-flawed .verline-app { color: var(--color-err); }
+.verline-behind .verline-app { color: var(--color-muted); }

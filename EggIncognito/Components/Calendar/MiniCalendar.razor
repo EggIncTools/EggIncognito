@@ -33,13 +33,15 @@
                         <div class="evcal-now" style="@TickStyle(nowPercent)"></div>
                     }
                     <div class="evcal-lanes">
-                        @foreach (var lane in row.Lanes) {
-                            <div class="evcal-lane">
-                                @foreach (var bar in lane) {
-                                    @Bar(bar)
-                                }
-                            </div>
-                        }
+                        <CalendarSurface>
+                            @foreach (var lane in row.Lanes) {
+                                <div class="evcal-lane">
+                                    @foreach (var bar in lane) {
+                                        @Bar(bar)
+                                    }
+                                </div>
+                            }
+                        </CalendarSurface>
                     </div>
                 </div>
             </div>

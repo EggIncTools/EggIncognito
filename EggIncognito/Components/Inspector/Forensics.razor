@@ -3,7 +3,7 @@
 @using EggIncognito.Models.Inspector
 <div class="forensics">
     <div class="forensics-input">
-        <textarea class="raw-json forensics-paste" spellcheck="false" placeholder="Paste base64 to diagnose..."
+        <textarea class="forensics-paste" spellcheck="false" placeholder="Paste base64 to diagnose..."
                   @attributes="InputAttrs.NoAutofill"
                   @bind="_manualB64" @bind:event="oninput"></textarea>
         <button class="btn-primary" disabled="@(string.IsNullOrWhiteSpace(_manualB64))" @onclick="RunManual">Diagnose</button>

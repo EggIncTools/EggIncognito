@@ -1,0 +1,19 @@
+<div class="tscroll @(MaxHeight is { Length: > 0 } ? "tscroll-y" : "") @Class" style="@Style">
+    @ChildContent
+</div>
+
+@code {
+    [Parameter] public string? MaxHeight { get; set; }
+    [Parameter] public string? MinHeight { get; set; }
+    [Parameter] public string? Class { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    string? Style {
+        get {
+            var s = "";
+            if (MaxHeight is { Length: > 0 } h) s += $"--tscroll-max:{h};";
+            if (MinHeight is { Length: > 0 } m) s += $"--tscroll-min:{m};";
+            return s.Length == 0 ? null : s;
+        }
+    }
+}

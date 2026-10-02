@@ -1,0 +1,21 @@
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(var(--kpi-cols, 3), minmax(0, 1fr));
+  gap: 0.375rem;
+  max-width: var(--kpi-max, none);
+}
+.kpi-grid ::deep .kpi {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.0625rem;
+  padding: 0.25rem 0.25rem 0.3125rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.25rem;
+  background-color: var(--color-bg);
+  min-width: 0;
+}
+.kpi-grid ::deep .kpi-n { font-family: var(--font-mono); font-size: 0.875rem; line-height: 1; color: var(--color-fg); }
+.kpi-grid ::deep .kpi-k { font-size: 0.625rem; text-transform: uppercase; letter-spacing: 0.025em; line-height: 1; color: var(--color-muted); }
+.kpi-grid ::deep .kpi-warn { border-color: color-mix(in oklab, var(--color-warn) 55%, transparent); }
+.kpi-grid ::deep .kpi-warn .kpi-n { color: var(--color-warn); }

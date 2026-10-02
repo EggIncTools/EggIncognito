@@ -1,0 +1,11 @@
+.stage-list { border: 1px solid var(--color-border); border-radius: 0.375rem; overflow: hidden; }
+.stage + .stage { border-top: 1px solid var(--color-border); }
+.stage.skipped { opacity: 0.55; }
+.stage-row { display: flex; align-items: center; gap: 0.5rem; width: 100%; padding: 0.375rem 0.625rem; border: 0; background: transparent; font-size: 0.75rem; color: var(--color-fg); text-align: left; cursor: pointer; }
+.stage-row:hover { background-color: var(--color-panel2); }
+.stage-name { font-family: var(--font-mono); }
+.stage-role { font-size: 0.625rem; color: var(--color-muted); }
+.stage.role-envelope .stage-role, .stage.role-payload .stage-role { color: var(--color-accent); }
+.stage-len { margin-left: auto; font-family: var(--font-mono); font-size: 0.6875rem; color: var(--color-muted); }
+.stage-body { display: flex; flex-direction: column; gap: 0.375rem; padding: 0 0.625rem 0.5rem; font-size: 0.75rem; }
+.stage-note { font-size: 0.6875rem; color: var(--color-accent); }

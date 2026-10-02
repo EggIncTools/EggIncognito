@@ -20,15 +20,15 @@ public partial class UnifiedStyleTests(SharedAppFactory f) {
     [Fact]
     public async Task CompiledSheet_DefinesUnifiedComponentVocabulary() {
         var c = _f.CreateClient();
-        string css = await c.GetStringAsync("/styles.css");
+        string css = await SheetFetch.AllAsync(c);
         foreach (string cls in new[] {
-                     ".panel", ".btn-primary", ".icon-btn", ".settings-menu", ".dropzone", ".result-pre",
+                     ".panel", ".btn-primary", ".icon-btn", ".settings-menu", ".result-pre",
                      ".flow-row", ".jtree-root", ".stage-row", ".flow-filters",
                      ".verline-app", ".verline-num", ".verline-sep", ".platform-icon", ".route-flag",
                      ".toast", ".modal-card", ".known-card", ".detail-pane-title", ".notif-item",
                      ".perk-list", ".rail", ".connect-card", ".faq-list",
-                     ".data-table", ".stat-tile", ".reg-row", ".reg-version", ".reg-sha", ".reg-empty",
-                     ".reg-filter-input", ".reg-edit-btn", ".sub-form",
+                     ".data-table", ".stat-tile",
+                     ".reg-filter-input",
                      ".prose-legal", ".prose-legal-section",
                      ".popover", ".popover-combo", ".popover-combo-opt",
                      ".tt-pop", ".tt-title", ".tt-line",
@@ -42,10 +42,10 @@ public partial class UnifiedStyleTests(SharedAppFactory f) {
     [Fact]
     public async Task CompiledSheet_KeepsDynamicallyReferencedClasses() {
         var c = _f.CreateClient();
-        string css = await c.GetStringAsync("/styles.css");
+        string css = await SheetFetch.AllAsync(c);
         foreach (string cls in new[] {
                      ".tok-string", ".tok-number", ".tok-bool", ".tok-null",
-                     ".toast-info", ".bg-picker-input", ".picker"
+                     ".toast-info", ".theme-color-input", ".picker"
                  }) {
             Assert.Contains(cls, css);
         }

@@ -1,0 +1,16 @@
+.insp-actions { display: flex; align-items: center; gap: 0.5rem; }
+.insp-actions-gap { flex: 1; }
+.insp-via { font-size: 0.75rem; color: var(--color-muted); }
+.insp-target { display: inline-flex; align-items: center; border: 1px solid var(--color-border); border-radius: 0.375rem; overflow: hidden; }
+.insp-target-opt { height: 1.75rem; box-sizing: border-box; padding: 0 0.625rem; border: 0; background: transparent; font-size: 0.75rem; line-height: 1; color: var(--color-muted); cursor: pointer; }
+.insp-target-opt + .insp-target-opt { border-left: 1px solid var(--color-border); }
+.insp-target-opt:hover:not(:disabled):not(.on) { color: var(--color-fg); }
+.insp-target-opt:disabled { opacity: 0.4; cursor: not-allowed; }
+.insp-target-opt.on { color: var(--color-accent); background-color: color-mix(in oklab, var(--color-accent) 12%, transparent); }
+.live-suboptions { display: flex; flex-direction: column; gap: 0.375rem; margin-top: 0.5rem; }
+.custom-config { display: flex; flex-direction: column; gap: 0.25rem; }
+.custom-config label { font-size: 0.75rem; color: var(--color-muted); }
+.custom-config input { width: 100%; box-sizing: border-box; padding: 0.25rem 0.375rem; border: 1px solid var(--color-border); border-radius: 0.25rem; background-color: var(--color-bg); font-family: var(--font-mono); font-size: 0.75rem; color: var(--color-fg); }
+.custom-config input:focus { outline: none; border-color: var(--color-accent); }
+.sealed-config { display: flex; flex-direction: column; gap: 0.25rem; }
+.sealed-config ::deep .form-check { font-size: 0.875rem; color: var(--color-fg); }

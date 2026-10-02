@@ -2,7 +2,7 @@
 <div class="env-box">
     <div class="env-head">
         <button type="button" class="env-title" @onclick="Toggle">
-            <span class="ep-caret @(State.EnvOpen ? "ep-caret-open" : "")"></span>BasicRequestInfo Setup
+            <Caret Open="State.EnvOpen"/>BasicRequestInfo Setup
         </button>
         @if (!State.EnvOpen) {
             <span class="env-state @(State.EnvValidated ? "ok" : "")">

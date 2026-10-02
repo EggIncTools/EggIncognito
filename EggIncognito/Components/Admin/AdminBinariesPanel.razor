@@ -13,9 +13,9 @@
 </AdminPaneHead>
 <PaneNotice @ref="_notice"/>
 @if (_rows.Count == 0) {
-    <p class="text-muted text-sm m-0">No stored binaries. Pulled automatically on the device maintenance schedule when a new version is installed.</p>
+    <Note>No stored binaries. Pulled automatically on the device maintenance schedule when a new version is installed.</Note>
 } else {
-    <div class="reg-wrap">
+    <TableScroll>
         <table class="data-table">
             <thead>
             <tr>
@@ -31,39 +31,37 @@
                     <td>
                         <PlatformIcon Platform="@b.Platform"/>
                     </td>
-                    <td class="mono text-xs">@ShaShort(b.Sha256)</td>
-                    <td class="mono text-xs">@ByteFormat.Mb(b.ByteSize, "F1")</td>
-                    <td class="mono text-xs">
+                    <td class="mono">@ShaShort(b.Sha256)</td>
+                    <td class="mono">@ByteFormat.Mb(b.ByteSize, "F1")</td>
+                    <td class="mono">
                         @EffectiveSymbols(b).ToString("N0")
                         @if (b.EffectiveSymbols > b.NativeSymbols) {
-                            <span class="text-muted"> (@b.NativeSymbols.ToString("N0") native + graft)</span>
+                            <span class="muted"> (@b.NativeSymbols.ToString("N0") native + graft)</span>
                         }
                     </td>
-                    <td class="text-xs">@b.Source</td>
-                    <td class="text-muted text-xs">@ViewerClock.At(Services, b.PulledAt).ToString("yyyy-MM-dd HH:mm:ss")</td>
-                    <td>
-                        <div class="flex gap-1 justify-end">
+                    <td class="small">@b.Source</td>
+                    <td class="muted">@ViewerClock.At(Services, b.PulledAt).ToString("yyyy-MM-dd HH:mm:ss")</td>
+                    <td class="tools">
                             <button type="button" class="btn-mini btn-danger" disabled="@_busy" @onclick="() => Delete(b.Platform, b.Version)">Delete</button>
-                        </div>
                     </td>
                 </tr>
             }
             </tbody>
         </table>
-    </div>
+    </TableScroll>
 }
 
-<div class="admin-panel-head mt-4">
-    <div class="sub-section-head">Symbolized reference</div>
-    <div class="flex gap-1 items-center">
-        <span class="text-muted text-xs">@_refs.Count total</span>
+<SubSectionHead>
+    <ChildContent>Symbolized reference</ChildContent>
+    <Tools>
+        <span class="subhead-fact">@_refs.Count total</span>
         <button type="button" class="btn-mini" disabled="@_refBusy" @onclick="LoadRefs">Refresh</button>
-    </div>
-</div>
+    </Tools>
+</SubSectionHead>
 @if (_refs.Count == 0) {
-    <p class="text-muted text-sm m-0">No symbolized reference stored. Upload a symbolized .ipa, or its Mach-O executable with a version, to graft names onto stripped builds.</p>
+    <Note>No symbolized reference stored. Upload a symbolized .ipa, or its Mach-O executable with a version, to graft names onto stripped builds.</Note>
 } else {
-    <div class="reg-wrap">
+    <TableScroll>
         <table class="data-table">
             <thead>
             <tr>
@@ -76,26 +74,24 @@
                     <td>
                         <VersionLine App="@r.Version"/>
                     </td>
-                    <td class="mono text-xs">@ShaShort(r.Sha256)</td>
-                    <td class="mono text-xs">@ByteFormat.Mb(r.ByteSize, "F1")</td>
-                    <td class="mono text-xs">@r.SymbolCount.ToString("N0")</td>
-                    <td class="text-muted text-xs">@ViewerClock.At(Services, r.UploadedAt).ToString("yyyy-MM-dd HH:mm:ss")</td>
-                    <td>
-                        <div class="flex gap-1 justify-end">
+                    <td class="mono">@ShaShort(r.Sha256)</td>
+                    <td class="mono">@ByteFormat.Mb(r.ByteSize, "F1")</td>
+                    <td class="mono">@r.SymbolCount.ToString("N0")</td>
+                    <td class="muted">@ViewerClock.At(Services, r.UploadedAt).ToString("yyyy-MM-dd HH:mm:ss")</td>
+                    <td class="tools">
                             <button type="button" class="btn-mini btn-danger" disabled="@_refBusy" @onclick="() => DeleteRef(r.Version)">Delete</button>
-                        </div>
                     </td>
                 </tr>
             }
             </tbody>
         </table>
-    </div>
+    </TableScroll>
 }
-<div class="flex gap-1 items-center flex-wrap mt-2">
-    <InputFile id="@RefInputId" class="text-xs"/>
-    <input class="reg-filter-input w-auto" placeholder="version (raw Mach-O only)" value="@_refVersion" @oninput="OnRefVersion"/>
+<FlexRow Gap="true">
+    <InputFile id="@RefInputId" class="ab-file"/>
+    <input class="reg-filter-input ab-input" placeholder="version (raw Mach-O only)" value="@_refVersion" @oninput="OnRefVersion"/>
     <button type="button" class="btn-mini" disabled="@_refBusy" @onclick="UploadRef">@(_refBusy ? "Working..." : "Upload")</button>
-</div>
+</FlexRow>
 
 @code {
     const string RefInputId = "symRefFile";

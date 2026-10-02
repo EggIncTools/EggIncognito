@@ -1,0 +1,18 @@
+.tbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.375rem 0.75rem;
+  min-width: 0;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.5rem;
+  background-color: var(--color-panel2);
+}
+.tbar-start { justify-content: flex-start; }
+.tbar ::deep .tbar-group { display: flex; flex-wrap: wrap; align-items: center; gap: 0.375rem; min-width: 0; }
+.tbar ::deep .tbar-fill { flex: 1 1 100%; min-width: 0; }
+.tbar ::deep .tbar-k { flex: none; font-size: 0.75rem; font-weight: 500; color: var(--color-muted); }
+.tbar ::deep .tbar-note { font-size: 0.75rem; color: var(--color-muted); }
+.tbar ::deep .tbar-note-clip { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }

@@ -4,13 +4,13 @@
 @inject IDocUsageIndex Usage
 
 @if (string.IsNullOrEmpty(Name)) {
-    <div class="empty-state">
-        No object selected.
-        <div class="empty-hint">
+    <EmptyState>
+        <ChildContent>No object selected.</ChildContent>
+        <Hint>
             Pick a proto message type in the rail to see its documentation, its fields, the endpoints
             that use it, and the messages that embed it.
-        </div>
-    </div>
+        </Hint>
+    </EmptyState>
 } else {
     <DocSubjectView Kind="DocSubjectKind.Message" Key="@Name" Title="@Name" Taggable="false">
         <Footer>
@@ -23,7 +23,7 @@
             @if (_fields.Count == 0) {
                 <div class="doc-none">This message has no fields.</div>
             } else {
-                <div class="reg-wrap doc-scroll doc-scroll-fields">
+                <TableScroll MaxHeight="24rem">
                     <table class="data-table">
                         <thead>
                         <tr>
@@ -44,20 +44,20 @@
                                             @f.MessageType
                                         </button>
                                     } else {
-                                        <span class="mono text-muted">@(f.MessageType ?? f.Type)</span>
+                                        <span class="mono muted">@(f.MessageType ?? f.Type)</span>
                                     }
                                 </td>
-                                <td class="text-muted">@FieldKind(f)</td>
+                                <td class="muted">@FieldKind(f)</td>
                             </tr>
                         }
                         </tbody>
                     </table>
-                </div>
+                </TableScroll>
             }
 
             @if (_nested.Count > 0) {
                 <div class="doc-section-title">Nested types (@_nested.Count)</div>
-                <div class="reg-wrap doc-scroll doc-scroll-grid">
+                <TableScroll MaxHeight="12rem">
                     <div class="doc-name-grid">
                         @foreach (var nested in _nested) {
                             <button type="button" class="doc-link" @key="nested" @onclick="() => OnSelectMessage.InvokeAsync(nested)">
@@ -65,14 +65,14 @@
                             </button>
                         }
                     </div>
-                </div>
+                </TableScroll>
             }
 
             <div class="doc-section-title">Used by (@_uses.Count)</div>
             @if (_uses.Count == 0) {
                 <div class="doc-none">No endpoint sends or returns this message directly.</div>
             } else {
-                <div class="reg-wrap doc-scroll doc-scroll-refs">
+                <TableScroll MaxHeight="18rem">
                     <table class="data-table">
                         <thead>
                         <tr>
@@ -98,14 +98,14 @@
                         }
                         </tbody>
                     </table>
-                </div>
+                </TableScroll>
             }
 
             <div class="doc-section-title">Referenced by (@_refs.Count)</div>
             @if (_refs.Count == 0) {
                 <div class="doc-none">No other message has a field of this type.</div>
             } else {
-                <div class="reg-wrap doc-scroll doc-scroll-refs">
+                <TableScroll MaxHeight="18rem">
                     <table class="data-table">
                         <thead>
                         <tr>
@@ -131,7 +131,7 @@
                         }
                         </tbody>
                     </table>
-                </div>
+                </TableScroll>
             }
         </Footer>
     </DocSubjectView>
@@ -158,9 +158,9 @@
         @<tr class="doc-group-row" @key="g.Key" @onclick="() => ToggleGroup(g.Key)">
             <td colspan="@g.Span">
                 <span class="doc-group-head">
-                    <span class="ep-caret @(_open.Contains(g.Key) ? "ep-caret-open" : "")"></span>
+                    <Caret Open="@_open.Contains(g.Key)"/>
                     <span class="mono">@g.Title</span>
-                    <span class="text-muted">@g.Count</span>
+                    <span class="muted">@g.Count</span>
                 </span>
             </td>
         </tr>;
@@ -174,10 +174,10 @@
                     <span class="mono doc-usedby-static">@u.Path, binary only</span>
                 }
             </td>
-            <td class="text-muted">@RoleText(u.Role)</td>
+            <td class="muted">@RoleText(u.Role)</td>
             <td class="doc-lock-col">
                 @if (u.Locked) {
-                    <span class="ep-signed">
+                    <span class="doc-signed">
                         <Icon Name="lock" Class="icon-sm"/>
                     </span>
                 }
@@ -190,7 +190,7 @@
                 <button type="button" class="doc-link" @onclick="() => OnSelectMessage.InvokeAsync(r.Message)">@r.Message</button>
             </td>
             <td class="mono">@r.Field</td>
-            <td class="text-muted">@(r.Repeated ? "repeated" : "optional")</td>
+            <td class="muted">@(r.Repeated ? "repeated" : "optional")</td>
         </tr>;
 
     protected override void OnParametersSet() {

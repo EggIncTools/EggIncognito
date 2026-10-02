@@ -5,8 +5,8 @@
 
 <AdminPaneHead Title="Events" Facts="@Stats"/>
 <PaneNotice @ref="_notice"/>
-<div class="sub-section-head">Store</div>
-<div class="reg-wrap">
+<SubSectionHead>Store</SubSectionHead>
+<TableScroll>
     <table class="data-table">
         <tbody>
         <tr>
@@ -20,24 +20,24 @@
         </tr>
         </tbody>
     </table>
-</div>
+</TableScroll>
 @if (_latest.Count > 0) {
-    <div class="sub-section-head">Recent</div>
-    <div class="reg-wrap">
+    <SubSectionHead>Recent</SubSectionHead>
+    <TableScroll>
         <table class="data-table">
             <tbody>
             @foreach (var e in _latest) {
                 <tr>
-                    <td>@e.Type</td><td class="text-muted text-xs">@FormatStart(e.StartTimestamp)</td>
+                    <td>@e.Type</td><td class="muted">@FormatStart(e.StartTimestamp)</td>
                 </tr>
             }
             </tbody>
         </table>
-    </div>
+    </TableScroll>
 }
 @if (_model is { } model) {
-    <div class="sub-section-head">Model</div>
-    <div class="reg-wrap">
+    <SubSectionHead>Model</SubSectionHead>
+    <TableScroll>
         <table class="data-table">
             <thead>
             <tr>
@@ -50,15 +50,15 @@
             @foreach (var rule in model.Rules) {
                 <tr>
                     <td>@KindLabel(rule.Kind)</td>
-                    <td class="mono text-xs">@(rule.Type ?? (rule.Ultra ? "ultra" : "pool"))</td>
-                    <td class="text-xs text-muted">@rule.Summary</td>
+                    <td class="mono">@(rule.Type ?? (rule.Ultra ? "ultra" : "pool"))</td>
+                    <td class="muted">@rule.Summary</td>
                 </tr>
             }
             </tbody>
         </table>
-    </div>
-    <div class="sub-section-head">Backtest, last @model.Sweep.Windows.Count windows of @EggIncognito.Services.Predictions.EventBacktest.SweepHorizonDays days</div>
-    <div class="reg-wrap">
+    </TableScroll>
+    <SubSectionHead>Backtest, last @model.Sweep.Windows.Count windows of @EggIncognito.Services.Predictions.EventBacktest.SweepHorizonDays days</SubSectionHead>
+    <TableScroll>
         <table class="data-table">
             <thead>
             <tr>
@@ -81,9 +81,9 @@
             }
             </tbody>
         </table>
-    </div>
+    </TableScroll>
 }
-<div class="text-xs text-muted mt-2">Historical data courtesy of carpetsage/egg. Backfill tools live in the Maintenance pane.</div>
+<Note Small="true" Gap="true">Historical data courtesy of carpetsage/egg. Backfill tools live in the Maintenance pane.</Note>
 
 @code {
     PaneNotice? _notice;

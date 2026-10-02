@@ -16,15 +16,8 @@
     <Rail>
         <WorkbenchRail>
             <WorkbenchSection Label="Tier">
-                <button type="button" class="evwb-row @(_showStandard ? "evwb-row-on" : "")"
-                        aria-pressed="@(_showStandard ? "true" : "false")" @onclick="@(() => SetTier(false))">
-                    Standard
-                </button>
-                <button type="button" class="evwb-row evwb-row-ultra @(_showUltra ? "evwb-row-on" : "")"
-                        style="@UltraRowStyle" aria-pressed="@(_showUltra ? "true" : "false")"
-                        @onclick="@(() => SetTier(true))">
-                    Ultra
-                </button>
+                <CalendarRailRow On="_showStandard" OnClick="@(() => SetTier(false))">Standard</CalendarRailRow>
+                <CalendarRailRow On="_showUltra" Ultra="true" Style="@UltraRowStyle" OnClick="@(() => SetTier(true))">Ultra</CalendarRailRow>
             </WorkbenchSection>
             <WorkbenchSection Label="Types">
                 <Tools>
@@ -33,25 +26,16 @@
                 </Tools>
                 <ChildContent>
                     @foreach (var type in TypesPresent) {
-                        var on = TypeSelected(type);
-                        <button type="button" @key="type" class="evwb-row @(on ? "evwb-row-on" : "evwb-row-dim")"
-                                style="@TypeRowStyle(type)" aria-pressed="@(on ? "true" : "false")"
-                                @onclick="@(() => ToggleType(type))">
-                            @if (EventPalette.IconUrl(type) is { } iconUrl) {
-                                <img class="evwb-row-icon" src="@iconUrl" alt="" loading="lazy" data-fallback/>
-                            }
+                        <CalendarRailRow @key="type" On="TypeSelected(type)" DimWhenOff="true" Style="@TypeRowStyle(type)"
+                                         IconUrl="@EventPalette.IconUrl(type)" OnClick="@(() => ToggleType(type))">
                             <span>@Pretty(type)</span>
-                        </button>
+                        </CalendarRailRow>
                     }
                 </ChildContent>
             </WorkbenchSection>
             @if (_isAdmin) {
                 <WorkbenchSection Label="Predictions">
-                    <button type="button" class="evwb-row @(_showPredictions ? "evwb-row-on" : "")"
-                            aria-pressed="@(_showPredictions ? "true" : "false")"
-                            @onclick="TogglePredictions">
-                        Show predictions
-                    </button>
+                    <CalendarRailRow On="_showPredictions" OnClick="TogglePredictions">Show predictions</CalendarRailRow>
                 </WorkbenchSection>
             }
         </WorkbenchRail>

@@ -21,7 +21,7 @@
     <HeadTools>
         @if (AdminScope) {
             @if (_admin is { } summary) {
-                <span class="text-xs text-muted">@AdminHeadLine(summary)</span>
+                <span class="nwb-head-note">@AdminHeadLine(summary)</span>
             }
         } else if (State.Creating) {
             <button type="button" class="btn-primary nwb-act"
@@ -102,7 +102,7 @@
             } else if (Current is { } row) {
                 @Config(State.Draft(row.Id), row)
             } else {
-                <div class="text-muted text-sm">Select a notification, or start a new one.</div>
+                <div class="nwb-select-note">Select a notification, or start a new one.</div>
             }
         </div>
     </ChildContent>
@@ -260,11 +260,11 @@
                                                                                  <div class="nwb-row">
                                                                                      <span class="nwb-k">Webhook</span>
                                                                                      @if (row is null) {
-                                                                                         <input class="nwb-field font-mono" aria-label="Discord webhook URL"
+                                                                                         <input class="nwb-field nwb-mono" aria-label="Discord webhook URL"
                                                                                                 placeholder="https://discord.com/api/webhooks/..."
                                                                                                 @bind="d.Url" @bind:event="oninput"/>
                                                                                      } else {
-                                                                                         <span class="nwb-static font-mono">@row.UrlMasked</span>
+                                                                                         <span class="nwb-static nwb-mono">@row.UrlMasked</span>
                                                                                      }
                                                                                  </div>
                                                                                  <div class="nwb-row">
@@ -380,7 +380,7 @@
                                                                          the subscription was created.
                                                                      </div>
                                                                  } else {
-                                                                     <div class="overflow-x-auto">
+                                                                     <TableScroll>
                                                                          <table class="data-table">
                                                                              <thead>
                                                                              <tr>
@@ -390,17 +390,17 @@
                                                                              <tbody>
                                                                              @foreach (var r in rows) {
                                                                                  <tr>
-                                                                                     <td class="text-muted text-xs whitespace-nowrap">
+                                                                                     <td class="nwb-td-muted nwb-td-nowrap">
                                                                                          @ViewerClock.At(Services, r.At).ToString("yyyy-MM-dd HH:mm:ss")
                                                                                      </td>
-                                                                                     <td class="text-xs">@Outcome(r)</td>
-                                                                                     <td class="text-xs">@r.Event</td>
-                                                                                     <td class="text-muted text-xs">@Detail(kind, r)</td>
+                                                                                     <td class="nwb-td-sm">@Outcome(r)</td>
+                                                                                     <td class="nwb-td-sm">@r.Event</td>
+                                                                                     <td class="nwb-td-muted">@Detail(kind, r)</td>
                                                                                  </tr>
                                                                              }
                                                                              </tbody>
                                                                          </table>
-                                                                     </div>
+                                                                     </TableScroll>
                                                                  }
                                                              </div>
                                                          }
@@ -415,7 +415,7 @@
                                                  </div>
                                                  <div class="nwb-row">
                                                      <span class="nwb-k">Target</span>
-                                                     <span class="nwb-static font-mono">@row.TargetMasked</span>
+                                                     <span class="nwb-static nwb-mono">@row.TargetMasked</span>
                                                  </div>
                                                  <div class="nwb-row">
                                                      <span class="nwb-cell">
@@ -458,7 +458,7 @@
                                                      </span>
                                                  </div>
                                              </div>
-                                             <div class="flex gap-1 items-center">
+                                             <FlexRow Gap="true">
                                                  <button type="button" class="btn-mini" disabled="@_busy"
                                                          @onclick="@(() => AdminTest(row.Id))">
                                                      @(_confirmTest ? "Confirm, send test" : "Send test")
@@ -473,10 +473,10 @@
                                                          @onclick="@(() => AdminDelete(row.Id))">
                                                      @(_confirmDelete ? "Confirm delete" : "Delete")
                                                  </button>
-                                             </div>
+                                             </FlexRow>
                                              @Activity(row.Id, row.EventKind)
                                          } else {
-                                             <div class="text-muted text-sm">Select a notification.</div>
+                                             <div class="nwb-select-note">Select a notification.</div>
                                          }
                                      </text>;
 

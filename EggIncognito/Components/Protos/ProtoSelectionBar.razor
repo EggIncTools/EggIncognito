@@ -2,8 +2,8 @@
 @inject ToastService Toasts
 
 <div class="pwb-selbar">
-    <div class="flex items-center gap-3 flex-wrap">
-        <span class="text-fg text-sm font-semibold">@Selected.Count selected</span>
+    <div class="pwb-selbar-row">
+        <span class="pwb-selbar-count">@Selected.Count selected</span>
 
         <button type="button" class="btn-mini" disabled="@_busy" @onclick="ArmDelete">Delete</button>
 

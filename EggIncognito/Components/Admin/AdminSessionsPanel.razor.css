@@ -1,0 +1,5 @@
+.as-link { text-decoration: none; }
+.sess-kind { display: inline-block; font-size: 0.65rem; font-weight: 600; }
+.sess-kind-user { color: var(--color-accent); }
+.sess-kind-local { color: var(--color-muted); }
+.sess-kind-device { color: var(--color-ok); }

@@ -14,14 +14,14 @@
 @implements IAsyncDisposable
 
 @if (!Auth.WidgetEnabled) {
-    <span class="@CssClass" style="opacity:0.6;cursor:not-allowed;">Login unavailable (identity service not configured)</span>
+    <span class="@CssClass auth-unavailable">Login unavailable (identity service not configured)</span>
 } else {
     <div class="auth-source-anchor">
         <button type="button" class="@CssClass" @onclick="Toggle" disabled="@_loading" @ref="_button">
             @(_loading ? "Loading..." : Label)
         </button>
         @if (_sources is not null) {
-            <div class="auth-source-menu" @ref="_menu" style="width:200px;">
+            <div class="auth-source-menu" @ref="_menu">
                 @foreach (var s in _sources) {
                     <a class="auth-source-btn" href="@Abs(s.Url)">
                         @if (!string.IsNullOrEmpty(s.IconUrl)) {
@@ -32,15 +32,15 @@
                 }
             </div>
         } else if (_error is not null) {
-            <div class="auth-source-menu" @ref="_menu" style="width:200px;">
-                <p class="text-red-500 text-sm" style="margin:0;padding:0.3rem 0.5rem;">@_error</p>
+            <div class="auth-source-menu" @ref="_menu">
+                <p class="auth-source-error">@_error</p>
             </div>
         }
     </div>
 }
 
 @code {
-    [Parameter] public string CssClass { get; set; } = "btn-primary inline-block no-underline";
+    [Parameter] public string CssClass { get; set; } = "btn-primary";
     [Parameter] public string Label { get; set; } = "Log in";
     [Parameter] public LoginMenuPlacement Placement { get; set; } = LoginMenuPlacement.BottomRight;
 

@@ -1,0 +1,25 @@
+.auth-name { display: inline-flex; align-items: center; gap: 0.4rem; margin: 0; padding: 0; border: 0; background: none; font-family: inherit; font-size: 0.8125rem; color: var(--color-fg-soft); cursor: pointer; }
+.auth-name:hover { color: var(--color-fg-max); }
+.auth-avatar { display: block; width: 1.375rem; height: 1.375rem; border-radius: 50%; }
+.acct-avatar-row { display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem; }
+.acct-avatar { width: 4rem; height: 4rem; flex-shrink: 0; border-radius: 9999px; background-color: var(--color-panel2); object-fit: cover; }
+.acct-avatar-tools { display: flex; flex-direction: column; gap: 0.375rem; min-width: 0; }
+.acct-upload { width: fit-content; cursor: pointer; }
+.acct-upload ::deep input { display: none; }
+.acct-hint { font-size: 0.75rem; color: var(--color-muted); }
+.acct-err { font-size: 0.75rem; color: var(--color-err); }
+.acct-rule { margin: 0.75rem 0; border: 0; border-top: 1px solid var(--color-border); }
+.acct-banner { margin-bottom: 0.5rem; font-size: 0.875rem; color: var(--color-muted); }
+.acct-table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+.acct-table td { padding: 0.5rem 0.5rem; border-bottom: 1px solid var(--color-border); vertical-align: middle; }
+.acct-table td:first-child { width: 8rem; padding-left: 0; }
+.acct-table td:last-child { padding-right: 0; white-space: nowrap; text-align: right; }
+.acct-prov { display: flex; align-items: center; gap: 0.5rem; font-weight: 500; }
+.acct-prov-icon { width: 22.5px; height: 22.5px; flex-shrink: 0; object-fit: contain; filter: brightness(0) invert(1); }
+.acct-id { display: flex; align-items: center; gap: 0.5rem; min-width: 0; }
+.acct-id-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.acct-id-date { flex-shrink: 0; font-size: 0.75rem; color: var(--color-muted); }
+.acct-chip { width: 22px; height: 22px; flex-shrink: 0; padding: 0; border: 2px solid transparent; border-radius: 9999px; background: transparent; cursor: pointer; }
+.acct-chip:hover { border-color: var(--color-accent); }
+.acct-chip img { display: block; width: 100%; height: 100%; border-radius: 9999px; object-fit: cover; }
+.acct-note { margin: 0; color: var(--color-muted); }

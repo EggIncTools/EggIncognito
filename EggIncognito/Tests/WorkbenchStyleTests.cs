@@ -61,10 +61,9 @@ public partial class WorkbenchStyleTests(SharedAppFactory f) {
         string css = await SheetAsync();
 
         foreach (string cls in new[] {
-                     ".wb-body", ".wb-rail", ".wb-rail-empty", ".wb-main", ".wb-head-tools",
-                     ".wb-group", ".wb-group-head", ".wb-group-body",
+                     ".wb-body", ".wb-rail", ".wb-main", ".wb-head-tools",
                      ".wb-entry", ".wb-entry-name", ".wb-entry-meta", ".wb-entry-foot",
-                     ".wb-x", ".wb-radio",
+                     ".wb-radio",
                      ".wb-st-queued", ".wb-st-run", ".wb-st-done", ".wb-st-err", ".wb-st-offer"
                  }) {
             Assert.Contains(cls, css, StringComparison.Ordinal);
@@ -86,8 +85,7 @@ public partial class WorkbenchStyleTests(SharedAppFactory f) {
     }
 
     private async Task<string> SheetAsync() {
-        var c = f.CreateClient();
-        return await c.GetStringAsync("/styles.css");
+        return await SheetFetch.AllAsync(f.CreateClient());
     }
 
     [GeneratedRegex(@"^\s*\.dwb-card\s*\{[^}]*\}", RegexOptions.Multiline)]

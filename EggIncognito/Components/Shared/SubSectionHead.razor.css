@@ -1,0 +1,5 @@
+.subhead { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; margin: 1rem 0 0.5rem; }
+.subhead:first-child { margin-top: 0; }
+.subhead-title { font-size: 0.875rem; font-weight: 600; color: var(--color-fg); }
+.subhead-tools { display: flex; align-items: center; gap: 0.25rem; flex-wrap: wrap; }
+.subhead ::deep .subhead-fact { font-size: 0.75rem; color: var(--color-muted); }

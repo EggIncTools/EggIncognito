@@ -18,12 +18,21 @@ public class AppVersionTests(SharedAppFactory f) {
     }
 
     [Fact]
-    public async Task ReconnectWatcher_ScriptIsServed() {
+    public async Task SharedAppVersion_IsMappedAndNoStore() {
         var c = _factory.CreateClient();
-        var r = await c.GetAsync("/interop/reconnectWatcher.js");
+        var r = await c.GetAsync("/_app/version");
         Assert.Equal(HttpStatusCode.OK, r.StatusCode);
-        string body = await r.Content.ReadAsStringAsync();
-        Assert.Contains("location.reload", body);
-        Assert.Contains("/api/app/version", body);
+        Assert.Equal("no-store", r.Headers.CacheControl?.ToString());
+        string json = await r.Content.ReadAsStringAsync();
+        Assert.Contains("\"version\"", json);
+    }
+
+    [Fact]
+    public async Task RootPage_RendersSharedReconnectModal_NotTheOldWatcher() {
+        var c = _factory.CreateClient();
+        string html = await c.GetStringAsync("/protos");
+        Assert.Contains("id=\"components-reconnect-modal\"", html);
+        Assert.Contains("_content/EggIdentity.UI/reconnect.js", html);
+        Assert.DoesNotContain("reconnectWatcher.js", html);
     }
 }

@@ -4,53 +4,53 @@
    the dialog shows an editable section per platform member and PATCHes each. *@
 
 @if (Targets is { Count: > 0 }) {
-    <div class="panel mb-3">
-        <div class="flex items-center justify-between mb-2">
-            <h3 class="text-sm m-0">Edit <span class="font-mono">@_appVersion</span></h3>
+    <div class="panel ped">
+        <div class="ped-head">
+            <h3 class="ped-title">Edit <span>@_appVersion</span></h3>
             <button type="button" class="btn-mini" @onclick="@(() => OnClose.InvokeAsync())">Close</button>
         </div>
 
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-2">
-            <label class="text-xs text-muted block">
+        <div class="ped-grid">
+            <label class="ped-field">
                 App version
-                <input class="protos-filter w-full" @bind="_appVersion"/>
+                <input class="protos-filter" @bind="_appVersion"/>
             </label>
             @if (CanOrder && !string.IsNullOrEmpty(ProtoSha)) {
-                <label class="text-xs text-muted block">
+                <label class="ped-field">
                     Sort order (proto sha @Short(ProtoSha), higher sorts newer)
-                    <input class="protos-filter w-full" type="number" @bind="_order"/>
+                    <input class="protos-filter" type="number" @bind="_order"/>
                 </label>
             }
         </div>
 
         @foreach (var f in _fields) {
-            <div class="border-t border-border pt-2 mb-2">
-                <div class="text-xs font-semibold mb-1 flex items-center gap-1.5">
+            <div class="ped-member">
+                <div class="ped-member-head">
                     <span class="code-chip">@f.Platform</span>
                 </div>
-                <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                    <label class="text-xs text-muted">
+                <div class="ped-grid ped-grid-3">
+                    <label class="ped-field">
                         Build (row key)
-                        <input class="protos-filter w-full" @bind="f.Build"/>
+                        <input class="protos-filter" @bind="f.Build"/>
                     </label>
-                    <label class="text-xs text-muted">
+                    <label class="ped-field">
                         Client version
-                        <input class="protos-filter w-full" @bind="f.ClientVersion"/>
+                        <input class="protos-filter" @bind="f.ClientVersion"/>
                     </label>
-                    <label class="text-xs text-muted">
+                    <label class="ped-field">
                         Source
-                        <input class="protos-filter w-full" @bind="f.Source"/>
+                        <input class="protos-filter" @bind="f.Source"/>
                     </label>
                 </div>
-                <div class="mt-2">
+                <div class="ped-proto">
                     @if (!f.ProtoOpen) {
                         <button type="button" class="btn-mini" disabled="@f.ProtoBusy" @onclick="@(() => OpenProto(f))">Edit proto</button>
                     } else {
-                        <label class="text-xs text-muted block">
+                        <label class="ped-field">
                             Proto
-                            <textarea class="protos-filter w-full font-mono text-xs" rows="8" @bind="f.Proto"></textarea>
+                            <textarea class="protos-filter ped-proto-text" rows="8" @bind="f.Proto"></textarea>
                         </label>
-                        <div class="flex items-center gap-2 mt-1">
+                        <div class="ped-actions ped-actions-gap">
                             <button type="button" class="btn-primary" disabled="@f.ProtoBusy" @onclick="@(() => SaveProto(f))">@(f.ProtoBusy ? "Saving..." : "Save proto")</button>
                             <button type="button" class="btn-mini" @onclick="@(() => f.ProtoOpen = false)">Cancel</button>
                         </div>
@@ -59,7 +59,7 @@
             </div>
         }
 
-        <div class="flex items-center gap-2">
+        <div class="ped-actions">
             <button type="button" class="btn-primary" disabled="@_busy" @onclick="Save">@(_busy ? "Saving..." : "Save")</button>
         </div>
     </div>

@@ -3,26 +3,26 @@
 @inject ToastService Toasts
 
 <div class="prof-prefs">
-    <div class="sub-section-head">Preferences</div>
+    <SubSectionHead>Preferences</SubSectionHead>
     @if (_identity is null) {
-        <p class="text-muted text-xs m-0">Preferences need the identity service.</p>
+        <Note Small="true">Preferences need the identity service.</Note>
     } else {
         <div class="prof-prefs-grid">
-            <label class="theme-field">
+            <label class="prof-field">
                 <span>Time zone</span>
                 <TimeZonePicker Value="@_timezone" ValueChanged="OnTimezone"/>
             </label>
-            <label class="theme-field">
+            <label class="prof-field">
                 <span>Language</span>
                 <LanguagePicker Value="@_language" ValueChanged="OnLanguage"/>
             </label>
         </div>
-        <p class="text-muted text-xs m-0">
+        <Note Small="true">
             Shared with every app that signs you in through EggIdentity.
             Will also take effect in other EggIdentity apps (e.g.,
             <a href="@EggLedgerUrl" target="_blank" rel="noopener noreferrer">EggLedger</a>).
-        </p>
-        <div class="theme-picker-actions">
+        </Note>
+        <div class="prof-actions">
             <button type="button" class="btn-mini" disabled="@(_busy || !Dirty)" @onclick="Save">
                 @(_busy ? "Saving..." : "Save preferences")
             </button>

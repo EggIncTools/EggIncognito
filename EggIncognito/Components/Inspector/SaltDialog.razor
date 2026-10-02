@@ -3,12 +3,12 @@
 @if (Open) {
     <ModalShell Title="Signing salt" TitleId="saltModalTitle" Width="ModalWidth.Small" OnClose="OnClose">
         <div class="modal-body">
-            <p class="text-muted text-sm mt-0">
+            <p class="salt-lede">
                 Signs requests. Stored in this browser only; never sent to the server beyond the build request.
             </p>
             <div class="salt-row">
                 <input type="@(_reveal ? "text" : "password")" placeholder="EGG_INC_API_SALT value" spellcheck="false"
-                       class="settings-input" @ref="_inputRef" @attributes="InputAttrs.NoAutofill"
+                       class="salt-input" @ref="_inputRef" @attributes="InputAttrs.NoAutofill"
                        @bind="_salt" @bind:event="oninput"/>
                 <button type="button" class="icon-btn icon-btn-sm @(_reveal ? "active" : "")"
                         aria-label="@(_reveal ? "Hide salt" : "Show salt")" aria-pressed="@(_reveal ? "true" : "false")"

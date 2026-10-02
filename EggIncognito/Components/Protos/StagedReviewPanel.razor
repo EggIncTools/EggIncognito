@@ -9,14 +9,14 @@
 
 @* Only render when there is something to review, unless the host asked for an explicit empty state. *@
 @if (_rows.Count == 0 && ShowEmpty) {
-    <section class="panel mb-3">
-        <div class="text-xs text-muted">@EmptyText</div>
+    <section class="panel sr-panel">
+        <div class="sr-empty">@EmptyText</div>
     </section>
 } else if (_rows.Count > 0) {
     var fresh = _rows;
-    <section class="panel mb-3">
-        <div class="flex items-center gap-2 flex-wrap mb-2">
-            <div class="text-sm font-semibold">Staged submissions (@_rows.Count)</div>
+    <section class="panel sr-panel">
+        <div class="sr-head">
+            <div class="sr-title">Staged submissions (@_rows.Count)</div>
             @if (fresh.Any(r => r.IsIncomplete)) {
                 <button type="button" class="btn-mini" @onclick="CopyAllMissing">
                     Copy Missing Info (@fresh.Count(r => r.IsIncomplete))
@@ -25,8 +25,8 @@
         </div>
 
         @if (_selected.Count > 0) {
-            <div class="flex items-center gap-2 flex-wrap mb-2 p-2 rounded-md bg-panel2 border border-border">
-                <span class="text-xs font-semibold">@_selected.Count selected</span>
+            <div class="sr-bulk">
+                <span class="sr-bulk-count">@_selected.Count selected</span>
                 <button type="button" class="btn-mini" disabled="@_busy" @onclick="BulkApprove">Approve selected</button>
                 <button type="button" class="btn-mini" disabled="@_busy" @onclick="BulkReject">Reject selected</button>
                 <button type="button" class="btn-mini" @onclick="ClearSelection">Clear</button>
@@ -38,7 +38,7 @@
                 <table class="data-table">
                     <thead>
                     <tr>
-                        <th class="w-8">
+                        <th class="sr-pick">
                             <input type="checkbox" checked="@AllSelectedIn(fresh)" @onchange="@(e => ToggleAllIn(fresh, e))"/>
                         </th>
                         <th>Source</th>
@@ -48,12 +48,12 @@
                         <th>Client</th>
                         <th>Proto SHA</th>
                         <th>Origin</th>
-                        <th class="w-28">Actions</th>
+                        <th class="sr-actions-col">Actions</th>
                     </tr>
                     </thead>
                     <tbody>
                     @foreach (var r in fresh) {
-                        <tr class="reg-row">
+                        <tr>
                             <td @onclick:stopPropagation="true">
                                 <input type="checkbox" checked="@_selected.Contains(r.Id)" @onchange="@(() => ToggleRow(r.Id))"/>
                             </td>
@@ -61,19 +61,19 @@
                                 <span class="code-chip">@r.Source</span>
                             </td>
                             <td>
-                                <input class="protos-filter w-full" style="min-width:5rem" @bind="r.Platform"/>
+                                <input class="protos-filter sr-in sr-in-sm" @bind="r.Platform"/>
                             </td>
                             <td>
-                                <input class="protos-filter w-full" style="min-width:6rem" placeholder="-" @bind="r.AppVersion"/>
+                                <input class="protos-filter sr-in sr-in-md" placeholder="-" @bind="r.AppVersion"/>
                             </td>
                             <td>
-                                <input class="protos-filter w-full" style="min-width:7rem" placeholder="-" @bind="r.Build"/>
+                                <input class="protos-filter sr-in sr-in-lg" placeholder="-" @bind="r.Build"/>
                             </td>
                             <td>
-                                <input class="protos-filter w-full" style="min-width:4rem" placeholder="-" @bind="r.ClientVersion"/>
+                                <input class="protos-filter sr-in sr-in-xs" placeholder="-" @bind="r.ClientVersion"/>
                             </td>
-                            <td class="text-xs text-muted font-mono">@Short(r.ProtoSha)</td>
-                            <td class="text-xs text-muted">
+                            <td class="sr-sha">@Short(r.ProtoSha)</td>
+                            <td class="sr-origin">
                                 @if (r.OriginRepo is not null) {
                                     <span>@r.OriginRepo</span>
                                     @if (r.Confidence is { } c) {
@@ -82,7 +82,7 @@
                                 }
                             </td>
                             <td @onclick:stopPropagation="true">
-                                <div class="flex gap-1">
+                                <div class="sr-actions">
                                     <button type="button" class="btn-mini" disabled="@_busy" @onclick="@(() => Approve(r))">Approve</button>
                                     <button type="button" class="btn-mini" disabled="@_busy" @onclick="@(() => Reject(r))">Reject</button>
                                     @if (r.IsIncomplete) {
@@ -155,8 +155,8 @@
     static string ConfClass(string c) {
         return c switch {
             "version-file" => "text-accent",
-            "subject" => "text-muted",
-            _ => "text-red-400"
+            "subject" => "muted",
+            _ => "text-err"
         };
     }
 
