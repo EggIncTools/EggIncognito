@@ -55,7 +55,7 @@
 .reg-intake:hover { color: var(--color-fg); border-color: var(--color-accent); }
 .reg-loading { padding: 1rem 0.75rem; font-size: 0.8125rem; color: var(--color-muted); }
 .reg-scroll { overflow-x: auto; overflow-y: hidden; }
-.reg-table { width: auto; border: 0; border-radius: 0; overflow: visible; --reg-lane-w: 0.75rem; }
+.reg-table { width: auto; min-width: 100%; border: 0; border-radius: 0; overflow: visible; --reg-lane-w: 0.75rem; }
 .reg-table thead th {
   position: static;
   padding: 0.55rem 0.75rem;

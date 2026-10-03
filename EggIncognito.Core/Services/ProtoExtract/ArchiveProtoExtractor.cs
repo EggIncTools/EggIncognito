@@ -125,6 +125,7 @@ public static class ArchiveProtoExtractor {
         ZipArchive zip;
         try {
             zip = new ZipArchive(new MemoryStream(archiveZipBytes, false), ZipArchiveMode.Read);
+            _ = zip.Entries.Count;
         } catch {
             yield break;
         }

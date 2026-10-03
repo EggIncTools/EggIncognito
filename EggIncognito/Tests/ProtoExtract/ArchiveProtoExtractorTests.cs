@@ -114,6 +114,17 @@ public class ArchiveProtoExtractorTests {
         Assert.True(r.Ok, r.Diagnostics);
     }
 
+    [Fact]
+    public void Extract_EmbeddedZipWithBadCentralDirectory_RawScanCarves() {
+        if (!TryFixture(out byte[] fx)) return;
+        byte[] bytes = ZipWith("assets/blob.bin", fx, CompressionLevel.NoCompression);
+        int eocd = bytes.AsSpan().LastIndexOf("PK\x05\x06"u8);
+        bytes[eocd + 8]++;
+        bytes[eocd + 10]++;
+        var r = ArchiveProtoExtractor.Extract(bytes);
+        Assert.True(r.Ok, r.Diagnostics);
+    }
+
     private static byte[] ZipWith(string name, byte[] content, CompressionLevel level = CompressionLevel.Optimal) {
         using var ms = new MemoryStream();
         using (var zip = new ZipArchive(ms, ZipArchiveMode.Create, true))
