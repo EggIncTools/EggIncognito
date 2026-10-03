@@ -51,8 +51,7 @@
   gap: 0.75rem;
   min-width: 20rem;
   min-height: 0;
-  overflow-y: auto;
-  scrollbar-gutter: stable;
+  overflow: hidden;
 }
 .dcon-stage {
   --dcon-radius: 1rem;
@@ -191,7 +190,7 @@
 .dcon-on { border-color: var(--color-accent); color: var(--color-accent); }
 .dcon-text { flex: 1 1 0; min-width: 0; height: 100%; font-family: var(--font-mono); }
 .dcon-keys-note { flex: 1 1 0; min-width: 0; font-size: 0.75rem; color: var(--color-muted); }
-.dcon-shelf { display: flex; flex: 1 1 0; flex-direction: column; gap: 0.5rem; min-width: 0; min-height: 14rem; }
+.dcon-shelf { display: flex; flex: 1 1 0; flex-direction: column; gap: 0.5rem; min-width: 0; min-height: 0; }
 .dcon-shelf-tabs { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 0.75rem; min-width: 0; }
 .dcon-shelf-tabs ::deep .segmented-opt { padding: 0.3rem 0.7rem; font-size: 0.75rem; }
 .dcon-shelf-run { display: inline-flex; margin-left: auto; min-width: 0; }
@@ -199,7 +198,7 @@
 .dcon-run-state { font-size: 0.75rem; color: var(--color-muted); }
 .dcon-shelf-body {
   display: flex;
-  flex: 1 1 auto;
+  flex: 1 1 0;
   flex-direction: column;
   gap: 0.75rem;
   min-width: 0;
@@ -209,7 +208,10 @@
   border-radius: 0.5rem;
   background-color: var(--color-panel2);
   overflow-y: auto;
+  scrollbar-gutter: stable;
 }
+.dcon-shelf-body > [hidden] { display: none; }
+.dcon-shelf-body > :not([hidden]) { display: flex; flex: 1 1 0; flex-direction: column; min-width: 0; min-height: 0; }
 .dcon-record { display: flex; flex-direction: column; gap: 0.5rem; min-width: 0; }
 .dcon-count { font-size: 0.75rem; color: var(--color-muted); }
 .dcon-list { table-layout: auto; font-size: 0.75rem; }

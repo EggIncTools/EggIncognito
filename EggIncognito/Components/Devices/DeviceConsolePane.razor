@@ -115,10 +115,11 @@
                         <ToolBar Flat="true">
                             <span class="tbar-group">
                                 <span class="tbar-k">Stream</span>
-                                <DeviceStatusLine Icon="@StreamIcon()" IconClass="@StreamIconClass()" Text="@StreamLabel()" Detail="@StreamDetail()"/>
+                                <span title="@StreamTitle()">
+                                    <DeviceStatusLine Icon="@StreamIcon()" IconClass="@StreamIconClass()" Text="@StreamLabel()" Detail="@StreamDetail()"/>
+                                </span>
                             </span>
                             <span class="tbar-group">
-                                <span class="dcon-codec" title="@(_videoFallback ? "h264 gave no frame, retrying shortly" : null)">@(_useVideo ? "h264" : _videoFallback ? "jpeg, h264 retry pending" : "jpeg")</span>
                                 <select class="field-input dcon-rate" aria-label="Quality" value="@QualityValue()" @onchange="QualityPicked">
                                     @if (_useVideo) {
                                         <option value="@StreamQuality.Fluid">Fluid</option>
@@ -549,13 +550,16 @@
 
     string? StreamDetail() {
         if (_streamError is { } err) return err;
-        if (!_live || !_hasFrame) return null;
-        if (!_useVideo)
-            return string.Create(CultureInfo.InvariantCulture,
-                $"{_jpegFps:0.#} of {_fps} fps, {_shotW}x{_shotH}");
-        return string.Create(CultureInfo.InvariantCulture,
-            $"{_videoFps:0} fps, {_videoLatency:0} ms, {_shotW}x{_shotH}, {_videoKbps / 1000:0.0} Mbps{VideoHealth()}");
+        if (!_live || !_hasFrame || !_useVideo) return null;
+        string health = VideoHealth();
+        return health.Length == 0 ? null : health;
     }
+
+    string StreamTitle() => !_live || !_hasFrame
+        ? ""
+        : _useVideo
+            ? string.Create(CultureInfo.InvariantCulture, $"{_videoFps:0} fps, {_videoLatency:0} ms, {_shotW}x{_shotH}, {_videoKbps / 1000:0.0} Mbps")
+            : string.Create(CultureInfo.InvariantCulture, $"{_jpegFps:0.#} of {_fps} fps, {_shotW}x{_shotH}");
 
     string VideoHealth() {
         if (_videoDrawn > 0 && _dropQueue + _dropKey + _dropError == 0 && _queueDepth <= 1) return "";
@@ -568,7 +572,7 @@
         if (_sinceDrawnMs >= 1000) parts.Add(string.Create(CultureInfo.InvariantCulture, $"nothing drawn for {_sinceDrawnMs / 1000.0:0.#}s"));
         if (_videoRestarts > 0 && DateTimeOffset.UtcNow - _restartWindowAt < TimeSpan.FromMinutes(1))
             parts.Add(_videoRestarts == 1 ? "1 restart" : string.Create(CultureInfo.InvariantCulture, $"{_videoRestarts} restarts"));
-        return parts.Count == 0 ? "" : " - " + string.Join(", ", parts);
+        return string.Join(", ", parts);
     }
 
     string StageEmptyText() {

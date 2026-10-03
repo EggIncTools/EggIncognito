@@ -1,10 +1,10 @@
 @using System.Text.Json
 @using EggIncognito.Artifacts
+@using EggIncognito.Core.Services.Devices
 @using EggIncognito.GameData
 @using EggIncognito.Models.Coverage
 @using EggIncognito.Services.Coverage
 @inherits SelfCallComponentBase
-@using EggIncognito.Core.Services.Devices
 @inject IServiceScopeFactory Scopes
 @inject IEnumerable<IDevicePanel> Panels
 @inject ToastService Toasts
@@ -12,29 +12,73 @@
 @inject ICurrentUser User
 
 @if (User.Current.IsAtLeast(UserRole.Admin)) {
-    @if (_noDb) {
-        <div class="awb-pane">
-            <h4 class="awb-pane-title">Consume coverage</h4>
+    <div class="cov">
+        <PanelHead Title="Consume coverage">
+            <Tools>
+                @if (_map is { } m) {
+                    <span class="meta-dots cov-facts">
+                        <span>@Pct(m.Validity) valid</span>
+                        <span>@m.CellsComplete of @m.CellsInScope cells</span>
+                        <span>@m.Items items</span>
+                        <span>@m.Observations observations</span>
+                        @if (m.PendingItems > 0) {
+                            <span>@m.PendingItems pending</span>
+                        }
+                    </span>
+                }
+            </Tools>
+        </PanelHead>
+
+        @if (_noDb) {
             <StatusNote Kind="StatusNoteKind.Error">No database configured.</StatusNote>
-        </div>
-    } else if (_map is null) {
-        @if (_loaded) {
-            <div class="awb-pane">
-                <h4 class="awb-pane-title">Consume coverage</h4>
+        } else if (_map is null) {
+            @if (_loaded) {
                 <StatusNote Kind="StatusNoteKind.Error">The artifact catalog is not loaded.</StatusNote>
-            </div>
-        }
-    } else {
-        <div class="awb-pane">
-            <h4 class="awb-pane-title">Consume coverage</h4>
-            <KpiGrid Columns="5" MaxWidth="34rem">
-                <KpiTile Value="@Pct(_map.Validity)" Label="Validity"/>
-                <KpiTile Value="@($"{_map.CellsComplete}/{_map.CellsInScope}")" Label="Cells complete"/>
-                <KpiTile Value="@_map.Items.ToString()" Label="Items"/>
-                <KpiTile Value="@_map.Observations.ToString()" Label="Observations"/>
-                <KpiTile Value="@_map.PendingItems.ToString()" Label="Pending items"/>
-            </KpiGrid>
-            <TableScroll MaxHeight="70vh">
+            }
+        } else {
+            @if (_sel is { } s) {
+                <ToolBar Flat="true" Class="cov-sel">
+                    <span class="tbar-group">
+                        <span class="cov-disc bg-r-@s.Cell.AfxRarity"><img src="@IconSrc(s.Family, LevelOf(s))" alt="" loading="lazy"/></span>
+                        <span class="tbar-k">@TierName(s)</span>
+                        <span class="meta-dots cov-facts">
+                            <span>@s.Cell.Items of @s.Cell.ItemTarget items</span>
+                            <span>@s.Cell.Observations of @s.Cell.ObservationTarget observations</span>
+                            @if (s.Cell.PendingObservations > 0) {
+                                <span>@s.Cell.PendingObservations pending</span>
+                            }
+                            @if (s.Cell.ObservationsShort > 0) {
+                                <span>next @s.Cell.ObservationsShort x @s.Cell.SuggestedBatch</span>
+                            }
+                        </span>
+                    </span>
+                    <span class="tbar-group">
+                        <select class="field-input cov-scope" aria-label="Target scope" value="@_scope" @onchange="@(e => _scope = e.Value?.ToString() ?? "Cell")">
+                            @foreach (var sc in ScopeNames) {
+                                <option value="@sc">@sc</option>
+                            }
+                        </select>
+                        <label class="cov-num-label">items
+                            <input type="number" min="1" class="field-input cov-num" aria-label="Item target" @bind="_itemTarget"/>
+                        </label>
+                        <label class="cov-num-label">obs
+                            <input type="number" min="1" class="field-input cov-num" aria-label="Observation target" @bind="_obsTarget"/>
+                        </label>
+                        <label class="form-check"><input type="checkbox" checked="@_enabled" @onchange="e => _enabled = e.Value is true"/>in scope</label>
+                        <button type="button" class="btn-mini" disabled="@_busy" @onclick="Save">Save target</button>
+                        @if (_scope == "Cell" && s.Cell.CellTargetId is { } id) {
+                            <button type="button" class="btn-mini" disabled="@_busy" @onclick="() => Remove(id)">Reset</button>
+                        }
+                    </span>
+                    @if (DeviceId is { Length: > 0 } device) {
+                        @foreach (var panel in CellPanels) {
+                            <DynamicComponent @key="panel.Id" Type="panel.ComponentType" Parameters="CellPanelParameters(device, s)"/>
+                        }
+                    }
+                </ToolBar>
+            }
+
+            <TableScroll Class="cov-scroll">
                 <table class="data-table cov-table">
                     <thead>
                     <tr>
@@ -81,16 +125,13 @@
 
                                                 <button type="button" class="cov-cell @(cell.InScope ? "" : "cov-cell-off") @(Selected(f, t, cell) ? "cov-cell-sel" : "")"
                                                         style="@CellStyle(cell)" title="@ArtifactDefinitions.EffectText(f.SpecName, t.AfxLevel, cell.AfxRarity)"
-                                                        @onclick="() => Select(f, t, cell)">
+                                                        @onclick="() => Select(f, t, cell)" @onclick:stopPropagation="true">
                                                     <span class="cov-disc bg-r-@cell.AfxRarity"><img src="@IconSrc(f.SpecName, t.AfxLevel)" alt="" loading="lazy"/></span>
                                                     <span class="cov-nk">@cell.Items/@cell.Observations</span>
                                                 </button>
                                             }
                                         }
                                     </div>
-                                    @if (_sel is { } s && s.Family == f.SpecName) {
-                                        @Detail(s.Cell)
-                                    }
                                 </td>
                             </tr>
                         }
@@ -98,8 +139,8 @@
                     </tbody>
                 </table>
             </TableScroll>
-        </div>
-    }
+        }
+    </div>
 }
 
 @code {
@@ -170,6 +211,12 @@
         _enabled = c.InScope;
     }
 
+    int LevelOf(CoverageSelection s) =>
+        _map?.Families.FirstOrDefault(f => f.SpecName == s.Family)?.Tiers.FirstOrDefault(t => t.Level == s.Level)?.AfxLevel ?? 0;
+
+    string TierName(CoverageSelection s) =>
+        _map?.Families.FirstOrDefault(f => f.SpecName == s.Family)?.Tiers.FirstOrDefault(t => t.Level == s.Level)?.Name ?? s.Family;
+
     CoverageTargetRequest RequestFor(CoverageSelection s) => _scope switch {
         "Tier" => new(s.Family, s.Level, null, _itemTarget, _obsTarget, _enabled),
         "Family" => new(s.Family, null, null, _itemTarget, _obsTarget, _enabled),
@@ -219,37 +266,6 @@
     static string CellStyle(CoverageCell c) => FormattableString.Invariant($"--v:{c.Validity:0.###};");
 
     static string Pct(double v) => FormattableString.Invariant($"{v * 100:0.#}%");
-
-    RenderFragment Detail(CoverageCell c) => @<div class="cov-detail">
-        <dl class="pd-identity-facts">
-            <div><dt>Items</dt><dd>@c.Items / @c.ItemTarget</dd></div>
-            <div><dt>Observations</dt><dd>@c.Observations / @c.ObservationTarget</dd></div>
-            <div><dt>Pending</dt><dd>@c.PendingItems / @c.PendingObservations</dd></div>
-            <div><dt>Short</dt><dd>@c.ItemsShort items, @c.ObservationsShort obs</dd></div>
-            <div><dt>Next</dt><dd>@c.ObservationsShort x consume @c.SuggestedBatch</dd></div>
-        </dl>
-        <ToolBar>
-            <div class="tbar-group">
-                @foreach (var sc in ScopeNames) {
-                    <label class="cov-scope"><input type="radio" class="wb-radio" name="cov-scope" checked="@(_scope == sc)" @onchange="() => _scope = sc"/>@sc</label>
-                }
-            </div>
-            <div class="tbar-group">
-                <input type="number" min="1" class="reg-filter-input cov-num" aria-label="Item target" @bind="_itemTarget"/>
-                <input type="number" min="1" class="reg-filter-input cov-num" aria-label="Observation target" @bind="_obsTarget"/>
-                <label class="cov-scope"><input type="checkbox" checked="@_enabled" @onchange="e => _enabled = e.Value is true"/>Enabled</label>
-                <button type="button" class="btn-primary" disabled="@_busy" @onclick="Save">Save</button>
-                @if (_scope == "Cell" && c.CellTargetId is { } id) {
-                    <button type="button" class="btn-mini" disabled="@_busy" @onclick="() => Remove(id)">Reset</button>
-                }
-            </div>
-        </ToolBar>
-        @if (DeviceId is { Length: > 0 } device && _sel is { } sel) {
-            @foreach (var panel in CellPanels) {
-                <DynamicComponent @key="panel.Id" Type="panel.ComponentType" Parameters="CellPanelParameters(device, sel)"/>
-            }
-        }
-    </div>;
 
     IEnumerable<IDevicePanel> CellPanels =>
         Panels.Where(p => string.Equals(p.Shelf, DevicePanelShelves.CoverageCell, StringComparison.Ordinal));

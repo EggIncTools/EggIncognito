@@ -11,4 +11,3 @@
 .contribute-counts { display: flex; align-items: baseline; gap: 1rem; font-family: var(--font-mono); font-size: 0.75rem; color: var(--color-muted); }
 .contribute-stat b { color: var(--color-fg); font-weight: 600; }
 .contribute-actions { display: flex; align-items: center; gap: 0.5rem; }
-.contribute-hint { color: var(--color-muted); font-size: 0.75rem; margin: 0; }

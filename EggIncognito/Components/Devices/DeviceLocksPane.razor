@@ -58,13 +58,13 @@
                 <button type="button" class="btn-mini btn-danger" disabled="@_busy" @onclick="ClearAllAsync">Clear all</button>
             }
         </span>
-        @if (Watch.Points.Count == 0 || Arming) {
+        @if (Arming) {
             <span class="tbar-group tbar-fill">
-                <span class="tbar-note">@(Arming ? "Tap a button on the screen. Its colour at that point becomes the trigger." : "No points locked. Lock a point and it is tapped again every time its colour returns.")</span>
+                <DeviceStatusLine Icon="eye" IconClass="text-accent" Text="tap the screen"/>
             </span>
-        } else if (Watch.Paused) {
+        } else if (Watch.Points.Count > 0 && Watch.Paused) {
             <span class="tbar-group tbar-fill">
-                <DeviceStatusLine Icon="pause" Text="paused" Detail="no point is tapped until you resume" Muted="true"/>
+                <DeviceStatusLine Icon="pause" Text="paused" Muted="true"/>
             </span>
         }
     </ToolBar>
