@@ -58,4 +58,6 @@ public sealed class DeviceResponseOverrideStore : IDeviceResponseOverrides, IDev
 
     internal DeviceResponseOverrideBody? Lookup(string deviceId, string path) =>
         _devices.TryGetValue(deviceId, out var map) && map.TryGetValue(path, out var body) ? body : null;
+
+    public byte[]? Body(string deviceId, string path) => Lookup(deviceId, path)?.Body;
 }

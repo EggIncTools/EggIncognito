@@ -20,6 +20,7 @@ public sealed class DeviceMaintenanceService(
     AndroidStoreCatalog androidCatalog,
     KnownVersionRecorder knownVersions,
     DeviceClaimRegistry claims,
+    DeviceActivity activity,
     ILogger<DeviceMaintenanceService> logger) : BackgroundService {
     private static readonly TimeSpan ClimbHarvestBackoff = TimeSpan.FromMinutes(30);
     private static readonly TimeSpan PublishRetryBackoff = TimeSpan.FromMinutes(10);
@@ -324,6 +325,10 @@ public sealed class DeviceMaintenanceService(
         DeviceJobStore jobs, EggIncognitoDbContext db, CancellationToken ct) {
         if (!_syncEnabled) return;
         if (probe.Reachable != true || string.IsNullOrEmpty(probe.AppVersion)) return;
+        if (activity.Why(d.Id) is { } inUse) {
+            logger.LogDebug("device sync: {Id} in use ({Why}); store check deferred", d.Id, inUse);
+            return;
+        }
 
         string? storeLatest = await StoreAheadCheck.StoreLatestAsync(db, d.Platform, ct,
             crossPlatformHint: string.Equals(d.Platform, "android", StringComparison.OrdinalIgnoreCase));
@@ -390,6 +395,11 @@ public sealed class DeviceMaintenanceService(
             }
 
             if (!Platforms.Matches(d.Platform, Platforms.Android)) continue;
+            if (activity.Why(d.Id) is { } inUse) {
+                logger.LogDebug("device recert: {Id} in use ({Why}); deferred", d.Id, inUse);
+                continue;
+            }
+
             if (_lastRecertProbe.TryGetValue(d.Id, out var last) && time.GetUtcNow() - last < _storeProbeInterval)
                 continue;
             _lastRecertProbe[d.Id] = time.GetUtcNow();

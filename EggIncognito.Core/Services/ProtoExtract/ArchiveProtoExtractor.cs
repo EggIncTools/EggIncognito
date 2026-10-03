@@ -33,6 +33,22 @@ public static class ArchiveProtoExtractor {
         };
     }
 
+    public readonly record struct NativeBinary(byte[] Bin, string? AppVersion, string? Build);
+
+    public static NativeBinary? ReadNativeBinary(byte[] archiveBytes) {
+        if (archiveBytes is null || archiveBytes.Length == 0) return null;
+        if (!IsZip(archiveBytes)) return new NativeBinary(archiveBytes, null, null);
+
+        if (TryReadArmBundle(archiveBytes, out byte[] armApk, out byte[]? baseApk)) {
+            (string? bv, string? bb) = ReadVersion(baseApk ?? armApk);
+            return ReadNativeBinary(armApk) is { } inner ? inner with { AppVersion = bv, Build = bb } : null;
+        }
+
+        (string? appVersion, string? build) = ReadVersion(archiveBytes);
+        byte[]? first = CandidateBinaries(archiveBytes).FirstOrDefault();
+        return first is null ? null : new NativeBinary(first, appVersion, build);
+    }
+
     private static string NoBinaryDiagnostics(byte[] zipBytes, string fallback) {
         if (!IsZip(zipBytes)) return fallback;
         byte[]? manifest = ReadAndroidManifest(zipBytes);

@@ -42,7 +42,9 @@ public static class DeviceExtensionLoader {
         bool cookbook = typeof(IDeviceCookbook).IsAssignableFrom(type);
         bool responses = typeof(IDeviceResponseSources).IsAssignableFrom(type);
         bool transforms = typeof(IDeviceResponseTransforms).IsAssignableFrom(type);
-        if (!cookbook && !responses && !transforms) return false;
+        bool panel = typeof(IDevicePanel).IsAssignableFrom(type);
+        bool service = type.GetCustomAttributes(typeof(DeviceExtensionServiceAttribute), false).Length > 0;
+        if (!cookbook && !responses && !transforms && !panel && !service) return false;
 
         services.AddSingleton(type, sp => ActivatorUtilities.CreateInstance(sp, type));
         if (cookbook)
@@ -51,6 +53,8 @@ public static class DeviceExtensionLoader {
             services.AddSingleton<IDeviceResponseSources>(sp => (IDeviceResponseSources)sp.GetRequiredService(type));
         if (transforms)
             services.AddSingleton<IDeviceResponseTransforms>(sp => (IDeviceResponseTransforms)sp.GetRequiredService(type));
+        if (panel)
+            services.AddSingleton<IDevicePanel>(sp => (IDevicePanel)sp.GetRequiredService(type));
         return true;
     }
 }
