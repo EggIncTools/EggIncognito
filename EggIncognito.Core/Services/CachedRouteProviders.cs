@@ -1,75 +1,46 @@
+using EggIdentity.Resilience;
 using Microsoft.Extensions.Logging;
 
 namespace EggIncognito.Core.Services;
 
-internal sealed class TtlSnapshotCache<T>(
-    Func<IReadOnlyList<T>> fetch,
-    Func<T, string> keyOf,
-    TimeSpan ttl,
-    TimeProvider? time = null,
-    ILogger? logger = null) {
-    public TtlSnapshotCache(
-        Func<IReadOnlyDictionary<string, T>> fetchMap,
-        Func<T, string> keyOf,
-        TimeSpan ttl,
-        TimeProvider? time = null,
-        ILogger? logger = null) : this(() => fetchMap().Values.ToList(), keyOf, ttl, time, logger) { }
+internal static class RouteSnapshot {
+    public static TtlSnapshot<IReadOnlyDictionary<string, T>> Create<T>(
+        Func<IEnumerable<T>> fetch, Func<T, string> keyOf, TimeSpan ttl, TimeProvider? time, ILogger? logger) =>
+        new(ttl, () => ToOrdinalDict(fetch(), keyOf), time,
+            ex => logger?.LogSnapshotRefreshFailed(ex, typeof(T).Name, ttl)) {
+            Fallback = new Dictionary<string, T>(StringComparer.Ordinal)
+        };
 
-    private readonly TimeProvider _time = time ?? TimeProvider.System;
-    private readonly Lock _lock = new();
-    private IReadOnlyDictionary<string, T> _snapshot = new Dictionary<string, T>(StringComparer.Ordinal);
-    private DateTimeOffset? _fetchedAt;
-
-    public IReadOnlyDictionary<string, T> Snapshot() {
-        lock (_lock) {
-            if (_fetchedAt is { } fetchedAt && _time.GetUtcNow() - fetchedAt < ttl) return _snapshot;
-            Refresh();
-            return _snapshot;
-        }
-    }
-
-    public void Invalidate() {
-        lock (_lock) {
-            _fetchedAt = null;
-        }
-    }
-
-    private void Refresh() {
-        try {
-            _snapshot = ToOrdinalDict(fetch());
-        } catch (Exception ex) {
-            logger?.LogSnapshotRefreshFailed(ex, typeof(T).Name, ttl);
-        }
-        _fetchedAt = _time.GetUtcNow();
-    }
-
-    private Dictionary<string, T> ToOrdinalDict(IReadOnlyList<T> source) {
-        return source
-            .GroupBy(keyOf, StringComparer.Ordinal)
-            .ToDictionary(g => g.Key, g => g.Last(), StringComparer.Ordinal);
-    }
+    private static Dictionary<string, T> ToOrdinalDict<T>(IEnumerable<T> source, Func<T, string> keyOf) =>
+        source.GroupBy(keyOf, StringComparer.Ordinal).ToDictionary(g => g.Key, g => g.Last(), StringComparer.Ordinal);
 }
 
 public sealed class CachedDbRouteProvider(IDbRouteProvider inner, TimeSpan ttl, TimeProvider? time = null,
-    ILogger? logger = null) : IDbRouteProvider {
-    private readonly TtlSnapshotCache<RouteInfo> _cache = new(inner.AllDbRoutes, r => r.Path, ttl, time, logger);
+    ILogger? logger = null) : IDbRouteProvider, IDisposable {
+    private readonly TtlSnapshot<IReadOnlyDictionary<string, RouteInfo>> _cache =
+        RouteSnapshot.Create(inner.AllDbRoutes, r => r.Path, ttl, time, logger);
 
-    public RouteInfo? GetDbRoute(string path) => _cache.Snapshot().GetValueOrDefault(path);
+    public RouteInfo? GetDbRoute(string path) => _cache.Get().GetValueOrDefault(path);
 
-    public IReadOnlyList<RouteInfo> AllDbRoutes() => _cache.Snapshot().Values.ToList();
+    public IReadOnlyList<RouteInfo> AllDbRoutes() => _cache.Get().Values.ToList();
 
     public void Invalidate() => _cache.Invalidate();
+
+    public void Dispose() => _cache.Dispose();
 }
 
 public sealed class CachedBinaryRouteProvider(IBinaryRouteProvider inner, TimeSpan ttl, TimeProvider? time = null,
-    ILogger? logger = null) : IBinaryRouteProvider {
-    private readonly TtlSnapshotCache<BinaryRouteInfo> _cache = new(inner.AllBinaryRoutes, b => b.Path, ttl, time, logger);
+    ILogger? logger = null) : IBinaryRouteProvider, IDisposable {
+    private readonly TtlSnapshot<IReadOnlyDictionary<string, BinaryRouteInfo>> _cache =
+        RouteSnapshot.Create(inner.AllBinaryRoutes, b => b.Path, ttl, time, logger);
 
-    public BinaryRouteInfo? GetBinaryRoute(string path) => _cache.Snapshot().GetValueOrDefault(path);
+    public BinaryRouteInfo? GetBinaryRoute(string path) => _cache.Get().GetValueOrDefault(path);
 
-    public IReadOnlyList<BinaryRouteInfo> AllBinaryRoutes() => _cache.Snapshot().Values.ToList();
+    public IReadOnlyList<BinaryRouteInfo> AllBinaryRoutes() => _cache.Get().Values.ToList();
 
     public void Invalidate() => _cache.Invalidate();
+
+    public void Dispose() => _cache.Dispose();
 }
 
 internal static partial class TtlSnapshotCacheLog {

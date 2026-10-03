@@ -41,19 +41,19 @@
                 <div class="reg-toolbar">
                     <BrandPanel Rows="_rows" OnOpenVersion="OpenVersion"/>
                     <div class="reg-toolbar-controls">
-                        <Tooltip Class="tt-ctl">
+                        <Tooltip PopClass="tt-ctl">
                             <ChildContent>
                                 <label id="protoPageDrop" class="reg-drop" for="wbFile">
                                     <Icon Name="upload" Class="icon-sm"/>
                                     <span>Drop a build</span>
                                 </label>
                             </ChildContent>
-                            <Tip>
+                            <Content>
                                 <span class="tt-title">Drop a build</span>
                                 <span class="tt-line">Drag an APK, APKM, XAPK or IPA onto this, or click to pick one. The proto inside is extracted and submitted to the registry.</span>
-                            </Tip>
+                            </Content>
                         </Tooltip>
-                        <Tooltip Class="tt-ctl">
+                        <Tooltip PopClass="tt-ctl">
                             <ChildContent>
                                 <button type="button" class="reg-intake"
                                         aria-label="Open the proto workbench" @onclick="@(() => _workbench?.Open())">
@@ -61,20 +61,17 @@
                                     <Icon Name="chevron-right" Class="icon-sm"/>
                                 </button>
                             </ChildContent>
-                            <Tip>
+                            <Content>
                                 <span class="tt-title">Proto workbench</span>
                                 <span class="tt-line">Browse every registered version, diff two protos side by side and inspect their messages.</span>
-                            </Tip>
+                            </Content>
                         </Tooltip>
                     </div>
                 </div>
                 @if (_loading && _rows.Count == 0) {
                     <div class="reg-loading">Loading...</div>
                 } else if (_rows.Count == 0) {
-                    <div class="reg-empty">
-                        <div>No proto versions yet.</div>
-                        <div class="reg-empty-hint">Drop a build on the toolbar, or open the proto workbench, to add one.</div>
-                    </div>
+                    <EmptyState Tall="true" Title="No proto versions yet." Hint="Drop a build on the toolbar, or open the proto workbench, to add one."/>
                 } else {
                     var bands = SortedBands;
                     _laneLayout = ShaLanes.Build(
@@ -116,13 +113,8 @@
                                                        @onclick:preventDefault="true" @onclick="@(() => OpenVersion(m))">
                                                         <PlatformIcon Platform="@m.Platform"/>
                                                         @if (m.BuildFlag is { } memberFlag) {
-                                                            <Tooltip>
-                                                                <ChildContent>
-                                                                    <span class="reg-num reg-num-bad">@m.Build</span>
-                                                                </ChildContent>
-                                                                <Tip>
-                                                                    <span class="tt-line tt-bad">@FlagLabel(memberFlag)</span>
-                                                                </Tip>
+                                                            <Tooltip Text="@FlagLabel(memberFlag)" Error="true">
+                                                                <span class="reg-num reg-num-bad">@m.Build</span>
                                                             </Tooltip>
                                                         } else {
                                                             <span class="reg-num">@m.Build</span>

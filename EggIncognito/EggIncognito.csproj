@@ -6,13 +6,16 @@
 
   <ItemGroup>
     <PackageReference Include="EggIdentity.AdminUi" />
+    <PackageReference Include="EggIdentity.Auth" />
     <PackageReference Include="EggIdentity.Bot" />
     <PackageReference Include="EggIdentity.Consent" />
     <PackageReference Include="EggIdentity.DbClone" />
     <PackageReference Include="EggIdentity.Deploy" />
     <PackageReference Include="EggIdentity.Deploy.AdminUi" />
     <PackageReference Include="EggIdentity.Fallback" />
+    <PackageReference Include="EggIdentity.Hosting" />
     <PackageReference Include="EggIdentity.Metrics" />
+    <PackageReference Include="EggIdentity.Resilience" />
     <PackageReference Include="EggIdentity.Settings" />
     <PackageReference Include="EggIdentity.Settings.AdminUi" />
     <PackageReference Include="EggIdentity.Settings.Api" />

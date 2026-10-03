@@ -21,7 +21,7 @@ public sealed class DocRegistryTests : IDisposable {
                                     """;
 
     private DocRegistry Build() {
-        string path = _tmp.Combine($"docreg-{Guid.NewGuid():N}.yaml");
+        string path = _tmp.File($"docreg-{Guid.NewGuid():N}.yaml");
         File.WriteAllText(path, YamlText);
         var routes = new RouteCatalog(path);
         return new DocRegistry(new ProtoReflection(), routes);

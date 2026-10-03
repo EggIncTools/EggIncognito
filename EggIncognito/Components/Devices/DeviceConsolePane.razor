@@ -175,8 +175,10 @@
                                     <span class="dcon-count">@_recorded.Count @(_recorded.Count == 1 ? "step" : "steps")</span>
                                 </span>
                                 <span class="tbar-group">
-                                    <CopyButton GetText="@(() => RecordedGesture.FlowText(_recorded))" Label="Copy flow" CopiedLabel="Copied"
-                                                ShowIcon="false" ButtonClass="btn-mini"/>
+                                    <CopyButton Text="@RecordedGesture.FlowText(_recorded)" Label="Copy flow" ShowIcon="false" Class="btn-mini">
+                                        <ChildContent>Copy flow</ChildContent>
+                                        <DoneContent>Copied</DoneContent>
+                                    </CopyButton>
                                     <button type="button" class="btn-mini" disabled="@(_recorded.Count == 0 || _replaying)" @onclick="ReplayAllAsync">
                                         <Icon Name="play" Class="icon-sm"/>
                                         @(_replaying ? "Replaying..." : "Replay")
@@ -219,7 +221,7 @@
                                     <div class="dcon-snip-row">
                                         <span class="dcon-snip-by">step</span>
                                         <code class="dcon-snip">@sel.StepLine</code>
-                                        <CopyButton Text="@sel.StepLine" AriaLabel="Copy flow step"/>
+                                        <CopyButton Text="@sel.StepLine" Label="Copy flow step" Class="icon-btn icon-btn-sm"/>
                                     </div>
                                 </div>
                             }

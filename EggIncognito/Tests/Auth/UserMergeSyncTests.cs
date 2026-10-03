@@ -1,7 +1,6 @@
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Net;
 using System.Reflection;
-using System.Text.Json;
 using EggIdentity.Client;
 using EggIdentity.Contract;
 using EggIncognito.Data.Services;
@@ -38,7 +37,7 @@ public class UserMergeSyncTests {
             DateTimeOffset? since = raw is null ? null : DateTimeOffset.Parse(raw, System.Globalization.CultureInfo.InvariantCulture);
             var page = rows(since).Where(r => since is null || r.MergedAt > since).OrderBy(r => r.MergedAt)
                 .Take(UserMergeSyncService.PageSize).ToList();
-            return StubHttpMessageHandler.Json(HttpStatusCode.OK, JsonSerializer.Serialize(page));
+            return StubResponses.Json(HttpStatusCode.OK, page);
         });
         return (new IdentityApiClient(new HttpClient(handler) { BaseAddress = new Uri("http://identity") }), urls);
     }

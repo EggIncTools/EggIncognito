@@ -137,7 +137,7 @@
 
     protected override void OnInitialized() {
         base.OnInitialized();
-        _isAdmin = User.IsAtLeast(UserRole.Admin);
+        _isAdmin = User.Current.IsAtLeast(UserRole.Admin);
     }
 
     public Task Open() {

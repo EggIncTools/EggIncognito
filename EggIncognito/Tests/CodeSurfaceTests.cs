@@ -151,10 +151,10 @@ public class CodeSurfaceTests : BunitContext {
             .Add(c => c.Text, "id EI1234567890 end")
             .Add(c => c.SensitiveValues, new HashSet<string>(StringComparer.Ordinal) { "EI1234567890" }));
 
-        var blurred = cut.Find(".blurred");
-        Assert.DoesNotContain("revealed", blurred.GetAttribute("class"));
-        blurred.Click();
-        Assert.Contains("revealed", cut.Find(".blurred").GetAttribute("class"));
+        var masked = cut.Find(".mask");
+        Assert.DoesNotContain("revealed", masked.GetAttribute("class"));
+        masked.Click();
+        Assert.Contains("revealed", cut.Find(".mask").GetAttribute("class"));
     }
 
     [Fact]

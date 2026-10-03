@@ -2,6 +2,7 @@ using EggIncognito.Core.Services.Devices;
 using EggIncognito.Models.Devices;
 using EggIncognito.Services.Devices;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Time.Testing;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
 
@@ -69,7 +70,7 @@ public class PixelWatchServiceTests {
 
     [Fact]
     public async Task HitAsync_InsideTheRateWindow_DoesNotTapAgain() {
-        var time = new ManualTime { Now = DateTimeOffset.UnixEpoch };
+        var time = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         using var svc = NewService(time);
         var platform = new StubPlatform(Png());
         svc.SetClientWatching(Target.Id, true);
@@ -77,9 +78,9 @@ public class PixelWatchServiceTests {
         string id = added.Value!.Points[0].Id;
 
         await svc.HitAsync(platform, Target, id, CancellationToken.None);
-        time.Now += TimeSpan.FromMilliseconds(100);
+        time.Advance(TimeSpan.FromMilliseconds(100));
         var second = await svc.HitAsync(platform, Target, id, CancellationToken.None);
-        time.Now += TimeSpan.FromMilliseconds(500);
+        time.Advance(TimeSpan.FromMilliseconds(500));
         await svc.HitAsync(platform, Target, id, CancellationToken.None);
 
         Assert.Equal("cycling", second.Note);
@@ -154,11 +155,6 @@ public class PixelWatchServiceTests {
         using var ms = new MemoryStream();
         image.SaveAsPng(ms);
         return ms.ToArray();
-    }
-
-    private sealed class ManualTime : TimeProvider {
-        public DateTimeOffset Now { get; set; }
-        public override DateTimeOffset GetUtcNow() => Now;
     }
 
     private sealed class StubPlatform(byte[] png) : DevicePlatformBase("android", [], [], [], [], []) {

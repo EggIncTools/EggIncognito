@@ -1,4 +1,5 @@
 using System.Collections.Frozen;
+using EggIdentity.Auth;
 using EggIdentity.Contract;
 
 namespace EggIncognito.Services.Auth;
@@ -8,5 +9,5 @@ public static class MockAccessGuard {
         FrozenSet.Create(StringComparer.Ordinal, "ei_afx/zoom_zoom");
 
     public static bool Blocks(string path, IAppMode mode, ICurrentUser user) =>
-        AdminOnlyHosted.Contains(path) && mode.Mode == AppMode.Hosted && !user.IsAtLeast(UserRole.Admin);
+        AdminOnlyHosted.Contains(path) && mode.Mode == AppMode.Hosted && !user.Current.IsAtLeast(UserRole.Admin);
 }

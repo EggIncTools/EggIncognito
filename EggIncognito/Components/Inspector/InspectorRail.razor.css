@@ -11,8 +11,8 @@
 .awb-rail-list { flex: 1 1 68%; }
 .awb-rail-hist { flex: 0 0 auto; min-height: 0; }
 .awb-rail-hist.awb-rail-hist-open { flex: 1 1 32%; min-height: 8rem; }
-.awb-rail-hist ::deep .insp-disc { display: flex; flex-direction: column; min-height: 0; height: 100%; }
-.awb-rail-hist ::deep .insp-disc-body { min-height: 0; overflow: auto; }
+.awb-rail-hist ::deep .disclosure { display: flex; flex-direction: column; min-height: 0; height: 100%; }
+.awb-rail-hist ::deep .disclosure-body { min-height: 0; overflow: auto; }
 .insp-list { display: flex; flex-direction: column; }
 .ep-ns {
   display: flex;

@@ -1,3 +1,4 @@
+using EggIdentity.Auth;
 using EggIncognito.Controllers;
 using EggIncognito.Models.Inspector;
 using EggIncognito.Services;
@@ -25,7 +26,8 @@ public class InspectorSealedSendTests {
     public async Task Send_SealedRequest_NotConfigured_403() {
         var sealedProxy = new FakeSealedProxy(false, false);
         var controller = NewController(
-            new FakeAppMode(AppMode.Local), new FakeUser(supporter: true), sealedProxy);
+            new FakeAppMode(AppMode.Local),
+            new FakeUser(Guid.NewGuid(), DiscordId: "tester", Supporter: true).Accessor(), sealedProxy);
 
         var ex = await Assert.ThrowsAsync<ApiException>(() => controller.Send(SealedSend()));
         Assert.Equal(StatusCodes.Status403Forbidden, ex.Status);
@@ -36,7 +38,7 @@ public class InspectorSealedSendTests {
     public async Task Send_HostedAnonymous_403_BeforeSealedCheck() {
         var sealedProxy = new FakeSealedProxy(true, true);
         var controller = NewController(
-            new FakeAppMode(AppMode.Hosted), new FakeUser(false), sealedProxy);
+            new FakeAppMode(AppMode.Hosted), new AnonymousUser(), sealedProxy);
 
         var ex = await Assert.ThrowsAsync<ApiException>(() => controller.Send(SealedSend()));
         Assert.Equal(StatusCodes.Status403Forbidden, ex.Status);

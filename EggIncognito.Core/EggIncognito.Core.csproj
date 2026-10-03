@@ -11,6 +11,7 @@
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
+    <PackageReference Include="EggIdentity.Resilience" />
     <PackageReference Include="Microsoft.Extensions.Http" />
     <PackageReference Include="SharpGLTF.Toolkit" />
     <PackageReference Include="Gee.External.Capstone" />

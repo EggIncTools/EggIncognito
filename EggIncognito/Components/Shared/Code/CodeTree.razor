@@ -11,8 +11,7 @@
         <span class="jtree-search-count">@_count</span>
         @Actions
         @if (CopyText is not null) {
-            <CopyButton GetText="CopyText" ButtonClass="btn-mini data-copy" IconClass="icon-sm"
-                        Label="Copy" CopiedLabel="Copied"/>
+            <CopyButton Text="@CopyText()" Class="btn-mini data-copy" IconClass="icon-sm">Copy</CopyButton>
         }
     </div>
     @if (Root is not null) {

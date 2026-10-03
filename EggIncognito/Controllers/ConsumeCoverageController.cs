@@ -1,5 +1,5 @@
+using EggIdentity.Auth;
 using EggIncognito.Models.Coverage;
-using EggIncognito.Services;
 using EggIncognito.Services.Auth;
 using EggIncognito.Services.Coverage;
 using Microsoft.AspNetCore.Mvc;
@@ -23,7 +23,8 @@ public sealed class ConsumeCoverageController(ICurrentUser currentUser) : ApiCon
     public async Task<IActionResult> Put([FromBody] CoverageTargetRequest body,
         [FromServices] ConsumeCoverageService svc, CancellationToken ct) {
         if (body.Error() is { } err) return Fail(400, err);
-        string by = currentUser.Username ?? currentUser.UserId?.ToString() ?? "admin";
+        var me = currentUser.Current;
+        string by = me.Name ?? me.Id?.ToString() ?? "admin";
         return Ok(await svc.UpsertAsync(body, by, ct));
     }
 

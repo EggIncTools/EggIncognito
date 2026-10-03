@@ -1,6 +1,5 @@
 using System.Net;
 using System.Text.Json;
-using EggIdentity.Contract;
 using EggIncognito.Capture;
 using EggIncognito.Controllers;
 using EggIncognito.Core.Services.Devices;
@@ -45,7 +44,7 @@ public class DeviceBridgeControllerTests {
         var cfg = new DeviceTransportConfig { BridgeEnabled = false, ApiKey = Secret };
         var http = GateHttp(presentedSecret: Secret);
 
-        Assert.IsType<NotFoundResult>(BridgeGate.Check(http, cfg, new FakeUser(role: UserRole.Viewer, discordId: "123"), null));
+        Assert.IsType<NotFoundResult>(BridgeGate.Check(http, cfg, new FakeUser(Guid.NewGuid(), DiscordId: "123").Accessor(), null));
     }
 
     [Fact]
@@ -57,7 +56,7 @@ public class DeviceBridgeControllerTests {
         };
         var http = GateHttp(presentedSecret: Secret);
 
-        Assert.IsType<NotFoundResult>(BridgeGate.Check(http, cfg, new FakeUser(role: UserRole.Viewer, discordId: "123"), null));
+        Assert.IsType<NotFoundResult>(BridgeGate.Check(http, cfg, new FakeUser(Guid.NewGuid(), DiscordId: "123").Accessor(), null));
     }
 
     [Fact]
@@ -69,7 +68,7 @@ public class DeviceBridgeControllerTests {
         };
         var http = GateHttp(presentedSecret: Secret, callerIp: "192.168.1.9");
 
-        var r = Assert.IsType<ObjectResult>(BridgeGate.Check(http, cfg, new FakeUser(role: UserRole.Viewer, discordId: "123"), null));
+        var r = Assert.IsType<ObjectResult>(BridgeGate.Check(http, cfg, new FakeUser(Guid.NewGuid(), DiscordId: "123").Accessor(), null));
         Assert.Equal(403, r.StatusCode);
     }
 
@@ -78,7 +77,7 @@ public class DeviceBridgeControllerTests {
         var cfg = new DeviceTransportConfig { BridgeEnabled = true, ApiKey = Secret };
         var http = GateHttp(presentedSecret: "nope");
 
-        var r = Assert.IsType<ObjectResult>(BridgeGate.Check(http, cfg, new FakeUser(role: UserRole.Viewer, discordId: "123"), null));
+        var r = Assert.IsType<ObjectResult>(BridgeGate.Check(http, cfg, new FakeUser(Guid.NewGuid(), DiscordId: "123").Accessor(), null));
         Assert.Equal(403, r.StatusCode);
     }
 
@@ -87,7 +86,7 @@ public class DeviceBridgeControllerTests {
         var cfg = new DeviceTransportConfig { BridgeEnabled = true, ApiKey = Secret };
         var http = GateHttp(presentedSecret: Secret);
 
-        Assert.Null(BridgeGate.Check(http, cfg, new FakeUser(role: UserRole.Viewer, discordId: "123"), null));
+        Assert.Null(BridgeGate.Check(http, cfg, new FakeUser(Guid.NewGuid(), DiscordId: "123").Accessor(), null));
     }
 
     [Fact]

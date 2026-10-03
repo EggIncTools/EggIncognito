@@ -1,12 +1,10 @@
-<SettingsMenu Open="_open" OpenChanged="SetOpen" Wide="true" AlignLeft="true" MaxHeight="420px">
+<Menu Open="_open" OpenChanged="SetOpen" Class="settings-menu settings-menu-lg" AlignStart="true" MaxHeight="420px"
+      TriggerClass="btn-mini" TriggerLabel="Notifications" CloseOnSelect="false">
     <Trigger>
-        <button type="button" class="btn-mini" aria-label="Notifications"
-                aria-haspopup="true" aria-expanded="@(_open ? "true" : "false")" @onclick="ToggleOpen">
-            <Icon Name="bell" Class="icon-sm"/>
-            @if (Unread > 0) {
-                <span>@Unread</span>
-            }
-        </button>
+        <Icon Name="bell" Class="icon-sm"/>
+        @if (Unread > 0) {
+            <span>@Unread</span>
+        }
     </Trigger>
     <ChildContent>
         <div class="notices-head">
@@ -35,7 +33,7 @@
             }
         </div>
     </ChildContent>
-</SettingsMenu>
+</Menu>
 
 @code {
     [Parameter] public IReadOnlyList<Models.Capture.NoticeItem> Notices { get; set; } = [];
@@ -46,13 +44,9 @@
 
     bool _open;
 
-    async Task ToggleOpen() {
-        _open = !_open;
-        if (_open) await OnNoticesRead.InvokeAsync();
-    }
-
-    void SetOpen(bool open) {
+    async Task SetOpen(bool open) {
         _open = open;
+        if (open) await OnNoticesRead.InvokeAsync();
     }
 
     Task DismissNotice(int id) {

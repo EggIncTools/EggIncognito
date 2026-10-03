@@ -1,4 +1,5 @@
 using Bunit;
+using EggIdentity.Auth;
 using EggIdentity.Contract;
 using EggIdentity.UI;
 using EggIncognito.Components.Admin;
@@ -16,7 +17,9 @@ public class AdminPageTests {
     public class Component : BunitContext {
         private void Wire(UserRole role) {
             JSInterop.Mode = JSRuntimeMode.Loose;
-            Services.AddSingleton<ICurrentUser>(new FakeUser(role != UserRole.Viewer, role));
+            Services.AddSingleton<ICurrentUser>(role != UserRole.Viewer
+                ? new FakeUser(Guid.NewGuid(), role, DiscordId: "tester").Accessor()
+                : new AnonymousUser());
             Services.AddSingleton<IHttpContextAccessor>(new HttpContextAccessor());
             Services.AddSingleton<IWebHostEnvironment>(new FakeWebHostEnvironment());
             Services.AddSingleton(new AuthState(false));

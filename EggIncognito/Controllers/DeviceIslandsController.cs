@@ -1,7 +1,7 @@
+using EggIdentity.Auth;
 using EggIncognito.Core.Services.Devices;
 using EggIncognito.Data.Services;
 using EggIncognito.Models.Devices;
-using EggIncognito.Services;
 using EggIncognito.Services.Auth;
 using EggIncognito.Services.Devices;
 using Microsoft.AspNetCore.Mvc;
@@ -50,7 +50,7 @@ public sealed class DeviceIslandsController(ICurrentUser currentUser) : ApiContr
         [FromServices] IDeviceConnectionFactory? factory, CancellationToken ct) {
         if (await runner.TargetAsync(id, ct) is not { } target) return Fail(404, "unknown device");
 
-        string who = currentUser.DiscordId ?? "?";
+        string who = currentUser.Current.DiscordId ?? "?";
         var run = await runner.RunNowAsync(id,
             new DeviceCookbookRequest(DeviceCookbookIds.CreateIsland, request?.Label), $"admin:{who}", ct);
         if (!run.Ok) return Fail(502, run.Failure ?? "create-island failed");
@@ -66,7 +66,7 @@ public sealed class DeviceIslandsController(ICurrentUser currentUser) : ApiContr
         CancellationToken ct) {
         if (await runner.TargetAsync(id, ct) is not { } target) return Fail(404, "unknown device");
 
-        string who = currentUser.DiscordId ?? "?";
+        string who = currentUser.Current.DiscordId ?? "?";
         var run = await runner.RunNowAsync(id,
             new DeviceCookbookRequest(DeviceCookbookIds.RemoveIsland, AndroidUserId: androidUserId), $"admin:{who}", ct);
         if (!run.Ok) return Fail(502, run.Failure ?? "remove-island failed");

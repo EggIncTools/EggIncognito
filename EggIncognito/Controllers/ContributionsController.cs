@@ -1,9 +1,9 @@
+using EggIdentity.Auth;
 using EggIdentity.Client;
 using EggIncognito.Capture;
 using EggIncognito.Data.Models;
 using EggIncognito.Data.Services;
 using EggIncognito.Models.Contributions;
-using EggIncognito.Services;
 using EggIncognito.Services.Auth;
 using EggIncognito.Services.Contributions;
 using EggIncognito.Services.Devices;
@@ -36,7 +36,7 @@ public sealed class ContributionsController(
     }
 
     private (Guid UserId, IActionResult? Error) Me() =>
-        currentUser.IsAuthenticated && currentUser.UserId is { } id
+        currentUser.Current is { IsAuthenticated: true, Id: { } id }
             ? (id, null)
             : (Guid.Empty, Fail(401, "log in to use contributions"));
 
@@ -212,7 +212,7 @@ public sealed class ContributionsController(
         return Ok(new { reviewed = changed, approved = body.Approve });
     }
 
-    private string Reviewer() => currentUser.Username ?? currentUser.UserId?.ToString() ?? "admin";
+    private string Reviewer() => currentUser.Current.Name ?? currentUser.Current.Id?.ToString() ?? "admin";
 
     private static int Clamp(int take) => take <= 0 ? 50 : Math.Min(take, MaxPageSize);
 }

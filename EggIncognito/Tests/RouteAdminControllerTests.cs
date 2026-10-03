@@ -26,7 +26,7 @@ public sealed class RouteAdminControllerTests : IDisposable {
     private RouteCatalog YamlWith(params string[] paths) {
         string body = string.Concat(paths.Select(p =>
             $"  - path: {p}\n    request: PeriodicalsResponse\n    response: PeriodicalsResponse\n"));
-        string file = _tmp.Combine($"routes-{Guid.NewGuid():N}.yaml");
+        string file = _tmp.File($"routes-{Guid.NewGuid():N}.yaml");
         File.WriteAllText(file, "routes:\n" + body);
         return new RouteCatalog(file);
     }
@@ -37,7 +37,7 @@ public sealed class RouteAdminControllerTests : IDisposable {
         var overrides = sp.GetService<IRouteOverrideProvider>();
         var report = new RouteCatalogReport(routes, yamlRoutes,
             new NonBinaryRouteCatalog(yamlRoutes, null, overrides), overrides, sp.GetService<IBinaryRouteProvider>());
-        return new RouteAdminController(routes, report, new ProtoReflection(), new FakeUser(role: UserRole.Admin), TimeProvider.System);
+        return new RouteAdminController(routes, report, new ProtoReflection(), new FakeUser(Guid.NewGuid(), UserRole.Admin, DiscordId: "tester").Accessor(), TimeProvider.System);
     }
 
     private static string Json(object? value) => JsonSerializer.Serialize(value, JsonOptions);

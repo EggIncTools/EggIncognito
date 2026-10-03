@@ -78,8 +78,10 @@
                             @(_stopBusy ? "Stopping..." : "Stop")
                         </button>
                     }
-                    <CopyButton GetText="RunReport" Label="Copy report" CopiedLabel="Copied" ShowIcon="false"
-                                ButtonClass="btn-mini"/>
+                    <CopyButton Text="@RunReport()" Label="Copy report" ShowIcon="false" Class="btn-mini">
+                        <ChildContent>Copy report</ChildContent>
+                        <DoneContent>Copied</DoneContent>
+                    </CopyButton>
                     @if (_runDone) {
                         <button type="button" class="btn-mini" @onclick="Done">Clear</button>
                     }
@@ -116,8 +118,9 @@
                 </TableScroll>
             }
 
-            <Disclosure Open="_logOpen" OpenChanged="@(v => _logOpen = v)" Label="Log" BodyId="deviceRunLog">
+            <Disclosure Open="_logOpen" OpenChanged="@(v => _logOpen = v)">
                 <Head>
+                    Log
                     <span class="drm-log-count">@_runLog.Count @(_runLog.Count == 1 ? "line" : "lines")</span>
                 </Head>
                 <Tools>
@@ -219,7 +222,7 @@
 
     protected override void OnInitialized() {
         base.OnInitialized();
-        _isAdmin = User.IsAtLeast(UserRole.Admin);
+        _isAdmin = User.Current.IsAtLeast(UserRole.Admin);
     }
 
     protected override async Task OnParametersSetAsync() {

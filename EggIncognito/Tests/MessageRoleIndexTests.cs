@@ -24,7 +24,7 @@ public sealed class MessageRoleIndexTests : IDisposable {
                                     """;
 
     private MessageRoles Build(IBinaryRouteProvider? binary = null) {
-        string path = _tmp.Combine($"roles-{Guid.NewGuid():N}.yaml");
+        string path = _tmp.File($"roles-{Guid.NewGuid():N}.yaml");
         File.WriteAllText(path, YamlText);
         return new MessageRoleIndex(new ProtoReflection(), new RouteCatalog(path), binary).Snapshot();
     }

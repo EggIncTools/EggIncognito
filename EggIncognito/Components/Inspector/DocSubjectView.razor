@@ -22,14 +22,13 @@
                 </span>
             }
             @if (_canTag) {
-                <SettingsMenu Open="_tagMenuOpen" OpenChanged="@(o => _tagMenuOpen = o)" Title="Tags" AlignLeft="true">
+                <Menu Open="_tagMenuOpen" OpenChanged="@(o => _tagMenuOpen = o)" Class="settings-menu" AlignStart="true"
+                      TriggerClass="doc-tag-plus" TriggerLabel="Attach tags" CloseOnSelect="false">
                     <Trigger>
-                        <button type="button" class="doc-tag-plus" aria-label="Attach tags" title="Attach tags"
-                                aria-haspopup="true" aria-expanded="@_tagMenuOpen" disabled="@_busy" @onclick="ToggleTagMenu">
-                            <Icon Name="plus" Class="icon-sm"/>
-                        </button>
+                        <Icon Name="plus" Class="icon-sm"/>
                     </Trigger>
                     <ChildContent>
+                        <div class="settings-title">Tags</div>
                         @if (_allTags.Count == 0) {
                             <div class="settings-hint">No tags defined yet.</div>
                         }
@@ -41,7 +40,7 @@
                             </label>
                         }
                     </ChildContent>
-                </SettingsMenu>
+                </Menu>
             }
         </span>
     }
@@ -97,11 +96,11 @@
 
     protected override void OnInitialized() {
         base.OnInitialized();
-        _canEdit = User.IsAtLeast(UserRole.Contributor);
+        _canEdit = User.Current.IsAtLeast(UserRole.Contributor);
     }
 
     protected override async Task OnParametersSetAsync() {
-        _canTag = Taggable && User.IsAtLeast(UserRole.Contributor);
+        _canTag = Taggable && User.Current.IsAtLeast(UserRole.Contributor);
         var subject = Slug + "/" + Key;
         if (string.IsNullOrEmpty(Key) || subject == _loadedFor) return;
         _loadedFor = subject;
@@ -122,10 +121,6 @@
 
     void EndEdit() {
         _editing = false;
-    }
-
-    void ToggleTagMenu() {
-        _tagMenuOpen = !_tagMenuOpen;
     }
 
     bool IsAttached(long id) {

@@ -31,7 +31,7 @@
             @foreach (var p in s.Config.Platforms) {
                 <span class="wbx-foot-item">
                     <PlatformIcon Platform="@p.Platform"/>
-                    <TimeAgo Value="@p.SavedAt"/>
+                    <TimeAgo At="@p.SavedAt" Class="time-ago"/>
                 </span>
             }
         </div>

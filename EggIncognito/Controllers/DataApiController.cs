@@ -1,7 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using EggIdentity.Auth;
 using EggIncognito.Core.Services;
-using EggIncognito.Services;
 using EggIncognito.Services.Auth;
 using EggIncognito.Services.DataApi;
 using Microsoft.AspNetCore.Mvc;
@@ -103,7 +103,7 @@ public sealed class DataApiController(DataCatalog catalog, ICurrentUser currentU
     }
 
     private async Task<IActionResult> Serve(DataSource src, string? name, CancellationToken ct) {
-        if (src.Access == DataAccess.Authenticated && !currentUser.IsAuthenticated)
+        if (src.Access == DataAccess.Authenticated && !currentUser.Current.IsAuthenticated)
             return Fail(401, "authentication required", "mint an API key at /api/v1/keys or log in", null);
 
         if (src.AcceptsName && string.IsNullOrEmpty(name))

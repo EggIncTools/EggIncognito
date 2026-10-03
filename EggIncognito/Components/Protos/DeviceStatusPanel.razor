@@ -71,7 +71,7 @@
     IDisposable? _topics;
 
     protected override Task OnInitializedAsync() {
-        _isAdmin = User.IsAtLeast(UserRole.Admin);
+        _isAdmin = User.Current.IsAtLeast(UserRole.Admin);
         return LoadAsync();
     }
 

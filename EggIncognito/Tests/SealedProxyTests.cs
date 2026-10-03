@@ -1,4 +1,5 @@
 using System.Net;
+using EggIdentity.Auth;
 using EggIncognito.Services;
 
 namespace EggIncognito.Tests;
@@ -21,25 +22,28 @@ public class SealedProxyTests {
     public void IsConfigured_WithUpstream_True()
         => Assert.True(NewProxy(Configured()).IsConfigured);
 
+    private static ICurrentUser User(bool supporter, string? discordId = "tester") =>
+        new FakeUser(Guid.NewGuid(), DiscordId: discordId, Supporter: supporter).Accessor();
+
     [Fact]
     public async Task CanUse_Unconfigured_False()
-        => Assert.False(await NewProxy(new SealedProxyOptions()).CanUseAsync(new FakeUser(true, supporter: true)));
+        => Assert.False(await NewProxy(new SealedProxyOptions()).CanUseAsync(User(true)));
 
     [Fact]
     public async Task CanUse_Anonymous_False()
-        => Assert.False(await NewProxy(Configured()).CanUseAsync(new FakeUser(false, supporter: false)));
+        => Assert.False(await NewProxy(Configured()).CanUseAsync(new AnonymousUser()));
 
     [Fact]
     public async Task CanUse_NonSupporter_False()
-        => Assert.False(await NewProxy(Configured()).CanUseAsync(new FakeUser(true, supporter: false)));
+        => Assert.False(await NewProxy(Configured()).CanUseAsync(User(false)));
 
     [Fact]
     public async Task CanUse_SupporterWithoutDiscordId_False()
-        => Assert.False(await NewProxy(Configured()).CanUseAsync(new FakeUser(true, discordId: null, supporter: true)));
+        => Assert.False(await NewProxy(Configured()).CanUseAsync(User(true, discordId: null)));
 
     [Fact]
     public async Task CanUse_Supporter_True()
-        => Assert.True(await NewProxy(Configured()).CanUseAsync(new FakeUser(true, supporter: true)));
+        => Assert.True(await NewProxy(Configured()).CanUseAsync(User(true)));
 
     [Fact]
     public void CreateEgressClient_UsesNamedEgressClient() {

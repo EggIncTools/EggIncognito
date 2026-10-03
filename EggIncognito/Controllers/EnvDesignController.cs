@@ -1,9 +1,9 @@
 using System.Text;
 using System.Text.Json;
+using EggIdentity.Auth;
 using EggIdentity.Contract;
 using EggIncognito.Data.Services;
 using EggIncognito.Models.EnvDesign;
-using EggIncognito.Services;
 using EggIncognito.Services.Auth;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
@@ -48,7 +48,7 @@ public sealed class EnvDesignController(ICurrentUser currentUser) : ApiControlle
             return Fail(400, "payload is not valid JSON");
         }
 
-        int next = await store.SaveAsync(name, payload, currentUser.UserId, Trim(body?.Note), ct);
+        int next = await store.SaveAsync(name, payload, currentUser.Current.Id, Trim(body?.Note), ct);
         return Ok(new { saved = name, version = next });
     }
 
@@ -66,7 +66,7 @@ public sealed class EnvDesignController(ICurrentUser currentUser) : ApiControlle
     [RequiresDb]
     public async Task<IActionResult> Rollback(string name, [FromBody] RollbackBody body,
         [FromServices] EnvDesignStore store, CancellationToken ct) {
-        var (result, fromVersion, next) = await store.RollbackAsync(name, body.VersionNo, currentUser.UserId, ct);
+        var (result, fromVersion, next) = await store.RollbackAsync(name, body.VersionNo, currentUser.Current.Id, ct);
         return result switch {
             EnvDesignStore.RollbackResult.NoDesign => Fail(404, "unknown design"),
             EnvDesignStore.RollbackResult.NoVersion => Fail(404, "unknown version"),
@@ -78,7 +78,7 @@ public sealed class EnvDesignController(ICurrentUser currentUser) : ApiControlle
     [EnableRateLimiting("write")]
     [RequiresDb]
     public async Task<IActionResult> Delete(string name, [FromServices] EnvDesignStore store, CancellationToken ct) {
-        var result = await store.DeleteAsync(name, currentUser.UserId, currentUser.IsAtLeast(UserRole.Admin), ct);
+        var result = await store.DeleteAsync(name, currentUser.Current.Id, currentUser.Current.IsAtLeast(UserRole.Admin), ct);
         return result switch {
             EnvDesignStore.DeleteResult.Ok => Ok(new { deleted = name }),
             EnvDesignStore.DeleteResult.Forbidden => Fail(403, "only the owner or an admin can delete this design"),

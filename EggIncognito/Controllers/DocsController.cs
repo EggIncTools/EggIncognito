@@ -1,8 +1,8 @@
 using System.Collections.Frozen;
+using EggIdentity.Auth;
 using EggIncognito.Data.Models;
 using EggIncognito.Data.Services;
 using EggIncognito.Models.Docs;
-using EggIncognito.Services;
 using EggIncognito.Services.Auth;
 using EggIncognito.Services.Inspector;
 using Microsoft.AspNetCore.Mvc;
@@ -53,7 +53,7 @@ public sealed class DocsController(ICurrentUser currentUser, TimeProvider time) 
                 SubjectKind = body.SubjectKind,
                 SubjectKey = body.SubjectKey,
                 BodyMd = body.BodyMd,
-                OwnerUserId = currentUser.UserId
+                OwnerUserId = currentUser.Current.Id
             });
         } else if (empty) {
             db.Docs.Remove(existing);
@@ -170,7 +170,7 @@ public sealed class DocsController(ICurrentUser currentUser, TimeProvider time) 
             ContentType = ct,
             Bytes = bytes,
             ByteSize = bytes.Length,
-            OwnerUserId = currentUser.UserId
+            OwnerUserId = currentUser.Current.Id
         };
         db.DocImages.Add(img);
         await db.SaveChangesAsync();

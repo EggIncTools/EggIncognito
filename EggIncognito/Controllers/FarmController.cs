@@ -1,4 +1,5 @@
 using System.Buffers;
+using EggIdentity.Auth;
 using EggIncognito.Core.Services.Farm;
 using EggIncognito.Models.Farm;
 using EggIncognito.Services;
@@ -149,7 +150,7 @@ public sealed class FarmController(
     [EnableRateLimiting("egress")]
     public async Task<IActionResult> Mesh(string stem, [FromQuery] string platform = "ios",
         [FromQuery] string? shell = null, CancellationToken ct = default) {
-        if (appMode.Mode == AppMode.Hosted && !currentUser.IsAuthenticated)
+        if (appMode.Mode == AppMode.Hosted && !currentUser.Current.IsAuthenticated)
             return Fail(403, "log in to download farm meshes from the hosted site");
         if (string.IsNullOrEmpty(stem) || stem.AsSpan().IndexOfAny(InvalidStemChars) >= 0)
             return Fail(400, "invalid mesh name");

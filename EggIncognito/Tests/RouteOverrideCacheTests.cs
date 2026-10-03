@@ -1,4 +1,5 @@
 using EggIncognito.Core.Services;
+using Microsoft.Extensions.Time.Testing;
 
 namespace EggIncognito.Tests;
 
@@ -11,7 +12,7 @@ public sealed class RouteOverrideCacheTests {
 
     [Fact]
     public void Snapshot_BeforeTtlElapses_DoesNotRefetch() {
-        var time = new FakeTime();
+        var time = new FakeTimeProvider(Start);
         int calls = 0;
         var provider = new CachedRouteOverrideProvider(() => {
             calls++;
@@ -25,7 +26,7 @@ public sealed class RouteOverrideCacheTests {
 
     [Fact]
     public void Invalidate_ForcesRefetch_EvenWithinTtl() {
-        var time = new FakeTime();
+        var time = new FakeTimeProvider(Start);
         int calls = 0;
         var provider = new CachedRouteOverrideProvider(() => {
             calls++;
@@ -40,7 +41,7 @@ public sealed class RouteOverrideCacheTests {
 
     [Fact]
     public void Snapshot_FirstFetchThrows_YieldsEmptyDict() {
-        var time = new FakeTime();
+        var time = new FakeTimeProvider(Start);
         var provider = new CachedRouteOverrideProvider(
             () => throw new InvalidOperationException("db down"),
             TimeSpan.FromSeconds(10), time);
@@ -51,7 +52,7 @@ public sealed class RouteOverrideCacheTests {
 
     [Fact]
     public void Snapshot_KeysByInfoPath_NotFetchDictKey() {
-        var time = new FakeTime();
+        var time = new FakeTimeProvider(Start);
         var mismatched = new Dictionary<string, RouteOverrideInfo> {
             ["wrong-key"] = Info("actual/path")
         };
@@ -62,8 +63,5 @@ public sealed class RouteOverrideCacheTests {
         Assert.False(snapshot.ContainsKey("wrong-key"));
     }
 
-    private sealed class FakeTime : TimeProvider {
-        private readonly DateTimeOffset _now = new(2026, 8, 4, 0, 0, 0, TimeSpan.Zero);
-        public override DateTimeOffset GetUtcNow() => _now;
-    }
+    private static readonly DateTimeOffset Start = new(2026, 8, 4, 0, 0, 0, TimeSpan.Zero);
 }

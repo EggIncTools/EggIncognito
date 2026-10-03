@@ -1,4 +1,5 @@
 using System.Net.Http.Headers;
+using EggIdentity.Auth;
 using EggIdentity.Client;
 using EggIdentity.Metrics;
 using EggIdentity.UI;
@@ -7,7 +8,6 @@ using EggIncognito.Services;
 using EggIncognito.Services.Auth;
 using EggIncognito.Services.Events;
 using EggIncognito.Services.Metrics;
-using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace EggIncognito.Startup;
 
@@ -38,8 +38,10 @@ public static class IdentityServices {
             o.HostedBehindProxy = boot.HostedBehindProxy;
         });
         builder.Services.AddSingleton<ITrafficSource, TrafficSource>();
-        builder.Services.TryAddScoped<ICurrentUser, CurrentUser>();
+        builder.Services.AddEggIdentityCurrentUser();
         builder.Services.AddEggIdentityBrowserTimeZone();
         builder.Services.AddScoped<ViewerClock>();
+        builder.Services.AddScoped<DownloadInterop>();
+        builder.Services.AddScoped<ClipboardInterop>();
     }
 }

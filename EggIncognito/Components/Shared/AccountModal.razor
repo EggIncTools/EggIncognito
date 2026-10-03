@@ -13,10 +13,10 @@
 @inject ToastService Toasts
 
 <button type="button" class="auth-name" @onclick="Open">
-    @if (!string.IsNullOrEmpty(User.AvatarUrl)) {
-        <img class="auth-avatar" src="@User.AvatarUrl" alt=""/>
+    @if (User.Current.AvatarUrl(Auth.IdentityHostUrl) is { Length: > 0 } avatar) {
+        <img class="auth-avatar" src="@avatar" alt=""/>
     }
-    @User.Username
+    @User.Current.Name
 </button>
 
 @if (_open) {
@@ -95,7 +95,7 @@
             } else {
                 <p class="acct-note">Log in to manage your linked logins and avatar.</p>
             }
-            @if (User.IsAuthenticated && !string.IsNullOrEmpty(_sessionToken)) {
+            @if (User.Current.IsAuthenticated &&!string.IsNullOrEmpty(_sessionToken)) {
                 <ProfilePreferences SessionToken="@_sessionToken" OnChanged="OnProfileChanged"/>
             }
             <ThemePicker/>

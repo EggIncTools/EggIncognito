@@ -47,7 +47,7 @@
             </WorkbenchRail>
         } else if (State.Mode == ApiWorkbenchState.ModeData) {
             <WorkbenchRail>
-                @if (User.IsAuthenticated) {
+                @if (User.Current.IsAuthenticated) {
                     <div class="awb-tools">
                         <button type="button" class="btn-mini" @onclick="@(() => State.KeysOpen = true)">
                             <Icon Name="key" Class="icon-sm"/> API keys
@@ -193,11 +193,12 @@
         base.OnInitialized();
 
         State.Hosted = AppMode.Mode == Services.AppMode.Hosted;
-        State.LiveDisabled = State.Hosted && !User.IsAuthenticated;
-        State.CanSaveDb = AppMode.Mode != Services.AppMode.Hosted || User.IsAtLeast(UserRole.Contributor);
-        State.IsAdmin = User.IsAtLeast(UserRole.Admin);
-        State.IsContributor = User.IsAtLeast(UserRole.Contributor);
-        State.SealedAvailable = SealedProxy.IsConfigured && User.IsSupporter;
+        var me = User.Current;
+        State.LiveDisabled = State.Hosted && !me.IsAuthenticated;
+        State.CanSaveDb = AppMode.Mode != Services.AppMode.Hosted || me.IsAtLeast(UserRole.Contributor);
+        State.IsAdmin = me.IsAtLeast(UserRole.Admin);
+        State.IsContributor = me.IsAtLeast(UserRole.Contributor);
+        State.SealedAvailable = SealedProxy.IsConfigured && me.IsSupporter;
         State.Target = InspectorTarget.Mock;
         State.Sealed = false;
         State.SeedEnvRows();

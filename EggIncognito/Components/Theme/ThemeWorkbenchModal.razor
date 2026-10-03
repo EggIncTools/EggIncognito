@@ -7,6 +7,7 @@
 @inject ToastService Toasts
 @inject NavigationManager Nav
 @inject ILogger<ThemeWorkbenchModal> Logger
+@inject DownloadInterop Download
 @using System.Globalization
 @using System.Text
 @using System.Text.Json
@@ -18,7 +19,7 @@
 <WorkbenchModal Open="Open" Title="Theme workbench" TitleId="themeWbTitle" Size="WorkbenchSize.Wide" OnClose="CloseAsync">
     <Rail>
         <WorkbenchRail>
-            @if (User.IsAuthenticated) {
+            @if (User.Current.IsAuthenticated) {
                 <WorkbenchSection Label="My themes">
                     <WorkbenchLoad T="ThemeRow" Items="_themes" EmptyText="No saved themes yet."
                                    Class="wb-note" Context="themes">
@@ -135,7 +136,7 @@
                     }
 
                     @if (_cssEligible) {
-                        <button type="button" class="btn-mini" @onclick="SaveCssAsync" disabled="@(!User.IsAuthenticated)">Save CSS to server</button>
+                        <button type="button" class="btn-mini" @onclick="SaveCssAsync" disabled="@(!User.Current.IsAuthenticated)">Save CSS to server</button>
                     }
                 } else if (State.Mode == ThemeWorkbenchState.ModeJson) {
                     <textarea class="theme-css-input" readonly>@DraftJson()</textarea>
@@ -145,11 +146,11 @@
                     <div class="theme-field">
                         <span>Import</span>
                         <textarea class="theme-css-input theme-import-input" spellcheck="false" @bind="_importJson"></textarea>
-                        <button type="button" class="btn-mini" @onclick="ImportAsync" disabled="@(!User.IsAuthenticated)">Import</button>
+                        <button type="button" class="btn-mini" @onclick="ImportAsync" disabled="@(!User.Current.IsAuthenticated)">Import</button>
                     </div>
                 }
                 <div class="theme-actions">
-                    @if (User.IsAuthenticated) {
+                    @if (User.Current.IsAuthenticated) {
                         <button type="button" class="btn-primary" @onclick="SaveAsync">Save</button>
                         <button type="button" class="btn-mini" @onclick="ActivateAsync">Activate</button>
                         <button type="button" class="btn-mini" @onclick="DeactivateAsync">Deactivate</button>
@@ -221,7 +222,6 @@
     bool _loaded;
     IJSObjectReference? _preview;
     IJSObjectReference? _prefs;
-    IJSObjectReference? _download;
 
     protected override void OnInitialized() {
         base.OnInitialized();
@@ -242,7 +242,6 @@
             try {
                 _preview = await Js.InvokeAsync<IJSObjectReference>("import", InteropAsset.Url(HostEnv, "./interop/themePreview.js"));
                 _prefs = await Js.InvokeAsync<IJSObjectReference>("import", InteropAsset.Url(HostEnv, "./interop/uiPrefs.js"));
-                _download = await Js.InvokeAsync<IJSObjectReference>("import", InteropAsset.Url(HostEnv, "./interop/download.js"));
                 await PushPreviewAsync();
             } catch (Exception ex) when (ex is JSDisconnectedException or JSException) {
                 Logger.LogDebug(ex, "theme workbench interop modules could not be loaded");
@@ -252,7 +251,7 @@
 
     async Task LoadThemesAsync() {
         _themes.Clear();
-        if (!User.IsAuthenticated) return;
+        if (!User.Current.IsAuthenticated) return;
         try {
             using var client = Client();
             var resp = await client.GetFromJsonAsync<ThemeListResponse>("/api/theme");
@@ -263,7 +262,7 @@
     }
 
     async Task LoadCssEligibilityAsync() {
-        _cssEligible = User.IsAtLeast(UserRole.Contributor);
+        _cssEligible = User.Current.IsAtLeast(UserRole.Contributor);
         await Task.CompletedTask;
     }
 
@@ -358,13 +357,9 @@
     }
 
     async Task ExportAsync() {
-        if (_download is null) return;
         var model = State.Draft.ToModel();
-        try {
-            await _download.InvokeVoidAsync("text", $"egi-theme-{model.Slug}.json", model.ToJson());
-        } catch (JSDisconnectedException ex) {
-            Logger.LogDebug(ex, "theme export skipped, the circuit is already gone");
-        }
+        if (!await Download.SaveTextAsync($"egi-theme-{model.Slug}.json", model.ToJson()))
+            Logger.LogDebug("theme export skipped, the circuit is already gone");
     }
 
     async Task ApplyLocallyAsync() {
@@ -539,7 +534,7 @@
     }
 
     public async ValueTask DisposeAsync() {
-        foreach (var module in new[] { _preview, _prefs, _download }) {
+        foreach (var module in new[] { _preview, _prefs }) {
             if (module is not null) {
                 try {
                     await module.DisposeAsync();

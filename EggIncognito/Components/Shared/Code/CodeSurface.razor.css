@@ -20,5 +20,3 @@
 .code-wrap .code-row { height: auto; min-height: var(--code-row-h); align-items: start; }
 .code-wrap .code-line { white-space: pre-wrap; overflow-wrap: break-word; word-break: normal; hyphens: none; -webkit-hyphens: none; }
 .code-rows ::deep mark, .code-rows ::deep .code-mark { padding-inline: 1px; border-radius: 0.125rem; background-color: var(--code-mark-bg); color: var(--code-mark-fg); }
-.code-line ::deep .blurred { cursor: pointer; border-radius: 0.125rem; filter: blur(5px); transition: filter .12s ease; }
-.code-line ::deep .blurred:hover, .code-line ::deep .blurred.revealed { filter: none; }

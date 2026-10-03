@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Threading.RateLimiting;
+using EggIdentity.Auth;
 using EggIdentity.Contract;
 using EggIncognito.Services.DataApi;
 using Microsoft.AspNetCore.RateLimiting;
@@ -58,7 +59,7 @@ public static class RateLimiterSetup {
         return 60;
     }
 
-    internal static bool IsExempt(ICurrentUser user) => user.IsAtLeast(UserRole.Admin);
+    internal static bool IsExempt(ICurrentUser user) => user.Current.IsAtLeast(UserRole.Admin);
 
     internal static int EffectivePermit(RateLimitOptions opts, IReadOnlyList<string> tierNames,
         string policyOptionKey) {
@@ -69,7 +70,7 @@ public static class RateLimiterSetup {
     private static RateLimitPartition<string> Partition(
         HttpContext ctx, string policyOptionKey, RateLimitOptions opts, bool tierCapped = true) {
         var user = ctx.RequestServices.GetRequiredService<ICurrentUser>();
-        if (IsExempt(user)) return RateLimitPartition.GetNoLimiter($"admin:{user.DiscordId}");
+        if (IsExempt(user)) return RateLimitPartition.GetNoLimiter($"admin:{user.Current.DiscordId}");
         bool hosted = ctx.RequestServices.GetRequiredService<IAppMode>().Mode == AppMode.Hosted;
         string key = RateLimitKeys.PartitionKey(ctx, user, hosted);
         var policy = opts.Policies[policyOptionKey];
@@ -89,7 +90,7 @@ public static class RateLimiterSetup {
 
     private static RateLimitPartition<string> DataPartition(HttpContext ctx, RateLimitOptions opts) {
         var user = ctx.RequestServices.GetRequiredService<ICurrentUser>();
-        if (IsExempt(user)) return RateLimitPartition.GetNoLimiter($"admin:{user.DiscordId}");
+        if (IsExempt(user)) return RateLimitPartition.GetNoLimiter($"admin:{user.Current.DiscordId}");
 
         if (ctx.Request.RouteValues.TryGetValue("group", out var group) && (string?)group == "asset")
             return Partition(ctx, "Read", opts);
@@ -101,7 +102,7 @@ public static class RateLimiterSetup {
             return Sliding($"data:apikey:{keyClaim.Value}", permit, opts.Policies["Data"]);
         }
 
-        if (user.IsAuthenticated && user.UserId is { } uid) {
+        if (user.Current is { IsAuthenticated: true, Id: { } uid }) {
             int permit = EffectivePermit(opts, RateLimitKeys.TiersFor(user), "Data");
             return Sliding($"data:user:{uid}", permit, opts.Policies["Data"]);
         }

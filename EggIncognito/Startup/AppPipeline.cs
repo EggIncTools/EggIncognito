@@ -1,3 +1,4 @@
+using EggIdentity.Auth;
 using EggIdentity.Bot;
 using EggIdentity.Contract;
 using EggIdentity.Db;
@@ -120,8 +121,9 @@ public static class AppPipeline {
         app.MapRazorComponents<App>().AddInteractiveServerRenderMode();
         app.MapAppVersion();
         app.MapGet("/health", () => Results.Ok());
-        app.MapGet("/api/app/mode", (IAppMode m, AuthState auth, ICurrentUser user) =>
-            Results.Ok(new {
+        app.MapGet("/api/app/mode", (IAppMode m, AuthState auth, ICurrentUser currentUser) => {
+            var user = currentUser.Current;
+            return Results.Ok(new {
                 mode = m.Mode.ToString(),
                 canCapture = m.CanCapture,
                 canWrite = m.CanWrite,
@@ -130,18 +132,19 @@ public static class AppPipeline {
                 user = user.IsAuthenticated
                     ? new {
                         user.DiscordId,
-                        user.Username,
+                        Username = user.Name,
                         user.Avatar,
                         role = UserRoles.ToName(user.Role),
                         supporter = user.IsSupporter
                     }
                     : null
-            }));
+            });
+        });
 
         if (!boot.AuthEnabled) return;
         app.MapPost("/api/account/refresh-benefits",
             async (HttpContext http, ICurrentUser user, CancellationToken ct) => {
-                if (!user.IsAuthenticated) return Results.Unauthorized();
+                if (!user.Current.IsAuthenticated) return Results.Unauthorized();
                 await SupporterRefresh.RequestAsync(http, ct);
                 return Results.Redirect("/#support");
             }).RequireRateLimiting("read");

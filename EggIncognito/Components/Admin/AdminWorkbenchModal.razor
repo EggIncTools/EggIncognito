@@ -110,7 +110,7 @@
     bool _mounted;
     bool _wantPlayground;
 
-    public bool IsAdmin => User.IsAtLeast(UserRole.Admin);
+    public bool IsAdmin => User.Current.IsAtLeast(UserRole.Admin);
 
     public void Open() {
         if (!IsAdmin) return;

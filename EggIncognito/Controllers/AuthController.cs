@@ -34,13 +34,14 @@ public sealed class AuthController(
 
     [HttpGet("/api/auth/me")]
     public IActionResult Me() {
-        if (!currentUser.IsAuthenticated)
+        var me = currentUser.Current;
+        if (!me.IsAuthenticated)
             return Ok(new { authenticated = false });
         return Ok(new {
             authenticated = true,
-            discordId = currentUser.DiscordId,
-            username = currentUser.Username,
-            avatar = currentUser.Avatar
+            discordId = me.DiscordId,
+            username = me.Name,
+            avatar = me.Avatar
         });
     }
 }

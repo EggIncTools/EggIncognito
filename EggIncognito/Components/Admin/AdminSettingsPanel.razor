@@ -3,4 +3,4 @@
 @inject ICurrentUser User
 
 <AdminPaneHead Title="Settings"/>
-<SettingsPanel UpdatedBy="@(User.Username ?? User.DiscordId)"/>
+<SettingsPanel UpdatedBy="@(User.Current.Name ?? User.Current.DiscordId)"/>

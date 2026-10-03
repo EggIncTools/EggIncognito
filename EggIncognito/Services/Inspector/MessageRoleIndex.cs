@@ -1,3 +1,4 @@
+using EggIdentity.Resilience;
 using EggIncognito.Core.Services;
 using EggIncognito.Models.Inspector;
 
@@ -7,7 +8,7 @@ public interface IMessageRoleIndex {
     MessageRoles Snapshot();
 }
 
-public sealed class MessageRoleIndex(IProtoReflection proto, IRouteCatalog routes, IBinaryRouteProvider? binary = null) : IMessageRoleIndex {
+public sealed class MessageRoleIndex(IProtoReflection proto, IRouteCatalog routes, IBinaryRouteProvider? binary = null) : IMessageRoleIndex, IDisposable {
     private const string RequestSuffix = "Request";
     private const string ResponseSuffix = "Response";
     private static readonly TimeSpan Ttl = TimeSpan.FromSeconds(15);
@@ -15,6 +16,8 @@ public sealed class MessageRoleIndex(IProtoReflection proto, IRouteCatalog route
     private readonly TtlSnapshot<MessageRoles> _snapshot = new(Ttl, () => Compute(proto, routes, binary));
 
     public MessageRoles Snapshot() => _snapshot.Get();
+
+    public void Dispose() => _snapshot.Dispose();
 
     private static MessageRoles Compute(IProtoReflection proto, IRouteCatalog routes, IBinaryRouteProvider? binary) {
         var request = new HashSet<string>(StringComparer.Ordinal);

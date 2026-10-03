@@ -1,3 +1,4 @@
+using EggIdentity.Resilience;
 using EggIncognito.Core.Services;
 using EggIncognito.Models.Docs;
 
@@ -13,7 +14,7 @@ public interface IDocUsageIndex {
 }
 
 public sealed class DocUsageIndex(IRouteCatalog routes, IProtoReflection proto, IBinaryRouteProvider? binary = null)
-    : IDocUsageIndex {
+    : IDocUsageIndex, IDisposable {
     private static readonly TimeSpan UsesTtl = TimeSpan.FromSeconds(15);
 
     private readonly Lazy<HashSet<string>> _known = new(() =>
@@ -26,6 +27,8 @@ public sealed class DocUsageIndex(IRouteCatalog routes, IProtoReflection proto, 
 
     private readonly TtlSnapshot<Dictionary<string, List<MessageEndpointUse>>> _uses =
         new(UsesTtl, () => BuildUses(routes, binary));
+
+    public void Dispose() => _uses.Dispose();
 
     public bool IsKnown(string? message) => message is not null && _known.Value.Contains(message);
 

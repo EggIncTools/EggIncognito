@@ -1,3 +1,5 @@
+using EggIncognito.Core.Services.Syntax;
+
 namespace EggIncognito.Components.Shared.Code;
 
 public sealed class CodeRevealState {
@@ -23,5 +25,5 @@ public sealed class CodeRevealState {
         return true;
     }
 
-    public string Class(string? key) => IsRevealed(key) ? "blurred revealed" : "blurred";
+    public string Class(string? key) => IsRevealed(key) ? TokenClasses.Blur + " revealed" : TokenClasses.Blur;
 }

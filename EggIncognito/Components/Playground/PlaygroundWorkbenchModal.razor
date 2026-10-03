@@ -270,7 +270,7 @@
         @if (_presetsOpen) {
             <div class="designer-section-body designer-section-body-tight">
                 @if (!string.IsNullOrEmpty(_showcaseDiagnostics)) {
-                    <StatusNote Severity="StatusNoteKind.Error">@_showcaseDiagnostics</StatusNote>
+                    <StatusNote Kind="StatusNoteKind.Error">@_showcaseDiagnostics</StatusNote>
                 }
                 @if (_presets.Count > 0) {
                     <input class="reg-filter-input pg-input" placeholder="Search showcase farms" value="@_presetSearch" @oninput="e => _presetSearch = e.Value?.ToString() ?? string.Empty"/>
@@ -457,13 +457,13 @@
                 }
             </div>
             @if (AuthoredCount > 0) {
-                <StatusNote Severity="StatusNoteKind.Error">
+                <StatusNote Kind="StatusNoteKind.Error">
                     @AuthoredCount placement(s) still carry authored coordinates. They must be replaced by an
                     extraction before the replica is trustworthy.
                 </StatusNote>
             }
             @if (!string.IsNullOrEmpty(_diagnostics)) {
-                <StatusNote Severity="StatusNoteKind.Error">@_diagnostics</StatusNote>
+                <StatusNote Kind="StatusNoteKind.Error">@_diagnostics</StatusNote>
             }
             @if (_unresolved.Length > 0) {
                 <div class="picker-group-title">Unresolved slots</div>
@@ -607,7 +607,7 @@
 
     protected override void OnInitialized() {
         base.OnInitialized();
-        _isAdmin = User.IsAtLeast(UserRole.Admin);
+        _isAdmin = User.Current.IsAtLeast(UserRole.Admin);
     }
 
     public Task Open() {

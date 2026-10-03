@@ -37,8 +37,7 @@
                     </button>
                 }
                 @if (ShowCopy) {
-                    <CopyButton GetText="CurrentText" ButtonClass="btn-mini data-copy" IconClass="icon-sm"
-                                Label="Copy" CopiedLabel="Copied"/>
+                    <CopyButton Text="@CurrentText()" Class="btn-mini data-copy" IconClass="icon-sm">Copy</CopyButton>
                 }
             </div>
         }

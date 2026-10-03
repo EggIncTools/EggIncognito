@@ -5,9 +5,8 @@
 .jtree-node > .jtree-row { cursor: default; }
 .jtree-node:has(> .jtree-children) > .jtree-row { cursor: pointer; }
 .jtree-node:has(> .jtree-children) > .jtree-row:hover { background-color: var(--color-panel2); }
-.jtree-caret { flex: none; width: 0.75rem; color: var(--color-muted); user-select: none; transition: transform .12s ease; }
+.jtree-caret { flex: none; width: 0.75rem; color: var(--color-muted); user-select: none; }
 .jtree-caret::before { content: "\25B8"; }
-.jtree-expanded > .jtree-row > .jtree-caret { transform: rotate(90deg); }
 .jtree-caret-leaf::before { content: ""; }
 .jtree-key { color: var(--color-accent); }
 .jtree-colon { color: var(--color-muted); }
@@ -15,7 +14,5 @@
 .jtree-row ::deep .jv { min-width: 0; }
 .jtree-row ::deep .jv.tok-string { white-space: pre-wrap; overflow-wrap: break-word; word-break: normal; hyphens: none; -webkit-hyphens: none; }
 .jtree-row ::deep .jv-clamped { cursor: pointer; text-decoration: underline dotted; }
-.jtree-row ::deep .blurred { cursor: pointer; border-radius: 0.125rem; filter: blur(5px); transition: filter .12s ease; }
-.jtree-row ::deep .blurred:hover, .jtree-row ::deep .blurred.revealed { filter: none; }
 .jtree-row ::deep mark { padding-inline: 1px; border-radius: 0.125rem; background-color: var(--color-accent); color: var(--color-bg); }
 .jtree-match > .jtree-row { background: color-mix(in oklab, var(--color-accent) 8%, transparent); }

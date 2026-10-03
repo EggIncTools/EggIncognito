@@ -1,6 +1,6 @@
+using EggIdentity.Auth;
 using EggIncognito.Data.Services;
 using EggIncognito.Models.Theme;
-using EggIncognito.Services;
 using EggIncognito.Services.Auth;
 using EggIncognito.Services.Theme;
 using Microsoft.AspNetCore.Mvc;
@@ -26,7 +26,7 @@ public sealed class ThemeController(ICurrentUser currentUser, IConfiguration con
     [HttpGet]
     [EnableRateLimiting("read")]
     public async Task<IActionResult> List([FromServices] UserThemeStore? store) {
-        if (currentUser.UserId is not { } uid) return Fail(401, "login required");
+        if (currentUser.Current.Id is not { } uid) return Fail(401, "login required");
         if (store is null) return Ok(new { themes = Array.Empty<object>() });
         var rows = await store.ByOwnerAsync(uid, HttpContext.RequestAborted);
         return Ok(new {
@@ -37,7 +37,7 @@ public sealed class ThemeController(ICurrentUser currentUser, IConfiguration con
     [HttpGet("{slug}")]
     [EnableRateLimiting("read")]
     public async Task<IActionResult> Get(string slug, [FromServices] UserThemeStore? store) {
-        if (currentUser.UserId is not { } uid) return Fail(401, "login required");
+        if (currentUser.Current.Id is not { } uid) return Fail(401, "login required");
         if (store is null) return Fail(404, "no database configured");
         var row = await store.GetAsync(uid, slug, HttpContext.RequestAborted);
         return row is null ? Fail(404, "unknown theme") : Content(row.Model, "application/json");
@@ -48,7 +48,7 @@ public sealed class ThemeController(ICurrentUser currentUser, IConfiguration con
     [RequiresDb]
     public async Task<IActionResult> Save(string slug, [FromServices] UserThemeStore store,
         [FromServices] IMemoryCache cache, [FromServices] ThemeIdentitySync sync) {
-        if (currentUser.UserId is not { } uid) return Fail(401, "login required");
+        if (currentUser.Current.Id is not { } uid) return Fail(401, "login required");
         string? json = await ReadBodyAsync();
         if (json is null) return Fail(400, "body too large");
         var (model, errors) = ThemeJson.Parse(json);
@@ -72,7 +72,7 @@ public sealed class ThemeController(ICurrentUser currentUser, IConfiguration con
     [RequiresDb]
     public async Task<IActionResult> Delete(string slug, [FromServices] UserThemeStore store,
         [FromServices] IMemoryCache cache, [FromServices] ThemeIdentitySync sync) {
-        if (currentUser.UserId is not { } uid) return Fail(401, "login required");
+        if (currentUser.Current.Id is not { } uid) return Fail(401, "login required");
         bool deleted = await store.DeleteAsync(uid, slug, HttpContext.RequestAborted);
         if (!deleted) return Fail(404, "unknown theme");
         await AfterMutationAsync(cache, sync, uid, HttpContext.RequestAborted);
@@ -84,7 +84,7 @@ public sealed class ThemeController(ICurrentUser currentUser, IConfiguration con
     [RequiresDb]
     public async Task<IActionResult> Activate(string slug, [FromServices] UserThemeStore store,
         [FromServices] IMemoryCache cache, [FromServices] ThemeIdentitySync sync) {
-        if (currentUser.UserId is not { } uid) return Fail(401, "login required");
+        if (currentUser.Current.Id is not { } uid) return Fail(401, "login required");
         var row = await store.GetAsync(uid, slug, HttpContext.RequestAborted);
         if (row is null) return Fail(404, "unknown theme");
         var (model, errors) = ThemeJson.Parse(row.Model);
@@ -104,7 +104,7 @@ public sealed class ThemeController(ICurrentUser currentUser, IConfiguration con
     [RequiresDb]
     public async Task<IActionResult> Deactivate([FromServices] UserThemeStore store,
         [FromServices] IMemoryCache cache, [FromServices] ThemeIdentitySync sync) {
-        if (currentUser.UserId is not { } uid) return Fail(401, "login required");
+        if (currentUser.Current.Id is not { } uid) return Fail(401, "login required");
         await store.DeactivateAsync(uid, HttpContext.RequestAborted);
         await AfterMutationAsync(cache, sync, uid, HttpContext.RequestAborted);
         return Ok(new { deactivated = true });
@@ -115,7 +115,7 @@ public sealed class ThemeController(ICurrentUser currentUser, IConfiguration con
     [RequiresDb]
     public async Task<IActionResult> Import([FromServices] UserThemeStore store,
         [FromServices] IMemoryCache cache, [FromServices] ThemeIdentitySync sync) {
-        if (currentUser.UserId is not { } uid) return Fail(401, "login required");
+        if (currentUser.Current.Id is not { } uid) return Fail(401, "login required");
         string? json = await ReadBodyAsync();
         if (json is null) return Fail(400, "body too large");
         var (model, errors) = ThemeJson.Parse(json);
@@ -138,7 +138,7 @@ public sealed class ThemeController(ICurrentUser currentUser, IConfiguration con
     [RequiresDb]
     public async Task<IActionResult> SaveCss([FromBody] CssBody body, [FromServices] UserThemeStore store,
         [FromServices] IMemoryCache cache, [FromServices] ThemeIdentitySync sync) {
-        if (currentUser.UserId is not { } uid) return Fail(401, "login required");
+        if (currentUser.Current.Id is not { } uid) return Fail(401, "login required");
         if (!CustomCssConfigFloor()) return Fail(403, "custom css is disabled by configuration");
         var policy = await store.GetPolicyAsync(HttpContext.RequestAborted);
         if (!policy.CustomCssEnabled) return Fail(403, "custom css is disabled by the admin");
@@ -189,7 +189,7 @@ public sealed class ThemeController(ICurrentUser currentUser, IConfiguration con
     [EnableRateLimiting("write")]
     [RequiresDb]
     public async Task<IActionResult> SetPolicy([FromBody] PolicyBody body, [FromServices] UserThemeStore store) {
-        if (currentUser.UserId is not { } uid) return Fail(401, "login required");
+        if (currentUser.Current.Id is not { } uid) return Fail(401, "login required");
 
         long? defaultThemeId = null;
         if (!string.IsNullOrWhiteSpace(body.DefaultThemeSlug)) {

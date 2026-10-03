@@ -19,5 +19,3 @@
 .akp-create { display: flex; align-items: flex-end; gap: 0.75rem; }
 .akp-name { width: 100%; max-width: 20rem; }
 .akp-create .btn-primary { flex-shrink: 0; }
-.akp-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.25rem; padding: 3rem 1.5rem; text-align: center; font-size: 0.8125rem; color: var(--color-muted); }
-.akp-empty-hint { font-size: 0.75rem; opacity: 0.8; max-width: 65ch; line-height: 1.625; }

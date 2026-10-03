@@ -1,8 +1,8 @@
+using EggIdentity.Auth;
 using EggIncognito.Core.Services;
 using EggIncognito.Data.Models;
 using EggIncognito.Data.Services;
 using EggIncognito.Models.Endpoints;
-using EggIncognito.Services;
 using EggIncognito.Services.Auth;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
@@ -30,7 +30,7 @@ public sealed class StoredEndpointController(ICurrentUser currentUser, TimeProvi
                 Eid = body.Eid,
                 ResponseJson = body.ResponseJson,
                 ResponseType = body.ResponseType,
-                OwnerUserId = currentUser.UserId
+                OwnerUserId = currentUser.Current.Id
             });
         } else {
             existing.ResponseJson = body.ResponseJson;
@@ -62,7 +62,7 @@ public sealed class StoredEndpointController(ICurrentUser currentUser, TimeProvi
             PathParam = body.PathParam ?? false,
             PathParamOnly = body.PathParamOnly ?? false,
             Source = "db",
-            OwnerUserId = currentUser.UserId
+            OwnerUserId = currentUser.Current.Id
         });
         try {
             await db.SaveChangesAsync();

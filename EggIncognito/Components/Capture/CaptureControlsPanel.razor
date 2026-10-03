@@ -6,12 +6,10 @@
         </button>
     }
 
-    <SettingsMenu Open="@(_open == "settings")" OpenChanged="@(o => _open = o ? "settings" : null)" Wide="true" AlignLeft="MenusAlignLeft">
+    <Menu Class="settings-menu settings-menu-lg" AlignStart="MenusAlignLeft" TriggerClass="btn-mini"
+          TriggerLabel="Capture view settings" CloseOnSelect="false">
         <Trigger>
-            <button type="button" class="btn-mini" aria-label="Capture view settings"
-                    aria-haspopup="true" aria-expanded="@(_open == "settings" ? "true" : "false")" @onclick="@(() => Toggle("settings"))">
-                <Icon Name="settings" Class="icon-sm"/>
-            </button>
+            <Icon Name="settings" Class="icon-sm"/>
         </Trigger>
         <ChildContent>
             <div class="settings-title">Redaction</div>
@@ -44,27 +42,22 @@
                 <option value="bin">Binary</option>
             </select>
         </ChildContent>
-    </SettingsMenu>
+    </Menu>
 
     @Notices
 
     @if (!ReadOnly && FlowCount > 0) {
-        <SettingsMenu Open="@(_open == "clear")" OpenChanged="@(o => _open = o ? "clear" : null)" AlignLeft="MenusAlignLeft">
-            <Trigger>
-                <button type="button" class="btn-mini btn-danger"
-                        aria-haspopup="true" aria-expanded="@(_open == "clear" ? "true" : "false")" @onclick="@(() => Toggle("clear"))">
-                    Clear
-                </button>
-            </Trigger>
+        <Menu Class="settings-menu" AlignStart="MenusAlignLeft" TriggerClass="btn-mini btn-danger" CloseOnSelect="false" @ref="_clearMenu">
+            <Trigger>Clear</Trigger>
             <ChildContent>
                 <div class="settings-title">Clear list?</div>
                 <div class="settings-hint">Removes the captured requests shown here. Saved endpoints, captured HAR(s), and exported files are kept.</div>
                 <div class="settings-actions">
-                    <button type="button" class="btn-mini" @onclick="@(() => _open = null)">Cancel</button>
+                    <button type="button" class="btn-mini" @onclick="CloseClear">Cancel</button>
                     <button type="button" class="btn-mini btn-danger" @onclick="ConfirmClear">Clear</button>
                 </div>
             </ChildContent>
-        </SettingsMenu>
+        </Menu>
         <a class="btn-mini" href="/api/capture/har" download>
             <Icon Name="download" Class="icon-sm"/>Export HAR
         </a>
@@ -83,10 +76,10 @@
     [Parameter] public bool MenusAlignLeft { get; set; }
     [Parameter] public RenderFragment? Notices { get; set; }
 
-    string? _open;
+    Menu? _clearMenu;
 
-    void Toggle(string which) {
-        _open = _open == which ? null : which;
+    Task CloseClear() {
+        return _clearMenu?.CloseAsync() ?? Task.CompletedTask;
     }
 
     async Task SetMode(string mode) {
@@ -115,7 +108,7 @@
     }
 
     async Task ConfirmClear() {
-        _open = null;
+        await CloseClear();
         await OnClear.InvokeAsync();
     }
 

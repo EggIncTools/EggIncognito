@@ -1,5 +1,6 @@
 using System.Net;
 using Bunit;
+using EggIdentity.Auth;
 using EggIdentity.Contract;
 using EggIncognito.Capture;
 using EggIncognito.Core.Services;
@@ -47,10 +48,13 @@ public class ProtosPageTests {
 
     public class Component : BunitContext {
         private void Wire(UserRole role) {
-            Services.AddSingleton<ICurrentUser>(new FakeUser(role != UserRole.Viewer, role));
+            Services.AddSingleton<ICurrentUser>(role != UserRole.Viewer
+                ? new FakeUser(Guid.NewGuid(), role, DiscordId: "tester").Accessor()
+                : new AnonymousUser());
             Services.AddSingleton(new AuthState(false));
             Services.AddSingleton<IHttpContextAccessor>(new HttpContextAccessor());
             Services.AddSingleton<IWebHostEnvironment>(new FakeWebHostEnvironment());
+            Services.AddScoped<EggIdentity.UI.DownloadInterop>();
             var yaml = new RouteCatalog("__no_routes_yaml__");
             Services.AddSingleton<IRouteCatalog>(yaml);
             Services.AddSingleton<IRouteCatalogReport>(

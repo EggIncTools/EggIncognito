@@ -1,4 +1,5 @@
 using System.Net;
+using EggIdentity.Auth;
 using EggIdentity.Contract;
 using EggIncognito.Services.RateLimiting;
 using Microsoft.AspNetCore.Http;
@@ -38,23 +39,24 @@ public class RateLimitKeysTests {
     public void PartitionKey_UsesUser_WhenAuthenticated() {
         var ctx = CtxWith("1.2.3.4");
         var userId = Guid.NewGuid();
-        var user = new FakeUser(discordId: "disc123", userId: userId);
+        var user = new FakeUser(userId, DiscordId: "disc123").Accessor();
         Assert.Equal($"user:{userId}", RateLimitKeys.PartitionKey(ctx, user, false));
     }
 
     [Fact]
     public void PartitionKey_UsesIp_WhenAnonymous() {
         var ctx = CtxWith("1.2.3.4");
-        var user = new FakeUser(false);
-        Assert.Equal("ip:1.2.3.4", RateLimitKeys.PartitionKey(ctx, user, false));
+        Assert.Equal("ip:1.2.3.4", RateLimitKeys.PartitionKey(ctx, new AnonymousUser(), false));
     }
 
     [Fact]
     public void PartitionKey_Hosted_Anonymous_NoCf_SharesBucket() {
         var ctx = CtxWith(null, "6.6.6.6");
-        var user = new FakeUser(false);
-        Assert.Equal($"ip:{RateLimitKeys.NoCfKey}", RateLimitKeys.PartitionKey(ctx, user, true));
+        Assert.Equal($"ip:{RateLimitKeys.NoCfKey}", RateLimitKeys.PartitionKey(ctx, new AnonymousUser(), true));
     }
+
+    private static ICurrentUser User(bool auth, UserRole role) =>
+        auth ? new FakeUser(Guid.NewGuid(), role, DiscordId: "x").Accessor() : new AnonymousUser();
 
     [Theory]
     [InlineData(false, UserRole.Viewer, "Anon")]
@@ -62,11 +64,11 @@ public class RateLimitKeysTests {
     [InlineData(true, UserRole.Contributor, "Contributor")]
     [InlineData(true, UserRole.Admin, "Contributor")]
     public void TiersFor_MapsRole(bool auth, UserRole role, string expected) => Assert.Equal(new[] { expected },
-        RateLimitKeys.TiersFor(new FakeUser(auth, role, "x")));
+        RateLimitKeys.TiersFor(User(auth, role)));
 
     [Fact]
     public void TiersFor_SupporterViewer_IncludesSupporter() {
-        var user = new FakeUser(discordId: "x", supporter: true);
+        var user = new FakeUser(Guid.NewGuid(), DiscordId: "x", Supporter: true).Accessor();
         Assert.Equal(new[] { "Viewer", "Supporter" }, RateLimitKeys.TiersFor(user));
     }
 
@@ -86,7 +88,7 @@ public class RateLimitKeysTests {
     [InlineData(true, UserRole.Contributor, false)]
     [InlineData(true, UserRole.Admin, true)]
     public void IsExempt_OnlyAdmins(bool auth, UserRole role, bool expected) => Assert.Equal(expected,
-        RateLimiterSetup.IsExempt(new FakeUser(auth, role, "x")));
+        RateLimiterSetup.IsExempt(User(auth, role)));
 
     [Fact]
     public void FallbackRetryAfter_UsesMatchedPolicyWindow() {

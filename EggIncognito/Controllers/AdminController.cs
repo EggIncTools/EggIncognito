@@ -1,6 +1,7 @@
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using EggIdentity.Auth;
 using EggIdentity.Client;
 using EggIdentity.Contract;
 using EggIncognito.Capture;
@@ -259,7 +260,7 @@ public sealed partial class AdminController(
         string role = (body.Role ?? "").Trim().ToLowerInvariant();
         if (UserRoles.ToName(UserRoles.Parse(role)) != role)
             return Fail(400, $"unknown role '{body.Role}'");
-        if (discordId == currentUser.DiscordId && role != UserRoles.ToName(UserRole.Admin))
+        if (discordId == currentUser.Current.DiscordId && role != UserRoles.ToName(UserRole.Admin))
             return Fail(400, "cannot remove your own admin role");
 
         if (identity is null) return Fail(503, "identity api not configured");

@@ -23,7 +23,7 @@
                     <td class="small">@(d.Present ? "yes" : "no")</td>
                     <td class="small">
                         @if (d.UpdatedAt is { } updated) {
-                            <TimeAgo Value="@updated"/>
+                            <TimeAgo At="@updated" Class="time-ago"/>
                         }
                     </td>
                     <td class="mono">@d.Bytes</td>

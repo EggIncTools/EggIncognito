@@ -1,3 +1,4 @@
+using EggIdentity.Auth;
 using EggIncognito.Core.Services.Assets;
 using EggIncognito.Core.Services.ProtoExtract;
 using EggIncognito.Services;
@@ -94,7 +95,7 @@ public sealed class ShellsController(
     [EnableRateLimiting("egress")]
     public async Task<IActionResult> Glb(string platform, string identifier, [FromQuery] string? animate,
         [FromQuery] float seconds, CancellationToken ct) {
-        if (appMode.Mode == AppMode.Hosted && !currentUser.IsAuthenticated)
+        if (appMode.Mode == AppMode.Hosted && !currentUser.Current.IsAuthenticated)
             return Fail(403, "log in to download shell meshes from the hosted site");
 
         string cacheKey = $"{platform}_{identifier}";

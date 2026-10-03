@@ -34,7 +34,7 @@
   font-size: 0.75rem;
   white-space: nowrap;
   cursor: pointer;
-  transition: border-color .12s, background .12s, color .12s;
+  transition: border-color var(--motion-fast) var(--ease-standard), background var(--motion-fast) var(--ease-standard), color var(--motion-fast) var(--ease-standard);
 }
 .reg-drop:hover { color: var(--color-fg); border-color: var(--color-accent); }
 .reg-drop.dragging { color: var(--color-fg); border-color: var(--color-accent); background: color-mix(in oklab, var(--color-accent) 6%, transparent); }
@@ -54,18 +54,6 @@
 }
 .reg-intake:hover { color: var(--color-fg); border-color: var(--color-accent); }
 .reg-loading { padding: 1rem 0.75rem; font-size: 0.8125rem; color: var(--color-muted); }
-.reg-empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 0.25rem;
-  padding: 3rem 1.5rem;
-  text-align: center;
-  font-size: 0.8125rem;
-  color: var(--color-muted);
-}
-.reg-empty-hint { font-size: 0.75rem; opacity: 0.8; max-width: 65ch; line-height: 1.625; }
 .reg-scroll { overflow-x: auto; overflow-y: hidden; }
 .reg-table { width: auto; border: 0; border-radius: 0; overflow: visible; --reg-lane-w: 0.75rem; }
 .reg-table thead th {

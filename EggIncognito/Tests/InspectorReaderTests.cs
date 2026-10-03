@@ -25,8 +25,7 @@ public class InspectorReaderTests : BunitContext {
     }
 
     private static bool Collapsed(IRenderedComponent<TransactionView> cut, int index) =>
-        (cut.FindAll(".insp-disc")[index].GetAttribute("class") ?? "")
-        .Contains("collapsed", StringComparison.Ordinal);
+        cut.FindAll(".disclosure")[index].QuerySelector(".disclosure-body") is null;
 
     [Fact]
     public void Sent_IsOpenBeforeAResponseArrives() {
@@ -44,8 +43,8 @@ public class InspectorReaderTests : BunitContext {
     [Fact]
     public void Sent_StaysOpenWhenTheUserToggledItSinceTheLastBuild() {
         var cut = RenderView();
-        cut.FindAll("button.insp-disc-toggle")[0].Click();
-        cut.FindAll("button.insp-disc-toggle")[0].Click();
+        cut.FindAll("button.disclosure-toggle")[0].Click();
+        cut.FindAll("button.disclosure-toggle")[0].Click();
         cut.Render(p => p.Add(c => c.Response, Ok()));
         Assert.False(Collapsed(cut, 0));
     }
@@ -61,9 +60,9 @@ public class InspectorReaderTests : BunitContext {
     [Fact]
     public void Diagnosis_IsAbsentUntilAFailedDecodeThenOpens() {
         var cut = RenderView();
-        Assert.Single(cut.FindAll(".insp-disc"));
+        Assert.Single(cut.FindAll(".disclosure"));
         cut.Render(p => p.Add(c => c.Diagnosis, Broken()));
-        Assert.Equal(2, cut.FindAll(".insp-disc").Count);
+        Assert.Equal(2, cut.FindAll(".disclosure").Count);
         Assert.False(Collapsed(cut, 1));
     }
 

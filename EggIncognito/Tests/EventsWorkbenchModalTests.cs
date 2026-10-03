@@ -1,11 +1,10 @@
 using System.Net;
 using System.Text.Json;
 using Bunit;
-using EggIdentity.Contract;
+using EggIdentity.Auth;
 using EggIncognito.Components.Events;
 using EggIncognito.Models.Contracts;
 using EggIncognito.Models.Events;
-using EggIncognito.Services;
 using EggIncognito.Services.Assets;
 using EggIncognito.Services.Events;
 using Microsoft.AspNetCore.Hosting;
@@ -20,10 +19,10 @@ public class EventsWorkbenchModalTests : BunitContext {
     private void Wire(Func<HttpRequestMessage, HttpResponseMessage> respond) {
         Services.AddLogging();
         Services.AddSingleton<IHttpClientFactory>(
-            new StubHttpFactory(new StubHttpMessageHandler(respond), new Uri("http://localhost")));
+            new StubHttpFactory(new StubHttpMessageHandler(respond), "http://localhost/"));
         Services.AddSingleton<IHttpContextAccessor>(new HttpContextAccessor());
         Services.AddSingleton<IWebHostEnvironment>(new FakeWebHostEnvironment());
-        Services.AddSingleton<ICurrentUser>(new FakeUser(authenticated: false, role: UserRole.Viewer, discordId: null));
+        Services.AddSingleton<ICurrentUser>(new AnonymousUser());
         Services.AddScoped<EventsWorkbenchState>();
         JSInterop.Mode = JSRuntimeMode.Loose;
     }
@@ -32,12 +31,10 @@ public class EventsWorkbenchModalTests : BunitContext {
         new(id, "earnings-boost", message, 2, ultra, UnixSeconds.FromTime(start), UnixSeconds.FromTime(end), "device");
 
     private static HttpResponseMessage Ok(params GameEventDto[] events) =>
-        StubHttpMessageHandler.Json(HttpStatusCode.OK,
-            JsonSerializer.Serialize(new GameEventListResponse(events.Length, events), Web));
+        StubResponses.Json(HttpStatusCode.OK, new GameEventListResponse(events.Length, events), Web);
 
     private static HttpResponseMessage NoContracts() =>
-        StubHttpMessageHandler.Json(HttpStatusCode.OK,
-            JsonSerializer.Serialize(new ContractReleaseListResponse(0, []), Web));
+        StubResponses.Json(HttpStatusCode.OK, new ContractReleaseListResponse(0, []), Web);
 
     private static HttpResponseMessage Respond(HttpRequestMessage req, params GameEventDto[] events) =>
         req.RequestUri?.AbsolutePath.StartsWith("/api/v1/contracts", StringComparison.Ordinal) == true

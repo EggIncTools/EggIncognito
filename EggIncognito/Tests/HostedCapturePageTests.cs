@@ -1,5 +1,6 @@
 using System.Net;
 using Bunit;
+using EggIdentity.Auth;
 using EggIdentity.Contract;
 using EggIdentity.UI;
 using EggIncognito.Capture;
@@ -30,8 +31,11 @@ public class HostedCapturePageTests {
         public bool HostedCaptureEnabled => hostedEnabled;
     }
 
-    private static FakeUser Tester(bool authed, bool supporter, UserRole role = UserRole.Viewer) =>
-        new(authed, role, supporter: supporter, userId: Guid.Parse("00000000-0000-0000-0000-000000000001"));
+    private static ICurrentUser Tester(bool authed, bool supporter, UserRole role = UserRole.Viewer) =>
+        authed
+            ? new FakeUser(Guid.Parse("00000000-0000-0000-0000-000000000001"), role, DiscordId: "tester",
+                Supporter: supporter).Accessor()
+            : new AnonymousUser();
 
     private sealed class EmptyServices : IServiceProvider {
         public object? GetService(Type serviceType) => null;
@@ -121,8 +125,8 @@ public class HostedCapturePageTests {
             cut.WaitForElement("#hostedSetupCard");
             string markup = cut.Markup;
 
-            Assert.DoesNotContain("collapsed", cut.Find("#hostedSetupCard .insp-disc").ClassName);
-            Assert.NotEmpty(cut.FindAll("#hostedSetupCard .insp-disc-toggle .ep-caret"));
+            Assert.NotEmpty(cut.FindAll("#hostedSetupCard .disclosure-body"));
+            Assert.NotEmpty(cut.FindAll("#hostedSetupCard .disclosure-toggle .caret.open"));
             Assert.Contains("New address", markup);
             Assert.Contains("Re-send setup DM", markup);
             Assert.DoesNotContain("Hide steps", markup);

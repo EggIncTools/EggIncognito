@@ -1,7 +1,7 @@
+using EggIdentity.Auth;
 using EggIdentity.Contract;
 using EggIncognito.Data.Services;
 using EggIncognito.Models.ApiKeys;
-using EggIncognito.Services;
 using EggIncognito.Services.Auth;
 using EggIncognito.Services.DataApi;
 using Microsoft.AspNetCore.Mvc;
@@ -14,7 +14,7 @@ namespace EggIncognito.Controllers;
 [EnableRateLimiting("write")]
 [ApiAccess(ApiAccessLevel.Authenticated)]
 public sealed class ApiKeysController(ICurrentUser currentUser, IConfiguration config) : ApiControllerBase {
-    private int? Cap() => currentUser.IsAtLeast(UserRole.Contributor) || currentUser.IsSupporter
+    private int? Cap() => currentUser.Current.IsAtLeast(UserRole.Contributor) || currentUser.Current.IsSupporter
         ? null
         : config.GetValue("ApiKeys:MaxPerUser", 2);
 
@@ -22,7 +22,7 @@ public sealed class ApiKeysController(ICurrentUser currentUser, IConfiguration c
     [RequiresDb]
     public async Task<IActionResult> Mint([FromBody] MintReq req, [FromServices] ApiKeyStore store,
         CancellationToken ct) {
-        var owner = currentUser.UserId;
+        var owner = currentUser.Current.Id;
         if (owner is null) return Fail(401, "log in to mint an API key");
         if (User.HasClaim(c => c.Type == ApiKeyGen.Claim))
             return Fail(403, "cannot mint keys using a key; use a logged-in session");
@@ -38,7 +38,7 @@ public sealed class ApiKeysController(ICurrentUser currentUser, IConfiguration c
 
     [HttpGet]
     public async Task<IActionResult> Mine([FromServices] ApiKeyStore? store, CancellationToken ct) {
-        var owner = currentUser.UserId;
+        var owner = currentUser.Current.Id;
         if (owner is null) return Fail(401, "log in to manage keys");
         if (store is null) return Ok(new KeysResponse([], Cap()));
         var rows = await store.ByOwnerAsync(owner.Value, ct);
@@ -52,7 +52,7 @@ public sealed class ApiKeysController(ICurrentUser currentUser, IConfiguration c
     [HttpDelete("{id:int}")]
     [RequiresDb]
     public async Task<IActionResult> Revoke(int id, [FromServices] ApiKeyStore store, CancellationToken ct) {
-        var owner = currentUser.UserId;
+        var owner = currentUser.Current.Id;
         if (owner is null) return Fail(401, "log in to manage keys");
         bool ok = await store.RevokeAsync(id, owner.Value, ct);
         if (!ok) return Fail(404, "key not found");

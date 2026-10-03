@@ -51,17 +51,17 @@
             @if (Auth.Enabled) {
                 <section class="support-section">
                     <h2 class="support-h2">Your account</h2>
-                    @if (User.IsAuthenticated) {
+                    @if (User.Current.IsAuthenticated) {
                         <div class="connect-card">
                             <div class="connect-id">
-                                @if (!string.IsNullOrEmpty(User.AvatarUrl)) {
-                                    <img class="connect-avatar" src="@User.AvatarUrl" alt=""/>
+                                @if (User.Current.AvatarUrl(Auth.IdentityHostUrl) is { Length: > 0 } avatar) {
+                                    <img class="connect-avatar" src="@avatar" alt=""/>
                                 } else {
-                                    <span class="connect-avatar">@(User.Username?.Substring(0, 1).ToUpper())</span>
+                                    <span class="connect-avatar">@(User.Current.Name?.Substring(0, 1).ToUpper())</span>
                                 }
                                 <div>
-                                    <div class="connect-name">@User.Username</div>
-                                    @if (User.IsSupporter) {
+                                    <div class="connect-name">@User.Current.Name</div>
+                                    @if (User.Current.IsSupporter) {
                                         <div class="connect-state connect-state-on">Supporter active</div>
                                     } else {
                                         <div class="connect-state">No supporter role yet</div>
@@ -72,7 +72,7 @@
                                 <button type="submit" class="btn-primary">Refresh benefits</button>
                             </form>
                         </div>
-                        @if (!User.IsSupporter) {
+                        @if (!User.Current.IsSupporter) {
                             <p class="connect-hint">Already supporting? Give the role a minute to land, then hit Refresh.</p>
                         }
                     } else {

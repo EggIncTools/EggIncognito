@@ -4,6 +4,7 @@ using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Text.Json;
+using EggIdentity.Auth;
 using EggIdentity.Contract;
 using EggIncognito.Capture;
 using EggIncognito.Core.Services;
@@ -39,12 +40,13 @@ public sealed class CaptureController(
             return true;
         }
 
+        var me = currentUser.Current;
         if (!appMode.HostedCaptureEnabled)
             error = Fail(403, "capture is disabled in hosted mode");
-        else if (!currentUser.IsAuthenticated || string.IsNullOrEmpty(currentUser.DiscordId))
+        else if (!me.IsAuthenticated || string.IsNullOrEmpty(me.DiscordId))
             error = Fail(401, "log in to use hosted capture");
         else {
-            session = manager.Get(currentUser.DiscordId);
+            session = manager.Get(me.DiscordId);
             if (session is null) error = Fail(404, "no capture session; start one on /capture first");
         }
 
@@ -54,15 +56,16 @@ public sealed class CaptureController(
     private ObjectResult? RequireHostedUser() {
         if (!appMode.HostedCaptureEnabled)
             return Fail(403, "hosted capture is not enabled");
-        if (!currentUser.IsAuthenticated || string.IsNullOrEmpty(currentUser.DiscordId))
+        var me = currentUser.Current;
+        if (!me.IsAuthenticated || string.IsNullOrEmpty(me.DiscordId))
             return Fail(401, "log in to use hosted capture");
-        return !currentUser.UserId.HasValue
+        return !me.Id.HasValue
             ? Fail(401, "log in to use hosted capture")
             : null;
     }
 
     private CaptureTier TierFor() =>
-        currentUser.IsSupporter || currentUser.IsAtLeast(UserRole.Admin)
+        currentUser.Current.IsSupporter || currentUser.Current.IsAtLeast(UserRole.Admin)
             ? CaptureTier.Full
             : CaptureTier.Limited;
 
@@ -142,27 +145,28 @@ public sealed class CaptureController(
             return await StartSessionAsync(manager.GetOrCreate(CaptureSessionManager.LocalKey), "local");
         if (!appMode.HostedCaptureEnabled)
             return Fail(403, "capture is disabled in hosted mode");
-        if (!currentUser.IsAuthenticated || string.IsNullOrEmpty(currentUser.DiscordId))
+        var me = currentUser.Current;
+        if (!me.IsAuthenticated || string.IsNullOrEmpty(me.DiscordId))
             return Fail(401, "log in to use hosted capture");
-        if (!currentUser.UserId.HasValue)
+        if (me.Id is not { } userId)
             return Fail(401, "log in to use hosted capture");
 
         CaptureSession session;
         try {
-            session = manager.GetOrCreate(currentUser.DiscordId, TierFor());
+            session = manager.GetOrCreate(me.DiscordId, TierFor());
         } catch (CaptureCapacityException) {
             return Fail(503, "capture capacity reached; try again later");
         }
 
-        session.ContributorUserId = currentUser.UserId.Value;
+        session.ContributorUserId = userId;
 
-        await RestoreCaAsync(session, credentials, currentUser.UserId.Value, ct);
-        var started = await StartSessionAsync(session, currentUser.DiscordId);
+        await RestoreCaAsync(session, credentials, userId, ct);
+        var started = await StartSessionAsync(session, me.DiscordId);
         if (started is not OkObjectResult { Value: CaptureStartResult result }) return started;
         if (result.FreshCa && credentials is not null)
-            await PersistFreshCaAsync(session, credentials, currentUser.UserId.Value, result.RootThumbprint, ct);
+            await PersistFreshCaAsync(session, credentials, userId, result.RootThumbprint, ct);
 
-        await DeliverSetupAsync(session, currentUser.DiscordId, currentUser.UserId.Value, notifier, addrStore, ct);
+        await DeliverSetupAsync(session, me.DiscordId, userId, notifier, addrStore, ct);
         return Ok(result);
     }
 
@@ -184,14 +188,15 @@ public sealed class CaptureController(
         CancellationToken ct) {
         if (!appMode.HostedCaptureEnabled)
             return Fail(403, "hosted capture disabled");
-        if (!currentUser.IsAuthenticated || string.IsNullOrEmpty(currentUser.DiscordId))
+        var me = currentUser.Current;
+        if (!me.IsAuthenticated || string.IsNullOrEmpty(me.DiscordId))
             return Fail(401, "log in to use hosted capture");
-        if (!currentUser.UserId.HasValue)
+        if (me.Id is not { } userId)
             return Fail(401, "log in to use hosted capture");
-        var session = manager.Get(currentUser.DiscordId);
+        var session = manager.Get(me.DiscordId);
         if (session is null) return Fail(409, "start a capture session first");
         session.CaDmFailed = false;
-        await DeliverSetupAsync(session, currentUser.DiscordId, currentUser.UserId.Value, notifier, addrStore, ct);
+        await DeliverSetupAsync(session, me.DiscordId, userId, notifier, addrStore, ct);
         return Ok(new { sent = !session.CaDmFailed });
     }
 
@@ -301,7 +306,7 @@ public sealed class CaptureController(
             return Ok(new { saved = path });
         }
 
-        if (!currentUser.IsSupporter && !currentUser.IsAtLeast(UserRole.Contributor))
+        if (!currentUser.Current.IsSupporter && !currentUser.Current.IsAtLeast(UserRole.Contributor))
             return Fail(403, "supporter or contributor role required to save endpoints");
         if (db is null) return Fail(503, "no database configured");
         if (routes.Resolve(flow.Path) is null) return Fail(400, $"unknown route {flow.Path}");
@@ -319,7 +324,7 @@ public sealed class CaptureController(
                 Eid = null,
                 ResponseJson = json,
                 ResponseType = decoded.Type,
-                OwnerUserId = currentUser.UserId
+                OwnerUserId = currentUser.Current.Id
             });
         } else {
             existing.ResponseJson = json;
@@ -354,7 +359,7 @@ public sealed class CaptureController(
     [RequiresDb]
     public async Task<IActionResult> ProxyAddress([FromServices] CaptureAddressStore store, CancellationToken ct) {
         if (RequireHostedUser() is { } no) return no;
-        var addr = await store.AddrForUserAsync(hostedOptions.Ipv6Prefix, currentUser.UserId!.Value, ct);
+        var addr = await store.AddrForUserAsync(hostedOptions.Ipv6Prefix, currentUser.Current.Id!.Value, ct);
         return Ok(new { host = addr.ToString(), port = hostedOptions.FrontDoorPort, address = addr.ToString() });
     }
 
@@ -363,7 +368,7 @@ public sealed class CaptureController(
     public async Task<IActionResult> RotateProxyAddress([FromServices] CaptureAddressStore store,
         CancellationToken ct) {
         if (RequireHostedUser() is { } no) return no;
-        var addr = await store.RotateAsync(hostedOptions.Ipv6Prefix, currentUser.UserId!.Value, ct);
+        var addr = await store.RotateAsync(hostedOptions.Ipv6Prefix, currentUser.Current.Id!.Value, ct);
         return Ok(new { host = addr.ToString(), port = hostedOptions.FrontDoorPort, address = addr.ToString() });
     }
 
@@ -379,14 +384,14 @@ public sealed class CaptureController(
         }
 
         if (RequireHostedUser() is { } no) return no;
-        var session = manager.Get(currentUser.DiscordId!);
+        var session = manager.Get(currentUser.Current.DiscordId!);
         if (session is not null && System.IO.File.Exists(session.CaPath)) {
             byte[] cer = await System.IO.File.ReadAllBytesAsync(session.CaPath, ct);
             return File(cer, "application/x-x509-ca-cert", "eggincognito-ca.cer");
         }
 
         if (credentials is null) return Fail(503, "no database configured");
-        var ca = await credentials.GetCaAsync(currentUser.UserId!.Value, ct);
+        var ca = await credentials.GetCaAsync(currentUser.Current.Id!.Value, ct);
         if (ca is null || ca.Pfx is [])
             return Fail(404, "no CA yet; start a capture session first");
         try {

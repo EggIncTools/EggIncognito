@@ -1,5 +1,6 @@
 using EggIncognito.Capture;
 using EggIncognito.Services;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace EggIncognito.Tests;
@@ -15,8 +16,8 @@ public sealed class CaptureSweeperTests : IDisposable {
         var manager = new CaptureSessionManager(opts,
             (key, basePort, _) => CaptureSessionManagerTests.NewSession(_tmp,
                 key == CaptureSessionManager.LocalKey ? 18080 : basePort));
-        var sweeper = new CaptureSweeper(manager, opts, TimeProvider.System,
-            NullLogger<CaptureSweeper>.Instance);
+        var sweeper = new CaptureSweeper(new ServiceCollection().BuildServiceProvider().GetRequiredService<IServiceScopeFactory>(),
+            manager, opts, TimeProvider.System, NullLogger<CaptureSweeper>.Instance);
         return (sweeper, manager);
     }
 

@@ -1,3 +1,4 @@
+using EggIdentity.Auth;
 using EggIdentity.UI;
 
 namespace EggIncognito.Services.Events;
@@ -29,4 +30,6 @@ public sealed class ViewerClock(BrowserTimeZone browser) {
 
     public static DateTimeOffset At(IServiceProvider services, DateTimeOffset utc) =>
         TimeZoneInfo.ConvertTime(utc, ZoneOf(services));
+
+    public static DateTimeOffset FromUtc(DateTime value) => new(DateTime.SpecifyKind(value, DateTimeKind.Utc));
 }

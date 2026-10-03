@@ -380,8 +380,8 @@
 
     protected override void OnInitialized() {
         base.OnInitialized();
-        _isAdmin = User.IsAtLeast(UserRole.Admin);
-        _isContributor = User.IsAtLeast(UserRole.Contributor);
+        _isAdmin = User.Current.IsAtLeast(UserRole.Admin);
+        _isContributor = User.Current.IsAtLeast(UserRole.Contributor);
     }
 
     static string DownloadUrl(StoredBinaryRow b) {

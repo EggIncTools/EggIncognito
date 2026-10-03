@@ -25,11 +25,11 @@
             }
         } else if (State.Creating) {
             <button type="button" class="btn-primary nwb-act"
-                    disabled="@(_busy || !User.IsAuthenticated || State.NewDraft.Url.Trim().Length == 0)"
+                    disabled="@(_busy || !User.Current.IsAuthenticated || State.NewDraft.Url.Trim().Length == 0)"
                     @onclick="Create">
                 @CreateLabel
             </button>
-        } else if (Current is { } cur && User.IsAuthenticated) {
+        } else if (Current is { } cur && User.Current.IsAuthenticated) {
             @if (_armed) {
                 <button type="button" class="btn-mini" disabled="@_busy" @onclick="@(() => SendTest(cur.Id))">
                     Confirm, post to @cur.UrlMasked
@@ -74,7 +74,7 @@
                 <WorkbenchEntry Selected="@State.Creating" OnClick="@(_ => SelectNew())">
                     <Name>New notification</Name>
                 </WorkbenchEntry>
-                @if (User.IsAuthenticated) {
+                @if (User.Current.IsAuthenticated) {
                     <WorkbenchLoad T="NotificationRow" Items="@FilteredOrNull" EmptyText="@EmptyRailText" Context="rows">
                         @foreach (var g in rows.GroupBy(s => s.EventKind).OrderBy(g => g.Key, StringComparer.Ordinal)) {
                             <WorkbenchSection Label="@KindLabel(g.Key)">
@@ -142,7 +142,7 @@
 
     NotificationRow? Current => State.Creating ? null : _rows?.FirstOrDefault(s => s.Id == State.SelectedId);
 
-    string CreateLabel => _busy ? "Creating..." : User.IsAuthenticated ? "Create" : "Log in to save";
+    string CreateLabel => _busy ? "Creating..." : User.Current.IsAuthenticated ? "Create" : "Log in to save";
 
     List<NotificationRow>? FilteredOrNull {
         get {
@@ -567,7 +567,7 @@
             return;
         }
 
-        if (User.IsAuthenticated && _rows is null) await LoadRows();
+        if (User.Current.IsAuthenticated && _rows is null) await LoadRows();
         if (!State.Creating && Current is null && _rows is { Count: > 0 }) {
             State.Creating = true;
             State.SelectedId = null;

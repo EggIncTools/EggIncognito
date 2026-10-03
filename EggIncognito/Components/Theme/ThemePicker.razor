@@ -14,7 +14,7 @@
 
 <div class="theme-picker">
     <SubSectionHead>Appearance</SubSectionHead>
-    @if (!User.IsAuthenticated) {
+    @if (!User.Current.IsAuthenticated) {
         <Note Small="true">Pick a preset to retheme this browser. Logging in saves themes and syncs them across devices.</Note>
     }
     <div class="theme-preset-grid">
@@ -24,7 +24,7 @@
             </button>
         }
     </div>
-    @if (User.IsAuthenticated) {
+    @if (User.Current.IsAuthenticated) {
         <label class="theme-field">
             <span>My themes</span>
             <select class="reg-filter-input theme-select" value="@_activeSlug" @onchange="OnThemeSelectedAsync">
@@ -37,7 +37,7 @@
     }
     <div class="theme-picker-actions">
         <button type="button" class="btn-mini" @onclick="() => _wbOpen = true">Open theme workbench</button>
-        @if (!User.IsAuthenticated) {
+        @if (!User.Current.IsAuthenticated) {
             <button type="button" class="btn-mini" @onclick="ResetLocalAsync">Reset</button>
         }
     </div>
@@ -71,7 +71,7 @@
     async Task LoadThemesAsync() {
         _themes.Clear();
         _activeSlug = "";
-        if (!User.IsAuthenticated) return;
+        if (!User.Current.IsAuthenticated) return;
         try {
             using var client = Client();
             var resp = await client.GetFromJsonAsync<ThemeListResponse>("/api/theme");
@@ -83,7 +83,7 @@
     }
 
     async Task ApplyPresetAsync(ThemeModel preset) {
-        if (User.IsAuthenticated) {
+        if (User.Current.IsAuthenticated) {
             using var client = Client();
             var slug = "preset-" + preset.Slug;
             var model = preset with { Slug = slug };

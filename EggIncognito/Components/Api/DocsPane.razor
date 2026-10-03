@@ -5,10 +5,7 @@
 
 @{ var subject = Subject; }
 @if (subject is null || subject.Key.Length == 0) {
-    <EmptyState>
-        <ChildContent>No subject selected.</ChildContent>
-        <Hint>Pick a message or endpoint in the rail to read and edit its documentation.</Hint>
-    </EmptyState>
+    <EmptyState Title="No subject selected." Hint="Pick a message or endpoint in the rail to read and edit its documentation."/>
 } else {
     switch (subject.Kind) {
         case DocSubjectKind.Message:

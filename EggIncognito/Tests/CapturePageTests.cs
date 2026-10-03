@@ -67,12 +67,12 @@ public class CapturePageTests {
                 .Add(c => c.Json, "{\"eiUserId\":\"EI1234567890\"}")
                 .Add(c => c.View, view));
 
-            var span = cut.Find(".blurred");
+            var span = cut.Find(".mask");
             Assert.DoesNotContain("revealed", span.GetAttribute("class"));
             span.Click();
-            Assert.Contains("revealed", cut.Find(".blurred").GetAttribute("class"));
-            cut.Find(".blurred").Click();
-            Assert.DoesNotContain("revealed", cut.Find(".blurred").GetAttribute("class"));
+            Assert.Contains("revealed", cut.Find(".mask").GetAttribute("class"));
+            cut.Find(".mask").Click();
+            Assert.DoesNotContain("revealed", cut.Find(".mask").GetAttribute("class"));
         }
 
         [Fact]

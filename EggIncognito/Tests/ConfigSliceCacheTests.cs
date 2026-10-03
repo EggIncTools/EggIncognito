@@ -46,7 +46,7 @@ public class ConfigSliceCacheTests {
 
         Assert.Null(cache.Slice(services, "ei/get_config", "decorators"));
 
-        string missingRoot = tmp.Combine("missing-root");
+        string missingRoot = tmp.File("missing-root");
         var missingServices = BuildServices(missingRoot);
         Assert.Null(cache.Slice(missingServices, "ei/get_config", "items"));
     }

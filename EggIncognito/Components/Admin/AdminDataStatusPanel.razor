@@ -50,7 +50,7 @@
                     <tr>
                         <td>@p.Platform</td>
                         <td class="small">
-                            <TimeAgo Value="@p.SavedAt"/>
+                            <TimeAgo At="@p.SavedAt" Class="time-ago"/>
                         </td>
                         <td class="mono">@p.Bytes</td>
                     </tr>
@@ -74,7 +74,7 @@
                     <td class="mono">@f.Name</td>
                     <td class="mono">@f.Bytes</td>
                     <td class="small">
-                        <TimeAgo Value="@f.UpdatedAt"/>
+                        <TimeAgo At="@f.UpdatedAt" Class="time-ago"/>
                     </td>
                     <td class="small">@f.Status</td>
                 </tr>

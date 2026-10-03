@@ -1,4 +1,5 @@
 using EggIncognito.Core.Services;
+using Microsoft.Extensions.Time.Testing;
 
 namespace EggIncognito.Tests;
 
@@ -10,7 +11,7 @@ public sealed class RouteProviderCacheTests {
 
     [Fact]
     public void Db_GetDbRoute_BeforeTtlElapses_DoesNotRefetch() {
-        var time = new FakeTime();
+        var time = new FakeTimeProvider(Start);
         int calls = 0;
         var inner = new FakeDbRouteProvider(() => {
             calls++;
@@ -25,7 +26,7 @@ public sealed class RouteProviderCacheTests {
 
     [Fact]
     public void Db_GetDbRoute_AfterTtlElapses_Refetches() {
-        var time = new FakeTime();
+        var time = new FakeTimeProvider(Start);
         int calls = 0;
         var inner = new FakeDbRouteProvider(() => {
             calls++;
@@ -41,7 +42,7 @@ public sealed class RouteProviderCacheTests {
 
     [Fact]
     public void Db_Invalidate_ForcesRefetch_EvenWithinTtl() {
-        var time = new FakeTime();
+        var time = new FakeTimeProvider(Start);
         int calls = 0;
         var inner = new FakeDbRouteProvider(() => {
             calls++;
@@ -57,7 +58,7 @@ public sealed class RouteProviderCacheTests {
 
     [Fact]
     public void Db_FetchThrowsAfterSuccess_KeepsStaleSnapshot() {
-        var time = new FakeTime();
+        var time = new FakeTimeProvider(Start);
         bool fail = false;
         var inner = new FakeDbRouteProvider(() => {
             if (fail) throw new InvalidOperationException("db down");
@@ -76,7 +77,7 @@ public sealed class RouteProviderCacheTests {
 
     [Fact]
     public void Db_UnknownPath_NegativeLookupIsCached() {
-        var time = new FakeTime();
+        var time = new FakeTimeProvider(Start);
         int calls = 0;
         var inner = new FakeDbRouteProvider(() => {
             calls++;
@@ -91,7 +92,7 @@ public sealed class RouteProviderCacheTests {
 
     [Fact]
     public void Binary_GetBinaryRoute_BeforeTtlElapses_DoesNotRefetch() {
-        var time = new FakeTime();
+        var time = new FakeTimeProvider(Start);
         int calls = 0;
         var inner = new FakeBinaryRouteProvider(() => {
             calls++;
@@ -106,7 +107,7 @@ public sealed class RouteProviderCacheTests {
 
     [Fact]
     public void Binary_Invalidate_ForcesRefetch_EvenWithinTtl() {
-        var time = new FakeTime();
+        var time = new FakeTimeProvider(Start);
         int calls = 0;
         var inner = new FakeBinaryRouteProvider(() => {
             calls++;
@@ -134,9 +135,5 @@ public sealed class RouteProviderCacheTests {
         }
     }
 
-    private sealed class FakeTime : TimeProvider {
-        private DateTimeOffset _now = new(2026, 8, 4, 0, 0, 0, TimeSpan.Zero);
-        public override DateTimeOffset GetUtcNow() => _now;
-        public void Advance(TimeSpan d) => _now += d;
-    }
+    private static readonly DateTimeOffset Start = new(2026, 8, 4, 0, 0, 0, TimeSpan.Zero);
 }

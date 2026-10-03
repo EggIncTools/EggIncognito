@@ -1,6 +1,7 @@
 using System.Net;
 using System.Security.Cryptography;
 using System.Text;
+using EggIdentity.Auth;
 using EggIdentity.Contract;
 using EggIncognito.Controllers;
 using EggIncognito.Core.Services.Devices;
@@ -35,7 +36,7 @@ public static class BridgeGate {
             return denied;
         }
 
-        if (SecretPresented(http, cfg) || user.IsAtLeast(UserRole.Admin)) return null;
+        if (SecretPresented(http, cfg) || user.Current.IsAtLeast(UserRole.Admin)) return null;
 
         Log(http, logger, string.IsNullOrEmpty(cfg.ApiKey)
             ? "DeviceTransport:ApiKey is not set on this host, so the bridge authorizes nobody by key"

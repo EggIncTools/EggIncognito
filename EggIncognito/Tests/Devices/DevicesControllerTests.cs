@@ -13,7 +13,7 @@ namespace EggIncognito.Tests.Devices;
 
 public class DevicesControllerTests {
     private static DevicesController Make(UserRole role, IServiceProvider sp) =>
-        new(new FakeUser(role: role, discordId: "123"), sp,
+        new(new FakeUser(Guid.NewGuid(), role, DiscordId: "123").Accessor(), sp,
             sp.GetService<IServiceScopeFactory>() ?? new ServiceCollection().BuildServiceProvider()
                 .GetRequiredService<IServiceScopeFactory>(),
             NullLogger<DevicesController>.Instance) {

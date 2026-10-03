@@ -111,6 +111,26 @@ public partial class StyleInvariantTests(SharedAppFactory f) {
     }
 
     [Fact]
+    public async Task AppAndScopedSheets_PassMotionGuard() {
+        var sheets = await SheetFetch.ParsedAsync(f.CreateClient());
+        var violations = new[] { sheets.App, sheets.Scoped }
+            .SelectMany(s => MotionGuard.Check(s, ["egi-hue"]))
+            .Select(v => $"{v.Selector} {{ {v.Property}: {v.Value} }} ({v.Reason})")
+            .ToList();
+        Assert.True(violations.Count == 0, "motion violations: " + string.Join("; ", violations));
+    }
+
+    [Fact]
+    public async Task AppSheet_DeclaresEveryMotionTokenTheSharedLayerReads() {
+        var sheets = await SheetFetch.ParsedAsync(f.CreateClient());
+        var missing = sheets.Shared.ReadProperties
+            .Where(p => p.StartsWith("--motion-", StringComparison.Ordinal) || p.StartsWith("--ease-", StringComparison.Ordinal))
+            .Where(p => !sheets.App.DefinedProperties.Contains(p))
+            .Order(StringComparer.Ordinal).ToList();
+        Assert.True(missing.Count == 0, "app.css :root lacks motion tokens the shared layer reads: " + string.Join(", ", missing));
+    }
+
+    [Fact]
     public async Task TokenClassRules_ReadTheirCodeToken() {
         var sheets = await SheetFetch.ParsedAsync(f.CreateClient());
         foreach (string cls in TokenClasses.All) {

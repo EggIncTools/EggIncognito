@@ -1,4 +1,5 @@
 using System.Reflection;
+using EggIdentity.Auth;
 using EggIncognito.Controllers;
 using EggIncognito.Services;
 using EggIncognito.Services.Theme;
@@ -13,7 +14,7 @@ namespace EggIncognito.Tests;
 public class ThemeBlastRadiusTests {
     [Fact]
     public async Task Resolver_ReturnsNullWithoutADatabase() {
-        var resolver = BuildResolver(new FakeUser(discordId: null, userId: Guid.NewGuid()));
+        var resolver = BuildResolver(new FakeUser(Guid.NewGuid()).Accessor());
         Assert.Null(await resolver.ResolveAsync());
     }
 

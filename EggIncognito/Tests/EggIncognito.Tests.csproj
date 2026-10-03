@@ -3,11 +3,13 @@
   <ItemGroup>
     <PackageReference Include="AngleSharp" />
     <PackageReference Include="bunit" />
+    <PackageReference Include="EggIdentity.Testing" />
     <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
   </ItemGroup>
 
   <ItemGroup>
     <Using Include="Xunit" />
+    <Using Include="EggIdentity.Testing" />
   </ItemGroup>
 
   <ItemGroup>

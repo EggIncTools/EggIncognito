@@ -1,3 +1,4 @@
+using EggIdentity.Auth;
 using EggIdentity.Contract;
 using EggIdentity.Styles.Theming;
 using EggIncognito.Data.Models;
@@ -22,7 +23,7 @@ public sealed class ThemeResolver(
     public static void Invalidate(IMemoryCache cache, Guid userId) => cache.Remove(CacheKey(userId));
 
     public async Task<ResolvedTheme?> ResolveAsync(CancellationToken ct = default) {
-        if (!currentUser.IsAuthenticated || currentUser.UserId is not { } uid) return null;
+        if (currentUser.Current is not { IsAuthenticated: true, Id: { } uid }) return null;
         if (themeStore is not { } store) return null;
 
         if (cache.TryGetValue(CacheKey(uid), out ResolvedTheme? cached)) return cached;
@@ -64,7 +65,7 @@ public sealed class ThemeResolver(
 
     private async Task<bool> CustomCssAllowedAsync(UserThemeStore store, CancellationToken ct) {
         if (!configuration.GetValue("Theme:CustomCss", true)) return false;
-        if (!currentUser.IsAtLeast(UserRole.Contributor)) return false;
+        if (!currentUser.Current.IsAtLeast(UserRole.Contributor)) return false;
         var policy = await store.GetPolicyAsync(ct);
         return policy.CustomCssEnabled;
     }

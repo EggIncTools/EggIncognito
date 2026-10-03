@@ -8,7 +8,7 @@
                 <span class="pd-k">Server</span>
                 @if (_builtAt is { } built) {
                     <span class="pd-sep">|</span>
-                    <TimeAgo Value="@built"/>
+                    <TimeAgo At="@built" Class="time-ago"/>
                 }
             </div>
             <div class="pd-serverline">

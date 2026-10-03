@@ -4,6 +4,4 @@
   height: 0;
   border: 4px solid transparent;
   border-left-color: currentColor;
-  transition: transform .1s;
 }
-.ep-caret-open { transform: rotate(90deg); }

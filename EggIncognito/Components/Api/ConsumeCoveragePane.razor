@@ -9,17 +9,17 @@
 @inject ILogger<ConsumeCoveragePane> Logger
 @inject ICurrentUser User
 
-@if (User.IsAtLeast(UserRole.Admin)) {
+@if (User.Current.IsAtLeast(UserRole.Admin)) {
     @if (_noDb) {
         <div class="awb-pane">
             <h4 class="awb-pane-title">Consume coverage</h4>
-            <StatusNote Severity="StatusNoteKind.Error">No database configured.</StatusNote>
+            <StatusNote Kind="StatusNoteKind.Error">No database configured.</StatusNote>
         </div>
     } else if (_map is null) {
         @if (_loaded) {
             <div class="awb-pane">
                 <h4 class="awb-pane-title">Consume coverage</h4>
-                <StatusNote Severity="StatusNoteKind.Error">The artifact catalog is not loaded.</StatusNote>
+                <StatusNote Kind="StatusNoteKind.Error">The artifact catalog is not loaded.</StatusNote>
             </div>
         }
     } else {
@@ -117,7 +117,7 @@
     bool _enabled = true;
 
     protected override async Task OnInitializedAsync() {
-        if (!User.IsAtLeast(UserRole.Admin)) return;
+        if (!User.Current.IsAtLeast(UserRole.Admin)) return;
         await LoadAsync();
     }
 

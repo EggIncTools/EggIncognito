@@ -1,11 +1,12 @@
 @using EggIncognito.Core.Services.ProtoExtract
+@using EggIncognito.Services.Events
 @using EggIncognito.Services.Protos
 <div class="pd-vergroup">
     <div class="pd-vergroup-head">
         <span class="pv-k">Game version</span>
         @if (Updated is { } u) {
             <span class="pv-sep">|</span>
-            <TimeAgo Value="@TimeAgo.FromUtc(u)"/>
+            <TimeAgo At="@ViewerClock.FromUtc(u)" Class="time-ago"/>
         }
     </div>
     @if (_latest.Count == 0) {

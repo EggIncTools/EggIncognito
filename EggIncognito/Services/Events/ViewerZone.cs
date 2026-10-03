@@ -1,3 +1,4 @@
+using EggIdentity.Auth;
 using EggIdentity.Client;
 
 namespace EggIncognito.Services.Events;
@@ -7,7 +8,7 @@ public static class ViewerZone {
 
     public static async Task<string?> ProfileIdAsync(
         IServiceProvider services, ICurrentUser user, CancellationToken ct) {
-        if (!user.IsAuthenticated) return null;
+        if (!user.Current.IsAuthenticated) return null;
         if (services.GetService(typeof(AuthState)) is not AuthState auth) return null;
         if (services.GetService(typeof(IHttpContextAccessor)) is not IHttpContextAccessor accessor) return null;
         var token = accessor.HttpContext?.Request.Cookies[auth.SessionCookieName] ?? "";

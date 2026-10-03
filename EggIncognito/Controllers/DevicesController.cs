@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Text;
 using System.Text.RegularExpressions;
+using EggIdentity.Auth;
 using EggIdentity.Contract;
 using EggIncognito.Core.Services.Devices;
 using EggIncognito.Data.Models;
@@ -42,7 +43,7 @@ public sealed partial class DevicesController(
 
     private async Task<string?> ResolveDeviceIdAsync(string incoming, IDeviceStatusStore? store,
         CancellationToken ct) {
-        if (currentUser.IsAtLeast(UserRole.Admin)) return incoming;
+        if (currentUser.Current.IsAtLeast(UserRole.Admin)) return incoming;
         if (store is null) return null;
         var enabled = await store.EnabledDevicesAsync(ct);
         return enabled.FirstOrDefault(d => DevicePublicKey.For(d.Id) == incoming)?.Id;
@@ -57,7 +58,7 @@ public sealed partial class DevicesController(
         if (fleet is null || timeline is null) return Ok(Array.Empty<DeviceStatusRow>());
 
         var ct = HttpContext.RequestAborted;
-        bool isAdmin = currentUser.IsAtLeast(UserRole.Admin);
+        bool isAdmin = currentUser.Current.IsAtLeast(UserRole.Admin);
         var devices = (await fleet.EnabledAsync(ct)).Select(AsDevice).ToDictionary(d => d.Id);
 
         var ids = devices.Keys.ToList();
@@ -171,7 +172,7 @@ public sealed partial class DevicesController(
         if (device is null) return Fail(404, "unknown device");
 
         var row = await DeviceProbeRunner.ProbeOneAsync(
-            device, $"admin:{currentUser.DiscordId}", platforms, jobStore, db, logger, time,
+            device, $"admin:{currentUser.Current.DiscordId}", platforms, jobStore, db, logger, time,
             HttpContext.RequestAborted);
 
         return Ok(new {
@@ -206,7 +207,7 @@ public sealed partial class DevicesController(
         foreach (var d in devices) {
             try {
                 await DeviceProbeRunner.ProbeOneAsync(
-                    d, $"admin-all:{currentUser.DiscordId}", platforms, jobStore, db, logger, time,
+                    d, $"admin-all:{currentUser.Current.DiscordId}", platforms, jobStore, db, logger, time,
                     HttpContext.RequestAborted);
                 n++;
             } catch (Exception ex) {
@@ -233,7 +234,7 @@ public sealed partial class DevicesController(
     [EnableRateLimiting("write")]
     public async Task<IActionResult> CheckUpdate(string id, [FromServices] IDeviceStatusStore store,
         [FromServices] DeviceJobStore jobStore, [FromServices] IEnumerable<IDeviceStoreChecker> checkers) {
-        string who = currentUser.DiscordId ?? "?";
+        string who = currentUser.Current.DiscordId ?? "?";
 
         var device = await store.GetAsync(id);
         if (device is null) return Fail(404, "unknown device");
@@ -296,7 +297,7 @@ public sealed partial class DevicesController(
     [RequiresDb]
     [EnableRateLimiting("write")]
     public async Task<IActionResult> Save(string id, [FromServices] DeviceRegistryPublisher publisher) {
-        string who = currentUser.DiscordId ?? "?";
+        string who = currentUser.Current.DiscordId ?? "?";
         var res = await publisher.PublishAsync(id, $"device-save:{who}", true, HttpContext.RequestAborted);
         return res.Outcome switch {
             PublishOutcome.Published =>
@@ -423,7 +424,7 @@ public sealed partial class DevicesController(
     [EnableRateLimiting("write")]
     public async Task<IActionResult> Recert(string id, [FromServices] DeviceRecertService recert,
         [FromQuery] int shots = 0, CancellationToken ct = default) {
-        string who = currentUser.DiscordId ?? "?";
+        string who = currentUser.Current.DiscordId ?? "?";
         var result = await recert.RecertAsync(id, $"admin:{who}", ct);
 
         var dto = new RecertResultDto(
@@ -826,7 +827,7 @@ public sealed partial class DevicesController(
         [FromServices] DeviceCaptureManager? mgr, CancellationToken ct) {
         if (await ResolveDeviceIdAsync(id, store, ct) is not { } realId) return Ok(new { found = false });
         if (mgr is null) return Ok(new { found = false });
-        bool isAdmin = currentUser.IsAtLeast(UserRole.Admin);
+        bool isAdmin = currentUser.Current.IsAtLeast(UserRole.Admin);
         var d = mgr.DiagFor(realId);
         object capture = new {
             listening = mgr.PortFor(realId) != 0,

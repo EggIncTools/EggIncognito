@@ -25,7 +25,7 @@ public sealed class DocUsageIndexTests : IDisposable {
                                     """;
 
     private DocUsageIndex Build(IBinaryRouteProvider? binary = null) {
-        string path = _tmp.Combine($"docusage-{Guid.NewGuid():N}.yaml");
+        string path = _tmp.File($"docusage-{Guid.NewGuid():N}.yaml");
         File.WriteAllText(path, YamlText);
         return new DocUsageIndex(new RouteCatalog(path), new ProtoReflection(), binary);
     }

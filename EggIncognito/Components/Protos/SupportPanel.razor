@@ -23,7 +23,7 @@
     bool _canCapture;
 
     protected override void OnInitialized() {
-        _canCapture = AppMode.CanCapture || User.IsSupporter || User.IsAtLeast(UserRole.Admin);
+        _canCapture = AppMode.CanCapture || User.Current.IsSupporter || User.Current.IsAtLeast(UserRole.Admin);
     }
 
 }

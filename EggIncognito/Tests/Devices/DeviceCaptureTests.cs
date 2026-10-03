@@ -178,7 +178,7 @@ public class DeviceCaptureTests {
     }
 
     private static DeviceCaptureManager Manager(IDeviceFleet fleet, TempDir tmp) =>
-        new(new DeviceCaptureConfig { Enabled = true, BasePort = 9100 }, fleet, tmp.Path, tmp.Combine("ca.pem"),
+        new(new DeviceCaptureConfig { Enabled = true, BasePort = 9100 }, fleet, tmp.Path, tmp.File("ca.pem"),
             _ => new FakeCaptureProxy(), tmp.Path, NullLogger<DeviceCaptureManager>.Instance,
             catalog: new EmptyRoutes());
 

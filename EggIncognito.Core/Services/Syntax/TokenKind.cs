@@ -44,7 +44,7 @@ public static class TokenClasses {
     public const string Invalid = "tok-invalid";
 
     public const string Mark = "code-mark";
-    public const string Blur = "blurred";
+    public const string Blur = "mask";
 
     private static readonly string[] ByKind = [
         Plain, Key, String, Number, Bool, Null, Keyword, Type, Ident, Comment,

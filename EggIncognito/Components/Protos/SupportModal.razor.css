@@ -24,7 +24,7 @@
   padding: 1rem;
   text-decoration: none;
   color: var(--color-fg);
-  transition: border-color 0.15s;
+  transition: border-color var(--motion-base) var(--ease-standard);
 }
 .rail:visited { color: var(--color-fg); text-decoration: none; }
 .rail:hover { border-color: var(--color-accent); }

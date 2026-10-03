@@ -50,7 +50,7 @@
             <section id="detailPanel" class="panel detail-panel">
                 <h2>Detail</h2>
                 @if (_selectedFlow is null) {
-                    <EmptyState Icon="list" Fill="true">Select a request to read it.</EmptyState>
+                    <EmptyState Icon="list" Fill="true" Title="Select a request to read it."/>
                 } else {
                     <DetailPane Flow="_selectedFlow" View="_view" ClientFactory="Client" Fill="true"/>
                 }
@@ -123,10 +123,11 @@
     protected override void OnInitialized() {
         base.OnInitialized();
 
-        _isAuthenticated = User.IsAuthenticated;
-        _isSupporter = User.IsSupporter;
-        _isAdmin = User.IsAtLeast(UserRole.Admin);
-        _userId = User.DiscordId;
+        var me = User.Current;
+        _isAuthenticated = me.IsAuthenticated;
+        _isSupporter = me.IsSupporter;
+        _isAdmin = me.IsAtLeast(UserRole.Admin);
+        _userId = me.DiscordId;
 
         ResolveSession();
         if (_hub is null) return;
@@ -147,7 +148,7 @@
         var tier = _isSupporter || _isAdmin ? CaptureTier.Full : CaptureTier.Limited;
         try {
             _session = Manager.GetOrCreate(_userId, tier);
-            _session.ContributorUserId = User.UserId;
+            _session.ContributorUserId = User.Current.Id;
             _hub = _session.Hub;
             _limited = _session.Tier == CaptureTier.Limited;
             _fullDetailRoutes = Kinds.AllRoutes;

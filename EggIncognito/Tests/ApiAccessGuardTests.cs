@@ -1,9 +1,9 @@
 using System.Reflection;
 using System.Reflection.Emit;
 using System.Runtime.CompilerServices;
+using EggIdentity.Auth;
 using EggIdentity.Contract;
 using EggIncognito.Controllers;
-using EggIncognito.Services;
 using EggIncognito.Services.Auth;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Routing;
@@ -22,7 +22,8 @@ public class ApiAccessGuardTests {
         OpCodes.Brtrue.Value
     ];
 
-    private static readonly MethodInfo IsAtLeast = typeof(ICurrentUser).GetMethod(nameof(ICurrentUser.IsAtLeast))!;
+    private static readonly MethodInfo IsAtLeast =
+        typeof(CurrentUser).GetMethod(nameof(CurrentUser.IsAtLeast), [typeof(UserRole)])!;
 
     [Fact]
     public void EveryController_DeclaresApiAccessPolicy() {
@@ -261,14 +262,14 @@ public class ApiAccessGuardTests {
     private sealed class ScannerFixture(ICurrentUser user) : ControllerBase {
         [HttpGet]
         public IActionResult Direct() {
-            if (!user.IsAtLeast(UserRole.Admin)) return Forbid();
+            if (!user.Current.IsAtLeast(UserRole.Admin)) return Forbid();
             return Ok();
         }
 
         [HttpGet]
         public async Task<IActionResult> Awaited() {
             await Task.Yield();
-            if (!user.IsAtLeast(UserRole.Admin)) return Forbid();
+            if (!user.Current.IsAtLeast(UserRole.Admin)) return Forbid();
             return Ok();
         }
 
@@ -281,8 +282,8 @@ public class ApiAccessGuardTests {
         [HttpGet]
         public IActionResult Ungated() => Ok();
 
-        private IActionResult? RequireAdmin() => user.IsAtLeast(UserRole.Admin) ? null : Forbid();
+        private IActionResult? RequireAdmin() => user.Current.IsAtLeast(UserRole.Admin) ? null : Forbid();
 
-        private IActionResult? Require(UserRole role) => user.IsAtLeast(role) ? null : Forbid();
+        private IActionResult? Require(UserRole role) => user.Current.IsAtLeast(role) ? null : Forbid();
     }
 }

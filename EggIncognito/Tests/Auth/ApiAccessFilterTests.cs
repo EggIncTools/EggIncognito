@@ -1,3 +1,4 @@
+using EggIdentity.Auth;
 using EggIdentity.Contract;
 using EggIncognito.Services;
 using EggIncognito.Services.Auth;
@@ -13,7 +14,7 @@ namespace EggIncognito.Tests.Auth;
 public class ApiAccessFilterTests {
     private static AuthorizationFilterContext Context(string path, UserRole role, params object[] metadata) {
         var services = new ServiceCollection();
-        services.AddSingleton<ICurrentUser>(new FakeUser(role != UserRole.Viewer, role, discordId: null));
+        services.AddSingleton<ICurrentUser>(role != UserRole.Viewer ? new FakeUser(Guid.NewGuid(), role).Accessor() : new AnonymousUser());
         var http = new DefaultHttpContext { RequestServices = services.BuildServiceProvider() };
         http.Request.Path = path;
         var descriptor = new ActionDescriptor { EndpointMetadata = metadata };

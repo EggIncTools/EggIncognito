@@ -7,7 +7,7 @@ using Microsoft.EntityFrameworkCore;
 namespace EggIncognito.Tests;
 
 public class ProtoBatchApiTests {
-    private static readonly ProtoRegistryController Controller = new(new FakeUser(), TimeProvider.System);
+    private static readonly ProtoRegistryController Controller = new(new FakeUser(Guid.NewGuid(), DiscordId: "tester").Accessor(), TimeProvider.System);
 
     [Fact]
     public async Task OfferBatch_RejectsEmptyAndOversizedItemLists() {

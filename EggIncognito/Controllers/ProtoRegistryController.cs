@@ -1,4 +1,5 @@
 using System.Text.Json;
+using EggIdentity.Auth;
 using EggIdentity.Contract;
 using EggIncognito.Core;
 using EggIncognito.Core.Services;
@@ -6,7 +7,6 @@ using EggIncognito.Core.Services.ProtoExtract;
 using EggIncognito.Core.Services.Protos;
 using EggIncognito.Data.Services;
 using EggIncognito.Models.Protos;
-using EggIncognito.Services;
 using EggIncognito.Services.Auth;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
@@ -19,7 +19,7 @@ namespace EggIncognito.Controllers;
 [EnableRateLimiting("write")]
 public sealed class ProtoRegistryController(ICurrentUser user, TimeProvider time) : ApiControllerBase {
     private const int MaxBatch = 500;
-    private string Reviewer => user.DiscordId ?? "?";
+    private string Reviewer => user.Current.DiscordId ?? "?";
 
     [HttpPost]
     [ApiAccess(ApiAccessLevel.Contributor)]
@@ -39,7 +39,7 @@ public sealed class ProtoRegistryController(ICurrentUser user, TimeProvider time
 
         var upsert = await store.UpsertAsync(
             req.Platform, req.AppVersion, req.Build, req.ClientVersion, req.Package ?? "",
-            sha, "", time.GetUtcNow(), user.Username, protoText,
+            sha, "", time.GetUtcNow(), user.Current.Name, protoText,
             req.Source ?? "upload", ct: ct);
         return Ok(new {
             ok = true,
@@ -138,7 +138,7 @@ public sealed class ProtoRegistryController(ICurrentUser user, TimeProvider time
     public async Task<IActionResult> SetShaOrder([FromBody] ShaOrderRequest req,
         [FromServices] ProtoRegistryStore store, CancellationToken ct) {
         if (string.IsNullOrWhiteSpace(req.ProtoSha)) return Fail(400, "protoSha required");
-        await store.SetShaOrderAsync(req.ProtoSha.Trim(), req.Order, user.Username, ct);
+        await store.SetShaOrderAsync(req.ProtoSha.Trim(), req.Order, user.Current.Name, ct);
         return Ok(new { ok = true, protoSha = req.ProtoSha, order = req.Order });
     }
 
@@ -233,8 +233,8 @@ public sealed class ProtoRegistryController(ICurrentUser user, TimeProvider time
 
         string messageIndex = JsonSerializer.Serialize(ProtoTextIndex.Names(norm.Text));
         var r = await s.OfferAsync(item.Platform, Blank(item.AppVersion), Blank(item.Build),
-            Blank(item.ClientVersion), Blank(item.Package), norm.Sha, norm.Text, messageIndex, user.DiscordId,
-            StagedProtoStore.SourceOffer, user.IsAtLeast(UserRole.Admin), ct);
+            Blank(item.ClientVersion), Blank(item.Package), norm.Sha, norm.Text, messageIndex, user.Current.DiscordId,
+            StagedProtoStore.SourceOffer, user.Current.IsAtLeast(UserRole.Admin), ct);
         return new OfferItemResult(index, r.ToString().ToLowerInvariant(), norm.Sha);
     }
 

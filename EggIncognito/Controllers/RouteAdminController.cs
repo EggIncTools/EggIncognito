@@ -1,8 +1,8 @@
+using EggIdentity.Auth;
 using EggIncognito.Core.Services;
 using EggIncognito.Data.Models;
 using EggIncognito.Data.Services;
 using EggIncognito.Models.Routes;
-using EggIncognito.Services;
 using EggIncognito.Services.Auth;
 using EggIncognito.Services.DataApi;
 using EggIncognito.Services.Routes;
@@ -68,7 +68,7 @@ public sealed class RouteAdminController(
                 ResponseWrapped = body.ResponseWrapped,
                 PathParam = body.PathParam,
                 UpdatedAt = now,
-                UpdatedBy = currentUser.UserId
+                UpdatedBy = currentUser.Current.Id
             });
         } else {
             existing.RequestType = body.Request;
@@ -77,7 +77,7 @@ public sealed class RouteAdminController(
             existing.ResponseWrapped = body.ResponseWrapped;
             existing.PathParam = body.PathParam;
             existing.UpdatedAt = now;
-            existing.UpdatedBy = currentUser.UserId;
+            existing.UpdatedBy = currentUser.Current.Id;
         }
 
         await db.SaveChangesAsync();

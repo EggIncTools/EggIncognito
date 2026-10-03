@@ -278,7 +278,7 @@
                                                      @foreach (var (text, blur) in View.RenderRedactedPath(path)) {
                                                          if (blur) {
                                                              var key = "path:" + text;
-                                                             <span class="blurred @RevealCls(key)" @onclick="() => ToggleReveal(key)">@text</span>
+                                                             <span class="mask @RevealCls(key)" @onclick="() => ToggleReveal(key)">@text</span>
                                                          } else {
                                                              @text
                                                          }
@@ -289,7 +289,7 @@
                                                             @{ var (text, blur) = View.RedactParamValue(value); }
                                                             @if (blur) {
                                                                 var key = "param:" + text;
-                                                                <span class="blurred @RevealCls(key)" @onclick="() => ToggleReveal(key)">@text</span>
+                                                                <span class="mask @RevealCls(key)" @onclick="() => ToggleReveal(key)">@text</span>
                                                             } else {
                                                                 @text
                                                             }
@@ -362,7 +362,7 @@
                        var key = "hdr:" + keyPrefix + ":" + h.Name + ":" + h.Value;
                        <span class="h-name">@h.Name</span>
                        @if (blur) {
-                           <span class="h-val blurred @RevealCls(key)"
+                           <span class="h-val mask @RevealCls(key)"
                                  @onclick="() => ToggleReveal(key)">
                                @h.Value
                            </span>

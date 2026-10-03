@@ -61,7 +61,7 @@
 
     protected override void OnInitialized() {
         base.OnInitialized();
-        _canEdit = User.IsAtLeast(UserRole.Contributor);
+        _canEdit = User.Current.IsAtLeast(UserRole.Contributor);
     }
 
     protected override void OnParametersSet() {

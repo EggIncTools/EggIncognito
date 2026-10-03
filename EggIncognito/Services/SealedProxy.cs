@@ -1,4 +1,5 @@
 using System.Net;
+using EggIdentity.Auth;
 
 namespace EggIncognito.Services;
 
@@ -30,8 +31,8 @@ public sealed class SealedProxy(
     public bool IsConfigured => !string.IsNullOrWhiteSpace(options.UpstreamUrl);
 
     public Task<bool> CanUseAsync(ICurrentUser user, CancellationToken ct = default) =>
-        Task.FromResult(IsConfigured && user.IsAuthenticated &&
-                        !string.IsNullOrEmpty(user.DiscordId) && user.IsSupporter);
+        Task.FromResult(IsConfigured && user.Current is { IsAuthenticated: true, IsSupporter: true } me &&
+                        !string.IsNullOrEmpty(me.DiscordId));
 
     public HttpClient CreateEgressClient() => httpFactory.CreateClient(EgressClientName);
 

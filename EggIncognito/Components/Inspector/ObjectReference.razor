@@ -4,13 +4,8 @@
 @inject IDocUsageIndex Usage
 
 @if (string.IsNullOrEmpty(Name)) {
-    <EmptyState>
-        <ChildContent>No object selected.</ChildContent>
-        <Hint>
-            Pick a proto message type in the rail to see its documentation, its fields, the endpoints
-            that use it, and the messages that embed it.
-        </Hint>
-    </EmptyState>
+    <EmptyState Title="No object selected."
+                Hint="Pick a proto message type in the rail to see its documentation, its fields, the endpoints that use it, and the messages that embed it."/>
 } else {
     <DocSubjectView Kind="DocSubjectKind.Message" Key="@Name" Title="@Name" Taggable="false">
         <Footer>

@@ -1,8 +1,8 @@
 using System.Text;
+using EggIdentity.Auth;
 using EggIncognito.Data.Models;
 using EggIncognito.Data.Services;
 using EggIncognito.Models.Protos;
-using EggIncognito.Services;
 using EggIncognito.Services.Admin;
 using EggIncognito.Services.Auth;
 using EggIncognito.Services.Feed;
@@ -32,7 +32,7 @@ public sealed class ProtoFeedController(ICurrentUser currentUser, IHttpClientFac
     [RequiresDb]
     public async Task<IActionResult> Create([FromBody] FeedCreateReq req,
         [FromServices] FeedSubscriptionStore store, [FromServices] AdminNotifier? notifier, CancellationToken ct) {
-        var owner = currentUser.UserId;
+        var owner = currentUser.Current.Id;
         if (owner is null) return Fail(401, "log in to manage subscriptions");
         if (string.IsNullOrWhiteSpace(req.WebhookUrl) ||
             !Uri.TryCreate(req.WebhookUrl, UriKind.Absolute, out var webhook) ||
@@ -67,7 +67,7 @@ public sealed class ProtoFeedController(ICurrentUser currentUser, IHttpClientFac
     [HttpGet("mine")]
     [RequiresDb]
     public async Task<IActionResult> Mine([FromServices] FeedSubscriptionStore store, CancellationToken ct) {
-        var owner = currentUser.UserId;
+        var owner = currentUser.Current.Id;
         if (owner is null) return Fail(401, "log in to manage subscriptions");
 
         var subs = await store.ByOwnerAsync(owner.Value, ct);
@@ -92,7 +92,7 @@ public sealed class ProtoFeedController(ICurrentUser currentUser, IHttpClientFac
     [RequiresDb]
     public async Task<IActionResult> Delete(int id, [FromServices] FeedSubscriptionStore store,
         [FromServices] AdminNotifier? notifier, CancellationToken ct) {
-        var owner = currentUser.UserId;
+        var owner = currentUser.Current.Id;
         if (owner is null) return Fail(401, "log in to manage subscriptions");
 
         bool ok = await store.DeleteAsync(id, owner.Value, ct);
@@ -106,7 +106,7 @@ public sealed class ProtoFeedController(ICurrentUser currentUser, IHttpClientFac
     [RequiresDb]
     public async Task<IActionResult> Test(int id, [FromQuery] string? sample,
         [FromServices] FeedSubscriptionStore store, CancellationToken ct) {
-        var owner = currentUser.UserId;
+        var owner = currentUser.Current.Id;
         if (owner is null) return Fail(401, "log in to manage subscriptions");
 
         var sub = (await store.ByOwnerAsync(owner.Value, ct)).FirstOrDefault(s => s.Id == id);
@@ -153,7 +153,7 @@ public sealed class ProtoFeedController(ICurrentUser currentUser, IHttpClientFac
     [RequiresDb]
     public async Task<IActionResult> Update(int id, [FromBody] FeedUpdateReq req,
         [FromServices] FeedSubscriptionStore store, [FromServices] AdminNotifier? notifier, CancellationToken ct) {
-        var owner = currentUser.UserId;
+        var owner = currentUser.Current.Id;
         if (owner is null) return Fail(401, "log in to manage subscriptions");
 
         var sub = (await store.ByOwnerAsync(owner.Value, ct)).FirstOrDefault(s => s.Id == id);
@@ -177,7 +177,7 @@ public sealed class ProtoFeedController(ICurrentUser currentUser, IHttpClientFac
     [RequiresDb]
     public async Task<IActionResult> Activity(int id, [FromServices] FeedSubscriptionStore store,
         CancellationToken ct) {
-        var owner = currentUser.UserId;
+        var owner = currentUser.Current.Id;
         if (owner is null) return Fail(401, "log in to manage subscriptions");
 
         var sub = (await store.ByOwnerAsync(owner.Value, ct)).FirstOrDefault(s => s.Id == id);

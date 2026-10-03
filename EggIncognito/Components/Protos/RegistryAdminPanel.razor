@@ -168,7 +168,7 @@
                             </td>
                             <td class="muted">
                                 @if (d.DeletedAt is { } at) {
-                                    <TimeAgo Value="@at"/>
+                                    <TimeAgo At="@at" Class="time-ago"/>
                                 }
                             </td>
                             <td class="tools pwb-admin-row-tools">

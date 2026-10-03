@@ -43,8 +43,7 @@
             <a class="ds-route" href="@s.Url" target="_blank" rel="noopener">@s.Url</a>
             <div class="ds-curl">
                 <code class="ds-curl-text">@CurlLine(s)</code>
-                <CopyButton GetText="@(() => CurlLine(s))" ButtonClass="btn-mini ds-curl-copy" IconClass="icon-sm"
-                            Label="Copy" CopiedLabel="Copied"/>
+                <CopyButton Text="@CurlLine(s)" Class="btn-mini data-copy ds-curl-copy" IconClass="icon-sm">Copy</CopyButton>
             </div>
         </header>
         <div class="ds-body">
@@ -70,7 +69,7 @@
                     <LoginButton Label="Log in" Placement="LoginMenuPlacement.Right"/>
                 </div>
             } else if (entry.Status is < 200 or > 299) {
-                <StatusNote Severity="StatusNoteKind.Error">
+                <StatusNote Kind="StatusNoteKind.Error">
                     @(entry.Status == 0 ? "The request failed." : $"HTTP {entry.Status}")
                 </StatusNote>
             } else {

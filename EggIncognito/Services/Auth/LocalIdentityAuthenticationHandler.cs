@@ -17,14 +17,20 @@ public sealed class LocalIdentityAuthenticationHandler(
         if (ApiKeyResolutionMiddleware.HasKeyHeader(Context))
             return Task.FromResult(AuthenticateResult.NoResult());
 
+        return Task.FromResult(AuthenticateResult.Success(
+            new AuthenticationTicket(Principal(settings), LocalIdentityAuth.Scheme)));
+    }
+
+    internal static ClaimsPrincipal Principal(LocalIdentitySettings settings) {
         Claim[] claims = [
             new(AuthClaims.UserIdClaim, LocalIdentitySettings.UserId.ToString()),
             new(ClaimTypes.Name, settings.Username),
             new(AuthClaims.RoleClaim, settings.RoleName),
+            new("sub", LocalIdentitySettings.UserId.ToString()),
+            new(SessionClaims.Name, settings.Username),
+            new(SessionClaims.Role, settings.RoleName),
             new(SessionClaims.Supporter, settings.Supporter ? "true" : "false")
         ];
-        var identity = new ClaimsIdentity(claims, LocalIdentityAuth.Scheme);
-        return Task.FromResult(AuthenticateResult.Success(
-            new AuthenticationTicket(new ClaimsPrincipal(identity), LocalIdentityAuth.Scheme)));
+        return new ClaimsPrincipal(new ClaimsIdentity(claims, LocalIdentityAuth.Scheme));
     }
 }

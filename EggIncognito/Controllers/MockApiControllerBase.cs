@@ -1,4 +1,5 @@
 using System.Text;
+using EggIdentity.Auth;
 using EggIncognito.Core.Services;
 using EggIncognito.Services;
 using EggIncognito.Services.Auth;

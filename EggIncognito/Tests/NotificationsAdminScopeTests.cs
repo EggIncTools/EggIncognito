@@ -1,8 +1,8 @@
 using Bunit;
+using EggIdentity.Auth;
 using EggIdentity.Contract;
 using EggIdentity.UI;
 using EggIncognito.Components.Protos;
-using EggIncognito.Services;
 using EggIncognito.Services.Notifications;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
@@ -15,7 +15,7 @@ public class NotificationsAdminScopeTests : BunitContext {
 
     private void Wire() {
         JSInterop.Mode = JSRuntimeMode.Loose;
-        Services.AddSingleton<ICurrentUser>(new FakeUser(role: UserRole.Admin));
+        Services.AddSingleton<ICurrentUser>(new FakeUser(Guid.NewGuid(), UserRole.Admin, DiscordId: "tester").Accessor());
         Services.AddSingleton<IHttpContextAccessor>(new HttpContextAccessor());
         Services.AddSingleton<IWebHostEnvironment>(new FakeWebHostEnvironment());
         Services.AddScoped<NotificationsWorkbenchState>();

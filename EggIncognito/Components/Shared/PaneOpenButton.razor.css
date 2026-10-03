@@ -9,6 +9,6 @@
   border-radius: 0.5rem;
   background-color: var(--color-bg);
   color: var(--color-muted);
-  transition: border-color .12s, color .12s;
+  transition: border-color var(--motion-fast) var(--ease-standard), color var(--motion-fast) var(--ease-standard);
 }
 .pane-open:hover { color: var(--color-fg); border-color: var(--color-accent); }

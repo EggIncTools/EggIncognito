@@ -64,16 +64,11 @@
     </div>
     <div id="flowList" class="flow-wrap @(Flows.Count == 0 ? "flow-wrap-empty" : "")" @ref="_listRef">
         @if (Flows.Count == 0) {
-            <EmptyState Icon="@(Connected ? "list" : "smartphone")" Fill="true">
-                <ChildContent>@(Connected ? "No requests captured yet." : "No device connected yet.")</ChildContent>
-                <Hint>
-                    @if (Connected) {
-                        @:Open Egg, Inc. on the phone and its requests appear here.
-                    } else {
-                        @:Set the phone's Wi-Fi proxy to the capture server address, then open Egg, Inc. The device only registers once an app sends a request through the proxy.
-                    }
-                </Hint>
-            </EmptyState>
+            <EmptyState Icon="@(Connected ? "list" : "smartphone")" Fill="true"
+                        Title="@(Connected ? "No requests captured yet." : "No device connected yet.")"
+                        Hint="@(Connected
+                                  ? "Open Egg, Inc. on the phone and its requests appear here."
+                                  : "Set the phone's Wi-Fi proxy to the capture server address, then open Egg, Inc. The device only registers once an app sends a request through the proxy.")"/>
         } else {
             <table class="data-table flow-table">
                 <thead>

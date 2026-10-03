@@ -14,7 +14,7 @@
         <button type="button" class="btn-mini" @onclick="@(() => OnClear.InvokeAsync())">Clear</button>
     </div>
     @if (_armed) {
-        <StatusNote Severity="StatusNoteKind.Info" OnDismiss="Disarm">
+        <StatusNote Kind="StatusNoteKind.Info" OnDismiss="Disarm">
             <ChildContent>
                 Delete @Selected.Count @(Selected.Count == 1 ? "version" : "versions")?
                 They stay restorable from Registry admin, Deleted.

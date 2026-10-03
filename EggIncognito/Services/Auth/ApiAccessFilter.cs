@@ -1,3 +1,4 @@
+using EggIdentity.Auth;
 using EggIdentity.Contract;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
@@ -15,7 +16,7 @@ public sealed class ApiAccessFilter : IAsyncAuthorizationFilter {
             return Task.CompletedTask;
         }
 
-        var user = context.HttpContext.RequestServices.GetRequiredService<ICurrentUser>();
+        var user = context.HttpContext.RequestServices.GetRequiredService<ICurrentUser>().Current;
         switch (attr.Level) {
             case ApiAccessLevel.Public:
                 break;

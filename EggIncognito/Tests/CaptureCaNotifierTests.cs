@@ -34,7 +34,8 @@ public sealed class CaptureCaNotifierTests : IDisposable {
         var notifier = new FailingNotifier();
         var controller = new CaptureController(
             manager, new FakeAppMode(false, true),
-            new FakeUser(supporter: true, userId: Guid.Parse("00000000-0000-0000-0000-000000000001")),
+            new FakeUser(Guid.Parse("00000000-0000-0000-0000-000000000001"), DiscordId: "tester", Supporter: true)
+                .Accessor(),
             HostedCaptureOptions.Defaults(), NullLogger<CaptureController>.Instance);
 
         var r = await controller.Start(null, notifier, null, CancellationToken.None);

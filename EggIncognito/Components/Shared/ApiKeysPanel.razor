@@ -19,7 +19,7 @@
                 <p class="akp-minted-note">Copy it now - it will not be shown again.</p>
                 <pre class="result-pre">@_minted.Key</pre>
                 <div class="akp-minted-actions">
-                    <CopyButton Text="@_minted.Key" ButtonClass="btn-primary" ShowIcon="false" Label="Copy key" ResetDelayMs="0" OnCopied="@(() => _copied = true)"/>
+                    <CopyButton Text="@_minted.Key" Class="btn-primary" ShowIcon="false" Label="Copy key" OnCopied="@(() => _copied = true)">Copy key</CopyButton>
                     <button type="button" class="btn-mini" @onclick="Dismiss">Done</button>
                     @if (_copied) {
                         <span class="akp-copied">Copied.</span>
@@ -48,10 +48,7 @@
         @if (_keys is null) {
             <Note>Loading...</Note>
         } else if (_keys.Count == 0) {
-            <div class="akp-empty">
-                <div>No API keys yet.</div>
-                <div class="akp-empty-hint">Create one above to use the data API.</div>
-            </div>
+            <EmptyState Tall="true" Title="No API keys yet." Hint="Create one above to use the data API."/>
         } else {
             <ApiKeysTable Rows="@TableRows" ShowOwner="false" Busy="_busyRow" OnRevoke="Revoke"/>
         }

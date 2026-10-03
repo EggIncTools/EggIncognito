@@ -1,35 +1,19 @@
+using EggIdentity.Hosting;
+
 namespace EggIncognito.Services.DataApi;
 
 public sealed class GameDataAutoRebuildService(
     IServiceScopeFactory scopeFactory,
     IConfiguration config,
     TimeProvider time,
-    ILogger<GameDataAutoRebuildService> logger) : BackgroundService {
-    private bool Enabled => config.GetValue("GameData:AutoRebuild:Enabled", true);
-    private int IntervalMinutes => config.GetValue("GameData:AutoRebuild:IntervalMinutes", 5);
+    ILogger<GameDataAutoRebuildService> logger) : PeriodicScopedService(scopeFactory, time, logger) {
+    protected override bool Enabled => config.GetValue("GameData:AutoRebuild:Enabled", true);
 
-    protected override async Task ExecuteAsync(CancellationToken stoppingToken) {
-        if (!Enabled) {
-            logger.LogInformation("game data auto-rebuild disabled");
-            return;
-        }
+    protected override TimeSpan Interval =>
+        TimeSpan.FromMinutes(Math.Max(1, config.GetValue("GameData:AutoRebuild:IntervalMinutes", 5)));
 
-        using var timer = new PeriodicTimer(TimeSpan.FromMinutes(Math.Max(1, IntervalMinutes)), time);
-        try {
-            await RunOnceAsync(stoppingToken);
-            while (await timer.WaitForNextTickAsync(stoppingToken))
-                await RunOnceAsync(stoppingToken);
-        } catch (OperationCanceledException ex) {
-            logger.LogDebug(ex, "game data auto-rebuild stopped by shutdown");
-        }
-    }
-
-    internal async Task RunOnceAsync(CancellationToken ct) {
-        using var scope = scopeFactory.CreateScope();
-        var sp = scope.ServiceProvider;
-        var rebuilder = sp.GetRequiredService<GameDataRebuilder>();
-
-        (var results, string? binaryNote) = await rebuilder.RebuildAsync(ct);
+    protected override async Task RunOnceAsync(IServiceProvider services, CancellationToken ct) {
+        (var results, string? binaryNote) = await services.GetRequiredService<GameDataRebuilder>().RebuildAsync(ct);
 
         int built = results.Count(r => r.Status == "built");
         int failed = results.Count(r => r.Status == "failed");

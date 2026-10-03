@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Security.Claims;
 using System.Text.Encodings.Web;
+using EggIdentity.Auth;
 using EggIdentity.Contract;
 using EggIncognito.Data.Services;
 using EggIncognito.Services.DataApi;
@@ -25,15 +26,21 @@ public sealed class ApiKeyAuthenticationHandler(
         var row = await store.FindActiveByHashAsync(hash, Context.RequestAborted);
         if (row is null) return AuthenticateResult.Fail("invalid api key");
 
-        Claim[] claims = [
-            new(AuthClaims.UserIdClaim, row.OwnerUserId.ToString()),
-            new(AuthClaims.RoleClaim, UserRoles.ToName(UserRole.Viewer)),
-            new(ApiKeyGen.Claim, row.Id.ToString(CultureInfo.InvariantCulture))
-        ];
-        var identity = new ClaimsIdentity(claims, ApiKeyGen.SchemeName);
-        var principal = new ClaimsPrincipal(identity);
+        var principal = Principal(row.OwnerUserId, row.Id);
         await store.TouchAsync(row.Id, Context.RequestAborted);
         return AuthenticateResult.Success(new AuthenticationTicket(principal, ApiKeyGen.SchemeName));
+    }
+
+    internal static ClaimsPrincipal Principal(Guid owner, int keyId) {
+        string role = UserRoles.ToName(UserRole.Viewer);
+        Claim[] claims = [
+            new(AuthClaims.UserIdClaim, owner.ToString()),
+            new(AuthClaims.RoleClaim, role),
+            new("sub", owner.ToString()),
+            new(SessionClaims.Role, role),
+            new(ApiKeyGen.Claim, keyId.ToString(CultureInfo.InvariantCulture))
+        ];
+        return new ClaimsPrincipal(new ClaimsIdentity(claims, ApiKeyGen.SchemeName));
     }
 
     private string? ExtractKey() {

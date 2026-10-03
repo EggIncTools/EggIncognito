@@ -1,3 +1,4 @@
+using EggIdentity.Auth;
 using EggIdentity.Contract;
 
 namespace EggIncognito.Services.RateLimiting;
@@ -18,13 +19,14 @@ public static class RateLimitKeys {
     }
 
     public static string PartitionKey(HttpContext ctx, ICurrentUser user, bool hosted) =>
-        user.IsAuthenticated && user.UserId is { } userId
+        user.Current is { IsAuthenticated: true, Id: { } userId }
             ? $"user:{userId}"
             : $"ip:{ClientIp(ctx, hosted)}";
 
     public static IReadOnlyList<string> TiersFor(ICurrentUser user) {
-        if (!user.IsAuthenticated) return ["Anon"];
-        string baseTier = user.IsAtLeast(UserRole.Contributor) ? "Contributor" : "Viewer";
-        return user.IsSupporter ? [baseTier, "Supporter"] : [baseTier];
+        var me = user.Current;
+        if (!me.IsAuthenticated) return ["Anon"];
+        string baseTier = me.IsAtLeast(UserRole.Contributor) ? "Contributor" : "Viewer";
+        return me.IsSupporter ? [baseTier, "Supporter"] : [baseTier];
     }
 }

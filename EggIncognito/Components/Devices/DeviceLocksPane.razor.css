@@ -1,5 +1,5 @@
 .dlk { display: flex; flex-direction: column; min-width: 0; }
-.dlk ::deep .tscroll { border-width: 1px 0 0; border-radius: 0; }
+.dlk ::deep .table-scroll { border-width: 1px 0 0; border-radius: 0; }
 .dlk-paused .dlk-table { opacity: 0.55; }
 .dlk-on { border-color: var(--color-accent); color: var(--color-accent); }
 .dlk-table th { white-space: nowrap; }

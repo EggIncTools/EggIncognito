@@ -53,9 +53,8 @@
     }
     @Head
     @if (Listed.Count == 0) {
-        <EmptyState Icon="@(Items.Count == 0 ? EmptyIcon : "funnel")" Class="fl-empty">
-            @(Items.Count == 0 ? EmptyText : "Nothing matches this filter.")
-        </EmptyState>
+        <EmptyState Icon="@(Items.Count == 0 ? EmptyIcon : "funnel")" Class="fl-empty"
+                    Title="@(Items.Count == 0 ? EmptyText : "Nothing matches this filter.")"/>
     } else if (Sections is null) {
         <div class="fl-list">
             @if (RowHeight > 0) {

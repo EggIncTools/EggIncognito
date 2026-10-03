@@ -1,10 +1,9 @@
 using System.Net;
-using EggIdentity.Contract;
+using EggIdentity.Auth;
 using EggIncognito.Controllers;
 using EggIncognito.Data.Models;
 using EggIncognito.Data.Services;
 using EggIncognito.Models.Protos;
-using EggIncognito.Services;
 using EggIncognito.Services.Feed;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Infrastructure;
@@ -27,7 +26,7 @@ public class ProtoFeedApiTests {
 
     [Fact]
     public async Task Create_Anon_Returns401() {
-        var c = Controller(new StubUser(null), _ => new HttpResponseMessage(HttpStatusCode.OK));
+        var c = Controller(StubUser(null), _ => new HttpResponseMessage(HttpStatusCode.OK));
         var r = await c.Create(new FeedCreateReq(
             "https://discord.com/api/webhooks/1/abc", null, null, null, null), UnconnectedStore(), null,
             CancellationToken.None);
@@ -36,7 +35,7 @@ public class ProtoFeedApiTests {
 
     [Fact]
     public async Task Create_BadUrl_Returns400() {
-        var c = Controller(new StubUser("42"), _ => new HttpResponseMessage(HttpStatusCode.OK));
+        var c = Controller(StubUser("42"), _ => new HttpResponseMessage(HttpStatusCode.OK));
         var r = await c.Create(new FeedCreateReq(
             "https://evil.example.com/hook", null, null, null, null), UnconnectedStore(), null,
             CancellationToken.None);
@@ -45,7 +44,7 @@ public class ProtoFeedApiTests {
 
     [Fact]
     public async Task Create_EmptyUrl_Returns400() {
-        var c = Controller(new StubUser("42"), _ => new HttpResponseMessage(HttpStatusCode.OK));
+        var c = Controller(StubUser("42"), _ => new HttpResponseMessage(HttpStatusCode.OK));
         var r = await c.Create(new FeedCreateReq("", null, null, null, null), UnconnectedStore(), null,
             CancellationToken.None);
         Assert.Equal(400, Status(r));
@@ -53,21 +52,21 @@ public class ProtoFeedApiTests {
 
     [Fact]
     public async Task Mine_Anon_Returns401() {
-        var c = Controller(new StubUser(null), _ => new HttpResponseMessage(HttpStatusCode.OK));
+        var c = Controller(StubUser(null), _ => new HttpResponseMessage(HttpStatusCode.OK));
         var r = await c.Mine(UnconnectedStore(), CancellationToken.None);
         Assert.Equal(401, Status(r));
     }
 
     [Fact]
     public async Task Delete_Anon_Returns401() {
-        var c = Controller(new StubUser(null), _ => new HttpResponseMessage(HttpStatusCode.OK));
+        var c = Controller(StubUser(null), _ => new HttpResponseMessage(HttpStatusCode.OK));
         var r = await c.Delete(1, UnconnectedStore(), null, CancellationToken.None);
         Assert.Equal(401, Status(r));
     }
 
     [Fact]
     public async Task Update_Anon_Returns401() {
-        var c = Controller(new StubUser(null), _ => new HttpResponseMessage(HttpStatusCode.OK));
+        var c = Controller(StubUser(null), _ => new HttpResponseMessage(HttpStatusCode.OK));
         var r = await c.Update(1, new FeedUpdateReq(["android"], "new_version", true, null), UnconnectedStore(), null,
             CancellationToken.None);
         Assert.Equal(401, Status(r));
@@ -139,15 +138,7 @@ public class ProtoFeedApiTests {
         Assert.DoesNotContain("SECRETvalue", masked);
     }
 
-    private sealed class StubUser(string? discordId) : ICurrentUser {
-        public bool IsAuthenticated => discordId is not null;
-        public Guid? UserId => discordId is not null ? Guid.Parse("00000000-0000-0000-0000-000000000001") : null;
-        public string? DiscordId => discordId;
-        public string? Username => null;
-        public string? Avatar => null;
-        public string? AvatarUrl => null;
-        public UserRole Role => UserRole.Viewer;
-        public bool IsSupporter => false;
-        public bool IsAtLeast(UserRole need) => false;
-    }
+    private static ICurrentUser StubUser(string? discordId) => discordId is null
+        ? new AnonymousUser()
+        : new FakeUser(Guid.Parse("00000000-0000-0000-0000-000000000001"), DiscordId: discordId).Accessor();
 }

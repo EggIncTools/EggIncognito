@@ -2,6 +2,7 @@ using System.Data.Common;
 using System.Globalization;
 using System.Text;
 using System.Text.Json;
+using EggIdentity.Auth;
 using EggIncognito.Capture;
 using EggIncognito.Core.Services;
 using EggIncognito.Core.Services.Devices;
@@ -137,7 +138,7 @@ public sealed class InspectorApiController(
     [HttpPost("send")]
     [EnableRateLimiting("egress")]
     public async Task<IActionResult> Send([FromBody] SendRequest body) {
-        if (appMode.Mode == AppMode.Hosted && !currentUser.IsAuthenticated)
+        if (appMode.Mode == AppMode.Hosted && !currentUser.Current.IsAuthenticated)
             throw new ApiException(
                 "log in to use Live API from the hosted site",
                 "Sign in with Discord, then retry. Local runs are never gated.",

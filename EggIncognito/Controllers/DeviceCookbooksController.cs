@@ -1,8 +1,8 @@
+using EggIdentity.Auth;
 using EggIncognito.Core.Services.Devices;
 using EggIncognito.Data.Models;
 using EggIncognito.Data.Services;
 using EggIncognito.Models.Devices;
-using EggIncognito.Services;
 using EggIncognito.Services.Auth;
 using EggIncognito.Services.Devices;
 using Microsoft.AspNetCore.Mvc;
@@ -34,7 +34,7 @@ public sealed class DeviceCookbooksController(
         if (request is null || string.IsNullOrWhiteSpace(request.CookbookId))
             return Fail(400, "cookbookId required");
 
-        string who = currentUser.DiscordId ?? "?";
+        string who = currentUser.Current.DiscordId ?? "?";
         var start = await runner.StartAsync(id, request, $"admin:{who}", ct);
         return start.Outcome switch {
             DeviceCookbookStartOutcome.Started =>

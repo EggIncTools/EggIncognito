@@ -9,7 +9,7 @@
 } else {
     <div class="jtree-node @(IsRoot ? "jtree-root" : "") @(Node.Expanded ? "jtree-expanded" : "") @(Node.Dim ? "jtree-dim" : "") @(Node.SelfMatch ? "jtree-match" : "")">
         <div class="jtree-row" @onclick="ToggleRow">
-            <span class="jtree-caret @(Node.IsContainer ? "" : "jtree-caret-leaf")"></span>
+            <span class="jtree-caret @(Node.IsContainer ? "caret" : "jtree-caret-leaf") @(Node.IsContainer && Node.Expanded ? "open" : "")"></span>
             @if (Node.KeyText is not null) {
                 <span class="jtree-key">
                     <SpanText Text="@Node.KeyText" Spans="@Marks(Node.KeyText)"/>
@@ -87,10 +87,7 @@
             var cls = "jv " + Node.TokenClass;
             if (clamped) cls += " jv-clamped";
             if (_clampOpen) cls += " jv-open";
-            if (sensitive) {
-                cls += " blurred";
-                if (RevealState.IsRevealed(RevealKey)) cls += " revealed";
-            }
+            if (sensitive) cls += " " + RevealState.Class(RevealKey);
 
             builder.OpenElement(0, "span");
             builder.AddAttribute(1, "class", cls);

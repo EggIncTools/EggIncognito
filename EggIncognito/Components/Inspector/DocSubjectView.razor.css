@@ -2,7 +2,7 @@
 .doc-title { margin: 0; font-family: var(--font-mono); font-size: 0.9375rem; color: var(--color-fg); text-transform: none; letter-spacing: normal; }
 .doc-tags { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 0.375rem; vertical-align: middle; margin-left: 0.375rem; }
 .doc-tag { display: inline-flex; align-items: center; gap: 0.125rem; font-size: 0.625rem; line-height: 1.4; color: var(--color-muted); white-space: nowrap; }
-.doc-tag-x, .doc-tag-plus {
+.doc-tag-x, .doc-tags ::deep .doc-tag-plus {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -13,7 +13,7 @@
   cursor: pointer;
   line-height: 1;
 }
-.doc-tag-x:hover:not(:disabled), .doc-tag-plus:hover:not(:disabled) { color: var(--color-accent); }
-.doc-tag-x:disabled, .doc-tag-plus:disabled { cursor: not-allowed; opacity: 0.6; }
+.doc-tag-x:hover:not(:disabled), .doc-tags ::deep .doc-tag-plus:hover:not(:disabled) { color: var(--color-accent); }
+.doc-tag-x:disabled { cursor: not-allowed; opacity: 0.6; }
 .doc-edit-btn { margin-left: auto; }
 .doc-body { font-size: 0.8125rem; line-height: 1.625; }

@@ -15,7 +15,7 @@ public sealed class MergedRouteCatalogTests : IDisposable {
                                     """;
 
     private RouteCatalog Yaml(string yaml) {
-        string p = _tmp.Combine($"routes-{Guid.NewGuid():N}.yaml");
+        string p = _tmp.File($"routes-{Guid.NewGuid():N}.yaml");
         File.WriteAllText(p, yaml);
         return new RouteCatalog(p);
     }

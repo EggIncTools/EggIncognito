@@ -1,4 +1,5 @@
 @using EggIncognito.Core.Services.ProtoExtract
+@using EggIncognito.Services.Events
 @using EggIncognito.Services.Protos
 
 <FilterList TItem="ProtoRegistryRow" Schema="RegistryFilter.Schema" Items="Rows" Query="Query" QueryChanged="QueryChanged"
@@ -22,13 +23,8 @@
                 }
                 <PlatformIcon Platform="@row.Platform"/>
                 @if (row.ArchiveSourced == true) {
-                    <Tooltip>
-                        <ChildContent>
-                            <Icon Name="shield-check" Class="icon-sm pwb-reg-arch"/>
-                        </ChildContent>
-                        <Tip>
-                            <span class="tt-line">Archive sourced</span>
-                        </Tip>
+                    <Tooltip Text="Archive sourced">
+                        <Icon Name="shield-check" Class="icon-sm pwb-reg-arch"/>
                     </Tooltip>
                 }
             </span>
@@ -38,7 +34,7 @@
             <span class="pwb-reg-sha">@Sha12(row.ProtoSha)</span>
             @if (row.DetectedAt is { } seen) {
                 <span class="pwb-reg-when">
-                    <TimeAgo Value="@TimeAgo.FromUtc(seen)" Hover="false"/>
+                    <TimeAgo At="@ViewerClock.FromUtc(seen)" Hover="false" Class="time-ago"/>
                 </span>
             }
         </div>

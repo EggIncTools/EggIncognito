@@ -19,7 +19,7 @@
                 <span class="muted">binary unknown</span>
             }
             @if (_binary?.LastRefresh is { } lr) {
-                <span class="muted">last refresh <TimeAgo Value="@lr"/></span>
+                <span class="muted">last refresh <TimeAgo At="@lr" Class="time-ago"/></span>
             } else {
                 <span class="muted">never refreshed</span>
             }

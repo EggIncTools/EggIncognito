@@ -86,25 +86,27 @@
             <MiniCalendar TItem="EventCalendarItem" Load="LoadMiniEvents" EmptyNote="No events in the last three weeks.">
                 <Bar>
                     @{ var e = context.Item.Event!; }
-                    <Tooltip Class="evcal-bar-tip" Style="@EventBarStyle(context)">
-                        <ChildContent>
-                            <button type="button" class="@CalendarBars.Css(context)" @onclick="@(() => OnOpenEvents.InvokeAsync())">
-                                @if (EventPalette.IconUrl(e.Type, e.Ultra) is { } iconUrl) {
-                                    <img class="evcal-bar-icon" src="@iconUrl" alt="" loading="lazy" data-fallback/>
+                    <div class="evcal-bar-tip" style="@EventBarStyle(context)">
+                        <Tooltip>
+                            <ChildContent>
+                                <button type="button" class="@CalendarBars.Css(context)" @onclick="@(() => OnOpenEvents.InvokeAsync())">
+                                    @if (EventPalette.IconUrl(e.Type, e.Ultra) is { } iconUrl) {
+                                        <img class="evcal-bar-icon" src="@iconUrl" alt="" loading="lazy" data-fallback/>
+                                    }
+
+                                    <span class="evcal-bar-label">@EventMagnitude.Scalar(e)</span>
+                                </button>
+                            </ChildContent>
+                            <Content>
+                                <span class="tt-title">@EventLabel(e)</span>
+                                @if (e.Ultra) {
+                                    <span class="tt-ultra">ULTRA ONLY</span>
                                 }
 
-                                <span class="evcal-bar-label">@EventMagnitude.Scalar(e)</span>
-                            </button>
-                        </ChildContent>
-                        <Tip>
-                            <span class="tt-title">@EventLabel(e)</span>
-                            @if (e.Ultra) {
-                                <span class="tt-ultra">ULTRA ONLY</span>
-                            }
-
-                            <span class="tt-line">@EventCountdown.Describe(e.StartTimestamp, e.EndTimestamp, DateTimeOffset.UtcNow)</span>
-                        </Tip>
-                    </Tooltip>
+                                <span class="tt-line">@EventCountdown.Describe(e.StartTimestamp, e.EndTimestamp, DateTimeOffset.UtcNow)</span>
+                            </Content>
+                        </Tooltip>
+                    </div>
                 </Bar>
             </MiniCalendar>
             <button type="button" class="pd-cal-title pd-cal-title-gap" @onclick="@(() => OnOpenContracts.InvokeAsync())">
@@ -113,22 +115,24 @@
             <MiniCalendar TItem="ContractCalendarItem" Load="LoadMiniContracts" EmptyNote="No contracts in the last three weeks.">
                 <Bar>
                     @{ var c = context.Item.Release!; }
-                    <Tooltip Class="evcal-bar-tip" Style="@ContractBarStyle(context)">
-                        <ChildContent>
-                            <button type="button" class="@(CalendarBars.Css(context) + " evcal-bar-contract")"
-                                    @onclick="@(() => OnOpenContracts.InvokeAsync())">
-                                <span class="evcal-bar-label">@c.Name</span>
-                            </button>
-                        </ChildContent>
-                        <Tip>
-                            <span class="tt-title">@c.Name</span>
-                            @if (c.UltraOnly) {
-                                <span class="tt-ultra">ULTRA ONLY</span>
-                            }
+                    <div class="evcal-bar-tip" style="@ContractBarStyle(context)">
+                        <Tooltip>
+                            <ChildContent>
+                                <button type="button" class="@(CalendarBars.Css(context) + " evcal-bar-contract")"
+                                        @onclick="@(() => OnOpenContracts.InvokeAsync())">
+                                    <span class="evcal-bar-label">@c.Name</span>
+                                </button>
+                            </ChildContent>
+                            <Content>
+                                <span class="tt-title">@c.Name</span>
+                                @if (c.UltraOnly) {
+                                    <span class="tt-ultra">ULTRA ONLY</span>
+                                }
 
-                            <span class="tt-line">@EventCountdown.Describe(c.StartTimestamp, c.EndTimestamp, DateTimeOffset.UtcNow)</span>
-                        </Tip>
-                    </Tooltip>
+                                <span class="tt-line">@EventCountdown.Describe(c.StartTimestamp, c.EndTimestamp, DateTimeOffset.UtcNow)</span>
+                            </Content>
+                        </Tooltip>
+                    </div>
                 </Bar>
             </MiniCalendar>
             @if (_seasons is { Count: > 0 } seasonList) {
@@ -230,7 +234,7 @@
                                                         </span>
                                                     </span>
                                                 </ChildContent>
-                                                <Tip>
+                                                <Content>
                                                     <span class="tt-title">@RewardFullName(goal)</span>
                                                     <span class="tt-line">@goal.RewardAmount.ToString("N0") @RewardFullNoun(goal)</span>
                                                     @if (BoostInfo(goal) is { } bi) {
@@ -242,7 +246,7 @@
                                                             <span class="tt-line">@be</span>
                                                         }
                                                     }
-                                                </Tip>
+                                                </Content>
                                             </Tooltip>
                                         }
                                     </td>

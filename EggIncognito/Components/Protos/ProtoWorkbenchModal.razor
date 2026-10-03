@@ -8,6 +8,7 @@
 @inject ToastService Toasts
 @inject ILogger<ProtoWorkbenchModal> Logger
 @inject IServiceProvider Services
+@inject DownloadInterop Download
 @using System.Globalization
 @using System.Text
 @using System.Text.Json
@@ -33,7 +34,7 @@
                 aria-pressed="@(State.SplitQuery is not null ? "true" : "false")" @onclick="ToggleSplit">
             <Icon Name="layout-grid" Class="icon-sm"/> Split registry
         </button>
-        @if (User.IsAtLeast(UserRole.Contributor)) {
+        @if (User.Current.IsAtLeast(UserRole.Contributor)) {
             <button type="button" class="btn-mini @(_adminOpen ? "active" : "")"
                     @onclick="@(() => _adminOpen = !_adminOpen)">
                 Registry admin
@@ -83,7 +84,7 @@
                         </Tools>
                         <ChildContent>
                             <RegistryPane Query="split" QueryChanged="@(q => State.SplitQuery = q)" Rows="State.Registry"
-                                          IsAdmin="@User.IsAtLeast(UserRole.Admin)" RowClass="RowClass" IsSelected="IsSelected"
+                                          IsAdmin="@User.Current.IsAtLeast(UserRole.Admin)" RowClass="RowClass" IsSelected="IsSelected"
                                           OnRowClick="@(t => RegistryRowClick(t.Row, t.Args))" OnToggleRow="ToggleRow"
                                           OnToggleAll="@(t => ToggleAll(t.Rows, t.On))"/>
                         </ChildContent>
@@ -93,7 +94,7 @@
             <div class="wb-rail-slot pwb-rail-reg">
                 <WorkbenchSection Label="Registry">
                     <RegistryPane Query="State.Query" QueryChanged="@(q => State.Query = q)" Rows="State.Registry"
-                                  IsAdmin="@User.IsAtLeast(UserRole.Admin)" RowClass="RowClass" IsSelected="IsSelected"
+                                  IsAdmin="@User.Current.IsAtLeast(UserRole.Admin)" RowClass="RowClass" IsSelected="IsSelected"
                                   OnRowClick="@(t => RegistryRowClick(t.Row, t.Args))" OnToggleRow="ToggleRow"
                                   OnToggleAll="@(t => ToggleAll(t.Rows, t.On))"/>
                 </WorkbenchSection>
@@ -101,7 +102,7 @@
         </WorkbenchRail>
     </Rail>
     <ChildContent>
-        @if (User.IsAtLeast(UserRole.Contributor)) {
+        @if (User.Current.IsAtLeast(UserRole.Contributor)) {
             <button type="button" class="wb-drawer-tab @(_adminOpen ? "wb-drawer-tab-open" : "") @(_selected.Count > 0 ? "pwb-drawer-tab-hot" : "")"
                     aria-label="@(_adminOpen ? "Close registry admin" : "Open registry admin")" aria-expanded="@(_adminOpen ? "true" : "false")"
                     @onclick="@(() => _adminOpen = !_adminOpen)">
@@ -110,11 +111,11 @@
             </button>
             <aside class="wb-drawer @(_adminOpen ? "wb-drawer-open" : "")" aria-hidden="@(_adminOpen ? "false" : "true")">
                 @if (_adminOpen) {
-                    @if (_selected.Count > 0 && User.IsAtLeast(UserRole.Admin)) {
+                    @if (_selected.Count > 0 && User.Current.IsAtLeast(UserRole.Admin)) {
                         <ProtoSelectionBar Selected="_selected" Post="PostJson" OnChanged="OnSelectionMutated" OnClear="ClearSelection"/>
                     }
-                    <RegistryAdminPanel @ref="_adminPanel" Rows="State.Registry" CanOrder="@User.IsAtLeast(UserRole.Admin)"
-                                        IsAdmin="@User.IsAtLeast(UserRole.Admin)" Tab="@_adminTab"
+                    <RegistryAdminPanel @ref="_adminPanel" Rows="State.Registry" CanOrder="@User.Current.IsAtLeast(UserRole.Admin)"
+                                        IsAdmin="@User.Current.IsAtLeast(UserRole.Admin)" Tab="@_adminTab"
                                         TabChanged="@(t => _adminTab = t)"
                                         OnChanged="OnAdminChanged" OnClose="@(() => _adminOpen = false)"/>
                 }
@@ -186,7 +187,7 @@
                             <Icon Name="refresh-cw" Class="icon-sm"/> Retry
                         </button>
                     } else if (selGroup?.Status is { Pending: true } or { Offered: true }) {
-                        @if (User.IsAtLeast(UserRole.Contributor)) {
+                        @if (User.Current.IsAtLeast(UserRole.Contributor)) {
                             <button type="button" class="pwb-pending-btn @(_adminOpen && _adminTab == RegistryAdminPanel.TabReview ? "active" : "")"
                                     @onclick="ToggleQueue">
                                 pending review
@@ -198,7 +199,7 @@
                         @if (selGroup.Status.InRegistry) {
                             <span class="pwb-note-inline">new build of a known sha</span>
                         }
-                        @if (User.IsAuthenticated) {
+                        @if (User.Current.IsAuthenticated) {
                             <span class="pwb-note-inline">offerable</span>
                         } else {
                             <span class="pwb-dim-note">Log in to offer this version to the registry.</span>
@@ -266,10 +267,8 @@
                         }
                         <div class="pwb-menu-sep"></div>
                         <div class="pwb-menu-label">Clipboard</div>
-                        <CopyButton GetText="ViewText" ButtonClass="pwb-menu-item" IconClass="icon-sm"
-                                    Label="Copy view text" CopiedLabel="Copied"/>
-                        <CopyButton GetText="Permalink" ButtonClass="pwb-menu-item" IconClass="icon-sm"
-                                    Label="Copy permalink" CopiedLabel="Copied"/>
+                        <CopyButton Text="@ViewText()" Class="pwb-menu-item" IconClass="icon-sm" Label="Copy view text">Copy view text</CopyButton>
+                        <CopyButton Text="@Permalink()" Class="pwb-menu-item" IconClass="icon-sm" Label="Copy permalink">Copy permalink</CopyButton>
                     </div>
                 }
             </div>
@@ -407,7 +406,6 @@
     bool _offerBusy;
     string? _menu;
     IJSObjectReference? _strip;
-    IJSObjectReference? _download;
     DotNetObjectReference<ProtoWorkbenchModal>? _selfRef;
     const int AnalyzeSlots = 4;
     const int PendingOpenLimit = 3;
@@ -572,7 +570,7 @@
 
     void OpenAdmin(string tab) {
         _adminTab = tab;
-        _adminOpen = User.IsAtLeast(UserRole.Contributor);
+        _adminOpen = User.Current.IsAtLeast(UserRole.Contributor);
         Open();
     }
 
@@ -881,12 +879,12 @@
     }
 
     bool CanOffer(OfferGroup g) {
-        if (!User.IsAuthenticated || g.Conflict || g.Winner is null) return false;
+        if (!User.Current.IsAuthenticated || g.Conflict || g.Winner is null) return false;
         return g.Status is { Offerable: true } || CanFlag(g);
     }
 
     bool CanFlag(OfferGroup g) {
-        return User.IsAtLeast(UserRole.Admin) && g.Status is { Flaggable: true };
+        return User.Current.IsAtLeast(UserRole.Admin) && g.Status is { Flaggable: true };
     }
 
     static string GroupStatusText(OfferGroup g) {
@@ -1690,7 +1688,7 @@
         return new RefMeta(value.Platform, row?.AppVersion, row?.Build ?? value.Build, row?.ClientVersion,
             row?.Source, row?.Package,
             row?.DetectedAt is { } seen
-                ? ViewerClock.At(Services, TimeAgo.FromUtc(seen)).ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture)
+                ? ViewerClock.At(Services, ViewerClock.FromUtc(seen)).ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture)
                 : null,
             row?.ProtoSha,
             row?.ArchiveSourced);
@@ -1781,12 +1779,7 @@
     }
 
     async Task DownloadText(string fileName, string content) {
-        try {
-            _download ??= await JS.InvokeAsync<IJSObjectReference>("import", InteropAsset.Url(Env, "./interop/download.js"));
-            await _download.InvokeVoidAsync("text", fileName, content);
-        } catch (Exception ex) when (ex is JSDisconnectedException or JSException or ObjectDisposedException) {
-            Logger.LogDebug(ex, "download of {FileName} failed", fileName);
-        }
+        if (!await Download.SaveTextAsync(fileName, content)) Logger.LogDebug("download of {FileName} failed", fileName);
     }
 
     static bool SameSha(string? a, string? b) {
@@ -1812,7 +1805,6 @@
 
     public async ValueTask DisposeAsync() {
         await _strip.DisposeModuleAsync(logger: Logger);
-        await _download.DisposeModuleAsync(logger: Logger);
         _selfRef?.Dispose();
         _gate.Dispose();
     }

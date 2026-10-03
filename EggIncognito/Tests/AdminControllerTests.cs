@@ -12,7 +12,7 @@ namespace EggIncognito.Tests;
 
 public class AdminControllerTests {
     private static AdminController Controller(UserRole role, string id = "me")
-        => new(new FakeUser(role: role, discordId: id), new EmptyServices(),
+        => new(new FakeUser(Guid.NewGuid(), role, DiscordId: id).Accessor(), new EmptyServices(),
             new CaptureSessionManager(HostedCaptureOptions.Defaults(), (_, _, _) => throw new NotSupportedException()),
             new GameDataStore(new EmptyScopeFactory(), NullLogger<GameDataStore>.Instance));
 

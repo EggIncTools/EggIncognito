@@ -12,7 +12,7 @@ public sealed class EndpointStoreTests : IDisposable {
     [Fact]
     public void DoesNotThrowWhenEndpointsDirMissing() {
         var store = new EndpointStore(
-            new FileEndpointSource(_tmp.Combine("does_not_exist")),
+            new FileEndpointSource(_tmp.File("does_not_exist")),
             null,
             NullLogger<EndpointStore>.Instance);
         var result = store.Fetch<AuthenticatedMessage>("ei/any");

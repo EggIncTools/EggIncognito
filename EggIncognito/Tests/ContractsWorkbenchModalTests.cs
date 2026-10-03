@@ -1,10 +1,9 @@
 using System.Net;
 using System.Text.Json;
 using Bunit;
-using EggIdentity.Contract;
+using EggIdentity.Auth;
 using EggIncognito.Components.Contracts;
 using EggIncognito.Models.Contracts;
-using EggIncognito.Services;
 using EggIncognito.Services.Contracts;
 using EggIncognito.Services.Events;
 using Microsoft.AspNetCore.Hosting;
@@ -19,10 +18,10 @@ public class ContractsWorkbenchModalTests : BunitContext {
     private void Wire(Func<HttpRequestMessage, HttpResponseMessage> respond) {
         Services.AddLogging();
         Services.AddSingleton<IHttpClientFactory>(
-            new StubHttpFactory(new StubHttpMessageHandler(respond), new Uri("http://localhost")));
+            new StubHttpFactory(new StubHttpMessageHandler(respond), "http://localhost/"));
         Services.AddSingleton<IHttpContextAccessor>(new HttpContextAccessor());
         Services.AddSingleton<IWebHostEnvironment>(new FakeWebHostEnvironment());
-        Services.AddSingleton<ICurrentUser>(new FakeUser(authenticated: false, role: UserRole.Viewer, discordId: null));
+        Services.AddSingleton<ICurrentUser>(new AnonymousUser());
         Services.AddScoped<ContractsWorkbenchState>();
         JSInterop.Mode = JSRuntimeMode.Loose;
     }
@@ -33,8 +32,7 @@ public class ContractsWorkbenchModalTests : BunitContext {
             (end - start).TotalSeconds, leggacy, ultra, pe, true, 10, "device");
 
     private static HttpResponseMessage Ok(params ContractReleaseDto[] releases) =>
-        StubHttpMessageHandler.Json(HttpStatusCode.OK,
-            JsonSerializer.Serialize(new ContractReleaseListResponse(releases.Length, releases), Web));
+        StubResponses.Json(HttpStatusCode.OK, new ContractReleaseListResponse(releases.Length, releases), Web);
 
     private async Task<IRenderedComponent<ContractsWorkbenchModal>> OpenAsync() {
         var cut = Render<ContractsWorkbenchModal>();
