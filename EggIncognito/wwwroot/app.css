@@ -526,7 +526,8 @@ input[type="search"]::placeholder { color: var(--color-muted); }
 }
 #adminWorkbench select:hover, #adminWorkbench button:hover { border-color: var(--color-accent); }
 
-.wb-card.nwb-card { --wb-card-max: 70rem; }
+.modal-card.wb-card { --wb-card-w: fit-content; --wb-card-max: 97vw; min-width: min(92vw, 60rem); }
+.wb-card.nwb-card { min-width: min(92vw, 48rem); }
 .nwb-card .wb-rail { --wb-rail-w: 16rem; scrollbar-gutter: auto; }
 
 .dwb-card { --wb-rail-w: 15rem; }
@@ -540,11 +541,9 @@ input[type="search"]::placeholder { color: var(--color-muted); }
 }
 
 .pwb-card { --wb-drawer-border: var(--color-border-strong); }
-.wb-card.pwb-card, .wb-card.wb-card-wide.pwb-card { --wb-card-w: 94vw; --wb-card-max: min(94vw, 76rem); }
-.wb-card.pwb-card.wb-drawer-on { --wb-card-w: 97vw; --wb-card-max: min(97vw, 120rem); }
+.wb-card.pwb-card, .wb-card.wb-card-wide.pwb-card { min-width: min(94vw, 76rem); }
 .pwb-card .wb-rail { --wb-rail-w: 15.5rem; }
 @media (min-width: 80rem) {
-  .wb-card.pwb-card.pwb-cols-2, .wb-card.pwb-card.pwb-cols-3 { --wb-card-max: min(96vw, 100rem); }
   .pwb-cols-2 .wb-rail, .pwb-cols-3 .wb-rail {
     --wb-rail-w: 31.5rem;
     display: grid;
@@ -558,7 +557,6 @@ input[type="search"]::placeholder { color: var(--color-muted); }
   .pwb-cols-2 .pwb-rail-sess-empty, .pwb-cols-3 .pwb-rail-sess-empty { grid-column: 1 / -1; grid-row: 1; }
 }
 @media (min-width: 100rem) {
-  .wb-card.pwb-card.pwb-cols-3 { --wb-card-max: min(97vw, 116rem); }
   .pwb-cols-3 .wb-rail { --wb-rail-w: 47.5rem; grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 @media (max-width: 48rem) {
