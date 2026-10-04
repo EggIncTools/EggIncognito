@@ -83,6 +83,7 @@
                 </ToolBar>
             }
 
+            <div class="cov-body">
             <TableScroll Class="cov-scroll">
                 <table class="data-table cov-table">
                     <thead>
@@ -114,7 +115,6 @@
                         @if (Open(f)) {
                             <tr class="cov-grid-row">
                                 <td colspan="5">
-                                    <div class="cov-expand">
                                     <div class="cov-grid">
                                         <span></span>
                                         @foreach (var head in RarityHeads) {
@@ -140,14 +140,6 @@
                                                 </button>
                                             }
                                         }
-                                    </div>
-                                    @if (FamilyPanels.Any()) {
-                                        <div class="cov-side">
-                                            @foreach (var panel in FamilyPanels) {
-                                                <DynamicComponent @key="panel.Id" Type="panel.ComponentType" Parameters="FamilyPanelParameters(f)"/>
-                                            }
-                                        </div>
-                                    }
                                     </div>
                                     @if (_sel is { } fs && fs.Family == f.SpecName) {
                                         <ToolBar Flat="true" Class="cov-target">
@@ -182,6 +174,14 @@
                     </tbody>
                 </table>
             </TableScroll>
+            @if (SidePanels.Any()) {
+                <div class="cov-side">
+                    @foreach (var panel in SidePanels) {
+                        <DynamicComponent @key="panel.Id" Type="panel.ComponentType" Parameters="SidePanelParameters()"/>
+                    }
+                </div>
+            }
+            </div>
         }
     </div>
 }
@@ -373,13 +373,12 @@
     IEnumerable<IDevicePanel> CellPanels =>
         Panels.Where(p => string.Equals(p.Shelf, DevicePanelShelves.CoverageCell, StringComparison.Ordinal));
 
-    IEnumerable<IDevicePanel> FamilyPanels =>
-        Panels.Where(p => string.Equals(p.Shelf, DevicePanelShelves.CoverageFamily, StringComparison.Ordinal));
+    IEnumerable<IDevicePanel> SidePanels =>
+        Panels.Where(p => string.Equals(p.Shelf, DevicePanelShelves.CoverageSide, StringComparison.Ordinal));
 
-    Dictionary<string, object?> FamilyPanelParameters(CoverageFamily f) => new() {
+    Dictionary<string, object?> SidePanelParameters() => new() {
         ["DeviceId"] = DeviceId,
-        ["AndroidUserId"] = AndroidUserId,
-        ["Family"] = f.SpecName
+        ["AndroidUserId"] = AndroidUserId
     };
 
     Dictionary<string, object?> CellPanelParameters(CoverageSelection sel) => new() {

@@ -3,7 +3,7 @@ namespace EggIncognito.Core.Services.Devices;
 public static class DevicePanelShelves {
     public const string Workflows = "workflows";
     public const string CoverageCell = "coverage-cell";
-    public const string CoverageFamily = "coverage-family";
+    public const string CoverageSide = "coverage-side";
 }
 
 [AttributeUsage(AttributeTargets.Class, Inherited = false)]
