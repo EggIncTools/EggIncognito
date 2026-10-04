@@ -13,21 +13,7 @@
 
 @if (User.Current.IsAtLeast(UserRole.Admin)) {
     <div class="cov">
-        <PanelHead Title="Consume coverage">
-            <Tools>
-                @if (_map is { } m) {
-                    <span class="meta-dots cov-facts">
-                        <span>@Pct(m.Validity) valid</span>
-                        <span>@m.CellsComplete of @m.CellsInScope cells</span>
-                        <span>@m.Items items</span>
-                        <span>@m.Observations observations</span>
-                        @if (m.PendingItems > 0) {
-                            <span>@m.PendingItems pending</span>
-                        }
-                    </span>
-                }
-            </Tools>
-        </PanelHead>
+        <PanelHead Title="Consume coverage"/>
 
         @if (_noDb) {
             <StatusNote Kind="StatusNoteKind.Error">No database configured.</StatusNote>
@@ -36,39 +22,19 @@
                 <StatusNote Kind="StatusNoteKind.Error">The artifact catalog is not loaded.</StatusNote>
             }
         } else {
+            <KpiGrid Columns="5" Class="cov-kpis">
+                <KpiTile Value="@Pct(_map.Validity)" Label="valid"/>
+                <KpiTile Value="@($"{_map.CellsComplete}/{_map.CellsInScope}")" Label="cells"/>
+                <KpiTile Value="@_map.Items.ToString()" Label="items"/>
+                <KpiTile Value="@_map.Observations.ToString()" Label="observations"/>
+                <KpiTile Value="@_map.PendingItems.ToString()" Label="pending" Warn="@(_map.PendingItems > 0)"/>
+            </KpiGrid>
+
             @if (_sel is { } s) {
                 <ToolBar Flat="true" Class="cov-sel">
                     <span class="tbar-group">
                         <span class="cov-disc bg-r-@s.Cell.AfxRarity"><img src="@IconSrc(s.Family, LevelOf(s))" alt="" loading="lazy"/></span>
                         <span class="tbar-k">@TierName(s)</span>
-                        <span class="meta-dots cov-facts">
-                            <span>@s.Cell.Items of @s.Cell.ItemTarget items</span>
-                            <span>@s.Cell.Observations of @s.Cell.ObservationTarget observations</span>
-                            @if (s.Cell.PendingObservations > 0) {
-                                <span>@s.Cell.PendingObservations pending</span>
-                            }
-                            @if (s.Cell.ObservationsShort > 0) {
-                                <span>next @s.Cell.ObservationsShort x @s.Cell.SuggestedBatch</span>
-                            }
-                        </span>
-                    </span>
-                    <span class="tbar-group">
-                        <select class="field-input cov-scope" aria-label="Target scope" value="@_scope" @onchange="@(e => _scope = e.Value?.ToString() ?? "Cell")">
-                            @foreach (var sc in ScopeNames) {
-                                <option value="@sc">@sc</option>
-                            }
-                        </select>
-                        <label class="cov-num-label">items
-                            <input type="number" min="1" class="field-input cov-num" aria-label="Item target" @bind="_itemTarget"/>
-                        </label>
-                        <label class="cov-num-label">obs
-                            <input type="number" min="1" class="field-input cov-num" aria-label="Observation target" @bind="_obsTarget"/>
-                        </label>
-                        <label class="form-check"><input type="checkbox" checked="@_enabled" @onchange="e => _enabled = e.Value is true"/>in scope</label>
-                        <button type="button" class="btn-mini" disabled="@_busy" @onclick="Save">Save target</button>
-                        @if (_scope == "Cell" && s.Cell.CellTargetId is { } id) {
-                            <button type="button" class="btn-mini" disabled="@_busy" @onclick="() => Remove(id)">Reset</button>
-                        }
                     </span>
                     @foreach (var panel in CellPanels) {
                         <DynamicComponent @key="panel.Id" Type="panel.ComponentType" Parameters="CellPanelParameters(s)"/>
@@ -130,6 +96,32 @@
                                             }
                                         }
                                     </div>
+                                    @if (_sel is { } fs && fs.Family == f.SpecName) {
+                                        <ToolBar Flat="true" Class="cov-target">
+                                            <span class="tbar-group">
+                                                <span class="tbar-k">Target</span>
+                                                <select class="field-input cov-scope" aria-label="Target scope" value="@_scope" @onchange="@(e => _scope = e.Value?.ToString() ?? "Cell")">
+                                                    @foreach (var sc in ScopeNames) {
+                                                        <option value="@sc">@sc</option>
+                                                    }
+                                                </select>
+                                                <label class="cov-num-label">items
+                                                    <input type="number" min="1" class="field-input cov-num" aria-label="Item target" @bind="_itemTarget"/>
+                                                </label>
+                                                <label class="cov-num-label">obs
+                                                    <input type="number" min="1" class="field-input cov-num" aria-label="Observation target" @bind="_obsTarget"/>
+                                                </label>
+                                                <label class="form-check"><input type="checkbox" checked="@_enabled" @onchange="e => _enabled = e.Value is true"/>in scope</label>
+                                                <button type="button" class="btn-mini" disabled="@_busy" @onclick="Save" @onclick:stopPropagation="true">Save</button>
+                                                @if (_scope == "Cell" && fs.Cell.CellTargetId is { } id) {
+                                                    <button type="button" class="btn-mini" disabled="@_busy" @onclick="() => Remove(id)" @onclick:stopPropagation="true">Reset</button>
+                                                }
+                                            </span>
+                                            <span class="tbar-group">
+                                                <span class="cov-facts">@fs.Cell.Items/@fs.Cell.ItemTarget items, @fs.Cell.Observations/@fs.Cell.ObservationTarget obs@(fs.Cell.PendingObservations > 0 ? $", {fs.Cell.PendingObservations} pending" : "")</span>
+                                            </span>
+                                        </ToolBar>
+                                    }
                                 </td>
                             </tr>
                         }

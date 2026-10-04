@@ -91,15 +91,6 @@ public class ApiWorkbenchDatasetHashTests {
     }
 
     [Fact]
-    public void ApplyHash_ReadsAccount() {
-        var state = new ApiWorkbenchState();
-        Assert.True(state.ApplyHash("#api/account"));
-        Assert.Equal(ApiSelectionKind.Account, state.Kind);
-        Assert.Equal(ApiWorkbenchState.ModeData, state.Mode);
-        Assert.Equal("api/account", state.Hash());
-    }
-
-    [Fact]
     public void ApplyHash_ReadsCoverage() {
         var state = new ApiWorkbenchState();
         Assert.True(state.ApplyHash("#api/coverage"));

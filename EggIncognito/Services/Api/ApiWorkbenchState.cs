@@ -39,7 +39,6 @@ public sealed class ApiWorkbenchState : WorkbenchStateBase {
         return kind switch {
             ApiSelectionKind.Dataset => ModeData,
             ApiSelectionKind.Coverage => ModeData,
-            ApiSelectionKind.Account => ModeData,
             ApiSelectionKind.Capture => ModeCapture,
             ApiSelectionKind.Docs => ModeDocs,
             _ => ModeApis
@@ -257,7 +256,6 @@ public sealed class ApiWorkbenchState : WorkbenchStateBase {
             ApiSelectionKind.Routes => "api/routes",
             ApiSelectionKind.Capture => "api/capture",
             ApiSelectionKind.Coverage => "api/coverage",
-            ApiSelectionKind.Account => "api/account",
             ApiSelectionKind.Docs =>
                 Docs is { Key.Length: > 0 } docs ? $"api/docs/{docs.Slug}/{docs.Key}" : "api/docs",
             _ => MockHash()
@@ -310,9 +308,6 @@ public sealed class ApiWorkbenchState : WorkbenchStateBase {
                 return true;
             case "coverage":
                 Kind = ApiSelectionKind.Coverage;
-                return true;
-            case "account":
-                Kind = ApiSelectionKind.Account;
                 return true;
         }
 

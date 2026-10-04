@@ -23,7 +23,11 @@ public static class DeviceExtensionLoader {
 
         List<string> types = [];
         List<string> errors = [];
+        var loaded = AppDomain.CurrentDomain.GetAssemblies()
+            .Select(a => a.GetName().Name ?? "")
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
         foreach (string file in Directory.EnumerateFiles(dir, "*.dll").Order(StringComparer.Ordinal)) {
+            if (loaded.Contains(Path.GetFileNameWithoutExtension(file))) continue;
             try {
                 foreach (var type in Assembly.LoadFrom(file).GetExportedTypes()) {
                     if (Register(services, type)) types.Add(type.Name);

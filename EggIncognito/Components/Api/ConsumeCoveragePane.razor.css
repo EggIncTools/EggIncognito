@@ -1,7 +1,10 @@
-.cov { display: flex; flex: 1 1 0; flex-direction: column; gap: 0.5rem; min-width: 0; min-height: 0; }
+.cov { display: flex; flex: 1 1 0; flex-direction: column; gap: 0.5rem; min-width: 0; min-height: 0; overflow: hidden; }
+.cov ::deep .phead { flex: none; margin-bottom: 0; }
+.cov-kpis { flex: none; }
 .cov-facts { font-size: 0.75rem; color: var(--color-muted); }
 .cov-sel { flex: none; flex-wrap: wrap; }
 .cov-sel .tbar-k { white-space: nowrap; }
+.cov-target { flex-wrap: wrap; margin-top: 0.375rem; padding-top: 0.375rem; border-top: 1px solid var(--color-border); }
 .cov-scope { width: auto; min-width: 5.5rem; padding-block: 0.125rem; }
 .cov-num { width: 4.5rem; padding-block: 0.125rem; }
 .cov-num-label { display: inline-flex; align-items: center; gap: 0.25rem; font-size: 0.75rem; color: var(--color-muted); }
