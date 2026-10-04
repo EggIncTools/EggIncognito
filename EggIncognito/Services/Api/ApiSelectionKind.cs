@@ -6,5 +6,6 @@ public enum ApiSelectionKind {
     Routes,
     Capture,
     Docs,
-    Coverage
+    Coverage,
+    Account
 }

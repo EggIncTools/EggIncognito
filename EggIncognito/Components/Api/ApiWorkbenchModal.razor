@@ -11,6 +11,8 @@
 @using EggIncognito.Services.Inspector
 @using EggIncognito.Services.Routes
 @inherits SelfCallComponentBase
+@using EggIncognito.Core.Services.Devices
+@inject IEnumerable<IDevicePanel> Panels
 @inject IRouteCatalog Catalog
 @inject IRouteCatalogReport RouteReport
 @inject IProtoReflection Reflection
@@ -92,6 +94,17 @@
                             </Lead>
                             <Name>Consume coverage</Name>
                         </WorkbenchEntry>
+                        @if (AccountPanels.Any()) {
+                            <WorkbenchEntry Selected="@(State.Kind == ApiSelectionKind.Account)"
+                                            OnClick="@(_ => SelectSection(ApiSelectionKind.Account))">
+                                <Lead>
+                                    <span class="wb-lead">
+                                        <Icon Name="user" Class="icon-sm"/>
+                                    </span>
+                                </Lead>
+                                <Name>Accounts</Name>
+                            </WorkbenchEntry>
+                        }
                     </WorkbenchSection>
                 }
             </WorkbenchRail>
@@ -113,6 +126,11 @@
                 break;
             case ApiSelectionKind.Coverage:
                 <ConsumeCoveragePane/>
+                break;
+            case ApiSelectionKind.Account:
+                @foreach (var panel in AccountPanels) {
+                    <DynamicComponent @key="panel.Id" Type="panel.ComponentType"/>
+                }
                 break;
             default:
                 <div class="awb-try">
@@ -299,6 +317,9 @@
         State.SelectDataset(root.Group, root.Id, child?.Id);
         await WriteHash();
     }
+
+    IEnumerable<IDevicePanel> AccountPanels =>
+        Panels.Where(p => string.Equals(p.Shelf, DevicePanelShelves.DataAccount, StringComparison.Ordinal));
 
     async Task SelectSection(ApiSelectionKind kind) {
         State.Kind = kind;
@@ -967,7 +988,7 @@
         }
 
         if (State.Kind is ApiSelectionKind.Routes && !State.IsContributor) State.Kind = ApiSelectionKind.Endpoint;
-        if (State.Kind is ApiSelectionKind.Coverage && !State.IsAdmin) ApplyModeDefault(ApiWorkbenchState.ModeData);
+        if (State.Kind is ApiSelectionKind.Coverage or ApiSelectionKind.Account && !State.IsAdmin) ApplyModeDefault(ApiWorkbenchState.ModeData);
     }
 
     async Task WriteHash(bool push = false, bool clear = false) {

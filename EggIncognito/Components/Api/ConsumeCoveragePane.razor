@@ -70,10 +70,8 @@
                             <button type="button" class="btn-mini" disabled="@_busy" @onclick="() => Remove(id)">Reset</button>
                         }
                     </span>
-                    @if (DeviceId is { Length: > 0 } device) {
-                        @foreach (var panel in CellPanels) {
-                            <DynamicComponent @key="panel.Id" Type="panel.ComponentType" Parameters="CellPanelParameters(device, s)"/>
-                        }
+                    @foreach (var panel in CellPanels) {
+                        <DynamicComponent @key="panel.Id" Type="panel.ComponentType" Parameters="CellPanelParameters(s)"/>
                     }
                 </ToolBar>
             }
@@ -270,8 +268,8 @@
     IEnumerable<IDevicePanel> CellPanels =>
         Panels.Where(p => string.Equals(p.Shelf, DevicePanelShelves.CoverageCell, StringComparison.Ordinal));
 
-    Dictionary<string, object?> CellPanelParameters(string device, CoverageSelection sel) => new() {
-        ["DeviceId"] = device,
+    Dictionary<string, object?> CellPanelParameters(CoverageSelection sel) => new() {
+        ["DeviceId"] = DeviceId,
         ["AndroidUserId"] = AndroidUserId,
         ["Family"] = sel.Family,
         ["Level"] = sel.Level,

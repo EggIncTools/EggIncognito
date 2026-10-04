@@ -55,6 +55,11 @@ public static class DeviceExtensionLoader {
             services.AddSingleton<IDeviceResponseTransforms>(sp => (IDeviceResponseTransforms)sp.GetRequiredService(type));
         if (panel)
             services.AddSingleton<IDevicePanel>(sp => (IDevicePanel)sp.GetRequiredService(type));
+        if (service) {
+            foreach (var contract in type.GetInterfaces().Where(i => i.Assembly == type.Assembly))
+                services.AddSingleton(contract, sp => sp.GetRequiredService(type));
+        }
+
         return true;
     }
 }
