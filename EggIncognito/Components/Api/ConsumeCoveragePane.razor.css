@@ -1,6 +1,5 @@
 .cov { display: flex; flex: 1 1 0; flex-direction: column; gap: 0.5rem; min-width: 0; min-height: 0; overflow: hidden; }
 .cov ::deep .phead { flex: none; margin-bottom: 0; }
-.cov-kpis { flex: none; }
 .cov-facts { font-size: 0.75rem; color: var(--color-muted); }
 .cov-sel { flex: none; flex-wrap: wrap; }
 .cov-sel .tbar-k { white-space: nowrap; }

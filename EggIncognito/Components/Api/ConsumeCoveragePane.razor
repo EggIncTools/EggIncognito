@@ -2,9 +2,12 @@
 @using EggIncognito.Artifacts
 @using EggIncognito.Core.Services.Devices
 @using EggIncognito.GameData
+@using EggIncognito.Models.Contributions
 @using EggIncognito.Models.Coverage
+@using EggIncognito.Services.Contributions
 @using EggIncognito.Services.Coverage
 @inherits SelfCallComponentBase
+@implements IDisposable
 @inject IServiceScopeFactory Scopes
 @inject IEnumerable<IDevicePanel> Panels
 @inject IEnumerable<ICoverageInventory> Inventories
@@ -14,7 +17,16 @@
 
 @if (User.Current.IsAtLeast(UserRole.Admin)) {
     <div class="cov">
-        <PanelHead Title="Consume coverage"/>
+        <PanelHead Title="Consume coverage">
+            <Tools>
+                @if (_map is { } m) {
+                    <span class="cov-facts mono">@Pct(m.Validity) valid, @m.CellsComplete/@m.CellsInScope cells, @m.Items items, @m.Observations obs</span>
+                    <button type="button" class="btn-mini" disabled="@(m.PendingObservations == 0 && !_pendingOpen)" @onclick="TogglePending">
+                        @(_pendingOpen ? "Hide pending" : $"Pending {m.PendingObservations}")
+                    </button>
+                }
+            </Tools>
+        </PanelHead>
 
         @if (_noDb) {
             <StatusNote Kind="StatusNoteKind.Error">No database configured.</StatusNote>
@@ -22,15 +34,43 @@
             @if (_loaded) {
                 <StatusNote Kind="StatusNoteKind.Error">The artifact catalog is not loaded.</StatusNote>
             }
+        } else if (_pendingOpen) {
+            <ToolBar Flat="true">
+                <span class="tbar-group">
+                    <span class="tbar-k">Pending</span>
+                    <span class="cov-facts mono">@_pendingTotal row(s)</span>
+                </span>
+                <span class="tbar-group">
+                    <button type="button" class="btn-mini" disabled="@(_busy || _checked.Count == 0)" @onclick="() => Review(true)">Approve @_checked.Count</button>
+                    <button type="button" class="btn-mini btn-danger" disabled="@(_busy || _checked.Count == 0)" @onclick="() => Review(false)">Reject @_checked.Count</button>
+                    <button type="button" class="btn-mini" disabled="@_busy" @onclick="LoadPending">Reload</button>
+                </span>
+            </ToolBar>
+            <TableScroll Class="cov-scroll">
+                <table class="data-table cov-table">
+                    <thead>
+                    <tr>
+                        <th><input type="checkbox" aria-label="Select all" checked="@AllChecked" @onchange="e => CheckAll(e.Value is true)"/></th>
+                        <th>Contributor</th>
+                        <th>Summary</th>
+                        <th>Version</th>
+                        <th>Recorded</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    @foreach (var r in _pending) {
+                        <tr @key="r.Id" class="row-click" @onclick="() => Check(r.Id, !_checked.Contains(r.Id))">
+                            <td><input type="checkbox" checked="@_checked.Contains(r.Id)" @onchange="e => Check(r.Id, e.Value is true)" @onclick:stopPropagation="true"/></td>
+                            <td class="mono">@(r.ContributorName ?? r.ContributorUserId.ToString("N")[..8])</td>
+                            <td>@r.Summary</td>
+                            <td class="mono">@r.ClientVersion</td>
+                            <td class="mono">@r.RecordedAt.ToLocalTime().ToString("MM-dd HH:mm")</td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </TableScroll>
         } else {
-            <KpiGrid Columns="5" Class="cov-kpis">
-                <KpiTile Value="@Pct(_map.Validity)" Label="valid"/>
-                <KpiTile Value="@($"{_map.CellsComplete}/{_map.CellsInScope}")" Label="cells"/>
-                <KpiTile Value="@_map.Items.ToString()" Label="items"/>
-                <KpiTile Value="@_map.Observations.ToString()" Label="observations"/>
-                <KpiTile Value="@_map.PendingItems.ToString()" Label="pending" Warn="@(_map.PendingItems > 0)"/>
-            </KpiGrid>
-
             @if (_sel is { } s) {
                 <ToolBar Flat="true" Class="cov-sel">
                     <span class="tbar-group">
@@ -150,6 +190,10 @@
     bool _noDb;
     bool _loaded;
     bool _busy;
+    bool _pendingOpen;
+    int _pendingTotal;
+    List<ContributionPendingRowDto> _pending = [];
+    readonly HashSet<long> _checked = [];
     readonly HashSet<string> _open = new(StringComparer.Ordinal);
     CoverageSelection? _sel;
     string _scope = "Cell";
@@ -157,9 +201,18 @@
     int _obsTarget;
     bool _enabled = true;
 
+    bool AllChecked => _pending.Count > 0 && _pending.All(r => _checked.Contains(r.Id));
+
     protected override async Task OnInitializedAsync() {
         if (!User.Current.IsAtLeast(UserRole.Admin)) return;
+        foreach (var inv in Inventories) inv.Changed += OnInventoryChanged;
         await LoadAsync();
+    }
+
+    void OnInventoryChanged() => _ = InvokeAsync(StateHasChanged);
+
+    public void Dispose() {
+        foreach (var inv in Inventories) inv.Changed -= OnInventoryChanged;
     }
 
     async Task LoadAsync() {
@@ -180,6 +233,45 @@
 
         _loaded = true;
         if (_sel is { } s) Reselect(s);
+    }
+
+    async Task TogglePending() {
+        _pendingOpen = !_pendingOpen;
+        if (_pendingOpen) await LoadPending();
+    }
+
+    async Task LoadPending() {
+        _busy = true;
+        try {
+            var page = await Client().GetFromJsonAsync<PendingPage>(
+                $"/api/contributions/pending?kind={Uri.EscapeDataString(ArtifactContributionKind.KindName)}&skip=0&take=500", JsonOpts);
+            _pending = page?.Rows ?? [];
+            _pendingTotal = page?.Total ?? 0;
+            _checked.RemoveWhere(id => _pending.All(r => r.Id != id));
+        } catch (Exception ex) when (ex is HttpRequestException or JsonException or TaskCanceledException) {
+            Logger.LogWarning(ex, "pending contributions could not be read");
+            Toasts.Push(StatusNoteKind.Error, "Pending rows could not be read.");
+        } finally {
+            _busy = false;
+        }
+    }
+
+    void Check(long id, bool on) {
+        if (on) _checked.Add(id);
+        else _checked.Remove(id);
+    }
+
+    void CheckAll(bool on) {
+        if (on) foreach (var r in _pending) _checked.Add(r.Id);
+        else _checked.Clear();
+    }
+
+    async Task Review(bool approve) {
+        var ids = _checked.ToList();
+        await Write(c => c.PostAsJsonAsync("/api/contributions/review", new ContributionReviewRequest { Ids = ids, Approve = approve }, JsonOpts),
+            approve ? $"Approved {ids.Count}." : $"Rejected {ids.Count}.");
+        _checked.Clear();
+        await LoadPending();
     }
 
     void Reselect(CoverageSelection s) {
@@ -238,8 +330,8 @@
                 Toasts.Push(StatusNoteKind.Error, await ReadError(res));
             }
         } catch (Exception ex) when (ex is HttpRequestException or JsonException or TaskCanceledException) {
-            Logger.LogWarning(ex, "consume coverage target write failed");
-            Toasts.Push(StatusNoteKind.Error, "The target could not be saved.");
+            Logger.LogWarning(ex, "consume coverage write failed");
+            Toasts.Push(StatusNoteKind.Error, "The change could not be saved.");
         } finally {
             _busy = false;
         }
@@ -280,4 +372,6 @@
         ["Rarity"] = sel.Rarity,
         ["SuggestedBatch"] = sel.Cell.SuggestedBatch
     };
+
+    sealed record PendingPage(int Total, List<ContributionPendingRowDto> Rows);
 }

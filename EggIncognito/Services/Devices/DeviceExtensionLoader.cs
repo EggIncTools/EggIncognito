@@ -48,8 +48,9 @@ public static class DeviceExtensionLoader {
         bool transforms = typeof(IDeviceResponseTransforms).IsAssignableFrom(type);
         bool panel = typeof(IDevicePanel).IsAssignableFrom(type);
         bool inventory = typeof(ICoverageInventory).IsAssignableFrom(type);
+        bool hosted = typeof(IHostedService).IsAssignableFrom(type);
         bool service = type.GetCustomAttributes(typeof(DeviceExtensionServiceAttribute), false).Length > 0;
-        if (!cookbook && !responses && !transforms && !panel && !inventory && !service) return false;
+        if (!cookbook && !responses && !transforms && !panel && !inventory && !hosted && !service) return false;
 
         services.AddSingleton(type, sp => ActivatorUtilities.CreateInstance(sp, type));
         if (cookbook)
@@ -62,6 +63,8 @@ public static class DeviceExtensionLoader {
             services.AddSingleton<IDevicePanel>(sp => (IDevicePanel)sp.GetRequiredService(type));
         if (inventory)
             services.AddSingleton<ICoverageInventory>(sp => (ICoverageInventory)sp.GetRequiredService(type));
+        if (hosted)
+            services.AddSingleton<IHostedService>(sp => (IHostedService)sp.GetRequiredService(type));
         if (service) {
             foreach (var contract in type.GetInterfaces().Where(i => i.Assembly == type.Assembly))
                 services.AddSingleton(contract, sp => sp.GetRequiredService(type));
