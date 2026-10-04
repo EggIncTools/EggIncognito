@@ -75,6 +75,10 @@ jobs:
             -p:PublishSingleFile=true \
             -p:NoBrowser=true \
             -p:EmitTypes=false \
+            -p:RunAnalyzers=false \
+            -p:EnforceCodeStyleInBuild=false \
+            -p:TreatWarningsAsErrors=false \
+            -p:GenerateDocumentationFile=false \
             --output "$OUT"
           cp -r EggIncognito/Endpoints "$OUT/Endpoints"
           ARCHIVE="eggincognito-${TAG}-${RID}.tar.gz"

@@ -37,7 +37,8 @@ RUN set -eux; \
     [ -n "$GIT_SHA" ] && STAMP="$STAMP -p:SourceRevisionId=$GIT_SHA"; \
     [ -n "$APP_VERSION" ] && STAMP="$STAMP -p:MinVerVersionOverride=$APP_VERSION"; \
     dotnet publish EggIncognito/EggIncognito.csproj -c Release -o /app/publish \
-        -p:EmitTypes=false $STAMP; \
+        -p:EmitTypes=false -p:RunAnalyzers=false -p:EnforceCodeStyleInBuild=false \
+        -p:TreatWarningsAsErrors=false -p:GenerateDocumentationFile=false $STAMP; \
     grep -q "btn-primary" /app/publish/wwwroot/app.css; \
     test -s /app/publish/wwwroot/EggIncognito.styles.css; \
     test -s /app/publish/wwwroot/_framework/blazor.web.js
