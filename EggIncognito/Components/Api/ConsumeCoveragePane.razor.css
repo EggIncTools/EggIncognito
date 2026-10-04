@@ -35,3 +35,4 @@
 .cov-sel .cov-disc { width: 1.5rem; height: 1.5rem; }
 .cov-disc img { width: 100%; height: 100%; object-fit: contain; }
 .cov-nk { font-family: var(--font-mono); font-size: 0.625rem; color: var(--color-fg); }
+.cov-held { font-family: var(--font-mono); font-size: 0.625rem; color: var(--color-muted); }
