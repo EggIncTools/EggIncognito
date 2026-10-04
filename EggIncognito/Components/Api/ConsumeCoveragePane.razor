@@ -120,6 +120,44 @@
                                         @foreach (var head in RarityHeads) {
                                             <span class="cov-head">@head</span>
                                         }
+                                        @if (_sel is { } fs && fs.Family == f.SpecName) {
+                                            <span class="cov-settings" @onclick:stopPropagation="true">
+                                                <button type="button" class="btn-mini" aria-label="Coverage target" title="Coverage target" @onclick="() => _targetOpen = !_targetOpen">
+                                                    <Icon Name="settings" Class="icon-sm"/>
+                                                </button>
+                                                @if (_targetOpen) {
+                                                    <div class="popover-backdrop" @onmousedown="() => _targetOpen = false"></div>
+                                                    <div class="cov-pop">
+                                                        <div class="cov-pop-row">
+                                                            <span class="tbar-k">@TierName(fs)</span>
+                                                            <span class="cov-facts mono">@fs.Cell.Items/@fs.Cell.ItemTarget items, @fs.Cell.Observations/@fs.Cell.ObservationTarget obs</span>
+                                                        </div>
+                                                        <div class="cov-pop-row">
+                                                            <select class="field-input cov-scope" aria-label="Target scope" value="@_scope" @onchange="@(e => _scope = e.Value?.ToString() ?? "Cell")">
+                                                                @foreach (var sc in ScopeNames) {
+                                                                    <option value="@sc">@sc</option>
+                                                                }
+                                                            </select>
+                                                            <label class="cov-num-label">items
+                                                                <input type="number" min="1" class="field-input cov-num" aria-label="Item target" @bind="_itemTarget"/>
+                                                            </label>
+                                                            <label class="cov-num-label">obs
+                                                                <input type="number" min="1" class="field-input cov-num" aria-label="Observation target" @bind="_obsTarget"/>
+                                                            </label>
+                                                        </div>
+                                                        <div class="cov-pop-row">
+                                                            <label class="form-check"><input type="checkbox" checked="@_enabled" @onchange="e => _enabled = e.Value is true"/>in scope</label>
+                                                            <button type="button" class="btn-mini" disabled="@_busy" @onclick="Save">Save</button>
+                                                            @if (_scope == "Cell" && fs.Cell.CellTargetId is { } id) {
+                                                                <button type="button" class="btn-mini" disabled="@_busy" @onclick="() => Remove(id)">Reset</button>
+                                                            }
+                                                        </div>
+                                                    </div>
+                                                }
+                                            </span>
+                                        } else {
+                                            <span></span>
+                                        }
                                         @foreach (var t in f.Tiers) {
                                             <span class="cov-tier">@t.Name</span>
                                             @for (int r = 0; r < RarityHeads.Length; r++) {
@@ -139,34 +177,9 @@
                                                     }
                                                 </button>
                                             }
+                                            <span></span>
                                         }
                                     </div>
-                                    @if (_sel is { } fs && fs.Family == f.SpecName) {
-                                        <ToolBar Flat="true" Class="cov-target">
-                                            <span class="tbar-group">
-                                                <span class="tbar-k">Target</span>
-                                                <select class="field-input cov-scope" aria-label="Target scope" value="@_scope" @onchange="@(e => _scope = e.Value?.ToString() ?? "Cell")">
-                                                    @foreach (var sc in ScopeNames) {
-                                                        <option value="@sc">@sc</option>
-                                                    }
-                                                </select>
-                                                <label class="cov-num-label">items
-                                                    <input type="number" min="1" class="field-input cov-num" aria-label="Item target" @bind="_itemTarget"/>
-                                                </label>
-                                                <label class="cov-num-label">obs
-                                                    <input type="number" min="1" class="field-input cov-num" aria-label="Observation target" @bind="_obsTarget"/>
-                                                </label>
-                                                <label class="form-check"><input type="checkbox" checked="@_enabled" @onchange="e => _enabled = e.Value is true"/>in scope</label>
-                                                <button type="button" class="btn-mini" disabled="@_busy" @onclick="Save" @onclick:stopPropagation="true">Save</button>
-                                                @if (_scope == "Cell" && fs.Cell.CellTargetId is { } id) {
-                                                    <button type="button" class="btn-mini" disabled="@_busy" @onclick="() => Remove(id)" @onclick:stopPropagation="true">Reset</button>
-                                                }
-                                            </span>
-                                            <span class="tbar-group">
-                                                <span class="cov-facts">@fs.Cell.Items/@fs.Cell.ItemTarget items, @fs.Cell.Observations/@fs.Cell.ObservationTarget obs@(fs.Cell.PendingObservations > 0 ? $", {fs.Cell.PendingObservations} pending" : "")</span>
-                                            </span>
-                                        </ToolBar>
-                                    }
                                 </td>
                             </tr>
                         }
@@ -200,7 +213,9 @@
     bool _loaded;
     bool _busy;
     bool _pendingOpen;
+    bool _targetOpen;
     int _pendingTotal;
+    int _reloadPending;
     List<ContributionPendingRowDto> _pending = [];
     readonly HashSet<long> _checked = [];
     readonly HashSet<string> _open = new(StringComparer.Ordinal);
@@ -218,7 +233,19 @@
         await LoadAsync();
     }
 
-    void OnInventoryChanged() => _ = InvokeAsync(StateHasChanged);
+    void OnInventoryChanged() {
+        if (Interlocked.Exchange(ref _reloadPending, 1) == 1) return;
+        _ = InvokeAsync(async () => {
+            try {
+                await Task.Delay(750);
+                await LoadAsync();
+            } finally {
+                Interlocked.Exchange(ref _reloadPending, 0);
+            }
+
+            StateHasChanged();
+        });
+    }
 
     public void Dispose() {
         foreach (var inv in Inventories) inv.Changed -= OnInventoryChanged;
@@ -300,6 +327,7 @@
 
     void Select(CoverageFamily f, CoverageTier t, CoverageCell c) {
         _sel = new CoverageSelection(f.SpecName, t.Level, c.Rarity, c);
+        _targetOpen = false;
         _scope = "Cell";
         _itemTarget = c.ItemTarget;
         _obsTarget = c.ObservationTarget;
