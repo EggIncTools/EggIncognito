@@ -236,7 +236,9 @@
                         @Sections
 
                         <div hidden="@(!State.ShelfIs(DeviceWorkbenchState.ShelfCoverage))">
-                            <ConsumeCoveragePane DeviceId="@_deviceId" AndroidUserId="@_selectedAndroidUserId"/>
+                            <PanelSlot Id="@PanelSlots.Coverage" Parameters="PanelParameters()">
+                                <ConsumeCoveragePane DeviceId="@_deviceId" AndroidUserId="@_selectedAndroidUserId"/>
+                            </PanelSlot>
                         </div>
                     </div>
                 </div>

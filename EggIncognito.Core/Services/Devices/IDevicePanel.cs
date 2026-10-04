@@ -4,6 +4,13 @@ public static class DevicePanelShelves {
     public const string Workflows = "workflows";
     public const string CoverageCell = "coverage-cell";
     public const string CoverageSide = "coverage-side";
+    public const string ReplacePrefix = "replace:";
+
+    public static string Replace(string slotId) => ReplacePrefix + slotId;
+}
+
+public static class PanelSlots {
+    public const string Coverage = "coverage";
 }
 
 [AttributeUsage(AttributeTargets.Class, Inherited = false)]

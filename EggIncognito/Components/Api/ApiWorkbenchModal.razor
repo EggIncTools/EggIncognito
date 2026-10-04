@@ -5,6 +5,7 @@
 @using System.Text.Json.Nodes
 @using EggIncognito.Components.Inspector
 @using EggIncognito.Core
+@using EggIncognito.Core.Services.Devices
 @using EggIncognito.Models.Data
 @using EggIncognito.Models.Inspector
 @using EggIncognito.Services.Api
@@ -112,7 +113,9 @@
                 <CapturePane/>
                 break;
             case ApiSelectionKind.Coverage:
-                <ConsumeCoveragePane/>
+                <PanelSlot Id="@PanelSlots.Coverage">
+                    <ConsumeCoveragePane/>
+                </PanelSlot>
                 break;
             default:
                 <div class="awb-try">
