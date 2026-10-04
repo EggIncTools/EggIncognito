@@ -1,6 +1,12 @@
 using System.Globalization;
+using System.Reflection;
+using System.Reflection.Metadata;
+using System.Reflection.Metadata.Ecma335;
+using System.Reflection.PortableExecutable;
+using System.Text;
 using System.Text.RegularExpressions;
 using EggIdentity.Styles.Css;
+using EggIdentity.UI;
 using EggIncognito.Components.Shared.Code;
 using EggIncognito.Core.Services.Syntax;
 
@@ -199,14 +205,21 @@ public partial class StyleInvariantTests(SharedAppFactory f) {
 
     private static string SourceText() {
         string app = AppDir();
-        string repos = Path.GetFullPath(Path.Combine(app, "..", ".."));
-        string[] roots = [app, Path.Combine(app, "..", "EggIncognito.Core"), Path.Combine(repos, "EggIdentity", "EggIdentity.UI")];
+        string[] roots = [app, Path.Combine(app, "..", "EggIncognito.Core")];
         var files = roots.Where(Directory.Exists)
             .SelectMany(r => Directory.EnumerateFiles(r, "*.*", SearchOption.AllDirectories))
             .Where(p => p.EndsWith(".razor", StringComparison.Ordinal) || p.EndsWith(".cs", StringComparison.Ordinal)
                                                                          || p.EndsWith(".js", StringComparison.Ordinal))
             .Where(p => !SkippedDirRegex().IsMatch(p));
-        return string.Join("\n", files.Select(File.ReadAllText));
+        return string.Join("\n", files.Select(File.ReadAllText).Append(UserStrings(typeof(WorkbenchRail).Assembly)));
+    }
+
+    private static string UserStrings(Assembly assembly) {
+        using var pe = new PEReader(File.OpenRead(assembly.Location));
+        var md = pe.GetMetadataReader();
+        var sb = new StringBuilder();
+        for (var h = MetadataTokens.UserStringHandle(1); !h.IsNil; h = md.GetNextHandle(h)) sb.Append(md.GetUserString(h)).Append('\n');
+        return sb.ToString();
     }
 
     private static string StripVarFallbacks(string value) => VarFallbackRegex().Replace(value, "var($1)");
