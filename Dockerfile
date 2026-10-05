@@ -11,6 +11,7 @@ COPY EggIncognito.Bot/EggIncognito.Bot.csproj EggIncognito.Bot/
 COPY EggIncognito.RouteGenerator/EggIncognito.RouteGenerator.csproj EggIncognito.RouteGenerator/
 COPY EggIncognito.GameData/EggIncognito.GameData.csproj EggIncognito.GameData/
 COPY EggIncognito.Artifacts/EggIncognito.Artifacts.csproj EggIncognito.Artifacts/
+COPY EggIncognito.Extensibility/EggIncognito.Extensibility.csproj EggIncognito.Extensibility/
 COPY EggIncognito/EggIncognito.csproj EggIncognito/
 ARG GITHUB_PACKAGES_USER
 RUN --mount=type=secret,id=github_token \
