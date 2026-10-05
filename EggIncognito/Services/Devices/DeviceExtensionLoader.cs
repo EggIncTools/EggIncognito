@@ -1,11 +1,12 @@
 using System.Reflection;
+using System.Runtime.Loader;
 using EggIncognito.Core.Services.Devices;
 
 namespace EggIncognito.Services.Devices;
 
 public sealed record DeviceExtensionCatalog(
-    string Source, IReadOnlyList<string> Types, IReadOnlyList<string> Errors) {
-    public static readonly DeviceExtensionCatalog Empty = new("", [], []);
+    string Source, IReadOnlyList<string> Types, IReadOnlyList<string> Errors, IReadOnlyList<DeviceExtension> Extensions) {
+    public static readonly DeviceExtensionCatalog Empty = new("", [], [], []);
 
     public int Loaded => Types.Count;
 }
@@ -23,53 +24,65 @@ public static class DeviceExtensionLoader {
 
         List<string> types = [];
         List<string> errors = [];
-        var loaded = AppDomain.CurrentDomain.GetAssemblies()
-            .Select(a => a.GetName().Name ?? "")
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
-        foreach (string file in Directory.EnumerateFiles(dir, "*.dll").Order(StringComparer.Ordinal)) {
-            if (loaded.Contains(Path.GetFileNameWithoutExtension(file))) continue;
+        List<DeviceExtension> extensions = [];
+        foreach (string folder in Directory.EnumerateDirectories(dir).Order(StringComparer.Ordinal)) {
+            string name = Path.GetFileName(folder);
+            string file = Path.Combine(folder, name + ".dll");
+            if (!File.Exists(file)) continue;
+
             try {
-                foreach (var type in Assembly.LoadFrom(file).GetExportedTypes()) {
-                    if (Register(services, type)) types.Add(type.Name);
+                var assembly = new ExtensionLoadContext(file).LoadFromAssemblyPath(Path.GetFullPath(file));
+                foreach (var type in assembly.GetExportedTypes()) {
+                    if (RegisterModule(services, config, type, out string? module) && module is not null) types.Add(module);
                 }
+
+                string asmName = assembly.GetName().Name ?? name;
+                string css = asmName + ".bundle.scp.css";
+                bool hasCss = File.Exists(Path.Combine(folder, "wwwroot", css));
+                extensions.Add(new DeviceExtension(name, Path.GetFullPath(folder), hasCss ? css : null));
             } catch (Exception ex) {
                 errors.Add($"{Path.GetFileName(file)}: {ex.GetType().Name}");
             }
         }
 
-        return new DeviceExtensionCatalog(dir, types, errors);
+        return new DeviceExtensionCatalog(dir, types, errors, extensions);
     }
 
-    private static bool Register(IServiceCollection services, Type type) {
-        if (!type.IsClass || type.IsAbstract) return false;
+    internal static bool RegisterModule(IServiceCollection services, IConfiguration config, Type type) =>
+        RegisterModule(services, config, type, out _);
 
-        bool cookbook = typeof(IDeviceCookbook).IsAssignableFrom(type);
-        bool responses = typeof(IDeviceResponseSources).IsAssignableFrom(type);
-        bool transforms = typeof(IDeviceResponseTransforms).IsAssignableFrom(type);
-        bool panel = typeof(IDevicePanel).IsAssignableFrom(type);
-        bool inventory = typeof(ICoverageInventory).IsAssignableFrom(type);
-        bool hosted = typeof(IHostedService).IsAssignableFrom(type);
-        bool service = type.GetCustomAttributes(typeof(DeviceExtensionServiceAttribute), false).Length > 0;
-        if (!cookbook && !responses && !transforms && !panel && !inventory && !hosted && !service) return false;
+    private static bool RegisterModule(IServiceCollection services, IConfiguration config, Type type, out string? name) {
+        name = null;
+        if (!type.IsClass || type.IsAbstract || !typeof(IDeviceExtensionModule).IsAssignableFrom(type)) return false;
 
-        services.AddSingleton(type, sp => ActivatorUtilities.CreateInstance(sp, type));
-        if (cookbook)
-            services.AddSingleton<IDeviceCookbook>(sp => (IDeviceCookbook)sp.GetRequiredService(type));
-        if (responses)
-            services.AddSingleton<IDeviceResponseSources>(sp => (IDeviceResponseSources)sp.GetRequiredService(type));
-        if (transforms)
-            services.AddSingleton<IDeviceResponseTransforms>(sp => (IDeviceResponseTransforms)sp.GetRequiredService(type));
-        if (panel)
-            services.AddSingleton<IDevicePanel>(sp => (IDevicePanel)sp.GetRequiredService(type));
-        if (inventory)
-            services.AddSingleton<ICoverageInventory>(sp => (ICoverageInventory)sp.GetRequiredService(type));
-        if (hosted)
-            services.AddSingleton<IHostedService>(sp => (IHostedService)sp.GetRequiredService(type));
-        if (service) {
-            foreach (var contract in type.GetInterfaces().Where(i => i.Assembly == type.Assembly))
-                services.AddSingleton(contract, sp => sp.GetRequiredService(type));
+        var module = (IDeviceExtensionModule)Activator.CreateInstance(type)!;
+        module.Register(services, config);
+        name = module.Name;
+        return true;
+    }
+
+    private sealed class ExtensionLoadContext(string mainAssemblyPath)
+        : AssemblyLoadContext(Path.GetFileNameWithoutExtension(mainAssemblyPath)) {
+        private static readonly Lazy<HashSet<string>> Platform = new(() =>
+            (AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES") as string ?? "")
+            .Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries)
+            .Select(Path.GetFileNameWithoutExtension)
+            .OfType<string>()
+            .ToHashSet(StringComparer.OrdinalIgnoreCase));
+
+        private readonly AssemblyDependencyResolver _resolver = new(mainAssemblyPath);
+
+        protected override Assembly? Load(AssemblyName assemblyName) {
+            if (Shared(assemblyName.Name)) return null;
+            return _resolver.ResolveAssemblyToPath(assemblyName) is { } path ? LoadFromAssemblyPath(path) : null;
         }
 
-        return true;
+        protected override IntPtr LoadUnmanagedDll(string unmanagedDllName) =>
+            _resolver.ResolveUnmanagedDllToPath(unmanagedDllName) is { } path ? LoadUnmanagedDllFromPath(path) : IntPtr.Zero;
+
+        private static bool Shared(string? name) =>
+            name is not null
+            && (Platform.Value.Contains(name)
+                || Default.Assemblies.Any(a => string.Equals(a.GetName().Name, name, StringComparison.OrdinalIgnoreCase)));
     }
 }

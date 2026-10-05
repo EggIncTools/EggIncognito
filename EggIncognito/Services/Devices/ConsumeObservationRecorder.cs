@@ -13,7 +13,7 @@ namespace EggIncognito.Services.Devices;
 public sealed class ConsumeObservationRecorder(
     IServiceScopeFactory scopes,
     ILogger<ConsumeObservationRecorder> logger,
-    TimeProvider time) : IProcessedFlowObserver, IHostedService, IDisposable {
+    TimeProvider time) : IProcessedFlowObserver, IArtifactObservationSink, IHostedService, IDisposable {
     public const string ConsumeRoute = "ei_afx/consume_artifact";
     public const string DemoteRoute = "ei_afx/demote_artifact";
     public const string CraftRoute = "ei_afx/craft_artifact";
@@ -52,11 +52,25 @@ public sealed class ConsumeObservationRecorder(
             ? BuildCraft(deviceId, flow, now)
             : BuildConsume(action, deviceId, flow, now);
 
+    public void Craft(string? deviceId, CraftArtifactRequest request, CraftArtifactResponse response) {
+        if (CraftRow(deviceId, request, response, time.GetUtcNow()) is { } row) _queue.Writer.TryWrite(row);
+    }
+
+    public void Consume(string? deviceId, ConsumeArtifactRequest request, ConsumeArtifactResponse response, bool success) {
+        if (ConsumeRow("consume", deviceId, request, response, success, time.GetUtcNow()) is { } row)
+            _queue.Writer.TryWrite(row);
+    }
+
     private static ArtifactConsumeObservation? BuildCraft(string deviceId, DashboardFlow flow, DateTimeOffset now) {
         if (flow.RequestJsonRaw is null || flow.ResponseJsonRaw is null) return null;
 
         var request = JsonParser.Default.Parse<CraftArtifactRequest>(flow.RequestJsonRaw);
         var response = JsonParser.Default.Parse<CraftArtifactResponse>(flow.ResponseJsonRaw);
+        return CraftRow(deviceId, request, response, now);
+    }
+
+    internal static ArtifactConsumeObservation? CraftRow(string? deviceId, CraftArtifactRequest request,
+        CraftArtifactResponse response, DateTimeOffset now) {
         if (request.Spec is null) return null;
 
         return new ArtifactConsumeObservation {
@@ -81,6 +95,11 @@ public sealed class ConsumeObservationRecorder(
 
         var request = JsonParser.Default.Parse<ConsumeArtifactRequest>(flow.RequestJsonRaw);
         var response = JsonParser.Default.Parse<ConsumeArtifactResponse>(flow.ResponseJsonRaw);
+        return ConsumeRow(action, deviceId, request, response, response.Success, now);
+    }
+
+    internal static ArtifactConsumeObservation? ConsumeRow(string action, string? deviceId,
+        ConsumeArtifactRequest request, ConsumeArtifactResponse response, bool success, DateTimeOffset now) {
         if (request.Spec is null) return null;
 
         var byproducts = response.Byproducts
@@ -110,7 +129,7 @@ public sealed class ConsumeObservationRecorder(
             Byproducts = JsonSerializer.Serialize(byproducts, CamelJson),
             OtherRewards = JsonSerializer.Serialize(rewards, CamelJson),
             GoldenEggs = goldenEggs,
-            Success = response.Success,
+            Success = success,
             ClientVersion = string.IsNullOrEmpty(request.Rinfo?.Version) ? null : request.Rinfo.Version,
             DeviceId = string.IsNullOrEmpty(deviceId) ? null : deviceId,
             ObservedAt = now

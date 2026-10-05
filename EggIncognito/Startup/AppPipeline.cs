@@ -17,6 +17,7 @@ using EggIncognito.Services.Admin;
 using EggIncognito.Services.Auth;
 using EggIncognito.Services.Devices.Fake;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.FileProviders;
 using Npgsql;
 
 namespace EggIncognito.Startup;
@@ -34,7 +35,7 @@ public static class AppPipeline {
         var extensions = app.Services.GetRequiredService<Services.Devices.DeviceExtensionCatalog>();
         if (extensions.Loaded > 0 || extensions.Errors.Count > 0) {
             app.Logger.LogInformation(
-                "device extensions: loaded {Count} type(s) from {Source} ({Types}); {Failed} assembly load failure(s)",
+                "device extensions: loaded {Count} module(s) from {Source} ({Types}); {Failed} extension load failure(s)",
                 extensions.Loaded, extensions.Source, string.Join(", ", extensions.Types), extensions.Errors.Count);
         }
 
@@ -85,6 +86,15 @@ public static class AppPipeline {
 
             await next();
         });
+
+        foreach (var ext in app.Services.GetRequiredService<Services.Devices.DeviceExtensionCatalog>().Extensions) {
+            string root = Path.Combine(ext.Directory, "wwwroot");
+            if (!Directory.Exists(root)) continue;
+            app.UseStaticFiles(new StaticFileOptions {
+                FileProvider = new PhysicalFileProvider(root),
+                RequestPath = "/_ext/" + ext.Name
+            });
+        }
 
         app.UseStaticFiles();
         app.UseRouting();

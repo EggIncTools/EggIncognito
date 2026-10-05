@@ -2,19 +2,11 @@ namespace EggIncognito.Core.Services.Devices;
 
 public static class DevicePanelShelves {
     public const string Workflows = "workflows";
+    public const string CoverageHead = "coverage-head";
     public const string CoverageCell = "coverage-cell";
     public const string CoverageSide = "coverage-side";
-    public const string ReplacePrefix = "replace:";
-
-    public static string Replace(string slotId) => ReplacePrefix + slotId;
+    public const string CoverageDrops = "coverage-drops";
 }
-
-public static class PanelSlots {
-    public const string Coverage = "coverage";
-}
-
-[AttributeUsage(AttributeTargets.Class, Inherited = false)]
-public sealed class DeviceExtensionServiceAttribute : Attribute;
 
 public interface IDevicePanel {
     string Id { get; }
@@ -24,3 +16,12 @@ public interface IDevicePanel {
 }
 
 public sealed record DevicePanel(string Id, string Title, string Shelf, Type ComponentType) : IDevicePanel;
+
+public sealed record DevicePanelContext(string? DeviceId, int? AndroidUserId);
+
+public sealed record CoverageCellContext(
+    DevicePanelContext Device, string Family, string Level, string Rarity, int SuggestedBatch);
+
+public interface ICoverageAnnotations {
+    string? RarityHead(string? deviceId, string family, string level, int rarity);
+}

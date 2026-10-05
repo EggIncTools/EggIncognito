@@ -191,7 +191,10 @@ public partial class StyleInvariantTests(SharedAppFactory f) {
             .ToHashSet(StringComparer.Ordinal);
 
     private static IEnumerable<string> MarkupClasses() =>
-        Directory.EnumerateFiles(Path.Combine(AppDir(), "Components"), "*.razor", SearchOption.AllDirectories)
+        new[] { Path.Combine(AppDir(), "Components"), Path.Combine(AppDir(), "..", "EggIncognito.Extensibility") }
+            .Where(Directory.Exists)
+            .SelectMany(r => Directory.EnumerateFiles(r, "*.razor", SearchOption.AllDirectories))
+            .Where(p => !SkippedDirRegex().IsMatch(p))
             .SelectMany(p => StaticClassAttrRegex().Matches(File.ReadAllText(p)))
             .SelectMany(m => m.Groups[1].Value.Split(' ', StringSplitOptions.RemoveEmptyEntries))
             .Where(c => PlainClassRegex().IsMatch(c))
@@ -205,7 +208,7 @@ public partial class StyleInvariantTests(SharedAppFactory f) {
 
     private static string SourceText() {
         string app = AppDir();
-        string[] roots = [app, Path.Combine(app, "..", "EggIncognito.Core")];
+        string[] roots = [app, Path.Combine(app, "..", "EggIncognito.Core"), Path.Combine(app, "..", "EggIncognito.Extensibility")];
         var files = roots.Where(Directory.Exists)
             .SelectMany(r => Directory.EnumerateFiles(r, "*.*", SearchOption.AllDirectories))
             .Where(p => p.EndsWith(".razor", StringComparison.Ordinal) || p.EndsWith(".cs", StringComparison.Ordinal)

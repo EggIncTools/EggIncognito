@@ -112,10 +112,19 @@ public static class DataServices {
     }
 
     public static void AddDatabaseStores(this WebApplicationBuilder builder, BootFlags boot) {
-        if (!boot.DbEnabled) return;
+        if (!boot.DbEnabled) {
+            var none = new NoArtifactObservations();
+            builder.Services.AddSingleton<IArtifactObservationSink>(none);
+            builder.Services.AddSingleton<IArtifactObservationQuery>(none);
+            builder.Services.AddSingleton<IContractReleases>(new NoContractReleases());
+            return;
+        }
 
         builder.Services.AddSingleton<ConsumeObservationRecorder>();
         builder.Services.AddHostedService(sp => sp.GetRequiredService<ConsumeObservationRecorder>());
+        builder.Services.AddSingleton<IArtifactObservationSink>(sp => sp.GetRequiredService<ConsumeObservationRecorder>());
+        builder.Services.AddSingleton<IArtifactObservationQuery, ArtifactObservationQuery>();
+        builder.Services.AddSingleton<IContractReleases, ContractReleaseLookup>();
         builder.Services.AddScoped<ConsumeCoverageService>();
         builder.Services.AddScoped<CaptureCredentialStore>();
         builder.Services.AddScoped<CaptureAddressStore>();

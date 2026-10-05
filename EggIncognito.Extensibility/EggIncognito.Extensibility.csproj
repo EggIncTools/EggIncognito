@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk.Razor">
+
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <AddRazorSupportForMvc>false</AddRazorSupportForMvc>
+    <DefaultItemExcludes>$(DefaultItemExcludes);Tests\**</DefaultItemExcludes>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="EggIdentity.UI" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\EggIncognito.Core\EggIncognito.Core.csproj" />
+    <ProjectReference Include="..\EggIncognito.Capture\EggIncognito.Capture.csproj" />
+    <ProjectReference Include="..\EggIncognito.GameData\EggIncognito.GameData.csproj" />
+    <ProjectReference Include="..\EggIncognito.Artifacts\EggIncognito.Artifacts.csproj" />
+  </ItemGroup>
+
+</Project>

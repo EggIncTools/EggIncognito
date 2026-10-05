@@ -7,4 +7,6 @@ public sealed record DeviceResponseOverrideSet(IReadOnlyList<DeviceResponseOverr
 public interface IDeviceResponseOverrides {
     Task<DeviceResult> SetAsync(string deviceId, IReadOnlyList<DeviceResponseOverride> entries, CancellationToken ct);
     Task<DeviceResult> ClearAsync(string deviceId, CancellationToken ct);
+    bool Enabled(string deviceId);
+    byte[]? Body(string deviceId, string path);
 }

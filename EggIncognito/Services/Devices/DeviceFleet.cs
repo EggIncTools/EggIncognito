@@ -3,11 +3,6 @@ using EggIncognito.Data.Services;
 
 namespace EggIncognito.Services.Devices;
 
-public interface IDeviceFleet {
-    Task<IReadOnlyList<DeviceEntry>> EnabledAsync(CancellationToken ct);
-    Task PersistCapturePortAsync(string deviceId, int port, CancellationToken ct);
-}
-
 public sealed class DeviceFleet(IServiceScopeFactory scopeFactory, DeviceConfig config, bool fromDb) : IDeviceFleet {
     public async Task<IReadOnlyList<DeviceEntry>> EnabledAsync(CancellationToken ct) {
         if (!fromDb) return config.Devices;

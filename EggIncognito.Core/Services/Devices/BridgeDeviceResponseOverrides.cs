@@ -47,4 +47,8 @@ public sealed class BridgeDeviceResponseOverrides(IHttpClientFactory httpFactory
             return DeviceResult.Unreachable($"bridge overrides error: {BridgeClient.Describe(ex)}");
         }
     }
+
+    public bool Enabled(string deviceId) => false;
+
+    public byte[]? Body(string deviceId, string path) => null;
 }

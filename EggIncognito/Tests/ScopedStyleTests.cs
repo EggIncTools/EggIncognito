@@ -35,7 +35,11 @@ public partial class ScopedStyleTests {
     }
 
     private static IEnumerable<string> ScopedSheets() =>
-        Directory.EnumerateFiles(ComponentsDir(), "*.razor.css", SearchOption.AllDirectories);
+        new[] { ComponentsDir(), Path.Combine(FindRepoRoot(), "EggIncognito.Extensibility") }
+            .Where(Directory.Exists)
+            .SelectMany(r => Directory.EnumerateFiles(r, "*.razor.css", SearchOption.AllDirectories))
+            .Where(p => !p.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.Ordinal)
+                        && !p.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}", StringComparison.Ordinal));
 
     private static string ComponentsDir() => Path.Combine(FindRepoRoot(), "EggIncognito", "Components");
 

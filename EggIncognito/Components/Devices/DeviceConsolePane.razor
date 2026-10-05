@@ -169,9 +169,7 @@
                                              AndroidUserId="@_selectedAndroidUserId" OnNotice="OnNotice"
                                              OnChanged="AfterRunAsync" OnRunChanged="RunLineChanged"/>
                         <div hidden="@(!State.ShelfIs(DeviceWorkbenchState.ShelfWorkflows))">
-                            @foreach (var panel in WorkflowPanels) {
-                                <DynamicComponent @key="panel.Id" Type="panel.ComponentType" Parameters="PanelParameters()"/>
-                            }
+                            <PanelShelf Shelf="@DevicePanelShelves.Workflows" Context="PanelContext"/>
                         </div>
 
                         <div class="dcon-record" hidden="@(!State.ShelfIs(DeviceWorkbenchState.ShelfRecord))">
@@ -236,9 +234,7 @@
                         @Sections
 
                         <div hidden="@(!State.ShelfIs(DeviceWorkbenchState.ShelfCoverage))">
-                            <PanelSlot Id="@PanelSlots.Coverage" Parameters="PanelParameters()">
-                                <ConsumeCoveragePane DeviceId="@_deviceId" AndroidUserId="@_selectedAndroidUserId"/>
-                            </PanelSlot>
+                            <ConsumeCoveragePane DeviceId="@_deviceId" AndroidUserId="@_selectedAndroidUserId"/>
                         </div>
                     </div>
                 </div>
@@ -366,14 +362,7 @@
 
     DeviceConsoleCache? Cache => _deviceId is { } id ? State.ConsoleFor(id) : null;
 
-    IEnumerable<IDevicePanel> WorkflowPanels =>
-        (Services.GetService(typeof(IEnumerable<IDevicePanel>)) as IEnumerable<IDevicePanel> ?? [])
-        .Where(p => string.Equals(p.Shelf, DevicePanelShelves.Workflows, StringComparison.Ordinal));
-
-    Dictionary<string, object?> PanelParameters() => new() {
-        ["DeviceId"] = _deviceId,
-        ["AndroidUserId"] = _selectedAndroidUserId
-    };
+    DevicePanelContext PanelContext => new(_deviceId, _selectedAndroidUserId);
 
     IReadOnlyList<(string Key, string Label, int? Count)> ShelfTabs() {
         List<(string, string, int?)> tabs = [(DeviceWorkbenchState.ShelfWorkflows, "Workflows", null)];

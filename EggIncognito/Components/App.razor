@@ -2,6 +2,7 @@
 @inject IHttpContextAccessor HttpContextAccessor
 @inject IWebHostEnvironment HostEnvironment
 @inject ThemeResolver Themes
+@inject EggIncognito.Services.Devices.DeviceExtensionCatalog Extensions
 <!DOCTYPE html>
 <html lang="en" data-eggidentity-theme="@(_theme is null ? null : "u")">
 <head>
@@ -29,6 +30,10 @@
     <link rel="stylesheet" href="@($"/_content/EggIdentity.Styles/reduced-motion.css?v={_assetVersion}")"/>
     <link rel="stylesheet" href="@($"/app.css?v={_assetVersion}")"/>
     <link rel="stylesheet" href="@($"/EggIncognito.styles.css?v={_assetVersion}")"/>
+    @foreach (var ext in Extensions.Extensions) {
+        if (ext.Stylesheet is null || !File.Exists(Path.Combine(ext.Directory, "wwwroot", ext.Stylesheet))) continue;
+        <link rel="stylesheet" href="@($"/_ext/{ext.Name}/{ext.Stylesheet}?v={_assetVersion}")"/>
+    }
     @if (_subProd) {
         <link rel="stylesheet" href="@($"/subprod.css?v={_assetVersion}")"/>
     }

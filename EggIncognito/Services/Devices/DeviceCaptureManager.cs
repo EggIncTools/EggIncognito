@@ -21,7 +21,7 @@ public sealed class DeviceCaptureManager(
     IRouteCatalog? catalog = null,
     IProcessedFlowObserver? flowObserver = null,
     IDeviceResponseSources? responseSources = null,
-    IDeviceResponseTransforms? responseTransforms = null) : IHostedService, IDisposable, IDeviceCaptureHubs {
+    IDeviceResponseTransforms? responseTransforms = null) : IHostedService, IDisposable, IDeviceCaptureHubs, IDeviceRinfo {
     public const int PortsPerDevice = 3;
 
     private static readonly TimeSpan RescanInterval = TimeSpan.FromMinutes(1);
@@ -37,6 +37,8 @@ public sealed class DeviceCaptureManager(
     private CancellationTokenSource? _cts;
     private Task? _rescan;
     public DeviceRinfoStore Rinfo { get; } = new(capturePath);
+
+    DeviceRinfo? IDeviceRinfo.Latest(string deviceId) => Rinfo.Latest(deviceId);
 
     public event Action? CountersChanged;
 

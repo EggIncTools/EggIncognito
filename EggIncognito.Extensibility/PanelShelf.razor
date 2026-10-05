@@ -1,0 +1,16 @@
+@namespace EggIncognito.Components.Shared
+@inject IEnumerable<IDevicePanel> Panels
+
+@foreach (var panel in OnShelf(Panels, Shelf)) {
+    <DynamicComponent @key="panel.Id" Type="panel.ComponentType" Parameters="@(new Dictionary<string, object?> { ["Context"] = Context })"/>
+}
+
+@code {
+    [Parameter, EditorRequired] public string Shelf { get; set; } = "";
+    [Parameter] public object? Context { get; set; }
+
+    public static IEnumerable<IDevicePanel> OnShelf(IEnumerable<IDevicePanel> panels, string shelf) =>
+        panels.Where(p => string.Equals(p.Shelf, shelf, StringComparison.Ordinal));
+
+    public static bool Any(IEnumerable<IDevicePanel> panels, string shelf) => OnShelf(panels, shelf).Any();
+}

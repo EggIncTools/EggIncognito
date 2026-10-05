@@ -11,22 +11,40 @@
 @inject IServiceScopeFactory Scopes
 @inject IEnumerable<IDevicePanel> Panels
 @inject IEnumerable<ICoverageInventory> Inventories
+@inject IEnumerable<ICoverageAnnotations> Annotations
 @inject ToastService Toasts
 @inject ILogger<ConsumeCoveragePane> Logger
 @inject ICurrentUser User
 
 @if (User.Current.IsAtLeast(UserRole.Admin)) {
     <div class="cov">
-        <PanelHead Title="Consume coverage">
-            <Tools>
+        <div class="cov-headline">
+            <PanelHead Title="Consume coverage"/>
+            <span class="cov-head-shelf">
+                <PanelShelf Shelf="@DevicePanelShelves.CoverageHead" Context="DeviceContext"/>
+            </span>
+            <span class="cov-head-tools">
                 @if (_map is { } m) {
-                    <span class="cov-facts mono">@Pct(m.Validity) valid, @m.CellsComplete/@m.CellsInScope cells, @m.Items items, @m.Observations obs</span>
-                    <button type="button" class="btn-mini" disabled="@(m.PendingObservations == 0 && !_pendingOpen)" @onclick="TogglePending">
-                        @(_pendingOpen ? "Hide pending" : $"Pending {m.PendingObservations}")
+                    <span class="cov-val" title="@($"{Pct(m.Validity)} valid")">
+                        <BarTrack Fraction="m.Validity"/>
+                        <span class="cov-facts mono">@Pct(m.Validity)</span>
+                    </span>
+                    <span class="cov-tick mono" title="@($"{m.CellsComplete}/{m.CellsInScope} cells")">
+                        <Icon Name="layout-grid" Class="icon-sm"/>@m.CellsComplete/@m.CellsInScope
+                    </span>
+                    <span class="cov-tick mono" title="@($"{m.Items} items")">
+                        <Icon Name="database" Class="icon-sm"/>@m.Items
+                    </span>
+                    <span class="cov-tick mono" title="@($"{m.Observations} obs")">
+                        <Icon Name="eye" Class="icon-sm"/>@m.Observations
+                    </span>
+                    <button type="button" class="btn-mini cov-tick" disabled="@(m.PendingObservations == 0 && !_pendingOpen)" @onclick="TogglePending"
+                            title="@PendingLabel(m)" aria-label="@PendingLabel(m)">
+                        <Icon Name="clock" Class="icon-sm"/>@m.PendingObservations
                     </button>
                 }
-            </Tools>
-        </PanelHead>
+            </span>
+        </div>
 
         @if (_noDb) {
             <StatusNote Kind="StatusNoteKind.Error">No database configured.</StatusNote>
@@ -77,9 +95,7 @@
                         <span class="cov-disc bg-r-@s.Cell.AfxRarity"><img src="@IconSrc(s.Family, LevelOf(s))" alt="" loading="lazy"/></span>
                         <span class="tbar-k">@TierName(s)</span>
                     </span>
-                    @foreach (var panel in CellPanels) {
-                        <DynamicComponent @key="panel.Id" Type="panel.ComponentType" Parameters="CellPanelParameters(s)"/>
-                    }
+                    <PanelShelf Shelf="@DevicePanelShelves.CoverageCell" Context="CellContext(s)"/>
                 </ToolBar>
             }
 
@@ -107,18 +123,28 @@
                                     @f.PluralName
                                 </span>
                             </td>
-                            <td class="cov-bar"><BarTrack Fraction="f.Validity"/></td>
-                            <td class="mono">@f.CellsComplete/@f.CellsInScope</td>
-                            <td class="mono">@f.Items</td>
-                            <td class="mono">@f.Observations</td>
+                            <td>
+                                <span class="cov-bar-box">
+                                    <BarTrack Fraction="f.Validity"/>
+                                    <span class="cov-bar-pct mono">@Pct(f.Validity)</span>
+                                </span>
+                            </td>
+                            <td><span class="cov-tick mono"><Icon Name="layout-grid" Class="icon-sm"/>@f.CellsComplete/@f.CellsInScope</span></td>
+                            <td><span class="cov-tick mono"><Icon Name="database" Class="icon-sm"/>@f.Items</span></td>
+                            <td><span class="cov-tick mono"><Icon Name="eye" Class="icon-sm"/>@f.Observations</span></td>
                         </tr>
                         @if (Open(f)) {
                             <tr class="cov-grid-row">
                                 <td colspan="5">
                                     <div class="cov-grid">
                                         <span></span>
-                                        @foreach (var head in RarityHeads) {
-                                            <span class="cov-head">@head</span>
+                                        @for (int r = 0; r < RarityHeads.Length; r++) {
+                                            <span class="cov-head bg-r-@r">
+                                                @RarityHeads[r]
+                                                @if (Annotation(f, r) is { } note) {
+                                                    <span class="cov-head-note">@note</span>
+                                                }
+                                            </span>
                                         }
                                         @if (_sel is { } fs && fs.Family == f.SpecName) {
                                             <span class="cov-settings" @onclick:stopPropagation="true">
@@ -159,7 +185,7 @@
                                             <span></span>
                                         }
                                         @foreach (var t in f.Tiers) {
-                                            <span class="cov-tier">@t.Name</span>
+                                            <Tooltip Text="@t.Name"><span class="cov-tier">T@(t.AfxLevel + 1)</span></Tooltip>
                                             @for (int r = 0; r < RarityHeads.Length; r++) {
                                                 var cell = t.Cells.FirstOrDefault(c => c.AfxRarity == r);
                                                 if (cell is null) {
@@ -187,11 +213,14 @@
                     </tbody>
                 </table>
             </TableScroll>
-            @if (SidePanels.Any()) {
+            @if (_sel is { } ds && PanelShelf.Any(Panels, DevicePanelShelves.CoverageDrops)) {
+                <div class="cov-drops">
+                    <PanelShelf Shelf="@DevicePanelShelves.CoverageDrops" Context="CellContext(ds)"/>
+                </div>
+            }
+            @if (PanelShelf.Any(Panels, DevicePanelShelves.CoverageSide)) {
                 <div class="cov-side">
-                    @foreach (var panel in SidePanels) {
-                        <DynamicComponent @key="panel.Id" Type="panel.ComponentType" Parameters="SidePanelParameters()"/>
-                    }
+                    <PanelShelf Shelf="@DevicePanelShelves.CoverageSide" Context="DeviceContext"/>
                 </div>
             }
             </div>
@@ -398,25 +427,22 @@
 
     static string Pct(double v) => FormattableString.Invariant($"{v * 100:0.#}%");
 
-    IEnumerable<IDevicePanel> CellPanels =>
-        Panels.Where(p => string.Equals(p.Shelf, DevicePanelShelves.CoverageCell, StringComparison.Ordinal));
+    string PendingLabel(ConsumeCoverageMap m) => _pendingOpen ? "Hide pending" : $"Pending {m.PendingObservations}";
 
-    IEnumerable<IDevicePanel> SidePanels =>
-        Panels.Where(p => string.Equals(p.Shelf, DevicePanelShelves.CoverageSide, StringComparison.Ordinal));
+    DevicePanelContext DeviceContext => new(DeviceId, AndroidUserId);
 
-    Dictionary<string, object?> SidePanelParameters() => new() {
-        ["DeviceId"] = DeviceId,
-        ["AndroidUserId"] = AndroidUserId
-    };
+    CoverageCellContext CellContext(CoverageSelection sel) =>
+        new(DeviceContext, sel.Family, sel.Level, sel.Rarity, sel.Cell.SuggestedBatch);
 
-    Dictionary<string, object?> CellPanelParameters(CoverageSelection sel) => new() {
-        ["DeviceId"] = DeviceId,
-        ["AndroidUserId"] = AndroidUserId,
-        ["Family"] = sel.Family,
-        ["Level"] = sel.Level,
-        ["Rarity"] = sel.Rarity,
-        ["SuggestedBatch"] = sel.Cell.SuggestedBatch
-    };
+    string? Annotation(CoverageFamily f, int rarity) {
+        if (f.Tiers.Count == 0) return null;
+        string level = _sel is { } s && s.Family == f.SpecName ? s.Level : f.Tiers[^1].Level;
+        foreach (var a in Annotations) {
+            if (a.RarityHead(DeviceId, f.SpecName, level, rarity) is { Length: > 0 } note) return note;
+        }
+
+        return null;
+    }
 
     sealed record PendingPage(int Total, List<ContributionPendingRowDto> Rows);
 }

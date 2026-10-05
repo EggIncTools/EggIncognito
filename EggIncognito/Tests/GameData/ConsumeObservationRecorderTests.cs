@@ -121,6 +121,44 @@ public class ConsumeObservationRecorderTests {
         Assert.Equal("ios-1", row.DeviceId);
     }
 
+    [Fact]
+    public void ConsumeRow_CarriesTheCallersSuccessVerdict() {
+        var request = new ConsumeArtifactRequest {
+            Spec = new ArtifactSpec { Name = ArtifactSpec.Types.Name.LunarTotem }
+        };
+        var row = ConsumeObservationRecorder.ConsumeRow("consume", "android-1", request,
+            new ConsumeArtifactResponse { Success = true }, success: false, DateTimeOffset.UnixEpoch);
+
+        Assert.NotNull(row);
+        Assert.Equal("consume", row.Action);
+        Assert.False(row.Success);
+    }
+
+    [Fact]
+    public void CraftRow_MapsSpecRarityPriceAndCount() {
+        var request = new CraftArtifactRequest {
+            Spec = new ArtifactSpec {
+                Name = ArtifactSpec.Types.Name.TungstenAnkh,
+                Level = ArtifactSpec.Types.Level.Lesser,
+                Rarity = ArtifactSpec.Types.Rarity.Common
+            },
+            GoldPricePaid = 1200,
+            CraftingCount = 4
+        };
+        var row = ConsumeObservationRecorder.CraftRow(null, request,
+            new CraftArtifactResponse { ItemId = 5, RarityAchieved = ArtifactSpec.Types.Rarity.Epic },
+            DateTimeOffset.UnixEpoch);
+
+        Assert.NotNull(row);
+        Assert.Equal("TUNGSTEN_ANKH", row.SpecName);
+        Assert.Equal("LESSER", row.SpecLevel);
+        Assert.Equal("COMMON", row.SpecRarity);
+        Assert.Equal("EPIC", row.RarityAchieved);
+        Assert.Equal(1200, row.GoldPricePaid);
+        Assert.Equal(4, row.CraftingCount);
+        Assert.Null(row.DeviceId);
+    }
+
     private static ArtifactSpec Fragment(ArtifactSpec.Types.Name name) =>
         new() {
             Name = name,
