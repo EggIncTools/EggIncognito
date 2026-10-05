@@ -92,7 +92,8 @@ public static class AppPipeline {
             if (!Directory.Exists(root)) continue;
             app.UseStaticFiles(new StaticFileOptions {
                 FileProvider = new PhysicalFileProvider(root),
-                RequestPath = "/_ext/" + ext.Name
+                RequestPath = "/_ext/" + ext.Name,
+                OnPrepareResponse = ctx => ctx.Context.Response.Headers.CacheControl = "no-cache"
             });
         }
 

@@ -31,8 +31,10 @@
     <link rel="stylesheet" href="@($"/app.css?v={_assetVersion}")"/>
     <link rel="stylesheet" href="@($"/EggIncognito.styles.css?v={_assetVersion}")"/>
     @foreach (var ext in Extensions.Extensions) {
-        if (ext.Stylesheet is null || !File.Exists(Path.Combine(ext.Directory, "wwwroot", ext.Stylesheet))) continue;
-        <link rel="stylesheet" href="@($"/_ext/{ext.Name}/{ext.Stylesheet}?v={_assetVersion}")"/>
+        if (ext.Stylesheet is null) continue;
+        var sheet = new FileInfo(Path.Combine(ext.Directory, "wwwroot", ext.Stylesheet));
+        if (!sheet.Exists) continue;
+        <link rel="stylesheet" href="@($"/_ext/{ext.Name}/{ext.Stylesheet}?v={sheet.LastWriteTimeUtc.Ticks:x}")"/>
     }
     @if (_subProd) {
         <link rel="stylesheet" href="@($"/subprod.css?v={_assetVersion}")"/>
