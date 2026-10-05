@@ -29,6 +29,7 @@ COPY EggIncognito.Bot/ EggIncognito.Bot/
 COPY EggIncognito.RouteGenerator/ EggIncognito.RouteGenerator/
 COPY EggIncognito.GameData/ EggIncognito.GameData/
 COPY EggIncognito.Artifacts/ EggIncognito.Artifacts/
+COPY EggIncognito.Extensibility/ EggIncognito.Extensibility/
 COPY EggIncognito/ EggIncognito/
 
 ARG GIT_SHA
