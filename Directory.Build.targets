@@ -2,4 +2,8 @@
   <PropertyGroup>
     <EnableSingleFileAnalyzer Condition="('$(CI)' == 'true' Or '$(PublishSingleFile)' == 'true') And !$(MSBuildProjectName.EndsWith('.Tests')) And $([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'net8.0'))">true</EnableSingleFileAnalyzer>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(ContainerPublish)' == 'true' And '$(TargetFramework)' != 'netstandard2.0'">
+    <RuntimeIdentifier>linux-x64</RuntimeIdentifier>
+    <SelfContained>false</SelfContained>
+  </PropertyGroup>
 </Project>

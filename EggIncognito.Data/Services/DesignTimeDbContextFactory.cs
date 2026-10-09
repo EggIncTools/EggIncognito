@@ -1,3 +1,4 @@
+#if DEBUG
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
 
@@ -11,3 +12,4 @@ public sealed class DesignTimeDbContextFactory : IDesignTimeDbContextFactory<Egg
         return new EggIncognitoDbContext(options);
     }
 }
+#endif
