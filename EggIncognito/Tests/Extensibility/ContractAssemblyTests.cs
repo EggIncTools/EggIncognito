@@ -2,6 +2,7 @@ using EggIncognito.Components.Devices;
 using EggIncognito.Components.Shared;
 using EggIncognito.Core.Services.Devices;
 using EggIncognito.Data.Models;
+using EggIncognito.Models.Coverage;
 using EggIncognito.Models.Observations;
 using EggIncognito.Services.Contracts;
 using EggIncognito.Services.DataApi;
@@ -18,7 +19,9 @@ public class ContractAssemblyTests {
         typeof(ArtifactByproductRow), typeof(ArtifactRewardRow), typeof(IDevicePanel), typeof(DevicePanel),
         typeof(DevicePanelShelves), typeof(DevicePanelContext), typeof(CoverageCellContext), typeof(ICoverageAnnotations),
         typeof(ICoverageInventory), typeof(IDeviceExtensionModule), typeof(DeviceExtension), typeof(IDeviceRinfo),
-        typeof(IArtifactObservationSink), typeof(IArtifactObservationQuery), typeof(IContractReleases),
+        typeof(IArtifactObservationSink), typeof(IArtifactObservationQuery), typeof(ICoverageMap), typeof(IContractReleases),
+        typeof(ConsumeCoverageMap), typeof(CoverageFamily), typeof(CoverageTier), typeof(CoverageCell), typeof(CoverageSelection),
+        typeof(CoverageTargetRequest), typeof(CoverageTargetRow), typeof(CoverageFamilyInfo), typeof(CoverageCatalogCell), typeof(CoverageSample),
         typeof(PanelShelf), typeof(ToolBar), typeof(BarTrack), typeof(PanelHead), typeof(Caret), typeof(DeviceStatusLine)
     ];
 

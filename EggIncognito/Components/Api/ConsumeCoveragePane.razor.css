@@ -23,6 +23,7 @@
 .cov-grid-row > td { background-color: var(--color-bg); }
 .cov-body { display: flex; flex: 1 1 0; gap: 0.75rem; min-height: 0; min-width: 0; }
 .cov-body .cov-scroll { flex: 3 1 0; min-width: 0; }
+.cov-body-shelf { display: flex; flex-direction: column; min-height: 0; overflow: auto; }
 .cov-side { flex: 2 1 0; min-width: max-content; min-height: 0; display: flex; flex-direction: column; }
 .cov-side ::deep .table-scroll { flex: 1 1 0; min-height: 0; }
 .cov-drops { margin: 0.25rem 0 0.375rem; min-width: 0; }
@@ -35,9 +36,9 @@
 .cov-head { display: flex; flex-direction: column; align-items: center; padding: 0.125rem 0.25rem; border-radius: 0.25rem; font-size: 0.625rem; text-transform: uppercase; letter-spacing: 0.025em; color: var(--color-fg); text-align: center; }
 .cov-head-note { font-family: var(--font-mono); text-transform: none; letter-spacing: 0; }
 .cov-head-r-0, .cov-head-r-1, .cov-head-r-2, .cov-head-r-3 { background-color: var(--color-panel2); border: 1px solid var(--color-border); }
-.cov-head-r-1 { color: #6ab6ff; }
-.cov-head-r-2 { color: #c03fe2; }
-.cov-head-r-3 { color: #eeab42; }
+.cov-head-r-1 { color: var(--color-rarity-1); }
+.cov-head-r-2 { color: var(--color-rarity-2); }
+.cov-head-r-3 { color: var(--color-rarity-3); }
 .cov-tier { font-family: var(--font-mono); font-size: 0.75rem; white-space: nowrap; }
 .cov-cell {
   display: flex;

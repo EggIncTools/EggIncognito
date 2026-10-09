@@ -116,6 +116,7 @@ public static class DataServices {
             var none = new NoArtifactObservations();
             builder.Services.AddSingleton<IArtifactObservationSink>(none);
             builder.Services.AddSingleton<IArtifactObservationQuery>(none);
+            builder.Services.AddSingleton<ICoverageMap>(none);
             builder.Services.AddSingleton<IContractReleases>(new NoContractReleases());
             return;
         }
@@ -124,6 +125,7 @@ public static class DataServices {
         builder.Services.AddHostedService(sp => sp.GetRequiredService<ConsumeObservationRecorder>());
         builder.Services.AddSingleton<IArtifactObservationSink>(sp => sp.GetRequiredService<ConsumeObservationRecorder>());
         builder.Services.AddSingleton<IArtifactObservationQuery, ArtifactObservationQuery>();
+        builder.Services.AddSingleton<ICoverageMap, CoverageMapAccess>();
         builder.Services.AddSingleton<IContractReleases, ContractReleaseLookup>();
         builder.Services.AddScoped<ConsumeCoverageService>();
         builder.Services.AddScoped<CaptureCredentialStore>();

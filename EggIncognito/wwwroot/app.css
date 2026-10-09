@@ -38,6 +38,9 @@
   --color-scroll-thumb-hover: #82828f;
   --color-ultra-from: #f5a709;
   --color-ultra-to: #900fb1;
+  --color-rarity-1: #6ab6ff;
+  --color-rarity-2: #c03fe2;
+  --color-rarity-3: #eeab42;
   --font-mono: "Cascadia Code", "Fira Code", Consolas, monospace;
   --font-sans: var(--font-mono);
   --default-font-family: var(--font-mono);

@@ -6,6 +6,7 @@ public static class DevicePanelShelves {
     public const string CoverageCell = "coverage-cell";
     public const string CoverageSide = "coverage-side";
     public const string CoverageDrops = "coverage-drops";
+    public const string CoverageBody = "coverage-body";
 }
 
 public interface IDevicePanel {

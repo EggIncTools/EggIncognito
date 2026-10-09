@@ -96,6 +96,11 @@
             }
 
             <div class="cov-body">
+            @if (PanelShelf.Any(Panels, DevicePanelShelves.CoverageBody)) {
+                <div class="cov-scroll cov-body-shelf">
+                    <PanelShelf Shelf="@DevicePanelShelves.CoverageBody" Context="DeviceContext"/>
+                </div>
+            } else {
             <TableScroll Class="cov-scroll">
                 <table class="data-table cov-table">
                     <thead>
@@ -211,6 +216,7 @@
                     </tbody>
                 </table>
             </TableScroll>
+            }
             @if (PanelShelf.Any(Panels, DevicePanelShelves.CoverageSide)) {
                 <div class="cov-side">
                     <PanelShelf Shelf="@DevicePanelShelves.CoverageSide" Context="DeviceContext"/>

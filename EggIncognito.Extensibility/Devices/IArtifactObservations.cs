@@ -1,3 +1,4 @@
+using EggIncognito.Models.Coverage;
 using EggIncognito.Models.Observations;
 using Ei;
 
@@ -13,4 +14,10 @@ public interface IArtifactObservationQuery {
 
     Task<IReadOnlyList<IReadOnlyList<ArtifactByproductRow>>> ConsumeByproductsAsync(
         string family, string level, string rarity, CancellationToken ct);
+}
+
+public interface ICoverageMap {
+    Task<ConsumeCoverageMap?> MapAsync(CancellationToken ct);
+    Task<string?> UpsertTargetAsync(CoverageTargetRequest request, string by, CancellationToken ct);
+    Task<bool?> DeleteTargetAsync(long id, CancellationToken ct);
 }

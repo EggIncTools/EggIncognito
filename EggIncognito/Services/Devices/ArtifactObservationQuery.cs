@@ -1,10 +1,31 @@
 using System.Text.Json;
 using EggIncognito.Data.Services;
+using EggIncognito.Models.Coverage;
 using EggIncognito.Models.Observations;
+using EggIncognito.Services.Coverage;
 using Ei;
 using Microsoft.EntityFrameworkCore;
 
 namespace EggIncognito.Services.Devices;
+
+public sealed class CoverageMapAccess(IServiceScopeFactory scopes) : ICoverageMap {
+    public async Task<ConsumeCoverageMap?> MapAsync(CancellationToken ct) {
+        using var scope = scopes.CreateScope();
+        return await scope.ServiceProvider.GetRequiredService<ConsumeCoverageService>().MapAsync(ct);
+    }
+
+    public async Task<string?> UpsertTargetAsync(CoverageTargetRequest request, string by, CancellationToken ct) {
+        if (request.Error() is { } err) return err;
+        using var scope = scopes.CreateScope();
+        await scope.ServiceProvider.GetRequiredService<ConsumeCoverageService>().UpsertAsync(request, by, ct);
+        return null;
+    }
+
+    public async Task<bool?> DeleteTargetAsync(long id, CancellationToken ct) {
+        using var scope = scopes.CreateScope();
+        return await scope.ServiceProvider.GetRequiredService<ConsumeCoverageService>().DeleteAsync(id, ct);
+    }
+}
 
 public sealed class ArtifactObservationQuery(IServiceScopeFactory scopes) : IArtifactObservationQuery {
     private const string ConsumeAction = "consume";
@@ -44,7 +65,14 @@ public sealed class ArtifactObservationQuery(IServiceScopeFactory scopes) : IArt
     }
 }
 
-internal sealed class NoArtifactObservations : IArtifactObservationSink, IArtifactObservationQuery {
+internal sealed class NoArtifactObservations : IArtifactObservationSink, IArtifactObservationQuery, ICoverageMap {
+    public Task<ConsumeCoverageMap?> MapAsync(CancellationToken ct) => Task.FromResult<ConsumeCoverageMap?>(null);
+
+    public Task<string?> UpsertTargetAsync(CoverageTargetRequest request, string by, CancellationToken ct) =>
+        Task.FromResult<string?>("no database configured");
+
+    public Task<bool?> DeleteTargetAsync(long id, CancellationToken ct) => Task.FromResult<bool?>(null);
+
     public void Craft(string? deviceId, CraftArtifactRequest request, CraftArtifactResponse response) {
     }
 
