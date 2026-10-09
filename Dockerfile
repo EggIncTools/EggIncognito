@@ -43,7 +43,8 @@ RUN set -eux; \
         -p:TreatWarningsAsErrors=false -p:GenerateDocumentationFile=false $STAMP; \
     grep -q "btn-primary" /app/publish/wwwroot/app.css; \
     test -s /app/publish/wwwroot/EggIncognito.styles.css; \
-    test -s /app/publish/wwwroot/_framework/blazor.web.js
+    test -s /app/publish/wwwroot/_framework/blazor.web.js; \
+    rm -rf /src/*/bin /src/*/obj
 
 FROM mcr.microsoft.com/dotnet/aspnet:11.0.0-rc.1 AS runtime
 RUN apt-get update \

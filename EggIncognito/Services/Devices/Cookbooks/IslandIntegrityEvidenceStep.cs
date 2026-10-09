@@ -9,14 +9,24 @@ public sealed class IslandIntegrityEvidenceStep(IDeviceConnectionFactory connect
         "magisk --denylist status 2>&1; magisk --denylist ls 2>&1 | grep -i -E 'google|vending|auxbrain'";
 
     private const string PifCommand =
-        "for f in " + PifDir + "/custom.pif.json " + PifDir + "/pif.json /data/adb/pif.json; do "
-        + "[ -f \"$f\" ] && echo \"file=$f\" && grep -E '\"(FINGERPRINT|SECURITY_PATCH|MODEL|spoof[A-Za-z]*)\"' \"$f\"; done";
+        "for f in " + PifDir + "/*.prop " + PifDir + "/*.json /data/adb/pif.json /data/adb/pif.prop; do "
+        + "[ -f \"$f\" ] || continue; echo \"file=$f\"; "
+        + "grep -i -E 'FINGERPRINT|SECURITY_PATCH|spoof' \"$f\" | grep -v '^#' | head -n 12; done";
+
+    private const string TrickyStoreCommand =
+        "ls " + IslandIntegrityProbe.TrickyStoreDir + "; "
+        + "grep -E 'gms|vending|auxbrain' " + IslandIntegrityProbe.TargetFile + "; "
+        + "ps -A -o USER,PID,NAME 2>/dev/null | grep -i -E 'tricky|keystore2'";
 
     private const string ProcessCommand = "ps -A -o USER,PID,NAME 2>/dev/null | grep -E 'gms.unstable|vending'";
 
+    private const string KeystoreCommand =
+        "logcat -d 2>/dev/null | grep -i -E 'generate_key|store_new_key|TrickyStore|tricky|TEESimulator|attestation record' "
+        + "| tail -n 30";
+
     private const string LogCommand =
-        "logcat -d 2>/dev/null | grep -i -E 'PIF|TrickyStore|TEESimulator|DroidGuard|integrity|attest|certif|KeyAttestation' "
-        + "| grep -v -i 'egginc' | tail -n 60";
+        "logcat -d 2>/dev/null | grep -i -E 'PIF|DroidGuard|integrity|attest|certif|Finsky' "
+        + "| grep -v -i -E 'egginc|SecNativeFeature|adbd|BoundBrokerSvc|DynamiteModule' | tail -n 60";
 
     public override string Id => "island-integrity-evidence";
     public override string Title => "Integrity evidence";
@@ -34,10 +44,12 @@ public sealed class IslandIntegrityEvidenceStep(IDeviceConnectionFactory connect
         var root = await DeviceRoot.ProbeAsync(conn, ct);
         if (!root.Ok) return Failed(lines, $"device is not rooted ({root.Detail}); evidence needs su");
 
-        await SectionAsync(conn, root, "denylist", DenylistCommand, Add, ct);
-        await SectionAsync(conn, root, "pif config", PifCommand, Add, ct);
+        await SectionAsync(conn, root, "keystore since launch", KeystoreCommand, Add, ct);
+        await SectionAsync(conn, root, "integrity log since launch", LogCommand, Add, ct);
         await SectionAsync(conn, root, "integrity processes", ProcessCommand, Add, ct);
-        await SectionAsync(conn, root, "logcat since launch", LogCommand, Add, ct);
+        await SectionAsync(conn, root, "trickystore", TrickyStoreCommand, Add, ct);
+        await SectionAsync(conn, root, "pif config", PifCommand, Add, ct);
+        await SectionAsync(conn, root, "denylist", DenylistCommand, Add, ct);
         return Ok(lines, "evidence captured");
     }
 

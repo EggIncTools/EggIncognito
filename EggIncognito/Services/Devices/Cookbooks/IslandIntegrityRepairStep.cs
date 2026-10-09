@@ -3,7 +3,7 @@ using EggIncognito.Core.Services.Devices;
 namespace EggIncognito.Services.Devices.Cookbooks;
 
 public sealed class IslandIntegrityRepairStep(IDeviceConnectionFactory connections, TimeProvider time) : CookbookStep {
-    private static readonly TimeSpan CheckinWait = TimeSpan.FromSeconds(60);
+    private static readonly TimeSpan CheckinWait = TimeSpan.FromSeconds(15);
     private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(3);
 
     public override string Id => "island-integrity-repair";

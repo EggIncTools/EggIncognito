@@ -7,6 +7,7 @@ public sealed class IslandIntegrityCookbook(
     IslandIntegrityRepairStep repair,
     OwnerRecertStep recert,
     IslandLaunchVerdictStep verdict,
+    OwnerComparisonStep owner,
     IDeviceConnectionFactory connections) : IStepCookbook {
     private const string DiagnoseOnly = "diagnose";
     private const string Repair = "repair";
@@ -34,7 +35,7 @@ public sealed class IslandIntegrityCookbook(
     public Task<IReadOnlyList<CookbookStep>> PlanAsync(DeviceTarget target, string? argument, CancellationToken ct) =>
         Task.FromResult<IReadOnlyList<CookbookStep>>(
             string.Equals(argument, DiagnoseOnly, StringComparison.OrdinalIgnoreCase)
-                ? [diagnose, verdict]
+                ? [diagnose, new SoftStep(verdict), owner]
                 : [diagnose, new SoftStep(recert), repair, verdict]);
 
     public Task<DeviceCookbookRun> RunAsync(DeviceCookbookContext context, CancellationToken ct) =>
