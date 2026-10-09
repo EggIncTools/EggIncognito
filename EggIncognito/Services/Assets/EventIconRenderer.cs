@@ -1,32 +1,31 @@
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.Drawing.Processing;
-using SixLabors.ImageSharp.Formats.Png;
-using SixLabors.ImageSharp.PixelFormats;
-using SixLabors.ImageSharp.Processing;
+using SkiaSharp;
 
 namespace EggIncognito.Services.Assets;
 
 public static class EventIconRenderer {
     public static byte[] Render(byte[] glyphPng, string eventType, bool ccOnly) {
-        using var glyph = Image.Load(glyphPng);
+        using var glyph = SKImage.FromEncodedData(glyphPng) ?? throw new InvalidDataException("event glyph is not a decodable image");
         var hex = EventPalette.ColorFor(eventType);
         var newWidth = (int)(glyph.Width * 1.1);
         var newHeight = (int)(glyph.Height * 1.1);
-        using var canvas = new Image<Rgba32>(newWidth, newHeight);
-        if (ccOnly) {
-            var gradient = new LinearGradientBrush(
-                new PointF(0, 0),
-                new PointF(newWidth, 0),
-                GradientRepetitionMode.None,
-                new ColorStop(0, Color.ParseHex(EventPalette.CcGradientFrom)),
-                new ColorStop(1, Color.ParseHex(EventPalette.CcGradientTo)));
-            canvas.Mutate(ctx => ctx.Fill(gradient));
-        } else {
-            canvas.Mutate(ctx => ctx.Fill(Color.ParseHex(hex)));
+        using var surface = SKSurface.Create(new SKImageInfo(newWidth, newHeight, SKColorType.Rgba8888, SKAlphaType.Premul));
+        var canvas = surface.Canvas;
+        canvas.Clear(SKColors.Transparent);
+        using (var fill = new SKPaint()) {
+            if (ccOnly) {
+                fill.Shader = SKShader.CreateLinearGradient(
+                    new SKPoint(0, 0),
+                    new SKPoint(newWidth, 0),
+                    [SKColor.Parse(EventPalette.CcGradientFrom), SKColor.Parse(EventPalette.CcGradientTo)],
+                    SKShaderTileMode.Clamp);
+            } else {
+                fill.Color = SKColor.Parse(hex);
+            }
+            canvas.DrawRect(0, 0, newWidth, newHeight, fill);
         }
-        canvas.Mutate(ctx => ctx.DrawImage(glyph, new Point((newWidth - glyph.Width) / 2, (newHeight - glyph.Height) / 2), 1f));
-        using var stream = new MemoryStream();
-        canvas.Save(stream, new PngEncoder());
-        return stream.ToArray();
+        canvas.DrawImage(glyph, (newWidth - glyph.Width) / 2, (newHeight - glyph.Height) / 2, SKSamplingOptions.Default);
+        using var image = surface.Snapshot();
+        using var png = image.Encode(SKEncodedImageFormat.Png, 100);
+        return png.ToArray();
     }
 }

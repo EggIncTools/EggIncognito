@@ -3,20 +3,14 @@ using EggIncognito.Models.Devices;
 using EggIncognito.Services.Devices;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Time.Testing;
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.PixelFormats;
+using SkiaSharp;
 
 namespace EggIncognito.Tests.Devices;
 
 public class PixelWatchServiceTests {
     private static readonly DeviceTarget Target = new("watch-test", "android", "127.0.0.1:5555", "com.auxbrain.egginc");
 
-    private static byte[] Png() {
-        using var image = new Image<Rgba32>(64, 64, new Rgba32(10, 10, 10));
-        using var ms = new MemoryStream();
-        image.SaveAsPng(ms);
-        return ms.ToArray();
-    }
+    private static byte[] Png(Action<SKBitmap>? paint = null) => TestPng.Make(64, paint);
 
     private static readonly TimeSpan FastPoll = TimeSpan.FromMilliseconds(20);
 
@@ -108,7 +102,7 @@ public class PixelWatchServiceTests {
     [Fact]
     public async Task AddGroup_RejectsMixedColours() {
         using var svc = NewService();
-        var platform = new StubPlatform(Png(i => i[5, 5] = new Rgba32(200, 20, 20)));
+        var platform = new StubPlatform(Png(i => i.SetPixel(5, 5, new SKColor(200, 20, 20))));
         svc.SetClientWatching(Target.Id, true);
         var a = (await svc.AddAsync(platform, Target, new PixelWatchRequest(1, 1), CancellationToken.None)).Value!.Points[0].Id;
         var b = (await svc.AddAsync(platform, Target, new PixelWatchRequest(5, 5), CancellationToken.None)).Value!.Points[1].Id;
@@ -147,14 +141,6 @@ public class PixelWatchServiceTests {
         var state = svc.State(Target.Id);
         Assert.Empty(state.Groups);
         Assert.Null(state.Points[0].GroupId);
-    }
-
-    private static byte[] Png(Action<Image<Rgba32>> paint) {
-        using var image = new Image<Rgba32>(64, 64, new Rgba32(10, 10, 10));
-        paint(image);
-        using var ms = new MemoryStream();
-        image.SaveAsPng(ms);
-        return ms.ToArray();
     }
 
     private sealed class StubPlatform(byte[] png) : DevicePlatformBase("android", [], [], [], [], []) {

@@ -1,21 +1,14 @@
 using EggIncognito.Services.Devices;
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.PixelFormats;
+using SkiaSharp;
 
 namespace EggIncognito.Tests.Devices;
 
 public class PixelSamplerTests {
-    private static byte[] Png(Action<Image<Rgba32>> paint) {
-        using var image = new Image<Rgba32>(4, 4, new Rgba32(10, 10, 10));
-        paint(image);
-        using var ms = new MemoryStream();
-        image.SaveAsPng(ms);
-        return ms.ToArray();
-    }
+    private static byte[] Png(Action<SKBitmap> paint) => TestPng.Make(4, paint);
 
     [Fact]
     public void Sample_ReadsTheExactPixel() {
-        var png = Png(i => i[2, 1] = new Rgba32(30, 90, 220));
+        var png = Png(i => i.SetPixel(2, 1, new SKColor(30, 90, 220)));
 
         var px = PixelSampler.Sample(png, 2, 1);
 
@@ -34,8 +27,8 @@ public class PixelSamplerTests {
     [Fact]
     public void SampleMany_ReadsEveryPointFromOneDecode() {
         var png = Png(i => {
-            i[2, 1] = new Rgba32(30, 90, 220);
-            i[0, 3] = new Rgba32(200, 10, 10);
+            i.SetPixel(2, 1, new SKColor(30, 90, 220));
+            i.SetPixel(0, 3, new SKColor(200, 10, 10));
         });
 
         var hits = PixelSampler.SampleMany(png, [(2, 1), (0, 3), (1, 1)]);
@@ -48,7 +41,7 @@ public class PixelSamplerTests {
 
     [Fact]
     public void SampleMany_OutOfRangePointsAreNullAndDoNotHideTheRest() {
-        var png = Png(i => i[3, 3] = new Rgba32(1, 2, 3));
+        var png = Png(i => i.SetPixel(3, 3, new SKColor(1, 2, 3)));
 
         var hits = PixelSampler.SampleMany(png, [(-1, 0), (3, 3), (4, 0), (0, 4)]);
 
@@ -72,8 +65,8 @@ public class PixelSamplerTests {
 
     [Fact]
     public void Close_UsesPerChannelTolerance() {
-        var blue = new Rgba32(30, 90, 220);
-        Assert.True(PixelSampler.Close(blue, new Rgba32(60, 60, 200), 48));
-        Assert.False(PixelSampler.Close(blue, new Rgba32(30, 150, 220), 48));
+        var blue = new SKColor(30, 90, 220);
+        Assert.True(PixelSampler.Close(blue, new SKColor(60, 60, 200), 48));
+        Assert.False(PixelSampler.Close(blue, new SKColor(30, 150, 220), 48));
     }
 }

@@ -561,7 +561,7 @@ public sealed partial class DevicesController(
         var shot = await platform.ScreenshotAsync(target, ct);
         if (!shot.Ok || shot.Value is not { Length: > 0 } raw) return (null, shot.Outcome, shot.Note);
 
-        byte[]? jpeg = await DeviceFrameEncoder.ToJpegAsync(raw, quality, ct);
+        byte[]? jpeg = DeviceFrameEncoder.ToJpeg(raw, quality);
         return jpeg is null
             ? (null, DeviceOutcome.Error, "the device frame could not be encoded")
             : (jpeg, DeviceOutcome.Ok, null);

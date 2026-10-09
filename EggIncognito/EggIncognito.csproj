@@ -25,8 +25,8 @@
     <PackageReference Include="EggIdentity.Visits" />
     <PackageReference Include="LibUsbDotNet" />
     <PackageReference Include="SharpCompress" />
-    <PackageReference Include="SixLabors.ImageSharp" />
-    <PackageReference Include="SixLabors.ImageSharp.Drawing" />
+    <PackageReference Include="SkiaSharp" />
+    <PackageReference Include="SkiaSharp.NativeAssets.Linux.NoDependencies" />
   </ItemGroup>
 
   <ItemGroup>

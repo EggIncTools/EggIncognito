@@ -1,5 +1,4 @@
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.Formats.Jpeg;
+using SkiaSharp;
 
 namespace EggIncognito.Services.Devices;
 
@@ -10,14 +9,9 @@ public static class DeviceFrameEncoder {
 
     public static int ClampQuality(int quality) => Math.Clamp(quality, MinQuality, MaxQuality);
 
-    public static async Task<byte[]?> ToJpegAsync(byte[] source, int quality, CancellationToken ct) {
-        try {
-            using var image = Image.Load(source);
-            using var buffer = new MemoryStream(source.Length / 4);
-            await image.SaveAsJpegAsync(buffer, new JpegEncoder { Quality = ClampQuality(quality) }, ct);
-            return buffer.ToArray();
-        } catch (Exception ex) when (ex is ImageFormatException or NotSupportedException) {
-            return null;
-        }
+    public static byte[]? ToJpeg(byte[] source, int quality) {
+        using var image = SKImage.FromEncodedData(source);
+        using var jpeg = image?.Encode(SKEncodedImageFormat.Jpeg, ClampQuality(quality));
+        return jpeg?.ToArray();
     }
 }

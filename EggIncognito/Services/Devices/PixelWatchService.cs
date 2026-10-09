@@ -1,7 +1,7 @@
 using System.Collections.Concurrent;
 using EggIncognito.Core.Services.Devices;
 using EggIncognito.Models.Devices;
-using SixLabors.ImageSharp.PixelFormats;
+using SkiaSharp;
 
 namespace EggIncognito.Services.Devices;
 
@@ -344,11 +344,11 @@ public sealed class PixelWatchService(ILogger<PixelWatchService> logger, TimePro
         public PixelWatchGroup Status => new(Id, Color, OffsetMs, [.. PointIds]);
     }
 
-    private sealed class Point(int x, int y, Rgba32 color) {
+    private sealed class Point(int x, int y, SKColor color) {
         public string Id { get; } = Guid.NewGuid().ToString("N")[..8];
         public int X { get; } = x;
         public int Y { get; } = y;
-        public Rgba32 Color { get; } = color;
+        public SKColor Color { get; } = color;
         public string Kind { get; set; } = PixelWatchKinds.Tap;
         public int HoldMs { get; set; } = DefaultHoldMs;
         public int RateMs { get; set; } = DefaultRateMs;
