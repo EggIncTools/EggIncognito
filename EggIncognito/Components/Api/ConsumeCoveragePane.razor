@@ -91,10 +91,6 @@
         } else {
             @if (_sel is { } s) {
                 <ToolBar Flat="true" Class="cov-sel">
-                    <span class="tbar-group">
-                        <span class="cov-disc bg-r-@s.Cell.AfxRarity"><img src="@IconSrc(s.Family, LevelOf(s))" alt="" loading="lazy"/></span>
-                        <span class="tbar-k">@TierName(s)</span>
-                    </span>
                     <PanelShelf Shelf="@DevicePanelShelves.CoverageCell" Context="CellContext(s)"/>
                 </ToolBar>
             }
@@ -139,7 +135,7 @@
                                     <div class="cov-grid">
                                         <span></span>
                                         @for (int r = 0; r < RarityHeads.Length; r++) {
-                                            <span class="cov-head bg-r-@r">
+                                            <span class="cov-head cov-head-r@r">
                                                 @RarityHeads[r]
                                                 @if (Annotation(f, r) is { } note) {
                                                     <span class="cov-head-note">@note</span>
@@ -362,9 +358,6 @@
         _obsTarget = c.ObservationTarget;
         _enabled = c.InScope;
     }
-
-    int LevelOf(CoverageSelection s) =>
-        _map?.Families.FirstOrDefault(f => f.SpecName == s.Family)?.Tiers.FirstOrDefault(t => t.Level == s.Level)?.AfxLevel ?? 0;
 
     string TierName(CoverageSelection s) =>
         _map?.Families.FirstOrDefault(f => f.SpecName == s.Family)?.Tiers.FirstOrDefault(t => t.Level == s.Level)?.Name ?? s.Family;

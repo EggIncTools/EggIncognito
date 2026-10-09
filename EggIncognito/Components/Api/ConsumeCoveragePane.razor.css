@@ -34,6 +34,10 @@
 .cov-grid { display: grid; grid-template-columns: minmax(10rem, max-content) repeat(4, 5rem) minmax(0, 1fr); gap: 0.25rem; align-items: center; padding: 0.375rem 0; }
 .cov-head { display: flex; flex-direction: column; align-items: center; padding: 0.125rem 0.25rem; border-radius: 0.25rem; font-size: 0.625rem; text-transform: uppercase; letter-spacing: 0.025em; color: var(--color-fg); text-align: center; }
 .cov-head-note { font-family: var(--font-mono); text-transform: none; letter-spacing: 0; }
+.cov-head-r0, .cov-head-r1, .cov-head-r2, .cov-head-r3 { background-color: var(--color-panel2); border: 1px solid var(--color-border); }
+.cov-head-r1 { color: #6ab6ff; }
+.cov-head-r2 { color: #c03fe2; }
+.cov-head-r3 { color: #eeab42; }
 .cov-tier { font-family: var(--font-mono); font-size: 0.75rem; white-space: nowrap; }
 .cov-cell {
   display: flex;
