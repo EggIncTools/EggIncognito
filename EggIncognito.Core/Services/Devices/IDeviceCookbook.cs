@@ -13,6 +13,7 @@ public static class DeviceCookbookIds {
     public const string InstallAppIsland = "install-app-island";
     public const string LaunchIsland = "launch-island";
     public const string RemoveIsland = "remove-island";
+    public const string IslandIntegrity = "island-integrity";
 }
 
 public sealed record DeviceCookbookOption(

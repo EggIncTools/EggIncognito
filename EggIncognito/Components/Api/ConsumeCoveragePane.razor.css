@@ -22,8 +22,8 @@
 .cov-bar-pct { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 0.6875rem; color: white; text-shadow: 0 1px 2px rgba(0, 0, 0, .85); }
 .cov-grid-row > td { background-color: var(--color-bg); }
 .cov-body { display: flex; flex: 1 1 0; gap: 0.75rem; min-height: 0; min-width: 0; }
-.cov-body .cov-scroll { flex: 3 1 0; }
-.cov-side { flex: 2 1 0; min-width: 0; min-height: 0; display: flex; flex-direction: column; }
+.cov-body .cov-scroll { flex: 3 1 0; min-width: 0; }
+.cov-side { flex: 2 1 0; min-width: max-content; min-height: 0; display: flex; flex-direction: column; }
 .cov-side ::deep .table-scroll { flex: 1 1 0; min-height: 0; }
 .cov-drops { flex: 2 1 0; min-width: 0; min-height: 0; display: flex; flex-direction: column; }
 .cov-drops ::deep .table-scroll { flex: 1 1 0; min-height: 0; }

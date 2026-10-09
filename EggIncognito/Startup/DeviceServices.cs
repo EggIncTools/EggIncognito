@@ -99,6 +99,9 @@ public static class DeviceServices {
         builder.Services.AddSingleton<InstallAppIslandStep>();
         builder.Services.AddSingleton<LaunchIslandStep>();
         builder.Services.AddSingleton<RemoveIslandStep>();
+        builder.Services.AddSingleton<IslandIntegrityDiagnoseStep>();
+        builder.Services.AddSingleton<IslandIntegrityRepairStep>();
+        builder.Services.AddSingleton<OwnerRecertStep>();
 
         builder.Services.AddSingleton<InstallAppCookbook>();
         builder.Services.AddSingleton<InstallCaCookbook>();
@@ -112,6 +115,8 @@ public static class DeviceServices {
         builder.Services.AddSingleton<InstallAppIslandCookbook>();
         builder.Services.AddSingleton<LaunchIslandCookbook>();
         builder.Services.AddSingleton<RemoveIslandCookbook>();
+        builder.Services.AddSingleton<IslandIntegrityCookbook>();
+        builder.Services.AddSingleton<IDeviceCookbook>(sp => sp.GetRequiredService<IslandIntegrityCookbook>());
         builder.Services.AddSingleton<IDeviceCookbook>(sp => sp.GetRequiredService<InstallAppCookbook>());
         builder.Services.AddSingleton<IDeviceCookbook>(sp => sp.GetRequiredService<InstallCaCookbook>());
         builder.Services.AddSingleton<IDeviceCookbook>(sp => sp.GetRequiredService<LaunchAppCookbook>());
