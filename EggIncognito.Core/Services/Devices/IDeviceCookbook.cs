@@ -14,6 +14,8 @@ public static class DeviceCookbookIds {
     public const string LaunchIsland = "launch-island";
     public const string RemoveIsland = "remove-island";
     public const string IslandIntegrity = "island-integrity";
+    public const string CloneIslandTrust = "clone-island-trust";
+    public const string NewIsland = "new-island";
 }
 
 public sealed record DeviceCookbookOption(
