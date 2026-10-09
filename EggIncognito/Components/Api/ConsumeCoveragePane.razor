@@ -89,7 +89,7 @@
                 </table>
             </TableScroll>
         } else {
-            @if (_sel is { } s) {
+            @if (_sel is { } s && PanelShelf.Any(Panels, DevicePanelShelves.CoverageCell)) {
                 <ToolBar Flat="true" Class="cov-sel">
                     <PanelShelf Shelf="@DevicePanelShelves.CoverageCell" Context="CellContext(s)"/>
                 </ToolBar>
@@ -135,7 +135,7 @@
                                     <div class="cov-grid">
                                         <span></span>
                                         @for (int r = 0; r < RarityHeads.Length; r++) {
-                                            <span class="cov-head cov-head-r@r">
+                                            <span class="cov-head cov-head-r-@r">
                                                 @RarityHeads[r]
                                                 @if (Annotation(f, r) is { } note) {
                                                     <span class="cov-head-note">@note</span>
@@ -202,6 +202,11 @@
                                             <span></span>
                                         }
                                     </div>
+                                    @if (_sel is { } ds && ds.Family == f.SpecName && PanelShelf.Any(Panels, DevicePanelShelves.CoverageDrops)) {
+                                        <div class="cov-drops" @onclick:stopPropagation="true">
+                                            <PanelShelf Shelf="@DevicePanelShelves.CoverageDrops" Context="CellContext(ds)"/>
+                                        </div>
+                                    }
                                 </td>
                             </tr>
                         }
@@ -209,11 +214,6 @@
                     </tbody>
                 </table>
             </TableScroll>
-            @if (_sel is { } ds && PanelShelf.Any(Panels, DevicePanelShelves.CoverageDrops)) {
-                <div class="cov-drops">
-                    <PanelShelf Shelf="@DevicePanelShelves.CoverageDrops" Context="CellContext(ds)"/>
-                </div>
-            }
             @if (PanelShelf.Any(Panels, DevicePanelShelves.CoverageSide)) {
                 <div class="cov-side">
                     <PanelShelf Shelf="@DevicePanelShelves.CoverageSide" Context="DeviceContext"/>

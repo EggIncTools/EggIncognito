@@ -20,7 +20,12 @@ RUN --mount=type=secret,id=github_token \
       --password "$(cat /run/secrets/github_token)" \
       --store-password-in-clear-text \
       --configfile nuget.config \
-    && dotnet restore EggIncognito/EggIncognito.csproj
+    && dotnet restore EggIncognito/EggIncognito.csproj -r linux-x64 \
+    && rm -rf /root/.local/share/NuGet/http-cache \
+    && find /root/.nuget/packages -mindepth 4 -maxdepth 4 -type d \
+         -path '*/runtimes/*' ! -name linux-x64 -exec rm -rf {} + \
+    && find /root/.nuget/packages/grpc.tools -mindepth 3 -maxdepth 3 -type d \
+         -path '*/tools/*' ! -name linux_x64 -exec rm -rf {} +
 
 COPY EggIncognito.Core/ EggIncognito.Core/
 COPY EggIncognito.Capture/ EggIncognito.Capture/
@@ -39,6 +44,7 @@ RUN set -eux; \
     [ -n "$GIT_SHA" ] && STAMP="$STAMP -p:SourceRevisionId=$GIT_SHA"; \
     [ -n "$APP_VERSION" ] && STAMP="$STAMP -p:MinVerVersionOverride=$APP_VERSION"; \
     dotnet publish EggIncognito/EggIncognito.csproj -c Release -o /app/publish \
+        -r linux-x64 --self-contained false \
         -p:EmitTypes=false -p:RunAnalyzers=false -p:EnforceCodeStyleInBuild=false \
         -p:TreatWarningsAsErrors=false -p:GenerateDocumentationFile=false $STAMP; \
     grep -q "btn-primary" /app/publish/wwwroot/app.css; \
