@@ -194,9 +194,6 @@
                                                         @onclick="() => Select(f, t, cell)" @onclick:stopPropagation="true">
                                                     <span class="cov-disc bg-r-@cell.AfxRarity"><img src="@IconSrc(f.SpecName, t.AfxLevel)" alt="" loading="lazy"/></span>
                                                     <span class="cov-nk">@cell.Items/@cell.Observations</span>
-                                                    @if (Held(f.SpecName, t.Level, cell.Rarity) is { } held) {
-                                                        <span class="cov-held">@held.ToString("0")</span>
-                                                    }
                                                 </button>
                                             }
                                             <span></span>
@@ -404,14 +401,6 @@
         }
 
         return $"failed ({(int)res.StatusCode})";
-    }
-
-    double? Held(string family, string level, string rarity) {
-        foreach (var inv in Inventories) {
-            if (inv.Held(DeviceId, family, level, rarity) is { } n) return n;
-        }
-
-        return null;
     }
 
     static string IconSrc(string spec, int level) => ArtifactAssets.IconPath(ArtifactAssets.KeyFor(spec), level + 1);
