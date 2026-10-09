@@ -6,7 +6,7 @@ public sealed class IslandIntegrityCookbook(
     IslandIntegrityDiagnoseStep diagnose,
     IslandIntegrityRepairStep repair,
     OwnerRecertStep recert,
-    LaunchIslandStep launch,
+    IslandLaunchVerdictStep verdict,
     IDeviceConnectionFactory connections) : IStepCookbook {
     private const string DiagnoseOnly = "diagnose";
     private const string Repair = "repair";
@@ -16,7 +16,7 @@ public sealed class IslandIntegrityCookbook(
 
     public string Summary =>
         "Diagnoses Play certification for a selected island, then fixes TrickyStore targets, runs the KsuWebUI recert, "
-        + "resets the island's Play state and relaunches Egg Inc as the verdict.";
+        + "resets the island's Play state, relaunches Egg Inc as the verdict and captures the integrity evidence.";
 
     public Task<DeviceCookbookInfo> DescribeAsync(DeviceTarget target, CancellationToken ct) {
         string? unavailable = !Platforms.Matches(target.Platform, Platforms.Android) ? "islands are android-only"
@@ -34,8 +34,8 @@ public sealed class IslandIntegrityCookbook(
     public Task<IReadOnlyList<CookbookStep>> PlanAsync(DeviceTarget target, string? argument, CancellationToken ct) =>
         Task.FromResult<IReadOnlyList<CookbookStep>>(
             string.Equals(argument, DiagnoseOnly, StringComparison.OrdinalIgnoreCase)
-                ? [diagnose]
-                : [diagnose, new SoftStep(recert), repair, launch]);
+                ? [diagnose, verdict]
+                : [diagnose, new SoftStep(recert), repair, verdict]);
 
     public Task<DeviceCookbookRun> RunAsync(DeviceCookbookContext context, CancellationToken ct) =>
         CookbookExecutor.RunStepsAsync(this, context, ct);

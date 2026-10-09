@@ -9,6 +9,7 @@ public sealed class LaunchIslandStep(
     private static readonly TimeSpan KeyWait = TimeSpan.FromSeconds(30);
     private static readonly TimeSpan ForegroundWait = TimeSpan.FromSeconds(20);
     private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(2);
+    private static readonly TimeSpan SettleWait = TimeSpan.FromSeconds(15);
     private const string AntiTamperMarker = "retrieved anti-tamper";
     private const string PlayNagFreeze = "freeze";
 
@@ -137,9 +138,23 @@ public sealed class LaunchIslandStep(
         if (!front.Is(target.Package))
             return Failed(lines, $"{component} is running in user {user} but never took the foreground; front is {front.Package ?? "unknown"}");
 
+        if (await PlayTakeoverAsync(conn, ct) is { } taken)
+            return Failed(lines, $"Play took the foreground over user {user} after launch ({taken}); {DeviceForeground.PlayBlockNote}");
+
         return keyed
             ? Ok(lines, $"launched {component} in island {user}")
             : Ok(lines, $"launched {component} in island {user} (anti-tamper key marker not seen in logcat)");
+    }
+
+    private async Task<string?> PlayTakeoverAsync(IDeviceConnection conn, CancellationToken ct) {
+        var deadline = time.GetUtcNow() + SettleWait;
+        while (time.GetUtcNow() < deadline) {
+            await Task.Delay(PollInterval, ct);
+            var front = await DeviceForeground.ReadAsync(conn, ct);
+            if (front.Is(DeviceForeground.PlayStorePackage)) return front.Component ?? front.Package;
+        }
+
+        return null;
     }
 
     private static async Task<bool> CrashedAsync(IDeviceConnection conn, string package, CancellationToken ct) {

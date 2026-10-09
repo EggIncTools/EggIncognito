@@ -17,7 +17,7 @@
     <div class="wb-note">Pick a device.</div>
 } else {
     <div class="dcon">
-        <div class="dcon-body @(IsAndroid ? "dcon-body-ear" : "")">
+        <div class="dcon-body @(IsAndroid ? "dcon-body-ear" : "")" @ref="_body">
             <div class="dcon-stage-col">
                 @if (IsAndroid) {
                     <div class="dcon-ear">
@@ -335,6 +335,8 @@
     ElementReference _img;
     ElementReference _canvas;
     ElementReference _stage;
+    ElementReference _body;
+    string _bodyKey = "";
     IJSObjectReference? _module;
     DotNetObjectReference<DeviceConsolePane>? _self;
     Timer? _uiPoll;
@@ -1033,6 +1035,7 @@
             }
         }
 
+        await SyncBodyAsync(module);
         await SyncStreamAsync(module);
         await SyncStageAsync(module);
         await SyncKeysAsync(module);
@@ -1066,6 +1069,14 @@
         } finally {
             _syncing = false;
         }
+    }
+
+    async Task SyncBodyAsync(IJSObjectReference module) {
+        var desired = _body.Id ?? "";
+        if (desired == _bodyKey) return;
+        if (_bodyKey.Length > 0) await SafeAsync(module, "unobserveBody", _body);
+        _bodyKey = desired;
+        if (desired.Length > 0) await SafeAsync(module, "observeBody", _body);
     }
 
     async Task SyncStageAsync(IJSObjectReference module) {
@@ -1318,6 +1329,7 @@
         if (_module is { } module) {
             await SafeAsync(module, "clearWatchPoints", _canvas);
             if (_stageKey.Length > 0) await SafeAsync(module, "unbindStage", _stage);
+            if (_bodyKey.Length > 0) await SafeAsync(module, "unobserveBody", _body);
             await HaltAsync(module);
         }
 

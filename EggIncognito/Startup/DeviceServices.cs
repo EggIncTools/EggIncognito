@@ -102,6 +102,8 @@ public static class DeviceServices {
         builder.Services.AddSingleton<IslandIntegrityDiagnoseStep>();
         builder.Services.AddSingleton<IslandIntegrityRepairStep>();
         builder.Services.AddSingleton<OwnerRecertStep>();
+        builder.Services.AddSingleton<IslandIntegrityEvidenceStep>();
+        builder.Services.AddSingleton<IslandLaunchVerdictStep>();
 
         builder.Services.AddSingleton<InstallAppCookbook>();
         builder.Services.AddSingleton<InstallCaCookbook>();

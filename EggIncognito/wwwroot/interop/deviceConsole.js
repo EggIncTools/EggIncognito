@@ -1023,6 +1023,22 @@ function onStageWheel(s, ev) {
   safeStage(s, "OnStageSwipe", p.fx, y1, p.fx, y2, 150);
 }
 
+const bodyObservers = new WeakMap();
+
+export function observeBody(body) {
+  if (!body || bodyObservers.has(body) || typeof ResizeObserver !== "function") return;
+  const observer = new ResizeObserver(() => body.style.setProperty("--dcon-body-h", body.clientHeight + "px"));
+  observer.observe(body);
+  bodyObservers.set(body, observer);
+}
+
+export function unobserveBody(body) {
+  const observer = body && bodyObservers.get(body);
+  if (!observer) return;
+  observer.disconnect();
+  bodyObservers.delete(body);
+}
+
 export function bindStage(stage, media, dotnet, opts) {
   if (!stage || !media) return;
   unbindStage(stage);
