@@ -2,7 +2,7 @@ namespace EggIncognito.Models.Devices;
 
 public sealed class DeviceRecertConfig {
     public bool Enabled { get; set; }
-    public string KsuWebUiPackage { get; set; } = "";
+    public string KsuWebUiPackage { get; set; } = "io.github.a13e300.ksuwebui";
     public string MagiskPackage { get; set; } = "com.topjohnwu.magisk";
     public string PlayPackage { get; set; } = "com.android.vending";
 
@@ -13,6 +13,7 @@ public sealed class DeviceRecertConfig {
     public string IntegrityBoxLabel { get; set; } = "Integrity box";
     public string MagiskActionLabel { get; set; } = "Action";
 
+    public string? PowerButtonText { get; set; }
     public string? PowerButtonResourceId { get; set; }
     public string? PowerButtonDesc { get; set; }
     public int? PowerButtonX { get; set; }

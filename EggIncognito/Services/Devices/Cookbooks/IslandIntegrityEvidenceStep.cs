@@ -14,15 +14,16 @@ public sealed class IslandIntegrityEvidenceStep(IDeviceConnectionFactory connect
         + "grep -i -E 'FINGERPRINT|SECURITY_PATCH|spoof' \"$f\" | grep -v '^#' | head -n 12; done";
 
     private const string TrickyStoreCommand =
-        "ls " + IslandIntegrityProbe.TrickyStoreDir + "; "
+        "grep -E '^(version|versionCode)=' /data/adb/modules/tricky_store/module.prop; "
+        + "echo \"tee_status=$(cat " + IslandIntegrityProbe.TrickyStoreDir + "/tee_status 2>/dev/null)\"; "
         + "grep -E 'gms|vending|auxbrain' " + IslandIntegrityProbe.TargetFile + "; "
-        + "ps -A -o USER,PID,NAME 2>/dev/null | grep -i -E 'tricky|keystore2'";
+        + "ps -A -o USER,PID,PPID,STIME,NAME 2>/dev/null | grep -i -E 'tricky|keystore2'";
 
     private const string ProcessCommand = "ps -A -o USER,PID,NAME 2>/dev/null | grep -E 'gms.unstable|vending'";
 
     private const string KeystoreCommand =
-        "logcat -d 2>/dev/null | grep -i -E 'generate_key|store_new_key|TrickyStore|tricky|TEESimulator|attestation record' "
-        + "| tail -n 30";
+        "logcat -d 2>/dev/null | grep -E 'integrity.api.key.alias|TrickyStore|attestation record|attest_key' "
+        + "| grep -v Gc | tail -n 30";
 
     private const string LogCommand =
         "logcat -d 2>/dev/null | grep -i -E 'PIF|DroidGuard|integrity|attest|certif|Finsky' "

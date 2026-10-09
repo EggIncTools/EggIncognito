@@ -86,6 +86,13 @@ public static class AndroidRecertFlow {
             yield break;
         }
 
+        if (c.PowerButtonText is { Length: > 0 } text) {
+            var byText = UiSelector.Text(text);
+            yield return DeviceFlowSteps.WaitForSelector(byText, timeoutSeconds: 20);
+            yield return DeviceFlowSteps.Tap(byText);
+            yield break;
+        }
+
         yield return DeviceFlowSteps.AssertText("recert: no PowerButton selector/point configured");
     }
 }

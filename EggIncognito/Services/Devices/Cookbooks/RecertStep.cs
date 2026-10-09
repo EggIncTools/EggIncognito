@@ -13,7 +13,6 @@ public sealed class RecertStep(
     public override Task<CookbookStepAvailability> DescribeAsync(DeviceTarget target, CancellationToken ct) {
         if (!Platforms.Matches(target.Platform, Platforms.Android))
             return Task.FromResult(CookbookStepAvailability.No("recert is android-only"));
-        if (!config.Enabled) return Task.FromResult(CookbookStepAvailability.No("recert is not enabled"));
         if (string.IsNullOrEmpty(config.KsuWebUiPackage))
             return Task.FromResult(CookbookStepAvailability.No("recert is not configured (KsuWebUiPackage missing)"));
 
@@ -30,7 +29,6 @@ public sealed class RecertStep(
         var target = context.Target;
         if (!Platforms.Matches(target.Platform, Platforms.Android))
             return Skipped(lines, "recert is android-only");
-        if (!config.Enabled) return Skipped(lines, "recert is not enabled");
         if (string.IsNullOrEmpty(config.KsuWebUiPackage))
             return Skipped(lines, "recert is not configured (KsuWebUiPackage missing)");
         if (connections.For(target) is not { } conn)

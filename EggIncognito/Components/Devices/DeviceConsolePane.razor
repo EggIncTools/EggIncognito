@@ -304,13 +304,6 @@
     double _videoLatency;
     double _videoKbps;
     double _jpegFps;
-    int _videoDecoded;
-    int _videoDrawn;
-    int _dropQueue;
-    int _dropKey;
-    int _dropError;
-    int _queueDepth;
-    int _sinceDrawnMs;
     int _videoRestarts;
     DateTimeOffset _restartWindowAt;
     StreamQuality _quality = StreamQuality.Balanced;
@@ -541,32 +534,13 @@
         return _hasFrame ? "live" : "connecting";
     }
 
-    string? StreamDetail() {
-        if (_streamError is { } err) return err;
-        if (!_live || !_hasFrame || !_useVideo) return null;
-        string health = VideoHealth();
-        return health.Length == 0 ? null : health;
-    }
+    string? StreamDetail() => _streamError;
 
     string StreamTitle() => !_live || !_hasFrame
         ? ""
         : _useVideo
             ? string.Create(CultureInfo.InvariantCulture, $"{_videoFps:0} fps, {_videoLatency:0} ms, {_shotW}x{_shotH}, {_videoKbps / 1000:0.0} Mbps")
             : string.Create(CultureInfo.InvariantCulture, $"{_jpegFps:0.#} of {_fps} fps, {_shotW}x{_shotH}");
-
-    string VideoHealth() {
-        if (_videoDrawn > 0 && _dropQueue + _dropKey + _dropError == 0 && _queueDepth <= 1) return "";
-        List<string> parts = [];
-        if (_videoDecoded != _videoDrawn) parts.Add(string.Create(CultureInfo.InvariantCulture, $"{_videoDrawn} of {_videoDecoded} drawn"));
-        if (_dropQueue > 0) parts.Add(string.Create(CultureInfo.InvariantCulture, $"{_dropQueue} dropped, queue deep"));
-        if (_dropKey > 0) parts.Add(string.Create(CultureInfo.InvariantCulture, $"{_dropKey} dropped, awaiting keyframe"));
-        if (_dropError > 0) parts.Add(string.Create(CultureInfo.InvariantCulture, $"{_dropError} dropped, decoder error"));
-        if (_queueDepth > 1) parts.Add(string.Create(CultureInfo.InvariantCulture, $"queue {_queueDepth}"));
-        if (_sinceDrawnMs >= 1000) parts.Add(string.Create(CultureInfo.InvariantCulture, $"nothing drawn for {_sinceDrawnMs / 1000.0:0.#}s"));
-        if (_videoRestarts > 0 && DateTimeOffset.UtcNow - _restartWindowAt < TimeSpan.FromMinutes(1))
-            parts.Add(_videoRestarts == 1 ? "1 restart" : string.Create(CultureInfo.InvariantCulture, $"{_videoRestarts} restarts"));
-        return string.Join(", ", parts);
-    }
 
     string StageEmptyText() {
         if (_streamError is not null) return "no picture";
@@ -1206,13 +1180,6 @@
         _videoFps = stats.Fps;
         _videoLatency = stats.LatencyMs;
         _videoKbps = stats.Kbps;
-        _videoDecoded = stats.Decoded;
-        _videoDrawn = stats.Drawn;
-        _dropQueue = stats.DropQueue;
-        _dropKey = stats.DropKey;
-        _dropError = stats.DropError;
-        _queueDepth = stats.Queue;
-        _sinceDrawnMs = stats.SinceDrawnMs;
         if (stats.FrameW > 0) {
             _shotW = stats.FrameW;
             _shotH = stats.FrameH;
@@ -1223,8 +1190,7 @@
         return InvokeAsync(StateHasChanged);
     }
 
-    public sealed record VideoStats(string Token, double Fps, double LatencyMs, int FrameW, int FrameH, double Kbps,
-        int Decoded, int Drawn, int DropQueue, int DropKey, int DropError, int Queue, int SinceDrawnMs);
+    public sealed record VideoStats(string Token, double Fps, double LatencyMs, int FrameW, int FrameH, double Kbps);
 
     [JSInvokable]
     public Task OnVideoEnded(string token, string reason, int status, bool retryable) {
@@ -1235,8 +1201,6 @@
     }
 
     void ResetVideoHealth() {
-        _videoDecoded = _videoDrawn = _dropQueue = _dropKey = _dropError = _queueDepth = 0;
-        _sinceDrawnMs = -1;
         _videoRestarts = 0;
         _restartWindowAt = default;
     }

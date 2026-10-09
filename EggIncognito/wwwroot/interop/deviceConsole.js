@@ -526,7 +526,6 @@ function onFrame(s, frame) {
     }
     return;
   }
-  s.decoded++;
   const arrival = s.pending.get(frame.timestamp);
   s.pending.delete(frame.timestamp);
   try {
@@ -537,11 +536,6 @@ function onFrame(s, frame) {
     } catch {
     }
   }
-}
-
-function queueDepth(s) {
-  const d = s.decoder;
-  return d && d.state === "configured" ? d.decodeQueueSize : 0;
 }
 
 function tickStats(s) {
@@ -566,21 +560,10 @@ function tickStats(s) {
     latencyMs: s.latencyCount > 0 ? Math.round(s.latencySum / s.latencyCount) : 0,
     frameW: s.frameW,
     frameH: s.frameH,
-    kbps: Math.round((s.bytesSince * 8) / dt),
-    decoded: s.decoded,
-    drawn: s.drawn,
-    dropQueue: s.dropQueue,
-    dropKey: s.dropKey,
-    dropError: s.dropError,
-    queue: queueDepth(s),
-    sinceDrawnMs: s.lastFrameAt > 0 ? Math.round(now - s.lastFrameAt) : -1
+    kbps: Math.round((s.bytesSince * 8) / dt)
   };
   s.statsAt = now;
-  s.decoded = 0;
   s.drawn = 0;
-  s.dropQueue = 0;
-  s.dropKey = 0;
-  s.dropError = 0;
   s.latencySum = 0;
   s.latencyCount = 0;
   s.bytesSince = 0;
@@ -589,7 +572,6 @@ function tickStats(s) {
 
 function decoderFailed(s, message) {
   if (s.ended) return;
-  s.dropError++;
   s.decoderErrors++;
   if (s.decoderErrors > DECODER_ERROR_LIMIT) {
     finish(s, "decoder error: " + message, 0, true);
@@ -630,22 +612,14 @@ function configure(s) {
 
 function submit(s, nal, isKey, now) {
   const d = s.decoder;
-  if (!d || d.state !== "configured") {
-    s.dropError++;
-    return;
-  }
+  if (!d || d.state !== "configured") return;
   if (isKey) {
-    if (!s.sps || !s.pps) {
-      s.dropKey++;
-      return;
-    }
+    if (!s.sps || !s.pps) return;
     s.needKey = false;
   } else if (s.needKey) {
-    s.dropKey++;
     return;
   } else if (s.backlog ? d.decodeQueueSize > 1 : d.decodeQueueSize > s.opts.maxQueue) {
     s.backlog = true;
-    s.dropQueue++;
     return;
   } else {
     s.backlog = false;
@@ -761,11 +735,7 @@ export function startVideo(canvas, url, dotnet, opts) {
     pending: new Map(),
     frameW: 0,
     frameH: 0,
-    decoded: 0,
     drawn: 0,
-    dropQueue: 0,
-    dropKey: 0,
-    dropError: 0,
     latencySum: 0,
     latencyCount: 0,
     bytesSince: 0,
