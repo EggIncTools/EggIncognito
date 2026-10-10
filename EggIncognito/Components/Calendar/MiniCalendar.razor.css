@@ -1,5 +1,6 @@
 .evcal-note { flex: none; font-size: 0.8125rem; color: var(--color-muted); }
-.evcal-mini-scroll { overflow-x: auto; overflow-y: hidden; scrollbar-width: thin; padding-bottom: 0.25rem; }
+.evcal-mini-scroll { overflow-x: auto; overflow-y: hidden; scrollbar-width: thin; padding-bottom: 0.25rem; direction: rtl; }
+.evcal-mini-scroll > .evcal-shell { direction: ltr; }
 .evcal-shell { display: flex; flex-direction: column; flex: 1; }
 .evcal-view-week { --evcal-bar-h: 1.5rem; --evcal-lane-min: 2.25rem; }
 .evcal-shell.evcal-mini {

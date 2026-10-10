@@ -2,9 +2,6 @@
    chips), filters (group/path/type), select, and device-aware empty state. *@
 @using System.Globalization
 @using EggIncognito.Capture
-@implements IAsyncDisposable
-@inject IJSRuntime JS
-@inject IWebHostEnvironment Env
 @inject IServiceProvider Services
 @inject ILogger<FlowList> Logger
 
@@ -62,7 +59,7 @@
             <Icon Name="x" Class="icon-sm"/>
         </button>
     </div>
-    <div id="flowList" class="flow-wrap @(Flows.Count == 0 ? "flow-wrap-empty" : "")" @ref="_listRef">
+    <div id="flowList" class="flow-wrap @(Flows.Count == 0 ? "flow-wrap-empty" : View.AutoScroll ? "flow-wrap-follow" : "")">
         @if (Flows.Count == 0) {
             <EmptyState Icon="@(Connected ? "list" : "smartphone")" Fill="true"
                         Title="@(Connected ? "No requests captured yet." : "No device connected yet.")"
@@ -119,6 +116,7 @@
                 }
                 </tbody>
             </table>
+            <div class="flow-anchor"></div>
         }
     </div>
     @Foot
@@ -160,35 +158,6 @@
         if (gap is not { } g) return "";
         if (g >= TimeSpan.FromMinutes(1)) return $"+{(int)g.TotalMinutes}m";
         return g >= TimeSpan.FromSeconds(1) ? $"+{(int)g.TotalSeconds}s" : "+0s";
-    }
-
-    ElementReference _listRef;
-    IJSObjectReference? _scroll;
-    int _lastFlowCount;
-
-    protected override async Task OnAfterRenderAsync(bool firstRender) {
-        if (firstRender) {
-            try {
-                _scroll = await JS.InvokeAsync<IJSObjectReference>("import", InteropAsset.Url(Env, "./interop/scroll.js"));
-            } catch {
-                /* JS unavailable (e.g. test prerender); auto-scroll is best-effort. */
-            }
-        }
-
-        var count = Flows.Count;
-        if (count > _lastFlowCount && View.AutoScroll && _scroll is not null) {
-            try {
-                await _scroll.InvokeVoidAsync("scrollToBottom", _listRef);
-            } catch (Exception ex) when (ex is JSDisconnectedException or JSException or ObjectDisposedException) {
-                Logger.LogDebug(ex, "flow list auto-scroll failed");
-            }
-        }
-
-        _lastFlowCount = count;
-    }
-
-    public ValueTask DisposeAsync() {
-        return _scroll.DisposeModuleQuietAsync(logger: Logger);
     }
 
     void OnGroupChange(ChangeEventArgs e) => _group = e.Value?.ToString() ?? "";

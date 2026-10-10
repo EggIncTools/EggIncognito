@@ -76,10 +76,7 @@ public class CapturePageTests {
         }
 
         [Fact]
-        public void FlowList_AutoScroll_ScrollsToNewestOnNewFlow() {
-            var module = JSInterop.SetupModule("./interop/scroll.js");
-            module.SetupVoid("scrollToBottom", _ => true);
-
+        public void FlowList_AutoScroll_FollowsNewestRow() {
             var flows = new List<DashboardFlow> {
                 new(1, "12:00:00", "ei/first_contact", "POST", 200, null, null, "", null)
             };
@@ -87,22 +84,20 @@ public class CapturePageTests {
                 .Add(c => c.Flows, flows)
                 .Add(c => c.View, new CaptureViewState { AutoScroll = true }));
 
-            cut.WaitForAssertion(() => module.VerifyInvoke("scrollToBottom"));
+            Assert.Contains("flow-wrap-follow", cut.Find("#flowList").GetAttribute("class"));
+            Assert.NotNull(cut.Find("#flowList > .flow-anchor"));
         }
 
         [Fact]
-        public void FlowList_AutoScrollOff_DoesNotScroll() {
-            var module = JSInterop.SetupModule("./interop/scroll.js");
-            module.SetupVoid("scrollToBottom", _ => true);
-
+        public void FlowList_AutoScrollOff_DoesNotFollow() {
             var flows = new List<DashboardFlow> {
                 new(1, "12:00:00", "ei/first_contact", "POST", 200, null, null, "", null)
             };
-            Render<FlowList>(p => p
+            var cut = Render<FlowList>(p => p
                 .Add(c => c.Flows, flows)
                 .Add(c => c.View, new CaptureViewState { AutoScroll = false }));
 
-            module.VerifyNotInvoke("scrollToBottom");
+            Assert.DoesNotContain("flow-wrap-follow", cut.Find("#flowList").GetAttribute("class"));
         }
 
         [Fact]
