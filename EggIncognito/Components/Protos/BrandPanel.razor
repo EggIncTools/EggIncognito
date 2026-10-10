@@ -1,46 +1,11 @@
-@using System.Globalization
 @using EggIncognito.Services.Protos
 <div class="pd-band">
-    <div class="pd-brand-col">
-        <img class="pd-brand-logo" src="/brand/logo.png" alt="EggIncognito"/>
-        <div class="pd-vergroup">
-            <div class="pd-vergroup-head">
-                <span class="pd-k">Server</span>
-                @if (_builtAt is { } built) {
-                    <span class="pd-sep">|</span>
-                    <TimeAgo At="@built" Class="time-ago"/>
-                }
-            </div>
-            <div class="pd-serverline">
-                <VersionLine App="@_version"/><span class="pd-sep">|</span><a class="pd-server-sha" href="@_commitUrl" target="_blank" rel="noopener">@_sha</a>
-            </div>
-        </div>
-    </div>
-    <span class="pd-band-sep" aria-hidden="true"></span>
-    <div class="pd-versions">
-        <LatestVersionsPanel Rows="Rows" OnOpen="OnOpenVersion"/>
-    </div>
+    <LatestVersionsPanel Rows="Rows" OnOpen="OnOpenVersion"/>
 </div>
 
 @code {
     [Parameter] public IReadOnlyList<ProtoRegistryRow> Rows { get; set; } = [];
 
     [Parameter] public EventCallback<ProtoRegistryRow> OnOpenVersion { get; set; }
-
-    string _version = "";
-    string _sha = "";
-    string _commitUrl = "";
-    DateTimeOffset? _builtAt;
-
-    protected override void OnInitialized() {
-        var b = BuildInfo.FromAssembly("https://github.com/EggIncTools/EggIncognito");
-        _version = $"v{b.Version}";
-        _sha = b.ShortSha;
-        _commitUrl = b.CommitUrl;
-        _builtAt = DateTime.TryParse(b.BuildDate, CultureInfo.InvariantCulture,
-            DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out var built)
-            ? new DateTimeOffset(built, TimeSpan.Zero)
-            : null;
-    }
 
 }

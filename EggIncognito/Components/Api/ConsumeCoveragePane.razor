@@ -136,7 +136,10 @@
 
     [Parameter] public int? AndroidUserId { get; set; }
 
-    static readonly string[] RarityHeads = ["Common", "Rare", "Epic", "Legendary"];
+    static readonly string[] RarityHeads = [
+        .. Enum.GetValues<Ei.ArtifactSpec.Types.Rarity>().OrderBy(r => (int)r)
+            .Select(r => char.ToUpperInvariant(r.ToString()[0]) + r.ToString()[1..].ToLowerInvariant())
+    ];
 
     ConsumeCoverageMap? _map;
     bool _noDb;

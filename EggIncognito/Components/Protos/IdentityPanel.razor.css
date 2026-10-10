@@ -8,6 +8,12 @@
   gap: 0.75rem;
   padding: 0.625rem 0.75rem;
 }
+.pd-brand { display: flex; align-items: center; gap: 0.75rem; min-width: 0; }
+.pd-brand-logo { height: 2.25rem; width: auto; display: block; }
+.pd-serverline { display: flex; align-items: baseline; flex-wrap: wrap; gap: 0.375rem; font-size: 0.75rem; font-family: var(--font-mono); white-space: nowrap; }
+.pd-sep { color: var(--color-separator); }
+.pd-server-sha { color: var(--color-accent); text-decoration: none; }
+.pd-server-sha:hover { text-decoration: underline; }
 .pd-logout { margin: 0; }
 .pd-identity-facts { display: flex; flex-wrap: wrap; gap: 0.25rem 1rem; margin: 0; min-width: 0; }
 .pd-identity-facts > div { min-width: 0; }

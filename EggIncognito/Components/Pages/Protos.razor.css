@@ -137,7 +137,7 @@
 }
 @media (min-width: 90rem) {
   .pd-grid { grid-template-columns: fit-content(46rem) minmax(0, 1fr); grid-template-rows: min-content 1fr; align-items: start; align-content: start; }
-  .pd-identity { grid-column: 2; grid-row: 1; }
+  .pd-identity { grid-column: 2; grid-row: 1; justify-self: start; max-width: 100%; }
   .pd-main { grid-column: 1; grid-row: 1 / span 2; }
   .pd-side { grid-column: 2; grid-row: 2; }
 }

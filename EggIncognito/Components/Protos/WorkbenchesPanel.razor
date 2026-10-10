@@ -7,61 +7,60 @@
         </Tools>
     </PanelHead>
     @if (Summary is { } s) {
-        <KpiGrid>
-            <KpiTile Value="@s.Extracted.Count.ToString()" Label="sets"/>
-            <KpiTile Value="@TotalRows(s).ToString()" Label="rows"/>
-            <KpiTile Value="@($"{FeedsPresent(s)}/{s.Feeds.Count}")" Label="feeds" Warn="@(FeedsPresent(s) < s.Feeds.Count)"/>
-        </KpiGrid>
-        @if (TopSets(s) is { Count: > 0 } sets) {
-            <div class="wbx-bars">
-                @foreach (var row in sets) {
-                    <div class="wbx-bar">
-                        <span class="wbx-bar-k">@row.Key</span>
-                        <BarTrack Fraction="@(sets[0].Count > 0 ? row.Count / (double)sets[0].Count : 0)"/>
-                        <span class="wbx-bar-n">@row.Count</span>
-                    </div>
+        var sets = s.Extracted.Where(x => x.Count > 0).OrderByDescending(x => x.Count).ToList();
+        var total = sets.Sum(x => x.Count);
+        <div class="wbx-row">
+            <span class="wbx-k">Extracted</span>
+            @if (ExtractVersion(s) is { Length: > 0 } bin) {
+                <VersionLine App="@bin"/>
+            }
+            <span class="wbx-n">@total rows</span>
+        </div>
+        @if (sets.Count > 0) {
+            <div class="wbx-stack" role="img" aria-label="@string.Join(", ", sets.Select(x => $"{x.Key} {x.Count}"))">
+                @for (var i = 0; i < sets.Count; i++) {
+                    <span class="wbx-seg wbx-seg-@(i % 4)" style="flex-grow: @sets[i].Count"></span>
+                }
+            </div>
+            <div class="wbx-legend">
+                @for (var i = 0; i < sets.Count; i++) {
+                    <span class="wbx-leg"><span class="wbx-dot wbx-seg-@(i % 4)"></span>@sets[i].Key <span class="wbx-n">@sets[i].Count</span></span>
                 }
             </div>
         }
 
-        <div class="wbx-foot">
-            @if (ExtractVersion(s) is { Length: > 0 } bin) {
-                <VersionLine App="@bin"/>
-            }
-            @foreach (var p in s.Config.Platforms) {
-                <span class="wbx-foot-item">
-                    <PlatformIcon Platform="@p.Platform"/>
-                    <TimeAgo At="@p.SavedAt" Class="time-ago"/>
+        <div class="wbx-row wbx-row-gap">
+            <span class="wbx-k">Feeds</span>
+            @foreach (var f in s.Feeds) {
+                <span class="wbx-feed @(f.Present ? "wbx-feed-ok" : "wbx-feed-missing")">
+                    <span class="wbx-dot"></span>@f.Name
+                    @if (f.UpdatedAt is { } at) {
+                        <TimeAgo At="@at" Class="time-ago"/>
+                    }
                 </span>
             }
         </div>
+
+        @if (s.Config.Platforms.Count > 0) {
+            <div class="wbx-row wbx-row-gap">
+                <span class="wbx-k">Config</span>
+                @foreach (var p in s.Config.Platforms) {
+                    <span class="wbx-feed wbx-feed-ok">
+                        <PlatformIcon Platform="@p.Platform"/>
+                        <TimeAgo At="@p.SavedAt" Class="time-ago"/>
+                    </span>
+                }
+            </div>
+        }
     }
 </section>
 
 @code {
-    const int BarCount = 4;
-
     [Parameter] public PeriodicalsSummary? Summary { get; set; }
 
     [Parameter] public EventCallback OnOpenNotifications { get; set; }
 
     [Parameter] public EventCallback OnOpenApiWorkbench { get; set; }
-
-    static int TotalRows(PeriodicalsSummary s) {
-        return s.Extracted.Sum(x => x.Count);
-    }
-
-    static int FeedsPresent(PeriodicalsSummary s) {
-        return s.Feeds.Count(f => f.Present);
-    }
-
-    static List<ExtractedRow> TopSets(PeriodicalsSummary s) {
-        return [.. s.Extracted.Where(x => x.Count > 0).OrderByDescending(x => x.Count).Take(BarCount)];
-    }
-
-    static string FillStyle(int count, int max) {
-        return FormattableString.Invariant($"--fill:{(max <= 0 ? 0 : count * 100.0 / max):0.#}%;");
-    }
 
     static string? ExtractVersion(PeriodicalsSummary s) {
         return s.Extracted.Select(x => x.BinaryVersion).FirstOrDefault(v => !string.IsNullOrEmpty(v));

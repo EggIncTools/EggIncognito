@@ -1,6 +1,17 @@
-.wbx-bars { display: flex; flex-direction: column; gap: 0.1875rem; margin-top: 0.5rem; }
-.wbx-bar { display: grid; grid-template-columns: 5.5rem 1fr auto; align-items: center; gap: 0.375rem; }
-.wbx-bar-k { font-size: 0.625rem; color: var(--color-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.wbx-bar-n { font-family: var(--font-mono); font-size: 0.625rem; color: var(--color-fg-soft); }
-.wbx-foot { display: flex; align-items: center; flex-wrap: wrap; gap: 0.25rem 0.625rem; margin-top: 0.5rem; }
-.wbx-foot-item { display: inline-flex; align-items: center; gap: 0.25rem; }
+.wbx-row { display: flex; align-items: center; flex-wrap: wrap; gap: 0.25rem 0.625rem; font-size: 0.75rem; }
+.wbx-row-gap { margin-top: 0.625rem; }
+.wbx-k { font-size: 0.6875rem; text-transform: uppercase; letter-spacing: 0.025em; color: var(--color-muted); min-width: 4rem; }
+.wbx-n { font-family: var(--font-mono); font-size: 0.6875rem; color: var(--color-muted); }
+.wbx-stack { display: flex; gap: 2px; height: 0.5rem; margin-top: 0.375rem; border-radius: 0.25rem; overflow: hidden; }
+.wbx-seg { flex: 1 1 0; min-width: 2px; }
+.wbx-seg-0 { background-color: var(--color-accent); }
+.wbx-seg-1 { background-color: color-mix(in oklab, var(--color-accent) 60%, var(--color-panel)); }
+.wbx-seg-2 { background-color: color-mix(in oklab, var(--color-fg) 45%, var(--color-panel)); }
+.wbx-seg-3 { background-color: color-mix(in oklab, var(--color-fg) 22%, var(--color-panel)); }
+.wbx-legend { display: flex; flex-wrap: wrap; gap: 0.25rem 0.75rem; margin-top: 0.375rem; font-size: 0.75rem; }
+.wbx-leg { display: inline-flex; align-items: center; gap: 0.3rem; }
+.wbx-dot { display: inline-block; width: 0.5rem; height: 0.5rem; border-radius: 9999px; background-color: currentColor; }
+.wbx-feed { display: inline-flex; align-items: center; gap: 0.3rem; }
+.wbx-feed-ok .wbx-dot { background-color: var(--color-ok); }
+.wbx-feed-missing { color: var(--color-muted); }
+.wbx-feed-missing .wbx-dot { background-color: var(--color-err); }

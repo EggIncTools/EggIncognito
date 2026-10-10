@@ -41,31 +41,17 @@
                 <div class="reg-toolbar">
                     <BrandPanel Rows="_rows" OnOpenVersion="OpenVersion"/>
                     <div class="reg-toolbar-controls">
-                        <Tooltip PopClass="tt-ctl">
-                            <ChildContent>
-                                <label id="protoPageDrop" class="reg-drop" for="wbFile">
-                                    <Icon Name="upload" Class="icon-sm"/>
-                                    <span>Drop a build</span>
-                                </label>
-                            </ChildContent>
-                            <Content>
-                                <span class="tt-title">Drop a build</span>
-                                <span class="tt-line">Drag an APK, APKM, XAPK or IPA onto this, or click to pick one. The proto inside is extracted and submitted to the registry.</span>
-                            </Content>
+                        <Tooltip Text="APK, APKM, XAPK or IPA">
+                            <label id="protoPageDrop" class="reg-drop" for="wbFile">
+                                <Icon Name="upload" Class="icon-sm"/>
+                                <span>Drop a build</span>
+                            </label>
                         </Tooltip>
-                        <Tooltip PopClass="tt-ctl">
-                            <ChildContent>
-                                <button type="button" class="reg-intake"
-                                        aria-label="Open the proto workbench" @onclick="@(() => _workbench?.Open())">
-                                    <span>Proto workbench</span>
-                                    <Icon Name="chevron-right" Class="icon-sm"/>
-                                </button>
-                            </ChildContent>
-                            <Content>
-                                <span class="tt-title">Proto workbench</span>
-                                <span class="tt-line">Browse every registered version, diff two protos side by side and inspect their messages.</span>
-                            </Content>
-                        </Tooltip>
+                        <button type="button" class="reg-intake"
+                                aria-label="Open the proto workbench" @onclick="@(() => _workbench?.Open())">
+                            <span>Proto workbench</span>
+                            <Icon Name="chevron-right" Class="icon-sm"/>
+                        </button>
                     </div>
                 </div>
                 @if (_loading && _rows.Count == 0) {

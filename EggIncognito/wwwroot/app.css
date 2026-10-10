@@ -415,26 +415,6 @@ input[type="search"]::placeholder { color: var(--color-muted); }
   -webkit-background-clip: text;
   color: transparent;
 }
-.tooltip-floating.tt-ctl {
-  white-space: normal;
-  max-width: 16rem;
-  padding: 0.5rem 0.75rem 0.5625rem;
-  border-color: color-mix(in oklab, var(--color-accent) 45%, var(--color-border));
-  border-left: 3px solid var(--color-accent);
-  background:
-    linear-gradient(135deg,
-      color-mix(in oklab, var(--color-accent) 9%, var(--color-bg)),
-      var(--color-bg) 60%);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, .55), 0 0 0 1px color-mix(in oklab, var(--color-accent) 12%, transparent);
-}
-.tooltip-floating.tt-ctl .tt-title {
-  margin-bottom: 0.25rem;
-  font-family: var(--font-mono);
-  font-size: 0.6875rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-.tooltip-floating.tt-ctl .tt-line { line-height: 1.4; color: var(--color-fg); opacity: 0.85; }
 
 .settings-menu { --menu-max-h: calc(100vh - var(--nav-h, 3rem) - 1.5rem); }
 .settings-menu .menu {

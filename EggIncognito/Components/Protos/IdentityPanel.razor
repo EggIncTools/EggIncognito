@@ -7,6 +7,16 @@
 @inject IServiceProvider Services
 
 <section class="panel pd-w-identity">
+    <div class="pd-brand">
+        <img class="pd-brand-logo" src="/brand/logo.png" alt="EggIncognito"/>
+        <div class="pd-serverline">
+            <VersionLine App="@_version"/><span class="pd-sep">|</span><a class="pd-server-sha" href="@_commitUrl" target="_blank" rel="noopener">@_sha</a>
+            @if (_builtAt is { } built) {
+                <span class="pd-sep">|</span>
+                <TimeAgo At="@built" Class="time-ago"/>
+            }
+        </div>
+    </div>
     @if (Auth.Enabled || Auth.LocalIdentityActive) {
         <span class="auth-nav">
             @if (User.Current.IsAuthenticated) {
@@ -83,8 +93,20 @@
     string _timezone = "";
     string _language = "";
     string _sessionToken = "";
+    string _version = "";
+    string _sha = "";
+    string _commitUrl = "";
+    DateTimeOffset? _builtAt;
 
     protected override async Task OnInitializedAsync() {
+        var b = BuildInfo.FromAssembly("https://github.com/EggIncTools/EggIncognito");
+        _version = $"v{b.Version}";
+        _sha = b.ShortSha;
+        _commitUrl = b.CommitUrl;
+        _builtAt = DateTime.TryParse(b.BuildDate, CultureInfo.InvariantCulture,
+            DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out var built)
+            ? new DateTimeOffset(built, TimeSpan.Zero)
+            : null;
         _sessionToken = HttpContextAccessor.HttpContext?.Request.Cookies[Auth.SessionCookieName] ?? "";
         await LoadProfile();
     }

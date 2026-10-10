@@ -37,9 +37,8 @@
                     <thead>
                     <tr>
                         <th class="cegg-icon-col" rowspan="2"></th>
-                        <th rowspan="2">Name</th>
+                        <th class="cegg-name-col" rowspan="2">Name</th>
                         <th rowspan="2">Dimension</th>
-                        <th rowspan="2"></th>
                         <th class="cegg-tier-group cegg-tier-first" colspan="@tierCount">Tier</th>
                     </tr>
                     <tr>
@@ -61,11 +60,12 @@
                                 }
                             </td>
                             <td class="cegg-name">@EggName(e)</td>
-                            <td class="cegg-dim">@(e.TierValues.Count == 0 ? "-" : TitleCase(e.Dimension))</td>
                             @if (e.TierValues.Count == 0) {
-                                <td class="cegg-dim" colspan="@(tierCount + 1)">buffs not yet published</td>
+                                <td class="cegg-dim" colspan="@(tierCount + 1)">not yet published</td>
                             } else {
-                                <td class="mono cegg-unit">@TierUnit(e.TierValues)</td>
+                                <td class="cegg-dim">
+                                    <span class="cegg-chip"><span class="cegg-chip-unit">@TierUnit(e.TierValues)</span>@TitleCase(e.Dimension)</span>
+                                </td>
                                 @for (var t = 0; t < tierCount; t++) {
                                     <td class="mono @TierCellClass(t)">@(t < e.TierValues.Count ? TierMagnitude(e.TierValues[t]) : "")</td>
                                 }
@@ -74,6 +74,12 @@
                     }
                     </tbody>
                 </table>
+                @{ var used = c.Eggs.Where(e => e.TierValues.Count > 0).Select(e => e.Dimension).ToHashSet(StringComparer.OrdinalIgnoreCase); }
+                <div class="cegg-legend">
+                    @foreach (var dim in ProtoDimensions) {
+                        <span class="cegg-chip @(used.Contains(dim) ? "" : "cegg-chip-off")">@TitleCase(dim)</span>
+                    }
+                </div>
             </section>
         }
     </div>
@@ -534,6 +540,10 @@
     static string TierUnit(IReadOnlyList<double> values) {
         return values.All(v => v < 1) ? "-%" : "+%";
     }
+
+    static readonly IReadOnlyList<string> ProtoDimensions = [
+        .. EggIncognito.GameData.ColleggtibleCatalog.DimensionCodes.Where(kv => kv.Value > 0).OrderBy(kv => kv.Value).Select(kv => kv.Key)
+    ];
 
     static string TierCellClass(int tierIx) {
         return tierIx == 0 ? "cegg-tier cegg-tier-first" : "cegg-tier";

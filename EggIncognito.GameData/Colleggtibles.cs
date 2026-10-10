@@ -14,18 +14,13 @@ public interface IColleggtibleCatalog {
 
 public sealed class ColleggtibleCatalog : GameDataCatalog<ColleggtibleEgg, string>, IColleggtibleCatalog {
     public static readonly FrozenDictionary<string, int> DimensionCodes =
-        new Dictionary<string, int> {
-            ["INVALID"] = 0,
-            ["EARNINGS"] = 1,
-            ["AWAY_EARNINGS"] = 2,
-            ["INTERNAL_HATCHERY_RATE"] = 3,
-            ["EGG_LAYING_RATE"] = 4,
-            ["SHIPPING_CAPACITY"] = 5,
-            ["HAB_CAPACITY"] = 6,
-            ["VEHICLE_COST"] = 7,
-            ["HAB_COST"] = 8,
-            ["RESEARCH_COST"] = 9
-        }.ToFrozenDictionary(StringComparer.Ordinal);
+        Ei.GameModifier.Types.GameDimension.Invalid.GetType()
+            .GetFields(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static)
+            .ToFrozenDictionary(
+                f => f.GetCustomAttributes(typeof(Google.Protobuf.Reflection.OriginalNameAttribute), false)
+                    .OfType<Google.Protobuf.Reflection.OriginalNameAttribute>().First().Name,
+                f => Convert.ToInt32(f.GetValue(null), System.Globalization.CultureInfo.InvariantCulture),
+                StringComparer.Ordinal);
 
     private ColleggtibleCatalog(IReadOnlyList<ColleggtibleEgg> eggs, IReadOnlyDictionary<string, string> map,
         string gameVersion, IReadOnlyDictionary<string, ProvenanceSource> provenance)
