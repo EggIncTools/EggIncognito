@@ -1,8 +1,10 @@
+using EggIdentity.Auth;
+using EggIdentity.Client;
 using Microsoft.AspNetCore.WebUtilities;
 
 namespace EggIncognito.Services;
 
-public sealed class LoginCallbackMiddleware(RequestDelegate next) {
+public sealed class LoginCallbackMiddleware(RequestDelegate next, ILogger<LoginCallbackMiddleware> logger) {
     public async Task Invoke(HttpContext ctx, AuthState authState) {
         if (!authState.WidgetEnabled || !HttpMethods.IsGet(ctx.Request.Method)) {
             await next(ctx);
@@ -17,7 +19,24 @@ public sealed class LoginCallbackMiddleware(RequestDelegate next) {
             return;
         }
 
-        ctx.Response.Redirect(StripAuthParams(ctx, !string.IsNullOrEmpty(error)));
+        bool failed = !string.IsNullOrEmpty(error);
+        if (!failed && ctx.User.Identity?.IsAuthenticated != true) failed = await RedeemFailedAsync(ctx, code);
+        ctx.Response.Redirect(StripAuthParams(ctx, failed));
+    }
+
+    private async Task<bool> RedeemFailedAsync(HttpContext ctx, string code) {
+        var identity = ctx.RequestServices.GetService<IdentityApiClient>();
+        var session = ctx.RequestServices.GetService<SessionCookieOptions>();
+        if (identity is null || session is null) return false;
+        try {
+            var r = await identity.RedeemAsync(code, ctx.RequestAborted);
+            SessionIssuer.IssueCookie(ctx.Response, session,
+                new SessionUser(r.UserId.ToString(), null, r.Role, r.Username, r.Avatar, r.DiscordId), DateTimeOffset.UtcNow);
+            return false;
+        } catch (HttpRequestException ex) {
+            logger.LogWarning(ex, "login code redeem failed");
+            return true;
+        }
     }
 
     private static string StripAuthParams(HttpContext ctx, bool loginError) {

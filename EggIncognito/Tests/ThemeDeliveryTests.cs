@@ -17,10 +17,10 @@ public class ThemeDeliveryTests(SharedAppFactory f) {
     }
 
     [Fact]
-    public async Task AnonymousPage_LoadsTheBootScript() {
+    public async Task AnonymousPage_LoadsNoThemeBootScript() {
         var c = _f.CreateClient();
         string html = await c.GetStringAsync("/");
-        Assert.Contains("/interop/themeBoot.js", html);
+        Assert.DoesNotContain("/interop/themeBoot.js", html);
     }
 
     [Fact]
@@ -59,7 +59,7 @@ public class ThemeDeliveryTests(SharedAppFactory f) {
     [Fact]
     public async Task StaticAsset_KeepsItsCaching() {
         var c = _f.CreateClient();
-        var resp = await c.GetAsync("/interop/themeBoot.js");
+        var resp = await c.GetAsync("/interop/protoStrip.js");
         Assert.Equal(System.Net.HttpStatusCode.OK, resp.StatusCode);
         Assert.NotEqual(true, resp.Headers.CacheControl?.NoStore);
     }

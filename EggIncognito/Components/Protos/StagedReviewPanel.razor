@@ -16,7 +16,7 @@
         <div class="sr-head">
             <div class="sr-title">Staged submissions (@_rows.Count)</div>
             @if (fresh.Any(r => r.IsIncomplete)) {
-                <button type="button" class="btn-mini" @onclick="CopyAllMissing">
+                <button type="button" class="btn-mini" @onclick="@(() => CopyAndClear([.. _rows.Where(r => r.IsIncomplete)]))">
                     Copy Missing Info (@fresh.Count(r => r.IsIncomplete))
                 </button>
             }
@@ -84,7 +84,7 @@
                                     <button type="button" class="btn-mini" disabled="@_busy" @onclick="@(() => Approve(r))">Approve</button>
                                     <button type="button" class="btn-mini" disabled="@_busy" @onclick="@(() => Reject(r))">Reject</button>
                                     @if (r.IsIncomplete) {
-                                        <button type="button" class="btn-mini" @onclick="@(() => CopyOne(r))">
+                                        <button type="button" class="btn-mini" @onclick="@(() => CopyAndClear([r]))">
                                             Copy
                                         </button>
                                     }
@@ -290,10 +290,6 @@
         await OnChanged.InvokeAsync();
     }
 
-    Task CopyAllMissing() {
-        return CopyAndClear([.. _rows.Where(r => r.IsIncomplete)]);
-    }
-
     static async Task<string?> ErrorText(HttpResponseMessage resp) {
         try {
             var body = await resp.Content.ReadFromJsonAsync<ErrorResp>(JsonOpts);
@@ -304,10 +300,6 @@
     }
 
     sealed record ErrorResp(string? Error);
-
-    Task CopyOne(Models.Staging.StagedRow r) {
-        return CopyAndClear([r]);
-    }
 
 
     void Ok(string t) {

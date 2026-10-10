@@ -1,16 +1,15 @@
 @inherits SelfCallComponentBase
 @inject ICurrentUser User
-@inject IJSRuntime Js
-@inject IWebHostEnvironment HostEnv
 @inject ToastService Toasts
 @inject NavigationManager Nav
 @inject ILogger<ThemePicker> Logger
+@inject ViewerCookies Viewer
+@inject ViewerThemeLive Live
 @using System.Text
 @using System.Text.Json
 @using EggIdentity.Styles.Theming
 @using EggIncognito.Models.Theme
 @using EggIncognito.Services.Theme
-@implements IAsyncDisposable
 
 <div class="theme-picker">
     <SubSectionHead>Appearance</SubSectionHead>
@@ -38,7 +37,7 @@
     <div class="theme-picker-actions">
         <button type="button" class="btn-mini" @onclick="() => _wbOpen = true">Open theme workbench</button>
         @if (!User.Current.IsAuthenticated) {
-            <button type="button" class="btn-mini" @onclick="ResetLocalAsync">Reset</button>
+            <button type="button" class="btn-mini" @onclick="ResetLocal">Reset</button>
         }
     </div>
 </div>
@@ -50,22 +49,9 @@
     readonly List<ThemeRow> _themes = [];
     string _activeSlug = "";
     bool _wbOpen;
-    IJSObjectReference? _prefs;
-    IJSObjectReference? _preview;
 
     protected override async Task OnInitializedAsync() {
         await LoadThemesAsync();
-    }
-
-    protected override async Task OnAfterRenderAsync(bool firstRender) {
-        if (firstRender) {
-            try {
-                _prefs = await Js.InvokeAsync<IJSObjectReference>("import", InteropAsset.Url(HostEnv, "./interop/uiPrefs.js"));
-                _preview = await Js.InvokeAsync<IJSObjectReference>("import", InteropAsset.Url(HostEnv, "./interop/themePreview.js"));
-            } catch (Exception ex) when (ex is JSDisconnectedException or JSException) {
-                Logger.LogDebug(ex, "theme interop modules could not be loaded");
-            }
-        }
     }
 
     async Task LoadThemesAsync() {
@@ -105,16 +91,8 @@
             return;
         }
 
-        if (_prefs is null || _preview is null) return;
-        try {
-            await _prefs.InvokeVoidAsync("set", "theme.model", preset.ToJson());
-            await _prefs.InvokeVoidAsync("set", "theme.active", "1");
-            await _preview.InvokeVoidAsync("applyTokens", TokenCssMap(preset));
-        } catch (JSDisconnectedException ex) {
-            Logger.LogDebug(ex, "theme preset apply skipped, the circuit is already gone");
-            return;
-        }
-
+        Viewer.Set("theme.model", preset.ToJson());
+        Live.Apply(preset);
         Toasts.Push(StatusNoteKind.Ok, $"{preset.Name} applied in this browser");
     }
 
@@ -138,17 +116,9 @@
         await LoadThemesAsync();
     }
 
-    async Task ResetLocalAsync() {
-        if (_prefs is null || _preview is null) return;
-        try {
-            await _prefs.InvokeVoidAsync("remove", "theme.model");
-            await _prefs.InvokeVoidAsync("remove", "theme.active");
-            await _preview.InvokeVoidAsync("clearTokens", ThemeTokens.Settable);
-        } catch (JSDisconnectedException ex) {
-            Logger.LogDebug(ex, "theme reset skipped, the circuit is already gone");
-            return;
-        }
-
+    void ResetLocal() {
+        Viewer.Set("theme.model", "");
+        Live.Apply(ThemePresets.Default);
         Toasts.Push(StatusNoteKind.Ok, "reset to the shipped default");
     }
 
@@ -157,25 +127,8 @@
         await LoadThemesAsync();
     }
 
-    static Dictionary<string, string> TokenCssMap(ThemeModel model) {
-        var map = new Dictionary<string, string>(StringComparer.Ordinal);
-        foreach (var token in ThemeTokens.Settable) map[token] = model.TokenOrDefault(token).ToCss();
-        return map;
-    }
-
     static string AccentCss(ThemeModel preset) {
         return preset.TokenOrDefault("accent").ToCss();
-    }
-
-    public async ValueTask DisposeAsync() {
-        foreach (var module in new[] { _prefs, _preview }) {
-            if (module is not null) {
-                try {
-                    await module.DisposeAsync();
-                } catch (JSDisconnectedException) {
-                }
-            }
-        }
     }
 
 }

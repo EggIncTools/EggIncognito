@@ -1,6 +1,7 @@
 @rendermode @(RenderModes.InteractiveServer)
 @inherits SelfCallComponentBase
 @inject IJSRuntime JS
+@inject Downloads Downloads
 @inject IWebHostEnvironment Env
 @inject ICurrentUser User
 @inject NavigationManager Nav
@@ -8,7 +9,6 @@
 @inject ToastService Toasts
 @inject ILogger<ProtoWorkbenchModal> Logger
 @inject IServiceProvider Services
-@inject DownloadInterop Download
 @using System.Globalization
 @using System.Text
 @using System.Text.Json
@@ -41,7 +41,7 @@
             </button>
         }
         @if (offerAllCount > 0) {
-            <button type="button" class="btn-mini" disabled="@_offerBusy" @onclick="@(() => OfferAll(groups))">
+            <button type="button" class="btn-mini" disabled="@_offerBusy" @onclick="@(() => OfferBatch([.. groups.Where(CanOffer)]))">
                 <Icon Name="upload" Class="icon-sm"/> Offer all (@offerAllCount)
             </button>
         }
@@ -208,7 +208,7 @@
 
                     @if (selGroup is { } sg && CanOffer(sg)) {
                         <button type="button" class="btn-mini" disabled="@_offerBusy"
-                                @onclick="@(() => Offer(sg))">
+                                @onclick="@(() => OfferBatch([sg]))">
                             @if (CanFlag(sg)) {
                                 <Icon Name="shield-check" Class="icon-sm"/> <text>@(sg.Status is { ShaDiffers: true } ? "Replace with archive" : sg.Status is { MetaDiffers: true } ? "Correct from archive" : "Flag archive")</text>
                             } else {
@@ -256,11 +256,11 @@
                                 </a>
                             } else {
                                 <button type="button" class="pwb-menu-item"
-                                        @onclick="@(() => DownloadUnified(dlBundle))">
+                                        @onclick="@(() => Save(PairName("diff"), dlBundle.Unified))">
                                     unified .diff
                                 </button>
                                 <button type="button" class="pwb-menu-item"
-                                        @onclick="@(() => DownloadJson(dlBundle))">
+                                        @onclick="@(() => Save(PairName("json"), StructuralJson(dlBundle), "application/json"))">
                                     structural .json
                                 </button>
                             }
@@ -302,7 +302,7 @@
                             Swap A and B
                         </button>
                         <button type="button" class="pwb-menu-item" disabled="@(State.B is null)"
-                                @onclick="@(() => MenuDo(ClearB))">
+                                @onclick="@(() => MenuDo(() => SetB(null)))">
                             Clear B
                         </button>
                     </div>
@@ -988,14 +988,6 @@
         await CheckGroups();
     }
 
-    Task OfferAll(List<OfferGroup> groups) {
-        return OfferBatch([.. groups.Where(CanOffer)]);
-    }
-
-    Task Offer(OfferGroup g) {
-        return OfferBatch([g]);
-    }
-
     async Task OfferBatch(List<OfferGroup> groups) {
         var ready = groups.Where(g => g.Winner?.Result is { Proto.Length: > 0 } or { FileSha.Length: > 0 }).ToList();
         if (ready.Count == 0) return;
@@ -1231,10 +1223,6 @@
         State.B = value;
         if (value is null) State.Mode = "text";
         await AfterSelection();
-    }
-
-    Task ClearB() {
-        return SetB(null);
     }
 
     async Task SwapRefs() {
@@ -1762,24 +1750,12 @@
     }
 
     async Task DownloadProto(ProtoRef value) {
-        _menu = null;
-        var text = TextOf(value) ?? await ResolveText(value);
-        if (text is not { Length: > 0 }) return;
-        await DownloadText($"{FileLabel(value)}.proto", text);
+        if ((TextOf(value) ?? await ResolveText(value)) is { Length: > 0 } text) Save($"{FileLabel(value)}.proto", text);
     }
 
-    async Task DownloadUnified(DiffBundle bundle) {
+    void Save(string fileName, string text, string contentType = "text/plain;charset=utf-8") {
         _menu = null;
-        await DownloadText(PairName("diff"), bundle.Unified);
-    }
-
-    async Task DownloadJson(DiffBundle bundle) {
-        _menu = null;
-        await DownloadText(PairName("json"), StructuralJson(bundle));
-    }
-
-    async Task DownloadText(string fileName, string content) {
-        if (!await Download.SaveTextAsync(fileName, content)) Logger.LogDebug("download of {FileName} failed", fileName);
+        Downloads.SaveText(fileName, text, contentType);
     }
 
     static bool SameSha(string? a, string? b) {

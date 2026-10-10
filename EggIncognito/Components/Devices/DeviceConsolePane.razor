@@ -873,11 +873,6 @@
         if (!res.IsSuccessStatusCode) await Fail(await ReadError(res));
     }
 
-    [JSInvokable]
-    public Task OnLiveKey(string name) {
-        return KeyAsync(name);
-    }
-
     async Task SendTextAsync() {
         if (_deviceId is null || _text.Length == 0) return;
         var res = await Client().PostAsJsonAsync($"/api/devices/{_deviceId}/ui/text",
@@ -890,7 +885,8 @@
         _text = "";
     }
 
-    async Task KeyAsync(string key) {
+    [JSInvokable]
+    public async Task KeyAsync(string key) {
         if (_deviceId is null) return;
         var res = await Client().PostAsJsonAsync($"/api/devices/{_deviceId}/ui/key",
             new UiKeyRequest(key), SelfCallJson.Web);

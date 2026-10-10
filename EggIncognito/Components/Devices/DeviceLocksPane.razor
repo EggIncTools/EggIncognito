@@ -18,7 +18,7 @@
                     @(Watch.Paused ? "Resume all" : "Pause all")
                 </button>
             }
-            <button type="button" class="btn-mini @(Arming ? "active" : "")" title="@ArmTitle()" @onclick="ToggleArm">
+            <button type="button" class="btn-mini @(Arming ? "active" : "")" title="@ArmTitle()" @onclick="@(() => ArmingChanged.InvokeAsync(!Arming))">
                 <Icon Name="eye" Class="icon-sm"/>
                 @(Arming ? "Tap the screen" : "Lock a point")
             </button>
@@ -187,9 +187,6 @@
             : "Lock a point: tap a button once and it is tapped again every time it reappears";
     }
 
-    Task ToggleArm() {
-        return ArmingChanged.InvokeAsync(!Arming);
-    }
 
     void NewKindChanged(ChangeEventArgs e) {
         _newKind = PixelWatchKinds.Normalize(e.Value?.ToString());

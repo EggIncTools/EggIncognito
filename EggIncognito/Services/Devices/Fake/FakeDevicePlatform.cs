@@ -50,7 +50,7 @@ public sealed class FakeDevicePlatform(
     }
 
     public override async Task<DeviceProbeResult> ProbeAsync(DeviceTarget target, CancellationToken ct) {
-        if (Resolve(target) is not { } device) return new DeviceProbeResult(false, null, null, UnknownDevice);
+        if (settings.For(target.Id) is not { } device) return new DeviceProbeResult(false, null, null, UnknownDevice);
         await DelayAsync(device.ProbeDelayMs, ct);
         if (device.Scenario == FakeScenarios.Unreachable)
             return new DeviceProbeResult(false, null, null, OfflineNote);
@@ -63,7 +63,7 @@ public sealed class FakeDevicePlatform(
     public override async Task<DeviceResult<string>> FingerprintAsync(DeviceTarget target, HarvestEntry entry,
         CancellationToken ct) {
         if (!entry.Supported) return DeviceResult<string>.Unsupported(entry.UnsupportedNote);
-        if (Resolve(target) is not { } device) return DeviceResult<string>.Unreachable(UnknownDevice);
+        if (settings.For(target.Id) is not { } device) return DeviceResult<string>.Unreachable(UnknownDevice);
         if (device.Scenario == FakeScenarios.Unreachable) return DeviceResult<string>.Unreachable(OfflineNote);
 
         var installed = await InstalledAsync(device, ct);
@@ -74,7 +74,7 @@ public sealed class FakeDevicePlatform(
     public override async Task<DeviceResult<HarvestBatch>> HarvestAsync(DeviceTarget target, HarvestEntry entry,
         IReadOnlyDictionary<string, string> known, CancellationToken ct) {
         if (!entry.Supported) return DeviceResult<HarvestBatch>.Unsupported(entry.UnsupportedNote);
-        if (Resolve(target) is not { } device) return DeviceResult<HarvestBatch>.Unreachable(UnknownDevice);
+        if (settings.For(target.Id) is not { } device) return DeviceResult<HarvestBatch>.Unreachable(UnknownDevice);
         if (device.Scenario == FakeScenarios.Unreachable) return DeviceResult<HarvestBatch>.Unreachable(OfflineNote);
 
         if (device.Scenario == FakeScenarios.SlowHarvest && entry.Name == HarvestEntries.Meshes) {
@@ -107,7 +107,7 @@ public sealed class FakeDevicePlatform(
     }
 
     public override async Task<DeviceResult<byte[]>> PullAppBinaryAsync(DeviceTarget target, CancellationToken ct) {
-        if (Resolve(target) is not { } device) return DeviceResult<byte[]>.Unreachable(UnknownDevice);
+        if (settings.For(target.Id) is not { } device) return DeviceResult<byte[]>.Unreachable(UnknownDevice);
         if (device.Scenario == FakeScenarios.Unreachable) return DeviceResult<byte[]>.Unreachable(OfflineNote);
 
         var entry = new HarvestEntry(HarvestEntries.AppBinary, DeviceAssetKinds.Binary);
@@ -121,7 +121,7 @@ public sealed class FakeDevicePlatform(
 
     public override async Task<DeviceResult<byte[]>> ReadAssetAsync(DeviceTarget target, DeviceAssetKind kind,
         string name, CancellationToken ct) {
-        if (Resolve(target) is not { } device) return DeviceResult<byte[]>.Unreachable(UnknownDevice);
+        if (settings.For(target.Id) is not { } device) return DeviceResult<byte[]>.Unreachable(UnknownDevice);
         if (device.Scenario == FakeScenarios.Unreachable) return DeviceResult<byte[]>.Unreachable(OfflineNote);
 
         var installed = await InstalledAsync(device, ct);
@@ -133,7 +133,7 @@ public sealed class FakeDevicePlatform(
 
     public override async Task<DeviceResult<IReadOnlyList<string>>> ListAssetsAsync(DeviceTarget target,
         DeviceAssetKind kind, CancellationToken ct) {
-        if (Resolve(target) is not { } device)
+        if (settings.For(target.Id) is not { } device)
             return DeviceResult<IReadOnlyList<string>>.Unreachable(UnknownDevice);
         if (device.Scenario == FakeScenarios.Unreachable)
             return DeviceResult<IReadOnlyList<string>>.Unreachable(OfflineNote);
@@ -184,7 +184,7 @@ public sealed class FakeDevicePlatform(
         Task.FromResult(DeviceResult.Success($"fake ui launch {appRef}"));
 
     private async Task<DeviceResult> ActAsync(DeviceTarget target, string verb, CancellationToken ct) {
-        if (Resolve(target) is not { } device) return DeviceResult.Unreachable(UnknownDevice);
+        if (settings.For(target.Id) is not { } device) return DeviceResult.Unreachable(UnknownDevice);
         if (device.Scenario == FakeScenarios.Unreachable) return DeviceResult.Unreachable(OfflineNote);
         await DelayAsync(ActionDelayMs, ct);
         return DeviceResult.Success($"fake device {verb}");
@@ -197,8 +197,6 @@ public sealed class FakeDevicePlatform(
 
     private Task<FakeInstalledVersion> InstalledAsync(FakeDevice device, CancellationToken ct) =>
         fixtures.ResolveAsync(device, versions, ct);
-
-    private FakeDevice? Resolve(DeviceTarget target) => settings.For(target.Id);
 
     private static Task DelayAsync(int milliseconds, CancellationToken ct) =>
         milliseconds <= 0 ? Task.CompletedTask : Task.Delay(milliseconds, ct);

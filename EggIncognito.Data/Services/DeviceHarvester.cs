@@ -59,7 +59,7 @@ public sealed class DeviceHarvester(
             if (fp is { Ok: true, Value: { Length: > 0 } value } && !force) {
                 var stored = await assets.GetAsync(DeviceAssetKinds.Manifest, fpName, target.Platform, ct);
                 if (stored is not null
-                    && string.Equals(Text(await assets.BytesAsync(stored, ct)), value, StringComparison.Ordinal)) {
+                    && string.Equals(Encoding.UTF8.GetString(await assets.BytesAsync(stored, ct)), value, StringComparison.Ordinal)) {
                     await jobs.LineAsync(job, entry.Name, "unchanged", null, 0, value, ct);
                     skipped++;
                     continue;
@@ -137,5 +137,4 @@ public sealed class DeviceHarvester(
             item.Bytes, target.Id, ct);
     }
 
-    private static string Text(byte[] bytes) => Encoding.UTF8.GetString(bytes);
 }

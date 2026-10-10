@@ -21,8 +21,6 @@ public sealed class DocsController(ICurrentUser currentUser, TimeProvider time) 
     private static readonly FrozenSet<string> AllowedImageTypes =
         FrozenSet.Create(StringComparer.OrdinalIgnoreCase, "image/png", "image/jpeg", "image/gif", "image/webp");
 
-    private static bool ValidKind(string kind) => DocSubjectKinds.IsKnown(kind);
-
     private static bool TaggableKind(string kind) => kind == DocSubjectKinds.Endpoint;
 
     private void CacheFor(int seconds) =>
@@ -30,7 +28,7 @@ public sealed class DocsController(ICurrentUser currentUser, TimeProvider time) 
 
     [HttpGet("doc/{kind}/{**key}")]
     public async Task<IActionResult> GetDoc(string kind, string key, [FromServices] EggIncognitoDbContext? db) {
-        if (!ValidKind(kind)) return Fail(400, "invalid subject kind");
+        if (!DocSubjectKinds.IsKnown(kind)) return Fail(400, "invalid subject kind");
         if (db is null) return Ok(new DocResult(null));
         var doc = await db.Docs.AsNoTracking()
             .FirstOrDefaultAsync(d => d.SubjectKind == kind && d.SubjectKey == key);
@@ -41,7 +39,7 @@ public sealed class DocsController(ICurrentUser currentUser, TimeProvider time) 
     [ApiAccess(ApiAccessLevel.Contributor)]
     [RequiresDb]
     public async Task<IActionResult> UpsertDocAsync([FromBody] UpsertDoc body, [FromServices] EggIncognitoDbContext db) {
-        if (!ValidKind(body.SubjectKind)) return Fail(400, "invalid subject kind");
+        if (!DocSubjectKinds.IsKnown(body.SubjectKind)) return Fail(400, "invalid subject kind");
 
         var existing = await db.Docs
             .FirstOrDefaultAsync(d => d.SubjectKind == body.SubjectKind && d.SubjectKey == body.SubjectKey);

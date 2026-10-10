@@ -21,18 +21,14 @@
 
     protected override IReadOnlyList<string> Topics => [AdminTopics.Staged];
 
-    protected override Task LoadAsync() {
-        return Load();
-    }
-
-    async Task Load() {
+    protected override async Task LoadAsync() {
         if (Api is null) return;
         var res = await Api.GetAsync("/api/protos/staged");
         if (res.Ok) _rows = res.Json<List<StagedPendingRow>>() ?? [];
     }
 
     async Task OnReviewed() {
-        await Load();
+        await LoadAsync();
         Notifier.Publish(AdminTopics.Staged);
     }
 

@@ -1,4 +1,9 @@
-import { get as getRaw, set as setRaw } from "./uiPrefs.js";
+function getRaw(key) {
+  try { return localStorage.getItem(key); } catch { return null; }
+}
+function setRaw(key, val) {
+  try { localStorage.setItem(key, val); } catch { }
+}
 
 const SALT_KEY = "inspector.salt";
 const RINFO_KEY = "inspector.rinfoDefaults";

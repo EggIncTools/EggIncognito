@@ -1,4 +1,3 @@
-@implements IAsyncDisposable
 @using System.Globalization
 @using System.Text
 @using System.Text.Json
@@ -12,8 +11,6 @@
 @using EggIncognito.Services.Events
 @inherits SelfCallComponentBase
 @inject IServiceProvider Services
-@inject IJSRuntime JS
-@inject IWebHostEnvironment Env
 @inject ILogger<PeriodicalsPanel> Logger
 
 <div class="pd-widgets">
@@ -52,9 +49,9 @@
                         <tr>
                             <td>
                                 @if (!string.IsNullOrEmpty(e.Icon)) {
-                                    <img class="cegg-icon" src="@e.Icon" alt="@e.Identifier"
-                                         loading="lazy" data-fallback/>
-                                    <span class="cegg-none" data-fallback-for hidden>-</span>
+                                    <FallbackImg Class="cegg-icon" Src="@e.Icon" Alt="@e.Identifier">
+                                        <Fallback><span class="cegg-none">-</span></Fallback>
+                                    </FallbackImg>
                                 } else {
                                     <span class="cegg-none">-</span>
                                 }
@@ -97,7 +94,7 @@
                             <ChildContent>
                                 <button type="button" class="@CalendarBars.Css(context)" @onclick="@(() => OnOpenEvents.InvokeAsync())">
                                     @if (EventPalette.IconUrl(e.Type, e.Ultra) is { } iconUrl) {
-                                        <img class="evcal-bar-icon" src="@iconUrl" alt="" loading="lazy" data-fallback/>
+                                        <FallbackImg Class="evcal-bar-icon" Src="@iconUrl" Alt=""/>
                                     }
 
                                     <span class="evcal-bar-label">@EventMagnitude.Scalar(e)</span>
@@ -127,7 +124,7 @@
                                 <button type="button" class="@(CalendarBars.Css(context) + " evcal-bar-contract")"
                                         @onclick="@(() => OnOpenContracts.InvokeAsync())">
                                     @if (EggIcons.Url(c.Egg, c.CustomEggId) is { } eggUrl) {
-                                        <img class="evcal-bar-egg" src="@eggUrl" alt="" loading="lazy" data-fallback/>
+                                        <FallbackImg Class="evcal-bar-egg" Src="@eggUrl" Alt=""/>
                                     }
                                     <span class="evcal-bar-label">@c.Name</span>
                                 </button>
@@ -186,7 +183,7 @@
                                 @foreach (var egg in ceggs) {
                                     <div class="season-cegg">
                                         @if (egg.Icon is not null) {
-                                            <img class="season-cegg-icon" src="@egg.Icon" alt="@egg.Id" loading="lazy" data-fallback/>
+                                            <FallbackImg Class="season-cegg-icon" Src="@egg.Icon" Alt="@egg.Id"/>
                                         }
                                         <div class="season-cegg-body">
                                             <div class="season-cegg-name">@TitleCase(egg.Id)</div>
@@ -209,8 +206,9 @@
                             @foreach (var g in grades) {
                                 <th>
                                     @if (!string.IsNullOrEmpty(g.GradeIcon)) {
-                                        <img class="season-grade-icon" src="@g.GradeIcon" alt="@GradeLabel(g.Grade)" loading="lazy" data-fallback/>
-                                        <span data-fallback-for hidden>@GradeLabel(g.Grade)</span>
+                                        <FallbackImg Class="season-grade-icon" Src="@g.GradeIcon" Alt="@GradeLabel(g.Grade)">
+                                            <Fallback>@GradeLabel(g.Grade)</Fallback>
+                                        </FallbackImg>
                                     } else {
                                         @GradeLabel(g.Grade)
                                     }
@@ -234,8 +232,7 @@
                                                         </span>
                                                         <span class="season-goal-reward">
                                                             @if (!string.IsNullOrEmpty(goal.Icon)) {
-                                                                <img class="season-goal-img" src="@goal.Icon" alt=""
-                                                                     loading="lazy" data-fallback/>
+                                                                <FallbackImg Class="season-goal-img" Src="@goal.Icon" Alt=""/>
                                                             }
 
                                                             @if (goal.RewardAmount != 1) {
@@ -286,7 +283,6 @@
     PeriodicalsSummary? _summary;
     List<Models.Periodicals.Season>? _seasons;
     int _seasonIx;
-    IJSObjectReference? _images;
 
     [Parameter] public EventCallback<string?> OnManageDevices { get; set; }
 
@@ -564,20 +560,6 @@
         }
 
         return sb.ToString();
-    }
-
-    protected override async Task OnAfterRenderAsync(bool firstRender) {
-        if (!firstRender || _images is not null) return;
-        try {
-            _images = await JS.InvokeAsync<IJSObjectReference>("import", InteropAsset.Url(Env, "./interop/imgFallback.js"));
-            await _images.InvokeVoidAsync("wire");
-        } catch (JSDisconnectedException ex) {
-            Logger.LogDebug(ex, "image fallback wiring skipped, the circuit is already gone");
-        }
-    }
-
-    public async ValueTask DisposeAsync() {
-        await _images.DisposeModuleAsync("unwire", Logger);
     }
 
 }

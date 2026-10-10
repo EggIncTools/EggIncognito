@@ -4,6 +4,8 @@
 @using EggIncognito.Models.Devices
 @using EggIncognito.Services.Events
 @inherits AdminPaneBase
+@inject IJSRuntime Js
+@inject IWebHostEnvironment Env
 
 <AdminPaneHead Title="Stored binaries" Facts="@Stats">
     <Tools>

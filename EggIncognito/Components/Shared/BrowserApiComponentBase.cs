@@ -1,36 +1,22 @@
-using EggIncognito.Services;
-using Microsoft.AspNetCore.Components;
-using Microsoft.JSInterop;
-
 namespace EggIncognito.Components.Shared;
 
-public abstract class BrowserApiComponentBase : ComponentBase, IAsyncDisposable {
-    private IJSObjectReference? _module;
-
-    [Inject] protected IJSRuntime Js { get; set; } = null!;
-    [Inject] protected IWebHostEnvironment Env { get; set; } = null!;
-
+public abstract class BrowserApiComponentBase : SelfCallComponentBase, IAsyncDisposable {
     protected BrowserApi? Api { get; private set; }
 
-    public virtual async ValueTask DisposeAsync() {
-        await _module.DisposeModuleQuietAsync();
+    public virtual ValueTask DisposeAsync() {
         GC.SuppressFinalize(this);
+        return ValueTask.CompletedTask;
     }
 
     protected virtual Task OnApiReadyAsync() => Task.CompletedTask;
 
-    protected override async Task OnAfterRenderAsync(bool firstRender) {
-        if (!firstRender || Api is not null) return;
-        try {
-            _module = await Js.InvokeAsync<IJSObjectReference>("import",
-                InteropAsset.Url(Env, "./interop/browserApi.js"));
-        } catch (JSDisconnectedException) {
-            return;
-        } catch (JSException) {
-            return;
-        }
+    protected override void OnInitialized() {
+        base.OnInitialized();
+        Api = new BrowserApi(Client);
+    }
 
-        Api = new BrowserApi(_module);
+    protected override async Task OnAfterRenderAsync(bool firstRender) {
+        if (!firstRender) return;
         await OnApiReadyAsync();
         StateHasChanged();
     }

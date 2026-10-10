@@ -11,7 +11,7 @@ public sealed class NewestIslandStep(CookbookStep inner, IServiceScopeFactory sc
         inner.DescribeAsync(target, ct);
 
     public override async Task<CookbookStepResult> RunAsync(DeviceCookbookContext context, CancellationToken ct) {
-        int? newest = await NewestAsync(context.Target.Id, ct);
+        int? newest = await NewestAsync(scopeFactory, context.Target.Id, ct);
         if (newest is not { } id)
             return new CookbookStepResult(Id, Title, CookbookStepStatus.Failed, "no recorded island to target", []);
         return await inner.RunAsync(context with { AndroidUserId = id }, ct);
@@ -24,5 +24,4 @@ public sealed class NewestIslandStep(CookbookStep inner, IServiceScopeFactory sc
         return islands.Count == 0 ? null : islands.MaxBy(i => i.CreatedAt)?.AndroidUserId;
     }
 
-    private Task<int?> NewestAsync(string deviceId, CancellationToken ct) => NewestAsync(scopeFactory, deviceId, ct);
 }

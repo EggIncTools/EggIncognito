@@ -30,9 +30,9 @@
         <p class="routes-note">Binary route status unavailable (no database).</p>
     }
     <KpiGrid Columns="4" MaxWidth="26rem">
-        <KpiTile Value="@Kpi(_binary?.Discovered)" Label="discovered"/>
-        <KpiTile Value="@Kpi(_binary?.NewCount)" Label="new" Warn="@(_binary is { NewCount: > 0 })"/>
-        <KpiTile Value="@Kpi(_binary?.DriftCount)" Label="drift" Warn="@(_binary is { DriftCount: > 0 })"/>
+        <KpiTile Value="@(_binary?.Discovered.ToString() ?? "")" Label="discovered"/>
+        <KpiTile Value="@(_binary?.NewCount.ToString() ?? "")" Label="new" Warn="@(_binary is { NewCount: > 0 })"/>
+        <KpiTile Value="@(_binary?.DriftCount.ToString() ?? "")" Label="drift" Warn="@(_binary is { DriftCount: > 0 })"/>
         <KpiTile Value="@EditedCount.ToString()" Label="edited"/>
     </KpiGrid>
 
@@ -200,10 +200,6 @@
         await LoadRoles();
         LoadRoutes();
         LoadBinary();
-    }
-
-    static string Kpi(int? value) {
-        return value?.ToString() ?? "-";
     }
 
     int EditedCount => _rows.Count(r => r.Override is not null);

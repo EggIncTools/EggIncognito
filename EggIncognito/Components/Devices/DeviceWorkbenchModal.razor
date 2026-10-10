@@ -49,23 +49,23 @@
                                    CaptureCount="@(_hub is null ? null : _flows.Count)" JobCount="@_jobs?.Count"
                                    BinaryCount="@BinaryCount(dev)">
                     <Actions>
-                        <button type="button" class="btn-primary" disabled="@Busy" @onclick="ProbeNow">
+                        <button type="button" class="btn-primary" disabled="@Busy" @onclick="@(() => Act($"/api/devices/{Current!.Id}/refresh", "probed"))">
                             <Icon Name="refresh-cw" Class="icon-sm"/>
                             Probe
                         </button>
-                        <button type="button" class="btn-mini" disabled="@Busy" @onclick="CheckStore">Check store</button>
+                        <button type="button" class="btn-mini" disabled="@Busy" @onclick="@(() => Act($"/api/devices/{Current!.Id}/check-update", "store check started"))">Check store</button>
                         <button type="button" class="btn-mini" disabled="@Busy" @onclick="RestartApp">Restart app</button>
                         @if (dev.Platform == "android") {
                             <button type="button" class="btn-mini" disabled="@Busy" @onclick="Recert">Recert</button>
                         }
 
                         @if (_harvest is { InRegistry: false }) {
-                            <button type="button" class="btn-mini" disabled="@Busy" @onclick="SaveToRegistry">
+                            <button type="button" class="btn-mini" disabled="@Busy" @onclick="@(() => Act($"/api/devices/{Current!.Id}/save", "installed to registry"))">
                                 Save to registry
                             </button>
                         }
 
-                        <button type="button" class="btn-mini" disabled="@Busy" @onclick="Poke">Poke harvest</button>
+                        <button type="button" class="btn-mini" disabled="@Busy" @onclick="@(() => Act($"/api/devices/{Current!.Id}/poke", "harvest queued"))">Poke harvest</button>
                     </Actions>
                     <ActionNotes>@ActionLines(dev)</ActionNotes>
                     <Sections>
@@ -706,22 +706,6 @@
         var body = await ReadBody<ContributionOfferBatchResult>(res);
         foreach (long id in body?.Missing ?? []) _offered.Remove(id);
         return true;
-    }
-
-    Task ProbeNow() {
-        return Act($"/api/devices/{Current!.Id}/refresh", "probed");
-    }
-
-    Task CheckStore() {
-        return Act($"/api/devices/{Current!.Id}/check-update", "store check started");
-    }
-
-    Task SaveToRegistry() {
-        return Act($"/api/devices/{Current!.Id}/save", "installed to registry");
-    }
-
-    Task Poke() {
-        return Act($"/api/devices/{Current!.Id}/poke", "harvest queued");
     }
 
     async Task RestartApp() {

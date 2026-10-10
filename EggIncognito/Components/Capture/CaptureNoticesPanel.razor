@@ -10,7 +10,7 @@
         <div class="notices-head">
             <div class="settings-title">Notifications</div>
             @if (Notices.Count > 0) {
-                <button type="button" class="btn-mini" @onclick="ClearAllNotices">Clear all</button>
+                <button type="button" class="btn-mini" @onclick="OnClearNotices">Clear all</button>
             }
         </div>
         <div class="notif-list">
@@ -23,7 +23,7 @@
                         }
                     </div>
                     <button class="notif-dismiss" aria-label="Dismiss notification"
-                            @onclick="@(() => DismissNotice(n.Id))">
+                            @onclick="@(() => OnDismissNotice.InvokeAsync(n.Id))">
                         <Icon Name="x" Class="icon-sm"/>
                     </button>
                 </div>
@@ -49,12 +49,5 @@
         if (open) await OnNoticesRead.InvokeAsync();
     }
 
-    Task DismissNotice(int id) {
-        return OnDismissNotice.InvokeAsync(id);
-    }
-
-    Task ClearAllNotices() {
-        return OnClearNotices.InvokeAsync();
-    }
 
 }

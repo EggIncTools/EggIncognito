@@ -53,10 +53,6 @@
 
     protected override IReadOnlyList<string> Topics => [AdminTopics.Users];
 
-    protected override Task LoadAsync() {
-        return LoadUsers();
-    }
-
     IEnumerable<string> Stats() {
         return RoleBreakdown().Prepend($"{_users.Count} total");
     }
@@ -70,7 +66,7 @@
             .Select(n => $"{counts[n]} {n}");
     }
 
-    async Task LoadUsers() {
+    protected override async Task LoadAsync() {
         if (Api is null) return;
         var res = await Api.GetAsync("/api/admin/users");
         _users = res.Ok ? res.Json<List<UserRow>>() ?? [] : [];

@@ -2,6 +2,7 @@ using System.Net;
 using Bunit;
 using EggIdentity.Auth;
 using EggIdentity.Contract;
+using EggIdentity.UI;
 using EggIncognito.Capture;
 using EggIncognito.Core.Services;
 using EggIncognito.Services;
@@ -54,7 +55,7 @@ public class ProtosPageTests {
             Services.AddSingleton(new AuthState(false));
             Services.AddSingleton<IHttpContextAccessor>(new HttpContextAccessor());
             Services.AddSingleton<IWebHostEnvironment>(new FakeWebHostEnvironment());
-            Services.AddScoped<EggIdentity.UI.DownloadInterop>();
+            Services.AddEggIdentityDownloads();
             var yaml = new RouteCatalog("__no_routes_yaml__");
             Services.AddSingleton<IRouteCatalog>(yaml);
             Services.AddSingleton<IRouteCatalogReport>(

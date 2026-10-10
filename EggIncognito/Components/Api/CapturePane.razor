@@ -10,8 +10,7 @@
 @inject ICurrentUser User
 @inject HostedCaptureOptions HostedOptions
 @inject IConfiguration Config
-@inject IJSRuntime JS
-@inject IWebHostEnvironment Env
+@inject ViewerCookies Viewer
 @inject ICaptureContributionKinds Kinds
 @inject ToastService Toasts
 @inject ILogger<CapturePane> Logger
@@ -105,8 +104,6 @@
     CancellationTokenSource? _loopCts;
     Task? _loopTask;
 
-    IJSObjectReference? _store;
-
     CaptureSession? _session;
     CaptureHub? _hub;
     bool _hosted;
@@ -161,22 +158,9 @@
         return !_limited || _fullDetailRoutes.Contains(flow.Path);
     }
 
-    protected override async Task OnAfterRenderAsync(bool firstRender) {
+    protected override void OnAfterRender(bool firstRender) {
         if (!firstRender || _hub is null) return;
-
-        try {
-            _store = await JS.InvokeAsync<IJSObjectReference>("import", InteropAsset.Url(Env, "./interop/captureStore.js"));
-            _view.RedactionMode = await InvokeOr("getRedactionMode", _view.RedactionMode);
-            _view.ShowHeaders = await InvokeOr("getShowHeaders", _view.ShowHeaders);
-            _view.AutoScroll = await InvokeOr("getAutoScroll", _view.AutoScroll);
-            _view.CompareToKnown = await InvokeOr("getCompareToKnown", _view.CompareToKnown);
-            _view.DefaultFormat = await InvokeOr("getDefaultFormat", _view.DefaultFormat);
-            _view.SetupExpanded = await InvokeOr<bool?>("getSetupExpanded", null) ?? _view.SetupExpanded;
-        } catch (Exception ex) when (ex is JSDisconnectedException or JSException or ObjectDisposedException) {
-            Logger.LogDebug(ex, "capture view prefs could not be loaded");
-            _store = null;
-        }
-
+        _view.LoadPrefs(Viewer.Get("capture.prefs"));
         _prefsLoaded = true;
         StartSubscription();
         StateHasChanged();
@@ -306,20 +290,14 @@
         }
     }
 
-    async Task OnViewChanged() {
-        await InvokeVoid("setRedactionMode", _view.RedactionMode);
-        await InvokeVoid("setShowHeaders", _view.ShowHeaders);
-        await InvokeVoid("setAutoScroll", _view.AutoScroll);
-        await InvokeVoid("setCompareToKnown", _view.CompareToKnown);
-        await InvokeVoid("setDefaultFormat", _view.DefaultFormat);
-    }
+    void OnViewChanged() => Viewer.Set("capture.prefs", _view.ToPrefsJson());
 
     bool SetupExpanded => _setupTouched ? _view.SetupExpanded : _view.SetupExpanded && !_connected;
 
-    async Task SetSetupExpanded(bool expanded) {
+    void SetSetupExpanded(bool expanded) {
         _setupTouched = true;
         _view.SetupExpanded = expanded;
-        await InvokeVoid("setSetupExpanded", expanded);
+        OnViewChanged();
     }
 
     void PushNotice(CaptureEvent ev) {
@@ -359,25 +337,6 @@
         _unread = 0;
     }
 
-    async Task<T> InvokeOr<T>(string fn, T fallback) {
-        if (_store is null) return fallback;
-        try {
-            return await _store.InvokeAsync<T>(fn);
-        } catch (Exception ex) when (ex is JSDisconnectedException or JSException or ObjectDisposedException) {
-            Logger.LogDebug(ex, "capture store call {Fn} failed", fn);
-            return fallback;
-        }
-    }
-
-    async Task InvokeVoid(string fn, params object?[] args) {
-        if (_store is null) return;
-        try {
-            await _store.InvokeVoidAsync(fn, args);
-        } catch (Exception ex) when (ex is JSDisconnectedException or JSException or ObjectDisposedException) {
-            Logger.LogDebug(ex, "capture store call {Function} failed", fn);
-        }
-    }
-
     public async ValueTask DisposeAsync() {
         _loopCts?.Cancel();
         _subscription?.Dispose();
@@ -390,7 +349,6 @@
         }
 
         _loopCts?.Dispose();
-        await _store.DisposeModuleQuietAsync(logger: Logger);
     }
 
 }

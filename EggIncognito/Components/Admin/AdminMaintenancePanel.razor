@@ -13,14 +13,14 @@
         <tr>
             <td>Backfill capture user ids</td>
             <td>
-                <button type="button" class="btn-mini" disabled="@_busy" @onclick="BackfillCaptureUserIds">Run</button>
+                <button type="button" class="btn-mini" disabled="@_busy" @onclick="@(() => Run("backfill-capture", () => Api!.PostAsync("/api/admin/backfill-capture-user-ids", TimeSpan.FromMinutes(5))))">Run</button>
             </td>
             <td class="small">@Result("backfill-capture")</td>
         </tr>
         <tr>
             <td>Backfill owner/author user ids</td>
             <td>
-                <button type="button" class="btn-mini" disabled="@_busy" @onclick="BackfillOwnerAuthorUserIds">Run</button>
+                <button type="button" class="btn-mini" disabled="@_busy" @onclick="@(() => Run("backfill-owner", () => Api!.PostAsync("/api/admin/backfill-owner-author-user-ids", TimeSpan.FromMinutes(5))))">Run</button>
             </td>
             <td class="small">@Result("backfill-owner")</td>
         </tr>
@@ -56,7 +56,7 @@
                 </div>
             </td>
             <td>
-                <button type="button" class="btn-mini" disabled="@_busy" @onclick="RefreshLive">Run</button>
+                <button type="button" class="btn-mini" disabled="@_busy" @onclick="@(() => RunConfig("refresh-live", () => Api!.PostAsync($"/api/config/{_livePlatform}/refresh-live", TimeSpan.FromMinutes(2))))">Run</button>
             </td>
             <td class="small">@Result("refresh-live")</td>
         </tr>
@@ -92,7 +92,7 @@
         <tr>
             <td>Sweep event snapshots</td>
             <td>
-                <button type="button" class="btn-mini" disabled="@_busy" @onclick="SweepEvents">Run</button>
+                <button type="button" class="btn-mini" disabled="@_busy" @onclick="@(() => RunEvents("event-sweep", () => Api!.PostAsync("/api/admin/events/sweep-snapshots", TimeSpan.FromMinutes(10))))">Run</button>
             </td>
             <td class="small">@Result("event-sweep")</td>
         </tr>
@@ -116,7 +116,7 @@
     <ChildContent>Stored icons</ChildContent>
     <Tools>
         <span class="subhead-fact">@_icons.Count stored</span>
-        <button type="button" class="btn-mini" disabled="@_iconBusy" @onclick="LoadIcons">Refresh</button>
+        <button type="button" class="btn-mini" disabled="@_iconBusy" @onclick="LoadAsync">Refresh</button>
     </Tools>
 </SubSectionHead>
 @if (_icons.Count == 0) {
@@ -169,10 +169,6 @@
 
     protected override IReadOnlyList<string> Topics => [AdminTopics.Maintenance];
 
-    protected override Task LoadAsync() {
-        return LoadIcons();
-    }
-
     string Result(string key) {
         return _results.GetValueOrDefault(key, "");
     }
@@ -203,13 +199,6 @@
         _busy = false;
     }
 
-    Task BackfillCaptureUserIds() {
-        return Run("backfill-capture", () => Api!.PostAsync("/api/admin/backfill-capture-user-ids", TimeSpan.FromMinutes(5)));
-    }
-
-    Task BackfillOwnerAuthorUserIds() {
-        return Run("backfill-owner", () => Api!.PostAsync("/api/admin/backfill-owner-author-user-ids", TimeSpan.FromMinutes(5)));
-    }
 
     async Task RealignProtos() {
         if (!_realignArmed) {
@@ -232,9 +221,6 @@
             () => Api!.PostAsync("/api/devices/ipatool/check-versions", TimeSpan.FromMinutes(3)));
     }
 
-    Task RefreshLive() {
-        return RunConfig("refresh-live", () => Api!.PostAsync($"/api/config/{_livePlatform}/refresh-live", TimeSpan.FromMinutes(2)));
-    }
 
     Task IngestJson() {
         var body = JsonSerializer.Serialize(new { json = _ingestJson });
@@ -262,9 +248,6 @@
         _busy = false;
     }
 
-    Task SweepEvents() {
-        return RunEvents("event-sweep", () => Api!.PostAsync("/api/admin/events/sweep-snapshots", TimeSpan.FromMinutes(10)));
-    }
 
     Task ImportCarpetEvents() {
         return RunEvents("event-carpet", () => Api!.PostJsonAsync(
@@ -291,11 +274,11 @@
         _iconName = "";
         _iconBytes = null;
         _iconFileName = null;
-        await LoadIcons();
+        await LoadAsync();
         Notifier.Publish(AdminTopics.Maintenance);
     }
 
-    async Task LoadIcons() {
+    protected override async Task LoadAsync() {
         if (Api is null) return;
         _iconBusy = true;
         var res = await Api.GetAsync("/api/admin/icons");
@@ -315,7 +298,7 @@
         var res = await Api.DeleteAsync($"/api/admin/icons/{Uri.EscapeDataString(name)}");
         _notice?.Result(res.Ok, res.Ok ? $"deleted {name}" : $"delete failed: {res.Describe()}");
         _iconBusy = false;
-        await LoadIcons();
+        await LoadAsync();
         if (res.Ok) Notifier.Publish(AdminTopics.Maintenance);
     }
 

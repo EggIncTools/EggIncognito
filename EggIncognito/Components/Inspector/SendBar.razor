@@ -2,13 +2,13 @@
 <div class="insp-actions">
     <div class="insp-target" role="radiogroup" aria-label="Target">
         <button type="button" class="insp-target-opt @(Target == InspectorTarget.Mock ? "on" : "")"
-                @onclick="@(() => Choose(InspectorTarget.Mock))">
+                @onclick="@(() => TargetChanged.InvokeAsync(InspectorTarget.Mock))">
             Mock
         </button>
         <button type="button"
                 class="insp-target-opt @(InspectorTargets.IsLive(Target) ? "on" : "")"
                 disabled="@LiveDisabled"
-                @onclick="@(() => Choose(InspectorTarget.LiveViaServer))">
+                @onclick="@(() => TargetChanged.InvokeAsync(InspectorTarget.LiveViaServer))">
             Live API
         </button>
     </div>
@@ -16,11 +16,11 @@
         <span class="insp-via">via</span>
         <div class="insp-target" role="radiogroup" aria-label="Live route">
             <button type="button" class="insp-target-opt @(Target == InspectorTarget.LiveViaServer ? "on" : "")"
-                    @onclick="@(() => Choose(InspectorTarget.LiveViaServer))">
+                    @onclick="@(() => TargetChanged.InvokeAsync(InspectorTarget.LiveViaServer))">
                 This server
             </button>
             <button type="button" class="insp-target-opt @(Target == InspectorTarget.LiveViaProxy ? "on" : "")"
-                    @onclick="@(() => Choose(InspectorTarget.LiveViaProxy))">
+                    @onclick="@(() => TargetChanged.InvokeAsync(InspectorTarget.LiveViaProxy))">
                 Custom proxy
             </button>
         </div>
@@ -73,10 +73,6 @@
     [Parameter] public EventCallback<string> CustomTargetChanged { get; set; }
     [Parameter] public EventCallback OnBuild { get; set; }
     [Parameter] public EventCallback OnSend { get; set; }
-
-    Task Choose(InspectorTarget target) {
-        return TargetChanged.InvokeAsync(target);
-    }
 
     Task OnCustomInput(ChangeEventArgs e) {
         return CustomTargetChanged.InvokeAsync(e.Value?.ToString() ?? "");

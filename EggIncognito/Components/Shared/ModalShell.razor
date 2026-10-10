@@ -1,7 +1,3 @@
-@implements IAsyncDisposable
-@inject IJSRuntime JS
-@inject IWebHostEnvironment Env
-@inject ILogger<ModalShell> Logger
 <div class="modal-backdrop" @onclick="BackdropClick">
     <div class="@CardCss" role="dialog" aria-modal="true" aria-labelledby="@TitleId" tabindex="-1"
          @ref="_card" @onkeydown="OnKeyDown" @onclick:stopPropagation="true">
@@ -11,7 +7,7 @@
                 @HeadTools
             }
             @if (!HideClose) {
-                <button type="button" class="icon-btn icon-btn-sm modal-close" aria-label="Close" @onclick="Close">
+                <button type="button" class="icon-btn icon-btn-sm modal-close" aria-label="Close" @onclick="OnClose">
                     <Icon Name="x"/>
                 </button>
             }
@@ -34,7 +30,6 @@
     [Parameter] public RenderFragment? ChildContent { get; set; }
 
     ElementReference _card;
-    IJSObjectReference? _scrollLock;
 
     string CardCss {
         get {
@@ -48,26 +43,11 @@
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender) {
-        if (!firstRender) return;
-        await _card.FocusAsync();
-        try {
-            _scrollLock = await JS.InvokeAsync<IJSObjectReference>("import", InteropAsset.Url(Env, "./interop/scrollLock.js"));
-            await _scrollLock.InvokeVoidAsync("lock");
-        } catch (Exception ex) {
-            Logger.LogDebug(ex, "modal scroll lock unavailable");
-        }
-    }
-
-    public ValueTask DisposeAsync() {
-        return _scrollLock.DisposeModuleQuietAsync("unlock", Logger);
+        if (firstRender) await _card.FocusAsync();
     }
 
     Task BackdropClick() {
-        return CloseOnBackdrop ? Close() : Task.CompletedTask;
-    }
-
-    Task Close() {
-        return OnClose.InvokeAsync();
+        return CloseOnBackdrop ? OnClose.InvokeAsync() : Task.CompletedTask;
     }
 
     Task OnKeyDown(KeyboardEventArgs e) {

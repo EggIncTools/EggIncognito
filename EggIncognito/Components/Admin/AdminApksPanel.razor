@@ -6,7 +6,7 @@
 
 <AdminPaneHead Title="Stored APKs" Facts="@Stats">
     <Tools>
-        <button type="button" class="btn-mini" disabled="@_busy" @onclick="Load">Refresh</button>
+        <button type="button" class="btn-mini" disabled="@_busy" @onclick="LoadAsync">Refresh</button>
     </Tools>
 </AdminPaneHead>
 <PaneNotice @ref="_notice"/>
@@ -62,17 +62,13 @@
 
     protected override IReadOnlyList<string> Topics => [AdminTopics.Apks];
 
-    protected override Task LoadAsync() {
-        return Load();
-    }
-
     int SplitCount => _rows.Sum(r => r.Splits.Count);
 
     long TotalBytes => _rows.Sum(r => r.ByteSize);
 
     IEnumerable<string> Stats => [$"{_rows.Count} versions", $"{SplitCount} splits", ByteFormat.Mb(TotalBytes, "F1")];
 
-    async Task Load() {
+    protected override async Task LoadAsync() {
         if (Api is null) return;
         var res = await Api.GetAsync("/api/apks");
         if (!res.Ok) {
@@ -95,7 +91,7 @@
         _notice?.Result(res.Ok, res.Ok
             ? $"deleted {v.AppVersion} ({v.Build}), {v.Splits.Count} split(s)"
             : $"delete failed: {res.Describe()}");
-        await Load();
+        await LoadAsync();
         _busy = false;
         if (res.Ok) Notifier.Publish(AdminTopics.Apks);
     }

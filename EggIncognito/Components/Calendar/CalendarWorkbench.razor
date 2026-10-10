@@ -3,14 +3,12 @@
 @using EggIncognito.Models.Calendar
 @using EggIncognito.Services.Calendar
 @using EggIncognito.Services.Events
-@implements IAsyncDisposable
-@inject IJSRuntime JS
-@inject IWebHostEnvironment Env
+@implements IDisposable
+@inject NavigationManager Nav
 @inject ICurrentUser User
 @inject IServiceProvider Services
-@inject ILogger<CalendarWorkbench<TItem>> Logger
 
-<WorkbenchModal Open="_open" Title="@Title" TitleId="@TitleId" Size="WorkbenchSize.Wide" CardClass="@CardClass" OnClose="CloseAsync">
+<WorkbenchModal Open="_open" Title="@Title" TitleId="@TitleId" Size="WorkbenchSize.Wide" CardClass="@CardClass" OnClose="Close">
     <HeadTools>
         <div class="evwb-range" role="group" aria-label="Calendar range">
             <div class="evwb-zoom" role="group" aria-label="Zoom">
@@ -37,7 +35,7 @@
         @Rail
     </Rail>
     <ChildContent>
-        <div class="@PaneCss" style="@PaneStyle" @ref="_pane">
+        <div class="@PaneCss" style="@PaneStyle">
             @if (Note is { Length: > 0 } note) {
                 <div class="evcal-note">@note</div>
             }
@@ -94,7 +92,6 @@
 
     bool _open;
     bool _loading;
-    bool _hashWired;
     string _note = "";
     CalendarZoom _zoom = CalendarZoom.Month;
     DateTimeOffset _center = DateTimeOffset.UtcNow;
@@ -105,14 +102,9 @@
     double _slotRem = MinSlotRem;
     TItem? _picked;
     CalendarGrid<CalendarBar<TItem>>? _grid;
-    ElementReference _pane;
     TimeZoneInfo _zone = ViewerZone.Fallback;
     ViewerClock? _clock;
-    IJSObjectReference? _nav;
-    IJSObjectReference? _navHandle;
-    IJSObjectReference? _pop;
-    IJSObjectReference? _popHandle;
-    DotNetObjectReference<CalendarWorkbench<TItem>>? _selfRef;
+    PathRouteSync? _hash;
 
     public bool IsOpen => _open;
 
@@ -134,7 +126,7 @@
 
     public async Task Open() {
         await OpenCore();
-        await WriteHash(true);
+        WriteHash(true);
         StateHasChanged();
     }
 
@@ -148,11 +140,10 @@
         await Refresh();
     }
 
-    async Task CloseAsync() {
+    void Close() {
         _open = false;
         ClearSelection();
-        await DetachPop();
-        await WriteHash(true, true);
+        WriteHash(true, true);
     }
 
     public void ClearSelection() {
@@ -314,34 +305,11 @@
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender) {
-        if (_open && _popHandle is null) await AttachPop();
         if (!firstRender) return;
-        try {
-            _nav = await JS.InvokeAsync<IJSObjectReference>("import", InteropAsset.Url(Env, "./interop/hashnav.js"));
-            _selfRef = DotNetObjectReference.Create(this);
-            _navHandle = await _nav.InvokeAsync<IJSObjectReference>("listen", _selfRef);
-            _hashWired = true;
-            await ApplyHash(await _nav.InvokeAsync<string>("read"));
-        } catch (Exception ex) when (ex is JSDisconnectedException or JSException or ObjectDisposedException) {
-            Logger.LogDebug(ex, "hash navigation could not be wired");
-        }
-
-        StateHasChanged();
-    }
-
-    async Task AttachPop() {
-        try {
-            _pop ??= await JS.InvokeAsync<IJSObjectReference>("import", InteropAsset.Url(Env, "./interop/calendarPop.js"));
-            _popHandle = await _pop.InvokeAsync<IJSObjectReference>("attach", _pane);
-        } catch (Exception ex) when (ex is JSDisconnectedException or JSException or ObjectDisposedException) {
-            Logger.LogDebug(ex, "calendar popovers could not be wired");
-        }
-    }
-
-    async Task DetachPop() {
-        var handle = _popHandle;
-        _popHandle = null;
-        await handle.DisposeModuleAsync("dispose", Logger);
+        _hash = new PathRouteSync(Nav, "");
+        _hash.Changed += () => _ = InvokeAsync(() => ApplyHash(_hash.Fragment));
+        _hash.Start();
+        await ApplyHash(_hash.Fragment);
     }
 
     void OnZoneChanged() => _ = InvokeAsync(() => {
@@ -350,18 +318,11 @@
         StateHasChanged();
     });
 
-    [JSInvokable]
-    public async Task OnHashChanged(string hash) {
-        await ApplyHash(hash);
-        StateHasChanged();
-    }
-
     async Task ApplyHash(string hash) {
         if (!State.ApplyHash(hash)) {
             if (_open) {
                 _open = false;
                 ClearSelection();
-                await DetachPop();
                 StateHasChanged();
             }
 
@@ -372,15 +333,7 @@
         StateHasChanged();
     }
 
-    async Task WriteHash(bool push = false, bool clear = false) {
-        if (!_hashWired || _nav is null) return;
-        var hash = clear ? "" : State.Hash() ?? "";
-        try {
-            await _nav.InvokeVoidAsync(push ? "push" : "write", hash);
-        } catch (Exception ex) when (ex is JSDisconnectedException or JSException or ObjectDisposedException) {
-            Logger.LogDebug(ex, "the workbench hash could not be updated");
-        }
-    }
+    void WriteHash(bool push = false, bool clear = false) => _hash?.WriteFragment(Nav, clear ? "" : State.Hash() ?? "", push);
 
     static string ZoomLabel(CalendarZoom zoom) {
         return zoom == CalendarZoom.Week ? "Week" : "Month";
@@ -394,13 +347,9 @@
         return FormattableString.Invariant($"--tick-pos:{leftPercent:0.###};");
     }
 
-    public async ValueTask DisposeAsync() {
-        await DetachPop();
-        await _pop.DisposeModuleAsync(logger: Logger);
-        await _navHandle.DisposeModuleAsync("dispose", Logger);
+    public void Dispose() {
+        _hash?.Dispose();
         if (_clock is not null) _clock.Changed -= OnZoneChanged;
-        await _nav.DisposeModuleAsync(logger: Logger);
-        _selfRef?.Dispose();
     }
 
 }

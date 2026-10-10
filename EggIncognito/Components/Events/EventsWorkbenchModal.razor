@@ -12,7 +12,7 @@
 
 <CalendarWorkbench TItem="EventCalendarItem" @ref="_cal" Title="Events" TitleId="eventsWorkbenchTitle" State="State"
                    Load="LoadRange" Items="Items" DetailTitle="PopTitle" Filtering="Filtering"
-                   CardClass="evwb-card" AnchorStyle="AnchorStyle" OnWindowChanged="OnWindowChanged">
+                   CardClass="evwb-card" AnchorStyle="AnchorStyle" OnWindowChanged="EnsurePredictions">
     <Rail>
         <WorkbenchRail>
             <WorkbenchSection Label="Tier">
@@ -50,7 +50,7 @@
     <Bar>
         <button type="button" class="@BarCss(context)" style="@BarStyle(context)" @onclick="@(() => Select(context.Item))">
             @if (EventPalette.IconUrl(context.Item.Type, context.Item.Ultra) is { } iconUrl) {
-                <img class="evcal-bar-icon" src="@iconUrl" alt="" loading="lazy" data-fallback/>
+                <FallbackImg Class="evcal-bar-icon" Src="@iconUrl" Alt=""/>
             }
             <span class="evcal-bar-label">@Label(context.Item)</span>
         </button>
@@ -59,7 +59,7 @@
         @if (context.Event is { } e) {
             <div class="evcal-pop-lead">
                 @if (EventPalette.IconUrl(e.Type, e.Ultra) is { } iconUrl) {
-                    <img class="evcal-pop-icon" src="@iconUrl" alt="" loading="lazy" data-fallback/>
+                    <FallbackImg Class="evcal-pop-icon" Src="@iconUrl" Alt=""/>
                 }
                 <span class="evcal-pop-big">@EventMagnitude.Describe(e)</span>
                 <span>@Pretty(e.Type)</span>
@@ -72,7 +72,7 @@
         } else if (context.Prediction is { } p) {
             <div class="evcal-pop-lead">
                 @if (EventPalette.IconUrl(p.Type, p.Ultra) is { } iconUrl) {
-                    <img class="evcal-pop-icon" src="@iconUrl" alt="" loading="lazy" data-fallback/>
+                    <FallbackImg Class="evcal-pop-icon" Src="@iconUrl" Alt=""/>
                 }
                 <span>@KindLabel(p.Kind), @Percent(p.Confidence) confident</span>
             </div>
@@ -220,10 +220,6 @@
             Logger.LogWarning(ex, "the event calendar window could not be loaded");
             return CalendarLoad.Failed("Events could not be loaded.");
         }
-    }
-
-    Task OnWindowChanged(DateTimeOffset visibleStart, DateTimeOffset visibleEnd) {
-        return EnsurePredictions(visibleStart, visibleEnd);
     }
 
     async Task EnsurePredictions(DateTimeOffset visibleStart, DateTimeOffset visibleEnd) {

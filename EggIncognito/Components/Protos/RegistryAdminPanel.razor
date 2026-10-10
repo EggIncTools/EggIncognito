@@ -41,7 +41,7 @@
             <SubSectionHead>
                 <ChildContent>Suggested merges (@_suggestions.Count)</ChildContent>
                 <Tools>
-                    <button type="button" class="btn-mini" disabled="@_busy" @onclick="AcceptAllSuggestions">Merge all</button>
+                    <button type="button" class="btn-mini" disabled="@_busy" @onclick="@(() => AcceptSuggestions(_suggestions, $"merged {_suggestions.Count} suggestion groups"))">Merge all</button>
                 </Tools>
             </SubSectionHead>
             <Note Small="true">Separate entries with the same proto SHA and client version, on any platform or app version. Merge links them under one entry.</Note>
@@ -73,7 +73,7 @@
                             </td>
                             <td class="pwb-admin-row-tools">
                                 <button type="button" class="btn-mini" disabled="@_busy"
-                                        @onclick="@(() => AcceptSuggestion(s))">
+                                        @onclick="@(() => AcceptSuggestions([s], $"merged {s.Members.Count} entries sharing {Short(s.ProtoSha)}"))">
                                     Merge
                                 </button>
                             </td>
@@ -299,14 +299,6 @@
         } catch (Exception ex) when (ex is HttpRequestException or NotSupportedException or JsonException) {
             _suggestions = [];
         }
-    }
-
-    Task AcceptSuggestion(MergeSuggestion s) {
-        return AcceptSuggestions([s], $"merged {s.Members.Count} entries sharing {Short(s.ProtoSha)}");
-    }
-
-    Task AcceptAllSuggestions() {
-        return AcceptSuggestions(_suggestions, $"merged {_suggestions.Count} suggestion groups");
     }
 
     async Task AcceptSuggestions(IReadOnlyList<MergeSuggestion> picked, string okText) {

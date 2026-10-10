@@ -1,27 +1,21 @@
-@* Interactive login CTA. Click reveals the native provider buttons fetched from EggIdentity's
-   /auth/sources; each is a plain top-level <a> into EggIdentity's /auth/go/{provider} (mode=redirect),
-   which returns the browser to this exact page with ?code appended. No popup, no iframe, no app-side
-   return-path handling: EggIdentity round-trips the full returnUrl. The menu is fixed-positioned by
-   loginMenu.js so it escapes any overflow-clipped container (e.g. the /protos modal). *@
 @rendermode @(RenderModes.InteractiveServer)
 @inject AuthState Auth
 @inject NavigationManager Nav
 @inject IdentityApiClient Identity
-@inject IJSRuntime JS
-@inject IWebHostEnvironment Env
-@inject ILogger<LoginWidgetButton> Logger
 @using EggIdentity.Client
-@implements IAsyncDisposable
 
 @if (!Auth.WidgetEnabled) {
     <span class="@CssClass auth-unavailable">Login unavailable (identity service not configured)</span>
 } else {
     <div class="auth-source-anchor">
-        <button type="button" class="@CssClass" @onclick="Toggle" disabled="@_loading" @ref="_button">
+        <button type="button" class="@CssClass" @onclick="Toggle" disabled="@_loading">
             @(_loading ? "Loading..." : Label)
         </button>
+        @if (_sources is not null || _error is not null) {
+            <span class="popover-backdrop" @onmousedown="Close"></span>
+        }
         @if (_sources is not null) {
-            <div class="auth-source-menu" @ref="_menu">
+            <div class="@MenuCss">
                 @foreach (var s in _sources) {
                     <a class="auth-source-btn" href="@Abs(s.Url)">
                         @if (!string.IsNullOrEmpty(s.IconUrl)) {
@@ -32,7 +26,7 @@
                 }
             </div>
         } else if (_error is not null) {
-            <div class="auth-source-menu" @ref="_menu">
+            <div class="@MenuCss">
                 <p class="auth-source-error">@_error</p>
             </div>
         }
@@ -54,23 +48,22 @@
             : $"{Auth.IdentityHostUrl!.TrimEnd('/')}{url}";
     }
 
-    private ElementReference _button;
-    private ElementReference _menu;
-    private IJSObjectReference? _mod;
-    private bool _positioned;
+    private string MenuCss => $"auth-source-menu auth-place-{Placement.ToString().ToLowerInvariant()}";
+
+    private void Close() {
+        _sources = null;
+        _error = null;
+    }
 
     private async Task Toggle() {
         if (_sources is not null || _error is not null) {
-            await CloseMenuAsync();
-            _sources = null;
-            _error = null;
+            Close();
             return;
         }
 
-        _error = null;
         _loading = true;
         try {
-            var resp = await Identity.GetLoginSourcesAsync(Nav.Uri, "redirect", CancellationToken.None);
+            var resp = await Identity.GetLoginSourcesAsync(Nav.Uri, CancellationToken.None);
             if (resp.Sources.Count == 0)
                 _error = "No login providers configured.";
             else
@@ -80,39 +73,6 @@
         } finally {
             _loading = false;
         }
-    }
-
-    protected override async Task OnAfterRenderAsync(bool firstRender) {
-        var menuOpen = _sources is not null || _error is not null;
-        if (menuOpen && !_positioned) {
-            try {
-                _mod ??= await JS.InvokeAsync<IJSObjectReference>("import", InteropAsset.Url(Env, "./interop/loginMenu.js"));
-                await _mod.InvokeVoidAsync("open", _button, _menu, Placement.ToString());
-            } catch (JSDisconnectedException ex) {
-                Logger.LogDebug(ex, "login menu open skipped, circuit already gone");
-                return;
-            }
-
-            _positioned = true;
-        } else if (!menuOpen && _positioned) {
-            _positioned = false;
-        }
-    }
-
-    private async Task CloseMenuAsync() {
-        if (_mod is not null) {
-            try {
-                await _mod.InvokeVoidAsync("close");
-            } catch (JSDisconnectedException ex) {
-                Logger.LogDebug(ex, "login menu close skipped, circuit already gone");
-            }
-        }
-
-        _positioned = false;
-    }
-
-    public ValueTask DisposeAsync() {
-        return _mod.DisposeModuleAsync("close", Logger);
     }
 
 }

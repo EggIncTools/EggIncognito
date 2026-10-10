@@ -1,3 +1,4 @@
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using EggIncognito.Core;
@@ -17,6 +18,30 @@ public sealed partial class CaptureViewState {
     public bool CompareToKnown { get; set; }
     public string DefaultFormat { get; set; } = "json-tree";
     public bool SetupExpanded { get; set; } = true;
+
+    public string ToPrefsJson() => JsonSerializer.Serialize(
+        new CaptureViewPrefs(RedactionMode, ShowHeaders, AutoScroll, CompareToKnown, DefaultFormat, SetupExpanded));
+
+    public void LoadPrefs(string? json) {
+        if (string.IsNullOrWhiteSpace(json)) return;
+        CaptureViewPrefs? prefs;
+        try {
+            prefs = JsonSerializer.Deserialize<CaptureViewPrefs>(json);
+        } catch (JsonException) {
+            return;
+        }
+
+        if (prefs is null) return;
+        if (prefs.RedactionMode is "off" or "blur" or "redact") RedactionMode = prefs.RedactionMode;
+        ShowHeaders = prefs.ShowHeaders;
+        AutoScroll = prefs.AutoScroll;
+        CompareToKnown = prefs.CompareToKnown;
+        if (!string.IsNullOrEmpty(prefs.DefaultFormat)) DefaultFormat = prefs.DefaultFormat;
+        SetupExpanded = prefs.SetupExpanded;
+    }
+
+    private sealed record CaptureViewPrefs(
+        string RedactionMode, bool ShowHeaders, bool AutoScroll, bool CompareToKnown, string DefaultFormat, bool SetupExpanded);
 
     public bool IsBlurMode => RedactionMode == "blur";
     public bool IsRedactMode => RedactionMode == "redact";

@@ -37,11 +37,7 @@
         ];
     }
 
-    protected override Task LoadAsync() {
-        return Load();
-    }
-
-    async Task Load() {
+    protected override async Task LoadAsync() {
         if (Api is null) return;
         var res = await Api.GetAsync("/api/theme/policy");
         if (!res.Ok) {
@@ -78,7 +74,7 @@
             defaultThemeSlug = string.IsNullOrWhiteSpace(_defaultThemeSlug) ? null : _defaultThemeSlug.Trim()
         });
         _notice?.Result(res.Ok, res.Ok ? "policy saved" : $"save failed: {res.Describe()}");
-        await Load();
+        await LoadAsync();
         _busy = false;
         if (res.Ok) Notifier.Publish(AdminTopics.ThemePolicy);
     }

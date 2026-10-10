@@ -4,7 +4,7 @@
 
 <AdminPaneHead Title="Data status" Facts="@Stats">
     <Tools>
-        <button type="button" class="btn-mini" disabled="@_busy" @onclick="Load">Refresh</button>
+        <button type="button" class="btn-mini" disabled="@_busy" @onclick="LoadAsync">Refresh</button>
     </Tools>
 </AdminPaneHead>
 <PaneNotice @ref="_notice"/>
@@ -95,11 +95,7 @@
 
     protected override IReadOnlyList<string> Topics => [AdminTopics.DataStatus, AdminTopics.GameData, AdminTopics.Binaries];
 
-    protected override Task LoadAsync() {
-        return Load();
-    }
-
-    async Task Load() {
+    protected override async Task LoadAsync() {
         if (Api is null) return;
         _busy = true;
         _notice?.Clear();

@@ -2,21 +2,24 @@
 @inject ThemeWorkbenchState State
 @inject ThemeCssEmitter Serializer
 @inject ICurrentUser User
-@inject IJSRuntime Js
-@inject IWebHostEnvironment HostEnv
 @inject ToastService Toasts
 @inject NavigationManager Nav
 @inject ILogger<ThemeWorkbenchModal> Logger
-@inject DownloadInterop Download
+@inject ViewerCookies Viewer
+@inject ViewerThemeLive Live
+@inject Downloads Downloads
 @using System.Globalization
 @using System.Text
 @using System.Text.Json
 @using EggIdentity.Styles.Theming
 @using EggIncognito.Models.Theme
 @using EggIncognito.Services.Theme
-@implements IAsyncDisposable
 
-<WorkbenchModal Open="Open" Title="Theme workbench" TitleId="themeWbTitle" Size="WorkbenchSize.Wide" OnClose="CloseAsync">
+@if (Open && _loaded) {
+    <LiveStyle Css="@PreviewCss()" Nonce="@Live.Nonce"/>
+}
+
+<WorkbenchModal Open="Open" Title="Theme workbench" TitleId="themeWbTitle" Size="WorkbenchSize.Wide" OnClose="OnClose">
     <Rail>
         <WorkbenchRail>
             @if (User.Current.IsAuthenticated) {
@@ -38,7 +41,7 @@
             <WorkbenchSection Label="Presets">
                 @foreach (var preset in ThemePresets.All) {
                     <WorkbenchEntry @key="preset.Slug" Style="@PresetBorder(preset)"
-                                    OnClick="@(_ => LoadPresetAsync(preset))">
+                                    OnClick="@(_ => LoadPreset(preset))">
                         <Name>
                             <span style="color: @PresetAccentCss(preset)">@preset.Name</span>
                         </Name>
@@ -68,43 +71,43 @@
                         @foreach (var token in ThemeTokens.Settable) {
                             <label class="theme-token-row">
                                 <span class="theme-token-name">@token</span>
-                                <input type="color" class="theme-color-input" value="@TokenHex(token)" @oninput="e => OnTokenChangedAsync(token, e)"/>
+                                <input type="color" class="theme-color-input" value="@TokenHex(token)" @oninput="e => OnTokenChanged(token, e)"/>
                                 <span class="theme-token-hex">@TokenHex(token)</span>
                             </label>
                         }
                     </div>
                     <div class="theme-oklch-row">
                         <span class="theme-token-name">accent oklch</span>
-                        <label>L <input type="number" step="0.01" min="0" max="1" class="theme-num" value="@State.Draft.AccentL" @onchange="e => OnAccentOklchAsync(e, 0)"/></label>
-                        <label>C <input type="number" step="0.005" min="0" max="0.5" class="theme-num" value="@State.Draft.AccentC" @onchange="e => OnAccentOklchAsync(e, 1)"/></label>
-                        <label>H <input type="number" step="1" min="0" max="360" class="theme-num" value="@State.Draft.AccentH" @onchange="e => OnAccentOklchAsync(e, 2)"/></label>
+                        <label>L <input type="number" step="0.01" min="0" max="1" class="theme-num" value="@State.Draft.AccentL" @onchange="e => OnAccentOklch(e,0)"/></label>
+                        <label>C <input type="number" step="0.005" min="0" max="0.5" class="theme-num" value="@State.Draft.AccentC" @onchange="e => OnAccentOklch(e,1)"/></label>
+                        <label>H <input type="number" step="1" min="0" max="360" class="theme-num" value="@State.Draft.AccentH" @onchange="e => OnAccentOklch(e,2)"/></label>
                     </div>
                 } else if (State.Mode == ThemeWorkbenchState.ModeChroma) {
                     <div class="theme-chroma-grid">
                         <label class="theme-knob">
                             <span>Surface tint @Fmt(State.Draft.SurfaceTint)%</span>
-                            <input type="range" min="0" max="12" step="0.5" value="@State.Draft.SurfaceTint" @oninput="e => OnKnobAsync(e, k => State.Draft.SurfaceTint = k)"/>
+                            <input type="range" min="0" max="12" step="0.5" value="@State.Draft.SurfaceTint" @oninput="e => OnKnob(e,k => State.Draft.SurfaceTint = k)"/>
                         </label>
                         <label class="theme-knob">
                             <span>Gradient hue shift @Fmt(State.Draft.GradientHueShift)deg</span>
-                            <input type="range" min="-60" max="60" step="1" value="@State.Draft.GradientHueShift" @oninput="e => OnKnobAsync(e, k => State.Draft.GradientHueShift = k)"/>
+                            <input type="range" min="-60" max="60" step="1" value="@State.Draft.GradientHueShift" @oninput="e => OnKnob(e,k => State.Draft.GradientHueShift = k)"/>
                         </label>
                         <label class="theme-knob">
                             <span>Glow radius @Fmt(State.Draft.GlowRadius)px</span>
-                            <input type="range" min="0" max="24" step="1" value="@State.Draft.GlowRadius" @oninput="e => OnKnobAsync(e, k => State.Draft.GlowRadius = k)"/>
+                            <input type="range" min="0" max="24" step="1" value="@State.Draft.GlowRadius" @oninput="e => OnKnob(e,k => State.Draft.GlowRadius = k)"/>
                         </label>
                         <label class="theme-knob">
                             <span>Glow alpha @Fmt(State.Draft.GlowAlpha)%</span>
-                            <input type="range" min="0" max="60" step="1" value="@State.Draft.GlowAlpha" @oninput="e => OnKnobAsync(e, k => State.Draft.GlowAlpha = k)"/>
+                            <input type="range" min="0" max="60" step="1" value="@State.Draft.GlowAlpha" @oninput="e => OnKnob(e,k => State.Draft.GlowAlpha = k)"/>
                         </label>
                         <label class="theme-knob theme-knob-toggle">
-                            <input type="checkbox" checked="@State.Draft.HueRotateEnabled" @onchange="OnHueRotateToggleAsync"/>
+                            <input type="checkbox" checked="@State.Draft.HueRotateEnabled" @onchange="OnHueRotateToggle"/>
                             <span>Hue rotation</span>
                         </label>
                         @if (State.Draft.HueRotateEnabled) {
                             <label class="theme-knob">
                                 <span>Rotation period @Fmt(State.Draft.HueRotateSeconds)s</span>
-                                <input type="range" min="6" max="120" step="1" value="@State.Draft.HueRotateSeconds" @oninput="e => OnKnobAsync(e, k => State.Draft.HueRotateSeconds = k)"/>
+                                <input type="range" min="6" max="120" step="1" value="@State.Draft.HueRotateSeconds" @oninput="e => OnKnob(e,k => State.Draft.HueRotateSeconds = k)"/>
                             </label>
                         }
                     </div>
@@ -124,7 +127,7 @@
                         <p class="theme-note">Custom CSS needs the contributor role and the admin switch. The rest of the theme works without it.</p>
                     }
 
-                    <textarea class="theme-css-input" spellcheck="false" value="@State.Draft.Css" @onchange="OnCssChangedAsync" disabled="@(!_cssEligible)"></textarea>
+                    <textarea class="theme-css-input" spellcheck="false" value="@State.Draft.Css" @onchange="OnCssChanged" disabled="@(!_cssEligible)"></textarea>
                     @if (_cssErrors.Count > 0) {
                         <div class="theme-css-errors">
                             @foreach (var err in _cssErrors) {
@@ -141,7 +144,7 @@
                 } else if (State.Mode == ThemeWorkbenchState.ModeJson) {
                     <textarea class="theme-css-input" readonly>@DraftJson()</textarea>
                     <div class="theme-json-actions">
-                        <button type="button" class="btn-mini" @onclick="ExportAsync">Export file</button>
+                        <button type="button" class="btn-mini" @onclick="@(() => Downloads.SaveText($"egi-theme-{State.Draft.ToModel().Slug}.json", DraftJson(), "application/json"))">Export file</button>
                     </div>
                     <div class="theme-field">
                         <span>Import</span>
@@ -158,8 +161,8 @@
                             <button type="button" class="btn-mini btn-danger" @onclick="DeleteAsync">Delete</button>
                         }
                     } else {
-                        <button type="button" class="btn-primary" @onclick="ApplyLocallyAsync">Apply in this browser</button>
-                        <button type="button" class="btn-mini" @onclick="ClearLocalAsync">Reset</button>
+                        <button type="button" class="btn-primary" @onclick="ApplyLocally">Apply in this browser</button>
+                        <button type="button" class="btn-mini" @onclick="ClearLocal">Reset</button>
                     }
                 </div>
             </div>
@@ -218,15 +221,7 @@
     bool _cssEligible;
     bool _lastSaveOk;
     string _importJson = "";
-    string? _nonce;
     bool _loaded;
-    IJSObjectReference? _preview;
-    IJSObjectReference? _prefs;
-
-    protected override void OnInitialized() {
-        base.OnInitialized();
-        _nonce = HttpContextAccessor.HttpContext?.Items["egi.csp.nonce"] as string;
-    }
 
     protected override async Task OnParametersSetAsync() {
         if (Open && !_loaded) {
@@ -234,18 +229,6 @@
             State.Draft.LoadFrom(ThemePresets.Default);
             await LoadThemesAsync();
             await LoadCssEligibilityAsync();
-        }
-    }
-
-    protected override async Task OnAfterRenderAsync(bool firstRender) {
-        if (Open && _preview is null) {
-            try {
-                _preview = await Js.InvokeAsync<IJSObjectReference>("import", InteropAsset.Url(HostEnv, "./interop/themePreview.js"));
-                _prefs = await Js.InvokeAsync<IJSObjectReference>("import", InteropAsset.Url(HostEnv, "./interop/uiPrefs.js"));
-                await PushPreviewAsync();
-            } catch (Exception ex) when (ex is JSDisconnectedException or JSException) {
-                Logger.LogDebug(ex, "theme workbench interop modules could not be loaded");
-            }
         }
     }
 
@@ -274,17 +257,17 @@
             if (model is not null) {
                 State.Draft.LoadFrom(model);
                 State.SelectedSlug = slug;
-                await RefreshAllAsync();
+                RefreshAll();
             }
         } catch (HttpRequestException) {
             SetStatus("could not load that theme", false);
         }
     }
 
-    async Task LoadPresetAsync(ThemeModel preset) {
+    void LoadPreset(ThemeModel preset) {
         State.LoadPreset(preset);
         State.Draft.Slug = preset.Slug == "default" ? "my-default" : preset.Slug + "-mine";
-        await RefreshAllAsync();
+        RefreshAll();
     }
 
     async Task SaveAsync() {
@@ -356,42 +339,20 @@
         }
     }
 
-    async Task ExportAsync() {
-        var model = State.Draft.ToModel();
-        if (!await Download.SaveTextAsync($"egi-theme-{model.Slug}.json", model.ToJson()))
-            Logger.LogDebug("theme export skipped, the circuit is already gone");
-    }
-
-    async Task ApplyLocallyAsync() {
-        if (_prefs is null || _preview is null) return;
+    void ApplyLocally() {
         var model = State.Draft.ToModel() with { Css = "" };
-        try {
-            await _prefs.InvokeVoidAsync("set", "theme.model", model.ToJson());
-            await _prefs.InvokeVoidAsync("set", "theme.active", "1");
-            await _preview.InvokeVoidAsync("applyTokens", TokenCssMap(model));
-        } catch (JSDisconnectedException ex) {
-            Logger.LogDebug(ex, "theme apply skipped, the circuit is already gone");
-            return;
-        }
-
+        Viewer.Set("theme.model", model.ToJson());
+        Live.Apply(model);
         SetStatus("applied in this browser", true);
     }
 
-    async Task ClearLocalAsync() {
-        if (_prefs is null || _preview is null) return;
-        try {
-            await _prefs.InvokeVoidAsync("remove", "theme.model");
-            await _prefs.InvokeVoidAsync("remove", "theme.active");
-            await _preview.InvokeVoidAsync("clearTokens", ThemeTokens.Settable);
-        } catch (JSDisconnectedException ex) {
-            Logger.LogDebug(ex, "theme reset skipped, the circuit is already gone");
-            return;
-        }
-
+    void ClearLocal() {
+        Viewer.Set("theme.model", "");
+        Live.Apply(ThemePresets.Default);
         SetStatus("reset", true);
     }
 
-    async Task OnTokenChangedAsync(string token, ChangeEventArgs e) {
+    void OnTokenChanged(string token, ChangeEventArgs e) {
         var value = e.Value?.ToString() ?? "";
         if (ThemeColor.FromHex(value) is not null) {
             State.Draft.TokenHex[token] = value.ToLowerInvariant();
@@ -401,11 +362,11 @@
                 State.Draft.AccentH = null;
             }
 
-            await RefreshAllAsync();
+            RefreshAll();
         }
     }
 
-    async Task OnAccentOklchAsync(ChangeEventArgs e, int component) {
+    void OnAccentOklch(ChangeEventArgs e, int component) {
         if (!double.TryParse(e.Value?.ToString(), NumberStyles.Float,
                 CultureInfo.InvariantCulture, out var value)) return;
         var current = CurrentAccent();
@@ -416,36 +377,34 @@
         State.Draft.AccentL = color.L;
         State.Draft.AccentC = color.C;
         State.Draft.AccentH = color.H;
-        await RefreshAllAsync();
+        RefreshAll();
     }
 
-    async Task OnKnobAsync(ChangeEventArgs e, Action<double> apply) {
+    void OnKnob(ChangeEventArgs e, Action<double> apply) {
         if (double.TryParse(e.Value?.ToString(), NumberStyles.Float,
                 CultureInfo.InvariantCulture, out var value)) {
             apply(value);
-            await RefreshAllAsync();
+            RefreshAll();
         }
     }
 
-    async Task OnHueRotateToggleAsync(ChangeEventArgs e) {
+    void OnHueRotateToggle(ChangeEventArgs e) {
         State.Draft.HueRotateEnabled = e.Value is true;
-        await RefreshAllAsync();
+        RefreshAll();
     }
 
-    async Task OnCssChangedAsync(ChangeEventArgs e) {
+    void OnCssChanged(ChangeEventArgs e) {
         State.Draft.Css = e.Value?.ToString() ?? "";
         _cssErrors = State.Draft.Css.Length > 0 ? ThemeCss.Parse(State.Draft.Css).Errors : [];
-        await RefreshAllAsync();
+        RefreshAll();
     }
 
-    Task OnNameChanged(ChangeEventArgs e) {
+    void OnNameChanged(ChangeEventArgs e) {
         State.Draft.Name = e.Value?.ToString() ?? "";
-        return Task.CompletedTask;
     }
 
-    Task OnSlugChanged(ChangeEventArgs e) {
+    void OnSlugChanged(ChangeEventArgs e) {
         State.Draft.Slug = (e.Value?.ToString() ?? "").ToLowerInvariant();
-        return Task.CompletedTask;
     }
 
     void SetMode(string mode) {
@@ -453,19 +412,12 @@
         if (mode == ThemeWorkbenchState.ModeChroma) _contrast = ThemePalette.Contrast(State.Draft.ToModel());
     }
 
-    async Task RefreshAllAsync() {
+    void RefreshAll() {
         _contrast = ThemePalette.Contrast(State.Draft.ToModel());
-        await PushPreviewAsync();
     }
 
-    async Task PushPreviewAsync() {
-        if (_preview is null) return;
-        var model = State.Draft.ToModel();
-        var css = Serializer.Serialize(model, ThemeScope.Preview, _cssEligible && _cssErrors.Count == 0);
-        try {
-            await _preview.InvokeVoidAsync("setCss", css, _nonce);
-        } catch (JSDisconnectedException) {
-        }
+    string PreviewCss() {
+        return Serializer.Serialize(State.Draft.ToModel(), ThemeScope.Preview, _cssEligible && _cssErrors.Count == 0);
     }
 
     string PreviewStyle() {
@@ -476,19 +428,13 @@
         return sb.ToString();
     }
 
-    static Dictionary<string, string> TokenCssMap(ThemeModel model) {
-        var map = new Dictionary<string, string>(StringComparer.Ordinal);
-        foreach (var token in ThemeTokens.Settable) map[token] = model.TokenOrDefault(token).ToCss();
-        return map;
-    }
-
     ThemeColor CurrentAccent() {
         if (State.Draft is { AccentL: { } l, AccentC: { } c, AccentH: { } h }) return ThemeColor.FromOklch(l, c, h);
         return ThemeColor.FromHex(TokenHex("accent")) ?? ThemePresets.DefaultToken("accent");
     }
 
     string TokenHex(string token) {
-        return State.Draft.TokenHex.TryGetValue(token, out var hex) ? hex : ThemePresets.DefaultToken(token).Hex ?? "#000000";
+        return State.Draft.TokenHex.TryGetValue(token, out var hex) ? hex : ThemePresets.DefaultToken(token).ToCss();
     }
 
     static string PresetAccentCss(ThemeModel preset) {
@@ -520,28 +466,6 @@
         }
 
         return $"HTTP {(int)resp.StatusCode}";
-    }
-
-    async Task CloseAsync() {
-        if (_preview is not null) {
-            try {
-                await _preview.InvokeVoidAsync("clearCss");
-            } catch (JSDisconnectedException) {
-            }
-        }
-
-        await OnClose.InvokeAsync();
-    }
-
-    public async ValueTask DisposeAsync() {
-        foreach (var module in new[] { _preview, _prefs }) {
-            if (module is not null) {
-                try {
-                    await module.DisposeAsync();
-                } catch (JSDisconnectedException) {
-                }
-            }
-        }
     }
 
 }

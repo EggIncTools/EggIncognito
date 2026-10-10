@@ -49,11 +49,7 @@
 
     protected override IReadOnlyList<string> Topics => [AdminTopics.Notifications];
 
-    protected override Task LoadAsync() {
-        return Load();
-    }
-
-    async Task Load() {
+    protected override async Task LoadAsync() {
         if (Api is null) return;
         var res = await Api.GetAsync("/api/admin/feed/subscriptions");
         if (!res.Ok) {

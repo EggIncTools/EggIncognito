@@ -229,7 +229,7 @@
 
     [Parameter] public string? DeviceId { get; set; }
 
-    JsRouteSync? _routeSync;
+    PathRouteSync? _routeSync;
 
     static string VersionHref(ProtoRegistryRow r) {
         return $"/protos/{r.Platform}/{Uri.EscapeDataString(r.Build)}";
@@ -242,9 +242,8 @@
         return Task.CompletedTask;
     }
 
-    Task OnWorkbenchRef(WorkbenchRef value) {
+    void OnWorkbenchRef(WorkbenchRef value) {
         _routeSync?.Replace(value.A is null ? "/protos" : "/protos/" + ProtoRefParser.Format(value));
-        return Task.CompletedTask;
     }
 
     bool _closingFromRoute;
@@ -487,12 +486,12 @@
             Logger.LogDebug(ex, "proto drop zone not wired, the circuit is already gone");
         }
 
-        _routeSync = new JsRouteSync(JS, Env, Nav, "/protos", Logger);
+        _routeSync = new PathRouteSync(Nav, "/protos");
         _routeSync.Changed += () => InvokeAsync(() => {
             ApplyPath();
             StateHasChanged();
         });
-        await _routeSync.StartAsync();
+        _routeSync.Start();
         ApplyPath();
         await ApplyRouteAsync();
         await ApplyFragmentAsync();
@@ -602,7 +601,7 @@
         _topics = null;
         if (_vis is not null) await _vis.DisposeAsync();
         await _protoDrop.DisposeModuleAsync(logger: Logger);
-        if (_routeSync is not null) await _routeSync.DisposeAsync();
+        _routeSync?.Dispose();
     }
 
     static long ReleaseKey(ProtoRegistryRow r) {

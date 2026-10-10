@@ -4,7 +4,7 @@
 
 <AdminPaneHead Title="Game data" Facts="@Stats">
     <Tools>
-        <button type="button" class="btn-mini" disabled="@_busy" @onclick="Load">Refresh</button>
+        <button type="button" class="btn-mini" disabled="@_busy" @onclick="LoadAsync">Refresh</button>
     </Tools>
 </AdminPaneHead>
 <PaneNotice @ref="_notice"/>
@@ -72,11 +72,7 @@
 
     protected override IReadOnlyList<string> Topics => [AdminTopics.GameData];
 
-    protected override Task LoadAsync() {
-        return Load();
-    }
-
-    async Task Load() {
+    protected override async Task LoadAsync() {
         if (Api is null) return;
         var res = await Api.GetAsync("/api/admin/gamedata");
         if (!res.Ok) {
@@ -103,7 +99,7 @@
             _notice?.Fail($"rebuild failed: {res.Describe()}");
         }
 
-        await Load();
+        await LoadAsync();
         _busy = false;
         Notifier.Publish(AdminTopics.GameData);
         Notifier.Publish(AdminTopics.DataStatus);
@@ -122,7 +118,7 @@
         _notice?.Clear();
         var res = await Api.SendAsync("POST", $"/api/admin/gamedata/{Uri.EscapeDataString(_importId.Trim())}", _importJson);
         _notice?.Result(res.Ok, res.Ok ? $"imported {_importId.Trim()}" : $"import failed: {res.Describe()}");
-        await Load();
+        await LoadAsync();
         _busy = false;
         if (res.Ok) {
             Notifier.Publish(AdminTopics.GameData);

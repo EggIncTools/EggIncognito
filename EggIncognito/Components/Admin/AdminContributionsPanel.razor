@@ -16,11 +16,7 @@
         return [$"{_counts.Submitted:N0} pending, {_counts.Approved:N0} accepted, {_counts.Rejected:N0} rejected"];
     }
 
-    protected override Task LoadAsync() {
-        return Load();
-    }
-
-    async Task Load() {
+    protected override async Task LoadAsync() {
         if (Api is null) return;
         var res = await Api.GetAsync("/api/contributions/tallies");
         if (!res.Ok) return;
@@ -30,7 +26,7 @@
     }
 
     async Task OnReviewed() {
-        await Load();
+        await LoadAsync();
         Notifier.Publish(AdminTopics.Contributions);
     }
 

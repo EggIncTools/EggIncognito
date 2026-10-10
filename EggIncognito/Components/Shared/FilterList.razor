@@ -35,7 +35,7 @@
     </div>
     @if (_filterOpen) {
         <div class="fl-pop">
-            <FilterConditions TItem="TItem" Schema="Schema" Query="Query" QueryChanged="OnQueryChanged" Rows="Items" IsAdmin="IsAdmin"/>
+            <FilterConditions TItem="TItem" Schema="Schema" Query="Query" QueryChanged="QueryChanged" Rows="Items" IsAdmin="IsAdmin"/>
         </div>
     }
     @if (Query.Groups.Count > 0) {
@@ -169,10 +169,6 @@
 
     Task OnQuickChanged(string value) {
         return QueryChanged.InvokeAsync(Query with { Quick = value.Trim() });
-    }
-
-    Task OnQueryChanged(ListQuery query) {
-        return QueryChanged.InvokeAsync(query);
     }
 
     IReadOnlyList<ConditionLine> ConditionLines() {

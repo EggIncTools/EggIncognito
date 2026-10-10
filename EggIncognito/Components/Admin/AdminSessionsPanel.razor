@@ -51,12 +51,8 @@
 
     protected override IReadOnlyList<string> Topics => [AdminTopics.Sessions, AdminTopics.DeviceStatus];
 
-    protected override Task LoadAsync() {
-        return Load();
-    }
-
     protected override async Task OnParametersSetAsync() {
-        if (_stale && State.SelectedPane == AdminPanes.Sessions) await Load();
+        if (_stale && State.SelectedPane == AdminPanes.Sessions) await LoadAsync();
     }
 
     IEnumerable<string> Stats() {
@@ -74,7 +70,7 @@
         return parts;
     }
 
-    async Task Load() {
+    protected override async Task LoadAsync() {
         if (State.SelectedPane != AdminPanes.Sessions) {
             _stale = true;
             return;
@@ -92,7 +88,7 @@
         _notice?.Clear();
         var res = await Api.DeleteAsync($"/api/admin/sessions/{Uri.EscapeDataString(key)}");
         _notice?.Result(res.Ok, res.Ok ? $"killed {Label(key)}" : $"kill failed: {res.Describe()}");
-        await Load();
+        await LoadAsync();
         _busy = false;
     }
 

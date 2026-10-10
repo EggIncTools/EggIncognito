@@ -16,7 +16,7 @@ public static class ShellCatalog {
             if (piece?.Dlc is not { } dlc) continue;
             string? url = AssetUrl(dlc);
             if (url is null) continue;
-            shells.Add(new Shell(s.Identifier ?? "", NullIfEmpty(s.Name), AssetTypeName(piece.AssetType),
+            shells.Add(new Shell(s.Identifier ?? "", NullIfEmpty(s.Name), piece.AssetType.ToString(),
                 url, NullIfEmpty(dlc.Checksum), s.ModifiedGeometry, NullIfEmpty(s.SetIdentifier)));
         }
 
@@ -25,7 +25,7 @@ public static class ShellCatalog {
             if (piece?.Dlc is not { } dlc) continue;
             string? url = AssetUrl(dlc);
             if (url is null) continue;
-            shells.Add(new Shell(o.Identifier ?? "", NullIfEmpty(o.Name), AssetTypeName(o.AssetType),
+            shells.Add(new Shell(o.Identifier ?? "", NullIfEmpty(o.Name), o.AssetType.ToString(),
                 url, NullIfEmpty(dlc.Checksum), false));
         }
 
@@ -53,7 +53,7 @@ public static class ShellCatalog {
                 : isChicken && !o.NoHats
                     ? DefaultChickenAnchor
                     : [];
-            objs.Add(new ShellObject(o.Identifier ?? "", NullIfEmpty(o.Name), AssetTypeName(o.AssetType),
+            objs.Add(new ShellObject(o.Identifier ?? "", NullIfEmpty(o.Name), o.AssetType.ToString(),
                 url, NullIfEmpty(dlc.Checksum), anchor, o.NoHats));
         }
 
@@ -99,7 +99,6 @@ public static class ShellCatalog {
         return $"{CdnBase}/{dlc.Directory}/{dlc.Name}.{ext}";
     }
 
-    private static string AssetTypeName(ShellSpec.Types.AssetType t) => t.ToString();
     private static string? NullIfEmpty(string? s) => string.IsNullOrEmpty(s) ? null : s;
 
     public sealed record Shell(

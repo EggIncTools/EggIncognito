@@ -83,6 +83,7 @@ public class HostedCapturePageTests {
             Services.AddSingleton(new AuthState(false));
             Services.AddSingleton<ICaptureContributionKinds>(new CaptureContributionKinds([]));
             Services.AddEggIdentityToasts();
+            Services.AddEggIdentityViewerCookies(o => o.Allow("capture.prefs", TimeSpan.FromDays(365)));
             Services.AddHttpClient();
         }
 

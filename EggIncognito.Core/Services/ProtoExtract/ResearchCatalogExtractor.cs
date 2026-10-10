@@ -246,11 +246,9 @@ public static class ResearchCatalogExtractor {
         int nextTok = 0;
         int order = 0;
 
-        void Clobber(string reg) => regs.Remove(reg);
-
         void ClobberPair(string reg) {
-            Clobber(reg);
-            if (reg.Length >= 2 && reg[0] is 'w' or 'x') Clobber((reg[0] == 'w' ? "x" : "w") + reg[1..]);
+            regs.Remove(reg);
+            if (reg.Length >= 2 && reg[0] is 'w' or 'x') regs.Remove((reg[0] == 'w' ? "x" : "w") + reg[1..]);
         }
 
         RegVal? Get(string reg) {
@@ -452,14 +450,14 @@ public static class ResearchCatalogExtractor {
                 case "bl":
                 case "blr":
                     for (int r = 0; r <= 17; r++) {
-                        Clobber("x" + r);
-                        Clobber("w" + r);
+                        regs.Remove("x" + r);
+                        regs.Remove("w" + r);
                     }
 
                     for (int r = 0; r <= 7; r++) {
-                        Clobber("q" + r);
-                        Clobber("d" + r);
-                        Clobber("s" + r);
+                        regs.Remove("q" + r);
+                        regs.Remove("d" + r);
+                        regs.Remove("s" + r);
                     }
 
                     Set("x0", new RegVal('t', 0, 0, nextTok++, 0, 0));

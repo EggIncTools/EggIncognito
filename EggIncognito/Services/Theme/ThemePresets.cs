@@ -19,7 +19,8 @@ public static class ThemePresets {
     }.ToFrozenDictionary();
 
     public static ThemeColor DefaultToken(string name) =>
-        ThemeColor.FromHex(DefaultHex.TryGetValue(name, out string? hex) ? hex : "#000000")!.Value;
+        ThemeColor.FromHex(DefaultHex[name])
+        ?? throw new InvalidOperationException($"default hex for theme token '{name}' is not a valid colour");
 
     public static readonly ThemeModel Default = Build("Default", "default", []);
 

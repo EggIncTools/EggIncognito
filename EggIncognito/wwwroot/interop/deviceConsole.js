@@ -1087,7 +1087,7 @@ function onLiveKey(k, ev) {
     invokeQuiet(k.dotnet, "OnLiveText", ev.key);
     return;
   }
-  invokeQuiet(k.dotnet, "OnLiveKey", name);
+  invokeQuiet(k.dotnet, "KeyAsync", name);
 }
 
 function dropKeys(k) {

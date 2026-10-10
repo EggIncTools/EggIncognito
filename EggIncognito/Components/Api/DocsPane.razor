@@ -9,10 +9,11 @@
 } else {
     switch (subject.Kind) {
         case DocSubjectKind.Message:
-            <ObjectReference Name="@subject.Key" OnSelectEndpoint="OnJumpEndpoint" OnSelectMessage="OnJumpMessage"/>
+            <ObjectReference Name="@subject.Key" OnSelectEndpoint="@(e => OnSelectSubject.InvokeAsync(new DocSubjectRef(DocSubjectKind.Endpoint, e.Path)))"
+                             OnSelectMessage="@(n => OnSelectSubject.InvokeAsync(new DocSubjectRef(DocSubjectKind.Message, n)))"/>
             break;
         case DocSubjectKind.Endpoint:
-            <EndpointReference Route="@ResolvedRoute" OnSelectObject="OnJumpMessage"/>
+            <EndpointReference Route="@ResolvedRoute" OnSelectObject="@(n => OnSelectSubject.InvokeAsync(new DocSubjectRef(DocSubjectKind.Message, n)))"/>
             break;
     }
 }
@@ -28,12 +29,5 @@
         }
     }
 
-    Task OnJumpEndpoint(RouteInfo e) {
-        return OnSelectSubject.InvokeAsync(new DocSubjectRef(DocSubjectKind.Endpoint, e.Path));
-    }
-
-    Task OnJumpMessage(string name) {
-        return OnSelectSubject.InvokeAsync(new DocSubjectRef(DocSubjectKind.Message, name));
-    }
 
 }

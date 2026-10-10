@@ -1,0 +1,20 @@
+@using EggIncognito.Services.Theme
+@inject ViewerThemeLive Live
+@inject IHttpContextAccessor HttpContextAccessor
+@implements IDisposable
+
+<LiveStyle Css="@Live.Css" Nonce="@Nonce"/>
+
+@code {
+    [PersistentState] public string? Nonce { get; set; }
+
+    protected override void OnInitialized() {
+        Nonce ??= HttpContextAccessor.HttpContext?.Items["egi.csp.nonce"] as string;
+        Live.Nonce = Nonce;
+        Live.Changed += OnChanged;
+    }
+
+    void OnChanged() => _ = InvokeAsync(StateHasChanged);
+
+    public void Dispose() => Live.Changed -= OnChanged;
+}

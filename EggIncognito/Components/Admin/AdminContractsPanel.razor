@@ -117,11 +117,7 @@
 
     protected override IReadOnlyList<string> Topics => [AdminTopics.Contracts];
 
-    protected override Task LoadAsync() {
-        return Load();
-    }
-
-    async Task Load() {
+    protected override async Task LoadAsync() {
         if (Api is null) return;
         var res = await Api.GetAsync("/api/admin/contracts/stats");
         if (!res.Ok) {
@@ -142,7 +138,7 @@
         var res = await Api.PostAsync("/api/admin/contracts/sweep-snapshots", TimeSpan.FromMinutes(10));
         _notice?.Result(res.Ok,
             res.Ok ? SweepResultText(res.Json<ContractBackfillResult>()) : $"sweep failed: {res.Describe()}");
-        await Load();
+        await LoadAsync();
         _busy = false;
         if (res.Ok) Notifier.Publish(AdminTopics.Contracts);
     }
@@ -155,7 +151,7 @@
             "/api/admin/contracts/import-carpet", new ContractCarpetImportRequest(_carpetUrl), TimeSpan.FromMinutes(10));
         _notice?.Result(res.Ok,
             res.Ok ? SweepResultText(res.Json<ContractBackfillResult>()) : $"import failed: {res.Describe()}");
-        await Load();
+        await LoadAsync();
         _busy = false;
         if (res.Ok) Notifier.Publish(AdminTopics.Contracts);
     }

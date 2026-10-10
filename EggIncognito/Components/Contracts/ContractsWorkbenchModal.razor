@@ -36,7 +36,7 @@
     <Bar>
         <button type="button" class="@BarCss(context)" style="@BarStyle(context)" @onclick="@(() => Select(context.Item))">
             @if (context.Item.Release is { } r && EggIcons.Url(r.Egg, r.CustomEggId) is { } eggUrl) {
-                <img class="evcal-bar-egg" src="@eggUrl" alt="" loading="lazy" data-fallback/>
+                <FallbackImg Class="evcal-bar-egg" Src="@eggUrl" Alt=""/>
             }
             <span class="evcal-bar-label">@Label(context.Item)</span>
         </button>
@@ -45,7 +45,7 @@
         @if (context.Release is { } c) {
             <div class="evcal-pop-lead">
                 @if (EggIcons.Url(c.Egg, c.CustomEggId) is { } eggUrl) {
-                    <img class="evcal-pop-icon" src="@eggUrl" alt="" loading="lazy" data-fallback/>
+                    <FallbackImg Class="evcal-pop-icon" Src="@eggUrl" Alt=""/>
                 }
                 <span>@EggIcons.Label(c.Egg, c.CustomEggId)</span>
                 @if (c.UltraOnly) {

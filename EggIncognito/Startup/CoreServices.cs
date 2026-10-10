@@ -70,6 +70,7 @@ public static class CoreServices {
         builder.Services.AddWorkbenchStates();
         builder.Services.AddScoped<Services.Theme.ThemeWorkbenchState>();
         builder.Services.AddSingleton<Services.Theme.ThemeCssEmitter>();
+        builder.Services.AddScoped<Services.Theme.ViewerThemeLive>();
         builder.Services.AddScoped<Services.Theme.ThemeResolver>();
         builder.Services.AddScoped<Services.Theme.ThemeIdentitySync>();
     }

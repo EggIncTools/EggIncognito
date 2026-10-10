@@ -1,12 +1,12 @@
-.auth-source-anchor { position: relative; display: inline-block; }
+.auth-source-anchor { position: relative; display: inline-block; anchor-name: --auth-a; anchor-scope: --auth-a; }
 .auth-source-menu {
   position: fixed;
-  top: 0;
-  left: 0;
-  z-index: 1000;
+  position-anchor: --auth-a;
+  position-try-fallbacks: flip-block, flip-inline;
+  margin: 6px;
+  z-index: 1050;
   width: 200px;
   box-sizing: border-box;
-  visibility: hidden;
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
@@ -16,6 +16,12 @@
   padding: 0.4rem;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
 }
+.auth-place-bottomright { position-area: bottom span-left; }
+.auth-place-bottomleft { position-area: bottom span-right; }
+.auth-place-right { position-area: right span-bottom; }
+.auth-place-left { position-area: left span-bottom; }
+.auth-place-topright { position-area: top span-left; }
+.auth-place-topleft { position-area: top span-right; }
 .auth-source-btn {
   display: flex;
   align-items: center;

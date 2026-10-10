@@ -4,7 +4,7 @@
 
 <AdminPaneHead Title="Farm Playground" Facts="@Stats()">
     <Tools>
-        <button type="button" class="btn-primary" @onclick="Open">Open playground</button>
+        <button type="button" class="btn-primary" @onclick="OnOpen">Open playground</button>
     </Tools>
 </AdminPaneHead>
 @if (_failed) {
@@ -51,9 +51,6 @@
         return _rows.OrderByDescending(r => r.UpdatedAt).Take(8);
     }
 
-    Task Open() {
-        return OnOpen.InvokeAsync();
-    }
 
     protected override async Task OnAfterRenderAsync(bool firstRender) {
         if (!firstRender || _loaded) return;

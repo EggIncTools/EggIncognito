@@ -1,4 +1,12 @@
-import { get, set, remove } from './uiPrefs.js';
+function get(key) {
+  try { return localStorage.getItem(key); } catch { return null; }
+}
+function set(key, val) {
+  try { localStorage.setItem(key, val); } catch { }
+}
+function remove(key) {
+  try { localStorage.removeItem(key); } catch { }
+}
 
 const KEY = 'playground.autosave';
 

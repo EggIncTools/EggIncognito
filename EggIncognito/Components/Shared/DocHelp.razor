@@ -1,16 +1,14 @@
-@implements IAsyncDisposable
 @* Inline help: a small info affordance next to a config/control/etc. On click it pops a panel with the
    subject's registry Summary plus its DB Markdown doc (if any) and a link into the docs hub. *@
 @using System.Text.Json
 @inherits SelfCallComponentBase
 @inject IDocRegistry Registry
-@inject IJSRuntime Js
-@inject ILogger<DocHelp> Logger
 
 @if (_subject is not null) {
-    <span class="dochelp" @ref="_rootRef">
+    <span class="dochelp">
         <button type="button" class="dochelp-btn" aria-label="Documentation" @onclick="Toggle">i</button>
         @if (_open) {
+            <span class="popover-backdrop" @onmousedown="() => _open = false"></span>
             <div class="dochelp-pop">
                 <div class="dochelp-title">@_subject.Title</div>
                 @if (!string.IsNullOrEmpty(_subject.Summary)) {
@@ -36,12 +34,6 @@
     bool _loaded;
     string? _bodyMd;
 
-    ElementReference _rootRef;
-    OutsideClickInterop? _outsideClick;
-    DotNetObjectReference<DocHelp>? _selfRef;
-    static int _nextId;
-    readonly string _registrationId = $"dochelp-{Interlocked.Increment(ref _nextId)}";
-
     protected override void OnParametersSet() {
         _subject = Registry.Find(Kind, Key);
     }
@@ -49,37 +41,6 @@
     async Task Toggle() {
         _open = !_open;
         if (_open && !_loaded) await LoadDoc();
-        if (_open) await RegisterOutsideClickAsync();
-        else await UnregisterOutsideClickAsync();
-    }
-
-    async Task RegisterOutsideClickAsync() {
-        _outsideClick ??= new OutsideClickInterop(Js);
-        _selfRef ??= DotNetObjectReference.Create(this);
-        await _outsideClick.RegisterAsync(_registrationId, _rootRef, _selfRef);
-    }
-
-    async Task UnregisterOutsideClickAsync() {
-        if (_outsideClick is not null) await _outsideClick.UnregisterAsync(_registrationId);
-    }
-
-    [JSInvokable]
-    public async Task OnOutsideClick() {
-        _open = false;
-        await UnregisterOutsideClickAsync();
-        await InvokeAsync(StateHasChanged);
-    }
-
-    public async ValueTask DisposeAsync() {
-        if (_open) {
-            try {
-                await UnregisterOutsideClickAsync();
-            } catch (JSDisconnectedException ex) {
-                Logger.LogDebug(ex, "outside-click handler already gone with the circuit");
-            }
-        }
-
-        _selfRef?.Dispose();
     }
 
     async Task LoadDoc() {

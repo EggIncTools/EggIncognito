@@ -41,7 +41,7 @@
                         </span>
                     </button>
                     <button type="button" class="btn-mini btn-danger" title="Remove this island" disabled="@Busy"
-                            @onclick="@(() => RemoveAsync(island.AndroidUserId))">
+                            @onclick="@(() => OnRemove.InvokeAsync(island.AndroidUserId))">
                         <Icon Name="x" Class="icon-sm"/>
                     </button>
                 </div>
@@ -118,9 +118,6 @@
         await OnSwitch.InvokeAsync(androidUserId);
     }
 
-    Task RemoveAsync(int androidUserId) {
-        return OnRemove.InvokeAsync(androidUserId);
-    }
 
     void StartCreate() {
         _creating = true;

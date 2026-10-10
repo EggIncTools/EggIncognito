@@ -1,8 +1,7 @@
 @rendermode @(RenderModes.InteractiveServer)
 @inherits SelfCallComponentBase
 @inject ICurrentUser User
-@inject IJSRuntime JS
-@inject IWebHostEnvironment Env
+@inject NavigationManager Nav
 @inject NotificationsWorkbenchState State
 @inject ToastService Toasts
 @inject ILogger<NotificationsWorkbenchModal> Logger
@@ -119,7 +118,6 @@
     bool _busy;
     bool _armed;
     bool _json;
-    bool _hashWired;
 
     AdminFeedListResponse? _admin;
     int? _adminSelectedId;
@@ -127,9 +125,7 @@
     bool _confirmDelete;
     bool _confirmTest;
 
-    IJSObjectReference? _nav;
-    IJSObjectReference? _navHandle;
-    DotNetObjectReference<NotificationsWorkbenchModal>? _selfRef;
+    PathRouteSync? _hash;
     CancellationTokenSource? _debounce;
     int _previewSeq;
 
@@ -517,22 +513,10 @@
 
     protected override async Task OnAfterRenderAsync(bool firstRender) {
         if (!firstRender || AdminScope) return;
-        try {
-            _nav = await JS.InvokeAsync<IJSObjectReference>("import", InteropAsset.Url(Env, "./interop/hashnav.js"));
-            _selfRef = DotNetObjectReference.Create(this);
-            _navHandle = await _nav.InvokeAsync<IJSObjectReference>("listen", _selfRef);
-            _hashWired = true;
-            var hash = await _nav.InvokeAsync<string>("read");
-            await ApplyHash(hash);
-        } catch (Exception ex) when (ex is JSDisconnectedException or JSException or ObjectDisposedException) {
-            Logger.LogDebug(ex, "hash navigation could not be wired");
-        }
-    }
-
-    [JSInvokable]
-    public async Task OnHashChanged(string hash) {
-        await ApplyHash(hash);
-        StateHasChanged();
+        _hash = new PathRouteSync(Nav, "");
+        _hash.Changed += () => _ = InvokeAsync(() => ApplyHash(_hash.Fragment));
+        _hash.Start();
+        await ApplyHash(_hash.Fragment);
     }
 
     async Task ApplyHash(string hash) {
@@ -550,14 +534,9 @@
         StateHasChanged();
     }
 
-    async Task WriteHash(bool push = false, bool clear = false) {
-        if (!_hashWired || _nav is null) return;
-        var hash = clear ? "" : State.Hash() ?? "";
-        try {
-            await _nav.InvokeVoidAsync(push ? "push" : "write", hash);
-        } catch (JSDisconnectedException ex) {
-            Logger.LogDebug(ex, "hash write skipped, the circuit is already gone");
-        }
+    Task WriteHash(bool push = false, bool clear = false) {
+        _hash?.WriteFragment(Nav, clear ? "" : State.Hash() ?? "", push);
+        return Task.CompletedTask;
     }
 
     async Task LoadAll() {
@@ -927,22 +906,12 @@
         _busy = false;
     }
 
-    public async ValueTask DisposeAsync() {
+    public ValueTask DisposeAsync() {
         _debounce?.Cancel();
         _debounce?.Dispose();
         _debounce = null;
-        try {
-            if (_navHandle is not null) {
-                await _navHandle.InvokeVoidAsync("dispose");
-                await _navHandle.DisposeAsync();
-            }
-
-            if (_nav is not null) await _nav.DisposeAsync();
-        } catch (Exception ex) when (ex is JSDisconnectedException or ObjectDisposedException) {
-            Logger.LogDebug(ex, "notifications interop dispose skipped");
-        }
-
-        _selfRef?.Dispose();
+        _hash?.Dispose();
+        return ValueTask.CompletedTask;
     }
 
 }

@@ -1,0 +1,22 @@
+@if (!_failed) {
+    <img class="@Class" src="@Src" alt="@Alt" loading="lazy" @onerror="@(() => _failed = true)"/>
+} else if (Fallback is not null) {
+    @Fallback
+}
+
+@code {
+    [Parameter] public string? Src { get; set; }
+    [Parameter] public string? Alt { get; set; }
+    [Parameter] public string? Class { get; set; }
+    [Parameter] public RenderFragment? Fallback { get; set; }
+
+    bool _failed;
+    string? _lastSrc;
+
+    protected override void OnParametersSet() {
+        if (string.Equals(_lastSrc, Src, StringComparison.Ordinal)) return;
+        _lastSrc = Src;
+        _failed = false;
+    }
+
+}

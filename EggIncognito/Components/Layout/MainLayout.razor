@@ -1,9 +1,17 @@
 @inherits LayoutComponentBase
 @using EggIdentity.Consent
+@using EggIdentity.Visits
+@using EggIncognito.Startup
 @inject AuthState Auth
 @inject IHttpContextAccessor HttpContextAccessor
+@inject BootFlags Boot
 @Body
+@if (Boot.DbEnabled) {
+    <VisitCounter/>
+}
 <ToastHost @rendermode="RenderModes.InteractiveServer"/>
+<EggIncognito.Components.Theme.ViewerThemeStyle @rendermode="RenderModes.InteractiveServer"/>
+<DownloadSink @rendermode="RenderModes.InteractiveServer"/>
 <DeployToastStarter/>
 <CookieBanner SessionToken="@SessionToken" PrivacyUrl="/privacy" @rendermode="RenderModes.InteractiveServer"/>
 <footer id="siteFooter" class="site-footer">

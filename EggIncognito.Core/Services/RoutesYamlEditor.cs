@@ -52,7 +52,7 @@ public sealed partial class RoutesYamlEditor {
             return true;
         }
 
-        Insert(start + 1, $"{FieldIndent(start, end)}{key}: {value}");
+        _lines.Insert(start + 1, $"{FieldIndent(start, end)}{key}: {value}");
         Mutated();
         return true;
     }
@@ -67,7 +67,7 @@ public sealed partial class RoutesYamlEditor {
             if (m.Success) return false;
         }
 
-        Insert(start + 1, $"{FieldIndent(start, end)}{key}: true");
+        _lines.Insert(start + 1, $"{FieldIndent(start, end)}{key}: true");
         Mutated();
         return true;
     }
@@ -134,7 +134,7 @@ public sealed partial class RoutesYamlEditor {
             return true;
         }
 
-        Insert(start + 1, $"{FieldIndent(start, end)}request:  {NoneMarker}");
+        _lines.Insert(start + 1, $"{FieldIndent(start, end)}request:  {NoneMarker}");
         Mutated();
         return true;
     }
@@ -165,8 +165,6 @@ public sealed partial class RoutesYamlEditor {
         Dirty = true;
         _parsed = null;
     }
-
-    private void Insert(int index, string line) => _lines.Insert(index, line);
 
     private string FieldIndent(int start, int end) {
         for (int k = start + 1; k < end; k++) {

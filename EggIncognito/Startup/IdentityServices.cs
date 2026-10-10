@@ -41,7 +41,10 @@ public static class IdentityServices {
         builder.Services.AddEggIdentityCurrentUser();
         builder.Services.AddEggIdentityBrowserTimeZone();
         builder.Services.AddScoped<ViewerClock>();
-        builder.Services.AddScoped<DownloadInterop>();
+        builder.Services.AddEggIdentityDownloads();
+        builder.Services.AddEggIdentityViewerCookies(o => o
+            .Allow("theme.model", TimeSpan.FromDays(365))
+            .Allow("capture.prefs", TimeSpan.FromDays(365)));
         builder.Services.AddScoped<ClipboardInterop>();
     }
 }

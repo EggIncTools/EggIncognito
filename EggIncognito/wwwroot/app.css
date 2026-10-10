@@ -252,6 +252,7 @@ input[type="search"]::placeholder { color: var(--color-muted); }
 .table-scroll .data-table tbody tr.row-hot { background: color-mix(in oklab, var(--color-accent) 10%, transparent); }
 .data-table .mono { font-family: var(--font-mono); font-size: 0.75rem; }
 
+body:has(.modal-backdrop) { overflow: hidden; }
 .modal-backdrop { align-items: flex-start; background-color: var(--color-scrim); }
 .modal-card { margin-block: auto; background-color: var(--egi-panel-tint, var(--color-panel)); }
 .modal-card:focus, .modal-card:focus-visible { outline: none; }

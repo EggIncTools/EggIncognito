@@ -20,6 +20,7 @@
 @inject ISealedProxy SealedProxy
 @inject IJSRuntime JS
 @inject IWebHostEnvironment Env
+@inject NavigationManager Nav
 @inject ApiWorkbenchState State
 @inject ToastService Toasts
 @inject ILogger<ApiWorkbenchModal> Logger
@@ -145,7 +146,7 @@
                             @if (sel is not null) {
                                 <div class="insp-reader-subject">
                                     <span class="insp-route">@sel.Path</span>
-                                    <RouteTypes Route="sel" OnSelectType="SelectMessageDocs"/>
+                                    <RouteTypes Route="sel" OnSelectType="@(n => SelectDocsSubject(new DocSubjectRef(DocSubjectKind.Message, n)))"/>
                                 </div>
                             } else {
                                 <span class="insp-reader-hint">Pick an endpoint to see its transaction here.</span>
@@ -179,16 +180,13 @@
 
     bool _open;
     bool _storeLoaded;
-    bool _hashWired;
     bool _saltOpen;
     bool _liveConsentOpen;
     bool _fixWrappedBusy;
     RouteCatalogSummary? _routeSummary;
 
     IJSObjectReference? _store;
-    IJSObjectReference? _nav;
-    IJSObjectReference? _navHandle;
-    DotNetObjectReference<ApiWorkbenchModal>? _selfRef;
+    PathRouteSync? _hash;
 
     protected override void OnInitialized() {
         base.OnInitialized();
@@ -213,23 +211,12 @@
         });
     }
 
-    Task SelectMessageDocs(string name) {
-        return SelectDocsSubject(new DocSubjectRef(DocSubjectKind.Message, name));
-    }
-
     protected override async Task OnAfterRenderAsync(bool firstRender) {
         if (!firstRender) return;
-        try {
-            _nav = await JS.InvokeAsync<IJSObjectReference>("import", InteropAsset.Url(Env, "./interop/hashnav.js"));
-            _selfRef = DotNetObjectReference.Create(this);
-            _navHandle = await _nav.InvokeAsync<IJSObjectReference>("listen", _selfRef);
-            _hashWired = true;
-            await ApplyHash(await _nav.InvokeAsync<string>("read"));
-        } catch (Exception ex) when (ex is JSDisconnectedException or JSException or ObjectDisposedException) {
-            Logger.LogDebug(ex, "hash navigation could not be wired");
-        }
-
-        StateHasChanged();
+        _hash = new PathRouteSync(Nav, "");
+        _hash.Changed += () => _ = InvokeAsync(() => ApplyHash(_hash.Fragment));
+        _hash.Start();
+        await ApplyHash(_hash.Fragment);
     }
 
     async Task LoadStore() {
@@ -925,12 +912,6 @@
         }
     }
 
-    [JSInvokable]
-    public async Task OnHashChanged(string hash) {
-        await ApplyHash(hash);
-        StateHasChanged();
-    }
-
     async Task ApplyHash(string hash) {
         if (!State.ApplyHash(hash)) {
             if (_open) {
@@ -971,22 +952,15 @@
         if (State.Kind is ApiSelectionKind.Coverage && !State.IsAdmin) ApplyModeDefault(ApiWorkbenchState.ModeData);
     }
 
-    async Task WriteHash(bool push = false, bool clear = false) {
-        if (!_hashWired || _nav is null) return;
-        var hash = clear ? "" : State.Hash() ?? "";
-        try {
-            await _nav.InvokeVoidAsync(push ? "push" : "write", hash);
-        } catch (Exception ex) when (ex is JSDisconnectedException or JSException or ObjectDisposedException) {
-            Logger.LogDebug(ex, "the workbench hash could not be updated");
-        }
+    Task WriteHash(bool push = false, bool clear = false) {
+        _hash?.WriteFragment(Nav, clear ? "" : State.Hash() ?? "", push);
+        return Task.CompletedTask;
     }
 
     public async ValueTask DisposeAsync() {
         State.DocsRequested -= OnDocsRequested;
-        await _navHandle.DisposeModuleAsync("dispose", Logger);
-        await _nav.DisposeModuleAsync(logger: Logger);
+        _hash?.Dispose();
         await _store.DisposeModuleQuietAsync(logger: Logger);
-        _selfRef?.Dispose();
     }
 
 }

@@ -93,7 +93,7 @@
 
     static string Namespace(ConsoleEndpoint e) {
         var parts = e.Route.TrimStart('/').Split('/');
-        return parts.Length >= 2 && parts[0] == "api" ? parts[1] : parts.ElementAtOrDefault(0) ?? "api";
+        return parts.Length >= 2 && parts[0] == "api" ? parts[1] : parts[0];
     }
 
     static string ShortRoute(string route) {

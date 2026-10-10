@@ -33,6 +33,14 @@ public sealed class ThemeResolver(
         return resolved;
     }
 
+    public ResolvedTheme? ResolveViewer(string? json) {
+        if (string.IsNullOrWhiteSpace(json)) return null;
+        var (model, _) = ThemeJson.Parse(json);
+        if (model is null || !ThemePalette.Contrast(model).Passes) return null;
+        string css = emitter.Serialize(model with { Css = "" }, ThemeScope.Live, false);
+        return css.Length == 0 ? null : new ResolvedTheme(css, ThemeCssEmitter.UsesHueRotation(model));
+    }
+
     private async Task<ResolvedTheme?> ResolveUncachedAsync(UserThemeStore store, Guid uid, CancellationToken ct) {
         var row = await store.ActiveForAsync(uid, ct) ?? await AdoptSharedThemeAsync(store, uid, ct);
         bool isDefaultTheme = false;

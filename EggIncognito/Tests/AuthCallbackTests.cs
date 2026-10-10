@@ -1,5 +1,7 @@
 using EggIncognito.Services;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace EggIncognito.Tests;
 
@@ -13,9 +15,9 @@ public class AuthCallbackTests {
         var mw = new LoginCallbackMiddleware(_ => {
             continued = true;
             return Task.CompletedTask;
-        });
+        }, NullLogger<LoginCallbackMiddleware>.Instance);
 
-        var ctx = new DefaultHttpContext();
+        var ctx = new DefaultHttpContext { RequestServices = new ServiceCollection().BuildServiceProvider() };
         ctx.Request.Method = method;
         ctx.Request.Path = path;
         ctx.Request.QueryString = new QueryString(query);

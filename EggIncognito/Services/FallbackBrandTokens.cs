@@ -11,6 +11,8 @@ public static class FallbackBrandTokens {
         ["--color-fg"] = "#e7e7ea",
         ["--color-muted"] = "#9a9aa5",
         ["--color-accent"] = "#ef7559",
+        ["--color-accent2"] = "#ef7559",
+        ["--color-warn"] = "oklch(87.9% 0.169 91.605)",
         ["--color-ok"] = "#5ec27e",
         ["--color-err"] = "#e0685f",
         ["--color-border"] = "#3a3a44",
