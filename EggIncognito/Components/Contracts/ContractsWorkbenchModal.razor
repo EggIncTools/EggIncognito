@@ -34,7 +34,7 @@
         </WorkbenchRail>
     </Rail>
     <Bar>
-        <button type="button" class="@BarCss(context)" style="@BarStyle(context)" @onclick="@(() => Select(context.Item))">
+        <button type="button" class="@BarCss(context)" style="@BarStyle(context)" @onclick="@(() => _cal?.Select(context))">
             @if (context.Item.Release is { } r && EggIcons.Url(r.Egg, r.CustomEggId) is { } eggUrl) {
                 <FallbackImg Class="evcal-bar-egg" Src="@eggUrl" Alt=""/>
             }
@@ -153,10 +153,6 @@
         }
 
         return items;
-    }
-
-    void Select(ContractCalendarItem item) {
-        _cal?.Select(item);
     }
 
     async Task<CalendarLoad> LoadRange(CalendarRange range) {

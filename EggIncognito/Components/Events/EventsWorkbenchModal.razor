@@ -48,7 +48,7 @@
         </WorkbenchRail>
     </Rail>
     <Bar>
-        <button type="button" class="@BarCss(context)" style="@BarStyle(context)" @onclick="@(() => Select(context.Item))">
+        <button type="button" class="@BarCss(context)" style="@BarStyle(context)" @onclick="@(() => _cal?.Select(context))">
             @if (EventPalette.IconUrl(context.Item.Type, context.Item.Ultra) is { } iconUrl) {
                 <FallbackImg Class="evcal-bar-icon" Src="@iconUrl" Alt=""/>
             }
@@ -193,10 +193,6 @@
         }
 
         return items;
-    }
-
-    void Select(EventCalendarItem item) {
-        _cal?.Select(item);
     }
 
     async Task<CalendarLoad> LoadRange(CalendarRange range) {

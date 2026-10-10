@@ -8,7 +8,7 @@
 @inject ICurrentUser User
 @inject IServiceProvider Services
 
-<WorkbenchModal Open="_open" Title="@Title" TitleId="@TitleId" Size="WorkbenchSize.Wide" CardClass="@CardClass" OnClose="Close">
+<WorkbenchModal Open="_open" Title="@Title" TitleId="@TitleId" Size="WorkbenchSize.Wide" CardClass="@($"calwb-card {CardClass}")" OnClose="Close">
     <HeadTools>
         <div class="evwb-range" role="group" aria-label="Calendar range">
             <div class="evwb-zoom" role="group" aria-label="Zoom">
@@ -47,6 +47,20 @@
             <CalendarSurface>
                 <CalendarGrid TItem="CalendarBar<TItem>" @ref="_grid" Periods="_periods" LaneGroups="LaneGroups" OnCommitScrollPan="Pan"/>
             </CalendarSurface>
+            @if (Shown is { } shown) {
+                <div class="@(IsPinned(shown) ? "evcal-pop evcal-pop-pinned" : "evcal-pop")" role="dialog" aria-label="@DetailTitle(shown.Item)"
+                     style="@(AnchorStyle?.Invoke(shown.Item))">
+                    <div class="evcal-pop-head">
+                        <span class="evcal-pop-title">@DetailTitle(shown.Item)</span>
+                        @if (IsPinned(shown)) {
+                            <button type="button" class="icon-btn icon-btn-sm" aria-label="Unpin details" @onclick="ClearSelection">
+                                <Icon Name="x"/>
+                            </button>
+                        }
+                    </div>
+                    @Detail(shown.Item)
+                </div>
+            }
         </div>
     </ChildContent>
 </WorkbenchModal>
@@ -100,7 +114,8 @@
     IReadOnlyList<CalendarLayoutRow<TItem>> _rows = [];
     IReadOnlyList<PeriodSlot<CalendarBar<TItem>>> _periods = [];
     double _slotRem = MinSlotRem;
-    TItem? _picked;
+    CalendarBar<TItem>? _picked;
+    CalendarBar<TItem>? _hover;
     CalendarGrid<CalendarBar<TItem>>? _grid;
     TimeZoneInfo _zone = ViewerZone.Fallback;
     ViewerClock? _clock;
@@ -147,15 +162,16 @@
     }
 
     public void ClearSelection() {
-        _picked = default;
+        _picked = null;
+        _hover = null;
     }
 
-    public void Select(TItem item) {
-        _picked = _picked is not null && _picked.Key == item.Key ? default : item;
+    public void Select(CalendarBar<TItem> bar) {
+        _picked = ReferenceEquals(_picked, bar) ? null : bar;
     }
 
-    public bool IsPinned(TItem item) {
-        return _picked is not null && _picked.Key == item.Key;
+    bool IsPinned(CalendarBar<TItem> bar) {
+        return ReferenceEquals(_picked, bar);
     }
 
     public void Relayout() {
@@ -232,23 +248,20 @@
     }
 
     RenderFragment<CalendarBar<TItem>> Anchored => bar =>
-        @<div class="@AnchorCss(bar)" style="@(CalendarBars.PositionStyle(bar) + (AnchorStyle?.Invoke(bar.Item) ?? ""))">
+        @<div class="@AnchorCss(bar)" style="@(CalendarBars.PositionStyle(bar) + (AnchorStyle?.Invoke(bar.Item) ?? ""))"
+              @onmouseenter="@(() => _hover = bar)" @onmouseleave="@(() => Unhover(bar))">
             @Bar(bar)
-            <div class="evcal-pop" role="dialog" aria-label="@DetailTitle(bar.Item)">
-                <div class="evcal-pop-head">
-                    <span class="evcal-pop-title">@DetailTitle(bar.Item)</span>
-                    @if (IsPinned(bar.Item)) {
-                        <button type="button" class="icon-btn icon-btn-sm" aria-label="Unpin details" @onclick="ClearSelection">
-                            <Icon Name="x"/>
-                        </button>
-                    }
-                </div>
-                @Detail(bar.Item)
-            </div>
         </div>;
 
+    CalendarBar<TItem>? Shown => _hover ?? _picked;
+
+    void Unhover(CalendarBar<TItem> bar) {
+        if (ReferenceEquals(_hover, bar)) _hover = null;
+    }
+
     string AnchorCss(CalendarBar<TItem> bar) {
-        return IsPinned(bar.Item) ? "evcal-anchor evcal-anchor-open" : "evcal-anchor";
+        var css = IsPinned(bar) ? "evcal-anchor evcal-anchor-open" : "evcal-anchor";
+        return ReferenceEquals(Shown, bar) ? css + " evcal-anchor-shown" : css;
     }
 
     string PaneCss => _zoom == CalendarZoom.Month ? "evcal-pane evcal-month" : "evcal-pane evcal-week";
