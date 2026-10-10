@@ -21,10 +21,7 @@
             </span>
             <span class="cov-head-tools">
                 @if (_map is { } m) {
-                    <span class="cov-val" title="@($"{Pct(m.Validity)} valid")">
-                        <BarTrack Fraction="m.Validity"/>
-                        <span class="cov-facts mono">@Pct(m.Validity)</span>
-                    </span>
+                    <span class="cov-pct mono" style="@PctStyle(m.Validity)" title="@($"{Pct(m.Validity)} valid")">@Pct(m.Validity)</span>
                     <span class="cov-tick mono" title="@($"{m.CellsComplete}/{m.CellsInScope} cells")">
                         <Icon Name="layout-grid" Class="icon-sm"/>@m.CellsComplete/@m.CellsInScope
                     </span>
@@ -70,18 +67,11 @@
                             <td>
                                 <span class="cov-fam">
                                     <Caret Open="Open(f)"/>
-                                    @if (f.Tiers.Count > 0) {
-                                        <img class="cov-fam-ico" src="@IconSrc(f.SpecName, f.Tiers[^1].AfxLevel)" alt="" loading="lazy"/>
-                                    }
-                                    @f.PluralName
+                                    <img class="cov-fam-ico" src="@ArtifactAssets.TargetIconFor(f.SpecName)" alt="" loading="lazy"/>
+                                    <Tooltip Text="@f.PluralName"><span>@ArtifactAssets.ShortPlural(f.PluralName)</span></Tooltip>
                                 </span>
                             </td>
-                            <td>
-                                <span class="cov-bar-box">
-                                    <BarTrack Fraction="f.Validity"/>
-                                    <span class="cov-bar-pct mono">@Pct(f.Validity)</span>
-                                </span>
-                            </td>
+                            <td><span class="cov-pct mono" style="@PctStyle(f.Validity)">@Pct(f.Validity)</span></td>
                             <td><span class="cov-tick mono"><Icon Name="layout-grid" Class="icon-sm"/>@f.CellsComplete/@f.CellsInScope</span></td>
                             <td><span class="cov-tick mono" title="@($"{f.Observations} consumed")"><Icon Name="database" Class="icon-sm"/>@Compact(f.Observations)</span></td>
                         </tr>
@@ -222,6 +212,8 @@
     static string CellStyle(CoverageCell c) => FormattableString.Invariant($"--v:{c.Validity:0.###};");
 
     static string Pct(double v) => FormattableString.Invariant($"{v * 100:0.#}%");
+
+    static string PctStyle(double v) => FormattableString.Invariant($"--p:{Math.Clamp(v, 0, 1):0.###};");
 
     static string Compact(long n) => n switch {
         >= 1_000_000 => FormattableString.Invariant($"{n / 1_000_000d:0.#}M"),
