@@ -19,7 +19,7 @@
 .cegg-table .cegg-tier { text-align: right; width: 2.75rem; }
 .cegg-table .cegg-tier-first { border-left: 1px solid var(--color-border); }
 .cegg-icon-col { width: 2rem; }
-.cegg-icon { width: 1.875rem; height: 1.875rem; object-fit: contain; }
+.cegg-table ::deep .cegg-icon { width: 1.875rem; height: 1.875rem; object-fit: contain; }
 .cegg-none { font-size: 0.75rem; color: var(--color-muted); }
 .cegg-name { color: var(--color-accent); }
 .cegg-dim { font-size: 0.75rem; color: var(--color-muted); text-align: right; }
@@ -82,7 +82,7 @@
 .season-cegg-body { min-width: 0; }
 .season-cegg-name { font-size: 0.75rem; font-weight: 500; }
 .season-cegg-contracts { font-size: 0.6875rem; color: var(--color-muted); }
-.season-cegg-icon { width: 2.5rem; height: 2.5rem; object-fit: contain; }
+.season-cegg ::deep .season-cegg-icon { width: 2.5rem; height: 2.5rem; object-fit: contain; }
 .season-table { table-layout: fixed; }
 .season-table td { white-space: normal; }
 .season-table thead th { text-align: center; vertical-align: bottom; }
@@ -90,10 +90,10 @@
 .season-table tbody td { text-align: center; vertical-align: middle; font-size: 0.75rem; }
 .season-table tbody td:first-child { text-align: left; }
 .season-goal-ix { font-family: var(--font-mono); color: var(--color-muted); }
-.season-grade-icon { width: 1.75rem; height: 1.75rem; object-fit: contain; display: inline-block; }
+.season-table ::deep .season-grade-icon { width: 1.75rem; height: 1.75rem; object-fit: contain; display: inline-block; }
 .season-goal { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.125rem; }
 .season-goal-reward { flex: none; display: inline-flex; align-items: center; gap: 0.125rem; }
-.season-goal-img { width: 1.125rem; height: 1.125rem; object-fit: contain; display: block; }
+.season-table ::deep .season-goal-img { width: 1.125rem; height: 1.125rem; object-fit: contain; display: block; }
 .season-goal-cs { color: var(--color-fg-soft); font-family: var(--font-mono); font-size: 0.6875rem; font-weight: 600; letter-spacing: -0.01em; white-space: nowrap; }
 .season-goal-unit { color: var(--color-muted); font-weight: 400; font-size: 0.5625rem; margin-left: 0.15rem; }
 .season-goal-amt { color: var(--color-muted); font-family: var(--font-mono); font-size: 0.625rem; font-weight: 400; }

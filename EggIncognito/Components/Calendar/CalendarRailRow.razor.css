@@ -15,7 +15,7 @@
   cursor: pointer;
 }
 .evwb-row:hover { color: var(--color-fg); }
-.evwb-row-icon { flex: none; width: 1.125rem; height: 1.125rem; object-fit: cover; border-radius: 0.2rem; }
+.evwb-row ::deep .evwb-row-icon { flex: none; width: 1.125rem; height: 1.125rem; object-fit: cover; border-radius: 0.2rem; }
 .evwb-row-dim { opacity: 0.45; }
 .evwb-row-dim:hover { opacity: 0.75; }
 .evwb-row-on {
