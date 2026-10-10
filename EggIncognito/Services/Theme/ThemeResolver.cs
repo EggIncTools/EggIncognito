@@ -15,8 +15,16 @@ public sealed class ThemeResolver(
     IMemoryCache cache,
     ThemeCssEmitter emitter,
     IConfiguration configuration,
+    IHostEnvironment environment,
     UserThemeStore? themeStore = null) {
     private static readonly TimeSpan CacheTtl = TimeSpan.FromSeconds(60);
+
+    public static ThemeModel ViewerModel(ThemeModel model, IHostEnvironment environment) {
+        if (!environment.IsStaging()) return model with { Css = "" };
+        var tokens = new Dictionary<string, ThemeTokenValue>(model.Tokens, StringComparer.Ordinal);
+        tokens.Remove("accent");
+        return model with { Css = "", Tokens = tokens };
+    }
 
     public static string CacheKey(Guid userId) => $"egi.theme.{userId:N}";
 
@@ -37,7 +45,7 @@ public sealed class ThemeResolver(
         if (string.IsNullOrWhiteSpace(json)) return null;
         var (model, _) = ThemeJson.Parse(json);
         if (model is null || !ThemePalette.Contrast(model).Passes) return null;
-        string css = emitter.Serialize(model with { Css = "" }, ThemeScope.Live, false);
+        string css = emitter.Serialize(ViewerModel(model, environment), ThemeScope.Live, false);
         return css.Length == 0 ? null : new ResolvedTheme(css, ThemeCssEmitter.UsesHueRotation(model));
     }
 

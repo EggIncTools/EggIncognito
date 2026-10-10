@@ -6,20 +6,17 @@
 
 @if (_subject is not null) {
     <span class="dochelp">
-        <button type="button" class="dochelp-btn" aria-label="Documentation" @onclick="Toggle">i</button>
-        @if (_open) {
-            <span class="popover-backdrop" @onmousedown="() => _open = false"></span>
-            <div class="dochelp-pop">
-                <div class="dochelp-title">@_subject.Title</div>
-                @if (!string.IsNullOrEmpty(_subject.Summary)) {
-                    <div class="dochelp-summary">@_subject.Summary</div>
-                }
-                @if (!string.IsNullOrEmpty(_bodyMd)) {
-                    <Markdown Body="@_bodyMd"/>
-                }
-                <a class="dochelp-link" href="/protos#api">Open in the API workbench</a>
-            </div>
-        }
+        <button type="button" class="dochelp-btn" aria-label="Documentation" popovertarget="@_popId" @onclick="Load">i</button>
+        <div id="@_popId" class="dochelp-pop" popover="auto">
+            <div class="dochelp-title">@_subject.Title</div>
+            @if (!string.IsNullOrEmpty(_subject.Summary)) {
+                <div class="dochelp-summary">@_subject.Summary</div>
+            }
+            @if (!string.IsNullOrEmpty(_bodyMd)) {
+                <Markdown Body="@_bodyMd"/>
+            }
+            <a class="dochelp-link" href="/protos#api">Open in the API workbench</a>
+        </div>
     </span>
 }
 
@@ -29,8 +26,10 @@
 
     static readonly JsonSerializerOptions JsonOpts = new(JsonSerializerDefaults.Web);
 
+    static int _nextId;
+    readonly string _popId = $"dochelp-{Interlocked.Increment(ref _nextId)}";
+
     DocSubject? _subject;
-    bool _open;
     bool _loaded;
     string? _bodyMd;
 
@@ -38,12 +37,8 @@
         _subject = Registry.Find(Kind, Key);
     }
 
-    async Task Toggle() {
-        _open = !_open;
-        if (_open && !_loaded) await LoadDoc();
-    }
-
-    async Task LoadDoc() {
+    async Task Load() {
+        if (_loaded) return;
         _loaded = true;
         try {
             var doc = await Client().GetFromJsonAsync<Models.Docs.DocResult>($"/api/docs/doc/{Kind}/{Uri.EscapeDataString(Key)}", JsonOpts);

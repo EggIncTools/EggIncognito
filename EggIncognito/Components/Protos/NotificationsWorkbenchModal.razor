@@ -535,7 +535,9 @@
     }
 
     Task WriteHash(bool push = false, bool clear = false) {
-        _hash?.WriteFragment(Nav, clear ? "" : State.Hash() ?? "", push);
+        var fragment = clear ? "" : State.Hash() ?? "";
+        if (push) _hash?.PushFragment(fragment);
+        else _hash?.ReplaceFragment(fragment);
         return Task.CompletedTask;
     }
 

@@ -41,7 +41,8 @@ public sealed partial class CaptureViewState {
     }
 
     private sealed record CaptureViewPrefs(
-        string RedactionMode, bool ShowHeaders, bool AutoScroll, bool CompareToKnown, string DefaultFormat, bool SetupExpanded);
+        string RedactionMode = "blur", bool ShowHeaders = false, bool AutoScroll = true, bool CompareToKnown = false,
+        string DefaultFormat = "json-tree", bool SetupExpanded = true);
 
     public bool IsBlurMode => RedactionMode == "blur";
     public bool IsRedactMode => RedactionMode == "redact";

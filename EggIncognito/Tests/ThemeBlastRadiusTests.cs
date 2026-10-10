@@ -62,7 +62,8 @@ public class ThemeBlastRadiusTests {
         var config = new ConfigurationBuilder().Build();
         var identitySync = new ThemeIdentitySync(new AuthState(false), new HttpContextAccessor(),
             NullLogger<ThemeIdentitySync>.Instance);
-        return new ThemeResolver(user, identitySync, cache, ThemeTestSupport.Serializer(), config);
+        return new ThemeResolver(user, identitySync, cache, ThemeTestSupport.Serializer(), config,
+            new FakeWebHostEnvironment());
     }
 
     private static int CountOccurrences(string haystack, string needle) {

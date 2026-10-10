@@ -22,7 +22,6 @@
 }
 .reg-toolbar-controls { display: flex; justify-content: center; align-items: center; flex-wrap: wrap; gap: 0.5rem; }
 .reg-drop {
-  position: relative;
   display: inline-flex;
   align-items: center;
   gap: 0.375rem;
@@ -37,10 +36,8 @@
   cursor: pointer;
   transition: border-color var(--motion-fast) var(--ease-standard), background var(--motion-fast) var(--ease-standard), color var(--motion-fast) var(--ease-standard);
 }
-.reg-drop ::deep .reg-drop-input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
 .reg-drop:hover { color: var(--color-fg); border-color: var(--color-accent); }
-.reg-drop:has(.reg-drop-input:focus-visible) { outline: 2px solid var(--color-accent); outline-offset: 2px; }
-.reg-drop:has(.reg-drop-input:hover) { color: var(--color-fg); border-color: var(--color-accent); background: color-mix(in oklab, var(--color-accent) 6%, transparent); }
+.reg-drop.dragging { color: var(--color-fg); border-color: var(--color-accent); background: color-mix(in oklab, var(--color-accent) 6%, transparent); }
 .reg-intake {
   display: inline-flex;
   align-items: center;

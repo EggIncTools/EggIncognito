@@ -11,9 +11,6 @@
         <button type="button" class="@CssClass" @onclick="Toggle" disabled="@_loading">
             @(_loading ? "Loading..." : Label)
         </button>
-        @if (_sources is not null || _error is not null) {
-            <span class="popover-backdrop" @onmousedown="Close"></span>
-        }
         @if (_sources is not null) {
             <div class="@MenuCss">
                 @foreach (var s in _sources) {

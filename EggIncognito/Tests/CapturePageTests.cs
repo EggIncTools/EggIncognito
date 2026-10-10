@@ -76,28 +76,29 @@ public class CapturePageTests {
         }
 
         [Fact]
-        public void FlowList_AutoScroll_FollowsNewestRow() {
+        public void FlowList_AutoScroll_ScrollsToNewestOnNewFlow() {
+            JSInterop.Mode = JSRuntimeMode.Loose;
             var flows = new List<DashboardFlow> {
                 new(1, "12:00:00", "ei/first_contact", "POST", 200, null, null, "", null)
             };
-            var cut = Render<FlowList>(p => p
+            Render<FlowList>(p => p
                 .Add(c => c.Flows, flows)
                 .Add(c => c.View, new CaptureViewState { AutoScroll = true }));
 
-            Assert.Contains("flow-wrap-follow", cut.Find("#flowList").GetAttribute("class"));
-            Assert.NotNull(cut.Find("#flowList > .flow-anchor"));
+            Assert.NotEmpty(JSInterop.Invocations);
         }
 
         [Fact]
-        public void FlowList_AutoScrollOff_DoesNotFollow() {
+        public void FlowList_AutoScrollOff_DoesNotScroll() {
+            JSInterop.Mode = JSRuntimeMode.Loose;
             var flows = new List<DashboardFlow> {
                 new(1, "12:00:00", "ei/first_contact", "POST", 200, null, null, "", null)
             };
-            var cut = Render<FlowList>(p => p
+            Render<FlowList>(p => p
                 .Add(c => c.Flows, flows)
                 .Add(c => c.View, new CaptureViewState { AutoScroll = false }));
 
-            Assert.DoesNotContain("flow-wrap-follow", cut.Find("#flowList").GetAttribute("class"));
+            Assert.Empty(JSInterop.Invocations);
         }
 
         [Fact]

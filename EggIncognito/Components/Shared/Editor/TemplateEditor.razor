@@ -1,4 +1,6 @@
 @using EggIncognito.Services.Feed
+@inject IJSRuntime JS
+@implements IAsyncDisposable
 
 <div class="tpl-editor">
     @if (Label is { Length: > 0 } || Hint is { Length: > 0 }) {
@@ -13,7 +15,7 @@
     }
     <div class="tpl-main">
         <textarea class="tpl-area" rows="@Rows" spellcheck="false" aria-label="@(Label is { Length: > 0 } ? Label : "Message")"
-                  value="@Value" @oninput="OnInput"></textarea>
+                  value="@Value" @oninput="OnInput" @ref="_area"></textarea>
         @if (Tokens.Count > 0) {
             <div class="tpl-tokens">
                 <span class="tpl-tokens-head">Variables</span>
@@ -47,7 +49,8 @@
     [Parameter] public string? Hint { get; set; }
     [Parameter] public int Rows { get; set; } = 4;
 
-    int? _caret;
+    ElementReference _area;
+    Dom? _dom;
 
     static string Wrap(string name) {
         return "{{" + name + "}}";
@@ -62,24 +65,14 @@
         return missing;
     }
 
-    Task OnInput(ChangeEventArgs e) {
-        var next = e.Value?.ToString() ?? "";
-        _caret = EditEnd(Value ?? "", next);
-        return ValueChanged.InvokeAsync(next);
-    }
+    Task OnInput(ChangeEventArgs e) => ValueChanged.InvokeAsync(e.Value?.ToString() ?? "");
 
-    static int EditEnd(string before, string after) {
-        int suffix = 0;
-        while (suffix < before.Length && suffix < after.Length && before[^(suffix + 1)] == after[^(suffix + 1)]) suffix++;
-        return after.Length - suffix;
-    }
-
-    Task Insert(string name) {
+    async Task Insert(string name) {
+        _dom ??= new Dom(JS);
         var token = Wrap(name);
-        var text = Value ?? "";
-        int at = Math.Clamp(_caret ?? text.Length, 0, text.Length);
-        _caret = at + token.Length;
-        return ValueChanged.InvokeAsync(text.Insert(at, token));
+        await ValueChanged.InvokeAsync(await _dom.InsertAtCaretAsync(_area, token) ?? (Value ?? "") + token);
     }
+
+    public ValueTask DisposeAsync() => _dom?.DisposeAsync() ?? ValueTask.CompletedTask;
 
 }

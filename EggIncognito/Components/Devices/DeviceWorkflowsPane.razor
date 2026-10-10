@@ -297,7 +297,7 @@
     }
 
     DeviceRunLine Line() {
-        return new DeviceRunLine(_runTitle ?? "", _runStartedAt, _runFinishedAt, _runDone, _runOk, _runCancelled);
+        return new DeviceRunLine(_runTitle ?? "run", _runStartedAt, _runFinishedAt, _runDone, _runOk, _runCancelled);
     }
 
     Task PublishAsync() {
@@ -535,7 +535,7 @@
     }
 
     static string RunTitle(JobGroupRow job) {
-        return job.Cookbook ?? job.Message ?? $"job {job.Id}";
+        return job.Cookbook ?? job.Message ?? "cookbook";
     }
 
     string? RunNote() {
@@ -632,7 +632,7 @@
 
     string RunReport() {
         var sb = new StringBuilder();
-        sb.Append(_runTitle).Append(' ').Append(Line().State);
+        sb.Append(_runTitle ?? "run").Append(' ').Append(Line().State);
         if (_runDone && !_runOk && !_runCancelled && _runFailedStepTitle is { Length: > 0 } failedAt) sb.Append(" at ").Append(failedAt);
         if (_runDone && !_runOk && _runNote is { Length: > 0 } runNote) sb.Append(", ").Append(runNote);
         sb.AppendLine();

@@ -1,7 +1,5 @@
 using System.Globalization;
-using System.Text.Json;
 using System.Text.Json.Nodes;
-using EggIdentity.UI;
 using EggIncognito.Core;
 using EggIncognito.Core.Services.Devices;
 using EggIncognito.Core.Services.ProtoExtract;
@@ -484,16 +482,9 @@ public sealed class DecompController(GameBinaryProvider binaries) : ApiControlle
     [RequiresDb]
     [RequestSizeLimit(800_000_000)]
     [RequestFormLimits(MultipartBodyLengthLimit = 800_000_000)]
-    public async Task<IResult> UploadSymbolizedReference(
+    public async Task<IActionResult> UploadSymbolizedReference(
         IFormFile file, [FromQuery] string? version, [FromServices] SymbolizedReferenceStore store,
-        [FromServices] UploadStore uploads, CancellationToken ct) {
-        var outcome = await StoreSymbolizedAsync(file, version, store, ct);
-        return await UploadRoutes.CompleteAsync(HttpContext, uploads, outcome.StatusCode ?? StatusCodes.Status200OK,
-            JsonSerializer.Serialize(outcome.Value, JsonSerializerOptions.Web));
-    }
-
-    private async Task<ObjectResult> StoreSymbolizedAsync(
-        IFormFile file, string? version, SymbolizedReferenceStore store, CancellationToken ct) {
+        CancellationToken ct) {
         if (file is null || file.Length == 0) return Fail(400, "no file uploaded");
 
         (string? ipaVersion, byte[] exec) = await ReadSymbolizedUploadAsync(file, ct);

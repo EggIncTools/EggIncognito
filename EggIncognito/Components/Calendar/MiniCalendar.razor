@@ -2,13 +2,15 @@
 @using EggIncognito.Models.Calendar
 @using EggIncognito.Services.Calendar
 @using EggIncognito.Services.Events
+@implements IAsyncDisposable
+@inject IJSRuntime JS
 @inject ICurrentUser User
 @inject IServiceProvider Services
 
 @if (_note.Length > 0) {
     <div class="evcal-note">@_note</div>
 } else if (_row is { } row) {
-    <div class="evcal-mini-scroll">
+    <div class="evcal-mini-scroll" @ref="_scroller">
         <div class="evcal-shell evcal-view-week evcal-mini" style="@ShellStyle">
             <div class="evcal-scale">
                 @foreach (var cell in row.Cells) {
@@ -54,10 +56,13 @@
 
     [Parameter] public string EmptyNote { get; set; } = "Nothing in the last three weeks.";
 
+    ElementReference _scroller;
+    Dom? _dom;
     CalendarLayoutRow<TItem>? _row;
     DateTimeOffset _start;
     DateTimeOffset _end;
     string _note = "";
+    bool _scrolled;
 
     int DayCount => Math.Max(1, (int)Math.Round((_end - _start).TotalDays));
 
@@ -84,6 +89,15 @@
         _row = CalendarLayout.Row(load.Items, _start, _end, now);
         if (_row.Lanes.Count == 0) _note = EmptyNote;
     }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender) {
+        if (_scrolled || _row is null || _note.Length > 0) return;
+        _scrolled = true;
+        _dom ??= new Dom(JS);
+        await _dom.ScrollToAsync(_scroller, 0, int.MaxValue);
+    }
+
+    public ValueTask DisposeAsync() => _dom?.DisposeAsync() ?? ValueTask.CompletedTask;
 
     static string TickStyle(double leftPercent) {
         return FormattableString.Invariant($"--tick-pos:{leftPercent:0.###};");

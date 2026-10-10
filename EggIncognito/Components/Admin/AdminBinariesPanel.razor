@@ -4,6 +4,8 @@
 @using EggIncognito.Models.Devices
 @using EggIncognito.Services.Events
 @inherits AdminPaneBase
+@inject IJSRuntime Js
+@inject IWebHostEnvironment Env
 
 <AdminPaneHead Title="Stored binaries" Facts="@Stats">
     <Tools>
@@ -88,11 +90,14 @@
     </TableScroll>
 }
 <FlexRow Gap="true">
+    <InputFile id="@RefInputId" class="ab-file"/>
     <input class="reg-filter-input ab-input" placeholder="version (raw Mach-O only)" value="@_refVersion" @oninput="OnRefVersion"/>
-    <DirectUpload Url="@RefUploadUrl" TimeoutMs="1800000" Disabled="_refBusy" Class="ab-file" ButtonClass="btn-mini" OnStart="OnRefUploadStart" OnResult="OnRefUploaded"/>
+    <button type="button" class="btn-mini" disabled="@_refBusy" @onclick="UploadRef">@(_refBusy ? "Working..." : "Upload")</button>
 </FlexRow>
 
 @code {
+    const string RefInputId = "symRefFile";
+
     PaneNotice? _notice;
 
     List<StoredBinaryRow> _rows = [];
@@ -101,10 +106,7 @@
     List<SymbolizedReferenceRow> _refs = [];
     bool _refBusy;
     string _refVersion = "";
-
-    string RefUploadUrl => string.IsNullOrWhiteSpace(_refVersion)
-        ? "/api/decomp/symbolized"
-        : $"/api/decomp/symbolized?version={Uri.EscapeDataString(_refVersion.Trim())}";
+    IJSObjectReference? _upload;
 
     IEnumerable<string> Stats => [$"{_rows.Count} binaries", $"{_refs.Count} symbolized"];
 
@@ -165,22 +167,37 @@
         _refs = res.Json<List<SymbolizedReferenceRow>>() ?? [];
     }
 
-    void OnRefUploadStart() {
-        _refBusy = true;
-        _notice?.Say("uploading...");
+    public override async ValueTask DisposeAsync() {
+        await _upload.DisposeModuleQuietAsync();
+        await base.DisposeAsync();
     }
 
-    async Task OnRefUploaded(UploadResult res) {
-        if (res.Ok) {
-            _notice?.Ok("stored symbolized reference");
-            _refVersion = "";
-            Notifier.Publish(AdminTopics.Binaries);
-        } else {
-            _notice?.Fail($"upload failed ({res.Status}): {Snippet(res.Body)}");
+    async Task UploadRef() {
+        _refBusy = true;
+        _notice?.Say("uploading...");
+        try {
+            _upload ??= await Js.InvokeAsync<IJSObjectReference>(
+                "import", InteropAsset.Url(Env, "./interop/fileUpload.js"));
+            var url = string.IsNullOrWhiteSpace(_refVersion)
+                ? "/api/decomp/symbolized"
+                : $"/api/decomp/symbolized?version={Uri.EscapeDataString(_refVersion.Trim())}";
+            var res = await _upload.InvokeAsync<InteropUploadResult?>(
+                "upload", TimeSpan.FromMinutes(30), RefInputId, url);
+            if (res is { Status: 200 }) {
+                _notice?.Ok("stored symbolized reference");
+                _refVersion = "";
+                Notifier.Publish(AdminTopics.Binaries);
+            } else {
+                _notice?.Fail(res is null
+                    ? "upload failed: no response from the browser"
+                    : $"upload failed ({res.Status}): {Snippet(res.Body)}");
+            }
+        } catch (Exception ex) {
+            _notice?.Fail($"upload failed: {ex.Message}");
+        } finally {
+            await LoadRefs();
+            _refBusy = false;
         }
-
-        await LoadRefs();
-        _refBusy = false;
     }
 
     async Task DeleteRef(string version) {

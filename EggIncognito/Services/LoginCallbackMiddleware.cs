@@ -33,7 +33,7 @@ public sealed class LoginCallbackMiddleware(RequestDelegate next, ILogger<LoginC
             SessionIssuer.IssueCookie(ctx.Response, session,
                 new SessionUser(r.UserId.ToString(), null, r.Role, r.Username, r.Avatar, r.DiscordId), DateTimeOffset.UtcNow);
             return false;
-        } catch (HttpRequestException ex) {
+        } catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or System.Text.Json.JsonException) {
             logger.LogWarning(ex, "login code redeem failed");
             return true;
         }

@@ -2,6 +2,8 @@
    chips), filters (group/path/type), select, and device-aware empty state. *@
 @using System.Globalization
 @using EggIncognito.Capture
+@implements IAsyncDisposable
+@inject IJSRuntime JS
 @inject IServiceProvider Services
 @inject ILogger<FlowList> Logger
 
@@ -59,7 +61,7 @@
             <Icon Name="x" Class="icon-sm"/>
         </button>
     </div>
-    <div id="flowList" class="flow-wrap @(Flows.Count == 0 ? "flow-wrap-empty" : View.AutoScroll ? "flow-wrap-follow" : "")">
+    <div id="flowList" class="flow-wrap @(Flows.Count == 0 ? "flow-wrap-empty" : "")" @ref="_listRef">
         @if (Flows.Count == 0) {
             <EmptyState Icon="@(Connected ? "list" : "smartphone")" Fill="true"
                         Title="@(Connected ? "No requests captured yet." : "No device connected yet.")"
@@ -116,7 +118,6 @@
                 }
                 </tbody>
             </table>
-            <div class="flow-anchor"></div>
         }
     </div>
     @Foot
@@ -159,6 +160,22 @@
         if (g >= TimeSpan.FromMinutes(1)) return $"+{(int)g.TotalMinutes}m";
         return g >= TimeSpan.FromSeconds(1) ? $"+{(int)g.TotalSeconds}s" : "+0s";
     }
+
+    ElementReference _listRef;
+    Dom? _dom;
+    int _lastFlowCount;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender) {
+        var count = Flows.Count;
+        if (count > _lastFlowCount && View.AutoScroll) {
+            _dom ??= new Dom(JS);
+            if (!await _dom.ScrollToAsync(_listRef, int.MaxValue)) Logger.LogDebug("flow list auto-scroll failed");
+        }
+
+        _lastFlowCount = count;
+    }
+
+    public ValueTask DisposeAsync() => _dom?.DisposeAsync() ?? ValueTask.CompletedTask;
 
     void OnGroupChange(ChangeEventArgs e) => _group = e.Value?.ToString() ?? "";
 

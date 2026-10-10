@@ -7,7 +7,6 @@ using EggIncognito.Data.Services;
 using EggIncognito.Services;
 using EggIncognito.Services.Auth;
 using EggIncognito.Services.Events;
-using EggIncognito.Services.Inspector;
 using EggIncognito.Services.Metrics;
 
 namespace EggIncognito.Startup;
@@ -43,12 +42,8 @@ public static class IdentityServices {
         builder.Services.AddEggIdentityBrowserTimeZone();
         builder.Services.AddScoped<ViewerClock>();
         builder.Services.AddEggIdentityDownloads();
-        builder.Services.AddEggIdentityUploads();
-        builder.Services.AddEggIdentityViewerCookies(o => {
-            o.Allow("theme.model", TimeSpan.FromDays(365)).Allow("capture.prefs", TimeSpan.FromDays(365));
-            foreach (var key in InspectorViewerStore.Keys) o.Allow(key, TimeSpan.FromDays(365));
-        });
-        builder.Services.AddScoped<InspectorViewerStore>();
+        builder.Services.AddEggIdentityViewerCookies(o =>
+            o.Allow("theme.model", TimeSpan.FromDays(365)).Allow("capture.prefs", TimeSpan.FromDays(365)));
         builder.Services.AddScoped<ClipboardInterop>();
     }
 }

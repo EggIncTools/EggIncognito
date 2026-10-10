@@ -341,14 +341,19 @@
 
     void ApplyLocally() {
         var model = State.Draft.ToModel() with { Css = "" };
+        if (!ThemePalette.Contrast(model).Passes) {
+            SetStatus("contrast checks fail, so this theme would not survive a reload", false);
+            return;
+        }
+
         Viewer.Set("theme.model", model.ToJson());
         Live.Apply(model);
         SetStatus("applied in this browser", true);
     }
 
-    void ClearLocal() {
-        Viewer.Set("theme.model", "");
-        Live.Apply(ThemePresets.Default);
+    async Task ClearLocal() {
+        Viewer.Remove("theme.model");
+        await Live.ClearAsync();
         SetStatus("reset", true);
     }
 
@@ -434,7 +439,7 @@
     }
 
     string TokenHex(string token) {
-        return State.Draft.TokenHex.TryGetValue(token, out var hex) ? hex : ThemePresets.DefaultToken(token).ToCss();
+        return State.Draft.TokenHex.TryGetValue(token, out var hex) ? hex : ThemePresets.DefaultToken(token).Hex ?? "#000000";
     }
 
     static string PresetAccentCss(ThemeModel preset) {

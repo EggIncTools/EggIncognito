@@ -94,8 +94,8 @@ public sealed class ToolsController(
     }
 
     [HttpPost("extract-proto")]
-    [RequestSizeLimit(800_000_000)]
-    [RequestFormLimits(MultipartBodyLengthLimit = 800_000_000)]
+    [RequestSizeLimit(200_000_000)]
+    [RequestFormLimits(MultipartBodyLengthLimit = 200_000_000)]
     public async Task<IActionResult> ExtractProto(IFormFile binary, IFormFile? meta, [FromForm] string? fileName,
         [FromServices] AnalyzedFileStore? store, CancellationToken ct) {
         if (binary is null || binary.Length == 0) return ExtractFailed("no binary uploaded");

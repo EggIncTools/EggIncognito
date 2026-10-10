@@ -3,6 +3,8 @@
 @using EggIncognito.Core.Services.Syntax
 @using EggIncognito.Models.Code
 @using Microsoft.AspNetCore.Components.Web.Virtualization
+@inject IJSRuntime JS
+@implements IAsyncDisposable
 @if (Mode == CodeDiffMode.Structured) {
     @if (Structural is null || Structural.IsEmpty) {
         <p class="cdiff-empty">@EmptyText</p>
@@ -103,13 +105,13 @@
         <div class="code-view cdiff-view">
             @if (Marks() is { Count: > 0 } marks) {
                 <div class="cdiff-map" aria-hidden="true">
-                    <span class="scroll-marker cdiff-viewport"></span>
+                    <span class="scroll-marker cdiff-viewport" style="@ThumbStyle"></span>
                     @foreach (var mark in marks) {
                         <span class="cdiff-mark cdiff-mark-@mark.Kind" style="@($"top:{mark.At}%")"></span>
                     }
                 </div>
             }
-            <div class="code-scroll cdiff-scroll" style="@ScrollStyle">
+            <div class="code-scroll cdiff-scroll" style="@ScrollStyle" @ref="_scroller">
                 <div class="cdiff @ModeClass @(WrapNow ? "code-wrap" : "")">
                     @if (_noMatch) {
                         <div class="code-row code-note">@NoMatchText</div>
@@ -208,6 +210,15 @@
     string ModeClass => Mode == CodeDiffMode.Split ? "cdiff-split" : "cdiff-unified";
 
     string? ScrollStyle => string.IsNullOrEmpty(MaxHeight) ? null : $"max-height:{MaxHeight}";
+
+    string ThumbStyle {
+        get {
+            var rows = Mode == CodeDiffMode.Split ? _split.Count : _unified.Count;
+            if (string.IsNullOrEmpty(MaxHeight) || rows == 0) return "--scroll-marker-h:100%";
+            var content = rows * CodeMetrics.RowHeightPx;
+            return FormattableString.Invariant($"--scroll-marker-h:min(100%, calc(100% * ({MaxHeight}) / {content}px))");
+        }
+    }
 
     protected override void OnParametersSet() {
         if (!_wrapSeeded || Wrap != _wrapParam) {
@@ -393,6 +404,15 @@
 
     List<DiffMark> _marks = [];
     int _marksFor = -1;
+    ElementReference _scroller;
+    Dom? _dom;
+
+    public Task ScrollToRowAsync(int row) {
+        _dom ??= new Dom(JS);
+        return _dom.ScrollToAsync(_scroller, row * CodeMetrics.RowHeightPx);
+    }
+
+    public ValueTask DisposeAsync() => _dom?.DisposeAsync() ?? ValueTask.CompletedTask;
 
     List<DiffMark> Marks() {
         var shown = Mode == CodeDiffMode.Split ? _split.Count : _unified.Count;

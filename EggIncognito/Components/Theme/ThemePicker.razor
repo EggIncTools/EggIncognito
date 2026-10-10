@@ -116,9 +116,9 @@
         await LoadThemesAsync();
     }
 
-    void ResetLocal() {
-        Viewer.Set("theme.model", "");
-        Live.Apply(ThemePresets.Default);
+    async Task ResetLocal() {
+        Viewer.Remove("theme.model");
+        await Live.ClearAsync();
         Toasts.Push(StatusNoteKind.Ok, "reset to the shipped default");
     }
 
