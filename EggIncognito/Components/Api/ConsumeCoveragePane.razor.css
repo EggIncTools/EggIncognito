@@ -7,9 +7,6 @@
 .cov-facts { font-size: 0.75rem; color: var(--color-muted); }
 .cov-sel { flex: none; flex-wrap: wrap; }
 .cov-sel .tbar-k { white-space: nowrap; }
-.cov-scope { width: auto; min-width: 5.5rem; padding-block: 0.125rem; }
-.cov-num { width: 4.5rem; padding-block: 0.125rem; }
-.cov-num-label { display: inline-flex; align-items: center; gap: 0.25rem; font-size: 0.75rem; color: var(--color-muted); }
 .cov-scroll { flex: 1 1 0; min-height: 0; }
 .cov-table td { vertical-align: middle; }
 .cov-fam { display: inline-flex; align-items: center; gap: 0.375rem; min-width: 0; }
@@ -28,10 +25,6 @@
 .cov-side ::deep .table-scroll { flex: 1 1 0; min-height: 0; }
 .cov-drops { margin: 0.25rem 0 0.375rem; min-width: 0; }
 .cov-drops ::deep .table-scroll { overflow: visible; }
-.cov-settings { position: relative; margin-left: auto; }
-.cov-pop { position: absolute; top: calc(100% + 0.25rem); right: 0; z-index: 20; min-width: 20rem; padding: 0.5rem; border: 1px solid var(--color-border); border-radius: 0.5rem; background-color: var(--color-popover); box-shadow: 0 8px 24px rgba(0, 0, 0, .35); }
-.cov-pop-row { display: flex; align-items: center; gap: 0.5rem; }
-.cov-pop-row + .cov-pop-row { margin-top: 0.5rem; }
 .cov-grid { display: grid; grid-template-columns: max-content repeat(4, 5rem) minmax(0, 1fr); gap: 0.25rem 0.5rem; align-items: center; padding: 0.375rem 0; }
 .cov-head { display: flex; flex-direction: column; align-items: center; padding: 0.125rem 0.25rem; border-radius: 0.25rem; font-size: 0.625rem; text-transform: uppercase; letter-spacing: 0.025em; color: var(--color-fg); text-align: center; }
 .cov-head-note { font-family: var(--font-mono); text-transform: none; letter-spacing: 0; }

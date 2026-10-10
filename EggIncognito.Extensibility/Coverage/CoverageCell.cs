@@ -5,8 +5,6 @@ public sealed record CoverageCell(
     int AfxRarity,
     int Items,
     int Observations,
-    int PendingItems,
-    int PendingObservations,
     int ItemTarget,
     int ObservationTarget,
     bool InScope,

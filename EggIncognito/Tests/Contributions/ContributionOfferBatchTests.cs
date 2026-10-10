@@ -4,6 +4,7 @@ using EggIncognito.Controllers;
 using EggIncognito.Models.Contributions;
 using EggIncognito.Services.Contributions;
 using EggIncognito.Services.Devices;
+
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -12,6 +13,14 @@ namespace EggIncognito.Tests.Contributions;
 
 public class ContributionOfferBatchTests {
     private const string Craft = "ei_afx/craft_artifact";
+
+    private sealed class CraftKind : ICaptureContributionKind {
+        public string Kind => "test-craft";
+        public IReadOnlyCollection<string> Routes => [Craft];
+
+        public ContributionDraft? Build(DashboardFlow flow) =>
+            flow.Path == Craft ? new ContributionDraft(Kind, "craft", "{}", flow.Id.ToString(), null) : null;
+    }
 
     [Fact]
     public void OfferBatch_RecordsContributableFlowsAndReportsTheRest() {
@@ -43,7 +52,7 @@ public class ContributionOfferBatchTests {
 
     private static (ContributionsController Controller, ContributionRecorder Recorder, IDeviceCaptureHubs Hubs)
         Setup(CaptureHub hub) {
-        var kinds = new CaptureContributionKinds([new ArtifactContributionKind()]);
+        var kinds = new CaptureContributionKinds([new CraftKind()]);
         var options = ContributionOptions.Defaults();
         var recorder = new ContributionRecorder(
             new NoScopes(), kinds, options, NullLogger<ContributionRecorder>.Instance, TimeProvider.System);

@@ -1,9 +1,5 @@
-using System.Text.Json.Nodes;
 using EggIncognito.Capture;
 using EggIncognito.Data.Models;
-using EggIncognito.Services.Contributions;
-using Ei;
-using Google.Protobuf;
 
 namespace EggIncognito.Tests.Contributions;
 
@@ -57,100 +53,13 @@ public class ContributionTests {
     }
 
     [Fact]
-    public void Build_CraftPayloadCarriesNoPlayerIdentifier() {
-        var request = new CraftArtifactRequest {
-            Rinfo = new BasicRequestInfo { EiUserId = Eid, Version = "1.37" },
-            Spec = new ArtifactSpec {
-                Name = ArtifactSpec.Types.Name.TungstenAnkh,
-                Level = ArtifactSpec.Types.Level.Lesser,
-                Rarity = ArtifactSpec.Types.Rarity.Common
-            },
-            GoldPricePaid = 3982,
-            CraftingCount = 17
-        };
-        var response = new CraftArtifactResponse {
-            ItemId = 991,
-            RarityAchieved = ArtifactSpec.Types.Rarity.Rare
-        };
+    public void Kinds_RegistryMapsRoutesToTheirKind() {
+        var kinds = new CaptureContributionKinds([new StubKind()]);
 
-        var draft = new ArtifactContributionKind().Build(
-            ProtoFlow("ei_afx/craft_artifact", request, response));
-
-        Assert.NotNull(draft);
-        Assert.DoesNotContain(Eid, draft.PayloadJson, StringComparison.Ordinal);
-        Assert.DoesNotContain("eiUserId", draft.PayloadJson, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("deviceId", draft.PayloadJson, StringComparison.OrdinalIgnoreCase);
-        Assert.Equal("1.37", draft.ClientVersion);
-
-        var payload = JsonNode.Parse(draft.PayloadJson)!.AsObject();
-        Assert.Equal("craft", payload["action"]!.GetValue<string>());
-        Assert.Equal("TUNGSTEN_ANKH", payload["spec"]!["name"]!.GetValue<string>());
-        Assert.Equal("RARE", payload["rarityAchieved"]!.GetValue<string>());
-        Assert.Equal(17, payload["craftingCount"]!.GetValue<int>());
-    }
-
-    [Fact]
-    public void Build_ConsumePayloadCarriesNoPlayerIdentifier() {
-        var request = new ConsumeArtifactRequest {
-            Rinfo = new BasicRequestInfo { EiUserId = Eid, Version = "1.37" },
-            Spec = new ArtifactSpec {
-                Name = ArtifactSpec.Types.Name.BookOfBasan,
-                Level = ArtifactSpec.Types.Level.Greater,
-                Rarity = ArtifactSpec.Types.Rarity.Legendary
-            },
-            Quantity = 3
-        };
-        var response = new ConsumeArtifactResponse {
-            Success = true,
-            OtherRewards = { new Reward { RewardType = RewardType.Gold, RewardAmount = 42 } }
-        };
-
-        var draft = new ArtifactContributionKind().Build(
-            ProtoFlow("ei_afx/consume_artifact", request, response));
-
-        Assert.NotNull(draft);
-        Assert.DoesNotContain(Eid, draft.PayloadJson, StringComparison.Ordinal);
-
-        var payload = JsonNode.Parse(draft.PayloadJson)!.AsObject();
-        Assert.Equal("consume", payload["action"]!.GetValue<string>());
-        Assert.Equal(3, payload["countRequested"]!.GetValue<int>());
-        Assert.Equal(42, payload["goldenEggs"]!.GetValue<double>());
-    }
-
-    [Fact]
-    public void Build_IgnoresRoutesThatAreNotArtifactActions() {
-        var kind = new ArtifactContributionKind();
-        Assert.Null(kind.Build(Flow("ei/first_contact")));
-    }
-
-    [Fact]
-    public void Kinds_ExposeExactlyTheArtifactRoutes() {
-        var kinds = new CaptureContributionKinds([new ArtifactContributionKind()]);
-
-        Assert.Equal("artifact-observation", Assert.Single(kinds.KindNames));
-        Assert.Equal(3, kinds.AllRoutes.Count);
-        Assert.Contains("ei_afx/craft_artifact", kinds.AllRoutes);
-        Assert.Contains("ei_afx/consume_artifact", kinds.AllRoutes);
-        Assert.Contains("ei_afx/demote_artifact", kinds.AllRoutes);
-        Assert.NotNull(kinds.For("ei_afx/demote_artifact"));
+        Assert.Equal("stub", Assert.Single(kinds.KindNames));
+        Assert.Equal(["ei/one", "ei/two"], kinds.AllRoutes.Order());
+        Assert.NotNull(kinds.For("ei/two"));
         Assert.Null(kinds.For("ei/get_periodicals"));
-    }
-
-    [Fact]
-    public void DedupeHash_DiffersForRepeatedIdenticalOutcomes() {
-        var kind = new ArtifactContributionKind();
-        var request = new ConsumeArtifactRequest {
-            Spec = new ArtifactSpec { Name = ArtifactSpec.Types.Name.LunarTotem },
-            Quantity = 1
-        };
-        var response = new ConsumeArtifactResponse { Success = true };
-
-        var first = kind.Build(ProtoFlow("ei_afx/consume_artifact", request, response) with { Id = 1 });
-        var second = kind.Build(ProtoFlow("ei_afx/consume_artifact", request, response) with { Id = 2 });
-
-        Assert.NotNull(first);
-        Assert.NotNull(second);
-        Assert.NotEqual(first.DedupeHash, second.DedupeHash);
     }
 
     [Fact]
@@ -173,9 +82,9 @@ public class ContributionTests {
             Url: "https://auxbrain.com/" + path,
             ResponseText: "raw");
 
-    private static DashboardFlow ProtoFlow(string path, IMessage request, IMessage response) =>
-        new(7, "12:00:00", path, "POST", 200,
-            null, null, "", null,
-            RequestJsonRaw: JsonFormatter.Default.Format(request),
-            ResponseJsonRaw: JsonFormatter.Default.Format(response));
+    private sealed class StubKind : ICaptureContributionKind {
+        public ContributionDraft? Build(DashboardFlow flow) => null;
+        public string Kind => "stub";
+        public IReadOnlyCollection<string> Routes => ["ei/one", "ei/two"];
+    }
 }

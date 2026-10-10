@@ -6,6 +6,4 @@ public sealed record ConsumeCoverageMap(
     int CellsComplete,
     int Items,
     int Observations,
-    int PendingItems,
-    int PendingObservations,
     IReadOnlyList<CoverageFamily> Families);

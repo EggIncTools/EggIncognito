@@ -16,9 +16,7 @@ public static class ConsumeCoverageBuilder {
         foreach (var s in samples) {
             var key = (s.SpecName, s.Level, s.Rarity);
             var t = tallies.GetValueOrDefault(key);
-            tallies[key] = s.Pending
-                ? t with { PendingItems = t.PendingItems + s.Quantity, PendingObservations = t.PendingObservations + 1 }
-                : t with { Items = t.Items + s.Quantity, Observations = t.Observations + 1 };
+            tallies[key] = t with { Items = t.Items + s.Quantity, Observations = t.Observations + 1 };
         }
 
         var built = catalog
@@ -29,16 +27,13 @@ public static class ConsumeCoverageBuilder {
             .Select(f => f.Family)
             .ToList();
 
-        var cells = built.SelectMany(f => f.Tiers).SelectMany(t => t.Cells).ToList();
-        var scoped = cells.Where(c => c.InScope).ToList();
+        var scoped = built.SelectMany(f => f.Tiers).SelectMany(t => t.Cells).Where(c => c.InScope).ToList();
         return new ConsumeCoverageMap(
             scoped.Count == 0 ? 0 : scoped.Average(c => c.Validity),
             scoped.Count,
             scoped.Count(IsComplete),
             scoped.Sum(c => c.Items),
             scoped.Sum(c => c.Observations),
-            cells.Sum(c => c.PendingItems),
-            cells.Sum(c => c.PendingObservations),
             built);
     }
 
@@ -82,8 +77,8 @@ public static class ConsumeCoverageBuilder {
         int itemsShort = Math.Max(0, resolved.ItemTarget - t.Items);
         int obsShort = Math.Max(0, resolved.ObservationTarget - t.Observations);
         int batch = obsShort == 0 ? itemsShort : Math.Max(1, (int)Math.Ceiling(itemsShort / (double)obsShort));
-        return new CoverageCell(c.Rarity, c.AfxRarity, t.Items, t.Observations, t.PendingItems,
-            t.PendingObservations, resolved.ItemTarget, resolved.ObservationTarget, resolved.Enabled,
+        return new CoverageCell(c.Rarity, c.AfxRarity, t.Items, t.Observations,
+            resolved.ItemTarget, resolved.ObservationTarget, resolved.Enabled,
             Validity(t.Items, t.Observations, resolved.ItemTarget, resolved.ObservationTarget),
             itemsShort, obsShort, batch, resolved.Id, cellTarget);
     }
@@ -99,5 +94,5 @@ public static class ConsumeCoverageBuilder {
 
     private static bool IsComplete(CoverageCell c) => c.InScope && c.Validity >= 1;
 
-    private readonly record struct Tally(int Items, int Observations, int PendingItems, int PendingObservations);
+    private readonly record struct Tally(int Items, int Observations);
 }

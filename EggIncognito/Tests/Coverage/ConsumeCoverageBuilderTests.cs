@@ -19,8 +19,8 @@ public class ConsumeCoverageBuilderTests {
             ["LUNAR_TOTEM"] = new("LUNAR_TOTEM", "LUNAR TOTEMS", 0, ["BASIC LUNAR TOTEM"])
         };
 
-    private static CoverageSample Ankh(int quantity, bool pending = false) =>
-        new("TUNGSTEN_ANKH", "INFERIOR", "COMMON", quantity, pending);
+    private static CoverageSample Ankh(int quantity) =>
+        new("TUNGSTEN_ANKH", "INFERIOR", "COMMON", quantity);
 
     private static CoverageCell Cell(ConsumeCoverageMap map, string spec, string level) =>
         map.Families.Single(f => f.SpecName == spec).Tiers.Single(t => t.Level == level).Cells.Single();
@@ -55,18 +55,6 @@ public class ConsumeCoverageBuilderTests {
     public void Validity_IsTheWeakerOfItemsAndObservations(int items, int obs, int itemTarget, int obsTarget,
         double expected) =>
         Assert.Equal(expected, ConsumeCoverageBuilder.Validity(items, obs, itemTarget, obsTarget), 9);
-
-    [Fact]
-    public void PendingSample_IsGhostOnly() {
-        var map = Build([Ankh(30, pending: true)]);
-        var cell = Cell(map, "TUNGSTEN_ANKH", "INFERIOR");
-        Assert.Equal(30, cell.PendingItems);
-        Assert.Equal(1, cell.PendingObservations);
-        Assert.Equal(0, cell.Items);
-        Assert.Equal(0, cell.Validity);
-        Assert.Equal(30, map.PendingItems);
-        Assert.Equal(0, map.Items);
-    }
 
     [Fact]
     public void MostSpecificTarget_Wins() {
@@ -105,14 +93,14 @@ public class ConsumeCoverageBuilderTests {
 
     [Fact]
     public void SampleOutsideTheCatalog_IsIgnored() {
-        var map = Build([new CoverageSample("PUZZLE_CUBE", "INFERIOR", "COMMON", 40, false)]);
+        var map = Build([new CoverageSample("PUZZLE_CUBE", "INFERIOR", "COMMON", 40)]);
         Assert.Equal(0, map.Items);
         Assert.Equal(0, map.Observations);
     }
 
     [Fact]
     public void CatalogFamilyWithoutInfo_IsNotEmitted() {
-        var map = Build([new CoverageSample("SOUL_STONE", "INFERIOR", "COMMON", 40, false)]);
+        var map = Build([new CoverageSample("SOUL_STONE", "INFERIOR", "COMMON", 40)]);
         Assert.DoesNotContain(map.Families, f => f.SpecName == "SOUL_STONE");
         Assert.Equal(3, map.CellsInScope);
         Assert.Equal(0, map.Items);

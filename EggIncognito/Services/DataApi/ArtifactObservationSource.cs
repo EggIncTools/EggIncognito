@@ -1,7 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using EggIncognito.Core.Services;
-using EggIncognito.Data.Models;
 using EggIncognito.Data.Services;
 using Microsoft.EntityFrameworkCore;
 
@@ -10,7 +9,7 @@ namespace EggIncognito.Services.DataApi;
 public static class ArtifactObservationSource {
     private static readonly JsonSerializerOptions IndentedJson = JsonPresets.Indented;
     private static readonly Lock Gate = new();
-    private static (int Count, long MaxId, int Contributed, long ContributedMaxId) _stamp = (-1, -1, -1, -1);
+    private static (int Count, long MaxId) _stamp = (-1, -1);
     private static string? _cached;
 
     public static async Task<DataPayload?> ProduceAsync(DataProduceContext ctx, CancellationToken ct) {
@@ -20,14 +19,8 @@ public static class ArtifactObservationSource {
             .GroupBy(_ => 1)
             .Select(g => new { Count = g.Count(), MaxId = g.Max(o => o.Id) })
             .FirstOrDefaultAsync(ct);
-        var contributed = await db.ContributedCaptures.AsNoTracking()
-            .Where(c => c.Status == ContributedCaptureStatus.Approved)
-            .GroupBy(_ => 1)
-            .Select(g => new { Count = g.Count(), MaxId = g.Max(o => o.Id) })
-            .FirstOrDefaultAsync(ct);
 
-        var stamp = (device?.Count ?? 0, device?.MaxId ?? 0L,
-            contributed?.Count ?? 0, contributed?.MaxId ?? 0L);
+        var stamp = (device?.Count ?? 0, device?.MaxId ?? 0L);
 
         lock (Gate) {
             if (_stamp == stamp && _cached is not null) return DataPayload.Json(_cached);
@@ -43,66 +36,25 @@ public static class ArtifactObservationSource {
     }
 
     private static async Task<string> BuildAsync(EggIncognitoDbContext db, CancellationToken ct) {
-        var deviceRows = await db.ArtifactConsumeObservations.AsNoTracking()
+        var rows = await db.ArtifactConsumeObservations.AsNoTracking()
             .Where(o => o.Success)
             .Select(o => new Observation(
                 o.Action, o.SpecName, o.SpecLevel, o.SpecRarity, o.Byproducts, o.GoldenEggs,
                 o.CountRequested, o.RarityAchieved, o.GoldPricePaid, o.CraftingCount))
             .ToListAsync(ct);
 
-        var contributedPayloads = await db.ContributedCaptures.AsNoTracking()
-            .Where(c => c.Status == ContributedCaptureStatus.Approved
-                        && c.Kind == ContributedArtifactKind)
-            .Select(c => c.Payload)
-            .ToListAsync(ct);
-
-        var contributedRows = contributedPayloads
-            .Select(FromPayload)
-            .Where(o => o is not null)
-            .Select(o => o!)
-            .ToList();
-
         var doc = new JsonObject {
-            ["groups"] = Aggregate(deviceRows),
-            ["totalSamples"] = deviceRows.Count,
-            ["contributedGroups"] = Aggregate(contributedRows),
-            ["contributedSamples"] = contributedRows.Count,
+            ["groups"] = Aggregate(rows),
+            ["totalSamples"] = rows.Count,
             ["provenance"] = new JsonObject {
-                ["groups"] = Source("observed", "device harvest"),
-                ["contributedGroups"] = Source("contributed", "reviewed community capture")
+                ["groups"] = new JsonObject {
+                    ["origin"] = "observed",
+                    ["locator"] = "device harvest",
+                    ["method"] = "captured"
+                }
             }
         };
         return doc.ToJsonString(IndentedJson);
-    }
-
-    private const string ContributedArtifactKind = "artifact-observation";
-
-    private static Observation? FromPayload(string payload) {
-        JsonNode? parsed;
-        try {
-            parsed = JsonNode.Parse(payload);
-        } catch (JsonException) {
-            return null;
-        }
-
-        if (parsed is not JsonObject row) return null;
-        if (row["success"]?.GetValue<bool>() == false) return null;
-        if (row["spec"] is not JsonObject spec) return null;
-        string? action = row["action"]?.GetValue<string>();
-        string? name = spec["name"]?.GetValue<string>();
-        if (string.IsNullOrEmpty(action) || string.IsNullOrEmpty(name)) return null;
-
-        return new Observation(
-            action,
-            name,
-            spec["level"]?.GetValue<string>() ?? "",
-            spec["rarity"]?.GetValue<string>() ?? "",
-            row["byproducts"]?.ToJsonString() ?? "[]",
-            row["goldenEggs"]?.GetValue<double>() ?? 0,
-            row["countRequested"]?.GetValue<int>() ?? 1,
-            row["rarityAchieved"]?.GetValue<string>(),
-            row["goldPricePaid"]?.GetValue<double>(),
-            row["craftingCount"]?.GetValue<int>());
     }
 
     private static JsonArray Aggregate(List<Observation> rows) {
@@ -169,12 +121,6 @@ public static class ArtifactObservationSource {
 
         return groups;
     }
-
-    private static JsonObject Source(string origin, string locator) => new() {
-        ["origin"] = origin,
-        ["locator"] = locator,
-        ["method"] = "captured"
-    };
 
     private static IEnumerable<(string Key, int Count)> Byproducts(string json) {
         JsonNode? parsed;

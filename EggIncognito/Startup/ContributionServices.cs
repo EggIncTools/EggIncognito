@@ -8,7 +8,6 @@ public static class ContributionServices {
     public static void AddContributionServices(this WebApplicationBuilder builder, BootFlags boot) {
         var options = ContributionOptions.Bind(builder.Configuration);
         builder.Services.AddSingleton(options);
-        builder.Services.AddSingleton<ICaptureContributionKind, ArtifactContributionKind>();
         builder.Services.AddSingleton<ICaptureContributionKinds, CaptureContributionKinds>();
 
         if (!boot.DbEnabled) return;

@@ -2,17 +2,13 @@
 @using EggIncognito.Artifacts
 @using EggIncognito.Core.Services.Devices
 @using EggIncognito.GameData
-@using EggIncognito.Models.Contributions
 @using EggIncognito.Models.Coverage
-@using EggIncognito.Services.Contributions
 @using EggIncognito.Services.Coverage
-@inherits SelfCallComponentBase
 @implements IDisposable
 @inject IServiceScopeFactory Scopes
 @inject IEnumerable<IDevicePanel> Panels
 @inject IEnumerable<ICoverageInventory> Inventories
 @inject IEnumerable<ICoverageAnnotations> Annotations
-@inject ToastService Toasts
 @inject ILogger<ConsumeCoveragePane> Logger
 @inject ICurrentUser User
 
@@ -38,10 +34,6 @@
                     <span class="cov-tick mono" title="@($"{m.Observations} obs")">
                         <Icon Name="eye" Class="icon-sm"/>@m.Observations
                     </span>
-                    <button type="button" class="btn-mini cov-tick" disabled="@(m.PendingObservations == 0 && !_pendingOpen)" @onclick="TogglePending"
-                            title="@PendingLabel(m)" aria-label="@PendingLabel(m)">
-                        <Icon Name="clock" Class="icon-sm"/>@m.PendingObservations
-                    </button>
                 }
             </span>
         </div>
@@ -52,42 +44,6 @@
             @if (_loaded) {
                 <StatusNote Kind="StatusNoteKind.Error">The artifact catalog is not loaded.</StatusNote>
             }
-        } else if (_pendingOpen) {
-            <ToolBar Flat="true">
-                <span class="tbar-group">
-                    <span class="tbar-k">Pending</span>
-                    <span class="cov-facts mono">@_pendingTotal row(s)</span>
-                </span>
-                <span class="tbar-group">
-                    <button type="button" class="btn-mini" disabled="@(_busy || _checked.Count == 0)" @onclick="() => Review(true)">Approve @_checked.Count</button>
-                    <button type="button" class="btn-mini btn-danger" disabled="@(_busy || _checked.Count == 0)" @onclick="() => Review(false)">Reject @_checked.Count</button>
-                    <button type="button" class="btn-mini" disabled="@_busy" @onclick="LoadPending">Reload</button>
-                </span>
-            </ToolBar>
-            <TableScroll Class="cov-scroll">
-                <table class="data-table cov-table">
-                    <thead>
-                    <tr>
-                        <th><input type="checkbox" aria-label="Select all" checked="@AllChecked" @onchange="e => CheckAll(e.Value is true)"/></th>
-                        <th>Contributor</th>
-                        <th>Summary</th>
-                        <th>Version</th>
-                        <th>Recorded</th>
-                    </tr>
-                    </thead>
-                    <tbody>
-                    @foreach (var r in _pending) {
-                        <tr @key="r.Id" class="row-click" @onclick="() => Check(r.Id, !_checked.Contains(r.Id))">
-                            <td><input type="checkbox" checked="@_checked.Contains(r.Id)" @onchange="e => Check(r.Id, e.Value is true)" @onclick:stopPropagation="true"/></td>
-                            <td class="mono">@(r.ContributorName ?? r.ContributorUserId.ToString("N")[..8])</td>
-                            <td>@r.Summary</td>
-                            <td class="mono">@r.ClientVersion</td>
-                            <td class="mono">@r.RecordedAt.ToLocalTime().ToString("MM-dd HH:mm")</td>
-                        </tr>
-                    }
-                    </tbody>
-                </table>
-            </TableScroll>
         } else {
             @if (_sel is { } s && PanelShelf.Any(Panels, DevicePanelShelves.CoverageCell)) {
                 <ToolBar Flat="true" Class="cov-sel">
@@ -147,44 +103,7 @@
                                                 }
                                             </span>
                                         }
-                                        @if (_sel is { } fs && fs.Family == f.SpecName) {
-                                            <span class="cov-settings" @onclick:stopPropagation="true">
-                                                <button type="button" class="btn-mini" aria-label="Coverage target" title="Coverage target" @onclick="() => _targetOpen = !_targetOpen">
-                                                    <Icon Name="settings" Class="icon-sm"/>
-                                                </button>
-                                                @if (_targetOpen) {
-                                                    <div class="popover-backdrop" @onmousedown="() => _targetOpen = false"></div>
-                                                    <div class="cov-pop">
-                                                        <div class="cov-pop-row">
-                                                            <span class="tbar-k">@TierName(fs)</span>
-                                                            <span class="cov-facts mono">@fs.Cell.Items/@fs.Cell.ItemTarget items, @fs.Cell.Observations/@fs.Cell.ObservationTarget obs</span>
-                                                        </div>
-                                                        <div class="cov-pop-row">
-                                                            <select class="field-input cov-scope" aria-label="Target scope" value="@_scope" @onchange="@(e => _scope = e.Value?.ToString() ?? "Cell")">
-                                                                @foreach (var sc in ScopeNames) {
-                                                                    <option value="@sc">@sc</option>
-                                                                }
-                                                            </select>
-                                                            <label class="cov-num-label">items
-                                                                <input type="number" min="1" class="field-input cov-num" aria-label="Item target" @bind="_itemTarget"/>
-                                                            </label>
-                                                            <label class="cov-num-label">obs
-                                                                <input type="number" min="1" class="field-input cov-num" aria-label="Observation target" @bind="_obsTarget"/>
-                                                            </label>
-                                                        </div>
-                                                        <div class="cov-pop-row">
-                                                            <label class="form-check"><input type="checkbox" checked="@_enabled" @onchange="e => _enabled = e.Value is true"/>in scope</label>
-                                                            <button type="button" class="btn-mini" disabled="@_busy" @onclick="Save">Save</button>
-                                                            @if (_scope == "Cell" && fs.Cell.CellTargetId is { } id) {
-                                                                <button type="button" class="btn-mini" disabled="@_busy" @onclick="() => Remove(id)">Reset</button>
-                                                            }
-                                                        </div>
-                                                    </div>
-                                                }
-                                            </span>
-                                        } else {
-                                            <span></span>
-                                        }
+                                        <span></span>
                                         @foreach (var t in f.Tiers) {
                                             <Tooltip Text="@t.Name"><span class="cov-tier">T@(t.AfxLevel + 1)</span></Tooltip>
                                             @for (int r = 0; r < RarityHeads.Length; r++) {
@@ -233,27 +152,13 @@
     [Parameter] public int? AndroidUserId { get; set; }
 
     static readonly string[] RarityHeads = ["Common", "Rare", "Epic", "Legendary"];
-    static readonly string[] ScopeNames = ["Cell", "Tier", "Family", "Rarity", "Global"];
-    static readonly JsonSerializerOptions JsonOpts = new(JsonSerializerDefaults.Web);
 
     ConsumeCoverageMap? _map;
     bool _noDb;
     bool _loaded;
-    bool _busy;
-    bool _pendingOpen;
-    bool _targetOpen;
-    int _pendingTotal;
     int _reloadPending;
-    List<ContributionPendingRowDto> _pending = [];
-    readonly HashSet<long> _checked = [];
     readonly HashSet<string> _open = new(StringComparer.Ordinal);
     CoverageSelection? _sel;
-    string _scope = "Cell";
-    int _itemTarget;
-    int _obsTarget;
-    bool _enabled = true;
-
-    bool AllChecked => _pending.Count > 0 && _pending.All(r => _checked.Contains(r.Id));
 
     protected override async Task OnInitializedAsync() {
         if (!User.Current.IsAtLeast(UserRole.Admin)) return;
@@ -299,45 +204,6 @@
         if (_sel is { } s) Reselect(s);
     }
 
-    async Task TogglePending() {
-        _pendingOpen = !_pendingOpen;
-        if (_pendingOpen) await LoadPending();
-    }
-
-    async Task LoadPending() {
-        _busy = true;
-        try {
-            var page = await Client().GetFromJsonAsync<PendingPage>(
-                $"/api/contributions/pending?kind={Uri.EscapeDataString(ArtifactContributionKind.KindName)}&skip=0&take=500", JsonOpts);
-            _pending = page?.Rows ?? [];
-            _pendingTotal = page?.Total ?? 0;
-            _checked.RemoveWhere(id => _pending.All(r => r.Id != id));
-        } catch (Exception ex) when (ex is HttpRequestException or JsonException or TaskCanceledException) {
-            Logger.LogWarning(ex, "pending contributions could not be read");
-            Toasts.Push(StatusNoteKind.Error, "Pending rows could not be read.");
-        } finally {
-            _busy = false;
-        }
-    }
-
-    void Check(long id, bool on) {
-        if (on) _checked.Add(id);
-        else _checked.Remove(id);
-    }
-
-    void CheckAll(bool on) {
-        if (on) foreach (var r in _pending) _checked.Add(r.Id);
-        else _checked.Clear();
-    }
-
-    async Task Review(bool approve) {
-        var ids = _checked.ToList();
-        await Write(c => c.PostAsJsonAsync("/api/contributions/review", new ContributionReviewRequest { Ids = ids, Approve = approve }, JsonOpts),
-            approve ? $"Approved {ids.Count}." : $"Rejected {ids.Count}.");
-        _checked.Clear();
-        await LoadPending();
-    }
-
     void Reselect(CoverageSelection s) {
         var cell = _map?.Families.FirstOrDefault(f => f.SpecName == s.Family)?.Tiers
             .FirstOrDefault(t => t.Level == s.Level)?.Cells.FirstOrDefault(c => c.Rarity == s.Rarity);
@@ -353,69 +219,14 @@
     bool Selected(CoverageFamily f, CoverageTier t, CoverageCell c) =>
         _sel is { } s && s.Family == f.SpecName && s.Level == t.Level && s.Rarity == c.Rarity;
 
-    void Select(CoverageFamily f, CoverageTier t, CoverageCell c) {
+    void Select(CoverageFamily f, CoverageTier t, CoverageCell c) =>
         _sel = new CoverageSelection(f.SpecName, t.Level, c.Rarity, c);
-        _targetOpen = false;
-        _scope = "Cell";
-        _itemTarget = c.ItemTarget;
-        _obsTarget = c.ObservationTarget;
-        _enabled = c.InScope;
-    }
-
-    string TierName(CoverageSelection s) =>
-        _map?.Families.FirstOrDefault(f => f.SpecName == s.Family)?.Tiers.FirstOrDefault(t => t.Level == s.Level)?.Name ?? s.Family;
-
-    CoverageTargetRequest RequestFor(CoverageSelection s) => _scope switch {
-        "Tier" => new(s.Family, s.Level, null, _itemTarget, _obsTarget, _enabled),
-        "Family" => new(s.Family, null, null, _itemTarget, _obsTarget, _enabled),
-        "Rarity" => new(null, null, s.Rarity, _itemTarget, _obsTarget, _enabled),
-        "Global" => new(null, null, null, _itemTarget, _obsTarget, _enabled),
-        _ => new(s.Family, s.Level, s.Rarity, _itemTarget, _obsTarget, _enabled)
-    };
-
-    async Task Save() {
-        if (_sel is not { } s) return;
-        await Write(c => c.PutAsJsonAsync("/api/admin/consume-coverage/targets", RequestFor(s), JsonOpts), "Target saved.");
-    }
-
-    async Task Remove(long id) =>
-        await Write(c => c.DeleteAsync($"/api/admin/consume-coverage/targets/{id}"), "Target removed.");
-
-    async Task Write(Func<HttpClient, Task<HttpResponseMessage>> call, string ok) {
-        _busy = true;
-        try {
-            using var res = await call(Client());
-            if (res.IsSuccessStatusCode) {
-                Toasts.Push(StatusNoteKind.Ok, ok);
-                await LoadAsync();
-            } else {
-                Toasts.Push(StatusNoteKind.Error, await ReadError(res));
-            }
-        } catch (Exception ex) when (ex is HttpRequestException or JsonException or TaskCanceledException) {
-            Logger.LogWarning(ex, "consume coverage write failed");
-            Toasts.Push(StatusNoteKind.Error, "The change could not be saved.");
-        } finally {
-            _busy = false;
-        }
-    }
-
-    static async Task<string> ReadError(HttpResponseMessage res) {
-        try {
-            var body = await res.Content.ReadFromJsonAsync<ApiError>(JsonOpts);
-            if (body?.Error is { Length: > 0 } e) return e;
-        } catch (JsonException) {
-        }
-
-        return $"failed ({(int)res.StatusCode})";
-    }
 
     static string IconSrc(string spec, int level) => ArtifactAssets.IconPath(ArtifactAssets.KeyFor(spec), level + 1);
 
     static string CellStyle(CoverageCell c) => FormattableString.Invariant($"--v:{c.Validity:0.###};");
 
     static string Pct(double v) => FormattableString.Invariant($"{v * 100:0.#}%");
-
-    string PendingLabel(ConsumeCoverageMap m) => _pendingOpen ? "Hide pending" : $"Pending {m.PendingObservations}";
 
     DevicePanelContext DeviceContext => new(DeviceId, AndroidUserId);
 
@@ -431,6 +242,4 @@
 
         return null;
     }
-
-    sealed record PendingPage(int Total, List<ContributionPendingRowDto> Rows);
 }
