@@ -542,6 +542,9 @@ input[type="search"]::placeholder { color: var(--color-muted); }
 @media (min-width: 100rem) {
   .pwb-cols-3 .wb-rail { --wb-rail-w: 47.5rem; grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
+@media (min-width: 80rem) {
+  .evwb-card .wb-rail { --wb-rail-w: 28rem; }
+}
 @media (max-width: 48rem) {
   .wb-card .wb-body { flex-direction: column; overflow-y: auto; }
   .wb-card .wb-rail {

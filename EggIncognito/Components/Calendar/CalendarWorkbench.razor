@@ -10,7 +10,7 @@
 @inject IServiceProvider Services
 @inject ILogger<CalendarWorkbench<TItem>> Logger
 
-<WorkbenchModal Open="_open" Title="@Title" TitleId="@TitleId" Size="WorkbenchSize.Wide" OnClose="CloseAsync">
+<WorkbenchModal Open="_open" Title="@Title" TitleId="@TitleId" Size="WorkbenchSize.Wide" CardClass="@CardClass" OnClose="CloseAsync">
     <HeadTools>
         <CalendarRangePicker TZoom="CalendarZoom" AvailableZooms="Zooms" Zoom="_zoom" ZoomLabel="ZoomLabel"
                              RangeLabel="@RangeLabel" DateValue="@CenterDate" ZoomChanged="SetZoom" OnPan="Pan"
@@ -76,6 +76,8 @@
     [Parameter, EditorRequired] public RenderFragment<TItem> Detail { get; set; } = null!;
 
     [Parameter, EditorRequired] public Func<TItem, string> DetailTitle { get; set; } = null!;
+
+    [Parameter] public string? CardClass { get; set; }
 
     [Parameter] public Func<DateTimeOffset, DateTimeOffset, Task>? OnWindowChanged { get; set; }
 

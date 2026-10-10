@@ -115,6 +115,43 @@ public class EventsWorkbenchModalTests : BunitContext {
     }
 
     [Fact]
+    public async Task TypeRail_SplitsTypesIntoBoostsThenSales() {
+        var now = DateTimeOffset.UtcNow;
+        Wire(req => Respond(req,
+            Event("a", "Earnings boost", now.AddHours(-2), now.AddHours(2)),
+            new GameEventDto("b", "hab-sale", "Hab sale", 0.5, false,
+                UnixSeconds.FromTime(now.AddHours(-1)), UnixSeconds.FromTime(now.AddHours(3)), "device")));
+
+        var cut = await OpenAsync();
+
+        var groups = cut.FindAll(".evwb-group");
+        Assert.Equal(2, groups.Count);
+        Assert.Equal(EventPalette.BoostsGroup, groups[0].QuerySelector(".evwb-group-label")?.TextContent);
+        Assert.Equal(EventPalette.SalesGroup, groups[1].QuerySelector(".evwb-group-label")?.TextContent);
+        Assert.Contains("Earnings Boost", groups[0].TextContent);
+        Assert.Contains("Hab Sale", groups[1].TextContent);
+        Assert.DoesNotContain("Hab Sale", groups[0].TextContent);
+    }
+
+    [Theory]
+    [InlineData("drone-boost", EventPalette.BoostsGroup)]
+    [InlineData("earnings-boost", EventPalette.BoostsGroup)]
+    [InlineData("gift-boost", EventPalette.BoostsGroup)]
+    [InlineData("piggy-boost", EventPalette.BoostsGroup)]
+    [InlineData("prestige-boost", EventPalette.BoostsGroup)]
+    [InlineData("boost-duration", EventPalette.BoostsGroup)]
+    [InlineData("mission-capacity", EventPalette.BoostsGroup)]
+    [InlineData("mission-fuel", EventPalette.BoostsGroup)]
+    [InlineData("crafting-sale", EventPalette.SalesGroup)]
+    [InlineData("epic-research-sale", EventPalette.SalesGroup)]
+    [InlineData("hab-sale", EventPalette.SalesGroup)]
+    [InlineData("research-sale", EventPalette.SalesGroup)]
+    [InlineData("vehicle-sale", EventPalette.SalesGroup)]
+    public void GroupOf_SortsEveryKnownTypeIntoBoostsOrSales(string type, string expected) {
+        Assert.Equal(expected, EventPalette.GroupOf(type));
+    }
+
+    [Fact]
     public async Task DatabaseLessInstance_ShowsAShortNoteAndNoBars() {
         Wire(_ => new HttpResponseMessage(HttpStatusCode.ServiceUnavailable));
 

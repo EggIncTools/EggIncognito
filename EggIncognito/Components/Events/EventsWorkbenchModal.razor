@@ -12,7 +12,7 @@
 
 <CalendarWorkbench TItem="EventCalendarItem" @ref="_cal" Title="Events" TitleId="eventsWorkbenchTitle" State="State"
                    Load="LoadRange" Items="Items" DetailTitle="PopTitle" Filtering="Filtering"
-                   OnWindowChanged="OnWindowChanged">
+                   CardClass="evwb-card" OnWindowChanged="OnWindowChanged">
     <Rail>
         <WorkbenchRail>
             <WorkbenchSection Label="Tier">
@@ -25,12 +25,19 @@
                     <button type="button" class="btn-mini" @onclick="DeselectAllTypes">Deselect all</button>
                 </Tools>
                 <ChildContent>
-                    @foreach (var type in TypesPresent) {
-                        <CalendarRailRow @key="type" On="TypeSelected(type)" DimWhenOff="true" Style="@TypeRowStyle(type)"
-                                         IconUrl="@EventPalette.IconUrl(type)" OnClick="@(() => ToggleType(type))">
-                            <span>@Pretty(type)</span>
-                        </CalendarRailRow>
-                    }
+                    <div class="evwb-groups">
+                        @foreach (var group in TypeGroups) {
+                            <div class="evwb-group" @key="group.Key">
+                                <div class="evwb-group-label">@group.Key</div>
+                                @foreach (var type in group) {
+                                    <CalendarRailRow @key="type" On="TypeSelected(type)" DimWhenOff="true" Style="@TypeRowStyle(type)"
+                                                     IconUrl="@EventPalette.IconUrl(type)" OnClick="@(() => ToggleType(type))">
+                                        <span>@Pretty(type)</span>
+                                    </CalendarRailRow>
+                                }
+                            </div>
+                        }
+                    </div>
                 </ChildContent>
             </WorkbenchSection>
             @if (_isAdmin) {
@@ -155,6 +162,11 @@
             .Where(t => !string.IsNullOrEmpty(t))
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .OrderBy(t => t, StringComparer.Ordinal);
+
+    IEnumerable<IGrouping<string, string>> TypeGroups =>
+        TypesPresent
+            .GroupBy(EventPalette.GroupOf, StringComparer.Ordinal)
+            .OrderBy(g => Array.IndexOf(EventPalette.Groups, g.Key));
 
     bool Match(GameEventDto e) {
         if (e.Ultra ? !_showUltra : !_showStandard) return false;

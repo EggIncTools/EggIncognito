@@ -1,0 +1,12 @@
+.evwb-groups { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0.625rem 0.75rem; }
+.evwb-group { display: flex; flex-direction: column; min-width: 0; }
+.evwb-group-label {
+  margin: 0 0 0.25rem 0.5rem;
+  font-size: 0.625rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
+@media (min-width: 80rem) {
+  .evwb-groups { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}

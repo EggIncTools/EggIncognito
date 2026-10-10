@@ -27,6 +27,14 @@ public static class EventPalette {
         ["shell-sale"] = "#f43f5e"
     }.ToFrozenDictionary(StringComparer.OrdinalIgnoreCase);
 
+    public const string BoostsGroup = "Boosts";
+    public const string SalesGroup = "Sales";
+
+    public static readonly string[] Groups = [BoostsGroup, SalesGroup];
+
+    public static string GroupOf(string? eventType) =>
+        eventType is not null && eventType.Contains("sale", StringComparison.OrdinalIgnoreCase) ? SalesGroup : BoostsGroup;
+
     public static string ColorFor(string? eventType) =>
         string.IsNullOrEmpty(eventType)
             ? Fallback
