@@ -4,7 +4,7 @@ using EggIdentity.Styles.Css;
 namespace EggIncognito.Tests;
 
 internal static partial class SheetFetch {
-    public const string SharedPath = "/_content/EggIdentity.Styles/shared.css";
+    public const string SharedPath = "/_content/EggIdentity.UI/shared.css";
     public const string AppPath = "/app.css";
     public const string ScopedPath = "/EggIncognito.styles.css";
 
