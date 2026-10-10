@@ -77,12 +77,12 @@
 
     PageVisibility? _vis;
 
-    PageVisibility Vis => _vis ??= new PageVisibility(JS, Env);
-
     protected override async Task OnAfterRenderAsync(bool firstRender) {
         if (!firstRender) return;
         _topics ??= Notifier.Subscribe(OnTopic);
-        await Vis.ListenAsync(OnVisibleAsync);
+        _vis = new PageVisibility(JS);
+        _vis.Changed += OnVisible;
+        await _vis.StartAsync();
         KickReprobe();
     }
 
@@ -91,15 +91,15 @@
         _ = InvokeAsync(TickAsync);
     }
 
-    async Task OnVisibleAsync(bool visible) {
+    void OnVisible(bool visible) {
         if (_disposed || !visible || !_missed) return;
         _missed = false;
-        await InvokeAsync(TickAsync);
+        _ = InvokeAsync(TickAsync);
     }
 
     async Task TickAsync() {
         if (_disposed || _loading) return;
-        if (!await Vis.IsVisibleAsync()) {
+        if (_vis is { Visible: false }) {
             _missed = true;
             return;
         }

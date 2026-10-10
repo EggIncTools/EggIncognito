@@ -478,7 +478,9 @@
         if (!firstRender) return;
         if (ViewerClock.Of(Services) is { } clock) await clock.SyncAsync();
         _topics ??= Notifier.Subscribe(OnTopic);
-        await Vis.ListenAsync(OnVisibleAsync);
+        _vis = new PageVisibility(JS);
+        _vis.Changed += OnVisible;
+        await _vis.StartAsync();
         try {
             _protoDrop ??= await JS.InvokeAsync<IJSObjectReference>("import", InteropAsset.Url(Env, "./interop/protoStrip.js"));
             await _protoDrop.InvokeAsync<bool>("wireDrop", "protoPageDrop", "wbFile");
@@ -517,7 +519,6 @@
 
         if (_adminWorkbench is not { } admin) return Task.CompletedTask;
         if (string.Equals(fragment, "admin", StringComparison.OrdinalIgnoreCase)) admin.Open();
-        else if (string.Equals(fragment, "playground", StringComparison.OrdinalIgnoreCase)) admin.OpenPlaygroundPane();
         return Task.CompletedTask;
     }
 
@@ -528,25 +529,23 @@
     bool _missed;
     bool _refreshing;
 
-    PageVisibility Vis => _vis ??= new PageVisibility(JS, Env);
-
     void OnTopic(string topic) {
         if (_disposed) return;
         if (topic != AdminTopics.ProtoRegistry && topic != AdminTopics.Staged) return;
         _ = InvokeAsync(RefreshAll);
     }
 
-    async Task OnVisibleAsync(bool visible) {
+    void OnVisible(bool visible) {
         if (_disposed || !visible || !_missed) return;
         _missed = false;
-        await InvokeAsync(RefreshAll);
+        _ = InvokeAsync(RefreshAll);
     }
 
     async Task RefreshAll() {
         if (_disposed || _loading || _busyMutating || _refreshing) return;
         _refreshing = true;
         try {
-            if (!await Vis.IsVisibleAsync()) {
+            if (_vis is { Visible: false }) {
                 _missed = true;
                 return;
             }

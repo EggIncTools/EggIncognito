@@ -1,4 +1,3 @@
-@using EggIncognito.Components.Playground
 @rendermode @(RenderModes.InteractiveServer)
 @inject AdminWorkbenchState State
 @inject ICurrentUser User
@@ -88,9 +87,6 @@
                             case AdminPanes.Settings:
                                 <AdminSettingsPanel/>
                                 break;
-                            case AdminPanes.Playground:
-                                <AdminPlaygroundPanel OnOpen="OpenPlayground"/>
-                                break;
                         }
                     </section>
                 }
@@ -99,16 +95,9 @@
     </ChildContent>
 </WorkbenchModal>
 
-@if (_mounted) {
-    <PlaygroundWorkbenchModal @ref="_playground"/>
-}
-
 @code {
-    PlaygroundWorkbenchModal? _playground;
-
     bool _open;
     bool _mounted;
-    bool _wantPlayground;
 
     public bool IsAdmin => User.Current.IsAtLeast(UserRole.Admin);
 
@@ -125,31 +114,13 @@
         Open();
     }
 
-    public void OpenPlaygroundPane() {
-        if (!IsAdmin) return;
-        _wantPlayground = true;
-        OpenPane(AdminPanes.Playground);
-    }
-
-    protected override async Task OnAfterRenderAsync(bool firstRender) {
-        if (_wantPlayground && _playground is not null) {
-            _wantPlayground = false;
-            await _playground.Open();
-        }
-    }
-
     public void Close() {
         _open = false;
         _mounted = false;
-        _wantPlayground = false;
     }
 
     void Select(string key) {
         State.Select(key);
-    }
-
-    Task OpenPlayground() {
-        return _playground?.Open() ?? Task.CompletedTask;
     }
 
 }

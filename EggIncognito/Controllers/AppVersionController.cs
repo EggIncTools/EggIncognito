@@ -1,5 +1,5 @@
 using EggIncognito.Core.Services;
-using EggIncognito.Models.Playground;
+using EggIncognito.Models.Shared;
 using EggIncognito.Services.Auth;
 using Microsoft.AspNetCore.Mvc;
 

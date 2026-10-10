@@ -24,7 +24,6 @@ public static class AdminPanes {
     public const string Maintenance = "maintenance";
     public const string Deploy = "deploy";
     public const string Settings = "settings";
-    public const string Playground = "playground";
 
     public static readonly IReadOnlyList<AdminPane> All = [
         new(Traffic, "Overview", "Traffic"),
@@ -47,7 +46,6 @@ public static class AdminPanes {
         new(BotConfig, "Ops", "Bot config"),
         new(Maintenance, "Ops", "Maintenance"),
         new(Deploy, "Ops", "Deploy"),
-        new(Settings, "Ops", "Settings"),
-        new(Playground, "Ops", "Playground")
+        new(Settings, "Ops", "Settings")
     ];
 }

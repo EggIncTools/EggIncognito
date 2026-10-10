@@ -5,7 +5,7 @@ using Microsoft.AspNetCore.Mvc.Testing;
 namespace EggIncognito.Tests;
 
 [Collection(SharedAppCollection.Name)]
-public class PlaygroundTests(SharedAppFactory f) {
+public class ServerRouteTests(SharedAppFactory f) {
     private readonly WebApplicationFactory<Program> _factory = f;
 
     private static readonly HttpStatusCode[] CatchAllFallThrough = [
@@ -18,19 +18,6 @@ public class PlaygroundTests(SharedAppFactory f) {
         Assert.True(Array.IndexOf(CatchAllFallThrough, r.StatusCode) >= 0,
             $"{r.RequestMessage?.Method} {r.RequestMessage?.RequestUri} still resolves to a route: "
             + $"{(int)r.StatusCode}");
-
-    [Fact]
-    public async Task Playground_Route_IsARedirectStub() {
-        var c = _factory.CreateClient();
-        var r = await c.GetAsync("/playground");
-        Assert.Equal(HttpStatusCode.OK, r.StatusCode);
-        string html = await r.Content.ReadAsStringAsync();
-        Assert.DoesNotContain("playgroundCanvas", html);
-        Assert.DoesNotContain("Contributor access required", html);
-        Assert.DoesNotContain("href=\"playground\"", html);
-        Assert.DoesNotContain("href=\"admin\"", html);
-        Assert.Contains("id=\"siteFooter\"", html);
-    }
 
     [Fact]
     public async Task Devices_Status_IsPublic_ForAnonymousHosts() {
@@ -55,16 +42,6 @@ public class PlaygroundTests(SharedAppFactory f) {
 
         Assert.Contains("\"ok\"", json);
         Assert.Contains("\"type\":\"chicken\"", json);
-    }
-
-    [Fact]
-    public async Task PlaygroundRecorder_ScriptIsServed() {
-        var c = _factory.CreateClient();
-        var r = await c.GetAsync("/interop/playgroundRecorder.js");
-        Assert.Equal(HttpStatusCode.OK, r.StatusCode);
-        string body = await r.Content.ReadAsStringAsync();
-        Assert.Contains("renderAtPhase", body);
-        Assert.Contains("playground-loop.gif", body);
     }
 
     [Fact]

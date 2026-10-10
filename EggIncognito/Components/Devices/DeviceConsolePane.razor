@@ -336,16 +336,14 @@
     PageVisibility? _vis;
     bool _visible = true;
 
-    PageVisibility Vis => _vis ??= new PageVisibility(JS, Env);
-
     bool StreamWhileHidden => _watch.Points.Count > 0;
 
-    async Task OnVisibilityAsync(bool visible) {
+    void OnVisibility(bool visible) => _ = InvokeAsync(() => {
         if (_disposed || visible == _visible) return;
         _visible = visible;
         if (!visible && !StreamWhileHidden) ResetVideoHealth();
-        await InvokeAsync(StateHasChanged);
-    }
+        StateHasChanged();
+    });
 
     bool IsAndroid => string.Equals(Platform, "android", StringComparison.OrdinalIgnoreCase);
 
@@ -997,8 +995,10 @@
 
         if (_videoSupported is null) {
             _videoSupported = await SafeValueAsync<bool>(module, "supportsVideo");
-            await Vis.ListenAsync(OnVisibilityAsync);
-            _visible = await Vis.IsVisibleAsync();
+            _vis = new PageVisibility(JS);
+            _vis.Changed += OnVisibility;
+            await _vis.StartAsync();
+            _visible = _vis.Visible;
             if (RecomputeVideo()) {
                 StateHasChanged();
                 return;
