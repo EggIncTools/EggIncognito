@@ -232,9 +232,9 @@
     }
 
     RenderFragment<CalendarBar<TItem>> Anchored => bar =>
-        @<div class="@AnchorCss(bar)" style="@(CalendarBars.PositionStyle(bar) + (AnchorStyle?.Invoke(bar.Item) ?? ""))">
+        @<div class="@AnchorCss(bar)" style="@(CalendarBars.PositionStyle(bar) + (AnchorStyle?.Invoke(bar.Item) ?? "") + $"anchor-name:{AnchorName(bar)};")">
             @Bar(bar)
-            <div class="evcal-pop" role="dialog" aria-label="@DetailTitle(bar.Item)">
+            <div class="evcal-pop" role="dialog" aria-label="@DetailTitle(bar.Item)" style="@($"position-anchor:{AnchorName(bar)}")">
                 <div class="evcal-pop-head">
                     <span class="evcal-pop-title">@DetailTitle(bar.Item)</span>
                     @if (IsPinned(bar.Item)) {
@@ -246,6 +246,9 @@
                 @Detail(bar.Item)
             </div>
         </div>;
+
+    static string AnchorName(CalendarBar<TItem> bar) =>
+        $"--evcal-{System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(bar.Item):x}";
 
     string AnchorCss(CalendarBar<TItem> bar) {
         return IsPinned(bar.Item) ? "evcal-anchor evcal-anchor-open" : "evcal-anchor";

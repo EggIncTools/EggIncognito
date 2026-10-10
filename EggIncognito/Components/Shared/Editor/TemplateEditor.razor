@@ -1,8 +1,4 @@
-@inject IJSRuntime JS
-@inject IWebHostEnvironment Env
-@inject ILogger<TemplateEditor> Logger
 @using EggIncognito.Services.Feed
-@implements IAsyncDisposable
 
 <div class="tpl-editor">
     @if (Label is { Length: > 0 } || Hint is { Length: > 0 }) {
@@ -17,7 +13,7 @@
     }
     <div class="tpl-main">
         <textarea class="tpl-area" rows="@Rows" spellcheck="false" aria-label="@(Label is { Length: > 0 } ? Label : "Message")"
-                  value="@Value" @oninput="OnInput" @ref="_area"></textarea>
+                  value="@Value" @oninput="OnInput"></textarea>
         @if (Tokens.Count > 0) {
             <div class="tpl-tokens">
                 <span class="tpl-tokens-head">Variables</span>
@@ -51,8 +47,7 @@
     [Parameter] public string? Hint { get; set; }
     [Parameter] public int Rows { get; set; } = 4;
 
-    ElementReference _area;
-    IJSObjectReference? _module;
+    int? _caret;
 
     static string Wrap(string name) {
         return "{{" + name + "}}";
@@ -67,36 +62,24 @@
         return missing;
     }
 
-    protected override async Task OnAfterRenderAsync(bool firstRender) {
-        if (!firstRender || _module is not null) return;
-        try {
-            _module = await JS.InvokeAsync<IJSObjectReference>("import", InteropAsset.Url(Env, "./interop/caretInsert.js"));
-        } catch (Exception ex) when (ex is JSDisconnectedException or JSException or ObjectDisposedException) {
-            Logger.LogDebug(ex, "caret insert interop could not be loaded");
-        }
-    }
-
     Task OnInput(ChangeEventArgs e) {
-        return ValueChanged.InvokeAsync(e.Value?.ToString() ?? "");
+        var next = e.Value?.ToString() ?? "";
+        _caret = EditEnd(Value ?? "", next);
+        return ValueChanged.InvokeAsync(next);
     }
 
-    async Task Insert(string name) {
+    static int EditEnd(string before, string after) {
+        int suffix = 0;
+        while (suffix < before.Length && suffix < after.Length && before[^(suffix + 1)] == after[^(suffix + 1)]) suffix++;
+        return after.Length - suffix;
+    }
+
+    Task Insert(string name) {
         var token = Wrap(name);
-        var next = (Value ?? "") + token;
-        if (_module is not null) {
-            try {
-                next = await _module.InvokeAsync<string>("insert", _area, token);
-            } catch (Exception ex) when (ex is JSDisconnectedException or JSException or ObjectDisposedException) {
-                Logger.LogDebug(ex, "caret insert failed, appending instead");
-                next = (Value ?? "") + token;
-            }
-        }
-
-        await ValueChanged.InvokeAsync(next);
-    }
-
-    public ValueTask DisposeAsync() {
-        return _module.DisposeModuleQuietAsync(null, Logger);
+        var text = Value ?? "";
+        int at = Math.Clamp(_caret ?? text.Length, 0, text.Length);
+        _caret = at + token.Length;
+        return ValueChanged.InvokeAsync(text.Insert(at, token));
     }
 
 }

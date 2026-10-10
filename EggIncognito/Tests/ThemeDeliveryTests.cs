@@ -59,7 +59,7 @@ public class ThemeDeliveryTests(SharedAppFactory f) {
     [Fact]
     public async Task StaticAsset_KeepsItsCaching() {
         var c = _f.CreateClient();
-        var resp = await c.GetAsync("/interop/protoStrip.js");
+        var resp = await c.GetAsync("/interop/deviceConsole.js");
         Assert.Equal(System.Net.HttpStatusCode.OK, resp.StatusCode);
         Assert.NotEqual(true, resp.Headers.CacheControl?.NoStore);
     }

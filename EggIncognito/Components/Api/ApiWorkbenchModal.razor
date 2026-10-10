@@ -21,6 +21,7 @@
 @inject IJSRuntime JS
 @inject IWebHostEnvironment Env
 @inject NavigationManager Nav
+@inject InspectorViewerStore Store
 @inject ApiWorkbenchState State
 @inject ToastService Toasts
 @inject ILogger<ApiWorkbenchModal> Logger
@@ -185,7 +186,7 @@
     bool _fixWrappedBusy;
     RouteCatalogSummary? _routeSummary;
 
-    IJSObjectReference? _store;
+    IJSObjectReference? _proxySend;
     PathRouteSync? _hash;
 
     protected override void OnInitialized() {
@@ -222,19 +223,11 @@
     async Task LoadStore() {
         if (_storeLoaded) return;
         _storeLoaded = true;
-        try {
-            _store = await JS.InvokeAsync<IJSObjectReference>(
-                "import", InteropAsset.Url(Env, "./interop/inspectorStore.js"));
-        } catch (Exception ex) when (ex is JSDisconnectedException or JSException or ObjectDisposedException) {
-            Logger.LogDebug(ex, "the inspector browser store could not be loaded");
-            State.Notice = "Browser storage is unavailable, so salt, history and remembered EIDs are off for this session.";
-        }
-
-        State.Rinfo = (await ServerSeed()).OverlaidWith(await InvokeOr<RinfoSeed?>("getRinfoDefaults", null));
-        State.HasSalt = !string.IsNullOrEmpty(await InvokeOr("getSalt", ""));
-        State.CustomTarget = await InvokeOr("getCustomTarget", "");
-        State.RecentEids = await InvokeOr("recentEids", Array.Empty<string>());
-        State.History = await InvokeOr("getHistory", new List<InspectorHistoryEntry>());
+        State.Rinfo = (await ServerSeed()).OverlaidWith(Store.Rinfo);
+        State.HasSalt = Store.Salt.Length > 0;
+        State.CustomTarget = Store.CustomTarget;
+        State.RecentEids = Store.RecentEids;
+        State.History = Store.History;
         State.SeedEnvRows();
     }
 
@@ -390,25 +383,6 @@
         return await Client().OneAsync<RinfoSeed>("/api/inspector/rinfo-seed", Logger) ?? new RinfoSeed();
     }
 
-    async Task<T> InvokeOr<T>(string fn, T fallback, params object?[] args) {
-        if (_store is null) return fallback;
-        try {
-            return await _store.InvokeAsync<T>(fn, args);
-        } catch (Exception ex) when (ex is JSDisconnectedException or JSException or ObjectDisposedException) {
-            Logger.LogDebug(ex, "inspector store call {Function} failed", fn);
-            return fallback;
-        }
-    }
-
-    async Task InvokeVoid(string fn, params object?[] args) {
-        if (_store is null) return;
-        try {
-            await _store.InvokeVoidAsync(fn, args);
-        } catch (Exception ex) when (ex is JSDisconnectedException or JSException or ObjectDisposedException) {
-            Logger.LogDebug(ex, "inspector store call {Function} failed", fn);
-        }
-    }
-
     async Task SelectEndpointFromRail(RouteInfo e) {
         await SelectEndpoint(e);
         await WriteHash(true);
@@ -452,12 +426,12 @@
         return Task.CompletedTask;
     }
 
-    async Task OnEnvChanged(EnvRow row) {
+    void OnEnvChanged(EnvRow row) {
         State.SyncRinfoFromRow(row);
         State.ApplyEnvLock();
         State.EnvValidated = false;
         State.EnvError = null;
-        await InvokeVoid("setRinfoDefaults", State.Rinfo);
+        Store.SaveRinfo(State.Rinfo);
     }
 
     async Task ValidateEnv() {
@@ -514,7 +488,7 @@
 
     void OnCustomTargetChanged(string value) {
         State.CustomTarget = value;
-        _ = InvokeVoid("setCustomTarget", value);
+        Store.CustomTarget = value;
     }
 
     void OnTreeChanged() {
@@ -554,20 +528,20 @@
         _saltOpen = true;
     }
 
-    async Task SaveSalt(string salt) {
-        await InvokeVoid("setSalt", salt);
+    void SaveSalt(string salt) {
+        Store.Salt = salt;
         State.HasSalt = !string.IsNullOrEmpty(salt);
         _saltOpen = false;
     }
 
-    async Task RequestTarget(InspectorTarget target) {
+    void RequestTarget(InspectorTarget target) {
         if (target == InspectorTarget.Mock) {
             State.Target = target;
             return;
         }
 
         if (State.LiveDisabled) return;
-        if (!await InvokeOr("getLiveConsent", false)) {
+        if (!Store.LiveConsent) {
             _liveConsentOpen = true;
             return;
         }
@@ -575,8 +549,8 @@
         State.Target = target;
     }
 
-    async Task AcceptLiveConsent() {
-        await InvokeVoid("setLiveConsent");
+    void AcceptLiveConsent() {
+        Store.GrantLiveConsent();
         _liveConsentOpen = false;
         State.Target = InspectorTarget.LiveViaServer;
     }
@@ -633,7 +607,7 @@
             return;
         }
 
-        var salt = await InvokeOr<string?>("getSalt", null);
+        var salt = Store.Salt is { Length: > 0 } s ? s : null;
 
         var body = new {
             path = e.Path,
@@ -656,14 +630,13 @@
 
             State.LastBuild = data;
             State.BuildStages = data?.Stages;
-            await SaveToHistory(e, fields);
+            SaveToHistory(e, fields);
         } catch (Exception ex) when (ex is HttpRequestException or JsonException or TaskCanceledException) {
             State.Response = new SendResponse(null, null, null, null, "build failed: " + ex.Message, null);
         }
     }
 
-    async Task SaveToHistory(RouteInfo e, JsonNode? fields) {
-        if (_store is null) return;
+    void SaveToHistory(RouteInfo e, JsonNode? fields) {
         var entry = new InspectorHistoryEntry(
             Guid.NewGuid().ToString("n"),
             e.Path,
@@ -673,7 +646,7 @@
             string.IsNullOrWhiteSpace(State.PathParam) ? null : State.PathParam.Trim(),
             State.Target,
             0);
-        State.History = await InvokeOr("saveHistory", State.History, entry);
+        State.History = Store.SaveHistory(entry);
     }
 
     string HistorySummary(RouteInfo e) {
@@ -714,13 +687,9 @@
         await WriteHash(true);
     }
 
-    async Task DeleteHistory(string id) {
-        State.History = await InvokeOr("deleteHistory", State.History, id);
-    }
+    void DeleteHistory(string id) => State.History = Store.DeleteHistory(id);
 
-    async Task ClearHistory() {
-        State.History = await InvokeOr("clearHistory", new List<InspectorHistoryEntry>());
-    }
+    void ClearHistory() => State.History = Store.ClearHistory();
 
     async Task SendCore() {
         var e = State.Selected;
@@ -741,7 +710,7 @@
 
         var mockUrl = State.Target == InspectorTarget.Mock ? MockUrl(e, param) : null;
 
-        await RememberEnteredEids();
+        RememberEnteredEids();
         try {
             var res = await Client().PostAsJsonAsync("/api/inspector/send",
                 new {
@@ -841,17 +810,12 @@
             proxyUrl += "/" + Uri.EscapeDataString(param);
         }
 
-        await RememberEnteredEids();
-
-        if (_store is null) {
-            State.Response = new SendResponse(null, null, null, null,
-                "custom send needs the browser interop", "Reload the page and try again.");
-            return;
-        }
+        RememberEnteredEids();
 
         string raw;
         try {
-            raw = await _store.InvokeAsync<string>("postForm", proxyUrl, State.LastBuild!.FinalFormBody);
+            _proxySend ??= await JS.InvokeAsync<IJSObjectReference>("import", InteropAsset.Url(Env, "./interop/proxySend.js"));
+            raw = await _proxySend.InvokeAsync<string>("postForm", proxyUrl, State.LastBuild!.FinalFormBody);
         } catch (Exception ex) when (ex is JSDisconnectedException or JSException or ObjectDisposedException) {
             State.Response = new SendResponse(null, null, null, null,
                 $"direct request to your proxy failed: {ex.Message}",
@@ -870,17 +834,17 @@
         }
     }
 
-    async Task RememberEnteredEids() {
+    void RememberEnteredEids() {
         var candidates = new List<string?> { State.PathParam };
         candidates.AddRange(State.EnvRows.Select(r => r.Value));
         var present = candidates.Where(s => !string.IsNullOrWhiteSpace(s)).Select(s => s!).ToArray();
         if (present.Length == 0) return;
 
-        State.RecentEids = await InvokeOr("rememberEids", State.RecentEids, new object?[] { present });
+        State.RecentEids = Store.RememberEids(present);
     }
 
-    async Task ForgetEids() {
-        State.RecentEids = await InvokeOr("forgetEids", Array.Empty<string>());
+    void ForgetEids() {
+        State.RecentEids = Store.ForgetEids();
         State.PathParam = "";
     }
 
@@ -960,7 +924,7 @@
     public async ValueTask DisposeAsync() {
         State.DocsRequested -= OnDocsRequested;
         _hash?.Dispose();
-        await _store.DisposeModuleQuietAsync(logger: Logger);
+        await _proxySend.DisposeModuleQuietAsync(logger: Logger);
     }
 
 }

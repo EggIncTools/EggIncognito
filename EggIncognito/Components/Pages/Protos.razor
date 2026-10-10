@@ -42,10 +42,12 @@
                     <BrandPanel Rows="_rows" OnOpenVersion="OpenVersion"/>
                     <div class="reg-toolbar-controls">
                         <Tooltip Text="APK, APKM, XAPK or IPA">
-                            <label id="protoPageDrop" class="reg-drop" for="wbFile">
+                            <div class="reg-drop">
+                                <InputFile class="reg-drop-input" accept=".ipa,.apk,.apkm,.xapk" multiple
+                                           OnChange="@(e => _workbench?.AddFiles(e.GetMultipleFiles(20)))"/>
                                 <Icon Name="upload" Class="icon-sm"/>
                                 <span>Drop a build</span>
-                            </label>
+                            </div>
                         </Tooltip>
                         <button type="button" class="reg-intake"
                                 aria-label="Open the proto workbench" @onclick="@(() => _workbench?.Open())">
@@ -481,12 +483,6 @@
         _vis = new PageVisibility(JS);
         _vis.Changed += OnVisible;
         await _vis.StartAsync();
-        try {
-            _protoDrop ??= await JS.InvokeAsync<IJSObjectReference>("import", InteropAsset.Url(Env, "./interop/protoStrip.js"));
-            await _protoDrop.InvokeAsync<bool>("wireDrop", "protoPageDrop", "wbFile");
-        } catch (JSDisconnectedException ex) {
-            Logger.LogDebug(ex, "proto drop zone not wired, the circuit is already gone");
-        }
 
         _routeSync = new PathRouteSync(Nav, "/protos");
         _routeSync.Changed += () => InvokeAsync(() => {
@@ -523,7 +519,6 @@
     }
 
     PageVisibility? _vis;
-    IJSObjectReference? _protoDrop;
     IDisposable? _topics;
     bool _disposed;
     bool _missed;
@@ -599,7 +594,6 @@
         _topics?.Dispose();
         _topics = null;
         if (_vis is not null) await _vis.DisposeAsync();
-        await _protoDrop.DisposeModuleAsync(logger: Logger);
         _routeSync?.Dispose();
     }
 

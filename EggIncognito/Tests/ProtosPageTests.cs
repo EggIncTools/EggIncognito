@@ -56,6 +56,10 @@ public class ProtosPageTests {
             Services.AddSingleton<IHttpContextAccessor>(new HttpContextAccessor());
             Services.AddSingleton<IWebHostEnvironment>(new FakeWebHostEnvironment());
             Services.AddEggIdentityDownloads();
+            Services.AddEggIdentityViewerCookies(o => {
+                foreach (var key in EggIncognito.Services.Inspector.InspectorViewerStore.Keys) o.Allow(key, TimeSpan.FromDays(1));
+            });
+            Services.AddScoped<EggIncognito.Services.Inspector.InspectorViewerStore>();
             var yaml = new RouteCatalog("__no_routes_yaml__");
             Services.AddSingleton<IRouteCatalog>(yaml);
             Services.AddSingleton<IRouteCatalogReport>(

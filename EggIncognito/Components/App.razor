@@ -48,7 +48,6 @@
     @if (_theme is not null) {
         <style id="egi-theme" nonce="@_nonce">@((MarkupString)_theme.Css)</style>
     }
-    <script src="_content/EggIdentity.UI/timezone.js"></script>
     <HeadOutlet/>
 </head>
 <body>
@@ -57,7 +56,6 @@
 <ReconnectModal/>
 
 <script src="_framework/blazor.web.js"></script>
-<script src="_content/EggIdentity.UI/comboBoxPicker.js"></script>
 <script src="_content/EggIdentity.UI/calendarScroll.js"></script>
 </body>
 </html>

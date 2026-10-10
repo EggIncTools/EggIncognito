@@ -14,9 +14,10 @@
 .code-view { display: flex; flex-direction: row; flex: 1 1 auto; min-height: 0; min-width: 0; }
 .code-row { display: grid; grid-template-columns: minmax(0, 1fr); align-items: center; height: var(--code-row-h); line-height: var(--code-row-h); }
 .code-note { padding: 0 0.5rem; color: var(--color-muted); font-family: var(--font-mono); font-size: 0.75rem; }
-.cdiff-scroll { flex: 1 1 auto; min-width: 0; }
+.cdiff-view { timeline-scope: --cdiff-scroll; }
+.cdiff-scroll { flex: 1 1 auto; min-width: 0; scroll-timeline: --cdiff-scroll block; }
+.cdiff-viewport { --scroll-marker-timeline: --cdiff-scroll; min-height: 2px; background-color: color-mix(in oklab, var(--color-fg) 16%, transparent); border-block: 1px solid color-mix(in oklab, var(--color-fg) 26%, transparent); }
 .cdiff-map { position: relative; flex: none; width: 0.875rem; pointer-events: none; border-left: 1px solid var(--color-border); background-color: color-mix(in oklab, var(--color-fg) 7%, var(--code-bg)); }
-.cdiff-map::before { content: ""; position: absolute; left: 0; right: 0; top: var(--vp-top, 0%); height: var(--vp-h, 100%); min-height: 2px; background-color: color-mix(in oklab, var(--color-fg) 16%, transparent); border-block: 1px solid color-mix(in oklab, var(--color-fg) 26%, transparent); }
 .cdiff-mark { position: absolute; left: 0; right: 0; height: 4px; border-radius: 1px; }
 .cdiff-mark-add { background-color: var(--color-ok); }
 .cdiff-mark-rem { background-color: var(--color-err); }

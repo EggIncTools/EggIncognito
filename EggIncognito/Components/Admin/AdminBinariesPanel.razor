@@ -89,7 +89,7 @@
 }
 <FlexRow Gap="true">
     <input class="reg-filter-input ab-input" placeholder="version (raw Mach-O only)" value="@_refVersion" @oninput="OnRefVersion"/>
-    <DirectUpload Url="@RefUploadUrl" TimeoutMs="1800000" Disabled="_refBusy" Class="ab-file" OnStart="OnRefUploadStart" OnResult="OnRefUploaded"/>
+    <DirectUpload Url="@RefUploadUrl" TimeoutMs="1800000" Disabled="_refBusy" Class="ab-file" ButtonClass="btn-mini" OnStart="OnRefUploadStart" OnResult="OnRefUploaded"/>
 </FlexRow>
 
 @code {

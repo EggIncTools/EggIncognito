@@ -21,6 +21,8 @@ public sealed record ExtractResult {
 public sealed class StagedEntry {
     public Guid Id { get; } = Guid.NewGuid();
     public required int Token { get; init; }
+
+    public Microsoft.AspNetCore.Components.Forms.IBrowserFile? File { get; set; }
     public required string FileName { get; init; }
     public long Size { get; init; }
     public string Status { get; set; } = "queued";

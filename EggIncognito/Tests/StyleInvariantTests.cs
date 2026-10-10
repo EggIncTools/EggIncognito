@@ -120,7 +120,7 @@ public partial class StyleInvariantTests(SharedAppFactory f) {
     public async Task AppAndScopedSheets_PassMotionGuard() {
         var sheets = await SheetFetch.ParsedAsync(f.CreateClient());
         var violations = new[] { sheets.App, sheets.Scoped }
-            .SelectMany(s => MotionGuard.Check(s, ["egi-hue"]))
+            .SelectMany(s => MotionGuard.Check(s, ["egi-hue", "scroll-marker"]))
             .Select(v => $"{v.Selector} {{ {v.Property}: {v.Value} }} ({v.Reason})")
             .ToList();
         Assert.True(violations.Count == 0, "motion violations: " + string.Join("; ", violations));

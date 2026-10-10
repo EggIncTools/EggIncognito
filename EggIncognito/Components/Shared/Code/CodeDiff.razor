@@ -3,9 +3,6 @@
 @using EggIncognito.Core.Services.Syntax
 @using EggIncognito.Models.Code
 @using Microsoft.AspNetCore.Components.Web.Virtualization
-@implements IAsyncDisposable
-@inject IJSRuntime JS
-@inject IWebHostEnvironment Env
 @if (Mode == CodeDiffMode.Structured) {
     @if (Structural is null || Structural.IsEmpty) {
         <p class="cdiff-empty">@EmptyText</p>
@@ -103,9 +100,10 @@
                 }
             </div>
         }
-        <div class="code-view" @ref="_view">
+        <div class="code-view cdiff-view">
             @if (Marks() is { Count: > 0 } marks) {
                 <div class="cdiff-map" aria-hidden="true">
+                    <span class="scroll-marker cdiff-viewport"></span>
                     @foreach (var mark in marks) {
                         <span class="cdiff-mark cdiff-mark-@mark.Kind" style="@($"top:{mark.At}%")"></span>
                     }
@@ -395,54 +393,6 @@
 
     List<DiffMark> _marks = [];
     int _marksFor = -1;
-
-    ElementReference _view;
-    IJSObjectReference? _mapModule;
-    IJSObjectReference? _mapHandle;
-    string _mapKey = "";
-
-    protected override async Task OnAfterRenderAsync(bool firstRender) {
-        var key = Mode == CodeDiffMode.Structured || _marks.Count == 0
-            ? ""
-            : FormattableString.Invariant($"{Mode}:{_marks.Count}");
-        if (string.Equals(key, _mapKey, StringComparison.Ordinal)) return;
-        _mapKey = key;
-        await ReleaseMapAsync();
-        if (key.Length == 0) return;
-        try {
-            _mapModule ??= await JS.InvokeAsync<IJSObjectReference>(
-                "import", InteropAsset.Url(Env, "./interop/diffmap.js"));
-            _mapHandle = await _mapModule.InvokeAsync<IJSObjectReference?>("attach", _view);
-        } catch (Exception ex) when (ex is JSException or JSDisconnectedException) {
-            _mapKey = "";
-        }
-    }
-
-    async Task ReleaseMapAsync() {
-        if (_mapHandle is null) return;
-        try {
-            await _mapHandle.InvokeVoidAsync("dispose");
-        } catch (Exception ex) when (ex is JSException or JSDisconnectedException) {
-        }
-
-        try {
-            await _mapHandle.DisposeAsync();
-        } catch (JSDisconnectedException) {
-        }
-
-        _mapHandle = null;
-    }
-
-    public async ValueTask DisposeAsync() {
-        await ReleaseMapAsync();
-        if (_mapModule is null) return;
-        try {
-            await _mapModule.DisposeAsync();
-        } catch (JSDisconnectedException) {
-        }
-
-        _mapModule = null;
-    }
 
     List<DiffMark> Marks() {
         var shown = Mode == CodeDiffMode.Split ? _split.Count : _unified.Count;

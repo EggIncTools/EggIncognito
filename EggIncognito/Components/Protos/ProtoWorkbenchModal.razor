@@ -2,7 +2,6 @@
 @inherits SelfCallComponentBase
 @inject IJSRuntime JS
 @inject Downloads Downloads
-@inject IWebHostEnvironment Env
 @inject ICurrentUser User
 @inject NavigationManager Nav
 @inject ProtoWorkbenchState State
@@ -20,8 +19,6 @@
 @using EggIncognito.Services.Protos
 @using Microsoft.AspNetCore.Components.Web.Virtualization
 @implements IAsyncDisposable
-
-<InputFile id="wbFile" accept=".ipa,.apk,.apkm,.xapk" multiple hidden OnChange="OnFilesSelected"/>
 
 @if (_open) {
     var groups = Groups();
@@ -51,9 +48,10 @@
             @{ var hasSession = State.Entries.Count > 0; }
             <div class="wb-rail-slot pwb-rail-sess @(hasSession ? "" : "pwb-rail-sess-empty")">
                 <WorkbenchSection Label="Session">
-                    <label id="wbRailDrop" class="pwb-drop" for="wbFile">
+                    <div class="pwb-drop">
+                        <InputFile class="pwb-drop-input" accept=".ipa,.apk,.apkm,.xapk" multiple OnChange="OnFilesSelected"/>
                         <DropZonePrompt Prompt="Drop .ipa, .apk or bundle files"/>
-                    </label>
+                    </div>
                     @if (hasSession) {
                         <FilterList TItem="StagedEntry" Schema="SessionFilter.Schema" Items="State.Entries"
                                     Query="State.SessionQuery" QueryChanged="@(q => State.SessionQuery = q)"
@@ -402,11 +400,11 @@
     bool _adminOpen;
     string _adminTab = RegistryAdminPanel.TabReview;
     RegistryAdminPanel? _adminPanel;
-    bool _dropWired;
     bool _offerBusy;
     string? _menu;
-    IJSObjectReference? _strip;
-    DotNetObjectReference<ProtoWorkbenchModal>? _selfRef;
+    int _nextToken;
+    const int MaxFiles = 20;
+    const long MaxUploadBytes = 800_000_000;
     const int AnalyzeSlots = 4;
     const int PendingOpenLimit = 3;
     readonly SemaphoreSlim _gate = new(AnalyzeSlots, AnalyzeSlots);
@@ -556,7 +554,6 @@
 
     public void Open() {
         _open = true;
-        _dropWired = false;
         StateHasChanged();
     }
 
@@ -670,50 +667,40 @@
         await action();
     }
 
-    protected override async Task OnAfterRenderAsync(bool firstRender) {
-        if (!_open || _dropWired) return;
-        try {
-            var mod = await StripModule();
-            if (mod is null) return;
-            var body = await mod.InvokeAsync<bool>("wireDrop", "wbDrop", "wbFile");
-            var rail = await mod.InvokeAsync<bool>("wireDrop", "wbRailDrop", "wbFile");
-            _dropWired = body && rail;
-        } catch (JSDisconnectedException ex) {
-            Logger.LogDebug(ex, "drop wiring skipped, the circuit is already gone");
-        }
-    }
-
-    async Task<IJSObjectReference?> StripModule() {
-        if (_strip is not null) return _strip;
-        try {
-            return _strip = await JS.InvokeAsync<IJSObjectReference>("import", InteropAsset.Url(Env, "./interop/protoStrip.js"));
-        } catch (JSDisconnectedException ex) {
-            Logger.LogDebug(ex, "proto strip module import skipped, the circuit is already gone");
-            return null;
-        }
-    }
-
-    async Task OnFilesSelected(InputFileChangeEventArgs e) {
-        List<StashedFile> stashed;
-        try {
-            var mod = await StripModule();
-            if (mod is null) return;
-            stashed = await mod.InvokeAsync<List<StashedFile>>("stashFiles", "wbFile");
-        } catch (JSDisconnectedException ex) {
-            Logger.LogDebug(ex, "file stash skipped, the circuit is already gone");
-            return;
-        }
-
-        if (!_open) _dropWired = false;
+    public void AddFiles(IReadOnlyList<IBrowserFile> files) {
         _open = true;
-        foreach (var s in stashed) {
-            var entry = new StagedEntry { Token = s.Token, FileName = s.Name, Size = s.Size };
-            entry.Platform = PlatformFor(s.Name);
+        foreach (var file in files) {
+            var entry = new StagedEntry { Token = ++_nextToken, FileName = file.Name, Size = file.Size, File = file };
+            entry.Platform = PlatformFor(file.Name);
             State.Entries.Add(entry);
             State.SelectedId ??= entry.Id;
             _ = ProcessAsync(entry);
         }
+
+        StateHasChanged();
     }
+
+    void OnFilesSelected(InputFileChangeEventArgs e) => AddFiles(e.GetMultipleFiles(MaxFiles));
+
+    async Task<ExtractResult?> UploadAsync(StagedEntry entry, CancellationToken ct) {
+        if (entry.File is not { } file) return new ExtractResult { Ok = false, Diagnostics = "file no longer available" };
+        await Step(entry, $"uploading ({ByteFormat.Humanize(file.Size)})");
+        using var form = new MultipartFormDataContent();
+        var stream = new StreamContent(file.OpenReadStream(MaxUploadBytes, ct));
+        form.Add(stream, "binary", file.Name);
+        form.Add(new StringContent(file.Name), "fileName");
+        using var http = Client();
+        http.Timeout = TimeSpan.FromMinutes(15);
+        using var res = await http.PostAsync("/api/tools/extract-proto", form, ct);
+        await Step(entry, "extracting proto");
+        return await res.Content.ReadFromJsonAsync<ExtractResult>(cancellationToken: ct);
+    }
+
+    Task Step(StagedEntry entry, string step) => InvokeAsync(() => {
+        entry.Step = step;
+        if (step.StartsWith("uploading", StringComparison.Ordinal)) entry.Status = "uploading";
+        StateHasChanged();
+    });
 
     async Task ProcessAsync(StagedEntry entry) {
         try {
@@ -727,13 +714,8 @@
                 entry.Status = "extracting";
                 StateHasChanged();
             });
-            _selfRef ??= DotNetObjectReference.Create(this);
-            var mod = await StripModule();
             using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(15));
-            var r = mod is null
-                ? null
-                : await mod.InvokeAsync<ExtractResult>("analyzeStored", cts.Token,
-                    [entry.Token, "/api/tools/extract-proto", _selfRef]);
+            var r = await UploadAsync(entry, cts.Token);
             if (r is null or { Ok: false }) {
                 await InvokeAsync(() => {
                     entry.Status = "error";
@@ -757,10 +739,7 @@
 
                 StateHasChanged();
             });
-            if (dropped) {
-                await DiscardToken(entry.Token);
-                return;
-            }
+            if (dropped) return;
 
             await AfterDone(entry);
         } catch (Exception ex) {
@@ -776,7 +755,7 @@
                 Logger.LogDebug(ex, "analysis gate was disposed before the slot was released");
             }
 
-            await DiscardToken(entry.Token);
+            entry.File = null;
             await Rerender();
         }
     }
@@ -798,26 +777,6 @@
         await CheckGroups();
     }
 
-    async Task DiscardToken(int token) {
-        try {
-            var mod = await StripModule();
-            if (mod is null) return;
-            await mod.InvokeVoidAsync("discard", token);
-        } catch (Exception ex) when (ex is JSDisconnectedException or JSException or ObjectDisposedException) {
-            Logger.LogDebug(ex, "stashed upload {Token} could not be discarded", token);
-        }
-    }
-
-    [JSInvokable]
-    public async Task AnalyzeStep(int token, string step) {
-        var entry = State.Entries.FirstOrDefault(e => e.Token == token);
-        if (entry is null) return;
-        await InvokeAsync(() => {
-            entry.Step = step;
-            if (step.StartsWith("uploading", StringComparison.Ordinal)) entry.Status = "uploading";
-            StateHasChanged();
-        });
-    }
 
     Task Rerender() {
         return InvokeAsync(StateHasChanged);
@@ -842,7 +801,7 @@
             if (SameRef(State.A, sref)) await SetA(FirstSessionRef());
         }
 
-        await DiscardToken(e.Token);
+        e.File = null;
         await CheckGroups();
     }
 
@@ -1779,10 +1738,9 @@
         return android ? "android" : "ios";
     }
 
-    public async ValueTask DisposeAsync() {
-        await _strip.DisposeModuleAsync(logger: Logger);
-        _selfRef?.Dispose();
+    public ValueTask DisposeAsync() {
         _gate.Dispose();
+        return ValueTask.CompletedTask;
     }
 
 }
