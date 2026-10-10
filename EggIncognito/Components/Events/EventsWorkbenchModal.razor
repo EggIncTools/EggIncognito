@@ -12,7 +12,7 @@
 
 <CalendarWorkbench TItem="EventCalendarItem" @ref="_cal" Title="Events" TitleId="eventsWorkbenchTitle" State="State"
                    Load="LoadRange" Items="Items" DetailTitle="PopTitle" Filtering="Filtering"
-                   CardClass="evwb-card" OnWindowChanged="OnWindowChanged">
+                   CardClass="evwb-card" AnchorStyle="AnchorStyle" OnWindowChanged="OnWindowChanged">
     <Rail>
         <WorkbenchRail>
             <WorkbenchSection Label="Tier">
@@ -57,67 +57,37 @@
     </Bar>
     <Detail>
         @if (context.Event is { } e) {
-            <div class="evcal-pop-row">
-                <span class="evcal-pop-k">Type</span>
-                <span class="evcal-pop-v">@e.Type</span>
+            <div class="evcal-pop-lead">
+                @if (EventPalette.IconUrl(e.Type, e.Ultra) is { } iconUrl) {
+                    <img class="evcal-pop-icon" src="@iconUrl" alt="" loading="lazy" data-fallback/>
+                }
+                <span class="evcal-pop-big">@EventMagnitude.Describe(e)</span>
+                <span>@Pretty(e.Type)</span>
+                @if (e.Ultra) {
+                    <span class="evcal-pop-ultra">ULTRA</span>
+                }
             </div>
-            <div class="evcal-pop-row">
-                <span class="evcal-pop-k">Multiplier</span>
-                <span class="evcal-pop-v">@EventMagnitude.Describe(e)</span>
-            </div>
-            <div class="evcal-pop-row">
-                <span class="evcal-pop-k">Ultra</span>
-                <span class="evcal-pop-v">@(e.Ultra ? "yes" : "no")</span>
-            </div>
-            <div class="evcal-pop-row">
-                <span class="evcal-pop-k">Timing</span>
-                <span class="evcal-pop-v">@Countdown(context)</span>
-            </div>
-            <div class="evcal-pop-row">
-                <span class="evcal-pop-k">Source</span>
-                <span class="evcal-pop-v">@e.Source</span>
-            </div>
-            <div class="evcal-pop-row">
-                <span class="evcal-pop-k">Start</span>
-                <span class="evcal-pop-v">@Absolute(context.Start)</span>
-            </div>
-            <div class="evcal-pop-row">
-                <span class="evcal-pop-k">End</span>
-                <span class="evcal-pop-v">@Absolute(context.End)</span>
-            </div>
+            <span class="evcal-pop-when">@Countdown(context)</span>
+            <span class="evcal-pop-line">@Absolute(context.Start) to @Absolute(context.End)</span>
         } else if (context.Prediction is { } p) {
-            <div class="evcal-pop-row">
-                <span class="evcal-pop-k">Rule</span>
-                <span class="evcal-pop-v">@KindLabel(p.Kind)</span>
+            <div class="evcal-pop-lead">
+                @if (EventPalette.IconUrl(p.Type, p.Ultra) is { } iconUrl) {
+                    <img class="evcal-pop-icon" src="@iconUrl" alt="" loading="lazy" data-fallback/>
+                }
+                <span>@KindLabel(p.Kind), @Percent(p.Confidence) confident</span>
             </div>
-            <div class="evcal-pop-row">
-                <span class="evcal-pop-k">Evidence</span>
-                <span class="evcal-pop-v">@p.Evidence</span>
-            </div>
-            <div class="evcal-pop-row">
-                <span class="evcal-pop-k">Confidence</span>
-                <span class="evcal-pop-v">@Percent(p.Confidence)</span>
-            </div>
-            @foreach (var candidate in p.Candidates.Take(5)) {
-                <div class="evcal-pop-row" @key="candidate.Type">
-                    <span class="evcal-pop-k">Candidate</span>
-                    <span class="evcal-pop-v">@Pretty(candidate.Type) @Percent(candidate.Probability)</span>
+            <span class="evcal-pop-when">@Absolute(p.PredictedStart) to @Absolute(p.PredictedEnd)</span>
+            <span class="evcal-pop-line">@p.Evidence. Last seen @Absolute(p.LastStart).</span>
+            @if (p.Candidates.Count > 1) {
+                <div class="evcal-pop-tags">
+                    @foreach (var candidate in p.Candidates.Take(4)) {
+                        <span class="evcal-pop-tag" @key="candidate.Type">@Pretty(candidate.Type) @Percent(candidate.Probability)</span>
+                    }
                 </div>
             }
-
-            <div class="evcal-pop-row">
-                <span class="evcal-pop-k">Last occurrence</span>
-                <span class="evcal-pop-v">@Absolute(p.LastStart)</span>
-            </div>
-            <div class="evcal-pop-row">
-                <span class="evcal-pop-k">Predicted start</span>
-                <span class="evcal-pop-v">@Absolute(p.PredictedStart)</span>
-            </div>
-            <div class="evcal-pop-row">
-                <span class="evcal-pop-k">Predicted end</span>
-                <span class="evcal-pop-v">@Absolute(p.PredictedEnd)</span>
-            </div>
         }
+
+        <span class="evcal-pop-hint">Click to pin</span>
     </Detail>
 </CalendarWorkbench>
 
@@ -286,6 +256,10 @@
 
     string BarStyle(CalendarBar<EventCalendarItem> bar) {
         return (_cal?.BarStyle(bar) ?? "") + EventPalette.BarStyle(bar.Item.Type, bar.Item.Ultra);
+    }
+
+    static string AnchorStyle(EventCalendarItem item) {
+        return EventPalette.BarStyle(item.Type, item.Ultra);
     }
 
     string Absolute(double unixSeconds) {

@@ -70,6 +70,24 @@ public class ContractsWorkbenchModalTests : BunitContext {
     }
 
     [Fact]
+    public async Task Bar_CarriesTheEggIconAndAPopoverThatPinsOnClick() {
+        var now = DateTimeOffset.UtcNow;
+        Wire(_ => Ok(Release("a", "Hell Week", now.AddDays(-1), now.AddDays(3))));
+
+        var cut = await OpenAsync();
+
+        var bar = cut.Find(".evcal-bar");
+        Assert.Contains("egg_edible", bar.QuerySelector(".evcal-bar-egg")?.GetAttribute("src") ?? "");
+        Assert.Empty(cut.FindAll(".evcal-anchor-open"));
+        Assert.Contains("Edible", cut.Find(".evcal-pop").TextContent);
+
+        await cut.InvokeAsync(() => cut.Find(".evcal-bar").Click());
+
+        Assert.NotEmpty(cut.FindAll(".evcal-anchor-open"));
+        Assert.Empty(cut.FindAll(".evcal-detail"));
+    }
+
+    [Fact]
     public async Task DatabaseLessInstance_ShowsAShortNoteAndNoBars() {
         Wire(_ => new HttpResponseMessage(HttpStatusCode.ServiceUnavailable));
 

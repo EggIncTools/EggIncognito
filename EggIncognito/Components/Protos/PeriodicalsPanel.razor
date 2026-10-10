@@ -126,6 +126,9 @@
                             <ChildContent>
                                 <button type="button" class="@(CalendarBars.Css(context) + " evcal-bar-contract")"
                                         @onclick="@(() => OnOpenContracts.InvokeAsync())">
+                                    @if (EggIcons.Url(c.Egg, c.CustomEggId) is { } eggUrl) {
+                                        <img class="evcal-bar-egg" src="@eggUrl" alt="" loading="lazy" data-fallback/>
+                                    }
                                     <span class="evcal-bar-label">@c.Name</span>
                                 </button>
                             </ChildContent>
@@ -135,6 +138,7 @@
                                     <span class="tt-ultra">ULTRA ONLY</span>
                                 }
 
+                                <span class="tt-line">@EggIcons.Label(c.Egg, c.CustomEggId)</span>
                                 <span class="tt-line">@EventCountdown.Describe(c.StartTimestamp, c.EndTimestamp, DateTimeOffset.UtcNow)</span>
                             </Content>
                         </Tooltip>

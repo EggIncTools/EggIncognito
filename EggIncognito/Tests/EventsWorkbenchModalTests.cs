@@ -115,6 +115,32 @@ public class EventsWorkbenchModalTests : BunitContext {
     }
 
     [Fact]
+    public async Task RangeControls_AreAlwaysVisibleInTheHeader() {
+        var now = DateTimeOffset.UtcNow;
+        Wire(req => Respond(req, Event("a", "Earnings boost", now.AddHours(-2), now.AddHours(2))));
+
+        var cut = await OpenAsync();
+
+        Assert.Equal(2, cut.FindAll(".evwb-zoom-opt").Count);
+        Assert.Contains("Today", cut.Find(".evwb-range").TextContent);
+        Assert.NotNull(cut.Find("input.evwb-date"));
+    }
+
+    [Fact]
+    public async Task Popover_ShowsTheMagnitudeAndTypeNotARawFieldDump() {
+        var now = DateTimeOffset.UtcNow;
+        Wire(req => Respond(req, Event("a", "Earnings boost", now.AddHours(-2), now.AddHours(2))));
+
+        var cut = await OpenAsync();
+
+        var pop = cut.Find(".evcal-pop");
+        Assert.Contains("2x", pop.TextContent);
+        Assert.Contains("Earnings Boost", pop.TextContent);
+        Assert.DoesNotContain("Source", pop.TextContent);
+        Assert.DoesNotContain("device", pop.TextContent);
+    }
+
+    [Fact]
     public async Task TypeRail_SplitsTypesIntoBoostsThenSales() {
         var now = DateTimeOffset.UtcNow;
         Wire(req => Respond(req,

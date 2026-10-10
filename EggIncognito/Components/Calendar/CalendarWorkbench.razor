@@ -12,16 +12,32 @@
 
 <WorkbenchModal Open="_open" Title="@Title" TitleId="@TitleId" Size="WorkbenchSize.Wide" CardClass="@CardClass" OnClose="CloseAsync">
     <HeadTools>
-        <CalendarRangePicker TZoom="CalendarZoom" AvailableZooms="Zooms" Zoom="_zoom" ZoomLabel="ZoomLabel"
-                             RangeLabel="@RangeLabel" DateValue="@CenterDate" ZoomChanged="SetZoom" OnPan="Pan"
-                             OnToday="Today" DateChanged="JumpToDate"/>
+        <div class="evwb-range" role="group" aria-label="Calendar range">
+            <div class="evwb-zoom" role="group" aria-label="Zoom">
+                @foreach (var zoom in Zooms) {
+                    <button type="button" class="@(zoom == _zoom ? "evwb-zoom-opt active" : "evwb-zoom-opt")" @key="zoom"
+                            aria-pressed="@(zoom == _zoom ? "true" : "false")" @onclick="@(() => SetZoom(zoom))">
+                        @ZoomLabel(zoom)
+                    </button>
+                }
+            </div>
+            <button type="button" class="icon-btn icon-btn-sm" aria-label="Previous" @onclick="@(() => Pan(-1))">
+                <Icon Name="chevron-left"/>
+            </button>
+            <span class="evwb-range-label">@RangeLabel</span>
+            <button type="button" class="icon-btn icon-btn-sm" aria-label="Next" @onclick="@(() => Pan(1))">
+                <Icon Name="chevron-right"/>
+            </button>
+            <button type="button" class="btn-mini" @onclick="Today">Today</button>
+            <input type="date" class="evwb-date" aria-label="Jump to date" value="@CenterDate" @onchange="JumpToDate"/>
+        </div>
         <span class="evwb-zone">@_zone.Id</span>
     </HeadTools>
     <Rail>
         @Rail
     </Rail>
     <ChildContent>
-        <div class="@PaneCss" style="@PaneStyle">
+        <div class="@PaneCss" style="@PaneStyle" @ref="_pane">
             @if (Note is { Length: > 0 } note) {
                 <div class="evcal-note">@note</div>
             }
@@ -33,17 +49,6 @@
             <CalendarSurface>
                 <CalendarGrid TItem="CalendarBar<TItem>" @ref="_grid" Periods="_periods" LaneGroups="LaneGroups" OnCommitScrollPan="Pan"/>
             </CalendarSurface>
-            @if (_picked is { } picked) {
-                <div class="evcal-detail">
-                    <div class="evcal-pop-head">
-                        <span class="evcal-pop-title">@DetailTitle(picked)</span>
-                        <button type="button" class="icon-btn icon-btn-sm" aria-label="Close details" @onclick="ClearSelection">
-                            <Icon Name="x"/>
-                        </button>
-                    </div>
-                    @Detail(picked)
-                </div>
-            }
         </div>
     </ChildContent>
 </WorkbenchModal>
@@ -79,6 +84,8 @@
 
     [Parameter] public string? CardClass { get; set; }
 
+    [Parameter] public Func<TItem, string>? AnchorStyle { get; set; }
+
     [Parameter] public Func<DateTimeOffset, DateTimeOffset, Task>? OnWindowChanged { get; set; }
 
     [Parameter] public string FilterNote { get; set; } = "Nothing matches these filters.";
@@ -98,10 +105,13 @@
     double _slotRem = MinSlotRem;
     TItem? _picked;
     CalendarGrid<CalendarBar<TItem>>? _grid;
+    ElementReference _pane;
     TimeZoneInfo _zone = ViewerZone.Fallback;
     ViewerClock? _clock;
     IJSObjectReference? _nav;
     IJSObjectReference? _navHandle;
+    IJSObjectReference? _pop;
+    IJSObjectReference? _popHandle;
     DotNetObjectReference<CalendarWorkbench<TItem>>? _selfRef;
 
     public bool IsOpen => _open;
@@ -141,6 +151,7 @@
     async Task CloseAsync() {
         _open = false;
         ClearSelection();
+        await DetachPop();
         await WriteHash(true, true);
     }
 
@@ -150,6 +161,10 @@
 
     public void Select(TItem item) {
         _picked = _picked is not null && _picked.Key == item.Key ? default : item;
+    }
+
+    public bool IsPinned(TItem item) {
+        return _picked is not null && _picked.Key == item.Key;
     }
 
     public void Relayout() {
@@ -221,8 +236,28 @@
     LaneGroupDef<CalendarBar<TItem>>[] LaneGroups {
         get {
             var laneMin = _zoom == CalendarZoom.Week ? 6.75 : MonthLaneMin;
-            return [new LaneGroupDef<CalendarBar<TItem>>(Bar, laneMin, MonthLaneGap, RowHeader)];
+            return [new LaneGroupDef<CalendarBar<TItem>>(Anchored, laneMin, MonthLaneGap, RowHeader)];
         }
+    }
+
+    RenderFragment<CalendarBar<TItem>> Anchored => bar =>
+        @<div class="@AnchorCss(bar)" style="@(CalendarBars.PositionStyle(bar) + (AnchorStyle?.Invoke(bar.Item) ?? ""))">
+            @Bar(bar)
+            <div class="evcal-pop" role="dialog" aria-label="@DetailTitle(bar.Item)">
+                <div class="evcal-pop-head">
+                    <span class="evcal-pop-title">@DetailTitle(bar.Item)</span>
+                    @if (IsPinned(bar.Item)) {
+                        <button type="button" class="icon-btn icon-btn-sm" aria-label="Unpin details" @onclick="ClearSelection">
+                            <Icon Name="x"/>
+                        </button>
+                    }
+                </div>
+                @Detail(bar.Item)
+            </div>
+        </div>;
+
+    string AnchorCss(CalendarBar<TItem> bar) {
+        return IsPinned(bar.Item) ? "evcal-anchor evcal-anchor-open" : "evcal-anchor";
     }
 
     string PaneCss => _zoom == CalendarZoom.Month ? "evcal-pane evcal-month" : "evcal-pane evcal-week";
@@ -234,11 +269,11 @@
 
     public string BarStyle(CalendarBar<TItem> bar) {
         var barH = _zoom == CalendarZoom.Week ? 4.5 : 1.125;
-        return CalendarBars.PositionStyle(bar) + FormattableString.Invariant($"--evcal-bar-h:{barH:0.###}rem;");
+        return FormattableString.Invariant($"--evcal-bar-h:{barH:0.###}rem;");
     }
 
     public static string BarCss(CalendarBar<TItem> bar) {
-        return CalendarBars.Css(bar);
+        return CalendarBars.Css(bar) + " evcal-bar-anchored";
     }
 
     public string Absolute(double unixSeconds) {
@@ -279,6 +314,7 @@
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender) {
+        if (_open && _popHandle is null) await AttachPop();
         if (!firstRender) return;
         try {
             _nav = await JS.InvokeAsync<IJSObjectReference>("import", InteropAsset.Url(Env, "./interop/hashnav.js"));
@@ -291,6 +327,21 @@
         }
 
         StateHasChanged();
+    }
+
+    async Task AttachPop() {
+        try {
+            _pop ??= await JS.InvokeAsync<IJSObjectReference>("import", InteropAsset.Url(Env, "./interop/calendarPop.js"));
+            _popHandle = await _pop.InvokeAsync<IJSObjectReference>("attach", _pane);
+        } catch (Exception ex) when (ex is JSDisconnectedException or JSException or ObjectDisposedException) {
+            Logger.LogDebug(ex, "calendar popovers could not be wired");
+        }
+    }
+
+    async Task DetachPop() {
+        var handle = _popHandle;
+        _popHandle = null;
+        await handle.DisposeModuleAsync("dispose", Logger);
     }
 
     void OnZoneChanged() => _ = InvokeAsync(() => {
@@ -310,6 +361,7 @@
             if (_open) {
                 _open = false;
                 ClearSelection();
+                await DetachPop();
                 StateHasChanged();
             }
 
@@ -343,6 +395,8 @@
     }
 
     public async ValueTask DisposeAsync() {
+        await DetachPop();
+        await _pop.DisposeModuleAsync(logger: Logger);
         await _navHandle.DisposeModuleAsync("dispose", Logger);
         if (_clock is not null) _clock.Changed -= OnZoneChanged;
         await _nav.DisposeModuleAsync(logger: Logger);

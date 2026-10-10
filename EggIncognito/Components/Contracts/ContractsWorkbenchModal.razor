@@ -7,14 +7,13 @@
 @using EggIncognito.Services.Assets
 @using EggIncognito.Services.Contracts
 @using EggIncognito.Services.Events
-@using Ei
 @inject ICurrentUser User
 @inject ContractsWorkbenchState State
 @inject ILogger<ContractsWorkbenchModal> Logger
 
 <CalendarWorkbench TItem="ContractCalendarItem" @ref="_cal" Title="Contracts" TitleId="contractsWorkbenchTitle" State="State"
                    Load="LoadRange" Items="Items" DetailTitle="PopTitle" Filtering="Filtering"
-                   OnWindowChanged="OnWindowChanged">
+                   AnchorStyle="AnchorStyle" OnWindowChanged="OnWindowChanged">
     <Rail>
         <WorkbenchRail HasFilter="true" Filter="@_search" FilterChanged="SetSearch" FilterLabel="Filter contracts">
             <WorkbenchSection Label="Kinds">
@@ -36,70 +35,48 @@
     </Rail>
     <Bar>
         <button type="button" class="@BarCss(context)" style="@BarStyle(context)" @onclick="@(() => Select(context.Item))">
+            @if (context.Item.Release is { } r && EggIcons.Url(r.Egg, r.CustomEggId) is { } eggUrl) {
+                <img class="evcal-bar-egg" src="@eggUrl" alt="" loading="lazy" data-fallback/>
+            }
             <span class="evcal-bar-label">@Label(context.Item)</span>
         </button>
     </Bar>
     <Detail>
         @if (context.Release is { } c) {
-            <div class="evcal-pop-row">
-                <span class="evcal-pop-k">Egg</span>
-                <span class="evcal-pop-v">@EggLabel(c)</span>
+            <div class="evcal-pop-lead">
+                @if (EggIcons.Url(c.Egg, c.CustomEggId) is { } eggUrl) {
+                    <img class="evcal-pop-icon" src="@eggUrl" alt="" loading="lazy" data-fallback/>
+                }
+                <span>@EggIcons.Label(c.Egg, c.CustomEggId)</span>
+                @if (c.UltraOnly) {
+                    <span class="evcal-pop-ultra">ULTRA</span>
+                }
             </div>
-            <div class="evcal-pop-row">
-                <span class="evcal-pop-k">Kind</span>
-                <span class="evcal-pop-v">@KindLabel(ContractCalendarItem.KindOf(c))</span>
-            </div>
-            <div class="evcal-pop-row">
-                <span class="evcal-pop-k">Prophecy</span>
-                <span class="evcal-pop-v">@c.ProphecyEggs.ToString(CultureInfo.InvariantCulture)</span>
-            </div>
-            <div class="evcal-pop-row">
-                <span class="evcal-pop-k">Coop</span>
-                <span class="evcal-pop-v">@(c.CoopAllowed ? FormattableString.Invariant($"up to {c.MaxCoopSize}") : "solo")</span>
-            </div>
-            <div class="evcal-pop-row">
-                <span class="evcal-pop-k">Duration</span>
-                <span class="evcal-pop-v">@EventCountdown.Span(TimeSpan.FromSeconds(c.LengthSeconds))</span>
-            </div>
-            @if (c.SeasonId is { Length: > 0 } season) {
-                <div class="evcal-pop-row">
-                    <span class="evcal-pop-k">Season</span>
-                    <span class="evcal-pop-v">@Pretty(season)</span>
-                </div>
-            }
-
-            <div class="evcal-pop-row">
-                <span class="evcal-pop-k">Source</span>
-                <span class="evcal-pop-v">@c.Source</span>
-            </div>
-            <div class="evcal-pop-row">
-                <span class="evcal-pop-k">Timing</span>
-                <span class="evcal-pop-v">@EventCountdown.Describe(context.Start, context.End, DateTimeOffset.UtcNow)</span>
-            </div>
-            <div class="evcal-pop-row">
-                <span class="evcal-pop-k">Start</span>
-                <span class="evcal-pop-v">@Absolute(context.Start)</span>
-            </div>
-            <div class="evcal-pop-row">
-                <span class="evcal-pop-k">End</span>
-                <span class="evcal-pop-v">@Absolute(context.End)</span>
+            <span class="evcal-pop-when">@EventCountdown.Describe(context.Start, context.End, DateTimeOffset.UtcNow)</span>
+            <span class="evcal-pop-line">@Absolute(context.Start) to @Absolute(context.End), @EventCountdown.Span(TimeSpan.FromSeconds(c.LengthSeconds)) to complete</span>
+            <div class="evcal-pop-tags">
+                <span class="evcal-pop-tag">@KindLabel(ContractCalendarItem.KindOf(c))</span>
+                @if (c.ProphecyEggs > 0) {
+                    <span class="evcal-pop-tag">@c.ProphecyEggs.ToString(CultureInfo.InvariantCulture) PE</span>
+                }
+                <span class="evcal-pop-tag">@(c.CoopAllowed ? FormattableString.Invariant($"coop {c.MaxCoopSize}") : "solo")</span>
+                @if (c.SeasonId is { Length: > 0 } season) {
+                    <span class="evcal-pop-tag">@Pretty(season)</span>
+                }
             </div>
         } else if (context.Slot is { } s) {
-            <div class="evcal-pop-row">
-                <span class="evcal-pop-k">Slot time</span>
-                <span class="evcal-pop-v">@Absolute(s.SlotTime)</span>
-            </div>
-            <div class="evcal-pop-row">
-                <span class="evcal-pop-k">Evidence</span>
-                <span class="evcal-pop-v">@s.Evidence</span>
-            </div>
-            @foreach (var (candidate, ix) in s.Candidates.Take(5).Select((c2, i) => (c2, i))) {
-                <div class="evcal-pop-row" @key="candidate.ContractId">
-                    <span class="evcal-pop-k">@(ix == 0 ? "Likely" : "Then")</span>
-                    <span class="evcal-pop-v">@CandidateLabel(candidate)</span>
+            <span class="evcal-pop-when">@Absolute(s.SlotTime)</span>
+            <span class="evcal-pop-line">@s.Evidence</span>
+            @if (s.Candidates.Count > 0) {
+                <div class="evcal-pop-tags">
+                    @foreach (var candidate in s.Candidates.Take(4)) {
+                        <span class="evcal-pop-tag" @key="candidate.ContractId">@CandidateLabel(candidate)</span>
+                    }
                 </div>
             }
         }
+
+        <span class="evcal-pop-hint">Click to pin</span>
     </Detail>
 </CalendarWorkbench>
 
@@ -232,6 +209,10 @@
         return (_cal?.BarStyle(bar) ?? "") + ContractPalette.BarStyle(bar.Item.Kind);
     }
 
+    static string AnchorStyle(ContractCalendarItem item) {
+        return ContractPalette.BarStyle(item.Kind);
+    }
+
     string Absolute(double unixSeconds) {
         return _cal?.Absolute(unixSeconds) ?? "";
     }
@@ -262,16 +243,8 @@
         };
     }
 
-    string CandidateLabel(ContractCandidate c) {
-        var releases = c.Releases == 1 ? "1 release" : FormattableString.Invariant($"{c.Releases} releases");
-        return $"{c.Name}, {releases}, last seen {Absolute(c.LastReleased)}";
-    }
-
-    static string EggLabel(ContractReleaseDto c) {
-        if (c.CustomEggId is { Length: > 0 } custom) return Pretty(custom);
-        if (!Enum.IsDefined((Egg)c.Egg)) return c.Egg.ToString(CultureInfo.InvariantCulture);
-        var name = ((Egg)c.Egg).ToString();
-        return string.Concat(name.SelectMany<char, char>((ch, i) => i > 0 && char.IsUpper(ch) ? [' ', ch] : [ch]));
+    static string CandidateLabel(ContractCandidate c) {
+        return FormattableString.Invariant($"{c.Name} x{c.Releases}");
     }
 
     static string Pretty(string raw) {
