@@ -23,6 +23,7 @@ public sealed record RateLimitOptions(
             ["Read"] = new(120, 60, 6),
 
             ["Fetch"] = new(300, 60, 6),
+            ["Asset"] = new(600, 60, 6),
             ["Data"] = new(600, 60, 6),
             ["DataAnon"] = new(30, 60, 6)
         });

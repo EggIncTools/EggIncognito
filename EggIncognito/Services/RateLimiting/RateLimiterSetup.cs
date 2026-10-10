@@ -14,7 +14,7 @@ public static class RateLimiterSetup {
             services.AddRateLimiter(o => {
                 o.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(_ =>
                     RateLimitPartition.GetNoLimiter("disabled"));
-                foreach (string policy in (string[])["egress", "write", "read", "fetch", "data"])
+                foreach (string policy in (string[])["egress", "write", "read", "fetch", "asset", "data"])
                     o.AddPolicy(policy, _ => RateLimitPartition.GetNoLimiter("disabled"));
             });
             return services;
@@ -28,6 +28,7 @@ public static class RateLimiterSetup {
             AddPolicy(o, "read", opts);
 
             o.AddPolicy("fetch", ctx => Partition(ctx, "Fetch", opts, false));
+            o.AddPolicy("asset", ctx => Partition(ctx, "Asset", opts, false));
             o.AddPolicy("data", ctx => DataPartition(ctx, opts));
 
             o.OnRejected = async (ctx, ct) => {
@@ -93,7 +94,7 @@ public static class RateLimiterSetup {
         if (IsExempt(user)) return RateLimitPartition.GetNoLimiter($"admin:{user.Current.DiscordId}");
 
         if (ctx.Request.RouteValues.TryGetValue("group", out var group) && (string?)group == "asset")
-            return Partition(ctx, "Read", opts);
+            return Partition(ctx, "Asset", opts, false);
 
         bool hosted = ctx.RequestServices.GetRequiredService<IAppMode>().Mode == AppMode.Hosted;
 

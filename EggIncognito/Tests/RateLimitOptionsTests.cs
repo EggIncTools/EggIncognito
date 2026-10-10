@@ -11,6 +11,7 @@ public class RateLimitOptionsTests {
         Assert.True(o.Tiers["Anon"].PermitLimit < o.Tiers["Viewer"].PermitLimit);
         Assert.True(o.Tiers["Viewer"].PermitLimit < o.Tiers["Contributor"].PermitLimit);
         Assert.True(o.Policies["Egress"].PermitLimit < o.Policies["Read"].PermitLimit);
+        Assert.True(o.Policies["Asset"].PermitLimit > o.Tiers["Anon"].PermitLimit);
     }
 
     [Fact]

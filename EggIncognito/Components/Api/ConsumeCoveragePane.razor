@@ -28,11 +28,8 @@
                     <span class="cov-tick mono" title="@($"{m.CellsComplete}/{m.CellsInScope} cells")">
                         <Icon Name="layout-grid" Class="icon-sm"/>@m.CellsComplete/@m.CellsInScope
                     </span>
-                    <span class="cov-tick mono" title="@($"{m.Items} items")">
-                        <Icon Name="database" Class="icon-sm"/>@m.Items
-                    </span>
-                    <span class="cov-tick mono" title="@($"{m.Observations} obs")">
-                        <Icon Name="eye" Class="icon-sm"/>@m.Observations
+                    <span class="cov-tick mono" title="@($"{m.Observations} consumed")">
+                        <Icon Name="database" Class="icon-sm"/>@Compact(m.Observations)
                     </span>
                 }
             </span>
@@ -64,8 +61,7 @@
                         <th>Family</th>
                         <th>Validity</th>
                         <th>Cells</th>
-                        <th>Items</th>
-                        <th>Obs</th>
+                        <th>Count</th>
                     </tr>
                     </thead>
                     <tbody>
@@ -87,12 +83,11 @@
                                 </span>
                             </td>
                             <td><span class="cov-tick mono"><Icon Name="layout-grid" Class="icon-sm"/>@f.CellsComplete/@f.CellsInScope</span></td>
-                            <td><span class="cov-tick mono"><Icon Name="database" Class="icon-sm"/>@f.Items</span></td>
-                            <td><span class="cov-tick mono"><Icon Name="eye" Class="icon-sm"/>@f.Observations</span></td>
+                            <td><span class="cov-tick mono" title="@($"{f.Observations} consumed")"><Icon Name="database" Class="icon-sm"/>@Compact(f.Observations)</span></td>
                         </tr>
                         @if (Open(f)) {
                             <tr class="cov-grid-row">
-                                <td colspan="5">
+                                <td colspan="4">
                                     <div class="cov-grid">
                                         <span></span>
                                         @for (int r = 0; r < RarityHeads.Length; r++) {
@@ -117,7 +112,7 @@
                                                         style="@CellStyle(cell)" title="@ArtifactDefinitions.EffectText(f.SpecName, t.AfxLevel, cell.AfxRarity)"
                                                         @onclick="() => Select(f, t, cell)" @onclick:stopPropagation="true">
                                                     <span class="cov-disc bg-r-@cell.AfxRarity"><img src="@IconSrc(f.SpecName, t.AfxLevel)" alt="" loading="lazy"/></span>
-                                                    <span class="cov-nk">@cell.Items/@cell.Observations</span>
+                                                    <span class="cov-nk">@Compact(cell.Observations)</span>
                                                 </button>
                                             }
                                             <span></span>
@@ -227,6 +222,12 @@
     static string CellStyle(CoverageCell c) => FormattableString.Invariant($"--v:{c.Validity:0.###};");
 
     static string Pct(double v) => FormattableString.Invariant($"{v * 100:0.#}%");
+
+    static string Compact(long n) => n switch {
+        >= 1_000_000 => FormattableString.Invariant($"{n / 1_000_000d:0.#}M"),
+        >= 1_000 => FormattableString.Invariant($"{n / 1_000d:0.#}k"),
+        _ => n.ToString(System.Globalization.CultureInfo.InvariantCulture)
+    };
 
     DevicePanelContext DeviceContext => new(DeviceId, AndroidUserId);
 

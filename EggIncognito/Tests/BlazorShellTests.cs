@@ -18,6 +18,14 @@ public class BlazorShellTests(SharedAppFactory f) {
     }
 
     [Fact]
+    public async Task Shell_OptsOutOfDarkReader() {
+        var c = _f.CreateClient();
+        string html = await c.GetStringAsync("/");
+        Assert.Contains("name=\"darkreader-lock\"", html);
+        Assert.Contains("name=\"color-scheme\" content=\"dark\"", html);
+    }
+
+    [Fact]
     public async Task Shell_HasNoTopBar_AndCarriesTheLegalFooter() {
         var c = _f.CreateClient();
         string html = await c.GetStringAsync("/");

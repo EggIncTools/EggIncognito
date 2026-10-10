@@ -10,7 +10,7 @@ namespace EggIncognito.Controllers;
 [ApiController]
 [Route("api/assets")]
 [ApiAccess(ApiAccessLevel.Public)]
-[EnableRateLimiting("read")]
+[EnableRateLimiting("asset")]
 public sealed class AssetsController(GameAssetProvider assets) : ApiControllerBase {
     private static readonly SearchValues<char> InvalidNameChars = SearchValues.Create("/\\. ");
 

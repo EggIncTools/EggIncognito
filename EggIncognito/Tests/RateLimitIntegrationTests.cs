@@ -23,6 +23,15 @@ public class RateLimitIntegrationTests(RateLimitIntegrationTests.TinyLimitFactor
         Assert.True(rejected.Headers.Contains("Retry-After"));
     }
 
+    [Fact]
+    public async Task AssetEndpoint_IsNotCappedByTheAnonTier() {
+        var c = f.CreateClient();
+        for (int i = 0; i < 10; i++) {
+            var r = await c.GetAsync("/api/v1/data/asset/icon?name=no.such.icon");
+            Assert.NotEqual(HttpStatusCode.TooManyRequests, r.StatusCode);
+        }
+    }
+
     public sealed class TinyLimitFactory : WebApplicationFactory<Program> {
         protected override IHost CreateHost(IHostBuilder builder) {
             builder.ConfigureHostConfiguration(cfg => cfg.AddInMemoryCollection(new Dictionary<string, string?> {
