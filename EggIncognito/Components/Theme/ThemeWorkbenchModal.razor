@@ -346,13 +346,13 @@
             return;
         }
 
-        await Suite.SetThemeAsync(model.ToJson());
+        await Suite.SetThemeAsync(ThemeResolver.SharedJson(model));
         Live.Apply(model);
         SetStatus("applied in this browser", true);
     }
 
     async Task ClearLocal() {
-        await Suite.SetThemeAsync(ThemeResolver.NoTheme);
+        await Suite.SetThemeAsync(ThemeResolver.SharedJson(null));
         await Live.ClearAsync();
         SetStatus("reset", true);
     }

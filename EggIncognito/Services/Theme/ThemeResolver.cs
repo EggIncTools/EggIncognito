@@ -34,7 +34,9 @@ public sealed class ThemeResolver(
 
     public static void Invalidate(IMemoryCache cache, Guid userId) => cache.Remove(CacheKey(userId));
 
-    public static ThemeModel? Shared(string? value) {
+    public static string SharedJson(ThemeModel? model) => model is null ? NoTheme : (model with { Css = "" }).ToJson();
+
+    private static ThemeModel? Shared(string? value) {
         if (string.IsNullOrWhiteSpace(value) || value.Trim() == NoTheme) return null;
         var (model, _) = ThemeJson.Parse(value);
         return model is null || !ThemePalette.Contrast(model).Passes ? null : model with { Css = "" };

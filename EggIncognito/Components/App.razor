@@ -2,10 +2,9 @@
 @inject IHttpContextAccessor HttpContextAccessor
 @inject IWebHostEnvironment HostEnvironment
 @inject ThemeResolver Themes
-@inject EggIdentity.UI.Suite.SuiteContext Suite
 @inject EggIncognito.Services.Devices.DeviceExtensionCatalog Extensions
 <!DOCTYPE html>
-<html lang="en" data-eggidentity-theme="@(_theme is null ? null : "u")" @attributes="Suite.HtmlAttributes">
+<html lang="en" data-eggidentity-theme="@(_theme is null ? null : "u")">
 <head>
     <meta charset="utf-8"/>
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>

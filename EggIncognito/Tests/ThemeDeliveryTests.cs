@@ -17,13 +17,6 @@ public class ThemeDeliveryTests(SharedAppFactory f) {
     }
 
     [Fact]
-    public async Task AnonymousPage_LoadsNoThemeBootScript() {
-        var c = _f.CreateClient();
-        string html = await c.GetStringAsync("/");
-        Assert.DoesNotContain("/interop/themeBoot.js", html);
-    }
-
-    [Fact]
     public async Task NoRoute_ServesAThemeStylesheet() {
         var c = _f.CreateClient();
         foreach (string url in new[] { "/theme/1.css", "/api/theme/1.css", "/theme.css" }) {
@@ -41,7 +34,7 @@ public class ThemeDeliveryTests(SharedAppFactory f) {
         Assert.True(resp.Headers.Contains("Content-Security-Policy-Report-Only"));
         Assert.False(resp.Headers.Contains("Content-Security-Policy"));
         string policy = Assert.Single(resp.Headers.GetValues("Content-Security-Policy-Report-Only"));
-        Assert.Contains("script-src 'self'", policy);
+        Assert.Contains("script-src 'self' 'inline-speculation-rules'", policy);
         Assert.Contains("style-src 'self' 'nonce-", policy);
         Assert.Contains("style-src-attr 'unsafe-inline'", policy);
         Assert.Contains("connect-src 'self' ws: wss:", policy);

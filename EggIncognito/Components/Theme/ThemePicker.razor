@@ -91,7 +91,7 @@
             return;
         }
 
-        await Suite.SetThemeAsync((preset with { Css = "" }).ToJson());
+        await Suite.SetThemeAsync(ThemeResolver.SharedJson(preset));
         Live.Apply(preset);
         Toasts.Push(StatusNoteKind.Ok, $"{preset.Name} applied in this browser");
     }
@@ -117,7 +117,7 @@
     }
 
     async Task ResetLocal() {
-        await Suite.SetThemeAsync(ThemeResolver.NoTheme);
+        await Suite.SetThemeAsync(ThemeResolver.SharedJson(null));
         await Live.ClearAsync();
         Toasts.Push(StatusNoteKind.Ok, "reset to the shipped default");
     }

@@ -18,6 +18,27 @@ public class BlazorShellTests(SharedAppFactory f) {
     }
 
     [Fact]
+    public async Task Shell_DefersBlazorBootUntilPrerenderActivation() {
+        var c = _f.CreateClient();
+        var r = await c.GetAsync("/");
+        Assert.Equal("credentialed-prerender", r.Headers.GetValues("Supports-Loading-Mode").Single());
+        string html = await r.Content.ReadAsStringAsync();
+        Assert.Contains("blazor.web.js\" autostart=\"false\"", html);
+        Assert.Contains("/interop/boot.js", html);
+    }
+
+    [Fact]
+    public async Task Shell_SpeculatesOtherToolsButNeverItself() {
+        var c = _f.CreateClient();
+        string html = await c.GetStringAsync("/");
+        int start = html.IndexOf("<script type=\"speculationrules\">", StringComparison.Ordinal);
+        Assert.True(start >= 0);
+        string rules = html[start..html.IndexOf("</script>", start, StringComparison.Ordinal)];
+        Assert.Contains("eggledger.egginc.tools", rules);
+        Assert.DoesNotContain("eggincognito.egginc.tools", rules);
+    }
+
+    [Fact]
     public async Task Shell_OptsOutOfDarkReader() {
         var c = _f.CreateClient();
         string html = await c.GetStringAsync("/");

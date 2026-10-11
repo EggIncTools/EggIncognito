@@ -67,7 +67,7 @@ public static class PageMeta {
             "previous version.");
     }
 
-    private static string PlatformLabel(string platform) =>
+    public static string PlatformLabel(string platform) =>
         Platforms.Matches(platform, Platforms.Ios) ? "iOS"
         : Platforms.Matches(platform, Platforms.Android) ? "Android"
         : platform;

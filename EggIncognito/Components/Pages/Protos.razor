@@ -67,7 +67,7 @@
                                 <div class="reg-split-col">
                                     <div class="reg-split-head">
                                         <PlatformIcon Platform="@platform"/>
-                                        <span>@(platform == "ios" ? "iOS" : "Android")</span>
+                                        <span>@PageMeta.PlatformLabel(platform)</span>
                                     </div>
                                     @RegistryTable(subset, false)
                                 </div>

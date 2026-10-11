@@ -9,6 +9,7 @@ using EggIncognito.Services;
 using EggIncognito.Services.Auth;
 using EggIncognito.Services.Events;
 using EggIncognito.Services.Metrics;
+using EggIncognito.Services.Theme;
 
 namespace EggIncognito.Startup;
 
@@ -44,7 +45,7 @@ public static class IdentityServices {
         builder.Services.AddScoped<ViewerClock>();
         builder.Services.AddEggIdentityDownloads();
         builder.Services.AddEggIdentityViewerCookies(o => o.Allow("capture.prefs", TimeSpan.FromDays(365)));
-        builder.Services.AddEggIdentitySuite("incognito");
+        builder.Services.AddEggIdentitySuite("incognito", o => o.DefaultTheme = ThemeResolver.NoTheme);
         builder.Services.AddScoped<ClipboardInterop>();
     }
 }

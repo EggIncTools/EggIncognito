@@ -23,10 +23,9 @@ public sealed class ThemeController(ICurrentUser currentUser, IConfiguration con
         CancellationToken ct) {
         ThemeResolver.Invalidate(cache, uid);
         var row = await store.ActiveForAsync(uid, ct);
-        var model = row is null ? null : ThemeJson.Parse(row.Model).Model;
         try {
-            await suite.SetThemeAsync(model is null ? ThemeResolver.NoTheme : (model with { Css = "" }).ToJson(), ct);
-        } catch (HttpRequestException ex) {
+            await suite.SetThemeAsync(ThemeResolver.SharedJson(row is null ? null : ThemeJson.Parse(row.Model).Model), ct);
+        } catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException) {
             logger.LogWarning(ex, "theme not written to the suite profile");
         }
     }
