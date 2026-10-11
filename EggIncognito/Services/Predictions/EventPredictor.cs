@@ -99,6 +99,7 @@ public sealed class EventPredictor(EggIncognitoDbContext db, EventDataVersion ve
         var value = rows
             .Select(r => new EventRow(
                 r.EventType, r.Ultra, UnixSeconds.FromTime(r.StartTime), UnixSeconds.FromTime(r.EndTime), r.Multiplier))
+            .Where(r => !EggDay.Contains(r.Start))
             .ToList();
         cache.Set(v, value);
         return value;

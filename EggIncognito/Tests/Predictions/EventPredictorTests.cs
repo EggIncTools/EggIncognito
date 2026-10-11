@@ -298,6 +298,15 @@ public class EventPredictorTests {
         Assert.DoesNotContain(watch, e => e.Key.StartsWith("prestige-boost:std:0", StringComparison.Ordinal));
     }
 
+    [Theory]
+    [InlineData(2025, 7, 14, true)]
+    [InlineData(2024, 7, 14, true)]
+    [InlineData(2025, 7, 13, false)]
+    [InlineData(2025, 7, 15, false)]
+    [InlineData(2025, 6, 14, false)]
+    public void EggDay_IsJulyFourteenthInGameTime_EveryYear(int year, int month, int day, bool expected) =>
+        Assert.Equal(expected, EggDay.Contains(NoonEastern.SlotTime(new DateOnly(year, month, day))));
+
     private static int Days(EventPrediction a, EventPrediction b) =>
         NoonEastern.LocalDate(b.PredictedStart).DayNumber - NoonEastern.LocalDate(a.PredictedStart).DayNumber;
 }

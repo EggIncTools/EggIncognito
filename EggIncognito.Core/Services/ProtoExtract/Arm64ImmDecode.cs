@@ -42,19 +42,40 @@ public sealed class Arm64Image(byte[] bin, IBinaryImage img) {
         return true;
     }
 
+    private const int PageRefWindow = 8;
+
     public bool TryPageRef(ulong adrpVa, out ulong target) {
         target = 0;
         if (!TryWord(adrpVa, out uint adrp) || !Arm64Bits.TryAdrp(adrpVa, adrp, out ulong page, out int rd))
             return false;
-        if (!TryWord(adrpVa + 4, out uint next)) return false;
-        if (Arm64Bits.TryLoadFp(next, out var load) && load.Rn == rd) {
-            target = page + (ulong)load.Offset;
-            return true;
+        for (int i = 1; i <= PageRefWindow; i++) {
+            if (!TryWord(adrpVa + (ulong)(4 * i), out uint next)) return false;
+            if (Arm64Bits.TryLoadFp(next, out var load) && load.Rn == rd) {
+                target = page + (ulong)load.Offset;
+                return true;
+            }
+
+            if (Arm64Bits.TryAddImm(next, out _, out int addRn, out ulong imm) && addRn == rd) {
+                target = page + imm;
+                return true;
+            }
+
+            if (Arm64Bits.TryAdrp(adrpVa + (ulong)(4 * i), next, out _, out int otherRd) && otherRd == rd)
+                return false;
         }
 
-        if (!Arm64Bits.TryAddImm(next, out _, out int addRn, out ulong imm) || addRn != rd) return false;
-        target = page + imm;
-        return true;
+        return false;
+    }
+
+    public bool TryFirstAdrp(ulong start, int limit, out ulong adrpVa) {
+        for (int i = 0; i < limit; i++) {
+            adrpVa = start + (ulong)(4 * i);
+            if (!TryWord(adrpVa, out uint w)) break;
+            if (Arm64Bits.TryAdrp(adrpVa, w, out _, out _)) return true;
+        }
+
+        adrpVa = 0;
+        return false;
     }
 }
 
@@ -151,18 +172,18 @@ public static class Arm64Bits {
         }
 
         ulong cursor = va + 4;
-        for (int i = 0; i < 3; i++) {
+        for (int i = 0; i < MovkWindow; i++) {
             if (!im.TryWord(cursor, out uint next)) break;
-            if ((next & 0x7F800000) != 0x72800000) break;
-            if ((int)(next & 0x1F) != rd) break;
-            bool sf = (next >> 31) != 0;
-            if (sf != is64) break;
-            bits = Merge(bits, next);
             cursor += 4;
+            if (!TryMovWide(next, out int nextRd, out _, out var nextKind, out bool sf) || nextRd != rd) continue;
+            if (nextKind != MovKind.Movk || sf != is64) break;
+            bits = Merge(bits, next);
         }
 
         return true;
     }
+
+    private const int MovkWindow = 12;
 
     public static bool TryFmovImm(Arm64Image im, ulong va, out double value, out bool f64) {
         value = 0d;
