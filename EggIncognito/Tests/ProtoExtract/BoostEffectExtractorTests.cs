@@ -40,12 +40,14 @@ public class BoostEffectExtractorTests {
         Assert.Equal(1000, orange.Magnitude);
 
         var doc = GameDataDocBuilders.BuildBoosts(r.Entries, "test");
+        Assert.True(doc.Skipped.Count == 0, string.Join("; ", doc.Skipped));
         GameDataProvider.Validate("boosts", doc.Json);
         var parsed = EffectDataLoader.Parse(doc.Json);
         var row = Assert.Single(parsed.Rows, x => x.Id == "tachyon_prism_orange");
         Assert.Equal(EffectTarget.IHR, row.Target);
         Assert.Equal(CombineMode.Mul, row.CombineMode);
         Assert.Equal(1000, row.Magnitude);
-        Assert.Equal(600, row.Meta!["durationSeconds"].GetInt64());
+        var meta = Assert.IsAssignableFrom<IReadOnlyDictionary<string, System.Text.Json.JsonElement>>(row.Meta);
+        Assert.Equal(600, meta["durationSeconds"].GetInt64());
     }
 }

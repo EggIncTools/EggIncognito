@@ -90,8 +90,9 @@ public class GameDataDocBuilderTests {
         Assert.Equal(EffectTarget.Earnings, row.Target);
         Assert.Equal(CombineMode.Mul, row.CombineMode);
         Assert.Equal(3, row.Magnitude);
-        Assert.Equal(1200, row.Meta!["durationSeconds"].GetInt64());
-        Assert.Equal("Earnings", row.Meta["kind"].GetString());
+        var meta = Assert.IsAssignableFrom<IReadOnlyDictionary<string, System.Text.Json.JsonElement>>(row.Meta);
+        Assert.Equal(1200, meta["durationSeconds"].GetInt64());
+        Assert.Equal("Earnings", meta["kind"].GetString());
     }
 
     [Fact]
@@ -114,8 +115,9 @@ public class GameDataDocBuilderTests {
         Assert.Equal(EffectTarget.AwayEarnings, rare.Target);
         Assert.Equal(CombineMode.Mul, rare.CombineMode);
         Assert.Equal(4, rare.Magnitude);
-        Assert.Equal("lunar_totem", rare.Meta!["boost"].GetString());
-        Assert.Equal(1, rare.Meta["rarity"].GetInt32());
+        var meta = Assert.IsAssignableFrom<IReadOnlyDictionary<string, System.Text.Json.JsonElement>>(rare.Meta);
+        Assert.Equal("lunar_totem", meta["boost"].GetString());
+        Assert.Equal(1, meta["rarity"].GetInt32());
     }
 
     [Fact]

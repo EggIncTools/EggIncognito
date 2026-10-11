@@ -33,7 +33,8 @@ public static class BoostEffectExtractor {
 
         var merged = StructInitReader.MergeByAbsoluteVa(scan.Structs);
         if (!TryFindFirstRecord(merged, catalog.Entries[0].Id, out long origin))
-            return new Result(false, [], $"record 0 ('{catalog.Entries[0].Id}') not located as an inline id");
+            return new Result(false, [],
+                $"record 0 ('{catalog.Entries[0].Id}') not located by inline id or anchor signature");
 
         var entries = new List<BoostEffectEntry>();
         var skipped = new List<string>();
@@ -64,14 +65,27 @@ public static class BoostEffectExtractor {
     }
 
     private static bool TryFindFirstRecord(StructInitReader.StructInit s, string firstId, out long origin) {
-        origin = 0;
-        foreach (long off in s.Bytes.Keys.Where(o => o % 8 == 0).Order()) {
+        var offsets = s.Bytes.Keys.Order().ToList();
+        foreach (long off in offsets) {
             if (!s.TryInlineStringComplete(off, out string inline) || inline != firstId) continue;
             if (!s.TryInt(off + DimensionOff, 4, out _) || !s.TryFloat64(off + MagnitudeOff, out _)) continue;
             origin = off;
             return true;
         }
 
+        var anchor = Anchors.FirstOrDefault(a => a.Id == firstId);
+        if (anchor.Id is not null) {
+            foreach (long off in offsets) {
+                if (s.TryInt(off + DimensionOff, 4, out long dim) && dim == anchor.Dimension
+                    && s.TryFloat64(off + DurationOff, out double dur) && dur == anchor.Duration
+                    && s.TryFloat64(off + MagnitudeOff, out double mag) && mag == anchor.Magnitude) {
+                    origin = off;
+                    return true;
+                }
+            }
+        }
+
+        origin = 0;
         return false;
     }
 

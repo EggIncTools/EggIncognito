@@ -5,9 +5,7 @@
 .agd-row-off > td { color: var(--color-muted); }
 .agd-dot { display: inline-block; width: 0.5rem; height: 0.5rem; border-radius: 9999px; }
 .agd-dot-ok { background-color: var(--color-ok); }
-.agd-dot-warn { background-color: var(--color-warn); }
 .agd-dot-err { background-color: var(--color-err); }
-.agd-warn { color: var(--color-warn); }
 .agd-sources { display: flex; flex-wrap: wrap; gap: 0.25rem; }
 .agd-src {
   display: inline-flex;

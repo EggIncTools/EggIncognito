@@ -150,6 +150,7 @@ public static class GameDataDocBuilders {
     }
 
     private static readonly FrozenDictionary<int, string> GameDimensionTargets = new Dictionary<int, string> {
+        [1] = "UnlimitedHatchery",
         [2] = "Earnings",
         [3] = "AwayEarnings",
         [4] = "IHR",
@@ -158,6 +159,7 @@ public static class GameDataDocBuilders {
         [7] = "BoostEffectiveness",
         [8] = "BoostDuration",
         [9] = "SoulEggCollectionRate",
+        [11] = "SoulMirror",
         [12] = "SoulEggBonus",
         [13] = "DroneRewards",
         [14] = "DroneFrequency",
