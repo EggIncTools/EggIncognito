@@ -3,119 +3,77 @@
 
 @if (_open) {
     <ModalShell Title="Support the project" TitleId="supportModalTitle" Width="ModalWidth.Large" OnClose="Close">
-        <div class="modal-body">
-            <p class="support-lede">
-                EggIncognito, EggIdentity, and EggLedger are free and open source. Supporting covers the servers
-                they run on and the code-signing certs for EggLedger's builds. Any amount gets the Supporter tier.
-            </p>
-
-            <section class="support-section">
-                <h2 class="support-h2">Supporter tier</h2>
-                <div class="perk-list">
-                    <div class="perk perk-on">
-                        <div class="perk-top">
-                            <span class="perk-name">Higher rate limits</span>
-                        </div>
-                        <p class="perk-desc">The Discord role raises the request ceiling on the data API. It applies the moment the role lands.</p>
-                    </div>
-                    <div class="perk perk-on">
-                        <div class="perk-top">
-                            <span class="perk-name">Hosted capture</span>
-                        </div>
-                        <p class="perk-desc">Capture runs on this server instead of a local proxy. No setup on your machine.</p>
-                    </div>
+        <div class="modal-body sm">
+            <div class="sm-top">
+                <div class="sm-pitch">
+                    <p class="sm-lede">EggIncognito, EggIdentity and EggLedger are free and open source. Support pays for the servers and EggLedger's code-signing, and any amount unlocks the Supporter role.</p>
+                    <ul class="sm-perks">
+                        <li><Icon Name="send" Class="icon-sm"/><span><b>Higher API limits</b> on the data API, as soon as the role lands.</span></li>
+                        <li><Icon Name="upload" Class="icon-sm"/><span><b>Hosted capture</b> on this server, with no local proxy to set up.</span></li>
+                    </ul>
                 </div>
-            </section>
-
-            <section class="support-section">
-                <h2 class="support-h2">Pick your platform</h2>
-                <div class="rail-grid">
-                    <a class="rail" href="https://github.com/sponsors/DavidArthurCole" target="_blank" rel="noopener">
-                        <span class="rail-name">GitHub Sponsors</span>
-                        <p class="rail-note">After you sponsor, run <span class="code-chip">/link-github</span> in Discord to claim your role.</p>
-                        <span class="rail-go">Sponsor →</span>
-                    </a>
-                    <a class="rail" href="https://www.patreon.com/c/DavidArthurCole" target="_blank" rel="noopener">
-                        <span class="rail-name">Patreon</span>
-                        <p class="rail-note">Link Discord on Patreon and the role arrives on its own within minutes.</p>
-                        <span class="rail-go">Become a patron →</span>
-                    </a>
-                    <a class="rail" href="https://buymeacoffee.com/davidarthurcole" target="_blank" rel="noopener">
-                        <span class="rail-name">Buy Me a Coffee</span>
-                        <p class="rail-note">Link Discord on BMAC and the role arrives on its own within minutes.</p>
-                        <span class="rail-go">Buy a coffee →</span>
-                    </a>
-                </div>
-            </section>
-
-            @if (Auth.Enabled) {
-                <section class="support-section">
-                    <h2 class="support-h2">Your account</h2>
-                    @if (User.Current.IsAuthenticated) {
-                        <div class="connect-card">
-                            <div class="connect-id">
+                @if (Auth.Enabled) {
+                    <div class="sm-account @(User.Current.IsSupporter ? "sm-account-on" : "")">
+                        @if (User.Current.IsAuthenticated) {
+                            <div class="sm-id">
                                 @if (User.Current.AvatarUrl(Auth.IdentityHostUrl) is { Length: > 0 } avatar) {
-                                    <img class="connect-avatar" src="@avatar" alt=""/>
+                                    <img class="sm-avatar" src="@avatar" alt=""/>
                                 } else {
-                                    <span class="connect-avatar">@(User.Current.Name?.Substring(0, 1).ToUpper())</span>
+                                    <span class="sm-avatar">@(User.Current.Name?.Substring(0, 1).ToUpper())</span>
                                 }
-                                <div>
-                                    <div class="connect-name">@User.Current.Name</div>
-                                    @if (User.Current.IsSupporter) {
-                                        <div class="connect-state connect-state-on">Supporter active</div>
-                                    } else {
-                                        <div class="connect-state">No supporter role yet</div>
-                                    }
+                                <div class="sm-id-text">
+                                    <span class="sm-name">@User.Current.Name</span>
+                                    <span class="sm-state">@(User.Current.IsSupporter ? "Supporter" : "Not a supporter yet")</span>
                                 </div>
                             </div>
-                            <form class="connect-form" method="post" action="/api/account/refresh-benefits">
-                                <button type="submit" class="btn-primary">Refresh benefits</button>
+                            <form method="post" action="/api/account/refresh-benefits">
+                                <button type="submit" class="btn-mini">Refresh role</button>
                             </form>
-                        </div>
-                        @if (!User.Current.IsSupporter) {
-                            <p class="connect-hint">Already supporting? Give the role a minute to land, then hit Refresh.</p>
-                        }
-                    } else {
-                        <div class="connect-card">
-                            <p class="connect-prompt">Connect Discord to tie this browser session to your supporter benefits.</p>
+                        } else {
+                            <span class="sm-state">Log in with Discord so your role applies here.</span>
                             <LoginButton Label="Log in"/>
-                        </div>
-                    }
-                </section>
-            }
+                        }
+                    </div>
+                }
+            </div>
 
-            <section class="support-section">
-                <h2 class="support-h2">Questions</h2>
-                <div class="faq-list">
-                    <div class="faq-item">
-                        <div class="faq-q">How fast does the role land?</div>
-                        <p class="faq-a">Patreon and BMAC: a few minutes after you link Discord on their site. GitHub: instant once you run <span class="code-chip">/link-github</span>.</p>
-                    </div>
-                    <div class="faq-item">
-                        <div class="faq-q">What if my support lapses?</div>
-                        <p class="faq-a">The role drops and the Supporter tier turns off. Pick it back up any time and it returns.</p>
-                    </div>
-                    <div class="faq-item">
-                        <div class="faq-q">Do one-time donations count?</div>
-                        <p class="faq-a">Yes. A one-off keeps the role for 31 days.</p>
-                    </div>
-                    <div class="faq-item">
-                        <div class="faq-q">I paid but have no role.</div>
-                        <p class="faq-a">Hit Refresh benefits above. Still stuck? Ping in the Discord server.</p>
-                    </div>
-                </div>
-            </section>
+            <div class="sm-label">Support on</div>
+            <div class="sm-rails">
+                @foreach (var p in Platforms) {
+                    <a class="sm-rail" href="@p.Url" target="_blank" rel="noopener">
+                        <span class="sm-rail-name">@p.Name</span>
+                        <span class="sm-rail-claim">@p.Claim</span>
+                        <Icon Name="arrow-right" Class="icon-sm sm-rail-go"/>
+                    </a>
+                }
+            </div>
 
-            <p class="support-legal-note">
-                Supporting is voluntary and handled by third-party platforms. See the
-                <a href="/terms">Terms of Service</a> and
-                <a href="/privacy">Privacy &amp; Cookies</a> for the details.
+            <div class="sm-label">Good to know</div>
+            <dl class="sm-faq">
+                <dt>One-off payments</dt>
+                <dd>Count. The role stays for 31 days.</dd>
+                <dt>If support lapses</dt>
+                <dd>The role and its perks drop, and come back when you resume.</dd>
+                <dt>Paid but no role</dt>
+                <dd>Use Refresh role above, then ask in the Discord server.</dd>
+            </dl>
+
+            <p class="sm-legal">
+                Payments go through the platforms above. See the <a href="/terms">Terms of Service</a> and <a href="/privacy">Privacy &amp; Cookies</a>.
             </p>
         </div>
     </ModalShell>
 }
 
 @code {
+    sealed record Platform(string Name, string Url, string Claim);
+
+    static readonly Platform[] Platforms = [
+        new("GitHub Sponsors", "https://github.com/sponsors/DavidArthurCole", "Run /link-github in Discord"),
+        new("Patreon", "https://www.patreon.com/c/DavidArthurCole", "Link Discord on Patreon"),
+        new("Buy Me a Coffee", "https://buymeacoffee.com/davidarthurcole", "Link Discord on BMAC")
+    ];
+
     bool _open;
 
     public void Open() {
