@@ -6,6 +6,7 @@
 @inject ICurrentUser User
 @inject IHttpContextAccessor HttpContextAccessor
 @inject IServiceProvider Services
+@implements IDisposable
 
 <section class="panel pd-w-identity">
     <div class="pd-id-row">
@@ -98,6 +99,15 @@
     string _sha = "";
     string _commitUrl = "";
     DateTimeOffset? _builtAt;
+    Timer? _clock;
+
+    protected override void OnAfterRender(bool firstRender) {
+        if (!firstRender || !User.Current.IsAuthenticated) return;
+        var untilMinute = TimeSpan.FromSeconds(60 - DateTimeOffset.UtcNow.Second);
+        _clock = new Timer(_ => _ = InvokeAsync(StateHasChanged), null, untilMinute, TimeSpan.FromMinutes(1));
+    }
+
+    public void Dispose() => _clock?.Dispose();
 
     protected override async Task OnInitializedAsync() {
         var b = BuildInfo.FromAssembly("https://github.com/EggIncTools/EggIncognito");

@@ -66,7 +66,7 @@
                 <p class="ds-note">Loading...</p>
             } else if (entry.Status == 401) {
                 <div class="ds-gate">
-                    <LoginButton Label="Log in" Placement="LoginMenuPlacement.Right"/>
+                    <LoginButton Placement="LoginMenuPlacement.Right"/>
                 </div>
             } else if (entry.Status is < 200 or > 299) {
                 <StatusNote Kind="StatusNoteKind.Error">

@@ -74,7 +74,7 @@ public sealed class WeekdayLaneRule : IEventRule {
         double start = NoonEastern.SlotTime(date);
         ledger.Touch(Type!, false, start, date);
         return new EventPrediction(
-            Type, false, Kind, Key, Evidence.Summary, start, start + _duration, Evidence.Fill,
+            Type, false, Kind, Key, Evidence.Summary, start, start + _duration, Evidence.Confidence,
             [new EventCandidate(Type!, 1)], Evidence.Observed, Evidence.Expected, Period, Evidence.LastStart);
     }
 

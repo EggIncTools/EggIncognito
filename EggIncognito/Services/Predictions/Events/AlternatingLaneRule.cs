@@ -117,7 +117,7 @@ public sealed class AlternatingLaneRule : IEventRule {
         double duration = _durations.GetValueOrDefault(type, EventHistory.Day);
         ledger.Touch(type, false, start, date);
         return new EventPrediction(
-            type, false, Kind, Key, Evidence.Summary, start, start + duration, Evidence.Fill,
+            type, false, Kind, Key, Evidence.Summary, start, start + duration, Evidence.Confidence,
             [new EventCandidate(type, 1)], Evidence.Observed, Evidence.Expected, PeriodDays, Evidence.LastStart);
     }
 }

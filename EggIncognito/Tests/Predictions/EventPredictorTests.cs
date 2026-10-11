@@ -299,6 +299,18 @@ public class EventPredictorTests {
     }
 
     [Theory]
+    [InlineData(5, 5, 6d / 7)]
+    [InlineData(20, 20, 21d / 22)]
+    [InlineData(3, 4, 4d / 6)]
+    [InlineData(0, 0, 0)]
+    public void RuleConfidence_NeverClaimsCertaintyFromAFiniteSample(int observed, int expected, double confidence) {
+        var evidence = new RuleEvidence(observed, expected, 0, "");
+
+        Assert.Equal(confidence, evidence.Confidence, 6);
+        Assert.True(evidence.Confidence < 1);
+    }
+
+    [Theory]
     [InlineData(2025, 7, 14, true)]
     [InlineData(2024, 7, 14, true)]
     [InlineData(2025, 7, 13, false)]

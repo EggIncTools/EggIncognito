@@ -1,7 +1,6 @@
 .pd-page { padding-top: 1.5rem; padding-bottom: 2rem; }
 .pd-grid { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 1rem; }
-.pd-mod { grid-column: span 12; min-width: 0; container-type: inline-size; container-name: pdmod; }
-.pd-main { grid-column: span 12; min-width: 0; }
+.pd-mod { grid-column: span 12; min-width: 0; container-type: inline-size; container-name: pdmod; }.pd-main { grid-column: span 12; min-width: 0; }
 .pd-stack { display: flex; flex-direction: column; gap: 1rem; }
 .reg-wrap {
   border: 1px solid var(--color-border);

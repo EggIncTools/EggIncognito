@@ -48,9 +48,9 @@
     </Rail>
     <Bar>
         @if (Choices(context.Item.Prediction) is { Count: > 1 } choices) {
-            <button type="button" class="@(BarCss(context) + " evcal-bar-multi")" style="@(BarStyle(context) + MultiStyle(choices.Count))" @onclick="@(() => _cal?.Select(context))">
+            <button type="button" class="@(BarCss(context) + " evcal-bar-multi")" style="@BarStyle(context)" @onclick="@(() => _cal?.Select(context))">
                 @foreach (var choice in choices) {
-                    <span class="evcal-choice" @key="choice.Type" style="@EventPalette.BarStyle(choice.Type, context.Item.Ultra)">
+                    <span class="evcal-choice" @key="choice.Type" style="@(EventPalette.BarStyle(choice.Type, context.Item.Ultra) + PctStyle(choice.Probability))">
                         @if (EventPalette.IconUrl(choice.Type, context.Item.Ultra) is { } choiceIcon) {
                             <FallbackImg Class="evcal-bar-icon" Src="@choiceIcon" Alt=""/>
                         }
@@ -308,8 +308,6 @@
             : [];
 
     static string PctStyle(double p) => FormattableString.Invariant($"--p:{Math.Clamp(p, 0, 1):0.###};");
-
-    static string MultiStyle(int rows) => FormattableString.Invariant($"--evcal-choices:{rows};");
 
     static string Pretty(string raw) {
         var words = raw.Replace('-', ' ').Replace('_', ' ').Split(' ', StringSplitOptions.RemoveEmptyEntries);

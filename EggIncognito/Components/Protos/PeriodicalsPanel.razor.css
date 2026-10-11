@@ -6,7 +6,7 @@
 .pd-w-season { order: 3; align-self: flex-start; max-width: 100%; }
 .pd-w-calendar, .pd-w-note { order: 4; }
 .pd-w-calendar { align-self: flex-start; max-width: 100%; }
-.pd-w-cegg { order: 5; }
+.pd-w-cegg { order: 5; min-width: 0; max-width: 100%; }
 .pd-widgets ::deep .pd-w-support { order: 6; }
 @container pdmod (min-width: 60rem) {
   .pd-widgets { flex-direction: row; align-items: flex-start; }
@@ -22,6 +22,8 @@
 .pd-w-note { font-size: 0.875rem; color: var(--color-muted); }
 .cegg-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem; }
 .cegg-title { margin: 0; font-size: 0.875rem; font-weight: 600; }
+.cegg-scroll { max-width: 100%; overflow-x: auto; scrollbar-width: thin; border: 1px solid var(--color-border); border-radius: 0.375rem; }
+.cegg-scroll .cegg-table { border: 0; border-radius: 0; }
 .cegg-table th, .cegg-table td { white-space: nowrap; }
 .cegg-table thead th { vertical-align: bottom; }
 .cegg-table .cegg-tier-group { text-align: center; }
