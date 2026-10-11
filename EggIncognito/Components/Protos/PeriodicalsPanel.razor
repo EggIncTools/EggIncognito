@@ -85,71 +85,14 @@
     </div>
 
     <div class="pd-wcol">
-        <section class="panel pd-w-calendar">
-            <button type="button" class="pd-cal-title" @onclick="@(() => OnOpenEvents.InvokeAsync())">
-                Events<Icon Name="chevron-right" Class="icon-sm"/>
-            </button>
-            <MiniCalendar TItem="EventCalendarItem" Load="LoadMiniEvents" EmptyNote="No events in the last three weeks.">
-                <Bar>
-                    @{ var e = context.Item.Event!; }
-                    <div class="evcal-bar-tip" style="@EventBarStyle(context)">
-                        <Tooltip>
-                            <ChildContent>
-                                <button type="button" class="@CalendarBars.Css(context)" @onclick="@(() => OnOpenEvents.InvokeAsync())">
-                                    @if (EventPalette.IconUrl(e.Type, e.Ultra) is { } iconUrl) {
-                                        <FallbackImg Class="evcal-bar-icon" Src="@iconUrl" Alt=""/>
-                                    }
-
-                                    <span class="evcal-bar-label">@EventMagnitude.Scalar(e)</span>
-                                </button>
-                            </ChildContent>
-                            <Content>
-                                <span class="tt-title">@EventLabel(e)</span>
-                                @if (e.Ultra) {
-                                    <span class="tt-ultra">ULTRA ONLY</span>
-                                }
-
-                                <span class="tt-line">@EventCountdown.Describe(e.StartTimestamp, e.EndTimestamp, DateTimeOffset.UtcNow)</span>
-                            </Content>
-                        </Tooltip>
-                    </div>
-                </Bar>
-            </MiniCalendar>
-            <button type="button" class="pd-cal-title pd-cal-title-gap" @onclick="@(() => OnOpenContracts.InvokeAsync())">
-                Contracts<Icon Name="chevron-right" Class="icon-sm"/>
-            </button>
-            <MiniCalendar TItem="ContractCalendarItem" Load="LoadMiniContracts" EmptyNote="No contracts in the last three weeks.">
-                <Bar>
-                    @{ var c = context.Item.Release!; }
-                    <div class="evcal-bar-tip" style="@ContractBarStyle(context)">
-                        <Tooltip>
-                            <ChildContent>
-                                <button type="button" class="@(CalendarBars.Css(context) + " evcal-bar-contract")"
-                                        @onclick="@(() => OnOpenContracts.InvokeAsync())">
-                                    @if (EggIcons.Url(c.Egg, c.CustomEggId) is { } eggUrl) {
-                                        <FallbackImg Class="evcal-bar-egg" Src="@eggUrl" Alt=""/>
-                                    }
-                                    <span class="evcal-bar-label">@c.Name</span>
-                                </button>
-                            </ChildContent>
-                            <Content>
-                                <span class="tt-title">@c.Name</span>
-                                @if (c.UltraOnly) {
-                                    <span class="tt-ultra">ULTRA ONLY</span>
-                                }
-
-                                <span class="tt-line">@EggIcons.Label(c.Egg, c.CustomEggId)</span>
-                                <span class="tt-line">@EventCountdown.Describe(c.StartTimestamp, c.EndTimestamp, DateTimeOffset.UtcNow)</span>
-                            </Content>
-                        </Tooltip>
-                    </div>
-                </Bar>
-            </MiniCalendar>
-            @if (_seasons is { Count: > 0 } seasonList) {
-                var season = seasonList[Math.Clamp(_seasonIx, 0, seasonList.Count - 1)];
-                var grades = season.GradeGoals.Where(g => g.Goals.Count > 0).ToList();
+        @if (_seasons is { Count: > 0 } seasonList) {
+            <section class="panel pd-w-season">
+                @{
+                    var season = seasonList[Math.Clamp(_seasonIx, 0, seasonList.Count - 1)];
+                    var grades = season.GradeGoals.Where(g => g.Goals.Count > 0).ToList();
+                }
                 <div class="season-top">
-                    <SubSectionHead>Season</SubSectionHead>
+                    <h3 class="cegg-title">Season</h3>
                     <div class="season-nav">
                         <button type="button" class="icon-btn icon-btn-sm season-nav-btn"
                                 disabled="@(_seasonIx >= seasonList.Count - 1)"
@@ -268,7 +211,69 @@
                 } else {
                     <div class="season-none">No reward data captured for this season.</div>
                 }
-            }
+            </section>
+        }
+
+        <section class="panel pd-w-calendar">
+            <button type="button" class="pd-cal-title" @onclick="@(() => OnOpenEvents.InvokeAsync())">
+                Events<Icon Name="chevron-right" Class="icon-sm"/>
+            </button>
+            <MiniCalendar TItem="EventCalendarItem" Load="LoadMiniEvents" EmptyNote="No events in the last three weeks.">
+                <Bar>
+                    @{ var e = context.Item.Event!; }
+                    <div class="evcal-bar-tip" style="@EventBarStyle(context)">
+                        <Tooltip>
+                            <ChildContent>
+                                <button type="button" class="@CalendarBars.Css(context)" @onclick="@(() => OnOpenEvents.InvokeAsync())">
+                                    @if (EventPalette.IconUrl(e.Type, e.Ultra) is { } iconUrl) {
+                                        <FallbackImg Class="evcal-bar-icon" Src="@iconUrl" Alt=""/>
+                                    }
+
+                                    <span class="evcal-bar-label">@EventMagnitude.Scalar(e)</span>
+                                </button>
+                            </ChildContent>
+                            <Content>
+                                <span class="tt-title">@EventLabel(e)</span>
+                                @if (e.Ultra) {
+                                    <span class="tt-ultra">ULTRA ONLY</span>
+                                }
+
+                                <span class="tt-line">@EventCountdown.Describe(e.StartTimestamp, e.EndTimestamp, DateTimeOffset.UtcNow)</span>
+                            </Content>
+                        </Tooltip>
+                    </div>
+                </Bar>
+            </MiniCalendar>
+            <button type="button" class="pd-cal-title pd-cal-title-gap" @onclick="@(() => OnOpenContracts.InvokeAsync())">
+                Contracts<Icon Name="chevron-right" Class="icon-sm"/>
+            </button>
+            <MiniCalendar TItem="ContractCalendarItem" Load="LoadMiniContracts" EmptyNote="No contracts in the last three weeks.">
+                <Bar>
+                    @{ var c = context.Item.Release!; }
+                    <div class="evcal-bar-tip" style="@ContractBarStyle(context)">
+                        <Tooltip>
+                            <ChildContent>
+                                <button type="button" class="@(CalendarBars.Css(context) + " evcal-bar-contract")"
+                                        @onclick="@(() => OnOpenContracts.InvokeAsync())">
+                                    @if (EggIcons.Url(c.Egg, c.CustomEggId) is { } eggUrl) {
+                                        <FallbackImg Class="evcal-bar-egg" Src="@eggUrl" Alt=""/>
+                                    }
+                                    <span class="evcal-bar-label">@c.Name</span>
+                                </button>
+                            </ChildContent>
+                            <Content>
+                                <span class="tt-title">@c.Name</span>
+                                @if (c.UltraOnly) {
+                                    <span class="tt-ultra">ULTRA ONLY</span>
+                                }
+
+                                <span class="tt-line">@EggIcons.Label(c.Egg, c.CustomEggId)</span>
+                                <span class="tt-line">@EventCountdown.Describe(c.StartTimestamp, c.EndTimestamp, DateTimeOffset.UtcNow)</span>
+                            </Content>
+                        </Tooltip>
+                    </div>
+                </Bar>
+            </MiniCalendar>
         </section>
 
         <SupportPanel OnOpenCapture="OnOpenCapture" OnOpenSupport="OnOpenSupport"/>

@@ -2,19 +2,21 @@
 .pd-wcol { display: contents; }
 .pd-widgets ::deep .pd-w-devices { order: 1; }
 .pd-widgets ::deep .pd-w-workbench { order: 2; }
-.pd-w-calendar, .pd-w-note { order: 3; }
+.pd-w-season { order: 3; align-self: flex-start; max-width: 100%; }
+.pd-w-calendar, .pd-w-note { order: 4; }
+.pd-w-calendar { contain: layout; }
 .pd-w-cegg { order: 5; }
 .pd-widgets ::deep .pd-w-support { order: 6; }
 @container pdmod (min-width: 60rem) {
   .pd-widgets { flex-direction: row; align-items: flex-start; }
   .pd-wcol { display: flex; flex-direction: column; gap: 1rem; flex: 1 1 0; min-width: 0; }
+  .pd-wcol:first-child { flex: 0 1 auto; }
 }
 .pd-w-note { font-size: 0.875rem; color: var(--color-muted); }
 .cegg-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem; }
 .cegg-title { margin: 0; font-size: 0.875rem; font-weight: 600; }
 .cegg-table th, .cegg-table td { white-space: nowrap; }
 .cegg-table thead th { vertical-align: bottom; }
-.cegg-table .cegg-name-col { width: 100%; }
 .cegg-table .cegg-tier-group { text-align: center; }
 .cegg-table .cegg-tier { text-align: right; width: 2.75rem; }
 .cegg-table .cegg-tier-first { border-left: 1px solid var(--color-border); }
@@ -72,8 +74,7 @@
 .pd-cal-title:hover { color: var(--color-accent); }
 .pd-cal-title:hover ::deep .icon { color: var(--color-accent); }
 .pd-cal-title-gap { margin-top: 1rem; }
-.season-top { display: flex; align-items: center; justify-content: space-between; margin: 1rem 0 0.75rem; }
-.season-top ::deep .subhead { margin: 0; }
+.season-top { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 0.75rem; }
 .season-nav { display: flex; align-items: center; gap: 0.25rem; }
 .season-nav-btn:disabled { opacity: 0.4; cursor: default; }
 .season-nav-btn:disabled:hover { color: var(--color-muted); }
@@ -96,7 +97,7 @@
 .season-cegg-name { font-size: 0.75rem; font-weight: 500; }
 .season-cegg-contracts { font-size: 0.6875rem; color: var(--color-muted); }
 .season-cegg ::deep .season-cegg-icon { width: 2.5rem; height: 2.5rem; object-fit: contain; }
-.season-table { table-layout: fixed; }
+.season-table { width: auto; }
 .season-table td { white-space: normal; }
 .season-table thead th { text-align: center; vertical-align: bottom; }
 .season-table thead th:first-child { text-align: left; width: 3rem; }
