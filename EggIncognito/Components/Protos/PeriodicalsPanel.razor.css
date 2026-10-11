@@ -37,7 +37,20 @@
 .cegg-chip-unit { font-family: var(--font-mono); color: var(--color-muted); }
 .cegg-chip-off { opacity: 0.4; }
 .cegg-table td.mono { font-size: 0.75rem; }
-.cegg-legend { display: flex; flex-wrap: wrap; gap: 0.25rem; margin-top: 0.625rem; }
+.cegg-legend {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  margin-top: 0.75rem;
+  padding: 0.5rem 0.625rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.375rem;
+  background-color: var(--color-panel2);
+}
+.cegg-legend-k { font-size: 0.625rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--color-muted); }
+.cegg-legend-chips { display: flex; flex-wrap: wrap; gap: 0.25rem 0.75rem; }
+.cegg-legend-chip { font-size: 0.6875rem; color: var(--color-muted); opacity: 0.55; }
+.cegg-legend-chip.cegg-legend-on { color: var(--color-fg-soft); opacity: 1; }
 .pd-cal-title {
   display: flex;
   align-items: center;

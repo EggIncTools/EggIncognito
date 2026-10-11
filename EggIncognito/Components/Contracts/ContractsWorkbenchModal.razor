@@ -7,7 +7,6 @@
 @using EggIncognito.Services.Assets
 @using EggIncognito.Services.Contracts
 @using EggIncognito.Services.Events
-@inject ICurrentUser User
 @inject ContractsWorkbenchState State
 @inject ILogger<ContractsWorkbenchModal> Logger
 
@@ -26,11 +25,9 @@
                 <CalendarRailRow On="_showUltra" DimWhenOff="true" Ultra="true" Style="@UltraRowStyle"
                                  OnClick="@(() => Toggle(ref _showUltra))">Ultra only</CalendarRailRow>
             </WorkbenchSection>
-            @if (_isAdmin) {
-                <WorkbenchSection Label="Predictions">
-                    <CalendarRailRow On="_showPredictions" OnClick="TogglePredictions">Show predictions</CalendarRailRow>
-                </WorkbenchSection>
-            }
+            <WorkbenchSection Label="Predictions">
+                <CalendarRailRow On="_showPredictions" OnClick="TogglePredictions">Show predictions</CalendarRailRow>
+            </WorkbenchSection>
         </WorkbenchRail>
     </Rail>
     <Bar>
@@ -66,7 +63,6 @@
             </div>
         } else if (context.Slot is { } s) {
             <span class="evcal-pop-when">@Absolute(s.SlotTime)</span>
-            <span class="evcal-pop-line">@s.Evidence</span>
             @if (s.Candidates.Count > 0) {
                 <div class="evcal-pop-tags">
                     @foreach (var candidate in s.Candidates.Take(4)) {
@@ -96,13 +92,7 @@
     bool _showPe = true;
     bool _showUltra = true;
     bool _showPredictions = true;
-    bool _isAdmin;
     ContractPredictionResponse? _predictions;
-
-    protected override void OnInitialized() {
-        base.OnInitialized();
-        _isAdmin = User.Current.IsAtLeast(UserRole.Admin);
-    }
 
     public Task Open() {
         _covered = default;
@@ -148,8 +138,8 @@
     IReadOnlyList<ContractCalendarItem> Items() {
         var items = new List<ContractCalendarItem>(_contracts.Count);
         items.AddRange(_contracts.Values.Where(Match).Select(ContractCalendarItem.Of));
-        if (_isAdmin && _showPredictions && _search.Length == 0 && _predictions is { } set) {
-            items.AddRange(set.Slots.Where(s => KindShown(s.Kind)).Select(ContractCalendarItem.Of));
+        if (_showPredictions && _search.Length == 0 && _predictions?.Slots is { } slots) {
+            items.AddRange(slots.Where(s => KindShown(s.Kind)).Select(ContractCalendarItem.Of));
         }
 
         return items;
@@ -183,7 +173,7 @@
     }
 
     async Task EnsurePredictions(DateTimeOffset visibleEnd) {
-        if (!_isAdmin || !_showPredictions || _predictions is not null) return;
+        if (!_showPredictions || _predictions is not null) return;
         if (visibleEnd <= DateTimeOffset.UtcNow) return;
         try {
             var res = await Client().GetAsync(
@@ -226,7 +216,7 @@
     }
 
     static string PopTitle(ContractCalendarItem item) {
-        return item.Slot is { } s ? KindLabel(s.Kind) + " Predicted" : Label(item);
+        return item.Slot is { } s ? KindLabel(s.Kind) + " (predicted)" : Label(item);
     }
 
     static string KindLabel(ContractSlotKind kind) {

@@ -46,7 +46,6 @@ public sealed class ContractsController : ApiControllerBase {
 
     [HttpGet("predictions")]
     [EnableRateLimiting("read")]
-    [ApiAccess(ApiAccessLevel.Admin)]
     [Requires<ContractPredictor>("no database configured")]
     public async Task<IActionResult> Predictions(
         [FromServices] ContractPredictor predictor,

@@ -17,7 +17,7 @@
     <div class="pd-wcol">
         <DeviceStatusPanel Class="pd-w-devices" OnManage="OnManageDevices"/>
         <WorkbenchesPanel Summary="_summary" OnOpenNotifications="OnOpenNotifications"
-                          OnOpenApiWorkbench="OnOpenApiWorkbench"/>
+                          OnOpenApiWorkbench="OnOpenApiWorkbench" OnOpenFeed="OnOpenFeed" OnOpenCoverage="OnOpenCoverage"/>
 
         @if (_summary?.Colleggtibles is { } c) {
             <section class="panel pd-w-cegg">
@@ -73,9 +73,12 @@
                 </table>
                 @{ var used = c.Eggs.Where(e => e.TierValues.Count > 0).Select(e => e.Dimension).ToHashSet(StringComparer.OrdinalIgnoreCase); }
                 <div class="cegg-legend">
-                    @foreach (var dim in ProtoDimensions) {
-                        <span class="cegg-chip @(used.Contains(dim) ? "" : "cegg-chip-off")">@TitleCase(dim)</span>
-                    }
+                    <span class="cegg-legend-k">Possible dimensions</span>
+                    <div class="cegg-legend-chips">
+                        @foreach (var dim in ProtoDimensions) {
+                            <span class="cegg-legend-chip @(used.Contains(dim) ? "cegg-legend-on" : "")">@TitleCase(dim)</span>
+                        }
+                    </div>
                 </div>
             </section>
         }
@@ -289,6 +292,10 @@
     [Parameter] public EventCallback OnOpenNotifications { get; set; }
 
     [Parameter] public EventCallback OnOpenApiWorkbench { get; set; }
+
+    [Parameter] public EventCallback<string> OnOpenFeed { get; set; }
+
+    [Parameter] public EventCallback OnOpenCoverage { get; set; }
 
     [Parameter] public EventCallback OnOpenEvents { get; set; }
 

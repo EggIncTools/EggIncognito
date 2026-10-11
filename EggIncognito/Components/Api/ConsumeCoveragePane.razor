@@ -12,13 +12,14 @@
 @inject ILogger<ConsumeCoveragePane> Logger
 @inject ICurrentUser User
 
-@if (User.Current.IsAtLeast(UserRole.Admin)) {
     <div class="cov">
         <div class="cov-headline">
             <PanelHead Title="Consume coverage"/>
-            <span class="cov-head-shelf">
-                <PanelShelf Shelf="@DevicePanelShelves.CoverageHead" Context="DeviceContext"/>
-            </span>
+            @if (_admin) {
+                <span class="cov-head-shelf">
+                    <PanelShelf Shelf="@DevicePanelShelves.CoverageHead" Context="DeviceContext"/>
+                </span>
+            }
             <span class="cov-head-tools">
                 @if (_map is { } m) {
                     <span class="cov-pct mono" style="@PctStyle(m.Validity)" title="@($"{Pct(m.Validity)} valid")">@Pct(m.Validity)</span>
@@ -39,14 +40,14 @@
                 <StatusNote Kind="StatusNoteKind.Error">The artifact catalog is not loaded.</StatusNote>
             }
         } else {
-            @if (_sel is { } s && PanelShelf.Any(Panels, DevicePanelShelves.CoverageCell)) {
+            @if (_admin && _sel is { } s && PanelShelf.Any(Panels, DevicePanelShelves.CoverageCell)) {
                 <ToolBar Flat="true" Class="cov-sel">
                     <PanelShelf Shelf="@DevicePanelShelves.CoverageCell" Context="CellContext(s)"/>
                 </ToolBar>
             }
 
             <div class="cov-body">
-            @if (PanelShelf.Any(Panels, DevicePanelShelves.CoverageBody)) {
+            @if (_admin && PanelShelf.Any(Panels, DevicePanelShelves.CoverageBody)) {
                 <div class="cov-scroll cov-body-shelf">
                     <PanelShelf Shelf="@DevicePanelShelves.CoverageBody" Context="DeviceContext"/>
                 </div>
@@ -108,7 +109,7 @@
                                             <span></span>
                                         }
                                     </div>
-                                    @if (_sel is { } ds && ds.Family == f.SpecName && PanelShelf.Any(Panels, DevicePanelShelves.CoverageDrops)) {
+                                    @if (_admin && _sel is { } ds && ds.Family == f.SpecName && PanelShelf.Any(Panels, DevicePanelShelves.CoverageDrops)) {
                                         <div class="cov-drops" @onclick:stopPropagation="true">
                                             <PanelShelf Shelf="@DevicePanelShelves.CoverageDrops" Context="CellContext(ds)"/>
                                         </div>
@@ -121,7 +122,7 @@
                 </table>
             </TableScroll>
             }
-            @if (PanelShelf.Any(Panels, DevicePanelShelves.CoverageSide)) {
+            @if (_admin && PanelShelf.Any(Panels, DevicePanelShelves.CoverageSide)) {
                 <div class="cov-side">
                     <PanelShelf Shelf="@DevicePanelShelves.CoverageSide" Context="DeviceContext"/>
                 </div>
@@ -129,7 +130,6 @@
             </div>
         }
     </div>
-}
 
 @code {
     [Parameter] public string? DeviceId { get; set; }
@@ -147,10 +147,14 @@
     int _reloadPending;
     readonly HashSet<string> _open = new(StringComparer.Ordinal);
     CoverageSelection? _sel;
+    bool _admin;
 
     protected override async Task OnInitializedAsync() {
-        if (!User.Current.IsAtLeast(UserRole.Admin)) return;
-        foreach (var inv in Inventories) inv.Changed += OnInventoryChanged;
+        _admin = User.Current.IsAtLeast(UserRole.Admin);
+        if (_admin) {
+            foreach (var inv in Inventories) inv.Changed += OnInventoryChanged;
+        }
+
         await LoadAsync();
     }
 
@@ -169,6 +173,7 @@
     }
 
     public void Dispose() {
+        if (!_admin) return;
         foreach (var inv in Inventories) inv.Changed -= OnInventoryChanged;
     }
 
@@ -230,7 +235,7 @@
         new(DeviceContext, sel.Family, sel.Level, sel.Rarity, sel.Cell.SuggestedBatch);
 
     string? Annotation(CoverageFamily f, int rarity) {
-        if (f.Tiers.Count == 0) return null;
+        if (!_admin || f.Tiers.Count == 0) return null;
         string level = _sel is { } s && s.Family == f.SpecName ? s.Level : f.Tiers[^1].Level;
         foreach (var a in Annotations) {
             if (a.RarityHead(DeviceId, f.SpecName, level, rarity) is { Length: > 0 } note) return note;

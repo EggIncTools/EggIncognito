@@ -6,7 +6,6 @@
 @using EggIncognito.Models.Events
 @using EggIncognito.Services.Assets
 @using EggIncognito.Services.Events
-@inject ICurrentUser User
 @inject EventsWorkbenchState State
 @inject ILogger<EventsWorkbenchModal> Logger
 
@@ -21,8 +20,10 @@
             </WorkbenchSection>
             <WorkbenchSection Label="Types">
                 <Tools>
-                    <button type="button" class="btn-mini" @onclick="SelectAllTypes">Select all</button>
-                    <button type="button" class="btn-mini" @onclick="DeselectAllTypes">Deselect all</button>
+                    <span class="evwb-bulk">
+                        <button type="button" class="evwb-bulk-btn" @onclick="SelectAllTypes">All</button>
+                        <button type="button" class="evwb-bulk-btn" @onclick="DeselectAllTypes">None</button>
+                    </span>
                 </Tools>
                 <ChildContent>
                     <div class="evwb-groups">
@@ -40,11 +41,9 @@
                     </div>
                 </ChildContent>
             </WorkbenchSection>
-            @if (_isAdmin) {
-                <WorkbenchSection Label="Predictions">
-                    <CalendarRailRow On="_showPredictions" OnClick="TogglePredictions">Show predictions</CalendarRailRow>
-                </WorkbenchSection>
-            }
+            <WorkbenchSection Label="Predictions">
+                <CalendarRailRow On="_showPredictions" OnClick="TogglePredictions">Show predictions</CalendarRailRow>
+            </WorkbenchSection>
         </WorkbenchRail>
     </Rail>
     <Bar>
@@ -74,10 +73,9 @@
                 @if (EventPalette.IconUrl(p.Type, p.Ultra) is { } iconUrl) {
                     <FallbackImg Class="evcal-pop-icon" Src="@iconUrl" Alt=""/>
                 }
-                <span>@KindLabel(p.Kind), @Percent(p.Confidence) confident</span>
+                <span class="evcal-pop-big">@Percent(p.Confidence)</span>
             </div>
             <span class="evcal-pop-when">@Absolute(p.PredictedStart) to @Absolute(p.PredictedEnd)</span>
-            <span class="evcal-pop-line">@p.Evidence. Last seen @Absolute(p.LastStart).</span>
             @if (p.Candidates.Count > 1) {
                 <div class="evcal-pop-tags">
                     @foreach (var candidate in p.Candidates.Take(4)) {
@@ -108,14 +106,8 @@
     bool _showStandard = true;
     bool _showUltra = true;
     bool _showPredictions = true;
-    bool _isAdmin;
     DateTimeOffset _horizonEnd;
     EventPredictionSet? _predictions;
-
-    protected override void OnInitialized() {
-        base.OnInitialized();
-        _isAdmin = User.Current.IsAtLeast(UserRole.Admin);
-    }
 
     public Task Open() {
         _covered = default;
@@ -188,8 +180,8 @@
     IReadOnlyList<EventCalendarItem> Items() {
         var items = new List<EventCalendarItem>(_events.Count);
         items.AddRange(_events.Values.Where(Match).Select(EventCalendarItem.Of));
-        if (_isAdmin && _showPredictions && _predictions is { } set) {
-            items.AddRange(set.Predictions.Where(GhostVisible).Select(EventCalendarItem.Of));
+        if (_showPredictions && _predictions?.Predictions is { } predictions) {
+            items.AddRange(predictions.Where(GhostVisible).Select(EventCalendarItem.Of));
         }
 
         return items;
@@ -219,7 +211,7 @@
     }
 
     async Task EnsurePredictions(DateTimeOffset visibleStart, DateTimeOffset visibleEnd) {
-        if (!_isAdmin || !_showPredictions) return;
+        if (!_showPredictions) return;
         if (visibleEnd <= DateTimeOffset.UtcNow) return;
         var reach = visibleEnd + (visibleEnd - visibleStart);
         var horizon = Math.Clamp((int)Math.Ceiling((reach - DateTimeOffset.UtcNow).TotalDays),
@@ -283,20 +275,10 @@
     static string PopTitle(EventCalendarItem item) {
         if (item.Prediction is { } p) {
             var type = p.Type is { Length: > 0 } t ? Pretty(t) : p.Ultra ? "Ultra event" : "Standard event";
-            return type + " Predicted";
+            return type + " (predicted)";
         }
 
         return Label(item);
-    }
-
-    static string KindLabel(EventRuleKind kind) {
-        return kind switch {
-            EventRuleKind.WeekdayLane => "Weekday lane",
-            EventRuleKind.Alternating => "Alternating lane",
-            EventRuleKind.Periodic => "Periodic lane",
-            EventRuleKind.Pool => "Weekday pool",
-            _ => "Ultra cadence"
-        };
     }
 
     static string Percent(double value) {

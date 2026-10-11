@@ -5,6 +5,7 @@
 @using EggIncognito.Services.Events
 @implements IDisposable
 @inject NavigationManager Nav
+@inject IJSRuntime JS
 @inject ICurrentUser User
 @inject IServiceProvider Services
 
@@ -319,7 +320,7 @@
 
     protected override async Task OnAfterRenderAsync(bool firstRender) {
         if (!firstRender) return;
-        _hash = new PathRouteSync(Nav, "");
+        _hash = new PathRouteSync(Nav, JS, "");
         _hash.Changed += () => _ = InvokeAsync(() => ApplyHash(_hash.Fragment));
         _hash.Start();
         await ApplyHash(_hash.Fragment);

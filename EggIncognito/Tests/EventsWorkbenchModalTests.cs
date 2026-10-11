@@ -132,6 +132,7 @@ public class EventsWorkbenchModalTests : BunitContext {
         Wire(req => Respond(req, Event("a", "Earnings boost", now.AddHours(-2), now.AddHours(2))));
 
         var cut = await OpenAsync();
+        await cut.InvokeAsync(() => cut.Find(".evcal-anchor").MouseEnter());
 
         var pop = cut.Find(".evcal-pop");
         Assert.Contains("2x", pop.TextContent);

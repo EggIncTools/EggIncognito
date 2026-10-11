@@ -83,19 +83,17 @@
                         </WorkbenchSection>
                     }
                 </WorkbenchLoad>
-                @if (State.IsAdmin) {
-                    <WorkbenchSection Label="Coverage">
-                        <WorkbenchEntry Selected="@(State.Kind == ApiSelectionKind.Coverage)"
-                                        OnClick="@(_ => SelectSection(ApiSelectionKind.Coverage))">
-                            <Lead>
-                                <span class="wb-lead">
-                                    <Icon Name="layout-grid" Class="icon-sm"/>
-                                </span>
-                            </Lead>
-                            <Name>Consume coverage</Name>
-                        </WorkbenchEntry>
-                    </WorkbenchSection>
-                }
+                <WorkbenchSection Label="Coverage">
+                    <WorkbenchEntry Selected="@(State.Kind == ApiSelectionKind.Coverage)"
+                                    OnClick="@(_ => SelectSection(ApiSelectionKind.Coverage))">
+                        <Lead>
+                            <span class="wb-lead">
+                                <Icon Name="layout-grid" Class="icon-sm"/>
+                            </span>
+                        </Lead>
+                        <Name>Consume coverage</Name>
+                    </WorkbenchEntry>
+                </WorkbenchSection>
             </WorkbenchRail>
         }
     </Rail>
@@ -213,7 +211,7 @@
 
     protected override async Task OnAfterRenderAsync(bool firstRender) {
         if (!firstRender) return;
-        _hash = new PathRouteSync(Nav, "");
+        _hash = new PathRouteSync(Nav, JS, "");
         _hash.Changed += () => _ = InvokeAsync(async () => {
             await ApplyHash(_hash.Fragment);
             StateHasChanged();
@@ -270,12 +268,20 @@
         StateHasChanged();
     }
 
-    public async Task OpenCapture() {
+    public Task OpenCapture() => OpenWith(() => State.Kind = ApiSelectionKind.Capture);
+
+    public Task OpenCoverage() => OpenWith(() => State.Kind = ApiSelectionKind.Coverage);
+
+    public Task OpenFeed(string feed) => OpenWith(() => {
+        if (State.Sources?.FirstOrDefault(s => s.Feed == feed) is { } src) State.SelectDataset(src.Group, src.Id, null);
+    });
+
+    async Task OpenWith(Action select) {
         await LoadStore();
         _open = true;
         await LoadSources();
         LoadRouteSummary();
-        State.Kind = ApiSelectionKind.Capture;
+        select();
         await WriteHash(true);
         StateHasChanged();
     }

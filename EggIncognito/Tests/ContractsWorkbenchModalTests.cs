@@ -79,11 +79,12 @@ public class ContractsWorkbenchModalTests : BunitContext {
         var bar = cut.Find(".evcal-bar");
         Assert.Contains("egg_edible", bar.QuerySelector(".evcal-bar-egg")?.GetAttribute("src") ?? "");
         Assert.Empty(cut.FindAll(".evcal-anchor-open"));
-        Assert.Contains("Edible", cut.Find(".evcal-pop").TextContent);
+        Assert.Empty(cut.FindAll(".evcal-pop"));
 
         await cut.InvokeAsync(() => cut.Find(".evcal-bar").Click());
 
-        Assert.NotEmpty(cut.FindAll(".evcal-anchor-open"));
+        Assert.Single(cut.FindAll(".evcal-anchor-open"));
+        Assert.Contains("Edible", cut.Find(".evcal-pop-pinned").TextContent);
         Assert.Empty(cut.FindAll(".evcal-detail"));
     }
 

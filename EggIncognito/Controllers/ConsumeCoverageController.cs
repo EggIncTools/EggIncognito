@@ -9,7 +9,7 @@ namespace EggIncognito.Controllers;
 
 [ApiController]
 [Route("api/admin/consume-coverage")]
-[ApiAccess(ApiAccessLevel.Admin)]
+[ApiAccess(ApiAccessLevel.Public)]
 [EnableRateLimiting("write")]
 public sealed class ConsumeCoverageController(ICurrentUser currentUser) : ApiControllerBase {
     [HttpGet]
@@ -19,6 +19,7 @@ public sealed class ConsumeCoverageController(ICurrentUser currentUser) : ApiCon
         await svc.MapAsync(ct) is { } map ? Ok(map) : Fail(503, "artifact-catalog document missing");
 
     [HttpPut("targets")]
+    [ApiAccess(ApiAccessLevel.Admin)]
     [RequiresDb]
     public async Task<IActionResult> Put([FromBody] CoverageTargetRequest body,
         [FromServices] ConsumeCoverageService svc, CancellationToken ct) {
@@ -29,6 +30,7 @@ public sealed class ConsumeCoverageController(ICurrentUser currentUser) : ApiCon
     }
 
     [HttpDelete("targets/{id:long}")]
+    [ApiAccess(ApiAccessLevel.Admin)]
     [RequiresDb]
     public async Task<IActionResult> Delete(long id, [FromServices] ConsumeCoverageService svc,
         CancellationToken ct) =>

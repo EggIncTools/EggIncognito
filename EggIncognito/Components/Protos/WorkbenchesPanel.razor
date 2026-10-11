@@ -1,4 +1,10 @@
+@using System.Text.Json
+@using EggIncognito.GameData
+@using EggIncognito.Models.Coverage
 @using EggIncognito.Models.Periodicals
+@using EggIncognito.Services.Coverage
+@inject IServiceScopeFactory Scopes
+@inject ILogger<WorkbenchesPanel> Logger
 <section class="panel pd-w-workbench">
     <PanelHead Title="Workbenches">
         <Tools>
@@ -7,38 +13,19 @@
         </Tools>
     </PanelHead>
     @if (Summary is { } s) {
-        var sets = s.Extracted.Where(x => x.Count > 0).OrderByDescending(x => x.Count).ToList();
-        var total = sets.Sum(x => x.Count);
-        <div class="wbx-row">
-            <span class="wbx-k">Extracted</span>
-            @if (ExtractVersion(s) is { Length: > 0 } bin) {
-                <VersionLine App="@bin"/>
-            }
-            <span class="wbx-n">@total rows</span>
-        </div>
-        @if (sets.Count > 0) {
-            <div class="wbx-stack" role="img" aria-label="@string.Join(", ", sets.Select(x => $"{x.Key} {x.Count}"))">
-                @for (var i = 0; i < sets.Count; i++) {
-                    <span class="wbx-seg wbx-seg-@(i % 4)" style="flex-grow: @sets[i].Count"></span>
-                }
-            </div>
-            <div class="wbx-legend">
-                @for (var i = 0; i < sets.Count; i++) {
-                    <span class="wbx-leg"><span class="wbx-dot wbx-seg-@(i % 4)"></span>@sets[i].Key <span class="wbx-n">@sets[i].Count</span></span>
-                }
-            </div>
-        }
-
-        <div class="wbx-row wbx-row-gap">
+        <div class="wbx-row wbx-row-top">
             <span class="wbx-k">Feeds</span>
-            @foreach (var f in s.Feeds) {
-                <span class="wbx-feed @(f.Present ? "wbx-feed-ok" : "wbx-feed-missing")">
-                    <span class="wbx-dot"></span>@f.Name
-                    @if (f.UpdatedAt is { } at) {
-                        <TimeAgo At="@at" Class="time-ago"/>
-                    }
-                </span>
-            }
+            <div class="wbx-feeds">
+                @foreach (var f in s.Feeds) {
+                    <button type="button" class="wbx-feed wbx-feed-link @(f.Present ? "wbx-feed-ok" : "wbx-feed-missing")" @key="f.Name"
+                            @onclick="@(() => OnOpenFeed.InvokeAsync(f.Name))">
+                        <span class="wbx-dot"></span><span class="wbx-feed-name">@f.Name</span>
+                        @if (f.UpdatedAt is { } at) {
+                            <TimeAgo At="@at" Class="time-ago"/>
+                        }
+                    </button>
+                }
+            </div>
         </div>
 
         @if (s.Config.Platforms.Count > 0) {
@@ -53,6 +40,19 @@
             </div>
         }
     }
+    @if (_coverage is { } m) {
+        <div class="wbx-row wbx-row-gap">
+            <span class="wbx-k">Coverage</span>
+            <button type="button" class="wbx-feed wbx-feed-link wbx-cov" @onclick="@(() => OnOpenCoverage.InvokeAsync())">
+                <span class="wbx-feed-name mono" style="@PctStyle(m.Validity)">@Pct(m.Validity)</span>
+                <span class="wbx-n"><Icon Name="layout-grid" Class="icon-sm"/>@m.CellsComplete/@m.CellsInScope</span>
+                <span class="wbx-n"><Icon Name="database" Class="icon-sm"/>@Compact(m.Observations)</span>
+            </button>
+        </div>
+        <div class="wbx-covbar" role="img" aria-label="@($"{Pct(m.Validity)} valid")">
+            <span class="wbx-covfill" style="@PctStyle(m.Validity)"></span>
+        </div>
+    }
 </section>
 
 @code {
@@ -62,8 +62,30 @@
 
     [Parameter] public EventCallback OnOpenApiWorkbench { get; set; }
 
-    static string? ExtractVersion(PeriodicalsSummary s) {
-        return s.Extracted.Select(x => x.BinaryVersion).FirstOrDefault(v => !string.IsNullOrEmpty(v));
+    [Parameter] public EventCallback<string> OnOpenFeed { get; set; }
+
+    [Parameter] public EventCallback OnOpenCoverage { get; set; }
+
+    ConsumeCoverageMap? _coverage;
+
+    protected override async Task OnInitializedAsync() {
+        using var scope = Scopes.CreateScope();
+        if (scope.ServiceProvider.GetService<ConsumeCoverageService>() is not { } svc) return;
+        try {
+            _coverage = await svc.MapAsync(CancellationToken.None);
+        } catch (Exception ex) when (ex is JsonException or InvalidOperationException or GameDataSchemaException) {
+            Logger.LogDebug(ex, "consume coverage summary could not be built");
+        }
     }
+
+    static string Pct(double v) => FormattableString.Invariant($"{v * 100:0.#}%");
+
+    static string PctStyle(double v) => FormattableString.Invariant($"--p:{Math.Clamp(v, 0, 1):0.###};");
+
+    static string Compact(long n) => n switch {
+        >= 1_000_000 => FormattableString.Invariant($"{n / 1_000_000d:0.#}M"),
+        >= 1_000 => FormattableString.Invariant($"{n / 1_000d:0.#}k"),
+        _ => n.ToString(System.Globalization.CultureInfo.InvariantCulture)
+    };
 
 }

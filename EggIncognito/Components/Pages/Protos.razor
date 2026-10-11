@@ -144,6 +144,8 @@
         <div class="pd-mod pd-side pd-mobile-order-2">
             <PeriodicalsPanel OnManageDevices="OpenDeviceWorkbench" OnOpenNotifications="OpenNotifications"
                               OnOpenApiWorkbench="OpenApiWorkbench" OnOpenCapture="OpenCaptureWorkbench"
+                              OnOpenFeed="@(f => _apiWorkbench?.OpenFeed(f) ?? Task.CompletedTask)"
+                              OnOpenCoverage="@(() => _apiWorkbench?.OpenCoverage() ?? Task.CompletedTask)"
                               OnOpenEvents="OpenEvents" OnOpenContracts="OpenContracts" OnOpenSupport="OpenSupport"/>
         </div>
     </div>
@@ -488,7 +490,7 @@
             Logger.LogDebug(ex, "proto drop zone not wired, the circuit is already gone");
         }
 
-        _routeSync = new PathRouteSync(Nav, "/protos");
+        _routeSync = new PathRouteSync(Nav, JS, "/protos");
         _routeSync.Changed += () => InvokeAsync(() => {
             ApplyPath();
             StateHasChanged();

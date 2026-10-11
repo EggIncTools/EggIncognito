@@ -61,7 +61,6 @@ public sealed class EventsController : ApiControllerBase {
 
     [HttpGet("predictions")]
     [EnableRateLimiting("read")]
-    [ApiAccess(ApiAccessLevel.Admin)]
     [Requires<EventPredictor>("no database configured")]
     public async Task<IActionResult> Predictions(
         [FromServices] EventPredictor predictor,

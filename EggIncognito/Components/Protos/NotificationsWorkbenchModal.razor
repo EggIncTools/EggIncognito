@@ -2,6 +2,7 @@
 @inherits SelfCallComponentBase
 @inject ICurrentUser User
 @inject NavigationManager Nav
+@inject IJSRuntime JS
 @inject NotificationsWorkbenchState State
 @inject ToastService Toasts
 @inject ILogger<NotificationsWorkbenchModal> Logger
@@ -513,7 +514,7 @@
 
     protected override async Task OnAfterRenderAsync(bool firstRender) {
         if (!firstRender || AdminScope) return;
-        _hash = new PathRouteSync(Nav, "");
+        _hash = new PathRouteSync(Nav, JS, "");
         _hash.Changed += () => _ = InvokeAsync(() => ApplyHash(_hash.Fragment));
         _hash.Start();
         await ApplyHash(_hash.Fragment);
