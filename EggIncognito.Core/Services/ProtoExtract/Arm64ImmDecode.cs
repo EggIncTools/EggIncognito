@@ -44,14 +44,18 @@ public sealed class Arm64Image(byte[] bin, IBinaryImage img) {
 
     private const int PageRefWindow = 8;
 
-    public bool TryPageRef(ulong adrpVa, out ulong target) {
+    public bool TryPageRef(ulong adrpVa, out ulong target) => TryPageRef(adrpVa, out target, out _);
+
+    public bool TryPageRef(ulong adrpVa, out ulong target, out int loadBytes) {
         target = 0;
+        loadBytes = 0;
         if (!TryWord(adrpVa, out uint adrp) || !Arm64Bits.TryAdrp(adrpVa, adrp, out ulong page, out int rd))
             return false;
         for (int i = 1; i <= PageRefWindow; i++) {
             if (!TryWord(adrpVa + (ulong)(4 * i), out uint next)) return false;
             if (Arm64Bits.TryLoadFp(next, out var load) && load.Rn == rd) {
                 target = page + (ulong)load.Offset;
+                loadBytes = load.Bytes;
                 return true;
             }
 
@@ -175,6 +179,7 @@ public static class Arm64Bits {
         for (int i = 0; i < MovkWindow; i++) {
             if (!im.TryWord(cursor, out uint next)) break;
             cursor += 4;
+            if (TryBranch(next, cursor, out _) || TryCondBranch(next, cursor, out _, out _)) break;
             if (!TryMovWide(next, out int nextRd, out _, out var nextKind, out bool sf) || nextRd != rd) continue;
             if (nextKind != MovKind.Movk || sf != is64) break;
             bits = Merge(bits, next);
@@ -183,7 +188,7 @@ public static class Arm64Bits {
         return true;
     }
 
-    private const int MovkWindow = 12;
+    private const int MovkWindow = 16;
 
     public static bool TryFmovImm(Arm64Image im, ulong va, out double value, out bool f64) {
         value = 0d;
@@ -213,6 +218,9 @@ public static class Arm64Bits {
 
     public static bool IsFmovZeroToFp(uint w) =>
         TryFmovGprToFp(w, out _, out int rn, out _) && rn == 31;
+
+    public static bool IsZeroToFp(uint w) =>
+        IsFmovZeroToFp(w) || TryMoviZero(w, out _) || (w & 0xFFFFFFE0) == 0x2F00E400;
 
     public static bool IsFcsel(uint w) => (w & 0xFF200C00) == 0x1E200C00;
 
@@ -283,7 +291,7 @@ public static class Arm64Bits {
 
     public static bool TryMoviZero(uint w, out int rd) {
         rd = (int)(w & 0x1F);
-        return (w & 0xFFFFFFE0) == 0x4F00E400;
+        return (w & 0xFFFFFFE0) is 0x4F00E400 or 0x6F00E400;
     }
 
     public static bool TryAddImm(uint w, out int rd, out int rn, out ulong imm) {

@@ -30,6 +30,7 @@
 
 <main class="page page-wide pd-page">
     <h1 class="sr-only">EggIncognito</h1>
+    <CircuitGuard Name="Page">
 
     <div class="pd-grid">
         <div class="pd-mod pd-identity pd-mobile-order-1">
@@ -78,13 +79,16 @@
             </section>
         </div>
         <div class="pd-mod pd-side pd-mobile-order-2">
-            <PeriodicalsPanel OnManageDevices="OpenDeviceWorkbench" OnOpenNotifications="OpenNotifications"
-                              OnOpenApiWorkbench="OpenApiWorkbench" OnOpenCapture="OpenCaptureWorkbench"
-                              OnOpenFeed="@(f => _apiWorkbench?.OpenFeed(f) ?? Task.CompletedTask)"
-                              OnOpenCoverage="@(() => _apiWorkbench?.OpenCoverage() ?? Task.CompletedTask)"
-                              OnOpenEvents="OpenEvents" OnOpenContracts="OpenContracts" OnOpenSupport="OpenSupport"/>
+            <CircuitGuard Name="Side column">
+                <PeriodicalsPanel OnManageDevices="OpenDeviceWorkbench" OnOpenNotifications="OpenNotifications"
+                                  OnOpenApiWorkbench="OpenApiWorkbench" OnOpenCapture="OpenCaptureWorkbench"
+                                  OnOpenFeed="@(f => _apiWorkbench?.OpenFeed(f) ?? Task.CompletedTask)"
+                                  OnOpenCoverage="@(() => _apiWorkbench?.OpenCoverage() ?? Task.CompletedTask)"
+                                  OnOpenEvents="OpenEvents" OnOpenContracts="OpenContracts" OnOpenSupport="OpenSupport"/>
+            </CircuitGuard>
         </div>
     </div>
+    </CircuitGuard>
 </main>
 
 @code {
@@ -175,13 +179,15 @@
     }
 }
 
-<NotificationsWorkbenchModal @ref="_notificationsModal"/>
-<ProtoWorkbenchModal @ref="_workbench" OnChanged="OnMutated" OnRefChanged="OnWorkbenchRef" OnClosed="OnWorkbenchClosed"/>
-<DeviceWorkbenchModal @ref="_deviceWorkbench" OnChanged="OnMutated"/>
-<ApiWorkbenchModal @ref="_apiWorkbench"/>
-<EventsWorkbenchModal @ref="_eventsModal"/>
-<ContractsWorkbenchModal @ref="_contractsModal"/>
-<AdminWorkbenchModal @ref="_adminWorkbench"/>
+<CircuitGuard Name="Workbench">
+    <NotificationsWorkbenchModal @ref="_notificationsModal"/>
+    <ProtoWorkbenchModal @ref="_workbench" OnChanged="OnMutated" OnRefChanged="OnWorkbenchRef" OnClosed="OnWorkbenchClosed"/>
+    <DeviceWorkbenchModal @ref="_deviceWorkbench" OnChanged="OnMutated"/>
+    <ApiWorkbenchModal @ref="_apiWorkbench"/>
+    <EventsWorkbenchModal @ref="_eventsModal"/>
+    <ContractsWorkbenchModal @ref="_contractsModal"/>
+    <AdminWorkbenchModal @ref="_adminWorkbench"/>
+</CircuitGuard>
 <SupportModal @ref="_supportModal"/>
 <TermsModal @ref="_termsModal"/>
 <PrivacyModal @ref="_privacyModal"/>

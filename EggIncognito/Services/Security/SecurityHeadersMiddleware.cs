@@ -46,7 +46,8 @@ public sealed class SecurityHeadersMiddleware(RequestDelegate next, IConfigurati
         sb.Append("style-src-attr 'unsafe-inline'; ");
         sb.Append("img-src 'self' data: ").Append(GameAssetHost).Append(identityHost).Append("; ");
         sb.Append("connect-src 'self' ws: wss:; ");
-        sb.Append("frame-ancestors 'none'; ");
+        sb.Append("frame-src 'self'; ");
+        sb.Append("frame-ancestors 'self'; ");
         sb.Append("object-src 'none'; ");
         sb.Append("base-uri 'self'");
         return sb.ToString();

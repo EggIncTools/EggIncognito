@@ -244,13 +244,7 @@
         Save();
     }
 
-    void Save() {
-        try {
-            Viewer.Set(PrefKey, JsonSerializer.Serialize(_pinned));
-        } catch (Exception ex) when (ex is InvalidOperationException or JSException or JSDisconnectedException) {
-            Logger.LogDebug(ex, "the pin list {Key} could not be saved", PrefKey);
-        }
-    }
+    void Save() => Viewer.Set(PrefKey, JsonSerializer.Serialize(_pinned));
 
     static string Percent(double value) => (value * 100).ToString("0", System.Globalization.CultureInfo.InvariantCulture) + "%";
 

@@ -1,11 +1,16 @@
 @using EggIdentity.Deploy.AdminUi
 @rendermode @(RenderModes.InteractiveServer)
 @inject IServiceProvider Services
+@inject ILogger<DeployToastStarter> Logger
 
 @code {
 
     protected override void OnInitialized() {
-        Services.GetService<DeployToastBridge>()?.Start();
+        try {
+            Services.GetService<DeployToastBridge>()?.Start();
+        } catch (Exception ex) {
+            Logger.LogError(ex, "the deploy toast bridge could not start");
+        }
     }
 
 }

@@ -38,7 +38,8 @@ public class ThemeDeliveryTests(SharedAppFactory f) {
         Assert.Contains("style-src 'self' 'nonce-", policy);
         Assert.Contains("style-src-attr 'unsafe-inline'", policy);
         Assert.Contains("connect-src 'self' ws: wss:", policy);
-        Assert.Contains("frame-ancestors 'none'", policy);
+        Assert.Contains("frame-src 'self'", policy);
+        Assert.Contains("frame-ancestors 'self'", policy);
         Assert.Contains("base-uri 'self'", policy);
     }
 

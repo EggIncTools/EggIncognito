@@ -3,7 +3,7 @@
 @inject IHttpContextAccessor HttpContextAccessor
 @implements IDisposable
 
-<LiveStyle Css="@Live.Css" Nonce="@Nonce"/>
+<CircuitGuard Name="Live theme"><LiveStyle Css="@Live.Css" Nonce="@Nonce"/></CircuitGuard>
 
 @code {
     [PersistentState] public string? Nonce { get; set; }
