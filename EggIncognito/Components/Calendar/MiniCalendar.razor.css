@@ -24,7 +24,15 @@
 }
 .evcal-scale-day { color: var(--color-fg-soft); font-weight: 600; }
 .evcal-scale-date { font-size: 0.625rem; }
-.evcal-canvas { display: flex; flex-direction: column; flex: 1; min-height: 7rem; border-top: 1px solid var(--color-border); }
+.evcal-canvas {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 7rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.375rem;
+  background-color: var(--color-panel0);
+}
 .evcal-row {
   position: relative;
   flex: var(--row-weight, 1) 1 0;

@@ -38,6 +38,7 @@ public sealed class ThemeResolver(
 
     private static ThemeModel? Shared(string? value) {
         if (string.IsNullOrWhiteSpace(value) || value.Trim() == NoTheme) return null;
+        if (ThemePresets.BySlug(value.Trim()) is { } preset) return preset;
         var (model, _) = ThemeJson.Parse(value);
         return model is null || !ThemePalette.Contrast(model).Passes ? null : model with { Css = "" };
     }

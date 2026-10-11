@@ -122,6 +122,7 @@ public static class AppPipeline {
         app.MapControllers();
         app.MapEggIdentityViewerCookies();
         app.MapEggIdentityDownloads();
+        app.MapEggIdentitySuite();
         if (boot.DbEnabled && !string.IsNullOrWhiteSpace(boot.AdminApiSecret)) {
             var build = BuildInfo.FromAssembly("https://github.com/EggIncTools/EggIncognito");
             app.MapAdminApi(new AdminApiOptions("eggincognito", boot.AdminApiSecret) {

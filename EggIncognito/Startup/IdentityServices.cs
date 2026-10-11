@@ -45,7 +45,10 @@ public static class IdentityServices {
         builder.Services.AddScoped<ViewerClock>();
         builder.Services.AddEggIdentityDownloads();
         builder.Services.AddEggIdentityViewerCookies(o => o.Allow("capture.prefs", TimeSpan.FromDays(365)));
-        builder.Services.AddEggIdentitySuite("incognito", o => o.DefaultTheme = ThemeResolver.NoTheme);
+        builder.Services.AddEggIdentitySuite("incognito", o => {
+            o.DefaultTheme = ThemeResolver.NoTheme;
+            o.Themes = [.. ThemePresets.All.Select(p => p.Slug)];
+        });
         builder.Services.AddScoped<ClipboardInterop>();
     }
 }

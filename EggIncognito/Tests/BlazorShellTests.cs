@@ -28,6 +28,14 @@ public class BlazorShellTests(SharedAppFactory f) {
     }
 
     [Fact]
+    public async Task SuiteAvatarUpload_IsMappedAndRequiresASession() {
+        var c = _f.CreateClient();
+        var form = new MultipartFormDataContent { { new StringContent("t"), "ticket" } };
+        var r = await c.PostAsync("/_suite/avatar", form);
+        Assert.Equal(HttpStatusCode.Unauthorized, r.StatusCode);
+    }
+
+    [Fact]
     public async Task Shell_SpeculatesOtherToolsButNeverItself() {
         var c = _f.CreateClient();
         string html = await c.GetStringAsync("/");
