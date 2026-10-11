@@ -32,8 +32,6 @@
                     <td class="small">
                         @if (d.UpdatedAt is { } updated) {
                             <TimeAgo At="@updated" Class="time-ago"/>
-                        } else if (d.Unbuildable) {
-                            <span class="agd-warn">no extraction pipeline</span>
                         } else {
                             <span class="muted">missing</span>
                         }
@@ -135,13 +133,9 @@
         _data = res.Json<GameDataStatusResponse>();
     }
 
-    static string DocState(GameDataDocRow d) => d.Present ? "ok" : d.Unbuildable ? "warn" : "err";
+    static string DocState(GameDataDocRow d) => d.Present ? "ok" : "err";
 
-    static string StateLabel(string state) => state switch {
-        "ok" => "Stored",
-        "warn" => "No extraction pipeline yet",
-        _ => "Missing"
-    };
+    static string StateLabel(string state) => state == "ok" ? "Stored" : "Missing";
 
     static string SourceTitle(GameDataSourceRow s) =>
         string.Join(" / ", new[] { s.Origin, s.Locator, s.Method }.Where(x => !string.IsNullOrEmpty(x)));

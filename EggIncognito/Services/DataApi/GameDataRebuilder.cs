@@ -29,10 +29,8 @@ public sealed class GameDataRebuilder(
     private string _platform = "";
     private string? _prevBinaryVersion;
 
-    public static readonly IReadOnlyList<string> UnbuildableIds = ["boosts", "artifacts"];
-
     private static readonly string[] BinaryDocIds = [
-        "boost-catalog", "missions", "eggs", "vehicles", "dimensions", "research", "habs",
+        "boost-catalog", "boosts", "missions", "eggs", "vehicles", "dimensions", "research", "habs", "artifacts",
         FarmPlacementCatalog.DocumentId
     ];
 
@@ -61,7 +59,6 @@ public sealed class GameDataRebuilder(
                 results.Add(new RebuildDocResult(id, "current", null, null, $"inputs unchanged ({inputSha[..12]})"));
             await LandColleggtiblesAsync(results, ct);
             await LandArtifactCatalogAsync(results, ct);
-            AppendUnbuildable(results);
             return (results, $"inputs unchanged ({inputSha[..12]})");
         }
 
@@ -87,6 +84,21 @@ public sealed class GameDataRebuilder(
                 return built.File.Boosts.Count == 0
                     ? null
                     : (BoostCatalogBuilder.Serialize(built.File), built.File.Boosts.Count, note);
+            }, ct);
+
+            await LandBestAsync(results, "boosts", candidates, c => {
+                var r = BoostEffectExtractor.ExtractWith(c.Bin, c.Syms, c.Sections);
+                if (!r.Ok || r.Entries.Count == 0) return null;
+                var doc = GameDataDocBuilders.BuildBoosts(r.Entries, c.Version);
+                return (doc.Json, doc.Count, SkipNote(doc.Skipped, "unmapped"));
+            }, ct);
+
+            await LandBestAsync(results, "artifacts", candidates, c => {
+                if (!c.IsElf) return null;
+                var r = ArtifactTableExtractor.ExtractWith(c.Bin, c.Syms);
+                if (!r.Ok) throw new InvalidOperationException(r.Diagnostics);
+                var doc = GameDataDocBuilders.BuildArtifacts(r.Families, c.Version);
+                return (doc.Json, doc.Count, SkipNote(doc.Skipped, "unmapped"));
             }, ct);
 
             await LandBestAsync(results, "missions", candidates, c => {
@@ -149,7 +161,6 @@ public sealed class GameDataRebuilder(
         CheckArtifactDefinitions(results, candidates);
         await LandColleggtiblesAsync(results, ct);
         await LandArtifactCatalogAsync(results, ct);
-        AppendUnbuildable(results);
 
         string? note = candidates.Count == 0
             ? found.Rejected.Count == 0 ? "no extraction binary available" : found.Diagnostics
@@ -225,13 +236,6 @@ public sealed class GameDataRebuilder(
         _binaryVersion.Length > 0
             ? _binaryVersion
             : gameDataStore.Provider?.Colleggtibles.GameVersion ?? "";
-
-    private static void AppendUnbuildable(List<RebuildDocResult> results) {
-        foreach (string id in UnbuildableIds) {
-            results.Add(new RebuildDocResult(id, "unbuildable", null, null,
-                "no extraction pipeline yet; needs a dedicated extraction session"));
-        }
-    }
 
     private EggIncognitoDbContext Db() =>
         dbContext ?? throw new InvalidOperationException("no database configured");

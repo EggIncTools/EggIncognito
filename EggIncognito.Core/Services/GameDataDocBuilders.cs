@@ -149,6 +149,112 @@ public static class GameDataDocBuilders {
         return new DocResult(JsonSerializer.Serialize(doc, CamelJson), rows.Count, skipped);
     }
 
+    private static readonly FrozenDictionary<int, string> GameDimensionTargets = new Dictionary<int, string> {
+        [2] = "Earnings",
+        [3] = "AwayEarnings",
+        [4] = "IHR",
+        [5] = "EggValue",
+        [6] = "EggLayingRate",
+        [7] = "BoostEffectiveness",
+        [8] = "BoostDuration",
+        [9] = "SoulEggCollectionRate",
+        [12] = "SoulEggBonus",
+        [13] = "DroneRewards",
+        [14] = "DroneFrequency",
+        [15] = "GiftRewards",
+        [18] = "ResearchCost",
+        [19] = "VehicleCapacity",
+        [20] = "HoldToHatchRate",
+        [21] = "FarmValue",
+        [22] = "CoopEarnings",
+        [23] = "CoopEggLaying",
+        [24] = "RunningChickenBonusCap",
+        [25] = "HabCapacity",
+        [26] = "ProphecyEggBonus",
+        [27] = "SoulEggs"
+    }.ToFrozenDictionary();
+
+    private const int PercentDimension = 12;
+    private const int CountDimension = 20;
+
+    private static string CombineModeFor(int dimension) =>
+        dimension is PercentDimension or CountDimension ? "Add" : "Mul";
+
+    public static DocResult BuildBoosts(IReadOnlyList<BoostEffectExtractor.BoostEffectEntry> entries,
+        string binaryVersion) {
+        var rows = new List<object>();
+        var skipped = new List<string>();
+        foreach (var e in entries) {
+            if (!GameDimensionTargets.TryGetValue(e.Dimension, out string? target)) {
+                skipped.Add($"{e.Id} (unmapped dimension {e.Dimension})");
+                continue;
+            }
+
+            var meta = new Dictionary<string, object>(StringComparer.Ordinal) {
+                ["kind"] = target,
+                ["durationSeconds"] = (long)e.DurationSeconds,
+                ["multiplier"] = e.Magnitude
+            };
+            rows.Add(new {
+                id = e.Id,
+                target,
+                combineMode = CombineModeFor(e.Dimension),
+                magnitude = e.Magnitude,
+                meta
+            });
+        }
+
+        var doc = new {
+            rows,
+            binaryVersion,
+            provenance = new Dictionary<string, BoostCatalogBuilder.ProvenanceSource>(StringComparer.Ordinal) {
+                ["identity"] = new("binary", "boostmanager"),
+                ["effects"] = new("binary", "boostmanager", "decoded"),
+                ["target"] = new("binary", "GameDimensions::name_str", "manual")
+            }
+        };
+        return new DocResult(JsonSerializer.Serialize(doc, CamelJson), rows.Count, skipped);
+    }
+
+    public static DocResult BuildArtifacts(IReadOnlyList<ArtifactTableExtractor.Family> families,
+        string binaryVersion) {
+        var rows = new List<object>();
+        var skipped = new List<string>();
+        foreach (var f in families.OrderBy(f => f.Order)) {
+            if (!GameDimensionTargets.TryGetValue(f.Dimension, out string? target)) {
+                skipped.Add($"{f.BinaryId} (unmapped dimension {f.Dimension})");
+                continue;
+            }
+
+            foreach (var t in f.Tiers.OrderBy(t => t.Level)) {
+                foreach (var e in t.Effects) {
+                    rows.Add(new {
+                        id = $"{f.BinaryId}_t{t.Level}_r{e.Rarity}",
+                        target,
+                        combineMode = CombineModeFor(f.Dimension),
+                        magnitude = e.Magnitude,
+                        meta = new Dictionary<string, object>(StringComparer.Ordinal) {
+                            ["boost"] = f.BinaryId,
+                            ["tier"] = t.Level,
+                            ["rarity"] = e.Rarity
+                        }
+                    });
+                }
+            }
+        }
+
+        var doc = new {
+            rows,
+            binaryVersion,
+            provenance = new Dictionary<string, BoostCatalogBuilder.ProvenanceSource>(StringComparer.Ordinal) {
+                ["identity"] = new("binary", "artifactdata", "decoded"),
+                ["effects"] = new("binary", "artifactdata", "decoded"),
+                ["target"] = new("binary", "GameDimensions::name_str", "manual")
+            }
+        };
+        return new DocResult(JsonSerializer.Serialize(doc, CamelJson), rows.Count, skipped);
+    }
+
     public static DocResult BuildHabs(IReadOnlyList<HabCatalogExtractor.HabEntry> entries, string binaryVersion) {
         var skipped = entries.Where(e => string.IsNullOrEmpty(e.Name))
             .Select(e => e.Index.ToString(System.Globalization.CultureInfo.InvariantCulture))

@@ -324,6 +324,21 @@ public static class StructInitReader {
         return new Result(true, structs, $"{structs.Count} struct bases, {structs.Sum(s => s.Bytes.Count)} bytes");
     }
 
+    public static StructInit MergeByAbsoluteVa(IReadOnlyList<StructInit> structs) {
+        var origin = structs.MaxBy(x => x.Bytes.Count);
+        var bytes = new Dictionary<long, byte>();
+        var pointers = new Dictionary<long, ulong>();
+        var templates = new Dictionary<long, ulong>();
+        foreach (var s in structs.OrderBy(x => x.BaseVa)) {
+            long rebase = unchecked((long)s.BaseVa - (long)origin.BaseVa);
+            foreach ((long off, byte b) in s.Bytes) bytes[off + rebase] = b;
+            foreach ((long off, ulong p) in s.Pointers) pointers[off + rebase] = p;
+            foreach ((long off, ulong t) in s.Templates) templates[off + rebase] = t;
+        }
+
+        return new StructInit(origin.BaseVa, bytes, pointers, templates);
+    }
+
     public readonly record struct StructInit(
         ulong BaseVa,
         IReadOnlyDictionary<long, byte> Bytes,

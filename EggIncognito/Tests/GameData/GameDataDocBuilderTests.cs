@@ -76,6 +76,49 @@ public class GameDataDocBuilderTests {
     }
 
     [Fact]
+    public void BuildBoosts_MapsDimensions_SkipsUnmapped_AndValidates() {
+        var doc = GameDataDocBuilders.BuildBoosts([
+            new BoostEffectExtractor.BoostEffectEntry("jimbos_blue_v2", "JIMBO'S EXCELLENT BIRD FEED", 2, 1200, 3),
+            new BoostEffectExtractor.BoostEffectEntry("mystery", null, 99, 60, 1)
+        ], "1.35.8");
+
+        GameDataProvider.Validate("boosts", doc.Json);
+        Assert.Equal(1, doc.Count);
+        Assert.Contains("mystery", Assert.Single(doc.Skipped));
+
+        var row = Assert.Single(EffectDataLoader.Parse(doc.Json).Rows);
+        Assert.Equal(EffectTarget.Earnings, row.Target);
+        Assert.Equal(CombineMode.Mul, row.CombineMode);
+        Assert.Equal(3, row.Magnitude);
+        Assert.Equal(1200, row.Meta!["durationSeconds"].GetInt64());
+        Assert.Equal("Earnings", row.Meta["kind"].GetString());
+    }
+
+    [Fact]
+    public void BuildArtifacts_EmitsOneRowPerRarity_AndValidates() {
+        var tier = new ArtifactTableExtractor.Tier(0, "BASIC LUNAR TOTEM", 2, [], [
+            new ArtifactTableExtractor.RarityEffect(0, 2, "{value} {label}"),
+            new ArtifactTableExtractor.RarityEffect(1, 4, "{value} {label}")
+        ]);
+        var doc = GameDataDocBuilders.BuildArtifacts([
+            new ArtifactTableExtractor.Family(0, 0, "lunar_totem", "LUNAR TOTEMS", 0, 3, "", [tier]),
+            new ArtifactTableExtractor.Family(1, 1, "odd_one", "ODD ONES", 0, 99, "", [tier])
+        ], "1.35.8");
+
+        GameDataProvider.Validate("artifacts", doc.Json);
+        Assert.Equal(2, doc.Count);
+        Assert.Contains("odd_one", Assert.Single(doc.Skipped));
+
+        var rows = EffectDataLoader.Parse(doc.Json).Rows;
+        var rare = Assert.Single(rows, r => r.Id == "lunar_totem_t0_r1");
+        Assert.Equal(EffectTarget.AwayEarnings, rare.Target);
+        Assert.Equal(CombineMode.Mul, rare.CombineMode);
+        Assert.Equal(4, rare.Magnitude);
+        Assert.Equal("lunar_totem", rare.Meta!["boost"].GetString());
+        Assert.Equal(1, rare.Meta["rarity"].GetInt32());
+    }
+
+    [Fact]
     public void BuildHabs_EmitsCapacityRows_AndValidates() {
         var doc = GameDataDocBuilders.BuildHabs([
             new HabCatalogExtractor.HabEntry(0, "COOP", 250),

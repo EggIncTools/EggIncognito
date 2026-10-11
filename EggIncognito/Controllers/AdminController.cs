@@ -101,8 +101,7 @@ public sealed partial class AdminController(
             .. GameDataProvider.ImportableIds.Select(id => {
                 var doc = stored.GetValueOrDefault(id);
                 bool hasFamily = families.TryGetValue(id, out var fam);
-                return new GameDataDocRow(id, doc is not null, GameDataRebuilder.UnbuildableIds.Contains(id),
-                    doc?.UpdatedAt, doc?.Bytes,
+                return new GameDataDocRow(id, doc is not null, doc?.UpdatedAt, doc?.Bytes,
                     hasFamily && fam.Count > 0 ? fam.Count : null, hasFamily ? fam.Version : null,
                     hasFamily ? fam.Sources : []);
             })

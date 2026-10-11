@@ -40,7 +40,7 @@ public static class VehicleCatalogExtractor {
         StructInitReader.Result scan, long stride, long lengthOff) {
         if (scan.Structs.Count == 0) return new Result(false, [], "no struct bases");
 
-        var s = MergeByAbsoluteVa(scan.Structs);
+        var s = StructInitReader.MergeByAbsoluteVa(scan.Structs);
         var entries = new List<VehicleEntry>();
         for (int i = 0; ; i++) {
             long slot = i * stride;
@@ -50,21 +50,6 @@ public static class VehicleCatalogExtractor {
         }
 
         return new Result(true, entries, $"{entries.Count} vehicles, {entries.Count(e => e.Name is not null)} named");
-    }
-
-    private static StructInitReader.StructInit MergeByAbsoluteVa(IReadOnlyList<StructInitReader.StructInit> structs) {
-        var origin = structs.MaxBy(x => x.Bytes.Count);
-        var bytes = new Dictionary<long, byte>();
-        var pointers = new Dictionary<long, ulong>();
-        var templates = new Dictionary<long, ulong>();
-        foreach (var s in structs.OrderBy(x => x.BaseVa)) {
-            long rebase = unchecked((long)s.BaseVa - (long)origin.BaseVa);
-            foreach ((long off, byte b) in s.Bytes) bytes[off + rebase] = b;
-            foreach ((long off, ulong p) in s.Pointers) pointers[off + rebase] = p;
-            foreach ((long off, ulong t) in s.Templates) templates[off + rebase] = t;
-        }
-
-        return new StructInitReader.StructInit(origin.BaseVa, bytes, pointers, templates);
     }
 
     private static string? ResolveName(byte[] bin, IReadOnlyList<MachoSections.Section> sections,
