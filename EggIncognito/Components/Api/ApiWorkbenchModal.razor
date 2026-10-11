@@ -395,14 +395,9 @@
 
     static RenderFragment RowTrail(DataSourceRow r) {
         return @<span class="ds-trail">
-                   <span title="@(NeedsKey(r) ? "API key" : "Public")">
+                   <span title="@(NeedsKey(r) ? "Requires an API key" : "Public")">
                        <Icon Name="@(NeedsKey(r) ? "key" : "globe")" Class="icon-sm"/>
                    </span>
-                   @if (NeedsKey(r)) {
-                       <span title="Requires an API key">
-                           <Icon Name="lock" Class="icon-sm"/>
-                       </span>
-                   }
                    @if (r.AcceptsName) {
                        <span title="Takes a name in the URL, no raw GET">
                            <Icon Name="link" Class="icon-sm"/>

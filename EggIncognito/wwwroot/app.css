@@ -544,6 +544,7 @@ body:has(.modal-backdrop) { overflow: hidden; }
 .dwb-card .wb-entry-head { align-items: flex-start; }
 .dwb-card .wb-entry-meta { display: flex; flex-direction: column; gap: 0.125rem; min-width: 0; }
 .dwb-card .wb-main, .awb-card .wb-main { display: flex; flex-direction: column; }
+.awb-card { --wb-rail-w: 13.5rem; }
 
 .account-modal { width: fit-content; min-width: min(28rem, 100%); max-width: 100%; }
 @media (min-width: 40rem) {
