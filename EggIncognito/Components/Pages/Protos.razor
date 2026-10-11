@@ -64,7 +64,13 @@
                         @foreach (var platform in SplitPlatforms) {
                             var subset = _rows.Where(r => string.Equals(r.Platform, platform, StringComparison.OrdinalIgnoreCase)).ToList();
                             if (subset.Count > 0) {
-                                <div class="reg-split-col">@RegistryTable(subset)</div>
+                                <div class="reg-split-col">
+                                    <div class="reg-split-head">
+                                        <PlatformIcon Platform="@platform"/>
+                                        <span>@(platform == "ios" ? "iOS" : "Android")</span>
+                                    </div>
+                                    @RegistryTable(subset, false)
+                                </div>
                             }
                         }
                     </div>
@@ -84,7 +90,7 @@
 @code {
     static readonly string[] SplitPlatforms = ["ios", "android"];
 
-    RenderFragment RegistryTable(List<ProtoRegistryRow> source) {
+    RenderFragment RegistryTable(List<ProtoRegistryRow> source, bool platformIcons = true) {
         var bands = SortedBandsOf(source);
         var layout = ShaLanes.Build(
             bands.Select(b => b.Key).ToList(),
@@ -123,7 +129,9 @@
                                                 @foreach (var m in rel.Members) {
                                                     <a class="reg-build-link" href="@VersionHref(m)" @onclick:stopPropagation="true"
                                                        @onclick:preventDefault="true" @onclick="@(() => OpenVersion(m))">
-                                                        <PlatformIcon Platform="@m.Platform"/>
+                                                        @if (platformIcons) {
+                                                            <PlatformIcon Platform="@m.Platform"/>
+                                                        }
                                                         @if (m.BuildFlag is { } memberFlag) {
                                                             <Tooltip Text="@FlagLabel(memberFlag)" Error="true">
                                                                 <span class="reg-num reg-num-bad">@m.Build</span>
@@ -396,7 +404,7 @@
     string? _hotSha;
 
     static string Gutter(int lanes) {
-        return FormattableString.Invariant($"{lanes * 0.75:0.###}rem");
+        return FormattableString.Invariant($"{lanes * 0.75 + 0.375:0.###}rem");
     }
 
     static string LaneClass(ShaLaneMark mark) {

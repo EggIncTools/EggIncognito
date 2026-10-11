@@ -36,5 +36,5 @@
   color: var(--color-fg-soft);
 }
 .sp-lede { margin: 0; max-width: 22rem; font-size: 0.75rem; line-height: 1.45; color: var(--color-muted); }
-.sp-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: auto; }
-.sp-btn { display: inline-flex; align-items: center; gap: 0.375rem; width: fit-content; }
+.sp-actions { display: grid; grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr)); gap: 0.5rem; margin-top: auto; }
+.sp-btn { display: inline-flex; align-items: center; justify-content: center; gap: 0.375rem; }

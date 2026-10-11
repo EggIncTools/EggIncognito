@@ -61,7 +61,7 @@
                                 <td class="cegg-dim" colspan="@(tierCount + 1)">not yet published</td>
                             } else {
                                 <td class="cegg-dim">
-                                    <span class="cegg-chip"><span class="cegg-chip-unit">@TierUnit(e.TierValues)</span>@TitleCase(e.Dimension)</span>
+                                    <span class="cegg-chip"><span class="cegg-chip-unit">@TierUnit(e.TierValues)</span>@ShortDimension(e.Dimension)</span>
                                 </td>
                                 @for (var t = 0; t < tierCount; t++) {
                                     <td class="mono @TierCellClass(t)">@(t < e.TierValues.Count ? TierMagnitude(e.TierValues[t]) : "")</td>
@@ -538,6 +538,16 @@
         return word.Contains('.', StringComparison.Ordinal)
             ? word
             : char.ToUpperInvariant(word[0]) + word[1..].ToLowerInvariant();
+    }
+
+    static string ShortDimension(string dimension) {
+        var name = TitleCase(dimension);
+        return name switch {
+            "Shipping Capacity" => "Shipping Cap",
+            "Internal Hatchery Rate" => "Hatchery Rate",
+            "Egg Laying Rate" => "Laying Rate",
+            _ => name
+        };
     }
 
     static string EggName(EggRow e) {

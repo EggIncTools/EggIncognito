@@ -17,7 +17,7 @@
     <p class="sp-lede">Supporting covers servers and code-signing, and unlocks higher API limits and hosted capture.</p>
     <div class="sp-actions">
         <button type="button" class="btn-primary sp-btn" @onclick="@(() => OnOpenSupport.InvokeAsync())">
-            <Icon Name="heart" Class="icon-sm"/><span>Support the project</span>
+            <Icon Name="heart" Class="icon-sm"/><span>Support</span>
         </button>
         @if (_canCapture) {
             <button type="button" class="btn-secondary sp-btn" @onclick="@(() => OnOpenCapture.InvokeAsync())">
