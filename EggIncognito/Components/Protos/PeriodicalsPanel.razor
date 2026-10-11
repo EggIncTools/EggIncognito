@@ -34,7 +34,6 @@
                 <table class="data-table cegg-table">
                     <thead>
                     <tr>
-                        <th class="cegg-icon-col" rowspan="2"></th>
                         <th rowspan="2">Name</th>
                         <th rowspan="2">Dimension</th>
                         <th class="cegg-tier-group cegg-tier-first" colspan="@tierCount">Tier</th>
@@ -48,16 +47,18 @@
                     <tbody>
                     @foreach (var e in c.Eggs) {
                         <tr>
-                            <td>
-                                @if (!string.IsNullOrEmpty(e.Icon)) {
-                                    <FallbackImg Class="cegg-icon" Src="@e.Icon" Alt="@e.Identifier">
-                                        <Fallback><span class="cegg-none">-</span></Fallback>
-                                    </FallbackImg>
-                                } else {
-                                    <span class="cegg-none">-</span>
-                                }
+                            <td class="cegg-name">
+                                <span class="cegg-ident">
+                                    @if (!string.IsNullOrEmpty(e.Icon)) {
+                                        <FallbackImg Class="cegg-icon" Src="@e.Icon" Alt="@e.Identifier">
+                                            <Fallback><span class="cegg-none">-</span></Fallback>
+                                        </FallbackImg>
+                                    } else {
+                                        <span class="cegg-none">-</span>
+                                    }
+                                    <span class="cegg-name-text">@EggName(e)</span>
+                                </span>
                             </td>
-                            <td class="cegg-name">@EggName(e)</td>
                             @if (e.TierValues.Count == 0) {
                                 <td class="cegg-dim" colspan="@(tierCount + 1)">not yet published</td>
                             } else {
