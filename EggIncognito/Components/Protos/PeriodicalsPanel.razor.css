@@ -48,7 +48,7 @@
   background-color: var(--color-panel2);
 }
 .cegg-legend-k { font-size: 0.625rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--color-muted); }
-.cegg-legend-chips { display: flex; flex-wrap: wrap; gap: 0.25rem 0.75rem; }
+.cegg-legend-list { margin: 0; padding-left: 1rem; list-style: disc; }
 .cegg-legend-chip { font-size: 0.6875rem; color: var(--color-muted); opacity: 0.55; }
 .cegg-legend-chip.cegg-legend-on { color: var(--color-fg-soft); opacity: 1; }
 .pd-cal-title {
