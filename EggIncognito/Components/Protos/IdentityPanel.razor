@@ -101,7 +101,7 @@
     Timer? _clock;
     AccountModal? _account;
 
-    void OpenProfile() => _account?.Open();
+    Task OpenProfile() => _account?.Open() ?? Task.CompletedTask;
 
     protected override void OnAfterRender(bool firstRender) {
         if (!firstRender || !User.Current.IsAuthenticated) return;

@@ -167,7 +167,6 @@
         _open = true;
         await Suite.LoadAsync();
         _eid = Suite.ActiveEid ?? "";
-        StateHasChanged();
     }
 
     async Task SaveEid() {
