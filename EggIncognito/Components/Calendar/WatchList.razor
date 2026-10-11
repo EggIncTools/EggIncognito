@@ -17,13 +17,14 @@
     </div>
     @if (_open) {
         <div class="watch-pick" @onkeydown="OnKey" @onkeydown:stopPropagation="true">
-            <div class="watch-pick-bar">
-                <FilterInput Class="watch-pick-query" Placeholder="@AddLabel" AriaLabel="@AddLabel"
+            <div class="watch-pick-row">
+                <span class="watch-pick-k">Find</span>
+                <FilterInput Class="watch-pick-query" Placeholder="@Placeholder" AriaLabel="@AddLabel"
                              Value="@_query" ValueChanged="OnQuery" autofocus="true"
                              role="combobox" aria-autocomplete="list" aria-expanded="true"/>
                 @if (HasUltra) {
-                    <label class="watch-pick-ultra">
-                        <input type="checkbox" checked="@_ultra" @onchange="OnUltra"/>
+                    <label class="watch-pick-toggle">
+                        <input type="checkbox" class="watch-pick-toggle-input" checked="@_ultra" @onchange="OnUltra"/>
                         <span>Ultra</span>
                     </label>
                 }
@@ -34,21 +35,17 @@
                 }
                 @for (var i = 0; i < _shown.Count; i++) {
                     var e = _shown[i];
-                    <button type="button" class="watch-pick-opt @(i == _active ? "watch-pick-on" : "")"
-                            role="option" aria-selected="@(i == _active ? "true" : "false")"
-                            @onmousedown:preventDefault="true" @onclick="() => Pin(e.Key)">
-                        <span class="watch-swatch" style="@e.BarStyle"></span>
+                    <div class="watch-pick-opt @(i == _active ? "watch-pick-on" : "")" style="@e.BarStyle"
+                         role="option" aria-selected="@(i == _active ? "true" : "false")"
+                         @onmousedown:preventDefault="true" @onclick="() => Pin(e.Key)">
                         @if (e.IconUrl is { } icon) {
-                            <FallbackImg Class="watch-icon" Src="@icon" Alt=""/>
+                            <FallbackImg Class="watch-pick-icon" Src="@icon" Alt=""/>
                         }
                         <span class="watch-pick-name">@e.Label</span>
-                        @if (e.Ultra) {
-                            <span class="watch-ultra">ultra</span>
-                        }
                         @if (e.LastStart is { } ls) {
                             <span class="watch-pick-when"><TimeAgo At="@UnixSeconds.ToTime(ls)" Hover="false" Class="time-ago"/></span>
                         }
-                    </button>
+                    </div>
                 }
             </div>
         </div>
@@ -114,6 +111,8 @@
     [Parameter, EditorRequired] public string PrefKey { get; set; } = "";
 
     [Parameter] public string AddLabel { get; set; } = "Pin";
+
+    [Parameter] public string Placeholder { get; set; } = "name...";
 
     [Parameter] public string EmptyNote { get; set; } = "Nothing pinned.";
 

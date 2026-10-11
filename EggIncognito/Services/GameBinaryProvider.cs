@@ -165,7 +165,7 @@ public sealed class GameBinaryProvider(
             rejected.Add("device status store unavailable");
         }
 
-        if (platforms.Count == 0) platforms.Add(DefaultPlatform);
+        if (!platforms.Contains(Platforms.Android, StringComparer.OrdinalIgnoreCase)) platforms.Add(Platforms.Android);
         if (!platforms.Contains(DefaultPlatform, StringComparer.OrdinalIgnoreCase)) platforms.Add(DefaultPlatform);
 
         var candidates = new List<ExtractionCandidate>();
@@ -178,14 +178,14 @@ public sealed class GameBinaryProvider(
         }
 
         candidates.Sort((a, b) => {
-            int cmp = DeviceParsing.CompareVersions(b.Version, a.Version);
-            return cmp != 0 ? cmp : PlatformRank(a.Platform).CompareTo(PlatformRank(b.Platform));
+            int rank = PlatformRank(a.Platform).CompareTo(PlatformRank(b.Platform));
+            return rank != 0 ? rank : DeviceParsing.CompareVersions(b.Version, a.Version);
         });
         return new ExtractionCandidates(candidates, rejected);
     }
 
     private static int PlatformRank(string platform) =>
-        Platforms.Matches(platform, DefaultPlatform) ? 0 : 1;
+        Platforms.Matches(platform, Platforms.Android) ? 0 : 1;
 
     public async Task<IReadOnlyList<VersionStoreStatus>>
         EnsureAllVersionsStoredAsync(CancellationToken ct) {

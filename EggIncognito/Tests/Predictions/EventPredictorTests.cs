@@ -264,15 +264,38 @@ public class EventPredictorTests {
 
         var watch = EventPredictor.Watch(rows, predictions, EventTemplate.AsOf);
 
-        var earnings = Assert.Single(watch, e => e.Key == "earnings-boost:std");
+        var earnings = Assert.Single(watch, e => e.Key == "earnings-boost:std:0");
         Assert.Equal("Earnings Boost", earnings.Label);
         Assert.False(earnings.Ultra);
         Assert.Equal(rows.Where(r => r.Type == "earnings-boost" && !r.Ultra && r.Start < EventTemplate.AsOf).Max(r => r.Start), earnings.LastStart);
         Assert.NotEmpty(earnings.Next);
         Assert.All(earnings.Next, f => Assert.True(f.Start >= EventTemplate.AsOf));
         Assert.Equal(earnings.Next.OrderBy(f => f.Start).Select(f => f.Start), earnings.Next.Select(f => f.Start));
-        Assert.All(watch, e => Assert.Equal(e.Ultra, e.Key.EndsWith(":ultra", StringComparison.Ordinal)));
+        Assert.All(watch, e => Assert.Equal(e.Ultra, e.Key.Contains(":ultra:", StringComparison.Ordinal)));
         Assert.Contains(watch, e => e.Ultra && e.Next.Count > 0);
+    }
+
+    [Fact]
+    public void Watch_SplitsATypeByMagnitudeSeenInTheLastYear_AndSharesForecastsByFrequency() {
+        var rows = TemplateRows().Select(r => r.Type == "prestige-boost"
+            ? r with { Multiplier = NoonEastern.LocalDate(r.Start).DayNumber / 7 % 4 == 0 ? 3 : 2 }
+            : r).ToList();
+
+        var watch = EventPredictor.Watch(rows, EventPredictor.Predict(rows, EventTemplate.AsOf, 28), EventTemplate.AsOf);
+
+        var twoX = Assert.Single(watch, e => e.Key == "prestige-boost:std:2");
+        var threeX = Assert.Single(watch, e => e.Key == "prestige-boost:std:3");
+        Assert.Equal("Prestige Boost 2x", twoX.Label);
+        Assert.Equal("Prestige Boost 3x", threeX.Label);
+        var prestige = rows.Where(r => r.Type == "prestige-boost" && r.Start < EventTemplate.AsOf).ToList();
+        Assert.Equal(prestige.Where(r => r.Multiplier == 2).Max(r => r.Start), twoX.LastStart);
+        Assert.Equal(prestige.Where(r => r.Multiplier == 3).Max(r => r.Start), threeX.LastStart);
+        Assert.Equal(twoX.Next.Select(f => f.Start), threeX.Next.Select(f => f.Start));
+        Assert.All(twoX.Next.Zip(threeX.Next), pair => {
+            Assert.True(pair.First.Confidence > pair.Second.Confidence);
+            Assert.InRange(pair.First.Confidence + pair.Second.Confidence, 0, 1.000001);
+        });
+        Assert.DoesNotContain(watch, e => e.Key.StartsWith("prestige-boost:std:0", StringComparison.Ordinal));
     }
 
     private static int Days(EventPrediction a, EventPrediction b) =>

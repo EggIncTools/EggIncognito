@@ -13,10 +13,11 @@ public static class ResearchCatalogExtractor {
     private const int VtableInvokeSlot = 6;
     private const int NameOffset = 0x00;
     private const int IdOffset = 0x18;
-    private const int TierOffset = 0x50;
-    private const int DescOffset = 0x58;
-    private const int HelpOffset = 0x70;
-    private const int MaxLevelOffset = 0x88;
+
+    private readonly record struct FieldLayout(int Tier, int Desc, int Help, int MaxLevel);
+
+    private static readonly FieldLayout AppleFields = new(0x50, 0x58, 0x70, 0x88);
+    private static readonly FieldLayout NdkFields = new(0x60, 0x68, 0x80, 0x98);
     private static readonly int[] PreferredEffectOffsets = [0xb8, 0xd0];
     private const int SsoCapacity = 0x17;
     private const int LongStringDataDelta = 0x10;
@@ -121,13 +122,14 @@ public static class ResearchCatalogExtractor {
                 continue;
             }
 
+            var fields = img is ElfImage ? NdkFields : AppleFields;
             string? name = ReadStringField(walk, recBase + NameOffset);
-            string? desc = ReadStringField(walk, recBase + DescOffset);
-            string? help = ReadStringField(walk, recBase + HelpOffset);
+            string? desc = ReadStringField(walk, recBase + (ulong)fields.Desc);
+            string? help = ReadStringField(walk, recBase + (ulong)fields.Help);
             if (desc is not null) desc = CleanMarkup(desc);
             if (help is not null) help = CleanMarkup(help);
-            int? maxLevel = ReadIntField(walk, recBase + MaxLevelOffset);
-            int? tier = ReadIntField(walk, recBase + TierOffset);
+            int? maxLevel = ReadIntField(walk, recBase + (ulong)fields.MaxLevel);
+            int? tier = ReadIntField(walk, recBase + (ulong)fields.Tier);
 
             var dec = DecodeEffect(bin, img, walk, recBase, stride, dims);
             if (dec.Parts.Count > 0) decoded++;

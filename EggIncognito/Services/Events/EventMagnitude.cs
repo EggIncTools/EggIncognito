@@ -6,10 +6,12 @@ namespace EggIncognito.Services.Events;
 public static class EventMagnitude {
     public static string Scalar(GameEventDto e) => Lead(e.Message) ?? Describe(e);
 
-    public static string Describe(GameEventDto e) {
-        if (e.Multiplier <= 0) return "";
-        if (e.Multiplier < 1) return Percent(1 - e.Multiplier) + " off";
-        return e.Multiplier.ToString("0.###", CultureInfo.InvariantCulture) + "x";
+    public static string Describe(GameEventDto e) => Describe(e.Multiplier);
+
+    public static string Describe(double multiplier) {
+        if (multiplier <= 0) return "";
+        if (multiplier < 1) return Percent(1 - multiplier) + " off";
+        return multiplier.ToString("0.###", CultureInfo.InvariantCulture) + "x";
     }
 
     private static string Percent(double fraction) =>

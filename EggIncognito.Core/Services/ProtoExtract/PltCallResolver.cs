@@ -8,8 +8,7 @@ public sealed class PltCallResolver(byte[] bin, IBinaryImage img) {
     private Dictionary<ulong, string>? _names;
 
     public string? ImportName(ulong target) {
-        if (img is not ElfImage) return null;
-        _names ??= ElfSections.ReadJumpSlotNames(bin);
+        _names ??= img is ElfImage ? ElfSections.ReadJumpSlotNames(bin) : MachoImports.ReadPointerSlotNames(bin);
         return Stub(target) is { } slot && _names.TryGetValue(slot, out string? name) ? name : null;
     }
 
@@ -23,13 +22,15 @@ public sealed class PltCallResolver(byte[] bin, IBinaryImage img) {
 
     private ulong? Stub(ulong va) {
         var head = Arm64DataTableReader.ListRange(bin, va, va + 16, 4);
-        if (!head.Ok || head.Instructions.Count < 4 || head.Instructions[3].Mnemonic != "br") return null;
+        if (!head.Ok || head.Instructions.Count < 3) return null;
         var i0 = SplitOps(head.Instructions[0].Operands);
         var i1 = SplitOps(head.Instructions[1].Operands);
         if (head.Instructions[0].Mnemonic != "adrp" || i0.Count != 2 || !TryImm(i0[1], out ulong page)) return null;
         if (head.Instructions[1].Mnemonic != "ldr" || i1.Count != 2
                                                   || !TryMem(i1[1], out string reg, out ulong off)
                                                   || reg != i0[0]) return null;
-        return page + off;
+        bool elfStub = head.Instructions.Count >= 4 && head.Instructions[3].Mnemonic == "br";
+        bool machoStub = head.Instructions.Count >= 3 && head.Instructions[2].Mnemonic == "br";
+        return elfStub || machoStub ? page + off : null;
     }
 }

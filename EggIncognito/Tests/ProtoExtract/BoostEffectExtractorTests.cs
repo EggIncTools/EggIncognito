@@ -5,11 +5,11 @@ using EggIncognito.GameData;
 namespace EggIncognito.Tests.ProtoExtract;
 
 public class BoostEffectExtractorTests {
-    private static bool TryLoadMacho(out byte[] bin) {
+    private static bool TryLoadCapture(string file, out byte[] bin) {
         bin = [];
         string? dir = AppContext.BaseDirectory;
         while (dir is not null) {
-            string candidate = Path.Combine(dir, "EggIncognito", "captures", "egginc");
+            string candidate = Path.Combine(dir, "EggIncognito", "captures", file);
             if (File.Exists(candidate)) {
                 bin = File.ReadAllBytes(candidate);
                 return bin.Length > 0;
@@ -21,9 +21,11 @@ public class BoostEffectExtractorTests {
         return false;
     }
 
-    [Fact]
-    public void Extract_DecodesAnchoredRecords_AndBuildsValidDocument() {
-        if (!TryLoadMacho(out byte[] bin)) return;
+    [Theory]
+    [InlineData("egginc-android-1.37.so")]
+    [InlineData("egginc")]
+    public void Extract_DecodesAnchoredRecords_AndBuildsValidDocument(string capture) {
+        if (!TryLoadCapture(capture, out byte[] bin)) return;
 
         var r = BoostEffectExtractor.Extract(bin);
         Assert.True(r.Ok, r.Diagnostics);

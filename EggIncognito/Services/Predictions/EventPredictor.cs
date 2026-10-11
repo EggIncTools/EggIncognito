@@ -33,11 +33,11 @@ public sealed class EventPredictor(EggIncognitoDbContext db, EventDataVersion ve
         return new WatchResponse(at, Watch(rows, Predict(rows, at, horizonDays), at));
     }
 
+    public const int MagnitudeWindowDays = 365;
+
     public static IReadOnlyList<WatchEntry> Watch(
         IReadOnlyList<EventRow> rows, IReadOnlyList<EventPrediction> predictions, double asOf) {
-        var last = rows.Where(r => r.Start < asOf)
-            .GroupBy(r => (r.Type, r.Ultra))
-            .ToDictionary(g => g.Key, g => g.MaxBy(r => r.Start));
+        var past = rows.Where(r => r.Start < asOf).ToList();
         var next = new Dictionary<(string Type, bool Ultra), List<WatchForecast>>();
         foreach (var p in predictions.Where(p => p.PredictedStart >= asOf)) {
             if (p.Type is { } type) {
@@ -51,16 +51,31 @@ public sealed class EventPredictor(EggIncognitoDbContext db, EventDataVersion ve
             }
         }
 
-        return [
-            .. last.Keys.Union(next.Keys)
-                .OrderBy(k => k.Ultra).ThenBy(k => k.Type, StringComparer.Ordinal)
-                .Select(k => new WatchEntry(
-                    $"{k.Type}:{(k.Ultra ? "ultra" : "std")}", EventTypeLabel(k.Type), k.Ultra,
-                    EventPalette.IconUrl(k.Type, k.Ultra), EventPalette.BarStyle(k.Type, k.Ultra),
-                    last.TryGetValue(k, out var row) ? row.Start : null,
-                    last.TryGetValue(k, out row) ? row.End : null,
-                    next.TryGetValue(k, out var list) ? [.. list.OrderBy(f => f.Start)] : []))
-        ];
+        double windowStart = asOf - MagnitudeWindowDays * EventHistory.Day;
+        var entries = new List<WatchEntry>();
+        foreach (var kind in past.Select(r => (r.Type, r.Ultra)).Union(next.Keys).OrderBy(k => k.Ultra).ThenBy(k => k.Type, StringComparer.Ordinal)) {
+            var history = past.Where(r => r.Type == kind.Type && r.Ultra == kind.Ultra).ToList();
+            var recent = history.Where(r => r.Start >= windowStart).ToList();
+            var forecasts = next.TryGetValue(kind, out var list) ? list.OrderBy(f => f.Start).ToList() : [];
+            var magnitudes = recent.Select(r => r.Multiplier).Distinct().OrderBy(m => m).ToList();
+            if (magnitudes.Count == 0) magnitudes = [history.Count > 0 ? history[^1].Multiplier : 0];
+            foreach (var magnitude in magnitudes) {
+                var runs = history.Where(r => r.Multiplier == magnitude).ToList();
+                var lastRun = runs.Count > 0 ? runs.MaxBy(r => r.Start) : (EventRow?)null;
+                double share = magnitudes.Count == 1 || recent.Count == 0
+                    ? 1
+                    : (double)recent.Count(r => r.Multiplier == magnitude) / recent.Count;
+                string scalar = EventMagnitude.Describe(magnitude);
+                entries.Add(new WatchEntry(
+                    FormattableString.Invariant($"{kind.Type}:{(kind.Ultra ? "ultra" : "std")}:{magnitude:0.###}"),
+                    scalar.Length > 0 ? $"{EventTypeLabel(kind.Type)} {scalar}" : EventTypeLabel(kind.Type), kind.Ultra,
+                    EventPalette.IconUrl(kind.Type, kind.Ultra), EventPalette.BarStyle(kind.Type, kind.Ultra),
+                    lastRun?.Start, lastRun?.End,
+                    [.. forecasts.Select(f => f with { Confidence = f.Confidence * share })]));
+            }
+        }
+
+        return entries;
     }
 
     private static void Add<TKey>(Dictionary<TKey, List<WatchForecast>> map, TKey key, WatchForecast forecast)
@@ -79,11 +94,11 @@ public sealed class EventPredictor(EggIncognitoDbContext db, EventDataVersion ve
 
         var rows = await db.GameEvents.AsNoTracking()
             .OrderBy(e => e.StartTime)
-            .Select(e => new { e.EventType, e.Ultra, e.StartTime, e.EndTime })
+            .Select(e => new { e.EventType, e.Ultra, e.StartTime, e.EndTime, e.Multiplier })
             .ToListAsync(ct);
         var value = rows
             .Select(r => new EventRow(
-                r.EventType, r.Ultra, UnixSeconds.FromTime(r.StartTime), UnixSeconds.FromTime(r.EndTime)))
+                r.EventType, r.Ultra, UnixSeconds.FromTime(r.StartTime), UnixSeconds.FromTime(r.EndTime), r.Multiplier))
             .ToList();
         cache.Set(v, value);
         return value;

@@ -2,6 +2,7 @@ namespace EggIncognito.Core.Services.ProtoExtract;
 
 public static class BoostEffectExtractor {
     public const string InitSymbol = BoostCatalogExtractor.InitSymbol;
+    private const string ElfSignature = "jimbos_blue_v2";
     private const long Stride = 0x88;
     private const long DimensionOff = 0x48;
     private const long DurationOff = 0x70;
@@ -21,13 +22,19 @@ public static class BoostEffectExtractor {
 
     public static Result ExtractWith(byte[] bin, IReadOnlyList<MachoSymbols.Symbol> syms,
         IReadOnlyList<MachoSections.Section> sections) {
-        if (BinaryImage.Load(bin) is ElfImage)
-            return new Result(false, [], "boost effect record decode is Mach-O only");
-
         var catalog = BoostCatalogExtractor.ExtractWith(bin, syms, sections);
         if (!catalog.Ok || catalog.Entries.Count == 0) return new Result(false, [], catalog.Diagnostics);
 
-        var scan = StructInitReader.ReadWith(bin, syms, InitSymbol);
+        StructInitReader.Result scan;
+        if (BinaryImage.Load(bin) is ElfImage) {
+            var loc = InitArrayLocator.Create(bin);
+            if (loc is null || !loc.TryLocateByString(ElfSignature, out ulong s, out ulong e))
+                return new Result(false, [], $"boostmanager init not located via '{ElfSignature}' on ELF");
+            scan = StructInitReader.ReadRange(bin, s, e);
+        } else {
+            scan = StructInitReader.ReadWith(bin, syms, InitSymbol);
+        }
+
         if (!scan.Ok) return new Result(false, [], scan.Diagnostics);
         if (scan.Structs.Count == 0) return new Result(false, [], "no struct bases");
 
