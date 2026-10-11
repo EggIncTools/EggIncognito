@@ -13,7 +13,9 @@
 <EggIncognito.Components.Theme.ViewerThemeStyle @rendermode="RenderModes.InteractiveServer"/>
 <DownloadSink @rendermode="RenderModes.InteractiveServer"/>
 <DeployToastStarter/>
-<CookieBanner SessionToken="@SessionToken" PrivacyUrl="/privacy" @rendermode="RenderModes.InteractiveServer"/>
+<div class="egi-consent">
+    <CookieBanner SessionToken="@SessionToken" PrivacyUrl="/privacy" @rendermode="RenderModes.InteractiveServer"/>
+</div>
 <footer id="siteFooter" class="site-footer">
     <div class="site-footer-inner">
         <p class="site-footer-disclaimer">

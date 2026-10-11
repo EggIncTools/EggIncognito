@@ -6,6 +6,46 @@
   padding: 0.625rem 0.75rem;
   --suite-font-size: 0.8125rem;
   --suite-wordmark-text: inline;
+  --suite-wordmark-color: var(--color-fg);
+  --suite-wordmark-dot-color: var(--color-info);
+  --suite-wordmark-align: center;
+  --suite-inline-bg: transparent;
+  --suite-tool-padding: 0.25rem 0.5rem;
+  --suite-tool-hover-bg: var(--color-panel2);
+  --suite-tool-current-bg: color-mix(in oklab, var(--color-accent) 12%, transparent);
+  --suite-tool-hover-color: var(--color-fg);
+  --suite-soon-padding: 0.3125rem 0.625rem;
+  --suite-soon-color: var(--color-muted);
+  --suite-tip-bg: var(--color-panel2);
+  --suite-tip-color: var(--color-fg);
+  --suite-tip-border: 1px solid var(--color-border-strong);
+  --suite-tip-radius: 0.375rem;
+  --suite-tip-size: 0.75rem;
+  --suite-tip-padding: 0.375rem 0.625rem;
+  --suite-signin-bg: var(--color-panel2);
+  --suite-signin-hover-bg: var(--color-panel2);
+  --suite-signin-color: var(--color-fg);
+  --suite-signin-hover-color: var(--color-fg);
+  --suite-signin-border: 1px solid var(--color-border);
+  --suite-signin-radius: 0.375rem;
+  --suite-signin-padding: 0.25rem 0.75rem;
+  --suite-signin-size: 0.8125rem;
+  --suite-signin-weight: 600;
+  --suite-user-color: var(--color-fg);
+  --suite-panel-fg: var(--color-fg);
+  --suite-panel-bg: var(--color-popover);
+  --suite-panel-border: 1px solid var(--color-border-strong);
+  --suite-panel-radius: 0.5rem;
+  --suite-panel-shadow: 0 8px 24px rgb(0 0 0 / 0.55);
+  --suite-panel-padding: 0.25rem;
+  --suite-item-padding: 0.375rem 0.625rem;
+  --suite-item-hover-bg: var(--color-panel2);
+  --suite-item-hover-fg: var(--color-fg);
+  --suite-item-icon-color: var(--color-fg-soft);
+  --suite-profile-identity-bg: var(--color-panel2);
+  --suite-profile-identity-radius: 0.375rem;
+  --suite-profile-label-color: var(--color-muted);
+  --suite-profile-name-color: var(--color-fg);
 }
 .pd-id-row { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.75rem; }
 .pd-id-row + .pd-id-row { padding-top: 0.5rem; border-top: 1px solid var(--color-border); }
