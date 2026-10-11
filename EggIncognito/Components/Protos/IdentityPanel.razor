@@ -54,6 +54,13 @@
                 </div>
             </dl>
         }
+    </div>
+    <footer id="siteFooter" class="pd-id-row pd-id-foot">
+        <span class="pd-id-foot-note">Unofficial fan tool, not affiliated with Auxbrain Inc.</span>
+        <span class="pd-sep">|</span>
+        <a href="https://github.com/EggIncTools/EggIncognito/blob/main/LICENSE" target="_blank" rel="noopener">MIT</a>
+        <span class="pd-sep">|</span>
+        <span>© 2026 David Cole</span>
         <div class="pd-brand-links">
             <Tooltip Text="Terms">
                 <button type="button" class="pd-brand-link" aria-label="Terms"
@@ -67,12 +74,6 @@
                     <Icon Name="shield"/>
                 </button>
             </Tooltip>
-            <Tooltip Text="Support the project">
-                <button type="button" class="pd-brand-link" aria-label="Support the project"
-                        @onclick="@(() => OnOpenSupport.InvokeAsync())">
-                    <Icon Name="heart"/>
-                </button>
-            </Tooltip>
             <Tooltip Text="EggIncognito on GitHub">
                 <a class="pd-brand-link" href="https://github.com/EggIncTools/EggIncognito" target="_blank"
                    rel="noopener" aria-label="EggIncognito on GitHub">
@@ -80,19 +81,10 @@
                 </a>
             </Tooltip>
         </div>
-    </div>
-    <footer id="siteFooter" class="pd-id-row pd-id-foot">
-        <span>Unofficial fan tool, not affiliated with Auxbrain Inc.</span>
-        <span class="pd-sep">|</span>
-        <a href="https://github.com/EggIncTools/EggIncognito/blob/main/LICENSE" target="_blank" rel="noopener">MIT</a>
-        <span class="pd-sep">|</span>
-        <span>© 2026 David Cole</span>
     </footer>
 </section>
 
 @code {
-    [Parameter] public EventCallback OnOpenSupport { get; set; }
-
     [Parameter] public EventCallback OnOpenTerms { get; set; }
 
     [Parameter] public EventCallback OnOpenPrivacy { get; set; }

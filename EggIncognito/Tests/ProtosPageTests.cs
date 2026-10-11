@@ -99,7 +99,8 @@ public class ProtosPageTests {
 
             Assert.Contains("pd-brand-links", cut.Markup);
             Assert.Contains("aria-label=\"EggIncognito on GitHub\"", cut.Markup);
-            Assert.Contains("aria-label=\"Support the project\"", cut.Markup);
+            Assert.DoesNotContain("aria-label=\"Support the project\"", cut.Markup);
+            Assert.NotNull(cut.Find("#siteFooter .pd-brand-links"));
             Assert.DoesNotContain("gh-bubble", cut.Markup);
             Assert.DoesNotContain("support-bubble", cut.Markup);
         }
