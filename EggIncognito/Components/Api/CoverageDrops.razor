@@ -1,0 +1,141 @@
+@using EggIncognito.Artifacts
+@using EggIncognito.Services.Coverage
+@inject DropStats Stats
+
+<div class="table-scroll cdp">
+    <table class="data-table cdp-table">
+        <thead>
+        <tr>
+            <th>
+                <span class="cdp-head">
+                    <span>Drops</span>
+                    @if (_summary is { } s) {
+                        <span class="cdp-tick" title="Consumes observed"><Icon Name="scroll-text" Class="icon-sm text-muted"/><span class="mono">@s.Observations.ToString("N0")</span></span>
+                    }
+                </span>
+            </th>
+            <th class="cdp-fit">Chance</th>
+            <th class="cdp-fit">Range</th>
+            <th class="tools">
+                <label class="form-check cdp-toggle" title="Show the full count distribution under each drop">
+                    <input type="checkbox" checked="@_detail" @onchange="e => _detail = e.Value is true"/>detail
+                </label>
+            </th>
+        </tr>
+        </thead>
+        <tbody>
+        @if (_summary is null) {
+            <tr>
+                <td colspan="4" class="muted"><Icon Name="loader" Class="icon-sm text-muted"/></td>
+            </tr>
+        } else if (_summary.Rows.Count == 0) {
+            <tr>
+                <td colspan="4" class="muted">No drops recorded for this cell.</td>
+            </tr>
+        } else {
+            @foreach (var row in _summary.Rows) {
+                <tr @key="Key(row)" class="@(_detail ? "cdp-open" : "")">
+                    <td>
+                        <span class="cdp-drop">
+                            <span class="cdp-disc bg-r-@RarityIndex(row.Rarity)">
+                                <img src="@Icon(row)" alt="" loading="lazy"/>
+                            </span>
+                            <span class="rar-@RarityIndex(row.Rarity)">@Label(row)</span>
+                        </span>
+                    </td>
+                    <td class="mono cdp-nowrap">@Pct(row.Share)</td>
+                    <td class="mono cdp-nowrap">
+                        @if (row.Min == row.Max) {
+                            @row.Min
+                        } else {
+                            <span>@row.Min<span class="muted"> - </span>@row.Max</span>
+                        }
+                    </td>
+                    <td></td>
+                </tr>
+                @if (_detail) {
+                    <tr @key="@(Key(row) + "|bar")">
+                        <td colspan="4" class="cdp-bar-cell">
+                            <span class="cdp-dist" style="@FormattableString.Invariant($"min-width:{row.Buckets.Count * 2.0625:0.##}rem")">
+                                @foreach (var b in row.Buckets) {
+                                    <span class="cdp-seg" style="@Seg(b)">
+                                    <Tooltip PopClass="tt-ctl">
+                                        <ChildContent>
+                                            <span class="mono cdp-seg-text">@b.Count</span>
+                                        </ChildContent>
+                                        <Content>
+                                            <span class="tt-title">@(b.Count == 0 ? "none" : b.Count.ToString()) @(b.Count == 1 ? "drop" : "drops")</span>
+                                            <span class="tt-line">@Pct(b.Share) of consumes</span>
+                                            <span class="tt-line">@b.Observations of @_summary.Observations</span>
+                                        </Content>
+                                    </Tooltip>
+                                    </span>
+                                }
+                            </span>
+                        </td>
+                    </tr>
+                }
+            }
+        }
+        </tbody>
+    </table>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string Family { get; set; } = "";
+
+    [Parameter, EditorRequired] public string Level { get; set; } = "";
+
+    [Parameter, EditorRequired] public string Rarity { get; set; } = "";
+
+    [Parameter] public int Version { get; set; }
+
+    const string Fragment = "_FRAGMENT";
+
+    static readonly string[] RarityNames = [.. Enum.GetNames<Ei.ArtifactSpec.Types.Rarity>()];
+
+    static readonly string[] LevelNames = [.. Enum.GetNames<Ei.ArtifactSpec.Types.Level>()];
+
+    bool _detail;
+    DropSummary? _summary;
+    string? _loadedKey;
+
+    protected override async Task OnParametersSetAsync() {
+        string key = $"{Family}|{Level}|{Rarity}|{Version}";
+        if (key == _loadedKey) return;
+        bool sameCell = _loadedKey?.StartsWith($"{Family}|{Level}|{Rarity}|", StringComparison.Ordinal) == true;
+        _loadedKey = key;
+        if (!sameCell) _summary = null;
+        _summary = await Stats.ForCellAsync(Family, Level, Rarity, CancellationToken.None);
+    }
+
+    static string Seg(DropBucket b) =>
+        FormattableString.Invariant($"flex:{b.Share:0.####} 1 0;background-color:color-mix(in oklab, var(--color-ok) {b.Share * 100:0}%, var(--color-err))");
+
+    static string Key(DropRow r) => $"{r.Name}|{r.Level}|{r.Rarity}";
+
+    static int RarityIndex(string rarity) => Math.Max(0, Array.FindIndex(RarityNames, n => n.Equals(rarity, StringComparison.OrdinalIgnoreCase)));
+
+    static int LevelIndex(string level) => Math.Max(0, Array.FindIndex(LevelNames, n => n.Equals(level, StringComparison.OrdinalIgnoreCase)));
+
+    static string Icon(DropRow r) {
+        if (r.Name.EndsWith(Fragment, StringComparison.Ordinal))
+            return ArtifactAssets.IconPath(r.Name[..^Fragment.Length], 1);
+        bool stone = r.Name.EndsWith("_STONE", StringComparison.Ordinal);
+        return ArtifactAssets.IconPath(ArtifactAssets.KeyFor(r.Name), LevelIndex(r.Level) + 1 + (stone ? 1 : 0));
+    }
+
+    static string Label(DropRow r) {
+        if (r.Name.EndsWith(Fragment, StringComparison.Ordinal))
+            return Title(r.Name[..^Fragment.Length].Replace("_STONE", "")) + " Frag";
+        bool stone = r.Name.EndsWith("_STONE", StringComparison.Ordinal);
+        string name = Title(r.Name);
+        return stone ? $"T{LevelIndex(r.Level) + 2} {name}" : name;
+    }
+
+    static string Title(string s) =>
+        string.Join(' ', s.Replace('_', ' ').Split(' ', StringSplitOptions.RemoveEmptyEntries)
+            .Select(w => char.ToUpperInvariant(w[0]) + w[1..].ToLowerInvariant()));
+
+    static string Pct(double v) => FormattableString.Invariant($"{v * 100:0.#}%");
+}

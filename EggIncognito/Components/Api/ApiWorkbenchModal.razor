@@ -955,7 +955,6 @@
         }
 
         if (State.Kind is ApiSelectionKind.Routes && !State.IsContributor) State.Kind = ApiSelectionKind.Endpoint;
-        if (State.Kind is ApiSelectionKind.Coverage && !State.IsAdmin) ApplyModeDefault(ApiWorkbenchState.ModeData);
     }
 
     Task WriteHash(bool push = false, bool clear = false) {
