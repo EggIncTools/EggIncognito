@@ -8,8 +8,6 @@ using Microsoft.Extensions.DependencyInjection;
 namespace EggIncognito.Tests;
 
 public class LegalPagesTests {
-    private const string Disclaimer = "Unofficial fan tool, not affiliated with Auxbrain Inc.";
-
     [Collection(SharedAppCollection.Name)]
     public class Routes(SharedAppFactory f) {
         private readonly WebApplicationFactory<Program> _factory = f;
@@ -32,15 +30,6 @@ public class LegalPagesTests {
             string html = await res.Content.ReadAsStringAsync();
             Assert.DoesNotContain("prose-legal-title", html);
             Assert.DoesNotContain("prose-legal-section", html);
-        }
-
-        [Fact]
-        public async Task HeaderFooter_CarriesTheShortDisclaimerAndLicense_Once() {
-            using var client = _factory.CreateClient();
-            string html = await client.GetStringAsync("/");
-            Assert.Equal(1, html.Split("id=\"siteFooter\"").Length - 1);
-            Assert.Contains(Disclaimer, html);
-            Assert.Contains("LICENSE", html);
         }
     }
 

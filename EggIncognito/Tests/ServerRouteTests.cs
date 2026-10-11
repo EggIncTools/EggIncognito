@@ -207,8 +207,6 @@ public class ServerRouteTests(SharedAppFactory f) {
         var r = await c.GetAsync("/periodicals");
         Assert.Equal(HttpStatusCode.OK, r.StatusCode);
         string html = await r.Content.ReadAsStringAsync();
-        Assert.Contains("id=\"siteFooter\"", html);
-
         Assert.DoesNotContain(">Periodicals</button>", html);
     }
 }

@@ -105,6 +105,17 @@ public class ProtosPageTests {
         }
 
         [Fact]
+        public void HeaderWidget_EndsWithTheOneLineLegalFooter() {
+            Wire(UserRole.Viewer);
+            var cut = Render<ProtosPage>();
+
+            var footer = cut.Find("#siteFooter");
+            Assert.Contains("Unofficial fan tool, not affiliated with Auxbrain Inc.", footer.TextContent);
+            Assert.Contains("LICENSE", footer.InnerHtml);
+            Assert.Single(cut.FindAll("#siteFooter"));
+        }
+
+        [Fact]
         public void SideColumn_LeadsWithDevicesThenWorkbenches_AndHasNoDataWidget() {
             Wire(UserRole.Viewer);
             var cut = Render<ProtosPage>();

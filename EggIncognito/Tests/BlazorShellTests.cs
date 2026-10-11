@@ -55,11 +55,9 @@ public class BlazorShellTests(SharedAppFactory f) {
     }
 
     [Fact]
-    public async Task Shell_HasNoTopBar_AndCarriesTheLegalFooter() {
+    public async Task Shell_HasNoTopBar() {
         var c = _f.CreateClient();
         string html = await c.GetStringAsync("/");
         Assert.DoesNotContain("app-nav", html);
-        Assert.Contains("id=\"siteFooter\"", html);
-        Assert.Contains("LICENSE", html);
     }
 }
