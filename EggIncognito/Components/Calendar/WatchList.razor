@@ -3,51 +3,56 @@
 @using EggIncognito.Services.Events
 @inherits SelfCallComponentBase
 @inject ViewerCookies Viewer
+@inject IServiceProvider Services
 @inject ILogger<WatchList> Logger
 
 <div class="watch">
     <div class="watch-head">
         <span class="watch-title">Pinned</span>
         @if (_entries is { Count: > 0 }) {
-            <div class="watch-pick">
-                @if (_open) {
-                    <div class="popover-backdrop" @onmousedown="Close" @onwheel="Close"></div>
-                    <div class="watch-pick-field" @onkeydown="OnKey" @onkeydown:stopPropagation="true">
-                        <FilterInput Class="watch-pick-query" Placeholder="@AddLabel" AriaLabel="@AddLabel"
-                                     Value="@_query" ValueChanged="OnQuery" autofocus="true"
-                                     role="combobox" aria-autocomplete="list" aria-expanded="true"/>
-                        <div class="watch-pick-list" role="listbox" aria-label="@AddLabel">
-                            @if (_shown.Count == 0) {
-                                <div class="watch-pick-empty">No matches</div>
-                            }
-                            @for (var i = 0; i < _shown.Count; i++) {
-                                var e = _shown[i];
-                                <button type="button" class="watch-pick-opt @(i == _active ? "watch-pick-on" : "")"
-                                        role="option" aria-selected="@(i == _active ? "true" : "false")"
-                                        @onmousedown:preventDefault="true" @onclick="() => Pin(e.Key)">
-                                    <span class="watch-swatch" style="@e.BarStyle"></span>
-                                    @if (e.IconUrl is { } icon) {
-                                        <FallbackImg Class="watch-icon" Src="@icon" Alt=""/>
-                                    }
-                                    <span class="watch-pick-name">@e.Label</span>
-                                    @if (e.Ultra) {
-                                        <span class="watch-ultra">ultra</span>
-                                    }
-                                    @if (e.LastStart is { } ls) {
-                                        <span class="watch-pick-when"><TimeAgo At="@UnixSeconds.ToTime(ls)" Hover="false" Class="time-ago"/></span>
-                                    }
-                                </button>
-                            }
-                        </div>
-                    </div>
-                } else {
-                    <button type="button" class="btn-mini watch-pick-btn" aria-haspopup="listbox" aria-expanded="false" @onclick="Open">
-                        <Icon Name="plus" Class="icon-sm"/>@AddLabel
+            <button type="button" class="btn-mini watch-pick-btn" aria-expanded="@(_open ? "true" : "false")" @onclick="Toggle">
+                <Icon Name="@(_open ? "x" : "plus")" Class="icon-sm"/>@(_open ? "Done" : AddLabel)
+            </button>
+        }
+    </div>
+    @if (_open) {
+        <div class="watch-pick" @onkeydown="OnKey" @onkeydown:stopPropagation="true">
+            <div class="watch-pick-bar">
+                <FilterInput Class="watch-pick-query" Placeholder="@AddLabel" AriaLabel="@AddLabel"
+                             Value="@_query" ValueChanged="OnQuery" autofocus="true"
+                             role="combobox" aria-autocomplete="list" aria-expanded="true"/>
+                @if (HasUltra) {
+                    <label class="watch-pick-ultra">
+                        <input type="checkbox" checked="@_ultra" @onchange="OnUltra"/>
+                        <span>Ultra</span>
+                    </label>
+                }
+            </div>
+            <div class="watch-pick-list" role="listbox" aria-label="@AddLabel">
+                @if (_shown.Count == 0) {
+                    <div class="watch-pick-empty">No matches</div>
+                }
+                @for (var i = 0; i < _shown.Count; i++) {
+                    var e = _shown[i];
+                    <button type="button" class="watch-pick-opt @(i == _active ? "watch-pick-on" : "")"
+                            role="option" aria-selected="@(i == _active ? "true" : "false")"
+                            @onmousedown:preventDefault="true" @onclick="() => Pin(e.Key)">
+                        <span class="watch-swatch" style="@e.BarStyle"></span>
+                        @if (e.IconUrl is { } icon) {
+                            <FallbackImg Class="watch-icon" Src="@icon" Alt=""/>
+                        }
+                        <span class="watch-pick-name">@e.Label</span>
+                        @if (e.Ultra) {
+                            <span class="watch-ultra">ultra</span>
+                        }
+                        @if (e.LastStart is { } ls) {
+                            <span class="watch-pick-when"><TimeAgo At="@UnixSeconds.ToTime(ls)" Hover="false" Class="time-ago"/></span>
+                        }
                     </button>
                 }
             </div>
-        }
-    </div>
+        </div>
+    }
     @if (_note.Length > 0) {
         <div class="watch-note">@_note</div>
     } else if (Pinned.Count == 0) {
@@ -86,7 +91,7 @@
                                 <span class="watch-next">
                                     @foreach (var f in e.Next.Take(MaxNext)) {
                                         <span class="watch-forecast">
-                                            <TimeAgo At="@UnixSeconds.ToTime(f.Start)" Class="time-ago"/>
+                                            <Tooltip Text="@Absolute(f.Start)"><span class="time-ago">@Countdown(f.Start)</span></Tooltip>
                                             <span class="watch-conf" style="@PctStyle(f.Confidence)">@Percent(f.Confidence)</span>
                                         </span>
                                     }
@@ -117,9 +122,12 @@
     string _note = "";
     bool _prefsLoaded;
     bool _open;
+    bool _ultra;
     string _query = "";
     int _active = -1;
     List<WatchEntry> _shown = [];
+
+    bool HasUltra => _entries?.Any(e => e.Ultra) == true && _entries.Any(e => !e.Ultra);
 
     List<WatchEntry> Pinned =>
         _entries is null ? [] : [.. _pinned.Select(k => _entries.FirstOrDefault(e => e.Key == k)).OfType<WatchEntry>()];
@@ -161,7 +169,12 @@
         }
     }
 
-    void Open() {
+    void Toggle() {
+        if (_open) {
+            Close();
+            return;
+        }
+
         _open = true;
         _query = "";
         Rebuild();
@@ -178,11 +191,17 @@
         Rebuild();
     }
 
+    void OnUltra(ChangeEventArgs e) {
+        _ultra = e.Value is true;
+        Rebuild();
+    }
+
     void Rebuild() {
         var q = _query.Trim();
         _shown = [
             .. (_entries ?? [])
                 .Where(e => !_pinned.Contains(e.Key))
+                .Where(e => !HasUltra || e.Ultra == _ultra)
                 .Where(e => q.Length == 0 || e.Label.Contains(q, StringComparison.OrdinalIgnoreCase) || e.Key.Contains(q, StringComparison.OrdinalIgnoreCase))
         ];
         _active = _shown.Count == 0 ? -1 : 0;
@@ -208,9 +227,18 @@
 
     void Pin(string key) {
         if (!_pinned.Contains(key)) _pinned = [.. _pinned, key];
-        Close();
+        Rebuild();
         Save();
     }
+
+    string Countdown(double unix) {
+        var at = UnixSeconds.ToTime(unix);
+        var now = DateTimeOffset.UtcNow;
+        return at <= now ? "now" : "in " + EventCountdown.Span(at - now);
+    }
+
+    string Absolute(double unix) =>
+        ViewerClock.At(Services, UnixSeconds.ToTime(unix)).ToString("dddd d MMMM yyyy 'at' HH:mm zzz", System.Globalization.CultureInfo.InvariantCulture);
 
     void Unpin(string key) {
         _pinned = [.. _pinned.Where(k => k != key)];

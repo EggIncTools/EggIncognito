@@ -244,26 +244,27 @@ public class ContractPredictorTests {
                 Assert.Contains("queue position", f.Rule);
             });
         });
-        var slots = model.Slots(ContractTemplate.AsOf, ContractPredictor.WatchHorizonSlots, AsOf);
-        var wednesday = slots.First(s => s.Kind == ContractSlotKind.Leggacy);
-        var head = watch.Single(e => e.Key == wednesday.Candidates[0].ContractId);
-        var second = watch.Single(e => e.Key == wednesday.Candidates[1].ContractId);
-        Assert.True(head.Next.First(f => f.Start == wednesday.SlotTime).Confidence
-                    > second.Next.First(f => f.Start == wednesday.SlotTime).Confidence);
-        Assert.DoesNotContain(watch, e => e.Next.Count > 1 && e.Next.All(f => f.Confidence >= 1));
+        var queue = model.Pools[ContractSlotKind.Leggacy].Candidates;
+        var head = watch.Single(e => e.Key == queue[0].ContractId);
+        var second = watch.Single(e => e.Key == queue[1].ContractId);
+        Assert.Equal(DayOfWeek.Wednesday, Local(Assert.Single(head.Next).Start).DayOfWeek);
+        Assert.Equal(7 * 86400d, Assert.Single(second.Next).Start - Assert.Single(head.Next).Start);
+        Assert.True(head.Next[0].Confidence >= second.Next[0].Confidence);
+        Assert.Equal(1d, head.Next[0].Confidence, 6);
+        Assert.All(watch, e => Assert.Single(e.Next));
+        Assert.All(watch.GroupBy(e => e.Next[0].Start), g => Assert.Equal(g.Count(), g.Select(e => e.Next[0].Rule).Distinct().Count()));
     }
 
     [Theory]
-    [InlineData(10, 9, 10, 0, 5, 0.9)]
-    [InlineData(10, 9, 10, 1, 5, 0.025)]
-    [InlineData(10, 1, 9, 0, 5, 0.1)]
-    [InlineData(10, 1, 9, 2, 5, 0.2)]
-    [InlineData(0, 0, 0, 0, 4, 0.25)]
-    public void RankConfidence_SplitsMeasuredTop1AndTop5RatesAcrossTheQueue(
-        int slotHit, int top1, int top5, int rank, int shown, double expected) {
+    [InlineData(10, 9, 10, 0, 0.9)]
+    [InlineData(10, 9, 10, 1, 0.81)]
+    [InlineData(10, 0, 5, 0, 0.1)]
+    [InlineData(0, 0, 0, 0, 0)]
+    public void QueueConfidence_DecaysTheMeasuredTop1RateByQueuePosition(
+        int slotHit, int top1, int top5, int position, double expected) {
         var rate = new ContractBacktestKindResult(ContractSlotKind.Leggacy, slotHit, slotHit, top1, top5);
 
-        Assert.Equal(expected, ContractPredictor.RankConfidence(rate, rank, shown), 6);
+        Assert.Equal(expected, ContractPredictor.QueueConfidence(rate, position), 6);
     }
 
     private static ContractReleaseSample Leggacy(string id, double start) =>

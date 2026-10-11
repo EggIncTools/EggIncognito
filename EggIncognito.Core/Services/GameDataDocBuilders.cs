@@ -81,6 +81,7 @@ public static class GameDataDocBuilders {
         ["vehicleCapacityMult"] = "VehicleCapacity",
         ["vehicleCapacityMultHover"] = "HoverVehicleCapacity",
         ["vehicleLoadingTimeMult"] = "VehicleLoadingTime",
+        ["vehicleRoundTripTimeMult"] = "VehicleRoundTripTime",
         ["maxFleetSize"] = "FleetSize",
         ["hyperloopCarCapacityMult"] = "HyperloopCarCapacity",
         ["hyperloopMaxTrainLength"] = "HyperloopTrainLength",
@@ -113,27 +114,37 @@ public static class GameDataDocBuilders {
         var rows = new List<object>();
         var skipped = new List<string>();
         foreach (var e in entries) {
-            if (e.Dimension is null || e.CombineMode is null || e.Magnitude is null ||
-                !ResearchDimensionTargets.TryGetValue(e.Dimension, out string? target)) {
-                skipped.Add($"{e.Id} ({e.DecodeNote ?? "unmapped dimension " + e.Dimension})");
+            if (e.Parts.Count == 0) {
+                skipped.Add($"{e.Id} ({e.DecodeNote ?? "undecoded"})");
                 continue;
             }
 
-            var meta = new Dictionary<string, object>(StringComparer.Ordinal) { ["epic"] = e.Epic };
-            if (e.Name is not null) meta["name"] = e.Name;
-            if (e.Description is not null) meta["description"] = e.Description;
-            if (e.Help is not null) meta["help"] = e.Help;
-            meta["dimension"] = e.Dimension;
-            if (e.Tier is not null) meta["tier"] = e.Tier.Value;
+            string? unmapped = e.Parts.Select(p => p.Dimension)
+                .FirstOrDefault(d => !ResearchDimensionTargets.ContainsKey(d));
+            if (unmapped is not null) {
+                skipped.Add($"{e.Id} (unmapped dimension {unmapped})");
+                continue;
+            }
 
-            rows.Add(new {
-                id = e.Id,
-                target,
-                combineMode = e.CombineMode.Value.ToString(),
-                magnitude = e.Magnitude.Value,
-                maxLevel = e.MaxLevel,
-                meta
-            });
+            for (int k = 0; k < e.Parts.Count; k++) {
+                var p = e.Parts[k];
+                var meta = new Dictionary<string, object>(StringComparer.Ordinal) { ["epic"] = e.Epic };
+                if (e.Name is not null) meta["name"] = e.Name;
+                if (e.Description is not null) meta["description"] = e.Description;
+                if (e.Help is not null) meta["help"] = e.Help;
+                meta["dimension"] = p.Dimension;
+                if (e.Tier is not null) meta["tier"] = e.Tier.Value;
+                if (e.Parts.Count > 1) meta["research"] = e.Id;
+
+                rows.Add(new {
+                    id = e.Parts.Count > 1 ? $"{e.Id}:{p.Dimension}" : e.Id,
+                    target = ResearchDimensionTargets[p.Dimension],
+                    combineMode = p.CombineMode.ToString(),
+                    magnitude = p.Magnitude,
+                    maxLevel = e.MaxLevel,
+                    meta
+                });
+            }
         }
 
         var doc = new {
@@ -164,6 +175,8 @@ public static class GameDataDocBuilders {
         [13] = "DroneRewards",
         [14] = "DroneFrequency",
         [15] = "GiftRewards",
+        [16] = "GoldGiftChance",
+        [17] = "CurrencyGiftChance",
         [18] = "ResearchCost",
         [19] = "VehicleCapacity",
         [20] = "HoldToHatchRate",
@@ -173,7 +186,8 @@ public static class GameDataDocBuilders {
         [24] = "RunningChickenBonusCap",
         [25] = "HabCapacity",
         [26] = "ProphecyEggBonus",
-        [27] = "SoulEggs"
+        [27] = "SoulEggs",
+        [29] = "EnlightenmentEffect"
     }.ToFrozenDictionary();
 
     private const int PercentDimension = 12;
@@ -223,6 +237,8 @@ public static class GameDataDocBuilders {
         var rows = new List<object>();
         var skipped = new List<string>();
         foreach (var f in families.OrderBy(f => f.Order)) {
+            if ((Ei.ArtifactSpec.Types.Type)f.Kind is Ei.ArtifactSpec.Types.Type.Ingredient
+                or Ei.ArtifactSpec.Types.Type.StoneIngredient) continue;
             if (!GameDimensionTargets.TryGetValue(f.Dimension, out string? target)) {
                 skipped.Add($"{f.BinaryId} (unmapped dimension {f.Dimension})");
                 continue;

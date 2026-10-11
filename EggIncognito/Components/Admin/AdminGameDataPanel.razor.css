@@ -7,6 +7,15 @@
 .agd-dot-ok { background-color: var(--color-ok); }
 .agd-dot-err { background-color: var(--color-err); }
 .agd-sources { display: flex; flex-wrap: wrap; gap: 0.25rem; }
+.agd-note { width: 100%; max-width: 0; }
+.agd-note-text {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
 .agd-src {
   display: inline-flex;
   align-items: center;

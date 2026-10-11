@@ -189,6 +189,49 @@ public static class ElfSections {
         return map;
     }
 
+    public static Dictionary<ulong, string> ReadJumpSlotNames(byte[] bin) {
+        var map = new Dictionary<ulong, string>();
+        if (!IsElf64Le(bin)) return map;
+        try {
+            ulong shoff = U64(bin, 0x28);
+            int shentsize = U16(bin, 0x3A);
+            int shnum = U16(bin, 0x3C);
+            if (shentsize < 64 || shnum <= 0) return map;
+
+            for (int i = 0; i < shnum; i++) {
+                long h = (long)shoff + (long)i * shentsize;
+                if (h < 0 || h + 64 > bin.Length) break;
+                if (U32(bin, (int)h + 0x04) != ShtRela) continue;
+                uint link = U32(bin, (int)h + 0x28);
+                long lh = (long)shoff + (long)link * shentsize;
+                if (link >= (uint)shnum || lh < 0 || lh + 64 > bin.Length) continue;
+                uint strLink = U32(bin, (int)lh + 0x28);
+                long sh = (long)shoff + (long)strLink * shentsize;
+                if (strLink >= (uint)shnum || sh < 0 || sh + 64 > bin.Length) continue;
+
+                long strOff = (long)U64(bin, (int)sh + 0x18);
+                long symOff = (long)U64(bin, (int)lh + 0x18);
+                long symEnt = Math.Max(Elf64SymSize, (long)U64(bin, (int)lh + 0x38));
+                long off = (long)U64(bin, (int)h + 0x18);
+                long sz = (long)U64(bin, (int)h + 0x20);
+                for (long r = off; r + 24 <= off + sz && r + 24 <= bin.Length; r += 24) {
+                    ulong info = U64(bin, (int)r + 8);
+                    if ((uint)(info & 0xFFFFFFFF) != RAarch64JumpSlot) continue;
+                    long e = symOff + (long)(info >> 32) * symEnt;
+                    if (e < 0 || e + Elf64SymSize > bin.Length) continue;
+                    long n = strOff + U32(bin, (int)e);
+                    if (n < 0 || n >= bin.Length) continue;
+                    int end = Array.IndexOf(bin, (byte)0, (int)n);
+                    if (end > n) map[U64(bin, (int)r)] = System.Text.Encoding.ASCII.GetString(bin, (int)n, end - (int)n);
+                }
+            }
+        } catch {
+            return map;
+        }
+
+        return map;
+    }
+
     public static Dictionary<ulong, ulong> ReadJumpSlots(byte[] bin) {
         var map = new Dictionary<ulong, ulong>();
         if (!IsElf64Le(bin)) return map;

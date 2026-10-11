@@ -24,8 +24,12 @@ public static class ResearchCatalogExtractor {
 
     public enum Combine {
         MulPlusOne,
-        Add
+        Add,
+        Pow
     }
+
+    public readonly record struct EffectPart(string Dimension, bool DimensionIsInt, Combine CombineMode,
+        double Magnitude);
 
     public readonly record struct ResearchEntry(
         string Id,
@@ -35,10 +39,7 @@ public static class ResearchCatalogExtractor {
         bool Epic,
         int? MaxLevel,
         int? Tier,
-        string? Dimension,
-        bool DimensionIsInt,
-        Combine? CombineMode,
-        double? Magnitude,
+        IReadOnlyList<EffectPart> Parts,
         string? DecodeNote);
 
     public readonly record struct Result(bool Ok, IReadOnlyList<ResearchEntry> Entries, string Diagnostics);
@@ -129,17 +130,10 @@ public static class ResearchCatalogExtractor {
             int? tier = ReadIntField(walk, recBase + TierOffset);
 
             var dec = DecodeEffect(bin, img, walk, recBase, stride, dims);
-            string? dimension = dec.Dimension;
-            bool dimInt = dec.DimensionIsInt;
-            Combine? combine = dec.CombineMode;
-            double? magnitude = dec.Magnitude;
-            string? note = dec.Note;
-
-            if (dimension is not null && combine is not null && magnitude is not null) decoded++;
+            if (dec.Parts.Count > 0) decoded++;
             else undecoded.Add(id);
 
-            entries.Add(new ResearchEntry(id, name, desc, help, epic, maxLevel, tier, dimension, dimInt, combine,
-                magnitude, note));
+            entries.Add(new ResearchEntry(id, name, desc, help, epic, maxLevel, tier, dec.Parts, dec.Note));
         }
 
         if (missingIds.Count > (commonCount + epicCount) / 4) {
@@ -661,20 +655,17 @@ public static class ResearchCatalogExtractor {
         return sb.ToString();
     }
 
-    private readonly record struct InvokeDecode(
-        string? Dimension,
-        bool DimensionIsInt,
-        Combine? CombineMode,
-        double? Magnitude,
-        string? Note);
+    private readonly record struct InvokeDecode(IReadOnlyList<EffectPart> Parts, string? Note);
+
+    private static InvokeDecode Fail(string note) => new([], note);
 
     private static InvokeDecode DecodeEffect(byte[] bin, IBinaryImage img, InitWalk walk, ulong recBase, int stride,
         Dictionary<int, DimensionField> dims) {
-        InvokeDecode first = new(null, false, null, null, "no effect vtable store in record");
+        InvokeDecode first = Fail("no effect vtable store in record");
         bool haveFirst = false;
         foreach (ulong vt in EffectVtableCandidates(walk, recBase, stride)) {
             var dec = DecodeInvoke(bin, img, vt, dims);
-            if (dec.Dimension is not null && dec.CombineMode is not null && dec.Magnitude is not null) return dec;
+            if (dec.Parts.Count > 0) return dec;
             if (!haveFirst) {
                 first = dec;
                 haveFirst = true;
@@ -721,16 +712,17 @@ public static class ResearchCatalogExtractor {
     private static InvokeDecode DecodeInvoke(byte[] bin, IBinaryImage img,
         ulong vtableVa, Dictionary<int, DimensionField> dims) {
         if (!TryReadU64(bin, img, vtableVa + (ulong)(VtableInvokeSlot * 8), out ulong invokeVa))
-            return new InvokeDecode(null, false, null, null, "vtable slot unreadable");
+            return Fail("vtable slot unreadable");
         if (!img.TryVaToFileOffset(invokeVa, out _, out var owner) || !IsTextSection(owner.Name))
-            return new InvokeDecode(null, false, null, null, $"invoke 0x{invokeVa:x} not in text");
+            return Fail($"invoke 0x{invokeVa:x} not in text");
 
         var lst = Arm64DataTableReader.ListRange(bin, invokeVa, invokeVa + 60 * 4, 60);
         if (!lst.Ok || lst.Instructions.Count == 0)
-            return new InvokeDecode(null, false, null, null, "invoke disasm failed");
+            return Fail("invoke disasm failed");
         if (lst.Instructions[0].Mnemonic == "ret")
-            return new InvokeDecode(null, false, null, null, "no-op effect (bare ret)");
+            return Fail("no-op effect (bare ret)");
 
+        var plt = new PltCallResolver(bin, img);
         var page = new Dictionary<string, ulong>(StringComparer.Ordinal);
         var xImm = new Dictionary<string, long>(StringComparer.Ordinal);
         var lvlInt = new Dictionary<string, double>(StringComparer.Ordinal);
@@ -958,7 +950,7 @@ public static class ResearchCatalogExtractor {
                                 { Kind: SymKind.OnePlus } op2 => new SymVal(SymKind.CurTimesOnePlus, op2.A, 0, cur.Off),
                                 { Kind: SymKind.Const } cv3 => new SymVal(SymKind.CurTimesOnePlus, cv3.A - 1.0, 0,
                                     cur.Off),
-                                { Kind: SymKind.CallOnLevel } => new SymVal(SymKind.CurTimesCall, 0, 0, cur.Off),
+                                { Kind: SymKind.CallOnLevel } call => new SymVal(SymKind.CurTimesCall, call.A, 0, cur.Off),
                                 _ => new SymVal(SymKind.Level, 0)
                             };
                             if (other is not ({ Kind: SymKind.OnePlus } or { Kind: SymKind.Const }
@@ -985,9 +977,18 @@ public static class ResearchCatalogExtractor {
                     }
 
                 case "bl" or "blr": {
-                        bool levelIn = fpv.TryGetValue(0, out var d0) && d0.Kind == SymKind.Level;
+                        string? import = i.Mnemonic == "bl" && ops.Count == 1 && TryImm(ops[0], out long tgt)
+                            ? plt.ImportName((ulong)tgt)
+                            : null;
+                        double? powBase = null;
+                        if (fpv.TryGetValue(0, out var d0)) {
+                            if (d0.Kind == SymKind.Level) powBase = OneArgPowBase(import);
+                            else if (d0.Kind == SymKind.Const && import is "pow" &&
+                                     fpv.TryGetValue(1, out var d1) && d1.Kind == SymKind.Level) powBase = d0.A;
+                        }
+
                         fpv.Remove(0);
-                        if (levelIn) fpv[0] = new SymVal(SymKind.CallOnLevel);
+                        if (powBase is { } pb) fpv[0] = new SymVal(SymKind.CallOnLevel, pb);
                         for (int r = 0; r <= 17; r++) {
                             xImm.Remove("x" + r);
                             xImm.Remove("w" + r);
@@ -1024,7 +1025,7 @@ public static class ResearchCatalogExtractor {
                                     effects.Add(new EffectHit(d, true, false, 'm', mv2.A, mv2.B));
                                     break;
                                 case { Kind: SymKind.CurTimesCall } cc2 when cc2.Off == d:
-                                    effects.Add(new EffectHit(d, false, false, 'c', 0, 0));
+                                    effects.Add(new EffectHit(d, false, false, 'p', cc2.A, 0));
                                     break;
                                 default:
                                     anomaly = true;
@@ -1042,48 +1043,40 @@ public static class ResearchCatalogExtractor {
 
     private static InvokeDecode Summarize(List<EffectHit> effects, bool anomaly,
         Dictionary<int, DimensionField> dims, ulong invokeVa) {
-        string DimName(int providerOff) =>
-            dims.TryGetValue(providerOff, out var f) ? f.Name : $"+0x{providerOff:x}";
-
         if (effects.Count == 0) {
-            return new InvokeDecode(null, false, null, null,
-                anomaly ? $"unrecognized effect pattern @0x{invokeVa:x}" : $"no effect store found @0x{invokeVa:x}");
+            return Fail(anomaly
+                ? $"unrecognized effect pattern @0x{invokeVa:x}"
+                : $"no effect store found @0x{invokeVa:x}");
         }
 
-        if (effects.Any(e => e.Kind == 'c')) {
-            var e = effects[0];
-            return new InvokeDecode(null, false, null, null,
-                $"compounding per-level multiplier on {DimName(e.D + ProviderFieldDelta)} via runtime call @0x{invokeVa:x}; not representable as a linear row");
-        }
+        if (anomaly) return Fail($"effect with unrecognized stores @0x{invokeVa:x}");
 
-        if (effects.Count > 1 || effects.Any(e => e.Vec) || anomaly) {
-            var parts = new List<string>();
-            foreach (var e in effects) {
-                if (e.Vec) {
-                    parts.Add(Describe(DimName(e.D + ProviderFieldDelta), e.Kind, e.Lo));
-                    parts.Add(Describe(DimName(e.D + ProviderFieldDelta + 8), e.Kind, e.Hi));
-                } else {
-                    parts.Add(Describe(DimName(e.D + ProviderFieldDelta), e.Kind, e.Lo));
-                }
+        var parts = new List<EffectPart>();
+        foreach (var e in effects) {
+            var combine = e.Kind switch {
+                'm' => Combine.MulPlusOne,
+                'p' => Combine.Pow,
+                _ => Combine.Add
+            };
+            var slots = e.Vec
+                ? new[] { (Off: e.D + ProviderFieldDelta, Mag: e.Lo), (Off: e.D + ProviderFieldDelta + 8, Mag: e.Hi) }
+                : [(Off: e.D + ProviderFieldDelta, Mag: e.Lo)];
+            foreach (var (off, mag) in slots) {
+                if (!dims.TryGetValue(off, out var dim))
+                    return Fail($"provider offset 0x{off:x} unmapped @0x{invokeVa:x}");
+                parts.Add(new EffectPart(dim.Name, dim.IsInt, combine, mag));
             }
-
-            string suffix = anomaly ? "; plus unrecognized stores" : "";
-            return new InvokeDecode(null, false, null, null,
-                $"multi-dimension effect: {string.Join(", ", parts)}{suffix} @0x{invokeVa:x}");
         }
 
-        var only = effects[0];
-        if (!dims.TryGetValue(only.D + ProviderFieldDelta, out var dim)) {
-            return new InvokeDecode(null, false, null, null,
-                $"provider offset 0x{only.D + ProviderFieldDelta:x} unmapped @0x{invokeVa:x}");
-        }
-
-        return new InvokeDecode(dim.Name, dim.IsInt, only.Kind == 'm' ? Combine.MulPlusOne : Combine.Add, only.Lo,
-            null);
+        return new InvokeDecode(parts, null);
     }
 
-    private static string Describe(string dim, char kind, double mag) =>
-        kind == 'm' ? $"{dim} x(1{(mag >= 0 ? "+" : "")}{mag}/level)" : $"{dim} {(mag >= 0 ? "+" : "")}{mag}/level";
+    private static double? OneArgPowBase(string? import) => import switch {
+        "exp2" => 2,
+        "exp10" or "__exp10" => 10,
+        "exp" => Math.E,
+        _ => null
+    };
 
     private static SymVal? FpVal(Dictionary<int, SymVal> fpv, string reg) {
         int n = FpNum(reg);

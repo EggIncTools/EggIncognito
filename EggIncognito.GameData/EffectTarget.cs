@@ -32,6 +32,7 @@ public enum EffectTarget {
     VehicleCapacity,
     HoverVehicleCapacity,
     VehicleLoadingTime,
+    VehicleRoundTripTime,
     FleetSize,
     HyperloopCarCapacity,
     HyperloopTrainLength,
@@ -51,13 +52,17 @@ public enum EffectTarget {
     HoldToResearch,
     AfxMissionCapacity,
     AfxMissionDuration,
+    GoldGiftChance,
+    CurrencyGiftChance,
+    EnlightenmentEffect,
     None
 }
 
 public enum CombineMode {
     Add,
     Mul,
-    MulPlusOne
+    MulPlusOne,
+    Pow
 }
 
 public static class Folding {
@@ -66,7 +71,7 @@ public static class Folding {
         foreach (double c in contributions) {
             value = mode switch {
                 CombineMode.Add => value + c,
-                CombineMode.Mul => value * c,
+                CombineMode.Mul or CombineMode.Pow => value * c,
                 CombineMode.MulPlusOne => value * (1 + c),
                 _ => value
             };

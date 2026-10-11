@@ -49,44 +49,46 @@ public sealed class ContractPredictor(
         return new WatchResponse(now, Watch(samples, ContractModel.Train(samples, now), now));
     }
 
-    internal const int WatchHorizonSlots = 12;
+    internal const int WatchWeeks = 52;
 
     internal static IReadOnlyList<WatchEntry> Watch(
         IReadOnlyList<ContractReleaseSample> samples, ContractModel model, double now) {
         var last = samples.Where(s => s.Start < now).GroupBy(s => s.ContractId)
             .ToDictionary(g => g.Key, g => g.MaxBy(s => s.Start), StringComparer.Ordinal);
         var rates = ContractBacktest.Sweep(samples, now).Totals.ToDictionary(t => t.Kind);
-        var next = new Dictionary<string, List<WatchForecast>>(StringComparer.Ordinal);
-        foreach (var slot in model.Slots(UnixSeconds.ToTime(now), WatchHorizonSlots, now)) {
-            var kindRate = rates[slot.Kind];
-            for (int rank = 0; rank < slot.Candidates.Count; rank++) {
-                var c = slot.Candidates[rank];
-                if (!next.TryGetValue(c.ContractId, out var list)) next[c.ContractId] = list = [];
-                list.Add(new WatchForecast(
-                    slot.SlotTime, slot.SlotTime + slot.LengthSeconds, RankConfidence(kindRate, rank, slot.Candidates.Count),
-                    $"{Label(slot.Kind)}, queue position {rank + 1} of {slot.Candidates.Count}"));
-            }
-        }
+        var upcoming = model.Grid.Next(UnixSeconds.ToTime(now), WatchWeeks * ReleaseGrid.AllKinds.Length)
+            .GroupBy(s => s.Slot.Kind)
+            .ToDictionary(g => g.Key, g => g.Select(s => s.Time).ToList());
 
         var entries = new List<WatchEntry>();
-        foreach (var c in ReleaseGrid.AllKinds.SelectMany(k => model.Pools[k].Candidates)) {
-            if (!last.TryGetValue(c.ContractId, out var row)) continue;
-            entries.Add(new WatchEntry(
-                c.ContractId, c.Name, row.UltraOnly, EggIcons.Url(row.Egg, row.CustomEggId),
-                ContractPalette.BarStyle(row.UltraOnly, row.Leggacy, row.ProphecyEggs),
-                row.Start, row.Start + row.LengthSeconds,
-                next.TryGetValue(c.ContractId, out var list) ? [.. list.OrderBy(f => f.Start)] : []));
+        foreach (var kind in ReleaseGrid.AllKinds) {
+            var pool = model.Pools[kind];
+            var slots = upcoming.GetValueOrDefault(kind) ?? [];
+            for (int position = 0; position < pool.Candidates.Count; position++) {
+                var c = pool.Candidates[position];
+                if (!last.TryGetValue(c.ContractId, out var row)) continue;
+                var next = position < slots.Count
+                    ? new[] {
+                        new WatchForecast(
+                            slots[position], slots[position] + pool.LengthSeconds, QueueConfidence(rates[kind], position),
+                            $"{Label(kind)}, queue position {position + 1} of {pool.Candidates.Count}")
+                    }
+                    : [];
+                entries.Add(new WatchEntry(
+                    c.ContractId, c.Name, row.UltraOnly, EggIcons.Url(row.Egg, row.CustomEggId),
+                    ContractPalette.BarStyle(row.UltraOnly, row.Leggacy, row.ProphecyEggs),
+                    row.Start, row.Start + row.LengthSeconds, next));
+            }
         }
 
         return [.. entries.OrderBy(e => e.Label, StringComparer.OrdinalIgnoreCase)];
     }
 
-    internal static double RankConfidence(ContractBacktestKindResult rate, int rank, int shown) {
-        if (rate.SlotHit == 0) return shown == 0 ? 0 : 1d / shown;
+    internal static double QueueConfidence(ContractBacktestKindResult rate, int position) {
+        if (rate.SlotHit == 0) return 0;
         double top1 = (double)rate.Top1Hit / rate.SlotHit;
-        if (rank == 0) return top1;
-        double rest = Math.Max(0, (double)(rate.Top5Hit - rate.Top1Hit) / rate.SlotHit);
-        return shown > 1 ? rest / (shown - 1) : rest;
+        if (top1 <= 0) top1 = (double)rate.Top5Hit / rate.SlotHit / OldestFirstPools.TopCandidates;
+        return Math.Pow(top1, position + 1);
     }
 
     private static string Label(ContractSlotKind kind) => kind switch {

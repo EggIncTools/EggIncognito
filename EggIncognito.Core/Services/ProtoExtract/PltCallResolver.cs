@@ -5,6 +5,13 @@ namespace EggIncognito.Core.Services.ProtoExtract;
 public sealed class PltCallResolver(byte[] bin, IBinaryImage img) {
     private readonly Dictionary<ulong, ulong> _slots = img is ElfImage ? ElfSections.ReadJumpSlots(bin) : [];
     private readonly Dictionary<ulong, ulong> _cache = [];
+    private Dictionary<ulong, string>? _names;
+
+    public string? ImportName(ulong target) {
+        if (img is not ElfImage) return null;
+        _names ??= ElfSections.ReadJumpSlotNames(bin);
+        return Stub(target) is { } slot && _names.TryGetValue(slot, out string? name) ? name : null;
+    }
 
     public ulong Resolve(ulong target) {
         if (_slots.Count == 0) return target;

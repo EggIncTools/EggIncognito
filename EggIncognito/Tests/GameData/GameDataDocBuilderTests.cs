@@ -54,10 +54,10 @@ public class GameDataDocBuilderTests {
     public void BuildResearch_EmitsRowsAndSkipsUndecoded_AndValidates() {
         var doc = GameDataDocBuilders.BuildResearch([
             new ResearchCatalogExtractor.ResearchEntry("comfy_nests", "COMFORTABLE NESTS",
-                "Increase egg laying rate by 10%", null, false, 50, 0, "eggLayingRateMult", false,
-                ResearchCatalogExtractor.Combine.MulPlusOne, 0.1, null),
-            new ResearchCatalogExtractor.ResearchEntry("broken", null, null, null, false, null, null, null, false,
-                null, null, "unrecognized effect pattern")
+                "Increase egg laying rate by 10%", null, false, 50, 0,
+                [new("eggLayingRateMult", false, ResearchCatalogExtractor.Combine.MulPlusOne, 0.1)], null),
+            new ResearchCatalogExtractor.ResearchEntry("broken", null, null, null, false, null, null, [],
+                "unrecognized effect pattern")
         ], "1.35.8");
 
         GameDataProvider.Validate("research", doc.Json);
@@ -73,6 +73,34 @@ public class GameDataDocBuilderTests {
         Assert.Equal(50, row.MaxLevel);
         Assert.False(row.Meta!["epic"].GetBoolean());
         Assert.Equal("COMFORTABLE NESTS", row.Meta["name"].GetString());
+    }
+
+    [Fact]
+    public void BuildResearch_SplitsMultiDimension_AndCarriesPow() {
+        var doc = GameDataDocBuilders.BuildResearch([
+            new ResearchCatalogExtractor.ResearchEntry("improved_genetics", "IMPROVED GENETICS", null, null, false,
+                30, 2, [
+                    new("eggLayingRateMult", false, ResearchCatalogExtractor.Combine.MulPlusOne, 0.15),
+                    new("eggValueMult", false, ResearchCatalogExtractor.Combine.MulPlusOne, 0.15)
+                ], null),
+            new ResearchCatalogExtractor.ResearchEntry("even_bigger_eggs", "EVEN BIGGER EGGS", null, null, false,
+                5, 9, [new("eggValueMult", false, ResearchCatalogExtractor.Combine.Pow, 2)], null)
+        ], "1.35.8");
+
+        GameDataProvider.Validate("research", doc.Json);
+        Assert.Equal(3, doc.Count);
+        Assert.Empty(doc.Skipped);
+
+        var family = new ResearchFamily(EffectDataLoader.Parse(doc.Json));
+        var laying = family.Find("improved_genetics:eggLayingRateMult");
+        Assert.NotNull(laying);
+        Assert.Equal(EffectTarget.EggLayingRate, laying.Target);
+        Assert.Equal("improved_genetics", laying.MetaString("research"));
+
+        var pow = family.Find("even_bigger_eggs");
+        Assert.NotNull(pow);
+        Assert.Equal(CombineMode.Pow, pow.CombineMode);
+        Assert.Equal(8, pow.Contribution(3));
     }
 
     [Fact]

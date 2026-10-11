@@ -1,4 +1,4 @@
-.nwb-pane { display: flex; flex-direction: column; gap: 1rem; min-width: 0; }
+.nwb-pane { display: flex; flex-direction: column; gap: 1rem; min-width: 0; min-height: 0; }
 .nwb-head-note { font-size: 0.75rem; color: var(--color-muted); }
 .nwb-select-note { font-size: 0.875rem; color: var(--color-muted); }
 .nwb-mono { font-family: var(--font-mono); }
@@ -30,7 +30,7 @@ select.nwb-field { cursor: pointer; }
 .nwb-view { flex: none; margin-left: auto; padding-inline: 0.75rem; border: 0; border-left: 1px solid var(--color-border); border-radius: 0; background-color: transparent; color: var(--color-muted); font-family: inherit; font-size: 0.6875rem; text-transform: uppercase; letter-spacing: 0.05em; cursor: pointer; }
 .nwb-view:hover { color: var(--color-fg); }
 .nwb-view.on { color: var(--color-accent); background-color: color-mix(in oklab, var(--color-accent) 12%, transparent); }
-.nwb-preview-body { min-width: 0; padding: 0.75rem; }
+.nwb-preview-body { min-width: 0; padding: 0.75rem; overflow-x: auto; }
 .nwb-preview-split { display: grid; grid-template-columns: minmax(11rem, 16rem) minmax(0, 1fr); min-width: 0; }
 .nwb-samples { display: flex; flex-direction: column; min-width: 0; border-right: 1px solid var(--color-border); background-color: var(--color-panel2); }
 .nwb-sample { display: flex; flex-direction: column; align-items: flex-start; gap: 0.25rem; padding: 0.5rem 0.625rem; border: 0; border-bottom: 1px solid var(--color-border); border-radius: 0; background-color: transparent; color: var(--color-muted); font-family: inherit; text-align: left; cursor: pointer; }

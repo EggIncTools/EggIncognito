@@ -35,7 +35,8 @@ public sealed record Effect {
     public EffectSchema? MetaSchema { get; }
     public IReadOnlyDictionary<string, object> Meta { get; }
 
-    public double Contribution(int level) => Magnitude * level;
+    public double Contribution(int level) =>
+        CombineMode == CombineMode.Pow ? Math.Pow(Magnitude, level) : Magnitude * level;
 
     public double MetaDouble(string field) => Convert.ToDouble(Meta[field]);
     public int MetaInt(string field) => Convert.ToInt32(Meta[field]);

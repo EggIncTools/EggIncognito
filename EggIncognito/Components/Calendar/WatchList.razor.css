@@ -10,23 +10,12 @@
 }
 .watch-head { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
 .watch-title { font-size: 0.625rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--color-muted); }
-.watch-pick { position: relative; }
 .watch-pick-btn { display: inline-flex; align-items: center; gap: 0.25rem; }
-.watch-pick-field { position: relative; z-index: 1050; width: 16rem; max-width: 70vw; }
-.watch-pick ::deep .watch-pick-query { width: 100%; }
-.watch-pick-list {
-  position: absolute;
-  top: calc(100% + 0.25rem);
-  right: 0;
-  width: 100%;
-  max-height: 16rem;
-  overflow-y: auto;
-  scrollbar-width: thin;
-  border: 1px solid var(--color-border);
-  border-radius: 0.375rem;
-  background-color: var(--color-panel0);
-  box-shadow: var(--shadow-pop, 0 8px 24px rgb(0 0 0 / 0.35));
-}
+.watch-pick { display: flex; flex-direction: column; border: 1px solid var(--color-border); border-radius: 0.375rem; background-color: var(--color-panel0); overflow: hidden; }
+.watch-pick-bar { display: flex; align-items: center; gap: 0.5rem; padding: 0.375rem 0.5rem; border-bottom: 1px solid var(--color-border); background-color: var(--color-panel2); }
+.watch-pick ::deep .watch-pick-query { flex: 1 1 auto; min-width: 0; }
+.watch-pick-ultra { flex: none; display: inline-flex; align-items: center; gap: 0.3rem; font-size: 0.6875rem; color: var(--color-fg-soft); cursor: pointer; }
+.watch-pick-list { max-height: 14rem; overflow-y: auto; scrollbar-width: thin; }
 .watch-pick-opt {
   display: flex;
   align-items: center;

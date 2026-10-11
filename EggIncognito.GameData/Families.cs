@@ -50,7 +50,8 @@ public sealed class ResearchFamily(EffectDataFile file) : EffectFamily(Families.
         new EffectField("description", EffectFieldType.String, false),
         new EffectField("help", EffectFieldType.String, false),
         new EffectField("dimension", EffectFieldType.String, false),
-        new EffectField("tier", EffectFieldType.Int, false)
+        new EffectField("tier", EffectFieldType.Int, false),
+        new EffectField("research", EffectFieldType.String, false)
     ]);
 }
 
