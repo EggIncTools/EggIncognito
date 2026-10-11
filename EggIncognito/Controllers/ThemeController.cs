@@ -162,49 +162,6 @@ public sealed class ThemeController(ICurrentUser currentUser, IConfiguration con
         return Ok(new { saved = model.Slug });
     }
 
-    [HttpGet("policy")]
-    [ApiAccess(ApiAccessLevel.Admin)]
-    [EnableRateLimiting("write")]
-    public async Task<IActionResult> GetPolicy([FromServices] UserThemeStore? store) {
-        if (store is null)
-            return Ok(new {
-                customCssEnabled = true,
-                configFloor = CustomCssConfigFloor(),
-                defaultThemeSlug = (string?)null
-            });
-
-        var policy = await store.GetPolicyAsync(HttpContext.RequestAborted);
-        string? defaultSlug = null;
-        if (policy.DefaultThemeId is { } id)
-            defaultSlug = (await store.GetByIdAsync(id, HttpContext.RequestAborted))?.Slug;
-        return Ok(new {
-            customCssEnabled = policy.CustomCssEnabled,
-            configFloor = CustomCssConfigFloor(),
-            defaultThemeSlug = defaultSlug
-        });
-    }
-
-    [HttpPut("policy")]
-    [ApiAccess(ApiAccessLevel.Admin)]
-    [EnableRateLimiting("write")]
-    [RequiresDb]
-    public async Task<IActionResult> SetPolicy([FromBody] PolicyBody body, [FromServices] UserThemeStore store) {
-        if (currentUser.Current.Id is not { } uid) return Fail(401, "login required");
-
-        long? defaultThemeId = null;
-        if (!string.IsNullOrWhiteSpace(body.DefaultThemeSlug)) {
-            var theme = await store.GetAsync(uid, body.DefaultThemeSlug, HttpContext.RequestAborted);
-            if (theme is null)
-                return Fail(400, "the default theme must be one of your own themes");
-            if (ExtractCss(theme.Model).Length > 0)
-                return Fail(400, "the default theme may not carry custom css");
-            defaultThemeId = theme.Id;
-        }
-
-        await store.SetPolicyAsync(body.CustomCssEnabled, defaultThemeId, uid, HttpContext.RequestAborted);
-        return Ok(new { saved = true });
-    }
-
     private async Task<string?> ReadBodyAsync() {
         using var reader = new StreamReader(Request.Body);
         string body = await reader.ReadToEndAsync(HttpContext.RequestAborted);

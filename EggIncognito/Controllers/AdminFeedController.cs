@@ -51,18 +51,11 @@ public sealed class AdminFeedController(IHttpClientFactory httpFactory) : ApiCon
         var sub = await store.AdminByIdAsync(id, ct);
         if (sub is null) return Fail(404, "subscription not found");
 
-        string kind = FeedEventKinds.Normalize(sub.EventKind);
-        var fallback = FeedSamples.For(kind);
-        var chosen = FeedSamples.Find(kind, sample) ?? (fallback.Count > 0 ? fallback[0] : null);
-        string body = chosen is null
-            ? """{"content":"EggIncognito feed test."}"""
-            : DiscordFeedPayload.MarkAsTest(chosen.Event.BuildBody(sub.MessageTemplate));
-
         var http = httpFactory.CreateClient("discord-api");
         var res = await http.PostAsync(sub.TargetUrl,
-            new StringContent(body, Encoding.UTF8, "application/json"), ct);
+            new StringContent(ProtoFeedController.TestBody(sub, sample), Encoding.UTF8, "application/json"), ct);
         if (!res.IsSuccessStatusCode)
             return Fail(400, "webhook rejected the test message");
-        return Ok(new { tested = true, sample = chosen?.Key });
+        return Ok(new { tested = true, sample });
     }
 }

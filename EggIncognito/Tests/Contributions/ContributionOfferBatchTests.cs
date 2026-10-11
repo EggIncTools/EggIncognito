@@ -58,7 +58,7 @@ public class ContributionOfferBatchTests {
             new NoScopes(), kinds, options, NullLogger<ContributionRecorder>.Instance, TimeProvider.System);
         var controller = new ContributionsController(
             new FakeUser(Guid.Parse("11111111-1111-1111-1111-111111111111"), UserRole.Admin, DiscordId: "1").Accessor(),
-            kinds, options, NullLogger<ContributionsController>.Instance);
+            kinds, options);
         return (controller, recorder, new OneHub(hub));
     }
 

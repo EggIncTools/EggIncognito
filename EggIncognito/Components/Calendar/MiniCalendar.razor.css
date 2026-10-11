@@ -8,7 +8,6 @@
   --evcal-day-w: 4.5rem;
   flex: none;
   width: calc(var(--evcal-days, 7) * var(--evcal-day-w));
-  min-width: 100%;
 }
 .evcal-scale { position: relative; height: 2.25rem; flex: none; margin-bottom: 0.25rem; }
 .evcal-scale-label {

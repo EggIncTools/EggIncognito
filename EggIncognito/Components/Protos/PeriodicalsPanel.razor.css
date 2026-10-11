@@ -2,15 +2,19 @@
 .pd-wcol { display: contents; }
 .pd-widgets ::deep .pd-w-devices { order: 1; }
 .pd-widgets ::deep .pd-w-workbench { order: 2; }
+.pd-wrow { display: contents; }
 .pd-w-season { order: 3; align-self: flex-start; max-width: 100%; }
 .pd-w-calendar, .pd-w-note { order: 4; }
-.pd-w-calendar { contain: layout; }
+.pd-w-calendar { align-self: flex-start; max-width: 100%; }
 .pd-w-cegg { order: 5; }
 .pd-widgets ::deep .pd-w-support { order: 6; }
 @container pdmod (min-width: 60rem) {
   .pd-widgets { flex-direction: row; align-items: flex-start; }
   .pd-wcol { display: flex; flex-direction: column; gap: 1rem; flex: 1 1 0; min-width: 0; }
   .pd-wcol:first-child { flex: 0 1 auto; }
+  .pd-wrow { display: flex; align-items: stretch; gap: 1rem; min-width: 0; }
+  .pd-wrow > * { order: 0; }
+  .pd-wrow ::deep .pd-w-support { flex: 1 1 14rem; min-width: 14rem; }
 }
 .pd-w-note { font-size: 0.875rem; color: var(--color-muted); }
 .cegg-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem; }
@@ -50,7 +54,8 @@
   background-color: var(--color-panel2);
 }
 .cegg-legend-k { font-size: 0.625rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--color-muted); }
-.cegg-legend-list { margin: 0; padding-left: 1rem; list-style: disc; }
+.cegg-legend-list { margin: 0; padding-left: 1rem; list-style: disc; columns: 3; column-gap: 1.75rem; }
+.cegg-legend-list > li { break-inside: avoid; }
 .cegg-legend-chip { font-size: 0.6875rem; color: var(--color-muted); opacity: 0.55; }
 .cegg-legend-chip.cegg-legend-on { color: var(--color-fg-soft); opacity: 1; }
 .pd-cal-title {

@@ -10,3 +10,20 @@
   line-height: 1;
 }
 .ccp-start ::deep .icon-sm { display: inline-block; }
+.ccs { display: flex; flex-direction: column; min-width: 17rem; }
+.ccs-group {
+  margin: 0.625rem 0 0.25rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--color-border);
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
+.ccs-group:first-child { margin-top: 0; padding-top: 0; border-top: 0; }
+.ccs-row { display: flex; align-items: center; justify-content: space-between; gap: 1rem; min-height: 1.875rem; font-size: 0.8125rem; color: var(--color-fg); cursor: pointer; }
+.ccs-k { white-space: nowrap; }
+.ccs-note { margin: -0.125rem 0 0.25rem; font-size: 0.6875rem; line-height: 1.35; color: var(--color-muted); }
+.ccs-seg { flex: none; }
+.ccs-select { width: auto; min-width: 7.5rem; }

@@ -12,35 +12,44 @@
             <Icon Name="settings" Class="icon-sm"/>
         </Trigger>
         <ChildContent>
-            <div class="settings-title">Redaction</div>
-            <div class="settings-hint">Hide user IDs and EIDs in the detail pane.</div>
-            <div class="segmented" role="radiogroup" aria-label="Redaction mode">
-                <button type="button" class="segmented-opt @(View.RedactionMode == "off" ? "active" : "")" @onclick="@(() => SetMode("off"))">Off</button>
-                <button type="button" class="segmented-opt @(View.RedactionMode == "blur" ? "active" : "")" @onclick="@(() => SetMode("blur"))">Blur</button>
-                <button type="button" class="segmented-opt @(View.RedactionMode == "redact" ? "active" : "")" @onclick="@(() => SetMode("redact"))">Redact</button>
+            <div class="ccs">
+                <div class="ccs-group">List</div>
+                <label class="ccs-row">
+                    <span class="ccs-k">Follow new requests</span>
+                    <input type="checkbox" checked="@View.AutoScroll" @onchange="OnAutoScroll"/>
+                </label>
+                <label class="ccs-row">
+                    <span class="ccs-k">Saved-endpoint tags</span>
+                    <input type="checkbox" checked="@View.CompareToKnown" @onchange="OnCompare"/>
+                </label>
+                <div class="ccs-note">Marks each request as new, changed or matching against your saved endpoints.</div>
+
+                <div class="ccs-group">Detail</div>
+                <div class="ccs-row">
+                    <span class="ccs-k">Player IDs</span>
+                    <div class="segmented ccs-seg" role="radiogroup" aria-label="Player IDs">
+                        <button type="button" class="segmented-opt @(View.RedactionMode == "off" ? "active" : "")" @onclick="@(() => SetMode("off"))">Show</button>
+                        <button type="button" class="segmented-opt @(View.RedactionMode == "blur" ? "active" : "")" @onclick="@(() => SetMode("blur"))">Blur</button>
+                        <button type="button" class="segmented-opt @(View.RedactionMode == "redact" ? "active" : "")" @onclick="@(() => SetMode("redact"))">Hide</button>
+                    </div>
+                </div>
+                <label class="ccs-row">
+                    <span class="ccs-k">HTTP headers</span>
+                    <input type="checkbox" checked="@View.ShowHeaders" @onchange="OnShowHeaders"/>
+                </label>
+                <label class="ccs-row">
+                    <span class="ccs-k">Open bodies as</span>
+                    <select class="form-select ccs-select" value="@View.DefaultFormat" @onchange="OnDefaultFormat">
+                        <option value="json-tree">JSON tree</option>
+                        <option value="json">JSON</option>
+                        <option value="yaml">YAML</option>
+                        <option value="xml">XML</option>
+                        <option value="js">JS object</option>
+                        <option value="hex">Hex</option>
+                        <option value="bin">Binary</option>
+                    </select>
+                </label>
             </div>
-
-            <div class="settings-title">Headers</div>
-            <label class="form-check"><input type="checkbox" checked="@View.ShowHeaders" @onchange="OnShowHeaders"/> Show captured headers</label>
-
-            <div class="settings-title">List</div>
-            <label class="form-check"><input type="checkbox" checked="@View.AutoScroll" @onchange="OnAutoScroll"/> Auto-scroll to newest</label>
-
-            <div class="settings-title">Comparison tags</div>
-            <div class="settings-hint">Tag each capture against the saved endpoint set.</div>
-            <label class="form-check"><input type="checkbox" checked="@View.CompareToKnown" @onchange="OnCompare"/> Show comparison tags</label>
-
-            <div class="settings-title">Default format</div>
-            <div class="settings-hint">Format the data opens in.</div>
-            <select class="form-select" value="@View.DefaultFormat" @onchange="OnDefaultFormat">
-                <option value="json-tree">JSON (tree)</option>
-                <option value="json">JSON (raw)</option>
-                <option value="yaml">YAML</option>
-                <option value="xml">XML</option>
-                <option value="js">JS object</option>
-                <option value="hex">Hex</option>
-                <option value="bin">Binary</option>
-            </select>
         </ChildContent>
     </Menu>
 

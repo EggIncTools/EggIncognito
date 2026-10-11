@@ -3,15 +3,12 @@ namespace EggIncognito.Services.Admin;
 public static class AdminTopics {
     public const string Users = "users";
     public const string Notifications = "notifications";
-    public const string ThemePolicy = "theme-policy";
-    public const string DataStatus = "data-status";
     public const string Binaries = "binaries";
     public const string GameData = "game-data";
     public const string Events = "events";
     public const string Contracts = "contracts";
     public const string Staged = "staged";
     public const string ProtoRegistry = "proto-registry";
-    public const string Contributions = "contributions";
     public const string Sessions = "sessions";
     public const string Console = "console";
     public const string Maintenance = "maintenance";

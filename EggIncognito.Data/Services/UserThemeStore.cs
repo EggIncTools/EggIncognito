@@ -104,34 +104,6 @@ public sealed class UserThemeStore(EggIncognitoDbContext db, TimeProvider time) 
         await db.SiteThemePolicies.AsNoTracking().FirstOrDefaultAsync(p => p.Id == 1, ct)
         ?? new SiteThemePolicy { Id = 1, CustomCssEnabled = true };
 
-    public async Task<SiteThemePolicy> SetPolicyAsync(bool customCssEnabled, long? defaultThemeId, Guid? updatedBy,
-        CancellationToken ct = default) {
-        var row = await db.SiteThemePolicies.FirstOrDefaultAsync(p => p.Id == 1, ct);
-        if (row is null) {
-            row = new SiteThemePolicy { Id = 1 };
-            db.SiteThemePolicies.Add(row);
-        }
-
-        row.CustomCssEnabled = customCssEnabled;
-        row.DefaultThemeId = defaultThemeId;
-        row.UpdatedAt = time.GetUtcNow();
-        row.UpdatedByUserId = updatedBy;
-        try {
-            await db.SaveChangesAsync(ct);
-        } catch (DbUpdateException ex) when (IsUniqueViolation(ex)) {
-            db.ChangeTracker.Clear();
-            var existing = await db.SiteThemePolicies.FirstAsync(p => p.Id == 1, ct);
-            existing.CustomCssEnabled = customCssEnabled;
-            existing.DefaultThemeId = defaultThemeId;
-            existing.UpdatedAt = time.GetUtcNow();
-            existing.UpdatedByUserId = updatedBy;
-            await db.SaveChangesAsync(ct);
-            return existing;
-        }
-
-        return row;
-    }
-
     private static bool IsUniqueViolation(DbUpdateException ex) =>
         ex.InnerException is DbException { SqlState: UniqueViolation };
 }

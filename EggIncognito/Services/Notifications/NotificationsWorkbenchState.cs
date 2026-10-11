@@ -5,6 +5,7 @@ namespace EggIncognito.Services.Notifications;
 
 public sealed class NotificationDraft {
     public string Url { get; set; } = "";
+    public string Label { get; set; } = "";
     public string EventKind { get; set; } = FeedEventKinds.ProtoBuild;
     public string Trigger { get; set; } = FeedEventKinds.Proto.DefaultTrigger;
     public bool Android { get; set; } = true;
@@ -12,6 +13,7 @@ public sealed class NotificationDraft {
     public bool Active { get; set; } = true;
     public string MessageTemplate { get; set; } = "";
     public HashSet<string> Filters { get; set; } = [];
+    public string? SampleKey { get; set; }
 }
 
 public sealed class NotificationsWorkbenchState : WorkbenchStateBase {
@@ -24,13 +26,20 @@ public sealed class NotificationsWorkbenchState : WorkbenchStateBase {
     public NotificationDraft NewDraft { get; } = new();
     public Dictionary<int, NotificationDraft> Edits { get; } = [];
 
-    public NotificationDraft Draft(int? id) =>
-        id is { } key ? Edits.TryGetValue(key, out var d) ? d : Edits[key] = new NotificationDraft() : NewDraft;
+    public NotificationDraft Draft(int? id) {
+        if (id is not { } key) return NewDraft;
+        if (Edits.TryGetValue(key, out var d)) return d;
+        var fresh = new NotificationDraft();
+        Edits[key] = fresh;
+        return fresh;
+    }
 
     public NotificationDraft Active() => Creating ? NewDraft : Draft(SelectedId);
 
     public void ResetNew() {
         NewDraft.Url = "";
+        NewDraft.Label = "";
+        NewDraft.SampleKey = null;
         NewDraft.EventKind = FeedEventKinds.ProtoBuild;
         NewDraft.Trigger = FeedEventKinds.Proto.DefaultTrigger;
         NewDraft.Android = true;

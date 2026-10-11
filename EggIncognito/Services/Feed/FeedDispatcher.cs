@@ -19,25 +19,26 @@ public sealed class FeedDispatcher(
         $"{(string.IsNullOrEmpty(baseUrl) ? DefaultPageBaseUrl : baseUrl.TrimEnd('/'))}/protos/{platform}/{build}";
 
     public async Task DispatchAsync(INotificationEvent evt, CancellationToken ct = default) {
+        var kind = FeedEventKinds.For(evt);
         var subs = await store.ActiveAsync(ct);
         var http = httpFactory.CreateClient("discord-api");
         foreach (var sub in subs) {
-            if (!string.Equals(FeedEventKinds.Normalize(sub.EventKind), evt.EventKind, StringComparison.Ordinal))
+            if (!string.Equals(FeedEventKinds.Normalize(sub.EventKind), kind.Key, StringComparison.Ordinal))
                 continue;
-            if (!evt.Matches(sub)) continue;
-            if (await store.AlreadyDeliveredAsync(sub.Id, evt.EventKind, evt.DedupKey, ct)) continue;
+            if (!kind.Matches(evt, sub)) continue;
+            if (await store.AlreadyDeliveredAsync(sub.Id, kind.Key, evt.DedupKey, ct)) continue;
 
-            if (evt.BlockedBy(sub) is { Count: > 0 } blocked) {
+            if (kind.BlockedBy(evt, sub) is { Count: > 0 } blocked) {
                 string reason = string.Join(",", blocked);
                 logger.LogInformation("feed sub {Id}: {Summary} suppressed by {Reason}", sub.Id, evt.Summary, reason);
-                await store.SuppressAsync(sub.Id, evt.EventKind, evt.DedupKey, reason, evt.Summary, ct);
+                await store.SuppressAsync(sub.Id, kind.Key, evt.DedupKey, reason, evt.Summary, ct);
                 continue;
             }
 
             int? code = null;
             bool ok = false;
             try {
-                string body = evt.BuildBody(sub.MessageTemplate);
+                string body = DiscordFeedPayload.Build(evt, sub.MessageTemplate);
                 var res = await http.PostAsync(sub.TargetUrl,
                     new StringContent(body, Encoding.UTF8, "application/json"), ct);
                 code = (int)res.StatusCode;
@@ -49,7 +50,7 @@ public sealed class FeedDispatcher(
 
             await store.RecordAsync(new FeedDelivery {
                 SubscriptionId = sub.Id,
-                EventKind = evt.EventKind,
+                EventKind = kind.Key,
                 DedupKey = evt.DedupKey,
                 Summary = evt.Summary,
                 Status = ok ? "sent" : "failed",

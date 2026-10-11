@@ -47,12 +47,26 @@
         </WorkbenchRail>
     </Rail>
     <Bar>
-        <button type="button" class="@BarCss(context)" style="@BarStyle(context)" @onclick="@(() => _cal?.Select(context))">
-            @if (EventPalette.IconUrl(context.Item.Type, context.Item.Ultra) is { } iconUrl) {
-                <FallbackImg Class="evcal-bar-icon" Src="@iconUrl" Alt=""/>
-            }
-            <span class="evcal-bar-label">@Label(context.Item)</span>
-        </button>
+        @if (Choices(context.Item.Prediction) is { Count: > 1 } choices) {
+            <button type="button" class="@(BarCss(context) + " evcal-bar-multi")" style="@(BarStyle(context) + MultiStyle(choices.Count))" @onclick="@(() => _cal?.Select(context))">
+                @foreach (var choice in choices) {
+                    <span class="evcal-choice" @key="choice.Type" style="@EventPalette.BarStyle(choice.Type, context.Item.Ultra)">
+                        @if (EventPalette.IconUrl(choice.Type, context.Item.Ultra) is { } choiceIcon) {
+                            <FallbackImg Class="evcal-bar-icon" Src="@choiceIcon" Alt=""/>
+                        }
+                        <span class="evcal-bar-label">@Pretty(choice.Type)</span>
+                        <span class="evcal-choice-pct" style="@PctStyle(choice.Probability)">@Percent(choice.Probability)</span>
+                    </span>
+                }
+            </button>
+        } else {
+            <button type="button" class="@BarCss(context)" style="@BarStyle(context)" @onclick="@(() => _cal?.Select(context))">
+                @if (EventPalette.IconUrl(context.Item.Type, context.Item.Ultra) is { } iconUrl) {
+                    <FallbackImg Class="evcal-bar-icon" Src="@iconUrl" Alt=""/>
+                }
+                <span class="evcal-bar-label">@Label(context.Item)</span>
+            </button>
+        }
     </Bar>
     <Detail>
         @if (context.Event is { } e) {
@@ -76,10 +90,13 @@
                 <span class="evcal-pop-big">@Percent(p.Confidence)</span>
             </div>
             <span class="evcal-pop-when">@Absolute(p.PredictedStart) to @Absolute(p.PredictedEnd)</span>
-            @if (p.Candidates.Count > 1) {
-                <div class="evcal-pop-tags">
-                    @foreach (var candidate in p.Candidates.Take(4)) {
-                        <span class="evcal-pop-tag" @key="candidate.Type">@Pretty(candidate.Type) @Percent(candidate.Probability)</span>
+            @if (Choices(p) is { Count: > 1 } popChoices) {
+                <div class="evcal-pop-choices">
+                    @foreach (var candidate in popChoices) {
+                        <span class="evcal-pop-choice" @key="candidate.Type">
+                            <span>@Pretty(candidate.Type)</span>
+                            <span class="evcal-choice-pct" style="@PctStyle(candidate.Probability)">@Percent(candidate.Probability)</span>
+                        </span>
                     }
                 </div>
             }
@@ -284,6 +301,15 @@
     static string Percent(double value) {
         return (value * 100).ToString("0", CultureInfo.InvariantCulture) + "%";
     }
+
+    static IReadOnlyList<EventCandidate> Choices(EventPrediction? p) =>
+        p is { Candidates.Count: > 1 }
+            ? [.. p.Candidates.Where(c => !string.IsNullOrEmpty(c.Type)).OrderByDescending(c => c.Probability)]
+            : [];
+
+    static string PctStyle(double p) => FormattableString.Invariant($"--p:{Math.Clamp(p, 0, 1):0.###};");
+
+    static string MultiStyle(int rows) => FormattableString.Invariant($"--evcal-choices:{rows};");
 
     static string Pretty(string raw) {
         var words = raw.Replace('-', ' ').Replace('_', ' ').Split(' ', StringSplitOptions.RemoveEmptyEntries);

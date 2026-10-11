@@ -17,15 +17,27 @@ namespace EggIncognito.Controllers;
 public sealed class ProtoFeedController(ICurrentUser currentUser, IHttpClientFactory httpFactory)
     : ApiControllerBase {
     [HttpGet("kinds")]
-    public IActionResult Kinds() => Ok(FeedEventKinds.All.Select(k => new {
+    public IActionResult Kinds() => Ok(FeedEventKinds.All.Select(KindView));
+
+    public static object KindView(NotificationKind k) => new {
         k.Key,
         k.Label,
-        k.Triggers,
+        k.Description,
+        Triggers = k.Triggers.Select(t => new { t.Value, t.Label }),
         k.DefaultTrigger,
         k.PlatformScoped,
-        k.Filters,
+        Filters = k.Filters.Select(f => new { f.Key, f.Label, f.DefaultOn }),
         Vars = FeedVars.Describe(k)
-    }));
+    };
+
+    public static string TestBody(FeedSubscription sub, string? sample) {
+        string kind = FeedEventKinds.Normalize(sub.EventKind);
+        var fallback = FeedEventKinds.Samples(kind);
+        var chosen = FeedEventKinds.Sample(kind, sample) ?? (fallback.Count > 0 ? fallback[0] : null);
+        return chosen is null
+            ? """{"content":"EggIncognito feed test."}"""
+            : DiscordFeedPayload.MarkAsTest(DiscordFeedPayload.Build(chosen.Event, sub.MessageTemplate));
+    }
 
     [HttpPost]
     [EnableRateLimiting("write")]
@@ -56,7 +68,7 @@ public sealed class ProtoFeedController(ICurrentUser currentUser, IHttpClientFac
             Platforms = req.Platforms is { Length: > 0 } ? req.Platforms : ["android", "ios"],
             Trigger = FeedEventKinds.NormalizeTrigger(kind, req.Trigger),
             Filters = FeedEventKinds.NormalizeFilters(kind, req.Filters),
-            Label = req.Label,
+            Label = string.IsNullOrWhiteSpace(req.Label) ? null : req.Label.Trim(),
             MessageTemplate = string.IsNullOrWhiteSpace(req.MessageTemplate) ? null : req.MessageTemplate,
             OwnerUserId = owner.Value
         }, ct);
@@ -112,19 +124,12 @@ public sealed class ProtoFeedController(ICurrentUser currentUser, IHttpClientFac
         var sub = (await store.ByOwnerAsync(owner.Value, ct)).FirstOrDefault(s => s.Id == id);
         if (sub is null) return Fail(404, "subscription not found");
 
-        string kind = FeedEventKinds.Normalize(sub.EventKind);
-        var fallback = FeedSamples.For(kind);
-        var chosen = FeedSamples.Find(kind, sample) ?? (fallback.Count > 0 ? fallback[0] : null);
-        string body = chosen is null
-            ? """{"content":"EggIncognito feed test."}"""
-            : DiscordFeedPayload.MarkAsTest(chosen.Event.BuildBody(sub.MessageTemplate));
-
         var http = httpFactory.CreateClient("discord-api");
         var res = await http.PostAsync(sub.TargetUrl,
-            new StringContent(body, Encoding.UTF8, "application/json"), ct);
+            new StringContent(TestBody(sub, sample), Encoding.UTF8, "application/json"), ct);
         if (!res.IsSuccessStatusCode)
             return Fail(400, "webhook rejected the test message");
-        return Ok(new { tested = true, sample = chosen?.Key });
+        return Ok(new { tested = true, sample });
     }
 
     [HttpPost("preview")]
@@ -139,13 +144,18 @@ public sealed class ProtoFeedController(ICurrentUser currentUser, IHttpClientFac
             MessageTemplate = string.IsNullOrWhiteSpace(req.MessageTemplate) ? null : req.MessageTemplate
         };
 
-        return Ok(FeedSamples.For(kind).Select(s => {
-            bool matches = s.Event.Matches(probe);
-            var blocked = matches ? s.Event.BlockedBy(probe) : [];
+        return Ok(PreviewRows(probe));
+    }
+
+    public static List<FeedPreviewRow> PreviewRows(FeedSubscription probe) {
+        var info = FeedEventKinds.Find(FeedEventKinds.Normalize(probe.EventKind)) ?? FeedEventKinds.Proto;
+        return [.. info.Samples.Select(s => {
+            bool matches = info.Matches(s.Event, probe);
+            var blocked = matches ? info.BlockedBy(s.Event, probe) : [];
             return new FeedPreviewRow(
                 s.Key, s.Label, s.Event.Summary, matches, blocked,
-                matches && blocked is [] ? s.Event.BuildBody(probe.MessageTemplate) : null);
-        }));
+                DiscordFeedPayload.Build(s.Event, probe.MessageTemplate));
+        })];
     }
 
     [HttpPatch("{id:int}")]
@@ -167,7 +177,8 @@ public sealed class ProtoFeedController(ICurrentUser currentUser, IHttpClientFac
             trigger,
             req.Active ?? true,
             req.MessageTemplate,
-            ResolveFilters(sub, req.Filters), ct);
+            ResolveFilters(sub, req.Filters),
+            req.Label ?? sub.Label, ct);
         if (!ok) return Fail(404, "subscription not found");
         FeedSubscriptionNotify.Changed(notifier);
         return Ok(new { updated = true });

@@ -59,14 +59,40 @@
                 } else if (_rows.Count == 0) {
                     <EmptyState Tall="true" Title="No proto versions yet." Hint="Drop a build on the toolbar, or open the proto workbench, to add one."/>
                 } else {
-                    var bands = SortedBands;
-                    _laneLayout = ShaLanes.Build(
-                        bands.Select(b => b.Key).ToList(),
-                        bands.Select(b => b.Primary.Key()).ToList(),
-                        AllReleases.Select(r => r.Primary.Key()).ToList());
-                    var laneRows = _laneLayout.Rows;
-                    <div class="reg-scroll">
-                        <table class="data-table reg-table" style="--reg-gutter: @Gutter(ShaLanes.LaneCount(_laneLayout))">
+                    <div class="reg-combined">@RegistryTable(_rows)</div>
+                    <div class="reg-split">
+                        @foreach (var platform in SplitPlatforms) {
+                            var subset = _rows.Where(r => string.Equals(r.Platform, platform, StringComparison.OrdinalIgnoreCase)).ToList();
+                            if (subset.Count > 0) {
+                                <div class="reg-split-col">@RegistryTable(subset)</div>
+                            }
+                        }
+                    </div>
+                }
+            </section>
+        </div>
+        <div class="pd-mod pd-side pd-mobile-order-2">
+            <PeriodicalsPanel OnManageDevices="OpenDeviceWorkbench" OnOpenNotifications="OpenNotifications"
+                              OnOpenApiWorkbench="OpenApiWorkbench" OnOpenCapture="OpenCaptureWorkbench"
+                              OnOpenFeed="@(f => _apiWorkbench?.OpenFeed(f) ?? Task.CompletedTask)"
+                              OnOpenCoverage="@(() => _apiWorkbench?.OpenCoverage() ?? Task.CompletedTask)"
+                              OnOpenEvents="OpenEvents" OnOpenContracts="OpenContracts" OnOpenSupport="OpenSupport"/>
+        </div>
+    </div>
+</main>
+
+@code {
+    static readonly string[] SplitPlatforms = ["ios", "android"];
+
+    RenderFragment RegistryTable(List<ProtoRegistryRow> source) {
+        var bands = SortedBandsOf(source);
+        var layout = ShaLanes.Build(
+            bands.Select(b => b.Key).ToList(),
+            bands.Select(b => b.Primary.Key()).ToList(),
+            ReleasesOf(source).Select(r => r.Primary.Key()).ToList());
+        var laneRows = layout.Rows;
+        return @<div class="reg-scroll">
+                        <table class="data-table reg-table" style="--reg-gutter: @Gutter(ShaLanes.LaneCount(layout))">
                             <thead>
                             <tr>
                                 <th class="reg-th-sort reg-c-app" @onclick="@(() => Sort("appVersion"))">
@@ -114,18 +140,18 @@
                                             <td class="reg-c-sha reg-sha-cell" data-label="Proto SHA" rowspan="@span">
                                                 @if (lane is not null) {
                                                     foreach (var seg in lane.Segments) {
-                                                        <span class="@LaneSpanClass(seg)" style="--lane: @seg.Lane"
+                                                        <span class="@LaneSpanClass(layout, seg)" style="--lane: @seg.Lane"
                                                               role="button" aria-label="Open proto group"
-                                                              @onclick:stopPropagation="true" @onclick="@(() => OpenGroup(seg.GroupId))"
-                                                              @onmouseenter="@(() => SetHotGroup(seg.GroupId))"
-                                                              @onmouseleave="@(() => SetHotGroup(null))">
+                                                              @onclick:stopPropagation="true" @onclick="@(() => OpenGroup(layout, seg.GroupId))"
+                                                              @onmouseenter="@(() => SetHotGroup(layout, seg.GroupId))"
+                                                              @onmouseleave="@(() => SetHotGroup(layout, null))">
                                                         </span>
                                                     }
                                                 }
                                                 <span class="reg-sha-group"
-                                                      @onmouseenter="@(() => SetHotGroup(lane?.GroupId))"
-                                                      @onmouseleave="@(() => SetHotGroup(null))">
-                                                    <span class="@ShaChipClass(lane)">@Short(band.Primary.ProtoSha)</span>
+                                                      @onmouseenter="@(() => SetHotGroup(layout, lane?.GroupId))"
+                                                      @onmouseleave="@(() => SetHotGroup(layout, null))">
+                                                    <span class="@ShaChipClass(layout, lane)">@Short(band.Primary.ProtoSha)</span>
                                                     @if (band.Primary.SortOrder is { } so && so != 0) {
                                                         <span class="reg-order">@OrderLabel(so)</span>
                                                     }
@@ -137,19 +163,9 @@
                                 </tbody>
                             }
                         </table>
-                    </div>
-                }
-            </section>
-        </div>
-        <div class="pd-mod pd-side pd-mobile-order-2">
-            <PeriodicalsPanel OnManageDevices="OpenDeviceWorkbench" OnOpenNotifications="OpenNotifications"
-                              OnOpenApiWorkbench="OpenApiWorkbench" OnOpenCapture="OpenCaptureWorkbench"
-                              OnOpenFeed="@(f => _apiWorkbench?.OpenFeed(f) ?? Task.CompletedTask)"
-                              OnOpenCoverage="@(() => _apiWorkbench?.OpenCoverage() ?? Task.CompletedTask)"
-                              OnOpenEvents="OpenEvents" OnOpenContracts="OpenContracts" OnOpenSupport="OpenSupport"/>
-        </div>
-    </div>
-</main>
+                    </div>;
+    }
+}
 
 <NotificationsWorkbenchModal @ref="_notificationsModal"/>
 <ProtoWorkbenchModal @ref="_workbench" OnChanged="OnMutated" OnRefChanged="OnWorkbenchRef" OnClosed="OnWorkbenchClosed"/>
@@ -357,19 +373,13 @@
             .ToList();
     }
 
-    List<Models.Registry.Release> AllReleases => ReleasesOf(_rows);
-
-    List<Models.Registry.Release> SortedReleases {
-        get {
-            var releases = ReleasesOf(_rows);
-            var cmp = RowComparison;
-            releases.Sort((x, y) => cmp(x.Primary, y.Primary));
-            if (_sortDesc) releases.Reverse();
-            return releases;
-        }
+    List<Models.Registry.ReleaseBand> SortedBandsOf(IEnumerable<ProtoRegistryRow> source) {
+        var releases = ReleasesOf(source);
+        var cmp = RowComparison;
+        releases.Sort((x, y) => cmp(x.Primary, y.Primary));
+        if (_sortDesc) releases.Reverse();
+        return Models.Registry.ReleaseBand.Of(releases);
     }
-
-    List<Models.Registry.ReleaseBand> SortedBands => Models.Registry.ReleaseBand.Of(SortedReleases);
 
     void Sort(string col) {
         if (_sortCol == col) _sortDesc = !_sortDesc;
@@ -383,7 +393,6 @@
         return flag == "android_build_on_ios" ? "Android build number on an iOS version" : flag.Replace('_', ' ');
     }
 
-    ShaLaneLayout _laneLayout = new(new Dictionary<long, ShaLaneRow>(), new Dictionary<int, string>());
     string? _hotSha;
 
     static string Gutter(int lanes) {
@@ -399,28 +408,28 @@
         };
     }
 
-    string LaneSpanClass(ShaLaneSegment seg) {
+    string LaneSpanClass(ShaLaneLayout layout, ShaLaneSegment seg) {
         var css = $"{LaneClass(seg.Mark)} reg-lane-c{seg.Lane % 4}";
-        return IsHotGroup(seg.GroupId) ? $"{css} reg-lane-hot" : css;
+        return IsHotGroup(layout, seg.GroupId) ? $"{css} reg-lane-hot" : css;
     }
 
-    string ShaChipClass(ShaLaneRow? lane) {
+    string ShaChipClass(ShaLaneLayout layout, ShaLaneRow? lane) {
         const string css = "code-chip reg-sha";
-        return lane?.GroupId is { } groupId && IsHotGroup(groupId) ? $"{css} reg-sha-hot" : css;
+        return lane?.GroupId is { } groupId && IsHotGroup(layout, groupId) ? $"{css} reg-sha-hot" : css;
     }
 
-    bool IsHotGroup(int groupId) {
+    bool IsHotGroup(ShaLaneLayout layout, int groupId) {
         return _hotSha is { Length: > 0 } hot
-               && _laneLayout.GroupShas.TryGetValue(groupId, out var sha)
+               && layout.GroupShas.TryGetValue(groupId, out var sha)
                && string.Equals(sha, hot, StringComparison.OrdinalIgnoreCase);
     }
 
-    void SetHotGroup(int? groupId) {
-        _hotSha = groupId is { } gid && _laneLayout.GroupShas.TryGetValue(gid, out var sha) ? sha : null;
+    void SetHotGroup(ShaLaneLayout layout, int? groupId) {
+        _hotSha = groupId is { } gid && layout.GroupShas.TryGetValue(gid, out var sha) ? sha : null;
     }
 
-    void OpenGroup(int groupId) {
-        if (!_laneLayout.GroupShas.TryGetValue(groupId, out var sha)) return;
+    void OpenGroup(ShaLaneLayout layout, int groupId) {
+        if (!layout.GroupShas.TryGetValue(groupId, out var sha)) return;
         _workbench?.OpenGroup(sha);
     }
 

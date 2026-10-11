@@ -19,16 +19,14 @@ public class FeedVarsTests {
         Assert.Equal("", described["flaws"]);
     }
 
-    [Fact]
-    public void ConfigKindVars_AreAllPopulatedByTheFirstSample() {
-        var described = FeedVars.Describe(FeedEventKinds.Config);
-        Assert.All(described, v => Assert.False(string.IsNullOrEmpty(v.Example)));
-    }
-
-    [Fact]
-    public void GameDataKindVars_AreAllPopulatedByTheFirstSample() {
-        var described = FeedVars.Describe(FeedEventKinds.GameData);
-        Assert.All(described, v => Assert.False(string.IsNullOrEmpty(v.Example)));
+    [Theory]
+    [InlineData(FeedEventKinds.ConfigChanged)]
+    [InlineData(FeedEventKinds.GameDataRebuilt)]
+    [InlineData(FeedEventKinds.GameEvent)]
+    [InlineData(FeedEventKinds.ContractRelease)]
+    public void KindVars_AreAllPopulatedByTheFirstSample(string kind) {
+        var described = FeedVars.Describe(FeedEventKinds.Find(kind)!);
+        Assert.All(described, v => Assert.False(string.IsNullOrEmpty(v.Example), v.Name));
     }
 
     [Theory]

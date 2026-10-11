@@ -1,3 +1,4 @@
+using EggIncognito.Controllers;
 using EggIncognito.Data.Models;
 using EggIncognito.Services.Feed;
 using EggIncognito.Services.Notifications;
@@ -17,104 +18,140 @@ public class NotificationsWorkbenchTests {
         FeedEventKinds.FilterSaneBuild, FeedEventKinds.FilterKnownDelta
     ];
 
-    [Fact]
-    public void EveryKind_HasSamples() {
-        foreach (var kind in FeedEventKinds.All)
-            Assert.NotEmpty(FeedSamples.For(kind.Key));
+    private static (NotificationKind Kind, FeedSample Sample) Find(string kind, string key) {
+        var info = FeedEventKinds.Find(kind);
+        Assert.NotNull(info);
+        var sample = FeedEventKinds.Sample(kind, key);
+        Assert.NotNull(sample);
+        return (info, sample);
     }
 
     [Fact]
-    public void UnknownKind_HasNoSamples() => Assert.Empty(FeedSamples.For("not_a_kind"));
+    public void EveryKind_HasSamples_ADescription_AndAValidDefaultTrigger() {
+        foreach (var kind in FeedEventKinds.All) {
+            Assert.NotEmpty(kind.Samples);
+            Assert.False(string.IsNullOrWhiteSpace(kind.Description));
+            Assert.NotNull(kind.Trigger(kind.DefaultTrigger));
+            Assert.All(kind.BypassFilters, t => Assert.NotNull(kind.Trigger(t)));
+        }
+    }
+
+    [Fact]
+    public void UnknownKind_HasNoSamples() => Assert.Empty(FeedEventKinds.Samples("not_a_kind"));
+
+    [Fact]
+    public void EveryKind_HasASampleThatWouldSendOnDefaults() {
+        foreach (var kind in FeedEventKinds.All) {
+            var probe = Probe(kind.Key, kind.DefaultTrigger, FeedEventKinds.NormalizeFilters(kind.Key, null));
+            Assert.Contains(kind.Samples, s => kind.Matches(s.Event, probe) && kind.BlockedBy(s.Event, probe).Count == 0);
+        }
+    }
 
     [Fact]
     public void BrokenSample_BlockedByDefaultGuards() {
-        var broken = FeedSamples.Find(FeedEventKinds.ProtoBuild, "broken");
-        Assert.NotNull(broken);
-
+        var (kind, broken) = Find(FeedEventKinds.ProtoBuild, "broken");
         var sub = Probe(FeedEventKinds.ProtoBuild, FeedEventKinds.TriggerNewVersion, ProtoGuards);
-        Assert.True(broken.Event.Matches(sub));
-        Assert.NotEmpty(broken.Event.BlockedBy(sub));
+        Assert.True(kind.Matches(broken.Event, sub));
+        Assert.NotEmpty(kind.BlockedBy(broken.Event, sub));
     }
 
     [Fact]
     public void BrokenSample_ReachesSuspect() {
-        var broken = FeedSamples.Find(FeedEventKinds.ProtoBuild, "broken");
-        Assert.NotNull(broken);
-
+        var (kind, broken) = Find(FeedEventKinds.ProtoBuild, "broken");
         var sub = Probe(FeedEventKinds.ProtoBuild, FeedEventKinds.TriggerSuspect, ProtoGuards);
-        Assert.True(broken.Event.Matches(sub));
-        Assert.Empty(broken.Event.BlockedBy(sub));
+        Assert.True(kind.Matches(broken.Event, sub));
+        Assert.Empty(kind.BlockedBy(broken.Event, sub));
     }
 
     [Fact]
     public void ForwardSample_PassesGuardsOnVersionUp() {
-        var forward = FeedSamples.Find(FeedEventKinds.ProtoBuild, "forward");
-        Assert.NotNull(forward);
-
+        var (kind, forward) = Find(FeedEventKinds.ProtoBuild, "forward");
         var sub = Probe(FeedEventKinds.ProtoBuild, FeedEventKinds.TriggerVersionUp, ProtoGuards);
-        Assert.True(forward.Event.Matches(sub));
-        Assert.Empty(forward.Event.BlockedBy(sub));
+        Assert.True(kind.Matches(forward.Event, sub));
+        Assert.Empty(kind.BlockedBy(forward.Event, sub));
     }
 
     [Fact]
     public void BackfillSample_DoesNotMatchVersionUp() {
-        var backfill = FeedSamples.Find(FeedEventKinds.ProtoBuild, "backfill");
-        Assert.NotNull(backfill);
-
-        Assert.False(backfill.Event.Matches(
+        var (kind, backfill) = Find(FeedEventKinds.ProtoBuild, "backfill");
+        Assert.False(kind.Matches(backfill.Event,
             Probe(FeedEventKinds.ProtoBuild, FeedEventKinds.TriggerVersionUp, ProtoGuards)));
     }
 
     [Fact]
     public void BareConfigSample_BlockedWhenAspectsRequired() {
-        var bare = FeedSamples.Find(FeedEventKinds.ConfigChanged, "bare");
-        Assert.NotNull(bare);
+        var (kind, bare) = Find(FeedEventKinds.ConfigChanged, "bare");
+        var sub = Probe(FeedEventKinds.ConfigChanged, FeedEventKinds.TriggerAnyFeed, FeedEventKinds.FilterRequireAspects);
+        Assert.True(kind.Matches(bare.Event, sub));
+        Assert.Equal(FeedEventKinds.FilterRequireAspects, Assert.Single(kind.BlockedBy(bare.Event, sub)));
 
-        var sub = Probe(FeedEventKinds.ConfigChanged, FeedEventKinds.TriggerAnyFeed,
-            FeedEventKinds.FilterRequireAspects);
-        Assert.True(bare.Event.Matches(sub));
-        Assert.Equal(FeedEventKinds.FilterRequireAspects, Assert.Single(bare.Event.BlockedBy(sub)));
-
-        var identified = FeedSamples.Find(FeedEventKinds.ConfigChanged, "periodicals");
-        Assert.NotNull(identified);
-        Assert.Empty(identified.Event.BlockedBy(sub));
+        var (_, identified) = Find(FeedEventKinds.ConfigChanged, "periodicals");
+        Assert.Empty(kind.BlockedBy(identified.Event, sub));
     }
 
     [Fact]
     public void AfxSample_HasAspects_ButNoIdentifiers() {
-        var afx = FeedSamples.Find(FeedEventKinds.ConfigChanged, "afx");
-        Assert.NotNull(afx);
+        var (kind, afx) = Find(FeedEventKinds.ConfigChanged, "afx");
+        var aspects = Probe(FeedEventKinds.ConfigChanged, FeedEventKinds.TriggerAnyFeed, FeedEventKinds.FilterRequireAspects);
+        Assert.Empty(kind.BlockedBy(afx.Event, aspects));
 
-        var aspects = Probe(FeedEventKinds.ConfigChanged, FeedEventKinds.TriggerAnyFeed,
-            FeedEventKinds.FilterRequireAspects);
-        Assert.Empty(afx.Event.BlockedBy(aspects));
-
-        var ids = Probe(FeedEventKinds.ConfigChanged, FeedEventKinds.TriggerAnyFeed,
-            FeedEventKinds.FilterRequireIds);
-        Assert.Equal(FeedEventKinds.FilterRequireIds, Assert.Single(afx.Event.BlockedBy(ids)));
+        var ids = Probe(FeedEventKinds.ConfigChanged, FeedEventKinds.TriggerAnyFeed, FeedEventKinds.FilterRequireIds);
+        Assert.Equal(FeedEventKinds.FilterRequireIds, Assert.Single(kind.BlockedBy(afx.Event, ids)));
     }
 
     [Fact]
     public void GameDataSamples_OnlyBinaryUpMatchesTheBinaryUpTrigger() {
-        var moved = FeedSamples.Find(FeedEventKinds.GameDataRebuilt, "binary_up");
-        var same = FeedSamples.Find(FeedEventKinds.GameDataRebuilt, "same_binary");
-        Assert.NotNull(moved);
-        Assert.NotNull(same);
+        var (kind, moved) = Find(FeedEventKinds.GameDataRebuilt, "binary_up");
+        var (_, same) = Find(FeedEventKinds.GameDataRebuilt, "same_binary");
 
         var sub = Probe(FeedEventKinds.GameDataRebuilt, FeedEventKinds.TriggerBinaryUp);
-        Assert.True(moved.Event.Matches(sub));
-        Assert.False(same.Event.Matches(sub));
+        Assert.True(kind.Matches(moved.Event, sub));
+        Assert.False(kind.Matches(same.Event, sub));
 
         var any = Probe(FeedEventKinds.GameDataRebuilt, FeedEventKinds.TriggerAnyRebuild);
-        Assert.True(moved.Event.Matches(any));
-        Assert.True(same.Event.Matches(any));
+        Assert.True(kind.Matches(moved.Event, any));
+        Assert.True(kind.Matches(same.Event, any));
+    }
+
+    [Fact]
+    public void EventBackfillSample_BlockedByBothDefaultFilters() {
+        var (kind, old) = Find(FeedEventKinds.GameEvent, "backfill");
+        var sub = Probe(FeedEventKinds.GameEvent, FeedEventKinds.TriggerAny,
+            FeedEventKinds.FilterFreshOnly, FeedEventKinds.FilterDeviceOnly);
+        Assert.True(kind.Matches(old.Event, sub));
+        Assert.Equal([FeedEventKinds.FilterFreshOnly, FeedEventKinds.FilterDeviceOnly], kind.BlockedBy(old.Event, sub));
+    }
+
+    [Fact]
+    public void ContractSamples_SplitAcrossTriggers() {
+        var (kind, fresh) = Find(FeedEventKinds.ContractRelease, "new");
+        var (_, leggacy) = Find(FeedEventKinds.ContractRelease, "leggacy");
+        var (_, ultra) = Find(FeedEventKinds.ContractRelease, "ultra");
+
+        Assert.True(kind.Matches(fresh.Event, Probe(kind.Key, FeedEventKinds.TriggerNewOnly)));
+        Assert.False(kind.Matches(leggacy.Event, Probe(kind.Key, FeedEventKinds.TriggerNewOnly)));
+        Assert.True(kind.Matches(leggacy.Event, Probe(kind.Key, FeedEventKinds.TriggerLeggacyOnly)));
+        Assert.False(kind.Matches(leggacy.Event, Probe(kind.Key, FeedEventKinds.TriggerUltraOnly)));
+        Assert.True(kind.Matches(ultra.Event, Probe(kind.Key, FeedEventKinds.TriggerUltraOnly)));
+    }
+
+    [Fact]
+    public void PreviewRows_CarryABodyForEverySample_EvenWhenNotMatched() {
+        var probe = Probe(FeedEventKinds.ProtoBuild, FeedEventKinds.TriggerVersionUp, ProtoGuards);
+        var rows = ProtoFeedController.PreviewRows(probe);
+
+        Assert.Equal(FeedEventKinds.Proto.Samples.Count, rows.Count);
+        Assert.All(rows, r => Assert.False(string.IsNullOrEmpty(r.Body)));
+        Assert.Contains(rows, r => !r.Matches);
+        Assert.Contains(rows, r => r.Matches && r.BlockedBy.Count > 0);
+        Assert.Contains(rows, r => r.Matches && r.BlockedBy.Count == 0);
     }
 
     [Fact]
     public void SampleBodies_AreNonEmptyJson() {
         foreach (var kind in FeedEventKinds.All) {
-            foreach (var sample in FeedSamples.For(kind.Key)) {
-                string body = sample.Event.BuildBody(null);
+            foreach (var sample in kind.Samples) {
+                string body = DiscordFeedPayload.Build(sample.Event);
                 Assert.StartsWith("{", body, StringComparison.Ordinal);
                 Assert.Contains("embeds", body, StringComparison.Ordinal);
             }
@@ -174,6 +211,16 @@ public class NotificationsWorkbenchTests {
         Assert.Null(state.SelectedId);
 
         Assert.False(state.ApplyHash("#android_111358"));
+    }
+
+    [Fact]
+    public void ResetNew_ClearsLabelAndSample() {
+        var state = new NotificationsWorkbenchState();
+        state.NewDraft.Label = "mine";
+        state.NewDraft.SampleKey = "forward";
+        state.ResetNew();
+        Assert.Equal("", state.NewDraft.Label);
+        Assert.Null(state.NewDraft.SampleKey);
     }
 
     [Fact]

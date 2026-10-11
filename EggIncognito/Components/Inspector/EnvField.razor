@@ -11,8 +11,8 @@
         } else if (Row.Editor == EnvEditor.Bool) {
             <input class="env-check" type="checkbox" checked="@(Row.Value == "true")" @onchange="OnBool"/>
         } else {
-            <input class="env-input @(Row.IsInvalid() ? "env-invalid" : "")" list="@ListId"
-                   value="@Row.Value" placeholder="@Row.Hint" @attributes="InputAttrs.NoAutofill"
+            <input class="env-input @(Row.IsInvalid() ? "env-invalid" : "")" list="@ListId" type="search" role="combobox"
+                   name="@($"env-{Row.Key}-{_salt}")" value="@Row.Value" placeholder="@Row.Hint" @attributes="InputAttrs.NoAutofill"
                    @oninput="OnText"/>
         }
     </label>
@@ -22,6 +22,8 @@
     [Parameter] public EnvRow? Row { get; set; }
     [Parameter] public string? WidthClass { get; set; }
     [Parameter] public EventCallback<EnvRow> OnChanged { get; set; }
+
+    readonly string _salt = Guid.NewGuid().ToString("N")[..8];
 
     string? ListId => Row?.Editor == EnvEditor.Eid ? "recentEids" : null;
 

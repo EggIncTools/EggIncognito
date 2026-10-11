@@ -1,4 +1,40 @@
-.pd-w-support { display: flex; flex-direction: column; gap: 0.5rem; }
-.pd-w-support ::deep .phead { margin-bottom: 0; }
-.sp-lede { margin: 0; font-size: 0.75rem; color: var(--color-muted); }
-.sp-capture { width: fit-content; }
+.pd-w-support {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 100% 0%, color-mix(in oklab, var(--color-accent) 18%, transparent), transparent 60%),
+    var(--egi-panel-tint, var(--color-panel));
+}
+.sp-head { display: flex; align-items: center; gap: 0.75rem; }
+.sp-badge {
+  --icon-size: 1.25rem;
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border: 1px solid color-mix(in oklab, var(--color-accent) 45%, transparent);
+  border-radius: 0.625rem;
+  background-color: color-mix(in oklab, var(--color-accent) 16%, var(--color-panel2));
+  color: var(--color-accent);
+}
+.sp-head-text { display: flex; flex-direction: column; min-width: 0; }
+.sp-title { margin: 0; font-size: 0.875rem; font-weight: 600; color: var(--color-fg); }
+.sp-sub { font-size: 0.6875rem; color: var(--color-muted); }
+.sp-projects { display: flex; flex-wrap: wrap; gap: 0.375rem; margin: 0; padding: 0; list-style: none; }
+.sp-project {
+  padding: 0.125rem 0.5rem;
+  border: 1px solid var(--color-border);
+  border-radius: 9999px;
+  background-color: var(--color-panel2);
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  color: var(--color-fg-soft);
+}
+.sp-lede { margin: 0; max-width: 22rem; font-size: 0.75rem; line-height: 1.45; color: var(--color-muted); }
+.sp-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: auto; }
+.sp-btn { display: inline-flex; align-items: center; gap: 0.375rem; width: fit-content; }

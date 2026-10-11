@@ -1,5 +1,4 @@
 using EggIdentity.Auth;
-using EggIdentity.Client;
 using EggIncognito.Capture;
 using EggIncognito.Data.Models;
 using EggIncognito.Data.Services;
@@ -18,22 +17,11 @@ namespace EggIncognito.Controllers;
 public sealed class ContributionsController(
     ICurrentUser currentUser,
     ICaptureContributionKinds kinds,
-    ContributionOptions options,
-    ILogger<ContributionsController> logger) : ApiControllerBase {
+    ContributionOptions options) : ApiControllerBase {
     private const int MaxPageSize = 200;
     private const int MaxOfferBatch = 5000;
 
-    private async Task<Dictionary<Guid, string>> UsernamesAsync(IdentityApiClient? identity, CancellationToken ct) {
-        var names = new Dictionary<Guid, string>();
-        if (identity is null) return names;
-        try {
-            foreach (var u in await identity.ListAdminUsersAsync(ct)) names[u.UserId] = u.Username;
-        } catch (Exception ex) {
-            logger.LogWarning(ex, "identity lookup failed; contributor ids will render as uuid fragments");
-        }
-
-        return names;
-    }
+    private static int Clamp(int take) => take <= 0 ? 50 : Math.Min(take, MaxPageSize);
 
     private (Guid UserId, IActionResult? Error) Me() =>
         currentUser.Current is { IsAuthenticated: true, Id: { } id }
@@ -154,65 +142,4 @@ public sealed class ContributionsController(
     private ObjectResult? OfferBlocked() =>
         options.Enabled ? null : Fail(403, "contributions are disabled");
 
-    [HttpGet("pending")]
-    [ApiAccess(ApiAccessLevel.Admin)]
-    [RequiresDb]
-    public async Task<IActionResult> Pending(
-        [FromServices] ContributionStore store, [FromServices] IdentityApiClient? identity,
-        [FromQuery] string? kind, [FromQuery] int skip, [FromQuery] int take, CancellationToken ct) {
-        var page = await store.PendingAsync(kind, Math.Max(skip, 0), Clamp(take), ct);
-        var names = await UsernamesAsync(identity, ct);
-        return Ok(new {
-            total = page.Total,
-            rows = page.Rows.Select(r => new ContributionPendingRowDto(
-                r.Id, r.ContributorUserId, names.GetValueOrDefault(r.ContributorUserId), r.Kind, r.Summary,
-                r.Payload, r.ClientVersion, r.RecordedAt, r.SubmittedAt))
-        });
-    }
-
-    [HttpGet("tallies")]
-    [ApiAccess(ApiAccessLevel.Admin)]
-    [RequiresDb]
-    public async Task<IActionResult> Tallies(
-        [FromServices] ContributionStore store, [FromServices] IdentityApiClient? identity, CancellationToken ct) {
-        var counts = await store.CountsAllAsync(ct);
-        var tallies = await store.PendingTalliesAsync(50, ct);
-        var names = await UsernamesAsync(identity, ct);
-        return Ok(new {
-            counts,
-            tallies = tallies.Select(t => new ContributionTallyDto(
-                t.ContributorUserId, names.GetValueOrDefault(t.ContributorUserId), t.Kind, t.Submitted, t.Oldest))
-        });
-    }
-
-    [HttpPost("review")]
-    [ApiAccess(ApiAccessLevel.Admin)]
-    [EnableRateLimiting("write")]
-    [RequiresDb]
-    public async Task<IActionResult> Review([FromServices] ContributionStore store,
-        [FromBody] ContributionReviewRequest body, CancellationToken ct) {
-        if (body.Ids is []) return Fail(400, "no ids supplied");
-        if (body.Ids.Count > 5000) return Fail(400, "too many ids in one review");
-
-        int changed = await store.ReviewAsync(body.Ids, body.Approve, Reviewer(), body.Note, ct);
-        return Ok(new { reviewed = changed, approved = body.Approve });
-    }
-
-    [HttpPost("review-contributor")]
-    [ApiAccess(ApiAccessLevel.Admin)]
-    [EnableRateLimiting("write")]
-    [RequiresDb]
-    public async Task<IActionResult> ReviewContributor([FromServices] ContributionStore store,
-        [FromBody] ContributionContributorReviewRequest body, CancellationToken ct) {
-        if (body.ContributorUserId == Guid.Empty) return Fail(400, "contributorUserId required");
-        if (string.IsNullOrWhiteSpace(body.Kind)) return Fail(400, "kind required");
-
-        int changed = await store.ReviewContributorAsync(
-            body.ContributorUserId, body.Kind, body.Approve, Reviewer(), body.Note, ct);
-        return Ok(new { reviewed = changed, approved = body.Approve });
-    }
-
-    private string Reviewer() => currentUser.Current.Name ?? currentUser.Current.Id?.ToString() ?? "admin";
-
-    private static int Clamp(int take) => take <= 0 ? 50 : Math.Min(take, MaxPageSize);
 }

@@ -1,26 +1,18 @@
 using EggIncognito.Core.Services.ProtoExtract;
 using EggIncognito.Data.Services;
+using EggIncognito.Services.Feed.Kinds;
 
 namespace EggIncognito.Services.Feed;
 
-public sealed class ProtoUpsertNotifier(
-    IConfiguration config,
-    ILogger<ProtoUpsertNotifier> logger,
-    FeedDispatcher? dispatcher = null) : IProtoUpsertObserver {
-    public async Task OnUpsertAsync(ProtoUpsertNotice notice, CancellationToken ct) {
-        if (dispatcher is null) return;
-        try {
-            string pageUrl = FeedDispatcher.BuildPageUrl(
-                config["Feed:PageBaseUrl"], notice.Platform, notice.Build);
-            var flaws = ProtoVersionQuality.Flaws(
-                notice.Platform, notice.Build, notice.ClientVersion, notice.ProtoSha, notice.HasProtoText);
-            await dispatcher.DispatchAsync(new ProtoBuildEvent(
-                notice.ProtoVersionId, notice.Platform, notice.AppVersion, notice.Build, notice.ClientVersion,
-                notice.ProtoSha, notice.Created, notice.ProtoChanged, pageUrl,
-                notice.Delta, notice.PrevAppVersion, notice.PrevBuild, flaws), ct);
-        } catch (Exception ex) {
-            logger.LogWarning(ex, "proto-build dispatch for {Platform} {Build} threw",
-                notice.Platform, notice.Build);
-        }
+public sealed class ProtoUpsertNotifier(FeedPublisher? publisher = null) : IProtoUpsertObserver {
+    public Task OnUpsertAsync(ProtoUpsertNotice notice, CancellationToken ct) {
+        if (publisher is null) return Task.CompletedTask;
+        var flaws = ProtoVersionQuality.Flaws(
+            notice.Platform, notice.Build, notice.ClientVersion, notice.ProtoSha, notice.HasProtoText);
+        return publisher.PublishAsync(new ProtoBuildEvent(
+            notice.ProtoVersionId, notice.Platform, notice.AppVersion, notice.Build, notice.ClientVersion,
+            notice.ProtoSha, notice.Created, notice.ProtoChanged,
+            publisher.ProtoPageUrl(notice.Platform, notice.Build),
+            notice.Delta, notice.PrevAppVersion, notice.PrevBuild, flaws), ct);
     }
 }

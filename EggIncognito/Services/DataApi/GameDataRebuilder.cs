@@ -8,6 +8,7 @@ using EggIncognito.Data.Models;
 using EggIncognito.Data.Services;
 using EggIncognito.GameData;
 using EggIncognito.Services.Feed;
+using EggIncognito.Services.Feed.Kinds;
 using Microsoft.EntityFrameworkCore;
 
 namespace EggIncognito.Services.DataApi;
@@ -17,11 +18,10 @@ public sealed record RebuildDocResult(string Id, string Status, int? Count, int?
 public sealed class GameDataRebuilder(
     IServiceProvider services,
     GameBinaryProvider binaries,
-    IConfiguration configuration,
     GameDataStore gameDataStore,
     ILogger<GameDataRebuilder> logger,
     TimeProvider time,
-    FeedDispatcher? feedDispatcher = null,
+    FeedPublisher? publisher = null,
     EggIncognitoDbContext? dbContext = null) {
     private string _inputSha = "";
     private readonly List<string> _changedDocs = [];
@@ -29,7 +29,7 @@ public sealed class GameDataRebuilder(
     private string _platform = "";
     private string? _prevBinaryVersion;
 
-    private static readonly string[] Unbuildable = ["boosts", "artifacts"];
+    public static readonly IReadOnlyList<string> UnbuildableIds = ["boosts", "artifacts"];
 
     private static readonly string[] BinaryDocIds = [
         "boost-catalog", "missions", "eggs", "vehicles", "dimensions", "research", "habs",
@@ -187,23 +187,13 @@ public sealed class GameDataRebuilder(
         }
     }
 
-    private async Task DispatchRebuiltAsync(CancellationToken ct) {
-        if (_changedDocs.Count == 0) return;
-        if (feedDispatcher is not { } dispatcher) return;
-
-        string? configured = configuration["Feed:PageBaseUrl"];
-        string root = string.IsNullOrEmpty(configured)
-            ? FeedDispatcher.DefaultPageBaseUrl
-            : configured.TrimEnd('/');
+    private Task DispatchRebuiltAsync(CancellationToken ct) {
+        if (_changedDocs.Count == 0 || publisher is null) return Task.CompletedTask;
         string dedup = _inputSha.Length > 0
             ? _inputSha
             : Hashes.Sha256Hex(string.Join('\n', _changedDocs));
-        try {
-            await dispatcher.DispatchAsync(new GameDataRebuiltEvent(
-                _binaryVersion, _prevBinaryVersion, _platform, dedup, [.. _changedDocs], $"{root}/data"), ct);
-        } catch (Exception ex) {
-            logger.LogWarning(ex, "gamedata rebuild dispatch threw");
-        }
+        return publisher.PublishAsync(new GameDataRebuiltEvent(
+            _binaryVersion, _prevBinaryVersion, _platform, dedup, [.. _changedDocs], publisher.PageUrl("data")), ct);
     }
 
     private static string? BinaryVersionOf(string? json) {
@@ -237,7 +227,7 @@ public sealed class GameDataRebuilder(
             : gameDataStore.Provider?.Colleggtibles.GameVersion ?? "";
 
     private static void AppendUnbuildable(List<RebuildDocResult> results) {
-        foreach (string id in Unbuildable) {
+        foreach (string id in UnbuildableIds) {
             results.Add(new RebuildDocResult(id, "unbuildable", null, null,
                 "no extraction pipeline yet; needs a dedicated extraction session"));
         }

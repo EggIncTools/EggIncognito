@@ -1,6 +1,0 @@
-@using EggIdentity.Settings.AdminUi
-@rendermode @(RenderModes.InteractiveServer)
-@inject ICurrentUser User
-
-<AdminPaneHead Title="Settings"/>
-<SettingsPanel UpdatedBy="@(User.Current.Name ?? User.Current.DiscordId)"/>

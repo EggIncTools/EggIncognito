@@ -1,6 +1,5 @@
 using System.Globalization;
 using System.Text.Json.Nodes;
-using EggIncognito.Core;
 using EggIncognito.Core.Services.Devices;
 using EggIncognito.Core.Services.ProtoExtract;
 using EggIncognito.Core.Services.ProtoExtract.Decomp;
@@ -18,7 +17,6 @@ namespace EggIncognito.Controllers;
 [Route("api/decomp")]
 [ApiAccess(ApiAccessLevel.Contributor)]
 public sealed class DecompController(GameBinaryProvider binaries) : ApiControllerBase {
-    private const int SymbolizedSymbolFloor = 50_000;
 
     [HttpGet("symbols")]
     [EnableRateLimiting("read")]
@@ -465,89 +463,6 @@ public sealed class DecompController(GameBinaryProvider binaries) : ApiControlle
             ? Ok(new { ok = true, platform, version })
             : Fail(404, $"no stored binary {platform} {version}");
     }
-
-    [HttpGet("symbolized")]
-    [EnableRateLimiting("read")]
-    [ApiAccess(ApiAccessLevel.Admin)]
-    [RequiresDb]
-    public async Task<IActionResult> SymbolizedReferences([FromServices] SymbolizedReferenceStore store,
-        CancellationToken ct) {
-        var rows = await store.ListAsync(ct);
-        return Ok(rows.Select(ShapeSymbolized).ToList());
-    }
-
-    [HttpPost("symbolized")]
-    [EnableRateLimiting("read")]
-    [ApiAccess(ApiAccessLevel.Admin)]
-    [RequiresDb]
-    [RequestSizeLimit(800_000_000)]
-    [RequestFormLimits(MultipartBodyLengthLimit = 800_000_000)]
-    public async Task<IActionResult> UploadSymbolizedReference(
-        IFormFile file, [FromQuery] string? version, [FromServices] SymbolizedReferenceStore store,
-        CancellationToken ct) {
-        if (file is null || file.Length == 0) return Fail(400, "no file uploaded");
-
-        (string? ipaVersion, byte[] exec) = await ReadSymbolizedUploadAsync(file, ct);
-        string resolved;
-        if (ipaVersion is { Length: > 0 })
-            resolved = ipaVersion;
-        else if (string.IsNullOrWhiteSpace(version))
-            return Fail(400,
-                "no .ipa payload found, so this is treated as a raw Mach-O executable; supply the version query parameter");
-        else
-            resolved = version.Trim();
-
-        int symbolCount;
-        try {
-            symbolCount = MachoSymbols.Read(exec).Count;
-        } catch (Exception ex) {
-            return Fail(400, "could not read the Mach-O symbol table: " + ex.Message);
-        }
-
-        if (symbolCount < SymbolizedSymbolFloor)
-            return Fail(400,
-                $"{symbolCount} symbols is below the {SymbolizedSymbolFloor} floor; this is not a symbolized build");
-
-        string sha = Hashes.Sha256Hex(exec);
-        await store.PutAsync(Platforms.Ios, resolved, sha, exec, symbolCount, ct);
-
-        var stored = (await store.ListAsync(ct))
-            .FirstOrDefault(r => r.Platform == Platforms.Ios && r.AppVersion == resolved);
-        return stored is null
-            ? Fail(500, $"stored {resolved} but could not read it back")
-            : Ok(ShapeSymbolized(stored));
-    }
-
-    [HttpDelete("symbolized/{version}")]
-    [EnableRateLimiting("read")]
-    [ApiAccess(ApiAccessLevel.Admin)]
-    [RequiresDb]
-    public async Task<IActionResult> DeleteSymbolizedReference(string version,
-        [FromServices] SymbolizedReferenceStore store, CancellationToken ct) {
-        bool removed = await store.DeleteAsync(Platforms.Ios, version, ct);
-        return removed
-            ? Ok(new { ok = true, platform = Platforms.Ios, version })
-            : Fail(404, $"no symbolized reference {version}");
-    }
-
-    private static async Task<(string? Version, byte[] Exec)> ReadSymbolizedUploadAsync(
-        IFormFile file, CancellationToken ct) {
-        byte[] bytes = new byte[file.Length];
-        using var dest = new MemoryStream(bytes);
-        await file.CopyToAsync(dest, ct);
-
-        (string? ipaVersion, byte[]? ipaExec) = SymbolizedIpa.Read(bytes);
-        return ipaVersion is { Length: > 0 } && ipaExec is { Length: > 0 } ? (ipaVersion, ipaExec) : (null, bytes);
-    }
-
-    private static object ShapeSymbolized(SymbolizedBinaryInfo b) => new {
-        b.Platform,
-        version = b.AppVersion,
-        sha256 = b.Sha256,
-        byteSize = b.ByteSize,
-        symbolCount = b.SymbolCount,
-        uploadedAt = b.UploadedAt
-    };
 
     [HttpGet("harvested")]
     [EnableRateLimiting("read")]

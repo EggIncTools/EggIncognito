@@ -1,5 +1,4 @@
 using System.Text;
-using System.Text.Json;
 using System.Text.RegularExpressions;
 using EggIdentity.Auth;
 using EggIdentity.Client;
@@ -35,8 +34,6 @@ public sealed partial class AdminController(
     : ApiControllerBase {
     [GeneratedRegex("^[a-z0-9_-]{1,64}$")]
     private static partial Regex IconNameRegex();
-
-    private static readonly JsonSerializerOptions ProvenanceJson = JsonPresets.CamelSkipNull;
 
     [HttpGet("users")]
     public async Task<IActionResult> Users([FromServices] IdentityApiClient? identity) {
@@ -82,28 +79,34 @@ public sealed partial class AdminController(
         return Ok(rows);
     }
 
-    [HttpGet("data-status")]
+    [HttpGet("gamedata")]
     [EnableRateLimiting("read")]
-    public IActionResult DataStatus([FromServices] DataCatalog dataCatalog, [FromServices] GameConfigStore configStore,
+    public IActionResult GameDataStatus([FromServices] DataCatalog dataCatalog, [FromServices] GameConfigStore configStore,
         [FromServices] IConfiguration cfg) {
-        var gameData = new List<DataStatusGameDataRow>();
+        var families = new Dictionary<string, (int Count, string? Version, List<GameDataSourceRow> Sources)>(StringComparer.Ordinal);
         if (gameDataStore.Provider is { } provider) {
-            foreach (var f in provider.Families) {
-                gameData.Add(new DataStatusGameDataRow(f.Key, f.Effects.Count,
-                    JsonSerializer.Serialize(f.Provenance, ProvenanceJson), null));
-            }
+            foreach (var f in provider.Families)
+                families[DocIdFor(f.Key)] = (f.Effects.Count, null, [.. f.Provenance.Select(s => new GameDataSourceRow(s.Key, s.Value.Origin, s.Value.Locator, s.Value.Method))]);
 
             string? route = dataCatalog.ById("periodical", "get_periodicals")?.WireRoute;
             var live = route is null ? null : LiveColleggtibleSource.Derive(services, route);
-            if (live is not null) {
-                gameData.Add(new DataStatusGameDataRow("colleggtibles", live.Extract.Eggs.Count,
-                    JsonSerializer.Serialize(live.Provenance, ProvenanceJson), live.GameVersion));
-            } else {
-                var col = provider.Colleggtibles;
-                gameData.Add(new DataStatusGameDataRow("colleggtibles", col.Eggs.Count,
-                    JsonSerializer.Serialize(col.Provenance, ProvenanceJson), col.GameVersion));
-            }
+            families["colleggtibles"] = live is not null
+                ? (live.Extract.Eggs.Count, live.GameVersion, [.. live.Provenance.Select(s => new GameDataSourceRow(s.Key, s.Value.Origin, s.Value.Locator, s.Value.Method))])
+                : (provider.Colleggtibles.Eggs.Count, provider.Colleggtibles.GameVersion,
+                    [.. provider.Colleggtibles.Provenance.Select(s => new GameDataSourceRow(s.Key, s.Value.Origin, s.Value.Locator, s.Value.Method))]);
         }
+
+        var stored = gameDataStore.List().ToDictionary(d => d.Id, StringComparer.Ordinal);
+        List<GameDataDocRow> documents = [
+            .. GameDataProvider.ImportableIds.Select(id => {
+                var doc = stored.GetValueOrDefault(id);
+                bool hasFamily = families.TryGetValue(id, out var fam);
+                return new GameDataDocRow(id, doc is not null, GameDataRebuilder.UnbuildableIds.Contains(id),
+                    doc?.UpdatedAt, doc?.Bytes,
+                    hasFamily && fam.Count > 0 ? fam.Count : null, hasFamily ? fam.Version : null,
+                    hasFamily ? fam.Sources : []);
+            })
+        ];
 
         bool configEnabled = configStore.Enabled;
         List<DataStatusConfigPlatform> platforms = [
@@ -129,20 +132,17 @@ public sealed partial class AdminController(
             }
         }
 
-        List<GameDataDocInfo> documents = [.. gameDataStore.List()];
-        List<string> missing = [.. gameDataStore.MissingIds()];
-        return Ok(new DataStatusResponse(gameData, documents, missing, new DataStatusConfig(configEnabled, platforms),
-            fixtures));
+        return Ok(new GameDataStatusResponse(documents, [.. gameDataStore.MissingIds()],
+            new DataStatusConfig(configEnabled, platforms), fixtures));
     }
 
-    [HttpGet("gamedata")]
-    [EnableRateLimiting("read")]
-    [RequiresDb]
-    public IActionResult GameDataDocuments() {
-        var rows = gameDataStore.List().ToDictionary(d => d.Id, StringComparer.Ordinal);
-        List<GameDataDocRow> documents = [.. GameDataProvider.ImportableIds.Select(id => GameDataDocRow.From(id, rows))];
-        return Ok(new GameDataStatusResponse(documents, [.. gameDataStore.MissingIds()]));
-    }
+    private static string DocIdFor(string familyKey) => familyKey switch {
+        "boost" => "boosts",
+        "research" => "research",
+        "hab" => "habs",
+        "artifact" => "artifacts",
+        _ => familyKey
+    };
 
     [HttpPost("gamedata/rebuild")]
     [RequiresDb]

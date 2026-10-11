@@ -1,14 +1,20 @@
 using System.Text.Json;
+using EggIncognito.Core.Services.ProtoExtract;
 using EggIncognito.Services.Feed;
+using EggIncognito.Services.Feed.Kinds;
 
 namespace EggIncognito.Tests;
 
 public class DiscordFeedPayloadTests {
+    private static ProtoBuildEvent Proto(string platform, string appVersion, string build, string? client, string sha,
+        bool changed, string url) =>
+        new(1, platform, appVersion, build, client, sha, true, changed, url, VersionDelta.Forward);
+
     [Fact]
     public void Build_Changed_ContainsVersionLabelBuildAndShortSha() {
-        string json = DiscordFeedPayload.Build(
+        string json = DiscordFeedPayload.Build(Proto(
             "android", "1.99.0", "111343", "72", "abcdef0123456789deadbeef", true,
-            "https://eggincognito.egginc.tools/protos/android/111343");
+            "https://eggincognito.egginc.tools/protos/android/111343"));
 
         Assert.Contains("Egg, Inc. 1.99.0 (build 111343, android)", json);
         Assert.Contains("changed", json);
@@ -19,8 +25,7 @@ public class DiscordFeedPayloadTests {
 
     [Fact]
     public void Build_Unchanged_LabelsUnchanged() {
-        string json = DiscordFeedPayload.Build(
-            "ios", "1.99.0", "111343", null, "shortsha", false, "https://x/y");
+        string json = DiscordFeedPayload.Build(Proto("ios", "1.99.0", "111343", null, "shortsha", false, "https://x/y"));
         Assert.Contains("unchanged", json);
         Assert.Contains("shortsha", json);
         Assert.DoesNotContain("Client", json);
@@ -41,9 +46,9 @@ public class DiscordFeedPayloadTests {
 
     [Fact]
     public void MarkAsTest_Embed_AddsVisibleContentNoticeAndFooter() {
-        string real = DiscordFeedPayload.Build(
+        string real = DiscordFeedPayload.Build(Proto(
             "android", "1.37.0", "111358", "72", "abcdef0123456789", true,
-            "https://eggincognito.egginc.tools/protos/android/111358");
+            "https://eggincognito.egginc.tools/protos/android/111358"));
         Assert.DoesNotContain(DiscordFeedPayload.TestNotice, real, StringComparison.Ordinal);
 
         string marked = DiscordFeedPayload.MarkAsTest(real);
@@ -58,7 +63,7 @@ public class DiscordFeedPayloadTests {
     [Fact]
     public void MarkAsTest_CustomTemplate_KeepsBodyBelowTheNotice() {
         string real = DiscordFeedPayload.Build(
-            "ios", "1.37.0", "1.37.0.1", null, "abcdef0123456789", true, "https://x/y",
+            Proto("ios", "1.37.0", "1.37.0.1", null, "abcdef0123456789", true, "https://x/y"),
             "New build {{appVersion}} is up");
 
         string marked = DiscordFeedPayload.MarkAsTest(real);
@@ -71,18 +76,18 @@ public class DiscordFeedPayloadTests {
     [Fact]
     public void MarkAsTest_EverySample_CarriesTheNotice() {
         foreach (var kind in FeedEventKinds.All) {
-            foreach (var sample in FeedSamples.For(kind.Key)) {
-                string marked = DiscordFeedPayload.MarkAsTest(sample.Event.BuildBody(null));
+            foreach (var sample in kind.Samples) {
+                string marked = DiscordFeedPayload.MarkAsTest(DiscordFeedPayload.Build(sample.Event));
                 Assert.Contains(DiscordFeedPayload.TestNotice, marked, StringComparison.Ordinal);
             }
         }
     }
 
     [Fact]
-    public void BuildConfig_NamesTheResponse_AndListsAspects() {
-        string json = DiscordFeedPayload.BuildConfig(
-            "config", "Game config", "abcdef0123456789deadbeef", "https://x/data", null,
-            ["shellSets"], ["shellSet:glacier"], []);
+    public void Config_NamesTheResponse_AndListsAspects() {
+        string json = DiscordFeedPayload.Build(new ConfigChangedEvent(
+            "config", "abcdef0123456789deadbeef", "https://x/data",
+            new ConfigChangeSummary(["shellSets"], ["shellSet:glacier"], [])));
 
         Assert.Contains("Egg, Inc. Game config changed", json);
         Assert.Contains("shellSet:glacier", json);
@@ -92,11 +97,11 @@ public class DiscordFeedPayloadTests {
     }
 
     [Fact]
-    public void BuildConfig_Template_RendersEveryVariable() {
-        string json = DiscordFeedPayload.BuildConfig(
-            "afx-config", "Artifacts config", "sha1", "https://x/data",
-            "{{feed}}|{{feedLabel}}|{{sha}}|{{pageUrl}}|{{changed}}|{{added}}|{{removed}}",
-            ["artifacts"], ["artifact:ORNATE_GUSSET"], ["artifact:LUNAR_TOTEM"]);
+    public void Config_Template_RendersEveryVariable() {
+        string json = DiscordFeedPayload.Build(new ConfigChangedEvent(
+                "afx-config", "sha1", "https://x/data",
+                new ConfigChangeSummary(["artifacts"], ["artifact:ORNATE_GUSSET"], ["artifact:LUNAR_TOTEM"])),
+            "{{feed}}|{{feedLabel}}|{{sha}}|{{pageUrl}}|{{changed}}|{{added}}|{{removed}}");
 
         using var doc = JsonDocument.Parse(json);
         Assert.Equal(
@@ -105,9 +110,9 @@ public class DiscordFeedPayloadTests {
     }
 
     [Fact]
-    public void BuildGameData_ShowsBinaryAndChangedDocuments() {
-        string json = DiscordFeedPayload.BuildGameData(
-            "1.37.0", "1.36.4", "android", "sha", ["eggs", "research"], "https://x/data", null);
+    public void GameData_ShowsBinaryAndChangedDocuments() {
+        string json = DiscordFeedPayload.Build(new GameDataRebuiltEvent(
+            "1.37.0", "1.36.4", "android", "sha", ["eggs", "research"], "https://x/data"));
 
         Assert.Contains("Egg, Inc. game data rebuilt from 1.37.0", json);
         Assert.Contains("eggs, research", json);
@@ -115,14 +120,25 @@ public class DiscordFeedPayloadTests {
     }
 
     [Fact]
-    public void BuildGameData_UnknownBinary_StillHasNonEmptyFields() {
-        string json = DiscordFeedPayload.BuildGameData(
-            "", null, "", "sha", ["colleggtibles"], "https://x/data", null);
+    public void EverySample_HasNonEmptyEmbedFields() {
+        foreach (var kind in FeedEventKinds.All) {
+            foreach (var sample in kind.Samples) {
+                using var doc = JsonDocument.Parse(DiscordFeedPayload.Build(sample.Event));
+                var fields = doc.RootElement.GetProperty("embeds")[0].GetProperty("fields");
+                foreach (var field in fields.EnumerateArray())
+                    Assert.False(string.IsNullOrEmpty(field.GetProperty("value").GetString()), $"{kind.Key}/{sample.Key}");
+            }
+        }
+    }
 
-        using var doc = JsonDocument.Parse(json);
-        var fields = doc.RootElement.GetProperty("embeds")[0].GetProperty("fields");
-        foreach (var field in fields.EnumerateArray())
-            Assert.False(string.IsNullOrEmpty(field.GetProperty("value").GetString()));
+    [Fact]
+    public void EveryKind_DeclaredVars_MatchTheEventVars() {
+        foreach (var kind in FeedEventKinds.All) {
+            foreach (var sample in kind.Samples) {
+                Assert.Equal(kind.Vars.OrderBy(v => v, StringComparer.Ordinal),
+                    sample.Event.Vars().Keys.OrderBy(v => v, StringComparer.Ordinal));
+            }
+        }
     }
 
     [Fact]

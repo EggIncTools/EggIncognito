@@ -15,7 +15,7 @@ public interface IFeedSubscriptionStore {
     Task<bool> DeleteAsync(int id, Guid ownerUserId, CancellationToken ct = default);
 
     Task<bool> UpdateAsync(int id, Guid ownerUserId, string[] platforms, string trigger, bool active,
-        string? messageTemplate, string[] filters, CancellationToken ct = default);
+        string? messageTemplate, string[] filters, string? label, CancellationToken ct = default);
 
     Task SuppressAsync(int subId, string eventKind, string dedupKey, string reason, string? summary,
         CancellationToken ct = default);
@@ -81,7 +81,7 @@ public sealed class FeedSubscriptionStore(EggIncognitoDbContext db, TimeProvider
 
     public async Task<bool> UpdateAsync(
         int id, Guid ownerUserId, string[] platforms, string trigger, bool active, string? messageTemplate,
-        string[] filters, CancellationToken ct = default) {
+        string[] filters, string? label, CancellationToken ct = default) {
         var row = await db.FeedSubscriptions.FirstOrDefaultAsync(s => s.Id == id && s.OwnerUserId == ownerUserId, ct);
         if (row is null) return false;
         row.Platforms = platforms is { Length: > 0 } ? platforms : ["android", "ios"];
@@ -89,6 +89,7 @@ public sealed class FeedSubscriptionStore(EggIncognitoDbContext db, TimeProvider
         row.Active = active;
         row.MessageTemplate = string.IsNullOrWhiteSpace(messageTemplate) ? null : messageTemplate;
         row.Filters = filters;
+        row.Label = string.IsNullOrWhiteSpace(label) ? null : label.Trim();
         await db.SaveChangesAsync(ct);
         return true;
     }

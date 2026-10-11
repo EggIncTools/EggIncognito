@@ -105,26 +105,6 @@ public sealed class ApkStore(
         return sets;
     }
 
-    public async Task<IReadOnlyList<ApkVersionSet>> AllVersionsAsync(CancellationToken ct) {
-        var sets = Group(await HeadsAsync(db.StoredApks, ct));
-        sets.Sort(PackageThenNewest);
-        return sets;
-    }
-
-    public async Task<int> DeleteVersionAsync(string platform, string package, string appVersion, string build,
-        CancellationToken ct) {
-        int removed = await db.StoredApks
-            .Where(a => a.Platform == platform && a.Package == package && a.AppVersion == appVersion
-                        && a.Build == build)
-            .ExecuteDeleteAsync(ct);
-        if (removed > 0) {
-            await NotifyAsync(
-                new ApkStoreNotice(ApkChangeKinds.Deleted, platform, package, appVersion, build, removed), ct);
-        }
-
-        return removed;
-    }
-
     private static Task<List<StoredApkHead>> HeadsAsync(IQueryable<StoredApk> query, CancellationToken ct) =>
         query.AsNoTracking()
             .Select(a => new StoredApkHead(a.Platform, a.Package, a.AppVersion, a.Build, a.Split, a.Sha256,
@@ -142,13 +122,6 @@ public sealed class ApkStore(
     private async Task NotifyAsync(ApkStoreNotice notice, CancellationToken ct) {
         foreach (var observer in observers ?? []) await observer.OnChangedAsync(notice, ct);
         await PgNotify.SendAsync(db, PgChannels.Apks, PgNotify.ApkPayload(notice), ct);
-    }
-
-    public static int PackageThenNewest(ApkVersionSet a, ApkVersionSet b) {
-        int byPlatform = string.CompareOrdinal(a.Platform, b.Platform);
-        if (byPlatform != 0) return byPlatform;
-        int byPackage = string.CompareOrdinal(a.Package, b.Package);
-        return byPackage != 0 ? byPackage : NewestFirst(a, b);
     }
 
     public async Task<IReadOnlyList<StoredApk>> SplitsAsync(string platform, string package, string appVersion,

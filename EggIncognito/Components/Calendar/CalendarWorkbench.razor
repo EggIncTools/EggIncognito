@@ -11,25 +11,8 @@
 
 <WorkbenchModal Open="_open" Title="@Title" TitleId="@TitleId" Size="WorkbenchSize.Wide" CardClass="@($"calwb-card {CardClass}")" OnClose="Close">
     <HeadTools>
-        <div class="evwb-range" role="group" aria-label="Calendar range">
-            <div class="evwb-zoom" role="group" aria-label="Zoom">
-                @foreach (var zoom in Zooms) {
-                    <button type="button" class="@(zoom == _zoom ? "evwb-zoom-opt active" : "evwb-zoom-opt")" @key="zoom"
-                            aria-pressed="@(zoom == _zoom ? "true" : "false")" @onclick="@(() => SetZoom(zoom))">
-                        @ZoomLabel(zoom)
-                    </button>
-                }
-            </div>
-            <button type="button" class="icon-btn icon-btn-sm" aria-label="Previous" @onclick="@(() => Pan(-1))">
-                <Icon Name="chevron-left"/>
-            </button>
-            <span class="evwb-range-label">@RangeLabel</span>
-            <button type="button" class="icon-btn icon-btn-sm" aria-label="Next" @onclick="@(() => Pan(1))">
-                <Icon Name="chevron-right"/>
-            </button>
-            <button type="button" class="btn-mini" @onclick="Today">Today</button>
-            <input type="date" class="evwb-date" aria-label="Jump to date" value="@CenterDate" @onchange="JumpToDate"/>
-        </div>
+        <CalendarRangePicker TZoom="CalendarZoom" AvailableZooms="Zooms" Zoom="_zoom" ZoomLabel="ZoomLabel" RangeLabel="@RangeLabel"
+                             DateValue="@CenterDate" ZoomChanged="SetZoom" OnPan="Pan" OnToday="Today" DateChanged="JumpToDate"/>
         <span class="evwb-zone">@_zone.Id</span>
     </HeadTools>
     <Rail>

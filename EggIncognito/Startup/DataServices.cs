@@ -141,6 +141,7 @@ public static class DataServices {
         builder.Services.AddScoped<FeedSubscriptionStore>();
         builder.Services.AddScoped<IFeedSubscriptionStore>(sp => sp.GetRequiredService<FeedSubscriptionStore>());
         builder.Services.AddScoped<FeedDispatcher>();
+        builder.Services.AddSingleton<FeedPublisher>();
         builder.Services.AddScoped<GameEventIngestor>();
         builder.Services.AddScoped<GameEventBackfill>();
         builder.Services.AddScoped<EventPredictor>();

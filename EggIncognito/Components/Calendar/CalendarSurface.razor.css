@@ -81,6 +81,33 @@
 .cal-surface ::deep .evcal-bar-ghost .evcal-bar-label { color: var(--color-muted); }
 .cal-surface ::deep .evcal-bar-ghost .evcal-bar-icon { opacity: 0.55; }
 .cal-surface ::deep .evcal-bar-ghost .evcal-bar-egg { opacity: 0.55; }
+.cal-surface ::deep .evcal-bar-multi {
+  top: calc(50% - var(--evcal-choices, 1) * var(--evcal-bar-h, 1.5rem) / 2);
+  height: calc(var(--evcal-choices, 1) * var(--evcal-bar-h, 1.5rem));
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0;
+  padding: 0;
+  border-left-width: 1px;
+  z-index: 3;
+}
+.cal-surface ::deep .evcal-choice {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  flex: 1 1 0;
+  min-height: 0;
+  padding: 0 var(--evcal-bar-pad, 0.4rem);
+  border-left: 3px solid var(--evt-color, var(--color-border-input));
+  background: color-mix(in oklab, var(--evt-color, var(--color-panel2)) 12%, var(--color-panel2));
+}
+.cal-surface ::deep .evcal-choice .evcal-bar-label { flex: 1 1 auto; }
+.cal-surface ::deep .evcal-choice-pct {
+  flex: none;
+  font-family: var(--font-mono);
+  font-weight: 600;
+  color: color-mix(in oklab, var(--color-ok) calc(var(--p, 0) * 100%), var(--color-err));
+}
 .cal-surface ::deep .evcal-bar-uncertain .evcal-bar-label { opacity: 0.6; }
 .cal-surface ::deep .evcal-bar-uncertain .evcal-bar-icon { opacity: 0.3; }
 .cal-surface ::deep .evcal-bar-label { position: sticky; left: var(--evcal-bar-pad, 0.4rem); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

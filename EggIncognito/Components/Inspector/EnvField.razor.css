@@ -11,5 +11,6 @@
   color: var(--color-fg);
 }
 .env-input:focus { outline: none; border-color: var(--color-accent); }
+.env-input::-webkit-search-cancel-button, .env-input::-webkit-search-decoration { appearance: none; }
 .env-invalid { border-color: var(--color-err); }
 .env-check { align-self: flex-start; width: 1rem; height: 1rem; margin-top: 0.25rem; accent-color: var(--color-accent); background-color: var(--color-bg); border-color: var(--color-control-border); }

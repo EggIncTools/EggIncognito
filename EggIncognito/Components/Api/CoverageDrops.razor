@@ -64,7 +64,7 @@
                                             <span class="mono cdp-seg-text">@b.Count</span>
                                         </ChildContent>
                                         <Content>
-                                            <span class="tt-title">@(b.Count == 0 ? "none" : b.Count.ToString()) @(b.Count == 1 ? "drop" : "drops")</span>
+                                            <span class="tt-title">@b.Count @(b.Count == 1 ? "drop" : "drops")</span>
                                             <span class="tt-line">@Pct(b.Share) of consumes</span>
                                             <span class="tt-line">@b.Observations of @_summary.Observations</span>
                                         </Content>

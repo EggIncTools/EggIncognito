@@ -121,9 +121,9 @@ public class EventsWorkbenchModalTests : BunitContext {
 
         var cut = await OpenAsync();
 
-        Assert.Equal(2, cut.FindAll(".evwb-zoom-opt").Count);
-        Assert.Contains("Today", cut.Find(".evwb-range").TextContent);
-        Assert.NotNull(cut.Find("input.evwb-date"));
+        Assert.Equal(2, cut.FindAll(".cal-range .segmented-opt").Count);
+        Assert.Contains("Today", cut.Find(".cal-range").TextContent);
+        Assert.NotNull(cut.Find(".cal-range input[type=date]"));
     }
 
     [Fact]

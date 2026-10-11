@@ -2,23 +2,37 @@
 @inject ICurrentUser User
 
 <section class="panel pd-w-support">
-    <PanelHead Title="Support">
-        <Tools>
-            <PaneOpenButton AriaLabel="Support the project" OnClick="@(() => OnOpenSupport.InvokeAsync())"/>
-        </Tools>
-    </PanelHead>
-    <p class="sp-lede">
-        EggIncognito, EggIdentity, and EggLedger are free open-source tools; the hosting runs at a monthly deficit.
-    </p>
-    @if (_canCapture) {
-        <button type="button" class="btn-primary sp-capture" @onclick="@(() => OnOpenCapture.InvokeAsync())">Open capture</button>
-    }
+    <div class="sp-head">
+        <span class="sp-badge"><Icon Name="heart"/></span>
+        <div class="sp-head-text">
+            <h3 class="sp-title">Support</h3>
+            <span class="sp-sub">Free, open source, no ads</span>
+        </div>
+    </div>
+    <ul class="sp-projects">
+        @foreach (var project in Projects) {
+            <li class="sp-project">@project</li>
+        }
+    </ul>
+    <p class="sp-lede">Hosting and storage are paid for out of pocket. Support covers those costs and nothing else is locked behind it.</p>
+    <div class="sp-actions">
+        <button type="button" class="btn-primary sp-btn" @onclick="@(() => OnOpenSupport.InvokeAsync())">
+            <Icon Name="heart" Class="icon-sm"/><span>Support the project</span>
+        </button>
+        @if (_canCapture) {
+            <button type="button" class="btn-secondary sp-btn" @onclick="@(() => OnOpenCapture.InvokeAsync())">
+                <Icon Name="upload" Class="icon-sm"/><span>Open capture</span>
+            </button>
+        }
+    </div>
 </section>
 
 @code {
     [Parameter] public EventCallback OnOpenCapture { get; set; }
 
     [Parameter] public EventCallback OnOpenSupport { get; set; }
+
+    static readonly string[] Projects = ["EggIncognito", "EggIdentity", "EggLedger"];
 
     bool _canCapture;
 

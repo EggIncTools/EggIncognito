@@ -1,4 +1,0 @@
-.atp { display: flex; flex-direction: column; gap: 0.75rem; }
-.atp-row { display: flex; align-items: center; gap: 0.5rem; }
-.atp-input { width: auto; }
-.theme-field { display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.75rem; color: var(--color-muted); }

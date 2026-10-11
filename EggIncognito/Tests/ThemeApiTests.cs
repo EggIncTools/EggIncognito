@@ -21,8 +21,6 @@ public class ThemeApiTests(SharedAppFactory f) {
     [InlineData(nameof(ThemeController.Deactivate), ApiAccessLevel.Authenticated, "write")]
     [InlineData(nameof(ThemeController.Import), ApiAccessLevel.Authenticated, "write")]
     [InlineData(nameof(ThemeController.SaveCss), ApiAccessLevel.Contributor, "write")]
-    [InlineData(nameof(ThemeController.GetPolicy), ApiAccessLevel.Admin, "write")]
-    [InlineData(nameof(ThemeController.SetPolicy), ApiAccessLevel.Admin, "write")]
     public void Action_DeclaresTheExpectedFloorAndRatePolicy(string action, ApiAccessLevel floor, string policy) {
         var method = typeof(ThemeController).GetMethod(action, BindingFlags.Public | BindingFlags.Instance);
         Assert.NotNull(method);
@@ -40,8 +38,6 @@ public class ThemeApiTests(SharedAppFactory f) {
     [InlineData("POST", "/api/theme/some-slug/activate", HttpStatusCode.Unauthorized)]
     [InlineData("POST", "/api/theme/import", HttpStatusCode.Unauthorized)]
     [InlineData("PUT", "/api/theme/css", HttpStatusCode.Forbidden)]
-    [InlineData("GET", "/api/theme/policy", HttpStatusCode.Forbidden)]
-    [InlineData("PUT", "/api/theme/policy", HttpStatusCode.Forbidden)]
     public async Task AnonymousCaller_IsDenied(string method, string url, HttpStatusCode expected) {
         var c = _f.CreateClient();
         using var req = new HttpRequestMessage(new HttpMethod(method), url);

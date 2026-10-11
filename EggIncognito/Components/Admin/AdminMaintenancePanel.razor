@@ -193,7 +193,7 @@
         } else {
             var payload = res.Json<ConfigStoreResult>();
             _results[key] = payload is null || payload.Ok ? "ok" : payload.Diagnostics ?? "failed";
-            Notifier.Publish(AdminTopics.DataStatus);
+            Notifier.Publish(AdminTopics.GameData);
         }
 
         _busy = false;

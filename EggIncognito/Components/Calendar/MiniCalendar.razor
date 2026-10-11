@@ -48,13 +48,13 @@
 }
 
 @code {
-    const int HistoryDays = 21;
+    const int HistoryDays = 7;
 
     [Parameter, EditorRequired] public Func<DateTimeOffset, DateTimeOffset, Task<CalendarItemsLoad<TItem>>> Load { get; set; } = null!;
 
     [Parameter, EditorRequired] public RenderFragment<CalendarBar<TItem>> Bar { get; set; } = null!;
 
-    [Parameter] public string EmptyNote { get; set; } = "Nothing in the last three weeks.";
+    [Parameter] public string EmptyNote { get; set; } = "Nothing in the last week.";
 
     ElementReference _scroller;
     Dom? _dom;

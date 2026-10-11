@@ -34,7 +34,7 @@
                     <thead>
                     <tr>
                         <th class="cegg-icon-col" rowspan="2"></th>
-                        <th class="cegg-name-col" rowspan="2">Name</th>
+                        <th rowspan="2">Name</th>
                         <th rowspan="2">Dimension</th>
                         <th class="cegg-tier-group cegg-tier-first" colspan="@tierCount">Tier</th>
                     </tr>
@@ -85,6 +85,7 @@
     </div>
 
     <div class="pd-wcol">
+        <div class="pd-wrow">
         @if (_seasons is { Count: > 0 } seasonList) {
             <section class="panel pd-w-season">
                 @{
@@ -213,12 +214,14 @@
                 }
             </section>
         }
+        <SupportPanel OnOpenCapture="OnOpenCapture" OnOpenSupport="OnOpenSupport"/>
+        </div>
 
         <section class="panel pd-w-calendar">
             <button type="button" class="pd-cal-title" @onclick="@(() => OnOpenEvents.InvokeAsync())">
                 Events<Icon Name="chevron-right" Class="icon-sm"/>
             </button>
-            <MiniCalendar TItem="EventCalendarItem" Load="LoadMiniEvents" EmptyNote="No events in the last three weeks.">
+            <MiniCalendar TItem="EventCalendarItem" Load="LoadMiniEvents" EmptyNote="No events in the last week.">
                 <Bar>
                     @{ var e = context.Item.Event!; }
                     <div class="evcal-bar-tip" style="@EventBarStyle(context)">
@@ -247,7 +250,7 @@
             <button type="button" class="pd-cal-title pd-cal-title-gap" @onclick="@(() => OnOpenContracts.InvokeAsync())">
                 Contracts<Icon Name="chevron-right" Class="icon-sm"/>
             </button>
-            <MiniCalendar TItem="ContractCalendarItem" Load="LoadMiniContracts" EmptyNote="No contracts in the last three weeks.">
+            <MiniCalendar TItem="ContractCalendarItem" Load="LoadMiniContracts" EmptyNote="No contracts in the last week.">
                 <Bar>
                     @{ var c = context.Item.Release!; }
                     <div class="evcal-bar-tip" style="@ContractBarStyle(context)">
@@ -275,8 +278,6 @@
                 </Bar>
             </MiniCalendar>
         </section>
-
-        <SupportPanel OnOpenCapture="OnOpenCapture" OnOpenSupport="OnOpenSupport"/>
 
         @if (!_loaded) {
             <section class="panel pd-w-note">Loading…</section>

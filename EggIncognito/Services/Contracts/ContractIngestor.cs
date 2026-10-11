@@ -1,12 +1,18 @@
 using EggIncognito.Data.Models;
 using EggIncognito.Data.Services;
 using EggIncognito.Models.Contracts;
+using EggIncognito.Services.Feed;
+using EggIncognito.Services.Feed.Kinds;
 using EggIncognito.Services.Predictions;
 using Microsoft.EntityFrameworkCore;
 
 namespace EggIncognito.Services.Contracts;
 
-public sealed class ContractIngestor(EggIncognitoDbContext db, ContractDataVersion version) {
+public sealed class ContractIngestor(
+    EggIncognitoDbContext db,
+    ContractDataVersion version,
+    TimeProvider time,
+    FeedPublisher? publisher = null) {
     private const long IngestLockKey = 305830012;
     public static readonly TimeSpan Window = TimeSpan.FromHours(48);
 
@@ -14,6 +20,7 @@ public sealed class ContractIngestor(EggIncognitoDbContext db, ContractDataVersi
         IReadOnlyList<ContractObservation> observations, CancellationToken ct = default) {
         if (observations.Count == 0) return new ContractIngestResult(0, 0);
         int inserted = 0, updated = 0;
+        var added = new List<ContractRelease>();
         await using var tx = await db.Database.BeginTransactionAsync(ct);
         await db.Database.ExecuteSqlAsync($"SELECT pg_advisory_xact_lock({IngestLockKey})", ct);
         foreach (var obs in observations) {
@@ -26,7 +33,9 @@ public sealed class ContractIngestor(EggIncognitoDbContext db, ContractDataVersi
                 .OrderBy(r => r.StartTime)
                 .FirstOrDefaultAsync(ct);
             if (match is null) {
-                db.ContractReleases.Add(Create(obs));
+                var row = Create(obs);
+                db.ContractReleases.Add(row);
+                added.Add(row);
                 inserted++;
             } else if (Apply(match, obs)) {
                 updated++;
@@ -35,8 +44,16 @@ public sealed class ContractIngestor(EggIncognitoDbContext db, ContractDataVersi
         if (inserted > 0 || updated > 0) await db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
         if (inserted > 0 || updated > 0) version.Bump();
+        if (publisher is not null) {
+            var seenAt = time.GetUtcNow();
+            foreach (var row in added) publisher.Publish(ToEvent(row, seenAt, publisher.PageUrl("contracts")));
+        }
         return new ContractIngestResult(inserted, updated);
     }
+
+    public static ContractReleasedEvent ToEvent(ContractRelease row, DateTimeOffset seenAt, string pageUrl) =>
+        new(row.ContractId, row.Name, row.Egg, row.CustomEggId, row.StartTime, row.EndTime, row.LengthSeconds,
+            row.Leggacy, row.UltraOnly, row.ProphecyEggs, row.MaxCoopSize, row.Source, seenAt, pageUrl);
 
     public static bool SameRelease(ContractRelease row, ContractObservation obs) =>
         row.ContractId == obs.ContractId && (row.StartTime - obs.Start).Duration() <= Window;

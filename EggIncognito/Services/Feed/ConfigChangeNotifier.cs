@@ -5,6 +5,7 @@ using EggIncognito.Data.Services;
 using EggIncognito.Services.Contracts;
 using EggIncognito.Services.DataApi;
 using EggIncognito.Services.Events;
+using EggIncognito.Services.Feed.Kinds;
 using Ei;
 using Google.Protobuf;
 using Microsoft.EntityFrameworkCore;
@@ -17,7 +18,8 @@ public sealed class ConfigChangeNotifier(
     DataCatalog catalog,
     IRouteCatalog routes,
     ILogger<ConfigChangeNotifier> logger,
-    TimeProvider time)
+    TimeProvider time,
+    FeedPublisher? publisher = null)
     : IEndpointWriteObserver {
     public void OnEndpointWritten(string routePath, string json, string? previousJson = null) {
         if (catalog.ByWireRoute(routePath) is not { } source) return;
@@ -47,18 +49,19 @@ public sealed class ConfigChangeNotifier(
 
         string fixtureSha = Hashes.Sha256Hex(ProtoJson.StripVolatile(json));
         string dedupSha = ChangeSha(change) ?? fixtureSha;
-        string pageUrl = PageUrl(config["Feed:PageBaseUrl"], feed);
+        string pageUrl = ConfigChangedKind.PageUrl(config["Feed:PageBaseUrl"], feed);
         _ = Task.Run(async () => {
             try {
                 using var scope = scopes.CreateScope();
                 await UpsertStoredEndpointAsync(scope.ServiceProvider, routePath, json);
                 await InsertSnapshotAsync(scope.ServiceProvider, routePath, json, fixtureSha);
-                var dispatcher = scope.ServiceProvider.GetService<FeedDispatcher>();
-                if (dispatcher is null) return;
-                await dispatcher.DispatchAsync(new ConfigChangedEvent(feed, fixtureSha, pageUrl, change, dedupSha));
             } catch (Exception ex) {
-                logger.LogWarning(ex, "config-change dispatch for {Feed} threw", feed);
+                logger.LogWarning(ex, "config-change landing for {Feed} threw", feed);
             }
+
+            if (publisher is not null)
+                await publisher.PublishAsync(new ConfigChangedEvent(feed, fixtureSha, pageUrl, change, dedupSha),
+                    CancellationToken.None);
         });
     }
 
@@ -67,13 +70,6 @@ public sealed class ConfigChangeNotifier(
             ? null
             : Hashes.Sha256Hex(string.Join('\n',
                 [.. change.Changed, "--", .. change.Added, "--", .. change.Removed]));
-
-    public static string PageUrl(string? baseUrl, string feed) {
-        string root = string.IsNullOrEmpty(baseUrl) ? FeedDispatcher.DefaultPageBaseUrl : baseUrl.TrimEnd('/');
-        return string.Equals(feed, ConfigFeeds.Periodicals, StringComparison.Ordinal)
-            ? $"{root}/periodicals"
-            : $"{root}/data";
-    }
 
     private async Task UpsertStoredEndpointAsync(IServiceProvider sp, string route, string json) {
         try {

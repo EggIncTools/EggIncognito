@@ -4,46 +4,98 @@
 
 <AdminPaneHead Title="Game data" Facts="@Stats">
     <Tools>
+        <label class="form-check agd-force">
+            <input type="checkbox" checked="@_force" @onchange="e => _force = e.Value is true"/>force
+        </label>
+        <button type="button" class="btn-mini" disabled="@_busy" @onclick="Rebuild">Rebuild</button>
         <button type="button" class="btn-mini" disabled="@_busy" @onclick="LoadAsync">Refresh</button>
     </Tools>
 </AdminPaneHead>
 <PaneNotice @ref="_notice"/>
 @if (_data is not null) {
+    <SubSectionHead>Documents</SubSectionHead>
     <TableScroll>
         <table class="data-table">
             <thead>
             <tr>
-                <th>Id</th><th>Present</th><th>Updated</th><th>Bytes</th>
+                <th></th><th>Document</th><th class="agd-num">Rows</th><th class="agd-num">Size</th><th>Updated</th><th>Sources</th><th>Last rebuild</th>
             </tr>
             </thead>
             <tbody>
             @foreach (var d in _data.Documents) {
-                <tr>
+                var state = DocState(d);
+                <tr @key="d.Id" class="@(d.Present ? "" : "agd-row-off")">
+                    <td><span class="agd-dot agd-dot-@state" title="@StateLabel(state)"></span></td>
                     <td class="mono">@d.Id</td>
-                    <td class="small">@(d.Present ? "yes" : "no")</td>
+                    <td class="mono agd-num">@(d.Count?.ToString("N0") ?? "")</td>
+                    <td class="mono agd-num">@(d.Bytes is { } b ? Size(b) : "")</td>
                     <td class="small">
                         @if (d.UpdatedAt is { } updated) {
                             <TimeAgo At="@updated" Class="time-ago"/>
+                        } else if (d.Unbuildable) {
+                            <span class="agd-warn">no extraction pipeline</span>
+                        } else {
+                            <span class="muted">missing</span>
                         }
                     </td>
-                    <td class="mono">@d.Bytes</td>
+                    <td>
+                        <span class="agd-sources">
+                            @foreach (var s in d.Sources) {
+                                <span class="agd-src agd-src-@s.Origin" title="@SourceTitle(s)">@s.Field<span class="agd-src-k">@s.Origin</span></span>
+                            }
+                        </span>
+                    </td>
+                    <td class="small muted">@RebuildNote(d.Id)</td>
                 </tr>
             }
             </tbody>
         </table>
     </TableScroll>
-}
 
-<SubSectionHead>Rebuild</SubSectionHead>
-<FlexRow>
-    <label class="form-check">
-        <input type="checkbox" checked="@_force" @onchange="e => _force = e.Value is true"/>
-        force
-    </label>
-    <button type="button" class="btn-mini" disabled="@_busy" @onclick="Rebuild">Rebuild</button>
-</FlexRow>
-@if (_rebuildResult is not null) {
-    <pre class="result-pre">@RebuildLines()</pre>
+    <SubSectionHead>Config</SubSectionHead>
+    @if (_data.Config.Platforms.Count == 0) {
+        <Note>No stored config.</Note>
+    } else {
+        <div class="agd-cards">
+            @foreach (var p in _data.Config.Platforms) {
+                <div class="agd-card" @key="p.Platform">
+                    <PlatformIcon Platform="@p.Platform"/>
+                    <span class="agd-card-k">@p.Platform</span>
+                    <span class="mono">@Size(p.Bytes)</span>
+                    <TimeAgo At="@p.SavedAt" Class="time-ago"/>
+                </div>
+            }
+        </div>
+    }
+
+    var empty = _data.Fixtures.Where(f => f.Status != "ok").ToList();
+    <SubSectionHead>Fixtures</SubSectionHead>
+    <div class="agd-cards">
+        <div class="agd-card"><span class="agd-card-k">served</span><span class="mono">@(_data.Fixtures.Count - empty.Count)</span></div>
+        <div class="agd-card"><span class="agd-card-k">empty</span><span class="mono">@empty.Count</span></div>
+    </div>
+    <details class="agd-fixtures">
+        <summary>All @_data.Fixtures.Count fixtures</summary>
+        <TableScroll>
+            <table class="data-table">
+                <thead>
+                <tr>
+                    <th>Name</th><th class="agd-num">Size</th><th>Updated</th><th>Status</th>
+                </tr>
+                </thead>
+                <tbody>
+                @foreach (var f in _data.Fixtures) {
+                    <tr @key="f.Name">
+                        <td class="mono">@f.Name</td>
+                        <td class="mono agd-num">@Size(f.Bytes)</td>
+                        <td class="small"><TimeAgo At="@f.UpdatedAt" Class="time-ago"/></td>
+                        <td class="small @(f.Status == "ok" ? "" : "muted")">@f.Status</td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </TableScroll>
+    </details>
 }
 
 <SubSectionHead>Import</SubSectionHead>
@@ -65,12 +117,12 @@
     IEnumerable<string> Stats {
         get {
             if (_data is null) return [];
-            var present = _data.Documents.Count(d => d.Present);
-            return [$"{present}/{_data.Documents.Count} docs", $"{_data.Missing.Count} missing"];
+            int present = _data.Documents.Count(d => d.Present);
+            return [$"{present}/{_data.Documents.Count} documents", $"config {(_data.Config.Enabled ? "on" : "off")}"];
         }
     }
 
-    protected override IReadOnlyList<string> Topics => [AdminTopics.GameData];
+    protected override IReadOnlyList<string> Topics => [AdminTopics.GameData, AdminTopics.Binaries];
 
     protected override async Task LoadAsync() {
         if (Api is null) return;
@@ -83,6 +135,28 @@
         _data = res.Json<GameDataStatusResponse>();
     }
 
+    static string DocState(GameDataDocRow d) => d.Present ? "ok" : d.Unbuildable ? "warn" : "err";
+
+    static string StateLabel(string state) => state switch {
+        "ok" => "Stored",
+        "warn" => "No extraction pipeline yet",
+        _ => "Missing"
+    };
+
+    static string SourceTitle(GameDataSourceRow s) =>
+        string.Join(" / ", new[] { s.Origin, s.Locator, s.Method }.Where(x => !string.IsNullOrEmpty(x)));
+
+    static string Size(long bytes) => bytes switch {
+        >= 1_048_576 => FormattableString.Invariant($"{bytes / 1_048_576d:0.#} MB"),
+        >= 1024 => FormattableString.Invariant($"{bytes / 1024d:0.#} KB"),
+        _ => FormattableString.Invariant($"{bytes} B")
+    };
+
+    string RebuildNote(string id) {
+        if (_rebuildResult?.Results.FirstOrDefault(r => r.Id == id) is not { } r) return "";
+        return string.IsNullOrEmpty(r.Note) ? r.Status : $"{r.Status}: {r.Note}";
+    }
+
     async Task Rebuild() {
         if (Api is null) return;
         _busy = true;
@@ -90,10 +164,9 @@
         var res = await Api.PostAsync($"/api/admin/gamedata/rebuild?force={(_force ? "true" : "false")}", TimeSpan.FromMinutes(5));
         if (res.Ok) {
             _rebuildResult = res.Json<GameDataRebuildResponse>();
-            _notice?.Ok(_rebuildResult is null
-                ? "rebuild complete"
-                : $"rebuild complete: {_rebuildResult.Results.Count} docs" +
-                  (string.IsNullOrEmpty(_rebuildResult.Binary) ? "" : $" ({_rebuildResult.Binary})"));
+            int built = _rebuildResult?.Results.Count(r => r.Status == "built") ?? 0;
+            _notice?.Ok($"rebuilt {built} document(s)" +
+                        (string.IsNullOrEmpty(_rebuildResult?.Binary) ? "" : $" from {_rebuildResult.Binary}"));
         } else {
             _rebuildResult = null;
             _notice?.Fail($"rebuild failed: {res.Describe()}");
@@ -102,14 +175,6 @@
         await LoadAsync();
         _busy = false;
         Notifier.Publish(AdminTopics.GameData);
-        Notifier.Publish(AdminTopics.DataStatus);
-    }
-
-    string RebuildLines() {
-        if (_rebuildResult is null) return "";
-        return string.Join('\n', _rebuildResult.Results.Select(r =>
-            $"{r.Id}: {r.Status} count={r.Count?.ToString() ?? "-"} bytes={r.Bytes?.ToString() ?? "-"}" +
-            (string.IsNullOrEmpty(r.Note) ? "" : $" ({r.Note})")));
     }
 
     async Task Import() {
@@ -120,10 +185,7 @@
         _notice?.Result(res.Ok, res.Ok ? $"imported {_importId.Trim()}" : $"import failed: {res.Describe()}");
         await LoadAsync();
         _busy = false;
-        if (res.Ok) {
-            Notifier.Publish(AdminTopics.GameData);
-            Notifier.Publish(AdminTopics.DataStatus);
-        }
+        if (res.Ok) Notifier.Publish(AdminTopics.GameData);
     }
 
 }

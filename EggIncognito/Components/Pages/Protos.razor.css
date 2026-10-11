@@ -94,14 +94,20 @@
 .reg-lane-c1 { --lane-color: color-mix(in oklab, var(--color-fg) 45%, transparent); --lane-color-hot: color-mix(in oklab, var(--color-fg) 85%, transparent); }
 .reg-lane-c2 { --lane-color: color-mix(in oklab, var(--color-accent) 35%, transparent); --lane-color-hot: color-mix(in oklab, var(--color-accent) 70%, transparent); }
 .reg-lane-c3 { --lane-color: color-mix(in oklab, var(--color-fg) 22%, transparent); --lane-color-hot: color-mix(in oklab, var(--color-fg) 55%, transparent); }
-.reg-lane::before { content: ""; position: absolute; left: 50%; width: 1px; background: var(--lane-color); }
-.reg-lane-pass::before, .reg-lane-node::before { top: 0; bottom: 0; }
-.reg-lane-start::before { top: 50%; bottom: 0; }
-.reg-lane-end::before { top: 0; bottom: 50%; }
-.reg-lane-start, .reg-lane-node, .reg-lane-end {
-  background-image: radial-gradient(circle at 50% 50%, var(--lane-color) 0 0.1875rem, transparent 0.1875rem);
-  background-repeat: no-repeat;
+.reg-lane {
+  --lane-ink: var(--lane-color);
+  --lane-dot: transparent;
+  --lane-dot-r: 0.1875rem;
+  --lane-line-w: 2px;
+  --lane-line-h: 100%;
+  --lane-line-at: center;
+  background:
+    radial-gradient(circle at 50% 50%, var(--lane-dot) 0 var(--lane-dot-r), transparent var(--lane-dot-r)) no-repeat,
+    linear-gradient(var(--lane-ink), var(--lane-ink)) var(--lane-line-at) / var(--lane-line-w) var(--lane-line-h) no-repeat;
 }
+.reg-lane-start { --lane-dot: var(--lane-ink); --lane-line-at: center bottom; --lane-line-h: 50%; }
+.reg-lane-end { --lane-dot: var(--lane-ink); --lane-line-at: center top; --lane-line-h: 50%; }
+.reg-lane-node { --lane-dot: var(--lane-ink); }
 .reg-lane-start::after, .reg-lane-node::after, .reg-lane-end::after {
   content: "";
   position: absolute;
@@ -109,13 +115,9 @@
   right: 50%;
   height: 1px;
   width: calc(var(--reg-gutter, 0rem) - var(--lane, 0) * var(--reg-lane-w) - var(--reg-lane-w) / 2);
-  background: var(--lane-color);
+  background: var(--lane-ink);
 }
-.reg-lane-hot::before { width: 2px; background: var(--lane-color-hot); }
-.reg-lane-hot.reg-lane-start, .reg-lane-hot.reg-lane-node, .reg-lane-hot.reg-lane-end {
-  background-image: radial-gradient(circle at 50% 50%, var(--lane-color-hot) 0 0.25rem, transparent 0.25rem);
-}
-.reg-lane-hot.reg-lane-start::after, .reg-lane-hot.reg-lane-node::after, .reg-lane-hot.reg-lane-end::after { background: var(--lane-color-hot); }
+.reg-lane-hot { --lane-ink: var(--lane-color-hot); --lane-dot-r: 0.25rem; --lane-line-w: 3px; }
 
 @media (max-width: 89.999rem) {
   .pd-mobile-order-1 { order: 1; }
@@ -135,7 +137,12 @@
     .reg-table .reg-lane { display: none; }
   }
 }
+.reg-split { display: none; }
 @media (min-width: 90rem) {
+  .reg-combined { display: none; }
+  .reg-split { display: flex; align-items: flex-start; }
+  .reg-split-col { flex: 0 0 auto; min-width: 0; }
+  .reg-split-col + .reg-split-col { border-left: 1px solid var(--color-border-strong); }
   .pd-grid { grid-template-columns: fit-content(46rem) minmax(0, 1fr); grid-template-rows: min-content 1fr; align-items: start; align-content: start; }
   .pd-identity { grid-column: 2; grid-row: 1; justify-self: start; max-width: 100%; container-type: normal; }
   .pd-main { grid-column: 1; grid-row: 1 / span 2; }
