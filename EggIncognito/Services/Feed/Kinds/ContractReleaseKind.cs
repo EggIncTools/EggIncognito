@@ -1,3 +1,4 @@
+using EggIncognito.Services.Assets;
 using EggIncognito.Services.Contracts;
 
 namespace EggIncognito.Services.Feed.Kinds;
@@ -24,7 +25,7 @@ public sealed record ContractReleasedEvent(
     public bool Fresh => (SeenAt - Start).Duration() <= FeedEventKinds.FreshWindow;
     public bool FromDevice => string.Equals(Source, ContractSources.Device, StringComparison.Ordinal);
     public double LengthDays => LengthSeconds / 86400d;
-    public string EggLabel => CustomEggId ?? ((Ei.Egg)Egg).ToString();
+    public string EggLabel => CustomEggId ?? EggIcons.Name((Ei.Egg)Egg);
 
     public string Summary =>
         $"{Name}{(Leggacy ? " (leggacy)" : "")}{(UltraOnly ? " ultra" : "")} {FeedText.Stamp(Start)}";

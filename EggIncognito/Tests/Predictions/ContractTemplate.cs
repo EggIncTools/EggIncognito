@@ -8,6 +8,7 @@ internal static class ContractTemplate {
     public const int PeLengthDays = 7;
     public const int LeggacySeeds = 12;
     public const int PePoolSize = 16;
+    public const int Egg = (int)Ei.Egg.Fusion;
     public static readonly DateOnly LastMonday = new(2026, 8, 31);
     public static DateTimeOffset AsOf => Day(LastMonday.AddDays(2)).AddHours(1);
 
@@ -23,7 +24,7 @@ internal static class ContractTemplate {
             string id = $"seed-{i}";
             double start = NoonEastern.SlotTime(firstMonday.AddDays(-7 * (LeggacySeeds - i)));
             pool[id] = start;
-            rows.Add(new ContractReleaseSample(id, id, start, PeLengthDays * 86400d, false, 0, false));
+            rows.Add(new ContractReleaseSample(id, id, start, PeLengthDays * 86400d, false, 0, false, Egg));
         }
 
         for (int cycle = 0; cycle < weeks; cycle++) {
@@ -31,11 +32,11 @@ internal static class ContractTemplate {
             string fresh = $"new-{cycle}";
             double mondayNoon = NoonEastern.SlotTime(monday);
             pool[fresh] = mondayNoon;
-            rows.Add(new ContractReleaseSample(fresh, $"New {cycle}", mondayNoon, PeLengthDays * 86400d, false, 0, false));
+            rows.Add(new ContractReleaseSample(fresh, $"New {cycle}", mondayNoon, PeLengthDays * 86400d, false, 0, false, Egg));
             string oldest = pool.OrderBy(p => p.Value).ThenBy(p => p.Key, StringComparer.Ordinal).First().Key;
             double wednesdayNoon = NoonEastern.SlotTime(monday.AddDays(2));
             pool[oldest] = wednesdayNoon;
-            rows.Add(new ContractReleaseSample(oldest, oldest, wednesdayNoon, LeggacyLengthDays * 86400d, true, 0, false));
+            rows.Add(new ContractReleaseSample(oldest, oldest, wednesdayNoon, LeggacyLengthDays * 86400d, true, 0, false, Egg));
             rows.Add(Pe(cycle % PePoolSize, monday, false));
             rows.Add(Pe((cycle + PePoolSize / 2) % PePoolSize, monday, true));
         }
@@ -44,5 +45,5 @@ internal static class ContractTemplate {
     }
 
     private static ContractReleaseSample Pe(int ix, DateOnly monday, bool ultra) => new(
-        $"pe-{ix}", $"PE {ix}", NoonEastern.SlotTime(monday.AddDays(4)), PeLengthDays * 86400d, true, 1, ultra);
+        $"pe-{ix}", $"PE {ix}", NoonEastern.SlotTime(monday.AddDays(4)), PeLengthDays * 86400d, true, 1, ultra, Egg);
 }

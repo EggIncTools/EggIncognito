@@ -5,6 +5,7 @@
   gap: 0.5rem;
   padding: 0.625rem 0.75rem;
   --suite-font-size: 0.8125rem;
+  --suite-wordmark-text: inline;
 }
 .pd-id-row { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.75rem; }
 .pd-id-row + .pd-id-row { padding-top: 0.5rem; border-top: 1px solid var(--color-border); }

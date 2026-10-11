@@ -7,6 +7,8 @@ public class EggIconsTests {
     [InlineData(1, "egg_edible", "Edible")]
     [InlineData(4, "egg_rocketfuel", "Rocket Fuel")]
     [InlineData(15, "egg_darkmatter", "Dark Matter")]
+    [InlineData(8, "egg_crispr", "CRISPR")]
+    [InlineData(16, "egg_ai", "AI")]
     [InlineData(19, "egg_enlightenment", "Enlightenment")]
     public void StandardEgg_MapsToTheCdnStemAndASpacedLabel(int egg, string stem, string label) {
         Assert.Equal("/api/v1/data/asset/icon?name=" + stem, EggIcons.Url(egg, null));

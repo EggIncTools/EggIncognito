@@ -223,6 +223,27 @@ public class ContractPredictorTests {
         Assert.True(thrown is NpgsqlException or InvalidOperationException, thrown.ToString());
     }
 
+    [Fact]
+    public void Watch_TemplateHistory_ListsEveryPoolCandidateWithLastReleaseAndSnappedNext() {
+        var samples = ContractTemplate.Build(26);
+        var model = ContractModel.Train(samples, AsOf);
+
+        var watch = ContractPredictor.Watch(samples, model, AsOf);
+
+        var candidates = ReleaseGrid.AllKinds.SelectMany(k => model.Pools[k].Candidates).ToList();
+        Assert.Equal(candidates.Count, watch.Count);
+        Assert.Equal(watch.OrderBy(e => e.Label, StringComparer.OrdinalIgnoreCase).Select(e => e.Key), watch.Select(e => e.Key));
+        Assert.All(watch, e => {
+            var last = samples.Where(s => s.ContractId == e.Key && s.Start < AsOf).Max(s => s.Start);
+            Assert.Equal(last, e.LastStart);
+            Assert.Equal("/api/v1/data/asset/icon?name=egg_fusion", e.IconUrl);
+            var f = Assert.Single(e.Next);
+            Assert.True(f.Start >= AsOf);
+            Assert.Equal(new TimeOnly(12, 0), TimeOnly.FromDateTime(Local(f.Start).DateTime));
+            Assert.Contains("pool", f.Rule);
+        });
+    }
+
     private static ContractReleaseSample Leggacy(string id, double start) =>
         new(id, id, start, 5 * 86400d, true, 0, false);
 }

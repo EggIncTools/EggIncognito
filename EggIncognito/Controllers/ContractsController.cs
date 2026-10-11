@@ -60,6 +60,12 @@ public sealed class ContractsController : ApiControllerBase {
         return Ok(await predictor.GetSlotsAsync(Math.Clamp(horizon, 1, 30), ct));
     }
 
+    [HttpGet("predictions/watch")]
+    [EnableRateLimiting("read")]
+    [Requires<ContractPredictor>("no database configured")]
+    public async Task<IActionResult> Watch([FromServices] ContractPredictor predictor, CancellationToken ct = default) =>
+        Ok(await predictor.GetWatchAsync(ct));
+
     [HttpGet("predictions/backtest")]
     [EnableRateLimiting("read")]
     [ApiAccess(ApiAccessLevel.Admin)]

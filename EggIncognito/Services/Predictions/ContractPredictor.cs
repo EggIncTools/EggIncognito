@@ -1,6 +1,8 @@
 using System.Globalization;
 using EggIncognito.Data.Services;
+using EggIncognito.Models.Calendar;
 using EggIncognito.Models.Contracts;
+using EggIncognito.Services.Assets;
 using EggIncognito.Services.Events;
 using EggIncognito.Services.Predictions.Contracts;
 using Microsoft.EntityFrameworkCore;
@@ -41,6 +43,37 @@ public sealed class ContractPredictor(
         return null;
     }
 
+    public async Task<WatchResponse> GetWatchAsync(CancellationToken ct = default) {
+        var samples = await SamplesAsync(ct);
+        double now = UnixSeconds.FromTime(time.GetUtcNow());
+        return new WatchResponse(now, Watch(samples, ContractModel.Train(samples, now), now));
+    }
+
+    internal static IReadOnlyList<WatchEntry> Watch(
+        IReadOnlyList<ContractReleaseSample> samples, ContractModel model, double now) {
+        var last = samples.Where(s => s.Start < now).GroupBy(s => s.ContractId)
+            .ToDictionary(g => g.Key, g => g.MaxBy(s => s.Start), StringComparer.Ordinal);
+        var entries = new List<WatchEntry>();
+        foreach (var kind in ReleaseGrid.AllKinds) {
+            var pool = model.Pools[kind];
+            foreach (var c in pool.Candidates) {
+                if (!last.TryGetValue(c.ContractId, out var row)) continue;
+                var next = pool.GapSeconds is { } gap
+                    ? SnapToSlot(Math.Max(c.LastReleased + gap, now), kind, model.Grid)
+                    : (double?)null;
+                var style = ContractPalette.BarStyle(row.UltraOnly, row.Leggacy, row.ProphecyEggs);
+                entries.Add(new WatchEntry(
+                    c.ContractId, c.Name, row.UltraOnly, EggIcons.Url(row.Egg, row.CustomEggId), style,
+                    row.Start, row.Start + row.LengthSeconds,
+                    next is { } n
+                        ? [new WatchForecast(n, n + pool.LengthSeconds, pool.Evidence.Fill, $"{kind} pool, oldest first")]
+                        : []));
+            }
+        }
+
+        return [.. entries.OrderBy(e => e.Label, StringComparer.OrdinalIgnoreCase)];
+    }
+
     public async Task<ContractModelResponse> GetModelAsync(CancellationToken ct = default) {
         var samples = await SamplesAsync(ct);
         double now = UnixSeconds.FromTime(time.GetUtcNow());
@@ -59,12 +92,22 @@ public sealed class ContractPredictor(
         if (cache.TryGet(v, out var cached)) return cached;
 
         var rows = await db.ContractReleases.AsNoTracking()
-            .Select(r => new { r.ContractId, r.Name, r.StartTime, r.LengthSeconds, r.Leggacy, r.ProphecyEggs, r.UltraOnly })
+            .Select(r => new {
+                r.ContractId,
+                r.Name,
+                r.StartTime,
+                r.LengthSeconds,
+                r.Leggacy,
+                r.ProphecyEggs,
+                r.UltraOnly,
+                r.Egg,
+                r.CustomEggId
+            })
             .ToListAsync(ct);
         var samples = rows
             .Select(r => new ContractReleaseSample(
                 r.ContractId, r.Name, UnixSeconds.FromTime(r.StartTime), r.LengthSeconds, r.Leggacy, r.ProphecyEggs,
-                r.UltraOnly))
+                r.UltraOnly, r.Egg, r.CustomEggId))
             .OrderBy(s => s.Start)
             .ToList();
         cache.Set(v, samples);

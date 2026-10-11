@@ -247,6 +247,8 @@
                     </div>
                 </Bar>
             </MiniCalendar>
+            <WatchList Source="/api/v1/events/predictions/watch" PrefKey="watch.events"
+                       AddLabel="Pin an event type…" EmptyNote="Pin event types to see their last run and next predicted dates."/>
             <button type="button" class="pd-cal-title pd-cal-title-gap" @onclick="@(() => OnOpenContracts.InvokeAsync())">
                 Contracts<Icon Name="chevron-right" Class="icon-sm"/>
             </button>
@@ -277,6 +279,8 @@
                     </div>
                 </Bar>
             </MiniCalendar>
+            <WatchList Source="/api/v1/contracts/predictions/watch" PrefKey="watch.contracts"
+                       AddLabel="Pin a contract…" EmptyNote="Pin contracts to see their last release and next predicted leggacy."/>
         </section>
 
         @if (!_loaded) {

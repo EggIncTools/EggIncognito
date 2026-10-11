@@ -257,6 +257,24 @@ public class EventPredictorTests {
         Assert.All(result.Predictions, p => Assert.True(p.PredictedStart >= result.GeneratedAt));
     }
 
+    [Fact]
+    public void Watch_TemplateHistory_PairsLastRunWithUpcomingForecastsPerType() {
+        var rows = TemplateRows();
+        var predictions = Predictions(28);
+
+        var watch = EventPredictor.Watch(rows, predictions, EventTemplate.AsOf);
+
+        var earnings = Assert.Single(watch, e => e.Key == "earnings-boost:std");
+        Assert.Equal("Earnings Boost", earnings.Label);
+        Assert.False(earnings.Ultra);
+        Assert.Equal(rows.Where(r => r.Type == "earnings-boost" && !r.Ultra && r.Start < EventTemplate.AsOf).Max(r => r.Start), earnings.LastStart);
+        Assert.NotEmpty(earnings.Next);
+        Assert.All(earnings.Next, f => Assert.True(f.Start >= EventTemplate.AsOf));
+        Assert.Equal(earnings.Next.OrderBy(f => f.Start).Select(f => f.Start), earnings.Next.Select(f => f.Start));
+        Assert.All(watch, e => Assert.Equal(e.Ultra, e.Key.EndsWith(":ultra", StringComparison.Ordinal)));
+        Assert.Contains(watch, e => e.Ultra && e.Next.Count > 0);
+    }
+
     private static int Days(EventPrediction a, EventPrediction b) =>
         NoonEastern.LocalDate(b.PredictedStart).DayNumber - NoonEastern.LocalDate(a.PredictedStart).DayNumber;
 }

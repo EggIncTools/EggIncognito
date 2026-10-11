@@ -9,7 +9,9 @@ public readonly record struct ContractReleaseSample(
     double LengthSeconds,
     bool Leggacy,
     int ProphecyEggs,
-    bool UltraOnly) {
+    bool UltraOnly,
+    int Egg = 0,
+    string? CustomEggId = null) {
     public ContractSlotKind ReleaseKind {
         get {
             if (!Leggacy) return ContractSlotKind.NewContract;

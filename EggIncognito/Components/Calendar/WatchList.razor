@@ -1,0 +1,150 @@
+@using System.Text.Json
+@using EggIncognito.Models.Calendar
+@using EggIncognito.Services.Events
+@inherits SelfCallComponentBase
+@inject ViewerCookies Viewer
+@inject IServiceProvider Services
+@inject ILogger<WatchList> Logger
+
+<div class="watch">
+    <div class="watch-head">
+        <span class="watch-title">Pinned</span>
+        @if (_entries is { Count: > 0 }) {
+            <select class="watch-add" @onchange="OnPick" aria-label="@AddLabel">
+                <option value="">@AddLabel</option>
+                @foreach (var e in _entries.Where(e => !_pinned.Contains(e.Key))) {
+                    <option value="@e.Key">@e.Label@(e.Ultra ? " (ultra)" : "")</option>
+                }
+            </select>
+        }
+    </div>
+    @if (_note.Length > 0) {
+        <div class="watch-note">@_note</div>
+    } else if (Pinned.Count == 0) {
+        <div class="watch-note">@EmptyNote</div>
+    } else {
+        <ul class="watch-rows">
+            @foreach (var e in Pinned) {
+                <li class="watch-row" style="@e.BarStyle">
+                    <span class="watch-swatch"></span>
+                    @if (e.IconUrl is { } icon) {
+                        <FallbackImg Class="watch-icon" Src="@icon" Alt=""/>
+                    }
+                    <span class="watch-body">
+                        <span class="watch-label">@e.Label @if (e.Ultra) {<span class="watch-ultra">ultra</span>}</span>
+                        <span class="watch-line">
+                            <span class="watch-k">Last</span>
+                            <span>@(e.LastStart is { } ls ? Ago(ls) : "never seen")</span>
+                        </span>
+                        <span class="watch-line">
+                            <span class="watch-k">Next</span>
+                            @if (e.Next.Count == 0) {
+                                <span>no prediction</span>
+                            } else {
+                                <span class="watch-next">
+                                    @foreach (var f in e.Next.Take(MaxNext)) {
+                                        <Tooltip Text="@f.Rule">
+                                            <span class="watch-chip">@In(f.Start)<span class="watch-conf">@f.Confidence.ToString("P0")</span></span>
+                                        </Tooltip>
+                                    }
+                                </span>
+                            }
+                        </span>
+                    </span>
+                    <button type="button" class="icon-btn icon-btn-sm watch-unpin" aria-label="Unpin" @onclick="() => Unpin(e.Key)">
+                        <Icon Name="x"/>
+                    </button>
+                </li>
+            }
+        </ul>
+    }
+</div>
+
+@code {
+    const int MaxNext = 3;
+    static readonly JsonSerializerOptions JsonOpts = new(JsonSerializerDefaults.Web);
+
+    [Parameter, EditorRequired] public string Source { get; set; } = "";
+
+    [Parameter, EditorRequired] public string PrefKey { get; set; } = "";
+
+    [Parameter] public string AddLabel { get; set; } = "Pin…";
+
+    [Parameter] public string EmptyNote { get; set; } = "Nothing pinned.";
+
+    List<WatchEntry>? _entries;
+    List<string> _pinned = [];
+    string _note = "";
+    bool _prefsLoaded;
+
+    List<WatchEntry> Pinned =>
+        _entries is null ? [] : [.. _pinned.Select(k => _entries.FirstOrDefault(e => e.Key == k)).OfType<WatchEntry>()];
+
+    protected override async Task OnInitializedAsync() {
+        if (Speculative) return;
+        try {
+            var res = await Client().GetAsync(Source);
+            if ((int)res.StatusCode == 503) {
+                _note = "Predictions need a database. This instance has none.";
+                return;
+            }
+
+            if (!res.IsSuccessStatusCode) {
+                _note = "Predictions could not be loaded.";
+                return;
+            }
+
+            _entries = (await res.Content.ReadFromJsonAsync<WatchResponse>(JsonOpts))?.Entries.ToList() ?? [];
+        } catch (Exception ex) {
+            Logger.LogWarning(ex, "the watch list {Source} could not be loaded", Source);
+            _note = "Predictions could not be loaded.";
+        }
+    }
+
+    protected override void OnAfterRender(bool firstRender) {
+        if (!firstRender || _prefsLoaded) return;
+        _prefsLoaded = true;
+        _pinned = Parse(Viewer.Get(PrefKey));
+        StateHasChanged();
+    }
+
+    static List<string> Parse(string? raw) {
+        if (string.IsNullOrWhiteSpace(raw)) return [];
+        try {
+            return JsonSerializer.Deserialize<List<string>>(raw) ?? [];
+        } catch (JsonException) {
+            return [];
+        }
+    }
+
+    void OnPick(ChangeEventArgs e) {
+        if (e.Value is not string key || key.Length == 0 || _pinned.Contains(key)) return;
+        _pinned.Add(key);
+        Save();
+    }
+
+    void Unpin(string key) {
+        _pinned.Remove(key);
+        Save();
+    }
+
+    void Save() => Viewer.Set(PrefKey, JsonSerializer.Serialize(_pinned));
+
+    string Ago(double unix) {
+        var at = ViewerClock.At(Services, UnixSeconds.ToTime(unix));
+        var span = DateTimeOffset.UtcNow - UnixSeconds.ToTime(unix);
+        return $"{at:MMM d} ({Days(span)} ago)";
+    }
+
+    string In(double unix) {
+        var at = ViewerClock.At(Services, UnixSeconds.ToTime(unix));
+        var span = UnixSeconds.ToTime(unix) - DateTimeOffset.UtcNow;
+        return span.TotalHours < 1 ? $"{at:ddd MMM d} (now)" : $"{at:ddd MMM d} (in {Days(span)})";
+    }
+
+    static string Days(TimeSpan span) {
+        var days = (int)Math.Round(Math.Abs(span.TotalDays));
+        return days == 1 ? "1 day" : $"{days} days";
+    }
+
+}

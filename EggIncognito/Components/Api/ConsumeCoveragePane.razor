@@ -31,9 +31,9 @@
         </div>
 
         @if (_admin && PanelShelf.Any(Panels, DevicePanelShelves.CoverageHead)) {
-            <div class="cov-head-shelf">
+            <ToolBar Start="true" Class="cov-head-shelf">
                 <PanelShelf Shelf="@DevicePanelShelves.CoverageHead" Context="DeviceContext"/>
-            </div>
+            </ToolBar>
         }
 
         @if (_noDb) {
