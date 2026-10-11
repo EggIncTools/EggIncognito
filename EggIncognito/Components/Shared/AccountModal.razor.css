@@ -1,6 +1,18 @@
-.auth-name { display: inline-flex; align-items: center; gap: 0.4rem; margin: 0; padding: 0; border: 0; background: none; font-family: inherit; font-size: 0.8125rem; color: var(--color-fg-soft); cursor: pointer; }
-.auth-name:hover { color: var(--color-fg-max); }
-.auth-avatar { display: block; width: 1.375rem; height: 1.375rem; border-radius: 50%; }
+.auth-gear {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--color-border);
+  border-radius: 0.375rem;
+  background: var(--color-panel2);
+  color: var(--color-muted);
+  cursor: pointer;
+}
+.auth-gear:hover { color: var(--color-fg); border-color: var(--color-accent); }
 .acct-avatar-row { display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem; }
 .acct-avatar { width: 4rem; height: 4rem; flex-shrink: 0; border-radius: 9999px; background-color: var(--color-panel2); object-fit: cover; }
 .acct-avatar-tools { display: flex; flex-direction: column; gap: 0.375rem; min-width: 0; }

@@ -9,6 +9,7 @@
     <PackageVersion Include="EggIdentity.Admin" Version="3.8.1" />
     <PackageVersion Include="EggIdentity.Auth" Version="3.8.1" />
     <PackageVersion Include="EggIdentity.Bot" Version="3.8.1" />
+    <PackageVersion Include="EggIdentity.Brand" Version="3.8.1" />
     <PackageVersion Include="EggIdentity.CodeStyle" Version="3.8.1" />
     <PackageVersion Include="EggIdentity.Core" Version="3.8.1" />
     <PackageVersion Include="EggIdentity.Data" Version="3.8.1" />

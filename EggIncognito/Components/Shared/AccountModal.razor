@@ -12,12 +12,11 @@
 @inject IServiceProvider Services
 @inject ToastService Toasts
 
-<button type="button" class="auth-name" @onclick="Open">
-    @if (User.Current.AvatarUrl(Auth.IdentityHostUrl) is { Length: > 0 } avatar) {
-        <img class="auth-avatar" src="@avatar" alt=""/>
-    }
-    @User.Current.Name
-</button>
+<Tooltip Text="Account settings">
+    <button type="button" class="auth-gear" aria-label="Account settings" @onclick="Open">
+        <Icon Name="settings" Class="icon-sm"/>
+    </button>
+</Tooltip>
 
 @if (_open) {
     <ModalShell Title="Account" TitleId="accountModalTitle" CardClass="account-modal" CloseOnEscape="true" OnClose="Close">
