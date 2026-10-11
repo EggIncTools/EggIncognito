@@ -5,7 +5,8 @@ namespace EggIncognito.Tests;
 public class EggIconsTests {
     [Theory]
     [InlineData(1, "egg_edible", "Edible")]
-    [InlineData(4, "egg_rocket_fuel", "Rocket Fuel")]
+    [InlineData(4, "egg_rocketfuel", "Rocket Fuel")]
+    [InlineData(15, "egg_darkmatter", "Dark Matter")]
     [InlineData(19, "egg_enlightenment", "Enlightenment")]
     public void StandardEgg_MapsToTheCdnStemAndASpacedLabel(int egg, string stem, string label) {
         Assert.Equal("/api/v1/data/asset/icon?name=" + stem, EggIcons.Url(egg, null));

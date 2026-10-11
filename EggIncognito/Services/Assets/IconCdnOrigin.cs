@@ -1,16 +1,19 @@
 using System.Text.RegularExpressions;
 using EggIncognito.Core.Services;
 using EggIncognito.Core.Services.Assets;
+using EggIncognito.Services.DataApi;
 
 namespace EggIncognito.Services.Assets;
 
 public sealed partial class IconCdnOrigin(
     IHttpClientFactory httpFactory,
     ILogger<IconCdnOrigin> logger,
-    TimeProvider time)
+    TimeProvider time,
+    IServiceProvider services,
+    DataCatalog catalog)
     : IGameAssetOrigin {
     private const string ArtifactsBase = AuxbrainHosts.Origin + "/dlc/artifacts/1/";
-    private const string EggsBase = AuxbrainHosts.Origin + "/dlc/eggs/";
+    private const string CustomEggSuffix = "_ce_icon";
 
     [GeneratedRegex(@"^[A-Za-z0-9_-]+$", RegexOptions.None, matchTimeoutMilliseconds: 2000)]
     private static partial Regex SafeAssetName();
@@ -19,11 +22,14 @@ public sealed partial class IconCdnOrigin(
         key.Kind == "icon"
         && (key.Name.StartsWith("afx_", StringComparison.Ordinal)
             || key.Name.StartsWith("egg_", StringComparison.Ordinal)
-            || key.Name.EndsWith("_ce_icon", StringComparison.Ordinal));
+            || key.Name.EndsWith(CustomEggSuffix, StringComparison.Ordinal));
 
     public async Task<GameAsset?> FetchAsync(GameAssetKey key, CancellationToken ct) {
         if (string.IsNullOrEmpty(key.Name) || !SafeAssetName().IsMatch(key.Name)) return null;
-        string url = (key.Name.EndsWith("_ce_icon", StringComparison.Ordinal) ? EggsBase : ArtifactsBase) + key.Name + ".png";
+        string? url = key.Name.EndsWith(CustomEggSuffix, StringComparison.Ordinal)
+            ? CustomEggUrl(key.Name[..^CustomEggSuffix.Length])
+            : ArtifactsBase + key.Name + ".png";
+        if (url is null) return null;
         try {
             var client = httpFactory.CreateClient("inspector");
             var resp = await client.GetAsync(url, ct);
@@ -36,5 +42,11 @@ public sealed partial class IconCdnOrigin(
             logger.LogWarning(ex, "cdn icon fetch failed {Name}", key.Name);
             return null;
         }
+    }
+
+    private string? CustomEggUrl(string identifier) {
+        string? route = catalog.ById("periodical", "get_periodicals")?.WireRoute;
+        var live = route is null ? null : LiveColleggtibleSource.Derive(services, route);
+        return live?.Icons.GetValueOrDefault(identifier);
     }
 }

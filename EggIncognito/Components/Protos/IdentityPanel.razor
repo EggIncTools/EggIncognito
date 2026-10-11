@@ -8,73 +8,77 @@
 @inject IServiceProvider Services
 
 <section class="panel pd-w-identity">
-    <div class="pd-brand">
-        <img class="pd-brand-logo" src="/brand/logo.png" alt="EggIncognito"/>
-        <div class="pd-serverline">
-            <VersionLine App="@_version"/><span class="pd-sep">|</span><a class="pd-server-sha" href="@_commitUrl" target="_blank" rel="noopener">@_sha</a>
-            @if (_builtAt is { } built) {
-                <span class="pd-sep">|</span>
-                <TimeAgo At="@built" Class="time-ago"/>
-            }
-        </div>
-    </div>
-    <SuiteSwitcher Placement="SuitePlacement.Inline"/>
-    @if (Auth.Enabled || Auth.LocalIdentityActive) {
-        <span class="auth-nav">
-            @if (User.Current.IsAuthenticated) {
-                <AccountModal OnProfileChanged="LoadProfile"/>
-                @if (User.Current.IsAtLeast(UserRole.Admin)) {
-                    <button type="button" class="auth-btn" @onclick="@(() => OnOpenAdmin.InvokeAsync())">Admin</button>
+    <div class="pd-id-row">
+        <div class="pd-brand">
+            <img class="pd-brand-logo" src="/brand/logo.png" alt="EggIncognito"/>
+            <div class="pd-serverline">
+                <VersionLine App="@_version"/><span class="pd-sep">|</span><a class="pd-server-sha" href="@_commitUrl" target="_blank" rel="noopener">@_sha</a>
+                @if (_builtAt is { } built) {
+                    <span class="pd-sep">|</span>
+                    <TimeAgo At="@built" Class="time-ago"/>
                 }
-            }
-            @if (Auth.Enabled) {
-                <SuiteAccount Placement="SuitePlacement.Inline"/>
-            }
-        </span>
-    }
-    @if (User.Current.IsAuthenticated) {
-        <dl class="pd-identity-facts">
-            <div>
-                <dt>Role</dt>
-                <dd>@User.Current.Role.ToString().ToLowerInvariant()@(User.Current.IsSupporter ? ", supporter" : "")</dd>
             </div>
-            <div>
-                <dt>Local time</dt>
-                <dd>
-                    <Tooltip Text="@(_timezone.Length == 0 ? "No time zone set" : _timezone)">@LocalTime()</Tooltip>
-                </dd>
-            </div>
-            <div>
-                <dt>Language</dt>
-                <dd>@(_language.Length == 0 ? "Not set" : LanguageLabel(_language))</dd>
-            </div>
-        </dl>
-    }
-    <div class="pd-brand-links">
-        <Tooltip Text="Terms">
-            <button type="button" class="pd-brand-link" aria-label="Terms"
-                    @onclick="@(() => OnOpenTerms.InvokeAsync())">
-                <Icon Name="file-text"/>
-            </button>
-        </Tooltip>
-        <Tooltip Text="Privacy and cookies">
-            <button type="button" class="pd-brand-link" aria-label="Privacy and cookies"
-                    @onclick="@(() => OnOpenPrivacy.InvokeAsync())">
-                <Icon Name="shield"/>
-            </button>
-        </Tooltip>
-        <Tooltip Text="Support the project">
-            <button type="button" class="pd-brand-link" aria-label="Support the project"
-                    @onclick="@(() => OnOpenSupport.InvokeAsync())">
-                <Icon Name="heart"/>
-            </button>
-        </Tooltip>
-        <Tooltip Text="EggIncognito on GitHub">
-            <a class="pd-brand-link" href="https://github.com/EggIncTools/EggIncognito" target="_blank"
-               rel="noopener" aria-label="EggIncognito on GitHub">
-                <Icon Name="brand-github"/>
-            </a>
-        </Tooltip>
+        </div>
+        <SuiteSwitcher Placement="SuitePlacement.Inline"/>
+    </div>
+    <div class="pd-id-row">
+        @if (Auth.Enabled || Auth.LocalIdentityActive) {
+            <span class="auth-nav">
+                @if (User.Current.IsAuthenticated) {
+                    <AccountModal OnProfileChanged="LoadProfile"/>
+                    @if (User.Current.IsAtLeast(UserRole.Admin)) {
+                        <button type="button" class="auth-btn" @onclick="@(() => OnOpenAdmin.InvokeAsync())">Admin</button>
+                    }
+                }
+                @if (Auth.Enabled) {
+                    <SuiteAccount Placement="SuitePlacement.Inline"/>
+                }
+            </span>
+        }
+        @if (User.Current.IsAuthenticated) {
+            <dl class="pd-identity-facts">
+                <div>
+                    <dt>Role</dt>
+                    <dd>@User.Current.Role.ToString().ToLowerInvariant()@(User.Current.IsSupporter ? ", supporter" : "")</dd>
+                </div>
+                <div>
+                    <dt>Local time</dt>
+                    <dd>
+                        <Tooltip Text="@(_timezone.Length == 0 ? "No time zone set" : _timezone)">@LocalTime()</Tooltip>
+                    </dd>
+                </div>
+                <div>
+                    <dt>Language</dt>
+                    <dd>@(_language.Length == 0 ? "Not set" : LanguageLabel(_language))</dd>
+                </div>
+            </dl>
+        }
+        <div class="pd-brand-links">
+            <Tooltip Text="Terms">
+                <button type="button" class="pd-brand-link" aria-label="Terms"
+                        @onclick="@(() => OnOpenTerms.InvokeAsync())">
+                    <Icon Name="file-text"/>
+                </button>
+            </Tooltip>
+            <Tooltip Text="Privacy and cookies">
+                <button type="button" class="pd-brand-link" aria-label="Privacy and cookies"
+                        @onclick="@(() => OnOpenPrivacy.InvokeAsync())">
+                    <Icon Name="shield"/>
+                </button>
+            </Tooltip>
+            <Tooltip Text="Support the project">
+                <button type="button" class="pd-brand-link" aria-label="Support the project"
+                        @onclick="@(() => OnOpenSupport.InvokeAsync())">
+                    <Icon Name="heart"/>
+                </button>
+            </Tooltip>
+            <Tooltip Text="EggIncognito on GitHub">
+                <a class="pd-brand-link" href="https://github.com/EggIncTools/EggIncognito" target="_blank"
+                   rel="noopener" aria-label="EggIncognito on GitHub">
+                    <Icon Name="brand-github"/>
+                </a>
+            </Tooltip>
+        </div>
     </div>
 </section>
 

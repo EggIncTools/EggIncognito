@@ -1,5 +1,4 @@
 using System.Globalization;
-using System.Text;
 using Ei;
 
 namespace EggIncognito.Services.Assets;
@@ -8,7 +7,7 @@ public static class EggIcons {
     public static string? Url(int egg, string? customEggId) {
         if (customEggId is { Length: > 0 } custom) return Safe(custom) ? Icon(custom + "_ce_icon") : null;
         if (!Enum.IsDefined((Egg)egg) || (Egg)egg is Egg.CustomEgg or Egg.Unknown) return null;
-        return Icon("egg_" + Snake(((Egg)egg).ToString()));
+        return Icon("egg_" + ((Egg)egg).ToString().ToLowerInvariant());
     }
 
     public static string Label(int egg, string? customEggId) {
@@ -22,17 +21,6 @@ public static class EggIcons {
 
     private static bool Safe(string name) =>
         name.All(c => char.IsAsciiLetterOrDigit(c) || c is '_' or '-');
-
-    private static string Snake(string pascal) {
-        var sb = new StringBuilder(pascal.Length + 4);
-        for (var i = 0; i < pascal.Length; i++) {
-            var ch = pascal[i];
-            if (i > 0 && char.IsUpper(ch)) sb.Append('_');
-            sb.Append(char.ToLowerInvariant(ch));
-        }
-
-        return sb.ToString();
-    }
 
     private static string Spaced(string pascal) =>
         string.Concat(pascal.SelectMany<char, char>((ch, i) => i > 0 && char.IsUpper(ch) ? [' ', ch] : [ch]));
