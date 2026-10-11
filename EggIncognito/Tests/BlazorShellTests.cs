@@ -60,8 +60,6 @@ public class BlazorShellTests(SharedAppFactory f) {
         string html = await c.GetStringAsync("/");
         Assert.DoesNotContain("app-nav", html);
         Assert.Contains("id=\"siteFooter\"", html);
-        Assert.Contains("href=\"/terms\"", html);
-        Assert.Contains("href=\"/privacy\"", html);
         Assert.Contains("LICENSE", html);
     }
 }

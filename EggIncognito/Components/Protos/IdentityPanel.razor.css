@@ -50,6 +50,19 @@
 .pd-id-row { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.75rem; }
 .pd-id-row + .pd-id-row { padding-top: 0.5rem; border-top: 1px solid var(--color-border); }
 .pd-id-row > .pd-brand-links { margin-left: auto; }
+.pd-id-row.pd-id-foot {
+  justify-content: flex-start;
+  flex-wrap: nowrap;
+  gap: 0.375rem;
+  min-width: 0;
+  overflow: hidden;
+  font-size: 0.6875rem;
+  color: var(--color-muted);
+  white-space: nowrap;
+}
+.pd-id-foot > :first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.pd-id-foot a { color: var(--color-muted); text-decoration: none; }
+.pd-id-foot a:hover { color: var(--color-accent); }
 .pd-brand { display: flex; align-items: center; gap: 0.75rem; min-width: 0; }
 .pd-brand-logo { height: 2.25rem; width: auto; display: block; }
 .pd-serverline { display: flex; align-items: baseline; flex-wrap: wrap; gap: 0.375rem; font-size: 0.75rem; font-family: var(--font-mono); white-space: nowrap; }

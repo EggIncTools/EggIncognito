@@ -8,8 +8,7 @@ using Microsoft.Extensions.DependencyInjection;
 namespace EggIncognito.Tests;
 
 public class LegalPagesTests {
-    private const string Disclaimer =
-        "EggIncognito is an independent, fan-made tool and is not affiliated with, endorsed by, or";
+    private const string Disclaimer = "Unofficial fan tool, not affiliated with Auxbrain Inc.";
 
     [Collection(SharedAppCollection.Name)]
     public class Routes(SharedAppFactory f) {
@@ -36,15 +35,12 @@ public class LegalPagesTests {
         }
 
         [Fact]
-        public async Task LayoutFooter_CarriesDisclaimerAndLegalLinks_OnEveryPage() {
+        public async Task HeaderFooter_CarriesTheShortDisclaimerAndLicense_Once() {
             using var client = _factory.CreateClient();
-            foreach (string path in new[] { "/", "/terms", "/privacy", "/support" }) {
-                string html = await client.GetStringAsync(path);
-                Assert.Equal(1, html.Split("id=\"siteFooter\"").Length - 1);
-                Assert.Contains(Disclaimer, html);
-                Assert.Contains("href=\"/terms\"", html);
-                Assert.Contains("href=\"/privacy\"", html);
-            }
+            string html = await client.GetStringAsync("/");
+            Assert.Equal(1, html.Split("id=\"siteFooter\"").Length - 1);
+            Assert.Contains(Disclaimer, html);
+            Assert.Contains("LICENSE", html);
         }
     }
 

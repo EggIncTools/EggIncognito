@@ -81,7 +81,7 @@
 .reg-num-bad { color: var(--color-err); border: 1px solid transparent; border-radius: 0.25rem; padding: 0 0.25rem; cursor: help; }
 .reg-table tbody.reg-band:hover .reg-num-bad { border-color: var(--color-err); background-color: color-mix(in oklab, var(--color-err) 12%, transparent); }
 .reg-builds { display: flex; flex-direction: column; align-items: flex-start; gap: 0.125rem; }
-.reg-build-link { display: inline-flex; align-items: center; gap: 0.25rem; color: var(--color-muted); text-decoration: none; cursor: pointer; }
+.reg-build-link { display: inline-flex; align-items: center; gap: 0.25rem; padding: 0; border: 0; background: transparent; font: inherit; color: var(--color-muted); text-decoration: none; cursor: pointer; }
 .reg-build-link:hover ::deep .platform-icon, .reg-build-link:hover .reg-num:not(.reg-num-bad) { color: var(--color-fg); }
 .reg-table td.reg-sha-cell { position: relative; text-align: left; padding-left: 0.75rem; padding-right: calc(0.25rem + var(--reg-gutter, 0rem)); }
 .reg-sha-group { display: inline-flex; align-items: center; gap: 0.25rem; }
