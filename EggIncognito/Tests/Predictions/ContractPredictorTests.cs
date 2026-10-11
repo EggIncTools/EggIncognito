@@ -249,16 +249,17 @@ public class ContractPredictorTests {
         var second = watch.Single(e => e.Key == queue[1].ContractId);
         Assert.Equal(DayOfWeek.Wednesday, Local(Assert.Single(head.Next).Start).DayOfWeek);
         Assert.Equal(7 * 86400d, Assert.Single(second.Next).Start - Assert.Single(head.Next).Start);
-        Assert.True(head.Next[0].Confidence >= second.Next[0].Confidence);
-        Assert.Equal(1d, head.Next[0].Confidence, 6);
+        Assert.True(head.Next[0].Confidence > second.Next[0].Confidence);
+        Assert.All(watch, e => Assert.True(e.Next[0].Confidence < 1));
         Assert.All(watch, e => Assert.Single(e.Next));
         Assert.All(watch.GroupBy(e => e.Next[0].Start), g => Assert.Equal(g.Count(), g.Select(e => e.Next[0].Rule).Distinct().Count()));
     }
 
     [Theory]
-    [InlineData(10, 9, 10, 0, 0.9)]
-    [InlineData(10, 9, 10, 1, 0.81)]
-    [InlineData(10, 0, 5, 0, 0.1)]
+    [InlineData(10, 10, 10, 0, 11d / 12)]
+    [InlineData(10, 10, 10, 1, 121d / 144)]
+    [InlineData(10, 9, 10, 0, 10d / 12)]
+    [InlineData(10, 0, 5, 0, 1d / 12)]
     [InlineData(0, 0, 0, 0, 0)]
     public void QueueConfidence_DecaysTheMeasuredTop1RateByQueuePosition(
         int slotHit, int top1, int top5, int position, double expected) {

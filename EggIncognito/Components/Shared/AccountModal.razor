@@ -11,12 +11,16 @@
 @inject IHttpContextAccessor HttpContextAccessor
 @inject IServiceProvider Services
 @inject ToastService Toasts
+@inject EggIdentity.UI.Suite.SuiteContext Suite
+@inject ILogger<AccountModal> Logger
 
-<Tooltip Text="Account settings">
-    <button type="button" class="auth-gear" aria-label="Account settings" @onclick="Open">
-        <Icon Name="settings" Class="icon-sm"/>
-    </button>
-</Tooltip>
+@if (ShowTrigger) {
+    <Tooltip Text="Account settings">
+        <button type="button" class="auth-gear" aria-label="Account settings" @onclick="Open">
+            <Icon Name="settings" Class="icon-sm"/>
+        </button>
+    </Tooltip>
+}
 
 @if (_open) {
     <ModalShell Title="Account" TitleId="accountModalTitle" CardClass="account-modal" CloseOnEscape="true" OnClose="Close">
@@ -87,6 +91,11 @@
                             }
                             </tbody>
                         </table>
+                        <div class="acct-actions">
+                            <button type="button" class="btn-mini" disabled="@_syncing" @onclick="SyncIdentities">
+                                <Icon Name="refresh-cw" Class="icon-sm"/> @(_syncing ? "Syncing..." : "Sync from providers")
+                            </button>
+                        </div>
                     </ProvidersTemplate>
                 </ProfilePanel>
             } else if (Auth.LocalIdentityActive) {
@@ -94,9 +103,20 @@
             } else {
                 <p class="acct-note">Log in to manage your linked logins and avatar.</p>
             }
-            @if (User.Current.IsAuthenticated &&!string.IsNullOrEmpty(_sessionToken)) {
+            @if (User.Current.IsAuthenticated && !string.IsNullOrEmpty(_sessionToken)) {
                 <ProfilePreferences SessionToken="@_sessionToken" OnChanged="OnProfileChanged"/>
             }
+            <div class="acct-eid">
+                <SubSectionHead>Active EID</SubSectionHead>
+                <div class="acct-eid-row">
+                    <input class="field-input acct-eid-input" aria-label="Active EID" placeholder="EI1234567890123456"
+                           spellcheck="false" autocomplete="off" @bind="_eid" @bind:event="oninput"/>
+                    <button type="button" class="btn-mini" disabled="@(_eidBusy || _eid.Trim() == (Suite.ActiveEid ?? ""))" @onclick="SaveEid">
+                        @(_eidBusy ? "Saving..." : "Save EID")
+                    </button>
+                </div>
+                <Note Small="true">Shared with every EggInc.tools app as the account their tools load.</Note>
+            </div>
             <ThemePicker/>
         </div>
     </ModalShell>
@@ -105,7 +125,12 @@
 @code {
     [Parameter] public EventCallback OnProfileChanged { get; set; }
 
+    [Parameter] public bool ShowTrigger { get; set; } = true;
+
     string _sessionToken = "";
+    string _eid = "";
+    bool _eidBusy;
+    bool _syncing;
     string _returnUrl = "";
     bool _open;
     bool _stripQuery;
@@ -138,8 +163,38 @@
         }
     }
 
-    void Open() {
+    public async Task Open() {
         _open = true;
+        await Suite.LoadAsync();
+        _eid = Suite.ActiveEid ?? "";
+        StateHasChanged();
+    }
+
+    async Task SaveEid() {
+        _eidBusy = true;
+        try {
+            var eid = _eid.Trim();
+            await Suite.SetActiveEidAsync(eid.Length == 0 ? null : eid);
+            Toasts.Push(StatusNoteKind.Ok, eid.Length == 0 ? "Active EID cleared." : "Active EID saved.");
+        } catch (Exception ex) when (ex is HttpRequestException or ArgumentException or TaskCanceledException) {
+            Logger.LogDebug(ex, "the active EID could not be saved");
+            Toasts.Push(StatusNoteKind.Error, ex is ArgumentException ? "That is not a valid EID." : "The active EID could not be saved.");
+        } finally {
+            _eidBusy = false;
+        }
+    }
+
+    async Task SyncIdentities() {
+        _syncing = true;
+        try {
+            await Suite.SyncIdentitiesAsync();
+            Toasts.Push(StatusNoteKind.Ok, "Linked logins synced from their providers.");
+        } catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException) {
+            Logger.LogDebug(ex, "linked identities could not be synced");
+            Toasts.Push(StatusNoteKind.Error, "Sync failed. Try again.");
+        } finally {
+            _syncing = false;
+        }
     }
 
     void Close() {

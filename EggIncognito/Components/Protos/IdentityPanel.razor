@@ -26,13 +26,13 @@
         @if (Auth.Enabled || Auth.LocalIdentityActive) {
             <span class="auth-nav">
                 @if (User.Current.IsAuthenticated) {
-                    <AccountModal OnProfileChanged="LoadProfile"/>
+                    <AccountModal @ref="_account" ShowTrigger="@(!Auth.Enabled)" OnProfileChanged="LoadProfile"/>
                     @if (User.Current.IsAtLeast(UserRole.Admin)) {
                         <button type="button" class="auth-btn" @onclick="@(() => OnOpenAdmin.InvokeAsync())">Admin</button>
                     }
                 }
                 @if (Auth.Enabled) {
-                    <SuiteAccount Placement="SuitePlacement.Inline"/>
+                    <SuiteAccount Placement="SuitePlacement.Inline" OnOpenProfile="OpenProfile"/>
                 }
             </span>
         }
@@ -99,6 +99,9 @@
     string _commitUrl = "";
     DateTimeOffset? _builtAt;
     Timer? _clock;
+    AccountModal? _account;
+
+    void OpenProfile() => _account?.Open();
 
     protected override void OnAfterRender(bool firstRender) {
         if (!firstRender || !User.Current.IsAuthenticated) return;

@@ -86,8 +86,7 @@ public sealed class ContractPredictor(
 
     internal static double QueueConfidence(ContractBacktestKindResult rate, int position) {
         if (rate.SlotHit == 0) return 0;
-        double top1 = (double)rate.Top1Hit / rate.SlotHit;
-        if (top1 <= 0) top1 = (double)rate.Top5Hit / rate.SlotHit / OldestFirstPools.TopCandidates;
+        double top1 = (rate.Top1Hit + 1d) / (rate.SlotHit + 2d);
         return Math.Pow(top1, position + 1);
     }
 
