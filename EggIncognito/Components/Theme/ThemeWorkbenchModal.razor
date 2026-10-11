@@ -5,7 +5,7 @@
 @inject ToastService Toasts
 @inject NavigationManager Nav
 @inject ILogger<ThemeWorkbenchModal> Logger
-@inject ViewerCookies Viewer
+@inject EggIdentity.UI.Suite.SuiteContext Suite
 @inject ViewerThemeLive Live
 @inject Downloads Downloads
 @using System.Globalization
@@ -339,20 +339,20 @@
         }
     }
 
-    void ApplyLocally() {
+    async Task ApplyLocally() {
         var model = State.Draft.ToModel() with { Css = "" };
         if (!ThemePalette.Contrast(model).Passes) {
             SetStatus("contrast checks fail, so this theme would not survive a reload", false);
             return;
         }
 
-        Viewer.Set("theme.model", model.ToJson());
+        await Suite.SetThemeAsync(model.ToJson());
         Live.Apply(model);
         SetStatus("applied in this browser", true);
     }
 
     async Task ClearLocal() {
-        Viewer.Remove("theme.model");
+        await Suite.SetThemeAsync(ThemeResolver.NoTheme);
         await Live.ClearAsync();
         SetStatus("reset", true);
     }

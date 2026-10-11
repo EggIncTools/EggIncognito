@@ -490,7 +490,7 @@
             clock.Changed += OnZoneChanged;
         }
 
-        await Load();
+        if (!Speculative) await Load();
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender) {

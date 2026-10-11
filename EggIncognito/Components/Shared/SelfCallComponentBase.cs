@@ -1,3 +1,4 @@
+using EggIdentity.UI.Suite;
 using EggIncognito.Services;
 using Microsoft.AspNetCore.Components;
 
@@ -17,6 +18,8 @@ public abstract class SelfCallComponentBase : ComponentBase {
             SelfCookie = req.Headers.Cookie;
         }
     }
+
+    protected bool Speculative => Speculation.IsSpeculative(HttpContextAccessor.HttpContext);
 
     protected HttpClient Client() => SelfCallClient.Create(HttpFactory, SelfBaseAddress, SelfCookie);
 }

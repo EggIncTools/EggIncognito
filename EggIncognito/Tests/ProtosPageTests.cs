@@ -3,6 +3,7 @@ using Bunit;
 using EggIdentity.Auth;
 using EggIdentity.Contract;
 using EggIdentity.UI;
+using EggIdentity.UI.Suite;
 using EggIncognito.Capture;
 using EggIncognito.Core.Services;
 using EggIncognito.Services;
@@ -49,6 +50,7 @@ public class ProtosPageTests {
 
     public class Component : BunitContext {
         private void Wire(UserRole role) {
+            Services.AddEggIdentitySuite("incognito");
             Services.AddSingleton<ICurrentUser>(role != UserRole.Viewer
                 ? new FakeUser(Guid.NewGuid(), role, DiscordId: "tester").Accessor()
                 : new AnonymousUser());

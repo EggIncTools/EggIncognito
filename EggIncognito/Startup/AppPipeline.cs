@@ -7,6 +7,7 @@ using EggIdentity.Fallback;
 using EggIdentity.Metrics;
 using EggIdentity.Settings.Api;
 using EggIdentity.UI;
+using EggIdentity.UI.Suite;
 using EggIdentity.Visits;
 using EggIncognito.Bot;
 using EggIncognito.Components;
@@ -78,6 +79,7 @@ public static class AppPipeline {
         });
         app.UseExceptionHandler();
         app.UseMiddleware<Services.Security.SecurityHeadersMiddleware>();
+        app.UseSuitePrerender();
         app.Use(async (ctx, next) => {
             if (ctx.Request.Host.Host.StartsWith("protos.", StringComparison.OrdinalIgnoreCase)
                 && ctx.Request.Path == "/") {

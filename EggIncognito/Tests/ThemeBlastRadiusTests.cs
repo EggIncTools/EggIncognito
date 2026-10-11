@@ -1,13 +1,12 @@
 using System.Reflection;
 using EggIdentity.Auth;
+using EggIdentity.UI;
+using EggIdentity.UI.Suite;
 using EggIncognito.Controllers;
-using EggIncognito.Services;
 using EggIncognito.Services.Theme;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Routing;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Logging.Abstractions;
 
 namespace EggIncognito.Tests;
 
@@ -60,9 +59,9 @@ public class ThemeBlastRadiusTests {
     private static ThemeResolver BuildResolver(ICurrentUser user) {
         var cache = new MemoryCache(new MemoryCacheOptions());
         var config = new ConfigurationBuilder().Build();
-        var identitySync = new ThemeIdentitySync(new AuthState(false), new HttpContextAccessor(),
-            NullLogger<ThemeIdentitySync>.Instance);
-        return new ThemeResolver(user, identitySync, cache, ThemeTestSupport.Serializer(), config,
+        var suite = new SuiteContext(new SuiteOptions { CurrentSlug = "incognito" }, user,
+            new ViewerCookies(new ViewerCookieOptions()));
+        return new ThemeResolver(user, suite, cache, ThemeTestSupport.Serializer(), config,
             new FakeWebHostEnvironment());
     }
 

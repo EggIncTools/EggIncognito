@@ -14,7 +14,6 @@
 .pd-sep { color: var(--color-separator); }
 .pd-server-sha { color: var(--color-accent); text-decoration: none; }
 .pd-server-sha:hover { text-decoration: underline; }
-.pd-logout { margin: 0; }
 .pd-identity-facts { display: flex; flex-wrap: wrap; gap: 0.25rem 1rem; margin: 0; min-width: 0; }
 .pd-identity-facts > div { min-width: 0; }
 .pd-identity-facts dt { font-size: 0.6875rem; text-transform: uppercase; letter-spacing: 0.025em; color: var(--color-muted); }

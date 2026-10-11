@@ -72,7 +72,7 @@
 
     protected override Task OnInitializedAsync() {
         _isAdmin = User.Current.IsAtLeast(UserRole.Admin);
-        return LoadAsync();
+        return Speculative ? Task.CompletedTask : LoadAsync();
     }
 
     PageVisibility? _vis;

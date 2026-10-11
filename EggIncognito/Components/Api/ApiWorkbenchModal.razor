@@ -24,6 +24,7 @@
 @inject ApiWorkbenchState State
 @inject ToastService Toasts
 @inject ILogger<ApiWorkbenchModal> Logger
+@inject EggIdentity.UI.Suite.SuiteContext Suite
 
 <WorkbenchModal Open="_open" Title="@("API & Data")" TitleId="apiWorkbenchTitle" Size="WorkbenchSize.Wide"
                 CardClass="awb-card" OnClose="CloseAsync">
@@ -233,6 +234,8 @@
         }
 
         State.Rinfo = (await ServerSeed()).OverlaidWith(await InvokeOr<RinfoSeed?>("getRinfoDefaults", null));
+        await Suite.LoadAsync();
+        if (Suite.ActiveEid is { Length: > 0 } activeEid) State.Rinfo.EiUserId = activeEid;
         State.HasSalt = !string.IsNullOrEmpty(await InvokeOr("getSalt", ""));
         State.CustomTarget = await InvokeOr("getCustomTarget", "");
         State.RecentEids = await InvokeOr("recentEids", Array.Empty<string>());
@@ -464,10 +467,19 @@
 
     async Task OnEnvChanged(EnvRow row) {
         State.SyncRinfoFromRow(row);
+        if (row.Key == "eiUserId" && row.Value != Suite.ActiveEid) await SetActiveEid(row.Value);
         State.ApplyEnvLock();
         State.EnvValidated = false;
         State.EnvError = null;
         await InvokeVoid("setRinfoDefaults", State.Rinfo);
+    }
+
+    async Task SetActiveEid(string? eid) {
+        try {
+            await Suite.SetActiveEidAsync(eid);
+        } catch (Exception ex) when (ex is HttpRequestException or ArgumentException) {
+            Logger.LogDebug(ex, "the active EID could not be shared with the suite");
+        }
     }
 
     async Task ValidateEnv() {

@@ -1,5 +1,6 @@
 @using System.Globalization
 @using EggIdentity.Client
+@using EggIdentity.UI.Suite
 @using EggIncognito.Services.Events
 @inject AuthState Auth
 @inject ICurrentUser User
@@ -17,6 +18,7 @@
             }
         </div>
     </div>
+    <SuiteSwitcher Placement="SuitePlacement.Inline"/>
     @if (Auth.Enabled || Auth.LocalIdentityActive) {
         <span class="auth-nav">
             @if (User.Current.IsAuthenticated) {
@@ -24,14 +26,9 @@
                 @if (User.Current.IsAtLeast(UserRole.Admin)) {
                     <button type="button" class="auth-btn" @onclick="@(() => OnOpenAdmin.InvokeAsync())">Admin</button>
                 }
-
-                @if (Auth.Enabled) {
-                    <form method="post" action="/logout" class="pd-logout">
-                        <button type="submit" class="auth-btn">Log out</button>
-                    </form>
-                }
-            } else if (Auth.WidgetEnabled) {
-                <LoginButton CssClass="auth-btn" Label="Log in"/>
+            }
+            @if (Auth.Enabled) {
+                <SuiteAccount Placement="SuitePlacement.Inline"/>
             }
         </span>
     }

@@ -2,10 +2,10 @@
 @inject IHttpContextAccessor HttpContextAccessor
 @inject IWebHostEnvironment HostEnvironment
 @inject ThemeResolver Themes
-@inject EggIdentity.UI.ViewerCookies Viewer
+@inject EggIdentity.UI.Suite.SuiteContext Suite
 @inject EggIncognito.Services.Devices.DeviceExtensionCatalog Extensions
 <!DOCTYPE html>
-<html lang="en" data-eggidentity-theme="@(_theme is null ? null : "u")">
+<html lang="en" data-eggidentity-theme="@(_theme is null ? null : "u")" @attributes="Suite.HtmlAttributes">
 <head>
     <meta charset="utf-8"/>
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
@@ -48,6 +48,7 @@
     @if (_theme is not null) {
         <style id="egi-theme" nonce="@_nonce">@((MarkupString)_theme.Css)</style>
     }
+    <EggIdentity.UI.Suite.SuiteHandoff/>
     <HeadOutlet/>
 </head>
 <body>
@@ -55,7 +56,8 @@
 
 <ReconnectModal/>
 
-<script src="_framework/blazor.web.js"></script>
+<script src="_framework/blazor.web.js" autostart="false"></script>
+<script src="@($"/interop/boot.js?v={_assetVersion}")"></script>
 <script src="_content/EggIdentity.UI/calendarScroll.js"></script>
 </body>
 </html>
@@ -82,7 +84,6 @@
             _canonicalUrl = $"https://eggincognito.egginc.tools{(string.IsNullOrEmpty(path) ? "/" : path)}";
         _nonce = ctx?.Items["egi.csp.nonce"] as string;
         _theme = await Themes.ResolveAsync(ctx?.RequestAborted ?? CancellationToken.None);
-        _theme ??= Themes.ResolveViewer(Viewer.Get("theme.model"));
         if (_theme is { HueRotation: true }) {
             var nonceAttr = _nonce is null ? "" : $" nonce=\"{_nonce}\"";
             _huePropertyBlock = new MarkupString(

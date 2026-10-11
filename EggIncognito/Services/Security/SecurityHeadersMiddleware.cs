@@ -41,7 +41,7 @@ public sealed class SecurityHeadersMiddleware(RequestDelegate next, IConfigurati
 
         var sb = new StringBuilder();
         sb.Append("default-src 'self'; ");
-        sb.Append("script-src 'self'; ");
+        sb.Append("script-src 'self' 'inline-speculation-rules'; ");
         sb.Append("style-src 'self' 'nonce-").Append(nonce).Append("'; ");
         sb.Append("style-src-attr 'unsafe-inline'; ");
         sb.Append("img-src 'self' data: ").Append(GameAssetHost).Append(identityHost).Append("; ");

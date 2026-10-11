@@ -312,6 +312,7 @@
     [Parameter] public EventCallback OnOpenSupport { get; set; }
 
     protected override async Task OnInitializedAsync() {
+        if (Speculative) return;
         try {
             var fetched = await Client().GetFromJsonAsync<PeriodicalsSummary>("/api/periodicals/summary", JsonOpts);
             if (fetched is not null) _summary = fetched;
@@ -338,6 +339,7 @@
     const int MiniFetchLimit = 500;
 
     async Task<CalendarItemsLoad<EventCalendarItem>> LoadMiniEvents(DateTimeOffset start, DateTimeOffset end) {
+        if (Speculative) return CalendarItemsLoad.Ok<EventCalendarItem>([]);
         var url = FormattableString.Invariant(
             $"/api/v1/events?after={UnixSeconds.FromTime(start):0}&before={UnixSeconds.FromTime(end):0}&limit={MiniFetchLimit}");
         try {
@@ -353,6 +355,7 @@
     }
 
     async Task<CalendarItemsLoad<ContractCalendarItem>> LoadMiniContracts(DateTimeOffset start, DateTimeOffset end) {
+        if (Speculative) return CalendarItemsLoad.Ok<ContractCalendarItem>([]);
         var url = FormattableString.Invariant(
             $"/api/v1/contracts?after={UnixSeconds.FromTime(start):0}&before={UnixSeconds.FromTime(end):0}&limit={MiniFetchLimit}");
         try {

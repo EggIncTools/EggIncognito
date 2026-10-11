@@ -3,6 +3,7 @@ using EggIdentity.Auth;
 using EggIdentity.Client;
 using EggIdentity.Metrics;
 using EggIdentity.UI;
+using EggIdentity.UI.Suite;
 using EggIncognito.Data.Services;
 using EggIncognito.Services;
 using EggIncognito.Services.Auth;
@@ -42,8 +43,8 @@ public static class IdentityServices {
         builder.Services.AddEggIdentityBrowserTimeZone();
         builder.Services.AddScoped<ViewerClock>();
         builder.Services.AddEggIdentityDownloads();
-        builder.Services.AddEggIdentityViewerCookies(o =>
-            o.Allow("theme.model", TimeSpan.FromDays(365)).Allow("capture.prefs", TimeSpan.FromDays(365)));
+        builder.Services.AddEggIdentityViewerCookies(o => o.Allow("capture.prefs", TimeSpan.FromDays(365)));
+        builder.Services.AddEggIdentitySuite("incognito");
         builder.Services.AddScoped<ClipboardInterop>();
     }
 }
