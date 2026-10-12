@@ -6,6 +6,7 @@ using EggIncognito.Core.Services.Assets;
 using EggIncognito.Data.Services;
 using EggIncognito.GameData;
 using EggIncognito.Services.Assets;
+using EggIncognito.Services.Auth;
 using Ei;
 using Google.Protobuf;
 
@@ -144,7 +145,13 @@ public sealed class DataCatalog {
             "Observed artifact consume results: byproducts, golden egg returns and craft rarities.",
             DataProvenance.Database, DataAccess.Authenticated,
             null, null, new DataRefresh(false), false,
-            ArtifactObservationSource.ProduceAsync, Listed: false),
+            ArtifactObservationSource.ProduceAsync, Listed: false, Feature: ApiFeatures.ConsumeObservations),
+
+        new("artifact-consume-raw", "observation", "Raw consume observations",
+            "Every successful consume observation, paged by id with after and limit.",
+            DataProvenance.Database, DataAccess.Authenticated,
+            null, null, new DataRefresh(false), false,
+            ConsumeRawSource.ProduceAsync, Extends: "artifact-consume", Feature: ApiFeatures.ConsumeObservations),
 
         new("icon", "asset", "Game icon", "Boost and artifact icon PNG by asset name.",
             DataProvenance.Asset, DataAccess.Public, null, null, new DataRefresh(false), true, ProduceIcon),

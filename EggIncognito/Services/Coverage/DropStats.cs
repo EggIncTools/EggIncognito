@@ -1,3 +1,4 @@
+using EggIncognito.Models.Observations;
 using EggIncognito.Services.Devices;
 
 namespace EggIncognito.Services.Coverage;
@@ -10,6 +11,7 @@ public sealed record DropRow(
     string Rarity,
     int Observations,
     double Share,
+    double Mean,
     int Min,
     int Max,
     IReadOnlyList<DropBucket> Buckets);
@@ -17,8 +19,11 @@ public sealed record DropRow(
 public sealed record DropSummary(string Family, string Level, string Rarity, int Observations, IReadOnlyList<DropRow> Rows);
 
 public sealed class DropStats(IArtifactObservationQuery observations) {
-    public async Task<DropSummary> ForCellAsync(string family, string level, string rarity, CancellationToken ct) {
-        var rows = await observations.ConsumeByproductsAsync(family, level, rarity, ct);
+    public async Task<DropSummary> ForCellAsync(string family, string level, string rarity, CancellationToken ct) =>
+        Summarize(family, level, rarity, await observations.ConsumeByproductsAsync(family, level, rarity, ct));
+
+    public static DropSummary Summarize(string family, string level, string rarity,
+        IReadOnlyList<IReadOnlyList<ArtifactByproductRow>> rows) {
         if (rows.Count == 0) return new DropSummary(family, level, rarity, 0, []);
 
         var perDrop = new Dictionary<(string Name, string Level, string Rarity), List<int>>();
@@ -44,7 +49,7 @@ public sealed class DropStats(IArtifactObservationQuery observations) {
                     .Select(g => new DropBucket(g.Key, g.Count(), (double)g.Count() / total)).ToList();
                 if (missing > 0) buckets.Insert(0, new DropBucket(0, missing, (double)missing / total));
                 return new DropRow(kv.Key.Name, kv.Key.Level, kv.Key.Rarity, counts.Count, (double)counts.Count / total,
-                    missing > 0 ? 0 : counts.Min(), counts.Max(), buckets);
+                    counts.Sum() / (double)total, missing > 0 ? 0 : counts.Min(), counts.Max(), buckets);
             })
             .OrderByDescending(r => r.Observations)
             .ThenBy(r => r.Name, StringComparer.Ordinal)

@@ -2,6 +2,8 @@
 @using System.Text.Json
 @using EggIncognito.Models.Admin
 @using EggIncognito.Models.ApiKeys
+@using EggIncognito.Data.Models
+@using EggIncognito.Services.Auth
 @inherits SelfCallComponentBase
 @inject ToastService Toasts
 @inject ILogger<ApiKeysPanel> Logger
@@ -51,6 +53,44 @@
             <EmptyState Tall="true" Title="No API keys yet." Hint="Create one above to use the data API."/>
         } else {
             <ApiKeysTable Rows="@TableRows" ShowOwner="false" Busy="_busyRow" OnRevoke="Revoke"/>
+            @if (_keys.Any(k => !k.Revoked)) {
+                <div class="reg-wrap akp-features">
+                    <table class="data-table">
+                        <thead>
+                        <tr>
+                            <th>Key</th>
+                            <th>Feature access</th>
+                            <th>State</th>
+                            <th class="tools"></th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        @foreach (var key in _keys.Where(k => !k.Revoked)) {
+                            @foreach (var feature in ApiFeatures.All) {
+                                string? state = StateOf(key, feature.Key);
+                                <tr @key="@($"{key.Id}|{feature.Key}")">
+                                    <td>@key.Name <span class="mono muted">@key.Prefix</span></td>
+                                    <td>@feature.Label <span class="muted">@feature.Description</span></td>
+                                    <td><FeatureGrantState State="@state"/></td>
+                                    <td class="tools">
+                                        @if (state is null or ApiKeyFeatureStates.Denied or ApiKeyFeatureStates.Revoked) {
+                                            <span class="akp-request">
+                                                <input class="field-input" placeholder="What will you use it for?" maxlength="500"
+                                                       aria-label="Reason for the request"
+                                                       value="@NoteFor(key.Id, feature.Key)"
+                                                       @oninput="e => _notes[(key.Id, feature.Key)] = e.Value?.ToString() ?? string.Empty"/>
+                                                <button type="button" class="btn-mini" disabled="@_busyRow"
+                                                        @onclick="() => RequestFeature(key.Id, feature.Key)">Request</button>
+                                            </span>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        }
+                        </tbody>
+                    </table>
+                </div>
+            }
         }
     }
 </div>
@@ -138,6 +178,32 @@
             if (res.IsSuccessStatusCode) await LoadKeys();
         } catch (Exception ex) {
             Logger.LogWarning(ex, "revoking API key {KeyId} failed", id);
+        }
+
+        _busyRow = false;
+    }
+
+    readonly Dictionary<(long, string), string> _notes = [];
+
+    static string? StateOf(ApiKeysPanelRow key, string feature) =>
+        key.Features?.FirstOrDefault(f => f.Feature == feature)?.State;
+
+    string NoteFor(long keyId, string feature) => _notes.GetValueOrDefault((keyId, feature)) ?? string.Empty;
+
+    async Task RequestFeature(long keyId, string feature) {
+        _busyRow = true;
+        try {
+            var res = await Client().PostAsJsonAsync($"/api/v1/keys/{keyId}/features/{feature}",
+                new { note = NoteFor(keyId, feature) }, JsonOpts);
+            if (res.IsSuccessStatusCode) {
+                _notes.Remove((keyId, feature));
+                Toasts.Push(StatusNoteKind.Ok, "Request sent. It will work once an admin approves it.");
+                await LoadKeys();
+            } else {
+                Toasts.Push(StatusNoteKind.Error, $"Request failed ({(int)res.StatusCode}).");
+            }
+        } catch (Exception ex) {
+            Toasts.Push(StatusNoteKind.Error, $"Request failed: {ex.Message}");
         }
 
         _busyRow = false;

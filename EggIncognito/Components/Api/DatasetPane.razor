@@ -68,6 +68,8 @@
                 <div class="ds-gate">
                     <LoginButton Placement="LoginMenuPlacement.Right"/>
                 </div>
+            } else if (entry.Status == 403) {
+                <Note>This dataset needs an API key with approved feature access. Request it for a key in API keys.</Note>
             } else if (entry.Status is < 200 or > 299) {
                 <StatusNote Kind="StatusNoteKind.Error">
                     @(entry.Status == 0 ? "The request failed." : $"HTTP {entry.Status}")

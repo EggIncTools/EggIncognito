@@ -1,5 +1,7 @@
 @rendermode @(RenderModes.InteractiveServer)
 @using EggIncognito.Models.Admin
+@using EggIncognito.Data.Models
+@using EggIncognito.Services.Auth
 @inherits AdminPaneBase
 @inject ToastService Toasts
 
@@ -8,17 +10,89 @@
         <button type="button" class="btn-mini" disabled="@_busy" @onclick="LoadAsync">Refresh</button>
     </Tools>
 </AdminPaneHead>
+@if (Pending.Count > 0) {
+    <div class="reg-wrap aak-grants">
+        <table class="data-table">
+            <thead>
+            <tr>
+                <th>Pending feature requests</th>
+                <th>Key</th>
+                <th>Feature</th>
+                <th>Reason</th>
+                <th>Requested</th>
+                <th class="tools"></th>
+            </tr>
+            </thead>
+            <tbody>
+            @foreach (var g in Pending) {
+                <tr @key="g.Id">
+                    <td class="mono">@g.OwnerUserId</td>
+                    <td>@g.KeyName <span class="mono muted">@g.KeyPrefix</span></td>
+                    <td>@FeatureLabel(g.Feature)</td>
+                    <td>@(g.Note ?? "")</td>
+                    <td class="mono">@g.RequestedAt.ToString("yyyy-MM-dd HH:mm")</td>
+                    <td class="tools">
+                        <button type="button" class="btn-primary" disabled="@_busy" @onclick="() => Decide(g.Id, approve)">Approve</button>
+                        <button type="button" class="btn-danger" disabled="@_busy" @onclick="() => Decide(g.Id, deny)">Deny</button>
+                    </td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+}
 @if (_rows.Count == 0) {
     <Note>no api keys</Note>
 } else {
     <ApiKeysTable Rows="@_rows" ShowOwner="true" Busy="_busy" OnRevoke="Revoke" OnDelete="Delete"/>
 }
+@if (Decided.Count > 0) {
+    <div class="reg-wrap aak-grants">
+        <table class="data-table">
+            <thead>
+            <tr>
+                <th>Feature grants</th>
+                <th>Key</th>
+                <th>Feature</th>
+                <th>State</th>
+                <th>Decided</th>
+                <th class="tools"></th>
+            </tr>
+            </thead>
+            <tbody>
+            @foreach (var g in Decided) {
+                <tr @key="g.Id">
+                    <td class="mono">@g.OwnerUserId</td>
+                    <td>@g.KeyName <span class="mono muted">@g.KeyPrefix</span></td>
+                    <td>@FeatureLabel(g.Feature)</td>
+                    <td><FeatureGrantState State="@g.State"/></td>
+                    <td><span class="mono">@g.DecidedAt?.ToString("yyyy-MM-dd HH:mm")</span> <span class="muted">@g.DecidedBy</span></td>
+                    <td class="tools">
+                        @if (g.State == ApiKeyFeatureStates.Approved) {
+                            <button type="button" class="btn-danger" disabled="@_busy" @onclick="() => Decide(g.Id, revoke)">Revoke</button>
+                        }
+                    </td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+}
 
 @code {
+    const string approve = "approve";
+    const string deny = "deny";
+    const string revoke = "revoke";
+
     List<ApiKeyRow> _rows = [];
+    List<FeatureGrantRow> _grants = [];
     bool _busy;
 
     protected override IReadOnlyList<string> Topics => [];
+
+    List<FeatureGrantRow> Pending => [.. _grants.Where(g => g.State == ApiKeyFeatureStates.Pending)];
+
+    List<FeatureGrantRow> Decided => [.. _grants.Where(g => g.State != ApiKeyFeatureStates.Pending)];
 
     protected override async Task LoadAsync() {
         if (Api is null) return;
@@ -29,27 +103,37 @@
         }
 
         _rows = res.Json<List<ApiKeyRow>>() ?? [];
+        var grants = await Api.GetAsync("/api/admin/api-keys/features");
+        if (grants.Ok) _grants = grants.Json<List<FeatureGrantRow>>() ?? [];
+        else Toasts.Push(StatusNoteKind.Error, $"load feature grants failed: {grants.Describe()}");
     }
 
     int RevokedCount => _rows.Count(r => r.Revoked);
 
     IEnumerable<string> Stats() {
         if (_rows.Count == 0) return ["0 total"];
-        return [$"{_rows.Count} total", $"{_rows.Count - RevokedCount} active", $"{RevokedCount} revoked"];
+        return [$"{_rows.Count} total", $"{_rows.Count - RevokedCount} active", $"{RevokedCount} revoked", $"{Pending.Count} pending"];
     }
 
+    static string FeatureLabel(string key) => ApiFeatures.Find(key)?.Label ?? key;
+
     async Task Revoke(long id) {
-        await Mutate($"/api/admin/api-keys/{id}", $"revoked key {id}", "revoke failed");
+        await Mutate(() => Api!.DeleteAsync($"/api/admin/api-keys/{id}"), $"revoked key {id}", "revoke failed");
     }
 
     async Task Delete(long id) {
-        await Mutate($"/api/admin/api-keys/{id}/purge", $"deleted key {id}", "delete failed");
+        await Mutate(() => Api!.DeleteAsync($"/api/admin/api-keys/{id}/purge"), $"deleted key {id}", "delete failed");
     }
 
-    async Task Mutate(string url, string okText, string failText) {
+    async Task Decide(int grantId, string decision) {
+        await Mutate(() => Api!.PostAsync($"/api/admin/api-keys/features/{grantId}/{decision}"),
+            $"{decision} grant {grantId}", $"{decision} failed");
+    }
+
+    async Task Mutate(Func<Task<BrowserResponse>> call, string okText, string failText) {
         if (Api is null) return;
         _busy = true;
-        var res = await Api.DeleteAsync(url);
+        var res = await call();
         Toasts.Push(res.Ok ? StatusNoteKind.Ok : StatusNoteKind.Error, res.Ok ? okText : $"{failText}: {res.Describe()}");
         await LoadAsync();
         _busy = false;

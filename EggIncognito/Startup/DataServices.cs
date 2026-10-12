@@ -154,6 +154,7 @@ public static class DataServices {
         builder.Services.AddSingleton<ContractDataVersion>();
         builder.Services.AddScoped<IProtoUpsertObserver, ProtoUpsertNotifier>();
         builder.Services.AddScoped<ApiKeyStore>();
+        builder.Services.AddScoped<ApiKeyFeatureStore>();
         builder.Services.AddScoped<UserThemeStore>();
         builder.Services.AddScoped<IProtoBackfillStore>(sp => sp.GetRequiredService<ProtoRegistryStore>());
 

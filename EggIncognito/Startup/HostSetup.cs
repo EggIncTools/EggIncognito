@@ -38,6 +38,8 @@ public static class HostSetup {
 
     public static void AddWebServices(this WebApplicationBuilder builder) {
         builder.Services.AddControllers(o => o.Filters.Add<ApiAccessFilter>());
+        builder.Services.AddSingleton<ApiFeatureGrantCache>();
+        builder.Services.AddScoped<ApiFeatureGate>();
         builder.Services.Configure<RouteOptions>(o => o.ConstraintMap.Add("eins", typeof(EiNamespaceRouteConstraint)));
         builder.Services.AddEndpointsApiExplorer();
         builder.Services.AddRazorComponents().AddInteractiveServerComponents()

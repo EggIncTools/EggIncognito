@@ -1,0 +1,31 @@
+@using EggIncognito.Data.Models
+
+<span class="fgs">
+    <Icon Name="@IconName" Class="@($"icon-sm {Tone}")"/>
+    <span>@Label</span>
+</span>
+
+@code {
+    [Parameter] public string? State { get; set; }
+
+    string IconName => State switch {
+        ApiKeyFeatureStates.Approved => "circle-check",
+        ApiKeyFeatureStates.Pending => "clock",
+        ApiKeyFeatureStates.Denied or ApiKeyFeatureStates.Revoked => "circle-x",
+        _ => "lock"
+    };
+
+    string Tone => State switch {
+        ApiKeyFeatureStates.Approved => "text-ok",
+        ApiKeyFeatureStates.Denied or ApiKeyFeatureStates.Revoked => "text-err",
+        _ => "text-muted"
+    };
+
+    string Label => State switch {
+        ApiKeyFeatureStates.Approved => "Approved",
+        ApiKeyFeatureStates.Pending => "Awaiting approval",
+        ApiKeyFeatureStates.Denied => "Denied",
+        ApiKeyFeatureStates.Revoked => "Revoked",
+        _ => "Not requested"
+    };
+}

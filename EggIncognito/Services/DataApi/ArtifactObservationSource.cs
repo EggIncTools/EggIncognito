@@ -2,6 +2,8 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using EggIncognito.Core.Services;
 using EggIncognito.Data.Services;
+using EggIncognito.Services.Coverage;
+using EggIncognito.Services.Devices;
 using Microsoft.EntityFrameworkCore;
 
 namespace EggIncognito.Services.DataApi;
@@ -73,12 +75,31 @@ public static class ArtifactObservationSource {
                 }
             }
 
+            var drops = DropStats.Summarize(group.Key.SpecName, group.Key.SpecLevel, group.Key.SpecRarity,
+                    [.. group.Select(r => ArtifactObservationQuery.ParseByproducts(r.Byproducts))])
+                .Rows.ToDictionary(r => $"{r.Name}/{r.Level}/{r.Rarity}", StringComparer.Ordinal);
+
             var byproducts = new JsonArray([.. frequency
                 .OrderByDescending(f => f.Value.Total)
-                .Select(f => (JsonNode)new JsonObject {
-                    ["byproduct"] = f.Key,
-                    ["occurrences"] = f.Value.Occurrences,
-                    ["totalCount"] = f.Value.Total
+                .Select(f => {
+                    var entry = new JsonObject {
+                        ["byproduct"] = f.Key,
+                        ["occurrences"] = f.Value.Occurrences,
+                        ["totalCount"] = f.Value.Total
+                    };
+                    if (drops.TryGetValue(f.Key, out var d)) {
+                        entry["mean"] = d.Mean;
+                        entry["share"] = d.Share;
+                        entry["min"] = d.Min;
+                        entry["max"] = d.Max;
+                        entry["buckets"] = new JsonArray([.. d.Buckets.Select(b => (JsonNode)new JsonObject {
+                            ["count"] = b.Count,
+                            ["observations"] = b.Observations,
+                            ["share"] = b.Share
+                        })]);
+                    }
+
+                    return (JsonNode)entry;
                 })]);
 
             var rarityOutcomes = new JsonArray([.. group

@@ -1,0 +1,3 @@
+.aak-grants { max-height: 20rem; margin-bottom: 1rem; }
+.aak-grants .tools { white-space: nowrap; text-align: right; }
+.aak-grants .tools button + button { margin-left: 0.5rem; }

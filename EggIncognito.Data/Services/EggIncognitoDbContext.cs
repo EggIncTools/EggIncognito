@@ -35,6 +35,7 @@ public sealed class EggIncognitoDbContext(DbContextOptions<EggIncognitoDbContext
     public DbSet<EnvDesign> EnvDesigns => Set<EnvDesign>();
     public DbSet<EnvDesignVersion> EnvDesignVersions => Set<EnvDesignVersion>();
     public DbSet<ApiKey> ApiKeys => Set<ApiKey>();
+    public DbSet<ApiKeyFeature> ApiKeyFeatures => Set<ApiKeyFeature>();
     public DbSet<PeriodicalsSnapshot> PeriodicalsSnapshots => Set<PeriodicalsSnapshot>();
 
     public DbSet<ArtifactConsumeObservation> ArtifactConsumeObservations => Set<ArtifactConsumeObservation>();
@@ -259,6 +260,11 @@ public sealed class EggIncognitoDbContext(DbContextOptions<EggIncognitoDbContext
             e.HasIndex(x => x.KeyHash).IsUnique();
             e.HasIndex(x => x.OwnerUserId);
             e.Property(x => x.CreatedAt).HasDefaultValueSql("now()").ValueGeneratedOnAdd();
+        });
+        modelBuilder.Entity<ApiKeyFeature>(e => {
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => new { x.ApiKeyId, x.Feature }).IsUnique();
+            e.HasOne<ApiKey>().WithMany().HasForeignKey(x => x.ApiKeyId).OnDelete(DeleteBehavior.Cascade);
         });
         modelBuilder.Entity<PeriodicalsSnapshot>(e => {
             e.HasKey(x => x.Id);

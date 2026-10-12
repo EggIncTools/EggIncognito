@@ -52,10 +52,10 @@ public sealed class ArtifactObservationQuery(IServiceScopeFactory scopes) : IArt
                                                   && o.SpecName == family && o.SpecLevel == level && o.SpecRarity == rarity)
             .Select(o => o.Byproducts)
             .ToListAsync(ct);
-        return [.. rows.Select(Parse)];
+        return [.. rows.Select(ParseByproducts)];
     }
 
-    private static IReadOnlyList<ArtifactByproductRow> Parse(string json) {
+    public static IReadOnlyList<ArtifactByproductRow> ParseByproducts(string json) {
         if (string.IsNullOrWhiteSpace(json)) return [];
         try {
             return JsonSerializer.Deserialize<List<ArtifactByproductRow>>(json, Json) ?? [];

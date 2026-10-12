@@ -1,3 +1,5 @@
+using EggIncognito.Controllers;
+using EggIncognito.Services.Auth;
 using EggIncognito.Services.DataApi;
 using EggIncognito.Services.Feed;
 using EggIncognito.Services.RateLimiting;
@@ -37,6 +39,25 @@ public class DataApiRegistryTests {
         Assert.Equal("Common research", c.ById("gamedata", "research-common")?.DisplayName);
         Assert.Equal("Epic research", c.ById("gamedata", "research-epic")?.DisplayName);
     }
+
+    [Fact]
+    public void EveryFeature_IsRegistered() =>
+        Assert.All(new DataCatalog().Sources.Where(s => s.Feature is not null),
+            s => Assert.NotNull(ApiFeatures.Find(s.Feature!)));
+
+    [Fact]
+    public void ConsumeSources_AreGated() {
+        var c = new DataCatalog();
+        Assert.Equal(ApiFeatures.ConsumeObservations, c.ById("observation", "artifact-consume")?.Feature);
+        var raw = c.ByChild("observation", "artifact-consume", "artifact-consume-raw");
+        Assert.NotNull(raw);
+        Assert.Equal(ApiFeatures.ConsumeObservations, raw.Feature);
+    }
+
+    [Fact]
+    public void GatedSources_AreNeverProducedForTheIndex() =>
+        Assert.All(new DataCatalog().Sources.Where(s => s.Feature is not null),
+            s => Assert.True(DataApiController.SkipsProduce(s)));
 
     [Fact]
     public void Catalog_SeasonInfos_UnlistedButResolvable() {

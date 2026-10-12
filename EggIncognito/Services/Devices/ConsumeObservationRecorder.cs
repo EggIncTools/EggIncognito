@@ -100,7 +100,7 @@ public sealed class ConsumeObservationRecorder(
 
     internal static ArtifactConsumeObservation? ConsumeRow(string action, string? deviceId,
         ConsumeArtifactRequest request, ConsumeArtifactResponse response, bool success, DateTimeOffset now) {
-        if (request.Spec is null) return null;
+        if (request.Spec is null || (action == "consume" && request.Quantity > 1)) return null;
 
         var byproducts = response.Byproducts
             .GroupBy(b => (b.Name, b.Level, b.Rarity))

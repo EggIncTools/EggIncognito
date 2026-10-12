@@ -26,7 +26,7 @@ public class ConsumeObservationRecorderTests {
                 Level = ArtifactSpec.Types.Level.Greater,
                 Rarity = ArtifactSpec.Types.Rarity.Legendary
             },
-            Quantity = 3
+            Quantity = 1
         };
         var response = new ConsumeArtifactResponse {
             Success = true,
@@ -49,7 +49,7 @@ public class ConsumeObservationRecorderTests {
         Assert.Equal("BOOK_OF_BASAN", row.SpecName);
         Assert.Equal("GREATER", row.SpecLevel);
         Assert.Equal("LEGENDARY", row.SpecRarity);
-        Assert.Equal(3, row.CountRequested);
+        Assert.Equal(1, row.CountRequested);
         Assert.Equal(42, row.GoldenEggs);
         Assert.True(row.Success);
         Assert.Equal("1.37", row.ClientVersion);
@@ -63,6 +63,19 @@ public class ConsumeObservationRecorderTests {
         var rewards = JsonNode.Parse(row.OtherRewards)!.AsArray();
         Assert.Equal(2, rewards.Count);
         Assert.Contains(rewards, r => r!["rewardType"]!.GetValue<string>() == "PIGGY_FILL");
+    }
+
+    [Fact]
+    public void Build_QuantityAboveOne_IsNotRecorded() {
+        var request = new ConsumeArtifactRequest {
+            Spec = new ArtifactSpec { Name = ArtifactSpec.Types.Name.LunarTotem },
+            Quantity = 3
+        };
+        var row = ConsumeObservationRecorder.Build("consume", "android-1",
+            Flow("ei_afx/consume_artifact", request, new ConsumeArtifactResponse { Success = true }),
+            DateTimeOffset.UnixEpoch);
+
+        Assert.Null(row);
     }
 
     [Fact]

@@ -68,6 +68,37 @@ public sealed partial class AdminController(
         return Ok(new { deleted = true });
     }
 
+    [HttpGet("api-keys/features")]
+    [EnableRateLimiting("read")]
+    public async Task<IActionResult> ApiKeyFeatures([FromServices] ApiKeyFeatureStore? grants,
+        [FromServices] ApiKeyStore? keys, CancellationToken ct) {
+        if (grants is null || keys is null) return Ok(new List<FeatureGrantRow>());
+        var byId = (await keys.AllAsync(ct)).ToDictionary(k => k.Id);
+        return Ok((await grants.AllAsync(ct))
+            .Where(g => byId.ContainsKey(g.ApiKeyId))
+            .Select(g => {
+                var k = byId[g.ApiKeyId];
+                return new FeatureGrantRow(g.Id, k.Id, k.Name, k.Prefix, k.OwnerUserId.ToString(), g.Feature, g.State,
+                    g.Note, g.RequestedAt, g.DecidedAt, g.DecidedBy);
+            })
+            .ToList());
+    }
+
+    [HttpPost("api-keys/features/{grantId:int}/{decision}")]
+    [RequiresDb]
+    public async Task<IActionResult> DecideApiKeyFeature(int grantId, string decision,
+        [FromServices] ApiKeyFeatureStore grants, [FromServices] ApiFeatureGrantCache cache, CancellationToken ct) {
+        if (ApiKeyFeatureStates.ForDecision(decision) is not { } target)
+            return Fail(400, "decision must be approve, deny or revoke");
+        var me = currentUser.Current;
+        string by = me.Name ?? me.Id?.ToString() ?? "admin";
+        var (outcome, row) = await grants.DecideAsync(grantId, target, by, ct);
+        if (outcome == GrantDecision.NotFound) return Fail(404, "grant not found");
+        if (outcome == GrantDecision.Invalid) return Fail(409, $"grant is {row!.State}");
+        cache.Invalidate(row!.ApiKeyId);
+        return Ok(new { id = row.Id, state = row.State });
+    }
+
     [HttpGet("sessions")]
     [EnableRateLimiting("read")]
     public async Task<IActionResult> Sessions([FromServices] DeviceCaptureManager dcm,

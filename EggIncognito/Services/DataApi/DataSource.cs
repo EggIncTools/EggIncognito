@@ -41,4 +41,5 @@ public sealed record DataSource(
     Func<DataProduceContext, CancellationToken, Task<DataPayload?>> Produce,
     Func<string, byte[]>? BuildEgressRequest = null,
     string? Extends = null,
-    bool Listed = true);
+    bool Listed = true,
+    string? Feature = null);

@@ -13,7 +13,8 @@ namespace EggIncognito.Controllers;
 [ApiController]
 [Route("api/v1/data")]
 [ApiAccess(ApiAccessLevel.Public)]
-public sealed class DataApiController(DataCatalog catalog, ICurrentUser currentUser) : ApiControllerBase {
+public sealed class DataApiController(DataCatalog catalog, ICurrentUser currentUser, ApiFeatureGate gate)
+    : ApiControllerBase {
     [HttpGet]
     [EnableRateLimiting("read")]
     public async Task<IActionResult> Index(CancellationToken ct) {
@@ -32,6 +33,7 @@ public sealed class DataApiController(DataCatalog catalog, ICurrentUser currentU
                     description = child.Description,
                     provenance = child.Provenance.ToString(),
                     access = child.Access.ToString(),
+                    feature = child.Feature,
                     feed = child.Feed,
                     acceptsName = child.AcceptsName,
                     bytes = childPayload?.Bytes.LongLength,
@@ -47,6 +49,7 @@ public sealed class DataApiController(DataCatalog catalog, ICurrentUser currentU
                 description = s.Description,
                 provenance = s.Provenance.ToString(),
                 access = s.Access.ToString(),
+                feature = s.Feature,
                 feed = s.Feed,
                 acceptsName = s.AcceptsName,
                 bytes = payload?.Bytes.LongLength,
@@ -59,8 +62,10 @@ public sealed class DataApiController(DataCatalog catalog, ICurrentUser currentU
         return Ok(new { count = items.Count, sources = items });
     }
 
+    public static bool SkipsProduce(DataSource s) => s.AcceptsName || s.Feature is not null;
+
     private async Task<DataPayload?> ProduceOf(DataSource s, CancellationToken ct) {
-        if (s.AcceptsName) return null;
+        if (SkipsProduce(s)) return null;
         try {
             return await s.Produce(new DataProduceContext(HttpContext, null), ct);
         } catch {
@@ -105,6 +110,9 @@ public sealed class DataApiController(DataCatalog catalog, ICurrentUser currentU
     private async Task<IActionResult> Serve(DataSource src, string? name, CancellationToken ct) {
         if (src.Access == DataAccess.Authenticated && !currentUser.Current.IsAuthenticated)
             return Fail(401, "authentication required", "mint an API key at /api/v1/keys or log in", null);
+
+        if (src.Feature is { } feature && await gate.CheckAsync(User, feature, ct) is { Allowed: false } verdict)
+            return Fail(verdict.Status, verdict.Error!, new { feature, state = verdict.State });
 
         if (src.AcceptsName && string.IsNullOrEmpty(name))
             return Fail(400, "this source requires a name query parameter");

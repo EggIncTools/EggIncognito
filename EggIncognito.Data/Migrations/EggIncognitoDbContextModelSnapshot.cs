@@ -134,6 +134,53 @@ namespace EggIncognito.Data.Migrations
                     b.ToTable("api_keys");
                 });
 
+            modelBuilder.Entity("EggIncognito.Data.Models.ApiKeyFeature", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("ApiKeyId")
+                        .HasColumnType("integer")
+                        .HasColumnName("api_key_id");
+
+                    b.Property<DateTimeOffset?>("DecidedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("decided_at");
+
+                    b.Property<string>("DecidedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("decided_by");
+
+                    b.Property<string>("Feature")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("feature");
+
+                    b.Property<string>("Note")
+                        .HasColumnType("text")
+                        .HasColumnName("note");
+
+                    b.Property<DateTimeOffset>("RequestedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("requested_at");
+
+                    b.Property<string>("State")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("state");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ApiKeyId", "Feature")
+                        .IsUnique();
+
+                    b.ToTable("api_key_features");
+                });
+
             modelBuilder.Entity("EggIncognito.Data.Models.AppSetting", b =>
                 {
                     b.Property<string>("Key")
@@ -2310,6 +2357,15 @@ namespace EggIncognito.Data.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("DataProtectionKeys");
+                });
+
+            modelBuilder.Entity("EggIncognito.Data.Models.ApiKeyFeature", b =>
+                {
+                    b.HasOne("EggIncognito.Data.Models.ApiKey", null)
+                        .WithMany()
+                        .HasForeignKey("ApiKeyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("EggIncognito.Data.Models.ArtifactConsumeObservation", b =>
