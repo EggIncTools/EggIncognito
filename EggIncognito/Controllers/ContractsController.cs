@@ -66,6 +66,12 @@ public sealed class ContractsController : ApiControllerBase {
     public async Task<IActionResult> Watch([FromServices] ContractPredictor predictor, CancellationToken ct = default) =>
         Ok(await predictor.GetWatchAsync(ct));
 
+    [HttpGet("predictions/watch/colleggtibles")]
+    [EnableRateLimiting("read")]
+    [Requires<ContractPredictor>("no database configured")]
+    public async Task<IActionResult> ColleggtibleWatch([FromServices] ContractPredictor predictor, CancellationToken ct = default) =>
+        Ok(await predictor.GetColleggtibleWatchAsync(ct));
+
     [HttpGet("predictions/backtest")]
     [EnableRateLimiting("read")]
     [ApiAccess(ApiAccessLevel.Admin)]

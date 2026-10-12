@@ -18,6 +18,7 @@ public class ConsumeCoveragePaneShelfTests : BunitContext {
         Services.AddHttpClient();
         Services.AddEggIdentityToasts();
         Services.AddSingleton<IHttpContextAccessor>(new HttpContextAccessor());
+        Services.AddSingleton(new EggIncognito.Services.DataApi.DataCatalog());
         Services.AddSingleton<ICurrentUser>(new FakeUser(Guid.NewGuid(), UserRole.Admin, DiscordId: "tester").Accessor());
         foreach (var panel in panels) Services.AddSingleton(panel);
     }

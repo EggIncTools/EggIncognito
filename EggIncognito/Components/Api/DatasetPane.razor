@@ -40,11 +40,7 @@
                     </span>
                 }
             </div>
-            <a class="ds-route" href="@s.Url" target="_blank" rel="noopener">@s.Url</a>
-            <div class="ds-curl">
-                <code class="ds-curl-text">@CurlLine(s)</code>
-                <CopyButton Text="@CurlLine(s)" Class="btn-mini data-copy ds-curl-copy" IconClass="icon-sm">Copy</CopyButton>
-            </div>
+            <DataRouteCurl Url="@s.Url"/>
         </header>
         <div class="ds-body">
             @if (s.AcceptsName) {
@@ -89,14 +85,8 @@
 @code {
     [Parameter] public DataSourceRow? Current { get; set; }
 
-    string _origin = "https://eggincognito.egginc.tools";
-
     static bool NeedsKey(DataSourceRow s) {
         return string.Equals(s.Access, "Authenticated", StringComparison.Ordinal);
-    }
-
-    string CurlLine(DataSourceRow s) {
-        return $"curl -H \"X-Api-Key: <your-key>\" {_origin}{s.Url}";
     }
 
     static string DownloadName(DataSourceRow s) {
@@ -105,11 +95,6 @@
 
     static string AssetUrl(DataSourceRow s, string name) {
         return $"{s.Url}?name={Uri.EscapeDataString(name)}";
-    }
-
-    protected override void OnInitialized() {
-        base.OnInitialized();
-        if (!string.IsNullOrEmpty(SelfBaseAddress)) _origin = SelfBaseAddress;
     }
 
     protected override async Task OnParametersSetAsync() {

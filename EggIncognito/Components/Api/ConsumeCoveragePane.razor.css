@@ -5,6 +5,10 @@
 .cov-head-shelf { flex: none; padding: 0.375rem 0.5rem; }
 .cov-head-shelf ::deep .tbar-group + .tbar-group { padding-left: 0.75rem; border-left: 1px solid var(--color-border); }
 .cov-head-tools { display: inline-flex; align-items: center; gap: 0.75rem; margin-left: auto; }
+.cov-overview { display: flex; flex: none; flex-direction: column; gap: 0.5rem; padding-bottom: 0.75rem; border-bottom: 1px solid var(--color-border); }
+.cov-desc { margin: 0; font-size: 0.8125rem; color: var(--color-muted); }
+.cov-access { font-size: 0.75rem; color: var(--color-muted); }
+.cov-access-item { display: inline-flex; align-items: center; gap: 0.25rem; }
 .cov-sel { flex: none; flex-wrap: wrap; }
 .cov-sel .tbar-k { white-space: nowrap; }
 .cov-scroll { flex: 1 1 0; min-height: 0; }

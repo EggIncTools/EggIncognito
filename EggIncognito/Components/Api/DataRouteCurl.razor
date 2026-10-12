@@ -1,0 +1,20 @@
+@inherits SelfCallComponentBase
+
+<a class="ds-route" href="@Url" target="_blank" rel="noopener">@Url</a>
+<div class="ds-curl">
+    <code class="ds-curl-text">@CurlLine</code>
+    <CopyButton Text="@CurlLine" Class="btn-mini data-copy ds-curl-copy" IconClass="icon-sm">Copy</CopyButton>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string Url { get; set; } = "";
+
+    string _origin = "https://eggincognito.egginc.tools";
+
+    string CurlLine => $"curl -H \"X-Api-Key: <your-key>\" {_origin}{Url}";
+
+    protected override void OnInitialized() {
+        base.OnInitialized();
+        if (!string.IsNullOrEmpty(SelfBaseAddress)) _origin = SelfBaseAddress;
+    }
+}

@@ -4,6 +4,7 @@
 @using EggIncognito.GameData
 @using EggIncognito.Models.Coverage
 @using EggIncognito.Services.Coverage
+@using EggIncognito.Services.DataApi
 @implements IDisposable
 @inject IServiceScopeFactory Scopes
 @inject IEnumerable<IDevicePanel> Panels
@@ -11,6 +12,7 @@
 @inject IEnumerable<ICoverageAnnotations> Annotations
 @inject ILogger<ConsumeCoveragePane> Logger
 @inject ICurrentUser User
+@inject DataCatalog Catalog
 
     <div class="cov">
         <div class="cov-headline">
@@ -29,6 +31,24 @@
                 }
             </span>
         </div>
+
+        @if (Catalog.ById("observation", "artifact-consume") is { } src) {
+            <div class="cov-overview">
+                <p class="cov-desc">@src.Description</p>
+                <div class="cov-access meta-dots">
+                    <span class="cov-access-item">
+                        <Icon Name="key" Class="icon-sm"/>
+                        API key with approved Consume observations access
+                    </span>
+                    <span>Request access per key in API keys</span>
+                </div>
+                <DataRouteCurl Url="@Catalog.UrlFor(src)"/>
+                @foreach (var child in Catalog.Children(src)) {
+                    <p class="cov-desc">@child.Description</p>
+                    <DataRouteCurl Url="@Catalog.UrlFor(child)"/>
+                }
+            </div>
+        }
 
         @if (_admin && PanelShelf.Any(Panels, DevicePanelShelves.CoverageHead)) {
             <ToolBar Start="true" Class="cov-head-shelf">

@@ -8,8 +8,9 @@ public sealed record WatchEntry(
     string BarStyle,
     double? LastStart,
     double? LastEnd,
-    IReadOnlyList<WatchForecast> Next);
+    IReadOnlyList<WatchForecast> Next,
+    string? LastNote = null);
 
-public sealed record WatchForecast(double Start, double End, double Confidence, string Rule);
+public sealed record WatchForecast(double Start, double End, double Confidence, string Rule, string? Note = null);
 
 public sealed record WatchResponse(double GeneratedAt, IReadOnlyList<WatchEntry> Entries);

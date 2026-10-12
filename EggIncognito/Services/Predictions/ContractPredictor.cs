@@ -49,12 +49,15 @@ public sealed class ContractPredictor(
         return new WatchResponse(now, Watch(samples, ContractModel.Train(samples, now), now));
     }
 
+    public async Task<WatchResponse> GetColleggtibleWatchAsync(CancellationToken ct = default) {
+        var samples = await SamplesAsync(ct);
+        double now = UnixSeconds.FromTime(time.GetUtcNow());
+        return new WatchResponse(now, ColleggtibleWatch(samples, ContractModel.Train(samples, now), now));
+    }
+
     internal const int WatchWeeks = 52;
 
-    internal static IReadOnlyList<WatchEntry> Watch(
-        IReadOnlyList<ContractReleaseSample> samples, ContractModel model, double now) {
-        var last = samples.Where(s => s.Start < now).GroupBy(s => s.ContractId)
-            .ToDictionary(g => g.Key, g => g.MaxBy(s => s.Start), StringComparer.Ordinal);
+    private static Dictionary<string, List<WatchForecast>> Forecasts(ContractModel model, double now) {
         var forecasts = new Dictionary<string, List<WatchForecast>>(StringComparer.Ordinal);
         foreach (var slot in model.Slots(UnixSeconds.ToTime(now), WatchWeeks * ReleaseGrid.AllKinds.Length)) {
             foreach (var c in slot.Candidates) {
@@ -63,6 +66,41 @@ public sealed class ContractPredictor(
             }
         }
 
+        return forecasts;
+    }
+
+    internal static IReadOnlyList<WatchEntry> ColleggtibleWatch(
+        IReadOnlyList<ContractReleaseSample> samples, ContractModel model, double now) {
+        var forecasts = Forecasts(model, now);
+        var entries = new List<WatchEntry>();
+        foreach (var egg in samples.Where(s => s.CustomEggId is not null).GroupBy(s => s.CustomEggId!, StringComparer.Ordinal)) {
+            var past = egg.Where(s => s.Start < now).ToList();
+            if (past.Count == 0) continue;
+            var last = past.MaxBy(s => s.Start);
+            var names = egg.GroupBy(s => s.ContractId, StringComparer.Ordinal)
+                .ToDictionary(g => g.Key, g => g.MaxBy(s => s.Start).Name, StringComparer.Ordinal);
+            var next = names.Keys
+                .SelectMany(id => (forecasts.GetValueOrDefault(id) ?? []).Select(f => (Id: id, Forecast: f)))
+                .GroupBy(x => (x.Forecast.Start, x.Forecast.Rule))
+                .Select(g => new WatchForecast(
+                    g.Key.Start, g.Max(x => x.Forecast.End), Math.Min(1, g.Sum(x => x.Forecast.Confidence)), g.Key.Rule,
+                    string.Join(", ", g.OrderByDescending(x => x.Forecast.Confidence).Select(x => names[x.Id]))))
+                .OrderBy(f => f.Start)
+                .ToList();
+            entries.Add(new WatchEntry(
+                egg.Key, EggIcons.Label(last.Egg, egg.Key), false, EggIcons.Url(last.Egg, egg.Key),
+                ContractPalette.BarStyle(false, last.Leggacy, last.ProphecyEggs),
+                last.Start, last.Start + last.LengthSeconds, next, last.Name));
+        }
+
+        return [.. entries.OrderBy(e => e.Label, StringComparer.OrdinalIgnoreCase)];
+    }
+
+    internal static IReadOnlyList<WatchEntry> Watch(
+        IReadOnlyList<ContractReleaseSample> samples, ContractModel model, double now) {
+        var last = samples.Where(s => s.Start < now).GroupBy(s => s.ContractId)
+            .ToDictionary(g => g.Key, g => g.MaxBy(s => s.Start), StringComparer.Ordinal);
+        var forecasts = Forecasts(model, now);
         var entries = new List<WatchEntry>();
         foreach (var c in model.Pools.Values.SelectMany(p => p.Candidates).DistinctBy(c => c.ContractId)) {
             if (!last.TryGetValue(c.ContractId, out var row)) continue;

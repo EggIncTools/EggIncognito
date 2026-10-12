@@ -86,12 +86,8 @@
                 </WorkbenchLoad>
                 <WorkbenchSection Label="Coverage">
                     <WorkbenchEntry Selected="@(State.Kind == ApiSelectionKind.Coverage)"
-                                    OnClick="@(_ => SelectSection(ApiSelectionKind.Coverage))">
-                        <Lead>
-                            <span class="wb-lead">
-                                <Icon Name="layout-grid" Class="icon-sm"/>
-                            </span>
-                        </Lead>
+                                    OnClick="@(_ => SelectSection(ApiSelectionKind.Coverage))"
+                                    Trail="@CoverageTrail">
                         <Name>Consume coverage</Name>
                     </WorkbenchEntry>
                 </WorkbenchSection>
@@ -405,6 +401,12 @@
                    }
                </span>;
     }
+
+    static readonly RenderFragment CoverageTrail = @<span class="ds-trail">
+                                                     <span title="Requires an API key with approved access">
+                                                         <Icon Name="key" Class="icon-sm"/>
+                                                     </span>
+                                                 </span>;
 
     static string TitleCase(string raw) {
         var words = raw.Split([' ', '_', '-'], StringSplitOptions.RemoveEmptyEntries);

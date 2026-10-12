@@ -83,6 +83,8 @@
                         }
                     </ul>
                 </div>
+                <WatchList Source="/api/v1/contracts/predictions/watch/colleggtibles" PrefKey="watch.colleggtibles"
+                           AddLabel="Pin colleggtible" Placeholder="colleggtible..." EmptyNote="Pin colleggtibles to see the closest past and predicted contracts that carry them."/>
             </section>
         }
     </div>
@@ -283,8 +285,7 @@
                 </Bar>
             </MiniCalendar>
             <WatchList Source="/api/v1/contracts/predictions/watch" PrefKey="watch.contracts"
-                       AddLabel="Pin contract" Placeholder="contract name..." EmptyNote="Pin contracts to see their last release and next predicted leggacy."/>
-        </section>
+                       AddLabel="Pin contract" Placeholder="contract name..." EmptyNote="Pin contracts to see their last release and next predicted leggacy."/>        </section>
 
         @if (!_loaded) {
             <section class="panel pd-w-note">Loading…</section>
