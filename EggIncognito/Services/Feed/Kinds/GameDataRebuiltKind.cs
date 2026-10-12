@@ -85,6 +85,18 @@ public static class GameDataRebuiltKind {
             })];
     }
 
+    public static async Task<IReadOnlyDictionary<string, IReadOnlyList<FilterOption>>> LoadOptions(
+        FeedSampleContext ctx, CancellationToken ct) {
+        var versions = await ctx.Db.ProtoVersions.AsNoTracking()
+            .Where(p => p.DeletedAt == null)
+            .Select(p => p.AppVersion)
+            .Distinct()
+            .ToListAsync(ct);
+        return new Dictionary<string, IReadOnlyList<FilterOption>> {
+            [BinaryVersionField] = FeedFilter.Versions(versions)
+        };
+    }
+
     private static string? BinaryVersionOf(string json) {
         try {
             return System.Text.Json.Nodes.JsonNode.Parse(json)?["binaryVersion"]?.GetValue<string>();
@@ -107,5 +119,6 @@ public static class GameDataRebuiltKind {
         Defaults,
         Legacy,
         ["binaryVersion", "prevBinaryVersion", "platform", "changedDocs", "docCount", "inputSha", "pageUrl"],
-        LoadSamples);
+        LoadSamples,
+        LoadOptions);
 }

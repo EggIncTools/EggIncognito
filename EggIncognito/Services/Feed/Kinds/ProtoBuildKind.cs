@@ -175,5 +175,18 @@ public static class ProtoBuildKind {
             "platform", "appVersion", "build", "clientVersion", "protoSha", "protoChanged", "pageUrl",
             "delta", "prevAppVersion", "prevBuild", "flaws"
         ],
-        LoadSamples);
+        LoadSamples,
+        LoadOptions);
+
+    public static async Task<IReadOnlyDictionary<string, IReadOnlyList<FilterOption>>> LoadOptions(
+        FeedSampleContext ctx, CancellationToken ct) {
+        var rows = await ctx.Db.ProtoVersions.AsNoTracking()
+            .Where(p => p.DeletedAt == null)
+            .Select(p => new { p.AppVersion, p.ClientVersion })
+            .ToListAsync(ct);
+        return new Dictionary<string, IReadOnlyList<FilterOption>> {
+            [AppVersion] = FeedFilter.Versions(rows.Select(r => r.AppVersion)),
+            [ClientVersion] = FeedFilter.Versions(rows.Select(r => r.ClientVersion))
+        };
+    }
 }

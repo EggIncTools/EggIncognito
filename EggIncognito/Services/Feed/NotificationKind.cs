@@ -31,7 +31,8 @@ public sealed record NotificationKind(
     FilterSet Defaults,
     Func<FeedSubscription, FilterSet> Legacy,
     IReadOnlyList<string> Vars,
-    Func<FeedSampleContext, CancellationToken, Task<IReadOnlyList<FeedSample>>> LoadSamples) {
+    Func<FeedSampleContext, CancellationToken, Task<IReadOnlyList<FeedSample>>> LoadSamples,
+    Func<FeedSampleContext, CancellationToken, Task<IReadOnlyDictionary<string, IReadOnlyList<FilterOption>>>>? LoadOptions = null) {
     private static readonly FilterSet Unreadable = FeedFilter.Rows([new FilterCondition("unreadable_filter", FilterOps.Eq, "stored")]);
 
     public FilterCatalog Catalog => new(Key, Fields, Defaults);
@@ -102,6 +103,12 @@ public static class FeedFilter {
     public static FilterFieldDef Number(string key, string label) => new(key, label, FilterValueKind.Number, FilterOps.Comparison);
 
     public static FilterFieldDef Version(string key, string label) => new(key, label, FilterValueKind.Version, FilterOps.Comparison);
+
+    public static IReadOnlyList<FilterOption> Versions(IEnumerable<string?> values) => [
+        .. values.OfType<string>().Where(v => v.Length > 0).Distinct(StringComparer.Ordinal)
+            .OrderByDescending(Core.Services.ProtoExtract.ProtoVersionQuality.DottedVersionKey)
+            .Select(v => new FilterOption(v, v))
+    ];
 
     public static FilterFieldDef Text(string key, string label) => new(key, label, FilterValueKind.Text, FilterOps.Equality);
 

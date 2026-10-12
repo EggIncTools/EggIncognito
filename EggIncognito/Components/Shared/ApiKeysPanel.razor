@@ -54,42 +54,54 @@
         } else {
             <ApiKeysTable Rows="@TableRows" ShowOwner="false" Busy="_busyRow" OnRevoke="Revoke"/>
             @if (_keys.Any(k => !k.Revoked)) {
-                <div class="reg-wrap akp-features">
-                    <table class="data-table">
-                        <thead>
-                        <tr>
-                            <th>Key</th>
-                            <th>Feature access</th>
-                            <th>State</th>
-                            <th class="tools"></th>
-                        </tr>
-                        </thead>
-                        <tbody>
-                        @foreach (var key in _keys.Where(k => !k.Revoked)) {
-                            @foreach (var feature in ApiFeatures.All) {
+                @foreach (var feature in ApiFeatures.All) {
+                    <section class="akp-feature" @key="feature.Key">
+                        <div class="akp-feature-head">
+                            <span class="akp-feature-name">@feature.Label</span>
+                            <span class="muted">@feature.Description Each key needs its own approval.</span>
+                        </div>
+                        <table class="data-table akp-access">
+                            <thead>
+                            <tr>
+                                <th>Key</th>
+                                <th>Access</th>
+                                <th class="tools"></th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            @foreach (var key in _keys.Where(k => !k.Revoked)) {
                                 string? state = StateOf(key, feature.Key);
+                                bool open = _requesting == (key.Id, feature.Key);
                                 <tr @key="@($"{key.Id}|{feature.Key}")">
-                                    <td>@key.Name <span class="mono muted">@key.Prefix</span></td>
-                                    <td>@feature.Label <span class="muted">@feature.Description</span></td>
+                                    <td>@key.Name</td>
                                     <td><FeatureGrantState State="@state"/></td>
                                     <td class="tools">
-                                        @if (state is null or ApiKeyFeatureStates.Denied or ApiKeyFeatureStates.Revoked) {
-                                            <span class="akp-request">
-                                                <input class="field-input" placeholder="What will you use it for?" maxlength="500"
-                                                       aria-label="Reason for the request"
-                                                       value="@NoteFor(key.Id, feature.Key)"
-                                                       @oninput="e => _notes[(key.Id, feature.Key)] = e.Value?.ToString() ?? string.Empty"/>
-                                                <button type="button" class="btn-mini" disabled="@_busyRow"
-                                                        @onclick="() => RequestFeature(key.Id, feature.Key)">Request</button>
-                                            </span>
+                                        @if (!open && state is not (ApiKeyFeatureStates.Pending or ApiKeyFeatureStates.Approved)) {
+                                            <button type="button" class="btn-mini" disabled="@_busyRow"
+                                                    @onclick="() => _requesting = (key.Id, feature.Key)">Request access</button>
                                         }
                                     </td>
                                 </tr>
+                                @if (open) {
+                                    <tr @key="@($"{key.Id}|{feature.Key}|note")">
+                                        <td colspan="3">
+                                            <div class="akp-request">
+                                                <input class="field-input" placeholder="What will you use it for? (optional)" maxlength="500"
+                                                       aria-label="Reason for the request"
+                                                       value="@NoteFor(key.Id, feature.Key)"
+                                                       @oninput="e => _notes[(key.Id, feature.Key)] = e.Value?.ToString() ?? string.Empty"/>
+                                                <button type="button" class="btn-primary" disabled="@_busyRow"
+                                                        @onclick="() => RequestFeature(key.Id, feature.Key)">Send request</button>
+                                                <button type="button" class="btn-mini" @onclick="() => _requesting = null">Cancel</button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                }
                             }
-                        }
-                        </tbody>
-                    </table>
-                </div>
+                            </tbody>
+                        </table>
+                    </section>
+                }
             }
         }
     }
@@ -184,6 +196,7 @@
     }
 
     readonly Dictionary<(long, string), string> _notes = [];
+    (long, string)? _requesting;
 
     static string? StateOf(ApiKeysPanelRow key, string feature) =>
         key.Features?.FirstOrDefault(f => f.Feature == feature)?.State;
@@ -197,6 +210,7 @@
                 new { note = NoteFor(keyId, feature) }, JsonOpts);
             if (res.IsSuccessStatusCode) {
                 _notes.Remove((keyId, feature));
+                _requesting = null;
                 Toasts.Push(StatusNoteKind.Ok, "Request sent. It will work once an admin approves it.");
                 await LoadKeys();
             } else {

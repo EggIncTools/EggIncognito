@@ -134,7 +134,7 @@ public static class ContractReleaseKind {
         "A contract went live, new or leggacy.",
         [
             FeedFilter.Searchable(EggField, "Egg", EggOptions()),
-            FeedFilter.Text(ContractIdField, "Contract id"),
+            FeedFilter.Searchable(ContractIdField, "Contract", []),
             FeedFilter.Bool(LeggacyField, "Leggacy"),
             FeedFilter.Bool(UltraField, "Ultra only"),
             FeedFilter.Bool(Colleggtible, "Carries a colleggtible"),
@@ -150,5 +150,29 @@ public static class ContractReleaseKind {
             "contractId", "name", "egg", "leggacy", "ultra", "start", "end", "lengthDays", "prophecyEggs",
             "maxCoopSize", "pageUrl"
         ],
-        LoadSamples);
+        LoadSamples,
+        LoadOptions);
+
+    public static async Task<IReadOnlyDictionary<string, IReadOnlyList<FilterOption>>> LoadOptions(
+        FeedSampleContext ctx, CancellationToken ct) {
+        var contracts = await ctx.Db.ContractReleases.AsNoTracking()
+            .GroupBy(r => r.ContractId)
+            .Select(g => new { Id = g.Key, Name = g.OrderByDescending(r => r.StartTime).Select(r => r.Name).First() })
+            .ToListAsync(ct);
+        var customEggs = await ctx.Db.ContractReleases.AsNoTracking()
+            .Where(r => r.CustomEggId != null)
+            .Select(r => r.CustomEggId!)
+            .Distinct()
+            .ToListAsync(ct);
+        return new Dictionary<string, IReadOnlyList<FilterOption>> {
+            [ContractIdField] = [.. contracts
+                .OrderBy(c => c.Name, StringComparer.OrdinalIgnoreCase)
+                .Select(c => new FilterOption(c.Id, c.Name) { Badge = c.Id })],
+            [EggField] = [.. EggOptions(), .. customEggs.Order(StringComparer.Ordinal)
+                .Select(id => new FilterOption(id, EggIcons.Label((int)Ei.Egg.CustomEgg, id)) {
+                    Group = "Colleggtibles",
+                    Image = EggIcons.Url((int)Ei.Egg.CustomEgg, id)
+                })]
+        };
+    }
 }

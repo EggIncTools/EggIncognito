@@ -21,15 +21,16 @@ public sealed class ProtoFeedController(ICurrentUser currentUser, IHttpClientFac
     [HttpGet("kinds")]
     public async Task<IActionResult> Kinds([FromServices] FeedSampleSource samples, CancellationToken ct) {
         var views = new List<object>();
-        foreach (var k in FeedEventKinds.All) views.Add(KindView(k, await samples.ForAsync(k, ct)));
+        foreach (var k in FeedEventKinds.All)
+            views.Add(KindView(k, await samples.FieldsAsync(k, ct), await samples.ForAsync(k, ct)));
         return Ok(views);
     }
 
-    public static object KindView(NotificationKind k, IReadOnlyList<FeedSample> samples) => new {
+    public static object KindView(NotificationKind k, IReadOnlyList<FilterFieldDef> fields, IReadOnlyList<FeedSample> samples) => new {
         k.Key,
         k.Label,
         k.Description,
-        Catalog = JsonElement.Parse(FilterCodec.SerializeCatalog(k.Catalog)),
+        Catalog = JsonElement.Parse(FilterCodec.SerializeCatalog(new FilterCatalog(k.Key, fields, k.Defaults))),
         Vars = FeedVars.Describe(k, samples)
     };
 

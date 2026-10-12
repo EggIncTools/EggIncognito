@@ -97,7 +97,7 @@ public static class GameEventKind {
         FeedEventKinds.GameEvent, "Game event",
         "A game event appeared in the periodicals.",
         [
-            FeedFilter.Text(EventType, "Event type"),
+            FeedFilter.Searchable(EventType, "Event type", []),
             FeedFilter.Bool(Ultra, "Ultra"),
             FeedFilter.Number(Multiplier, "Multiplier"),
             FeedFilter.Number(DurationHours, "Duration in hours"),
@@ -107,5 +107,15 @@ public static class GameEventKind {
         Defaults,
         Legacy,
         ["eventId", "eventType", "message", "ultra", "start", "end", "durationHours", "multiplier", "pageUrl"],
-        LoadSamples);
+        LoadSamples,
+        LoadOptions);
+
+    public static async Task<IReadOnlyDictionary<string, IReadOnlyList<FilterOption>>> LoadOptions(
+        FeedSampleContext ctx, CancellationToken ct) {
+        var types = await ctx.Db.GameEvents.AsNoTracking().Select(e => e.EventType).Distinct().ToListAsync(ct);
+        return new Dictionary<string, IReadOnlyList<FilterOption>> {
+            [EventType] = [.. types.Where(t => t.Length > 0).Order(StringComparer.Ordinal)
+                .Select(t => new FilterOption(t, Predictions.EventPredictor.EventTypeLabel(t)))]
+        };
+    }
 }

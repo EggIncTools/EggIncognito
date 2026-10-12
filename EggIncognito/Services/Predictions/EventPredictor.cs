@@ -84,7 +84,7 @@ public sealed class EventPredictor(EggIncognitoDbContext db, EventDataVersion ve
         list.Add(value);
     }
 
-    private static string EventTypeLabel(string type) =>
+    public static string EventTypeLabel(string type) =>
         string.Join(' ', type.Split(['-', '_'], StringSplitOptions.RemoveEmptyEntries)
             .Select(w => char.ToUpperInvariant(w[0]) + w[1..]));
 
