@@ -10,9 +10,8 @@ public static class FeedEventKinds {
     public const string GameDataRebuilt = "gamedata_rebuilt";
     public const string GameEvent = "game_event";
     public const string ContractRelease = "contract_release";
-    public const string Colleggtible = "colleggtible_added";
-
     public const string LegacyPeriodicalsChanged = "periodicals_changed";
+    public const string LegacyColleggtible = "colleggtible_added";
 
     public const string TriggerVersionUp = "version_up";
     public const string TriggerProtoChanged = "proto_changed";
@@ -46,10 +45,7 @@ public static class FeedEventKinds {
     public static NotificationKind GameData => GameDataRebuiltKind.Definition;
     public static NotificationKind Events => GameEventKind.Definition;
     public static NotificationKind Contracts => ContractReleaseKind.Definition;
-    public static NotificationKind Colleggtibles => ColleggtibleKind.Definition;
-
-    public static readonly IReadOnlyList<NotificationKind> All =
-        [Proto, Config, GameData, Events, Contracts, Colleggtibles];
+    public static readonly IReadOnlyList<NotificationKind> All = [Proto, Config, GameData, Events, Contracts];
 
     public static NotificationKind? Find(string? key) => All.FirstOrDefault(k => k.Key == key);
 
@@ -59,7 +55,7 @@ public static class FeedEventKinds {
     public static bool IsValid(string? key) => Find(key) is not null;
 
     public static string Normalize(string? key) =>
-        string.Equals(key, LegacyPeriodicalsChanged, StringComparison.Ordinal)
+        key is LegacyPeriodicalsChanged or LegacyColleggtible
             ? ConfigChanged
             : Find(key)?.Key ?? ProtoBuild;
 
@@ -69,8 +65,4 @@ public static class FeedEventKinds {
         if (sub.Filters.Contains(FilterDeviceOnly)) yield return [FeedFilter.Is(sourceField, device)];
     }
 
-    public static IReadOnlyList<FeedSample> Samples(string? kind) => Find(kind)?.Samples ?? [];
-
-    public static FeedSample? Sample(string? kind, string? key) =>
-        Samples(kind).FirstOrDefault(s => s.Key == key);
 }

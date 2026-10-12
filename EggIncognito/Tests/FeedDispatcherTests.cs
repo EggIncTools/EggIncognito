@@ -288,15 +288,18 @@ public class FeedDispatcherTests {
     }
 
     [Fact]
-    public async Task Colleggtible_DedupsOnIdentifier_AcrossContracts() {
-        var store = new FakeStore(KindSub(1, FeedEventKinds.Colleggtible, FeedEventKinds.TriggerAny));
+    public async Task LegacyColleggtibleSub_GetsOnlyConfigChangesWithANewColleggtible() {
+        var store = new FakeStore(KindSub(1, FeedEventKinds.LegacyColleggtible, FeedEventKinds.TriggerAny));
         var handler = Ok();
         var d = Dispatcher(store, handler);
 
-        await d.DispatchAsync(new ColleggtibleAddedEvent("glacier", "Glacier Egg", "", [], ["c1"], "https://x/p"));
-        await d.DispatchAsync(new ColleggtibleAddedEvent("glacier", "Glacier Egg", "", [], ["c2"], "https://x/p"));
+        await d.DispatchAsync(FeedFixtures.Config(ConfigFeeds.Periodicals,
+            new ConfigChangeSummary(["events"], [], [])) with { DedupSha = "a" });
+        Assert.Empty(handler.Requests);
+
+        await d.DispatchAsync(FeedFixtures.Config(ConfigFeeds.Periodicals,
+            new ConfigChangeSummary(["colleggtibles"], [], []), FeedFixtures.Colleggtible("x")) with { DedupSha = "b" });
         Assert.Single(handler.Requests);
-        Assert.Equal("glacier", store.Deliveries[0].DedupKey);
     }
 
     private static FeedSubscription Guarded(int id, string trigger, params string[] platforms) {
@@ -367,9 +370,20 @@ public class FeedDispatcherTests {
         Assert.Empty(handler.Requests);
         Assert.Empty(store.Deliveries);
         var blocked = Assert.Single(store.Suppressions);
+        Assert.Contains("Clean extraction", blocked.Reason, StringComparison.Ordinal);
+        Assert.DoesNotContain("Version delta", blocked.Reason, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task PartialGuards_RecordEachMissingFlawCheck() {
+        var sub = Sub(1, FeedEventKinds.TriggerNewVersion, "ios");
+        sub.Filters = [FeedEventKinds.FilterRequireClientVersion, FeedEventKinds.FilterSaneBuild];
+        var store = new FakeStore(sub);
+        await Dispatcher(store, Ok()).DispatchAsync(BrokenIosEvt());
+
+        var blocked = Assert.Single(store.Suppressions);
         Assert.Contains(ProtoVersionQuality.FlawNoClientVersion, blocked.Reason, StringComparison.Ordinal);
         Assert.Contains(ProtoVersionQuality.FlawBuildPlatformMismatch, blocked.Reason, StringComparison.Ordinal);
-        Assert.DoesNotContain("Version delta", blocked.Reason, StringComparison.Ordinal);
     }
 
     [Fact]

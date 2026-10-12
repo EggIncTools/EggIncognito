@@ -75,11 +75,9 @@ public class DiscordFeedPayloadTests {
 
     [Fact]
     public void MarkAsTest_EverySample_CarriesTheNotice() {
-        foreach (var kind in FeedEventKinds.All) {
-            foreach (var sample in kind.Samples) {
-                string marked = DiscordFeedPayload.MarkAsTest(DiscordFeedPayload.Build(sample.Event));
-                Assert.Contains(DiscordFeedPayload.TestNotice, marked, StringComparison.Ordinal);
-            }
+        foreach (var evt in FeedFixtures.All()) {
+            string marked = DiscordFeedPayload.MarkAsTest(DiscordFeedPayload.Build(evt));
+            Assert.Contains(DiscordFeedPayload.TestNotice, marked, StringComparison.Ordinal);
         }
     }
 
@@ -120,25 +118,21 @@ public class DiscordFeedPayloadTests {
     }
 
     [Fact]
-    public void EverySample_HasNonEmptyEmbedFields() {
-        foreach (var kind in FeedEventKinds.All) {
-            foreach (var sample in kind.Samples) {
-                using var doc = JsonDocument.Parse(DiscordFeedPayload.Build(sample.Event));
-                var fields = doc.RootElement.GetProperty("embeds")[0].GetProperty("fields");
-                foreach (var field in fields.EnumerateArray())
-                    Assert.False(string.IsNullOrEmpty(field.GetProperty("value").GetString()), $"{kind.Key}/{sample.Key}");
-            }
+    public void EveryEvent_HasNonEmptyEmbedFields() {
+        foreach (var evt in FeedFixtures.All()) {
+            using var doc = JsonDocument.Parse(DiscordFeedPayload.Build(evt));
+            var fields = doc.RootElement.GetProperty("embeds")[0].GetProperty("fields");
+            foreach (var field in fields.EnumerateArray())
+                Assert.False(string.IsNullOrEmpty(field.GetProperty("value").GetString()), evt.Summary);
         }
     }
 
     [Fact]
-    public void EveryKind_DeclaredVars_MatchTheEventVars() {
-        foreach (var kind in FeedEventKinds.All) {
-            foreach (var sample in kind.Samples) {
-                Assert.Equal(kind.Vars.OrderBy(v => v, StringComparer.Ordinal),
-                    sample.Event.Vars().Keys.OrderBy(v => v, StringComparer.Ordinal));
-            }
-        }
+    public void Config_NewColleggtibles_GetTheirOwnField() {
+        string json = DiscordFeedPayload.Build(FeedFixtures.Config("periodicals",
+            new ConfigChangeSummary(["colleggtibles"], [], []), FeedFixtures.Colleggtible("egg-x")));
+        Assert.Contains("New colleggtibles", json, StringComparison.Ordinal);
+        Assert.Contains("egg-x", json, StringComparison.Ordinal);
     }
 
     [Fact]

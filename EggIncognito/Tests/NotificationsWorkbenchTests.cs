@@ -8,12 +8,10 @@ namespace EggIncognito.Tests;
 public class NotificationsWorkbenchTests {
     [Fact]
     public void SampleBodies_AreNonEmptyJson() {
-        foreach (var kind in FeedEventKinds.All) {
-            foreach (var sample in kind.Samples) {
-                string body = DiscordFeedPayload.Build(sample.Event);
-                Assert.StartsWith("{", body, StringComparison.Ordinal);
-                Assert.Contains("embeds", body, StringComparison.Ordinal);
-            }
+        foreach (var evt in FeedFixtures.All()) {
+            string body = DiscordFeedPayload.Build(evt);
+            Assert.StartsWith("{", body, StringComparison.Ordinal);
+            Assert.Contains("embeds", body, StringComparison.Ordinal);
         }
     }
 

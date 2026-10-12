@@ -1,7 +1,9 @@
+using System.Globalization;
 using EggIdentity.Filters;
 using EggIncognito.Data.Models;
 using EggIncognito.Services.Assets;
 using EggIncognito.Services.Contracts;
+using Microsoft.EntityFrameworkCore;
 
 namespace EggIncognito.Services.Feed.Kinds;
 
@@ -88,9 +90,6 @@ public static class ContractReleaseKind {
     public const string Source = "source";
     public const string AgeHoursField = "age_hours";
 
-    private static readonly DateTimeOffset SampleStart = new(2026, 10, 12, 16, 0, 0, TimeSpan.Zero);
-    private const string SampleUrl = FeedDispatcher.DefaultPageBaseUrl + "/contracts";
-
     private static IEnumerable<FilterOption> EggOptions() =>
         Enum.GetValues<Ei.Egg>()
             .Where(e => e is not (Ei.Egg.CustomEgg or Ei.Egg.Unknown))
@@ -120,14 +119,19 @@ public static class ContractReleaseKind {
         return FeedFilter.Rows(rows);
     }
 
-    private static ContractReleasedEvent Sample(string id, string name, int egg, bool leggacy, bool ultra,
-        int prophecy, string source, TimeSpan age) =>
-        new(id, name, egg, null, SampleStart, SampleStart.AddDays(10), 10 * 86400d, leggacy, ultra,
-            prophecy, 10, source, SampleStart + age, SampleUrl);
+    public static async Task<IReadOnlyList<FeedSample>> LoadSamples(FeedSampleContext ctx, CancellationToken ct) {
+        var rows = await ctx.Db.ContractReleases.AsNoTracking()
+            .OrderByDescending(r => r.StartTime)
+            .Take(FeedSampleSource.PerKind)
+            .ToListAsync(ct);
+        string pageUrl = ctx.Pages.PageUrl("contracts");
+        return [.. rows.Select(r => new FeedSample(r.Id.ToString(CultureInfo.InvariantCulture),
+            $"{r.Name}{(r.Leggacy ? " (leggacy)" : "")}", ContractIngestor.ToEvent(r, r.FirstSeenAt ?? r.StartTime, pageUrl)))];
+    }
 
     public static readonly NotificationKind Definition = new(
         FeedEventKinds.ContractRelease, "Contract release",
-        "A contract went live in the periodicals, whether a first release or a leggacy run.",
+        "A contract went live, new or leggacy.",
         [
             FeedFilter.Searchable(EggField, "Egg", EggOptions()),
             FeedFilter.Text(ContractIdField, "Contract id"),
@@ -146,18 +150,5 @@ public static class ContractReleaseKind {
             "contractId", "name", "egg", "leggacy", "ultra", "start", "end", "lengthDays", "prophecyEggs",
             "maxCoopSize", "pageUrl"
         ],
-        [
-            new FeedSample("new", "New contract seen live",
-                Sample("hab-rush-2026", "Hab Rush", (int)Ei.Egg.Fusion, false, false, 1,
-                    ContractSources.Device, TimeSpan.FromMinutes(5))),
-            new FeedSample("leggacy", "Leggacy run seen live",
-                Sample("winter-warmup-2024", "Winter Warmup", (int)Ei.Egg.Tachyon, true, false, 0,
-                    ContractSources.Device, TimeSpan.FromMinutes(5))),
-            new FeedSample("ultra", "Ultra only leggacy seen live",
-                Sample("sweet-dreams-2023", "Sweet Dreams", (int)Ei.Egg.Dilithium, true, true, 1,
-                    ContractSources.Device, TimeSpan.FromMinutes(5))),
-            new FeedSample("backfill", "Old release from a history import",
-                Sample("hab-rush-2023", "Hab Rush", (int)Ei.Egg.Fusion, false, false, 1,
-                    ContractSources.Carpet, TimeSpan.FromDays(900)))
-        ]);
+        LoadSamples);
 }

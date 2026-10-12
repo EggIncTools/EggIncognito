@@ -47,13 +47,13 @@ public sealed class AdminFeedController(IHttpClientFactory httpFactory) : ApiCon
     [HttpPost("subscriptions/{id:int}/test")]
     [RequiresDb]
     public async Task<IActionResult> Test(int id, [FromQuery] string? sample,
-        [FromServices] FeedSubscriptionStore store, CancellationToken ct) {
+        [FromServices] FeedSubscriptionStore store, [FromServices] FeedSampleSource samples, CancellationToken ct) {
         var sub = await store.AdminByIdAsync(id, ct);
         if (sub is null) return Fail(404, "subscription not found");
 
         var http = httpFactory.CreateClient("discord-api");
-        var res = await http.PostAsync(sub.TargetUrl,
-            new StringContent(ProtoFeedController.TestBody(sub, sample), Encoding.UTF8, "application/json"), ct);
+        string body = await ProtoFeedController.TestBodyAsync(sub, sample, samples, ct);
+        var res = await http.PostAsync(sub.TargetUrl, new StringContent(body, Encoding.UTF8, "application/json"), ct);
         if (!res.IsSuccessStatusCode)
             return Fail(400, "webhook rejected the test message");
         return Ok(new { tested = true, sample });

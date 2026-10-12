@@ -2,6 +2,7 @@ using System.Globalization;
 using EggIdentity.Filters;
 using EggIncognito.Core.Services.ProtoExtract;
 using EggIncognito.Data.Models;
+using Microsoft.EntityFrameworkCore;
 
 namespace EggIncognito.Services.Feed.Kinds;
 
@@ -36,6 +37,7 @@ public sealed record ProtoBuildEvent(
         ProtoBuildKind.Created => FilterSubjectValue.Of(Created),
         ProtoBuildKind.ProtoChangedField => FilterSubjectValue.Of(ProtoChanged),
         ProtoBuildKind.FlawsField => FilterSubjectValue.Of(FlawList),
+        ProtoBuildKind.Clean => FilterSubjectValue.Of(!Flawed),
         _ => FilterSubjectValue.Absent
     };
 
@@ -79,8 +81,7 @@ public static class ProtoBuildKind {
     public const string Created = "created";
     public const string ProtoChangedField = "proto_changed";
     public const string FlawsField = "flaws";
-
-    private const string SampleSha = "4a17bc8f0402d1e6b8c3f95a2e7d40b1c6839fae";
+    public const string Clean = "clean";
 
     private static readonly string[] AllFlaws = [
         ProtoVersionQuality.FlawNoClientVersion, ProtoVersionQuality.FlawNoProto,
@@ -90,7 +91,13 @@ public static class ProtoBuildKind {
     private static readonly string Forward = VersionDeltaCalc.Label(VersionDelta.Forward);
 
     public static readonly FilterSet Defaults = FeedFilter.Rows(
-        AllFlaws.Select(f => new[] { FeedFilter.Lacks(FlawsField, f) }).Prepend([FeedFilter.Is(Delta, Forward)]));
+        [FeedFilter.Is(Delta, Forward)], [FeedFilter.Flag(Clean, true)]);
+
+    private static readonly Dictionary<string, string> GuardFlaws = new(StringComparer.Ordinal) {
+        [FeedEventKinds.FilterRequireClientVersion] = ProtoVersionQuality.FlawNoClientVersion,
+        [FeedEventKinds.FilterRequireProto] = ProtoVersionQuality.FlawNoProto,
+        [FeedEventKinds.FilterSaneBuild] = ProtoVersionQuality.FlawBuildPlatformMismatch
+    };
 
     public static FilterSet Legacy(FeedSubscription sub) {
         var rows = new List<FilterCondition[]> { new[] { FeedFilter.Is(Delta, Forward) } };
@@ -102,7 +109,7 @@ public static class ProtoBuildKind {
                 rows.Add([FeedFilter.Flag(Created, true)]);
                 break;
             case FeedEventKinds.TriggerSuspect:
-                rows.Add([.. AllFlaws.Select(f => FeedFilter.Has(FlawsField, f))]);
+                rows.Add([FeedFilter.Flag(Clean, false)]);
                 break;
         }
 
@@ -110,32 +117,47 @@ public static class ProtoBuildKind {
             FeedFilter.AnyOf(Platform, sub.Platforms) is { } platforms)
             rows.Add(platforms);
 
-        if (sub.Trigger != FeedEventKinds.TriggerSuspect) {
-            foreach (string filter in sub.Filters) {
-                string? flaw = filter switch {
-                    FeedEventKinds.FilterRequireClientVersion => ProtoVersionQuality.FlawNoClientVersion,
-                    FeedEventKinds.FilterRequireProto => ProtoVersionQuality.FlawNoProto,
-                    FeedEventKinds.FilterSaneBuild => ProtoVersionQuality.FlawBuildPlatformMismatch,
-                    _ => null
-                };
-                if (flaw is not null) rows.Add([FeedFilter.Lacks(FlawsField, flaw)]);
-            }
-        }
+        if (sub.Trigger == FeedEventKinds.TriggerSuspect) return FeedFilter.Rows(rows);
+
+        string[] guarded = [.. GuardFlaws.Where(g => sub.Filters.Contains(g.Key)).Select(g => g.Value)];
+        if (guarded.Length == GuardFlaws.Count) rows.Add([FeedFilter.Flag(Clean, true)]);
+        else rows.AddRange(guarded.Select(f => new[] { FeedFilter.Lacks(FlawsField, f) }));
 
         return FeedFilter.Rows(rows);
     }
 
-    private static ProtoBuildEvent Sample(
-        string platform, string appVersion, string build, string? clientVersion, string sha,
-        bool created, bool protoChanged, VersionDelta delta, string? prevAppVersion, string? prevBuild,
-        bool hasProto) =>
-        new(0, platform, appVersion, build, clientVersion, sha, created, protoChanged,
-            FeedDispatcher.BuildPageUrl(null, platform, build), delta, prevAppVersion, prevBuild,
-            ProtoVersionQuality.Flaws(platform, build, clientVersion, sha, hasProto));
+    public static async Task<IReadOnlyList<FeedSample>> LoadSamples(FeedSampleContext ctx, CancellationToken ct) {
+        var rows = await ctx.Db.ProtoVersions.AsNoTracking()
+            .Where(p => p.DeletedAt == null)
+            .OrderByDescending(p => p.DetectedAt)
+            .Take(FeedSampleSource.PerKind * 4)
+            .ToListAsync(ct);
+        int[] ids = [.. rows.Select(r => r.Id)];
+        var withText = (await ctx.Db.ProtoProtos.AsNoTracking()
+            .Where(x => ids.Contains(x.ProtoVersionId))
+            .Select(x => x.ProtoVersionId)
+            .ToListAsync(ct)).ToHashSet();
+
+        var samples = new List<FeedSample>();
+        foreach (var row in rows.Take(FeedSampleSource.PerKind)) {
+            var prev = rows
+                .Where(p => p.Platform == row.Platform && p.DetectedAt < row.DetectedAt)
+                .MaxBy(p => p.DetectedAt);
+            var delta = VersionDeltaCalc.Classify(row.Platform, row.Build, row.AppVersion, prev?.Build, prev?.AppVersion);
+            var evt = new ProtoBuildEvent(row.Id, row.Platform, row.AppVersion, row.Build, row.ClientVersion,
+                row.ProtoSha, true, prev is null || prev.ProtoSha != row.ProtoSha,
+                ctx.Pages.ProtoPageUrl(row.Platform, row.Build), delta, prev?.AppVersion, prev?.Build,
+                ProtoVersionQuality.Flaws(row.Platform, row.Build, row.ClientVersion, row.ProtoSha, withText.Contains(row.Id)));
+            samples.Add(new FeedSample(row.Id.ToString(CultureInfo.InvariantCulture),
+                $"{row.Platform} {row.AppVersion} ({row.Build})", evt));
+        }
+
+        return samples;
+    }
 
     public static readonly NotificationKind Definition = new(
         FeedEventKinds.ProtoBuild, "Proto build",
-        "A new Egg, Inc. build landed in the proto registry, with its extracted proto.",
+        "A new build landed in the proto registry.",
         [
             FeedFilter.Select(Platform, "Platform", FeedFilter.Options("android", "ios")),
             FeedFilter.Version(AppVersion, "App version"),
@@ -144,7 +166,8 @@ public static class ProtoBuildKind {
                 Enum.GetValues<VersionDelta>().Select(d => new FilterOption(VersionDeltaCalc.Label(d), VersionDeltaCalc.Label(d)))),
             FeedFilter.Bool(Created, "First insert"),
             FeedFilter.Bool(ProtoChangedField, "Proto changed"),
-            FeedFilter.Set(FlawsField, "Extraction flaws", AllFlaws.Select(f => new FilterOption(f, FeedVars.Label(f).Replace('_', ' '))))
+            FeedFilter.Bool(Clean, "Clean extraction"),
+            FeedFilter.Set(FlawsField, "Extraction flaw", AllFlaws.Select(f => new FilterOption(f, f.Replace('_', ' '))))
         ],
         Defaults,
         Legacy,
@@ -152,18 +175,5 @@ public static class ProtoBuildKind {
             "platform", "appVersion", "build", "clientVersion", "protoSha", "protoChanged", "pageUrl",
             "delta", "prevAppVersion", "prevBuild", "flaws"
         ],
-        [
-            new FeedSample("forward", "New version",
-                Sample("android", "1.37.0", "111358", "72", SampleSha, true, true,
-                    VersionDelta.Forward, "1.36.4", "111357", true)),
-            new FeedSample("proto_only", "Same version, proto changed",
-                Sample("android", "1.37.0", "111358", "72", SampleSha, false, true,
-                    VersionDelta.Repeat, "1.37.0", "111358", true)),
-            new FeedSample("backfill", "Older build registered",
-                Sample("android", "1.36.0", "111350", "71", SampleSha, true, true,
-                    VersionDelta.Backfill, "1.37.0", "111358", true)),
-            new FeedSample("broken", "Failed extraction",
-                Sample("ios", "1.37.1", "111340", null, "", true, true,
-                    VersionDelta.Forward, "1.37.0", "1.37.0.1", false))
-        ]);
+        LoadSamples);
 }

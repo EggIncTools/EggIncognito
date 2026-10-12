@@ -5,19 +5,9 @@ namespace EggIncognito.Services.Feed;
 public sealed record FeedVarInfo(string Name, string Label, string Example);
 
 public static class FeedVars {
-    private const int ExampleCap = 14;
-
-    public static IReadOnlyList<FeedVarInfo> Describe(NotificationKind kind) {
-        var values = kind.Samples.Count == 0
-            ? new Dictionary<string, string>()
-            : kind.Samples[0].Event.Vars();
-        var described = new List<FeedVarInfo>(kind.Vars.Count);
-        foreach (string name in kind.Vars) {
-            described.Add(new FeedVarInfo(name, Label(name),
-                values.TryGetValue(name, out string? value) ? Shorten(value) : ""));
-        }
-
-        return described;
+    public static IReadOnlyList<FeedVarInfo> Describe(NotificationKind kind, IReadOnlyList<FeedSample> samples) {
+        var values = samples.Count == 0 ? new Dictionary<string, string>() : samples[0].Event.Vars();
+        return [.. kind.Vars.Select(name => new FeedVarInfo(name, Label(name), values.GetValueOrDefault(name) ?? ""))];
     }
 
     public static string Label(string name) {
@@ -31,7 +21,4 @@ public static class FeedVars {
 
         return sb.ToString();
     }
-
-    private static string Shorten(string value) =>
-        value.Length <= ExampleCap ? value : value[..ExampleCap] + "...";
 }

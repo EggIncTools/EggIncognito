@@ -5,29 +5,15 @@ namespace EggIncognito.Tests;
 public class FeedVarsTests {
     [Fact]
     public void EveryKindVar_KeepsItsNameAndOrder() {
-        foreach (var kind in FeedEventKinds.All) {
-            Assert.Equal(kind.Vars, FeedVars.Describe(kind).Select(v => v.Name));
-        }
+        foreach (var kind in FeedEventKinds.All) Assert.Equal(kind.Vars, FeedVars.Describe(kind, []).Select(v => v.Name));
     }
 
     [Fact]
-    public void ProtoKindVars_TakeTheirExamplesFromTheSampleEvent() {
-        var described = FeedVars.Describe(FeedEventKinds.Proto).ToDictionary(v => v.Name, v => v.Example);
-        Assert.Equal("android", described["platform"]);
-        Assert.Equal("1.37.0", described["appVersion"]);
-        Assert.Equal("111358", described["build"]);
-        Assert.Equal("", described["flaws"]);
-    }
-
-    [Theory]
-    [InlineData(FeedEventKinds.ConfigChanged)]
-    [InlineData(FeedEventKinds.GameDataRebuilt)]
-    [InlineData(FeedEventKinds.GameEvent)]
-    [InlineData(FeedEventKinds.ContractRelease)]
-    [InlineData(FeedEventKinds.Colleggtible)]
-    public void KindVars_AreAllPopulatedByTheFirstSample(string kind) {
-        var described = FeedVars.Describe(FeedEventKinds.Find(kind)!);
-        Assert.All(described, v => Assert.False(string.IsNullOrEmpty(v.Example), v.Name));
+    public void EveryFixtureEvent_FillsEveryDeclaredVar() {
+        foreach (var evt in FeedFixtures.All()) {
+            var kind = FeedEventKinds.For(evt);
+            Assert.Equal(kind.Vars.Order(StringComparer.Ordinal), evt.Vars().Keys.Order(StringComparer.Ordinal));
+        }
     }
 
     [Theory]

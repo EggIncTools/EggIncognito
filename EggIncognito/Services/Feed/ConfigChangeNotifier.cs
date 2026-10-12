@@ -52,16 +52,18 @@ public sealed class ConfigChangeNotifier(
         string dedupSha = ChangeSha(change) ?? fixtureSha;
         string pageUrl = ConfigChangedKind.PageUrl(config["Feed:PageBaseUrl"], feed);
         _ = Task.Run(async () => {
+            IReadOnlyList<NewColleggtible> colleggtibles = [];
             try {
                 using var scope = scopes.CreateScope();
                 await UpsertStoredEndpointAsync(scope.ServiceProvider, routePath, json);
-                await InsertSnapshotAsync(scope.ServiceProvider, routePath, json, fixtureSha);
+                colleggtibles = await InsertSnapshotAsync(scope.ServiceProvider, routePath, json, fixtureSha);
             } catch (Exception ex) {
                 logger.LogWarning(ex, "config-change landing for {Feed} threw", feed);
             }
 
             if (publisher is not null)
-                await publisher.PublishAsync(new ConfigChangedEvent(feed, fixtureSha, pageUrl, change, dedupSha),
+                await publisher.PublishAsync(
+                    new ConfigChangedEvent(feed, fixtureSha, pageUrl, change, dedupSha, colleggtibles),
                     CancellationToken.None);
         });
     }
@@ -98,23 +100,26 @@ public sealed class ConfigChangeNotifier(
         }
     }
 
-    private async Task InsertSnapshotAsync(IServiceProvider sp, string route, string json, string sha) {
+    private async Task<IReadOnlyList<NewColleggtible>> InsertSnapshotAsync(
+        IServiceProvider sp, string route, string json, string sha) {
         try {
             if (!string.Equals(routes.Resolve(route)?.Response, PeriodicalsResponse.Descriptor.Name,
                     StringComparison.Ordinal))
-                return;
-            if (sp.GetService<EggIncognitoDbContext>() is not { } db) return;
+                return [];
+            if (sp.GetService<EggIncognitoDbContext>() is not { } db) return [];
             var response = await IngestEventsAsync(sp, json);
-            await IngestContractsAsync(sp, json, response);
-            if (await db.PeriodicalsSnapshots.AnyAsync(s => s.Sha == sha)) return;
+            var colleggtibles = await IngestContractsAsync(sp, json, response);
+            if (await db.PeriodicalsSnapshots.AnyAsync(s => s.Sha == sha)) return colleggtibles;
             db.PeriodicalsSnapshots.Add(new PeriodicalsSnapshot {
                 CapturedAt = time.GetUtcNow(),
                 Sha = sha,
                 ResponseJson = json
             });
             await db.SaveChangesAsync();
+            return colleggtibles;
         } catch (Exception ex) {
             logger.LogWarning(ex, "periodicals snapshot insert for {Route} failed", route);
+            return [];
         }
     }
 
@@ -132,17 +137,23 @@ public sealed class ConfigChangeNotifier(
         }
     }
 
-    private async Task IngestContractsAsync(IServiceProvider sp, string json, PeriodicalsResponse? response) {
+    private async Task<IReadOnlyList<NewColleggtible>> IngestContractsAsync(
+        IServiceProvider sp, string json, PeriodicalsResponse? response) {
         try {
-            if (sp.GetService<ContractIngestor>() is not { } ingestor) return;
+            if (sp.GetService<ContractIngestor>() is not { } ingestor) return [];
             response ??= (PeriodicalsResponse)JsonParser.Default.Parse(json, PeriodicalsResponse.Descriptor);
             var observations = ContractMapper.FromPeriodicals(response, time.GetUtcNow());
-            if (observations.Count == 0) return;
+            if (observations.Count == 0) return [];
             var firstSeen = await FirstSeenColleggtiblesAsync(sp, observations);
             await ingestor.IngestAsync(observations);
-            PublishColleggtibles(response, observations, firstSeen);
+            var eggs = response.Contracts?.CustomEggs ?? [];
+            return [.. firstSeen
+                .Select(id => eggs.FirstOrDefault(e => e.Identifier == id))
+                .OfType<CustomEgg>()
+                .Select(NewColleggtible.From)];
         } catch (Exception ex) {
             logger.LogWarning(ex, "contract ingest from periodicals snapshot failed");
+            return [];
         }
     }
 
@@ -156,17 +167,5 @@ public sealed class ConfigChangeNotifier(
             .Distinct()
             .ToListAsync();
         return [.. carried.Except(known, StringComparer.Ordinal)];
-    }
-
-    private void PublishColleggtibles(
-        PeriodicalsResponse response, IReadOnlyList<ContractObservation> observations, IReadOnlyList<string> firstSeen) {
-        if (publisher is null || firstSeen.Count == 0) return;
-        var eggs = response.Contracts?.CustomEggs ?? [];
-        string pageUrl = publisher.PageUrl("periodicals");
-        foreach (string id in firstSeen) {
-            if (eggs.FirstOrDefault(e => e.Identifier == id) is not { } egg) continue;
-            publisher.Publish(ColleggtibleKind.From(egg,
-                [.. observations.Where(o => o.CustomEggId == id).Select(o => o.ContractId)], pageUrl));
-        }
     }
 }

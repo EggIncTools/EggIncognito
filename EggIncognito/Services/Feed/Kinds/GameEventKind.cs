@@ -1,6 +1,8 @@
+using System.Globalization;
 using EggIdentity.Filters;
 using EggIncognito.Data.Models;
 using EggIncognito.Services.Events;
+using Microsoft.EntityFrameworkCore;
 
 namespace EggIncognito.Services.Feed.Kinds;
 
@@ -69,9 +71,6 @@ public static class GameEventKind {
     public const string Source = "source";
     public const string AgeHours = "age_hours";
 
-    private static readonly DateTimeOffset SampleStart = new(2026, 10, 12, 16, 0, 0, TimeSpan.Zero);
-    private const string SampleUrl = FeedDispatcher.DefaultPageBaseUrl + "/events";
-
     public static readonly FilterSet Defaults = FeedFilter.Rows(
         [FeedFilter.AtMost(AgeHours, FeedEventKinds.FreshWindow.TotalHours)],
         [FeedFilter.Is(Source, GameEventSources.Device)]);
@@ -84,14 +83,19 @@ public static class GameEventKind {
         return FeedFilter.Rows(rows);
     }
 
-    private static GameEventAddedEvent Sample(string id, string type, string message, double multiplier, bool ultra,
-        string source, TimeSpan age) =>
-        new(id, type, message, multiplier, ultra, SampleStart, SampleStart.AddHours(72), source,
-            SampleStart + age, SampleUrl);
+    public static async Task<IReadOnlyList<FeedSample>> LoadSamples(FeedSampleContext ctx, CancellationToken ct) {
+        var rows = await ctx.Db.GameEvents.AsNoTracking()
+            .OrderByDescending(e => e.StartTime)
+            .Take(FeedSampleSource.PerKind)
+            .ToListAsync(ct);
+        string pageUrl = ctx.Pages.PageUrl("events");
+        return [.. rows.Select(r => new FeedSample(r.Id.ToString(CultureInfo.InvariantCulture),
+            $"{r.Message} ({r.Source})", GameEventIngestor.ToEvent(r, r.FirstSeenAt ?? r.StartTime, pageUrl)))];
+    }
 
     public static readonly NotificationKind Definition = new(
         FeedEventKinds.GameEvent, "Game event",
-        "A game event first appeared in the periodicals: boosts, sales, research discounts and the like.",
+        "A game event appeared in the periodicals.",
         [
             FeedFilter.Text(EventType, "Event type"),
             FeedFilter.Bool(Ultra, "Ultra"),
@@ -103,15 +107,5 @@ public static class GameEventKind {
         Defaults,
         Legacy,
         ["eventId", "eventType", "message", "ultra", "start", "end", "durationHours", "multiplier", "pageUrl"],
-        [
-            new FeedSample("boost", "Standard event seen live",
-                Sample("egg-boost-2026-10-12", "boost-sale", "Boost sale, 30% off", 0.7, false,
-                    GameEventSources.Device, TimeSpan.FromMinutes(5))),
-            new FeedSample("ultra", "Ultra event seen live",
-                Sample("ultra-research-2026-10-12", "research-sale", "Ultra research sale, 60% off", 0.4, true,
-                    GameEventSources.Device, TimeSpan.FromMinutes(5))),
-            new FeedSample("backfill", "Old event from a history import",
-                Sample("egg-boost-2025-01-05", "boost-sale", "Boost sale, 30% off", 0.7, false,
-                    GameEventSources.Carpet, TimeSpan.FromDays(640)))
-        ]);
+        LoadSamples);
 }

@@ -19,14 +19,18 @@ namespace EggIncognito.Controllers;
 public sealed class ProtoFeedController(ICurrentUser currentUser, IHttpClientFactory httpFactory)
     : ApiControllerBase {
     [HttpGet("kinds")]
-    public IActionResult Kinds() => Ok(FeedEventKinds.All.Select(KindView));
+    public async Task<IActionResult> Kinds([FromServices] FeedSampleSource samples, CancellationToken ct) {
+        var views = new List<object>();
+        foreach (var k in FeedEventKinds.All) views.Add(KindView(k, await samples.ForAsync(k, ct)));
+        return Ok(views);
+    }
 
-    public static object KindView(NotificationKind k) => new {
+    public static object KindView(NotificationKind k, IReadOnlyList<FeedSample> samples) => new {
         k.Key,
         k.Label,
         k.Description,
         Catalog = JsonElement.Parse(FilterCodec.SerializeCatalog(k.Catalog)),
-        Vars = FeedVars.Describe(k)
+        Vars = FeedVars.Describe(k, samples)
     };
 
     public static FilterSet ParseFilter(JsonElement? raw, FilterSet fallback) =>
@@ -37,10 +41,10 @@ public sealed class ProtoFeedController(ICurrentUser currentUser, IHttpClientFac
             ? string.Join("; ", problems.Select(p => $"row {p.Row + 1}: {kind.FieldLabel(p.Condition.Field)}: {p.Reason}"))
             : null;
 
-    public static string TestBody(FeedSubscription sub, string? sample) {
-        string kind = FeedEventKinds.Normalize(sub.EventKind);
-        var fallback = FeedEventKinds.Samples(kind);
-        var chosen = FeedEventKinds.Sample(kind, sample) ?? (fallback.Count > 0 ? fallback[0] : null);
+    public static async Task<string> TestBodyAsync(
+        FeedSubscription sub, string? sample, FeedSampleSource samples, CancellationToken ct) {
+        var kind = FeedEventKinds.Find(FeedEventKinds.Normalize(sub.EventKind)) ?? FeedEventKinds.Proto;
+        var chosen = await samples.FindAsync(kind, sample, ct);
         return chosen is null
             ? """{"content":"EggIncognito feed test."}"""
             : DiscordFeedPayload.MarkAsTest(DiscordFeedPayload.Build(chosen.Event, sub.MessageTemplate));
@@ -129,7 +133,7 @@ public sealed class ProtoFeedController(ICurrentUser currentUser, IHttpClientFac
     [EnableRateLimiting("write")]
     [RequiresDb]
     public async Task<IActionResult> Test(int id, [FromQuery] string? sample,
-        [FromServices] FeedSubscriptionStore store, CancellationToken ct) {
+        [FromServices] FeedSubscriptionStore store, [FromServices] FeedSampleSource samples, CancellationToken ct) {
         var owner = currentUser.Current.Id;
         if (owner is null) return Fail(401, "log in to manage subscriptions");
 
@@ -138,7 +142,7 @@ public sealed class ProtoFeedController(ICurrentUser currentUser, IHttpClientFac
 
         var http = httpFactory.CreateClient("discord-api");
         var res = await http.PostAsync(sub.TargetUrl,
-            new StringContent(TestBody(sub, sample), Encoding.UTF8, "application/json"), ct);
+            new StringContent(await TestBodyAsync(sub, sample, samples, ct), Encoding.UTF8, "application/json"), ct);
         if (!res.IsSuccessStatusCode)
             return Fail(400, "webhook rejected the test message");
         return Ok(new { tested = true, sample });
@@ -146,7 +150,8 @@ public sealed class ProtoFeedController(ICurrentUser currentUser, IHttpClientFac
 
     [HttpPost("preview")]
     [EnableRateLimiting("read")]
-    public IActionResult Preview([FromBody] FeedPreviewReq req) {
+    public async Task<IActionResult> Preview([FromBody] FeedPreviewReq req, [FromServices] FeedSampleSource samples,
+        CancellationToken ct) {
         var info = FeedEventKinds.Find(FeedEventKinds.Normalize(req.EventKind)) ?? FeedEventKinds.Proto;
         FilterSet filter;
         try {
@@ -155,12 +160,13 @@ public sealed class ProtoFeedController(ICurrentUser currentUser, IHttpClientFac
             return Fail(400, "the filter is not valid JSON");
         }
 
-        return Ok(PreviewRows(info, filter,
+        return Ok(PreviewRows(info, await samples.ForAsync(info, ct), filter,
             string.IsNullOrWhiteSpace(req.MessageTemplate) ? null : req.MessageTemplate));
     }
 
-    public static List<FeedPreviewRow> PreviewRows(NotificationKind info, FilterSet filter, string? template) =>
-        [.. info.Samples.Select(s => {
+    public static List<FeedPreviewRow> PreviewRows(
+        NotificationKind info, IReadOnlyList<FeedSample> samples, FilterSet filter, string? template) =>
+        [.. samples.Select(s => {
             var result = info.Evaluate(s.Event, filter);
             return new FeedPreviewRow(
                 s.Key, s.Label, s.Event.Summary, result.Matched,

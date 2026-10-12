@@ -1,5 +1,6 @@
 using EggIdentity.Filters;
 using EggIncognito.Data.Models;
+using Microsoft.EntityFrameworkCore;
 
 namespace EggIncognito.Services.Feed.Kinds;
 
@@ -59,9 +60,6 @@ public static class GameDataRebuiltKind {
     public const string Docs = "docs";
     public const string DocCount = "doc_count";
 
-    private const string SampleSha = "4a17bc8f0402d1e6b8c3f95a2e7d40b1c6839fae";
-    private const string SampleUrl = FeedDispatcher.DefaultPageBaseUrl + "/data";
-
     public static readonly FilterSet Defaults = FeedFilter.Rows([FeedFilter.Above(DocCount, 0)]);
 
     public static FilterSet Legacy(FeedSubscription sub) =>
@@ -69,9 +67,35 @@ public static class GameDataRebuiltKind {
             ? FeedFilter.Rows([FeedFilter.Above(DocCount, 0)], [FeedFilter.Flag(BinaryMovedField, true)])
             : Defaults;
 
+    public static async Task<IReadOnlyList<FeedSample>> LoadSamples(FeedSampleContext ctx, CancellationToken ct) {
+        var docs = await ctx.Db.GameDataDocuments.AsNoTracking()
+            .Where(d => d.InputSha != null)
+            .Select(d => new { d.Id, d.InputSha, d.UpdatedAt, d.Json })
+            .ToListAsync(ct);
+        string pageUrl = ctx.Pages.PageUrl("data");
+        return [.. docs
+            .GroupBy(d => d.InputSha!, StringComparer.Ordinal)
+            .OrderByDescending(g => g.Max(d => d.UpdatedAt))
+            .Take(FeedSampleSource.PerKind)
+            .Select(g => {
+                string version = g.Select(d => BinaryVersionOf(d.Json)).FirstOrDefault(v => v is not null) ?? "";
+                var evt = new GameDataRebuiltEvent(version, version, "", g.Key,
+                    [.. g.Select(d => d.Id).Order(StringComparer.Ordinal)], pageUrl);
+                return new FeedSample(g.Key, $"{FeedText.Or(version, "unknown binary")}, {g.Count()} docs", evt);
+            })];
+    }
+
+    private static string? BinaryVersionOf(string json) {
+        try {
+            return System.Text.Json.Nodes.JsonNode.Parse(json)?["binaryVersion"]?.GetValue<string>();
+        } catch (Exception ex) when (ex is System.Text.Json.JsonException or InvalidOperationException) {
+            return null;
+        }
+    }
+
     public static readonly NotificationKind Definition = new(
         FeedEventKinds.GameDataRebuilt, "Game data rebuilt",
-        "Extracted game data documents were rebuilt from a game binary and at least one changed.",
+        "Game data documents were rebuilt from a binary.",
         [
             FeedFilter.Select(Platform, "Platform", FeedFilter.Options("android", "ios")),
             FeedFilter.Version(BinaryVersionField, "Binary version"),
@@ -83,11 +107,5 @@ public static class GameDataRebuiltKind {
         Defaults,
         Legacy,
         ["binaryVersion", "prevBinaryVersion", "platform", "changedDocs", "docCount", "inputSha", "pageUrl"],
-        [
-            new FeedSample("binary_up", "New binary, documents rebuilt",
-                new GameDataRebuiltEvent("1.37.0", "1.36.4", "android", SampleSha,
-                    ["eggs", "research", "habs", "missions"], SampleUrl)),
-            new FeedSample("same_binary", "Same binary, one document changed",
-                new GameDataRebuiltEvent("1.37.0", "1.37.0", "ios", SampleSha, ["boost-catalog"], SampleUrl))
-        ]);
+        LoadSamples);
 }

@@ -94,7 +94,7 @@
                                                     Status="@HealthStatus(s)" OnClick="@(_ => Select(s))">
                                         <Name>@RowName(s)</Name>
                                         <MetaLine>@s.UrlMasked</MetaLine>
-                                        <Foot>@FilterSummary(s.EventKind, FilterOf(s.Filter)), @Health(s)</Foot>
+                                        <Foot>@Health(s)</Foot>
                                     </WorkbenchEntry>
                                 }
                             </WorkbenchSection>
@@ -159,7 +159,7 @@
             if (f.Length == 0) return _rows;
             return _rows.Where(s =>
                 Has(s.UrlMasked, f) || Has(s.Label, f) || Has(KindLabel(s.EventKind), f) ||
-                Has(FilterSummary(s.EventKind, FilterOf(s.Filter)), f)).ToList();
+                Has(s.EventKind, f)).ToList();
         }
     }
 
@@ -180,7 +180,7 @@
             if (f.Length > 0) {
                 rows = rows.Where(r =>
                     Has(r.OwnerUsername, f) || Has(r.TargetMasked, f) || Has(r.Label, f) ||
-                    Has(KindLabel(r.EventKind), f) || Has(FilterSummary(r.EventKind, FilterOf(r.Filter)), f));
+                    Has(KindLabel(r.EventKind), f));
             }
 
             return rows.ToList();
@@ -250,25 +250,6 @@
         return FilterCodec.Deserialize(json);
     }
 
-    string FieldLabel(string? kind, string key) {
-        return FilterFields.Find(FieldsOf(kind), key)?.Label ?? key;
-    }
-
-    string FilterSummary(string? kind, FilterSet set) {
-        if (set.IsEmpty) return "every event";
-        return string.Join(" and ", set.And.Select((c, i) => {
-            IEnumerable<FilterCondition> members = i < set.Or.Count ? set.Or[i].Prepend(c) : [c];
-            return string.Join(" or ", members.Select(m => Condition(kind, m)));
-        }));
-    }
-
-    string Condition(string? kind, FilterCondition c) {
-        string label = FieldLabel(kind, c.Field);
-        if (c.Op is FilterOps.True or FilterOps.False) return c.Op == FilterOps.True ? label : $"not {label}";
-        var op = FilterFields.Find(FieldsOf(kind), c.Field)?.Ops.FirstOrDefault(o => o.Value == c.Op)?.Label ?? c.Op;
-        return $"{label} {op} {c.Value}";
-    }
-
     IReadOnlyList<FeedVarInfo> VarsOf(string? kind) {
         return KindOf(kind)?.Vars ?? [];
     }
@@ -325,10 +306,9 @@
             <div class="nwb-kinds" role="radiogroup" aria-label="Event">
                 @foreach (var k in _kinds) {
                     <button type="button" role="radio" aria-checked="@(d.EventKind == k.Key ? "true" : "false")"
-                            class="@(d.EventKind == k.Key ? "nwb-kind on" : "nwb-kind")"
+                            class="@(d.EventKind == k.Key ? "nwb-kind on" : "nwb-kind")" title="@k.Description"
                             @onclick="@(() => PickKind(d, k.Key))">
-                        <span class="nwb-kind-name">@k.Label</span>
-                        <span class="nwb-kind-desc">@k.Description</span>
+                        @k.Label
                     </button>
                 }
             </div>
@@ -385,7 +365,7 @@
                            ValueChanged="@(v => OnFilterChanged(d, v))"
                            ValidityChanged="@(s => d.Validity = s)"/>
             @if (d.Filter.IsEmpty) {
-                <div class="nwb-empty">No conditions: every event of this kind is sent.</div>
+                <div class="nwb-empty">Sends every event.</div>
             }
         </div>
     </div>;
@@ -398,7 +378,7 @@
                 JSON
             </button>
         </div>
-        <WorkbenchLoad T="PreviewRow" Items="_preview" Class="nwb-empty" EmptyText="No sample event for this kind.">
+        <WorkbenchLoad T="PreviewRow" Items="_preview" Class="nwb-empty" EmptyText="Nothing recorded for this kind yet.">
             <div class="nwb-preview-split">
                 <div class="nwb-samples" role="listbox" aria-label="Sample events">
                     @foreach (var p in _preview!) {

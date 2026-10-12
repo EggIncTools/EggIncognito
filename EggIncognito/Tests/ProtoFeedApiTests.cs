@@ -155,7 +155,11 @@ public class ProtoFeedApiTests {
     public void PreviewRows_ReportTheFailingConditions() {
         var set = FeedFilter.Rows([FeedFilter.Is(ProtoBuildKind.Platform, "ios")]);
 
-        var rows = ProtoFeedController.PreviewRows(FeedEventKinds.Proto, set, null);
+        FeedSample[] samples = [
+            new("forward", "forward", FeedFixtures.ProtoForward()),
+            new("broken", "broken", FeedFixtures.ProtoBroken())
+        ];
+        var rows = ProtoFeedController.PreviewRows(FeedEventKinds.Proto, samples, set, null);
 
         var forward = Assert.Single(rows, r => r.Key == "forward");
         Assert.False(forward.Matches);

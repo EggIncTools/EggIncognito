@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Text.Json;
 using EggIdentity.Filters;
 using EggIncognito.Data.Models;
+using EggIncognito.Data.Services;
 
 namespace EggIncognito.Services.Feed;
 
@@ -20,6 +21,8 @@ public sealed record FeedEmbed(string Title, string Url, int Color, IReadOnlyLis
 
 public sealed record FeedSample(string Key, string Label, INotificationEvent Event);
 
+public sealed record FeedSampleContext(EggIncognitoDbContext Db, FeedPublisher Pages);
+
 public sealed record NotificationKind(
     string Key,
     string Label,
@@ -28,18 +31,26 @@ public sealed record NotificationKind(
     FilterSet Defaults,
     Func<FeedSubscription, FilterSet> Legacy,
     IReadOnlyList<string> Vars,
-    IReadOnlyList<FeedSample> Samples) {
+    Func<FeedSampleContext, CancellationToken, Task<IReadOnlyList<FeedSample>>> LoadSamples) {
     private static readonly FilterSet Unreadable = FeedFilter.Rows([new FilterCondition("unreadable_filter", FilterOps.Eq, "stored")]);
 
     public FilterCatalog Catalog => new(Key, Fields, Defaults);
 
     public FilterSet FilterOf(FeedSubscription sub) {
         if (string.IsNullOrWhiteSpace(sub.FilterSet)) return Legacy(sub);
+        FilterSet stored;
         try {
-            return FilterCodec.Deserialize(sub.FilterSet);
+            stored = FilterCodec.Deserialize(sub.FilterSet);
         } catch (JsonException) {
             return Unreadable;
         }
+
+        if (string.Equals(sub.EventKind, Key, StringComparison.Ordinal)) return stored;
+        var legacy = Legacy(sub);
+        IReadOnlyList<FilterCondition>[] legacyOr = [
+            .. legacy.And.Select((_, i) => i < legacy.Or.Count ? legacy.Or[i] : [])
+        ];
+        return new FilterSet([.. legacy.And, .. stored.And], [.. legacyOr, .. stored.Or]);
     }
 
     public FilterResult Evaluate(INotificationEvent evt, FilterSet set) =>
