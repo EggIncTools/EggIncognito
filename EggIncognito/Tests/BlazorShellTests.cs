@@ -24,7 +24,7 @@ public class BlazorShellTests(SharedAppFactory f) {
         Assert.Equal("credentialed-prerender", r.Headers.GetValues("Supports-Loading-Mode").Single());
         string html = await r.Content.ReadAsStringAsync();
         Assert.Contains("blazor.web.js\" autostart=\"false\"", html);
-        Assert.Contains("/interop/boot.js", html);
+        Assert.Contains("_content/EggIdentity.UI/circuit.js", html);
     }
 
     [Fact]

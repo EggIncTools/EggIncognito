@@ -28,11 +28,12 @@ public class AppVersionTests(SharedAppFactory f) {
     }
 
     [Fact]
-    public async Task RootPage_RendersSharedReconnectModal_NotTheOldWatcher() {
+    public async Task RootPage_RendersSharedCircuitLifecycle_NotTheOldWatcher() {
         var c = _factory.CreateClient();
         string html = await c.GetStringAsync("/protos");
         Assert.Contains("id=\"components-reconnect-modal\"", html);
-        Assert.Contains("_content/EggIdentity.UI/reconnect.js", html);
+        Assert.Contains("_content/EggIdentity.UI/circuit.js", html);
         Assert.DoesNotContain("reconnectWatcher.js", html);
+        Assert.DoesNotContain("interop/boot.js", html);
     }
 }
