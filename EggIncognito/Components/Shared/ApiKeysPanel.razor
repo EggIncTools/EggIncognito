@@ -88,8 +88,9 @@
                                             <div class="akp-request">
                                                 <input class="field-input" placeholder="What will you use it for? (optional)" maxlength="500"
                                                        aria-label="Reason for the request"
-                                                       value="@NoteFor(key.Id, feature.Key)"
-                                                       @oninput="e => _notes[(key.Id, feature.Key)] = e.Value?.ToString() ?? string.Empty"/>
+                                                       @bind:get="NoteFor(key.Id, feature.Key)"
+                                                       @bind:set="v => _notes[(key.Id, feature.Key)] = v ?? string.Empty"
+                                                       @bind:event="oninput"/>
                                                 <button type="button" class="btn-primary" disabled="@_busyRow"
                                                         @onclick="() => RequestFeature(key.Id, feature.Key)">Send request</button>
                                                 <button type="button" class="btn-mini" @onclick="() => _requesting = null">Cancel</button>

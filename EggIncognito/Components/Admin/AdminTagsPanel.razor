@@ -59,9 +59,9 @@
 
 <SubSectionHead>New tag</SubSectionHead>
 <FlexRow>
-    <input class="reg-filter-input at-input" placeholder="slug" value="@_newSlug" @oninput="OnSlug"/>
-    <input class="reg-filter-input at-input" placeholder="label" value="@_newLabel" @oninput="OnLabel"/>
-    <input class="reg-filter-input at-input" placeholder="#rrggbb (optional)" value="@_newColor" @oninput="OnColor"/>
+    <input class="reg-filter-input at-input" placeholder="slug" @bind="_newSlug" @bind:event="oninput"/>
+    <input class="reg-filter-input at-input" placeholder="label" @bind="_newLabel" @bind:event="oninput"/>
+    <input class="reg-filter-input at-input" placeholder="#rrggbb (optional)" @bind="_newColor" @bind:event="oninput"/>
     <button type="button" class="btn-mini" disabled="@(_busy || !CanCreate())" @onclick="Create">
         @(_busy ? "Working..." : "Create")
     </button>
@@ -103,18 +103,6 @@
 
     static string TagStyle(string? color) {
         return string.IsNullOrEmpty(color) ? "" : $"color: {color};";
-    }
-
-    void OnSlug(ChangeEventArgs e) {
-        _newSlug = e.Value?.ToString() ?? "";
-    }
-
-    void OnLabel(ChangeEventArgs e) {
-        _newLabel = e.Value?.ToString() ?? "";
-    }
-
-    void OnColor(ChangeEventArgs e) {
-        _newColor = e.Value?.ToString() ?? "";
     }
 
     void Expand(long tagId) {

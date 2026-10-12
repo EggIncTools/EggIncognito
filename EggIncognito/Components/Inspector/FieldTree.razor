@@ -32,8 +32,8 @@
                     @foreach (var idx in Enumerable.Range(0, node.Items.Count)) {
                         <div class="repeated-item">
                             <input class="field-input"
-                                   value="@node.Items[idx]" @attributes="InputAttrs.NoAutofill"
-                                   @oninput="e => SetItem(node, idx, e.Value?.ToString())"/>
+                                   @attributes="InputAttrs.NoAutofill" @bind:get="node.Items[idx]"
+                                   @bind:set="v => SetItem(node, idx, v)" @bind:event="oninput"/>
                             <button type="button" class="btn-mini" aria-label="Remove item" @onclick="() => Remove(node, idx)">
                                 <Icon Name="x" Class="icon-sm"/>
                             </button>
@@ -60,9 +60,8 @@
                 </select>
             } else {
                 <input class="field-input @(node.Locked ? "env-locked" : "")" disabled="@node.Locked"
-                       value="@node.Value"
                        @attributes="InputAttrs.NoAutofill"
-                       @oninput="e => Set(node, e.Value?.ToString())"/>
+                       @bind:get="node.Value" @bind:set="v => Set(node, v)" @bind:event="oninput"/>
             }
         </div>
     }

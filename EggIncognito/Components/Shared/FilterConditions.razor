@@ -65,7 +65,7 @@
                                 } else {
                                     <input type="text" class="fl-fil-val @(row.Value.Length == 0 ? "fl-fil-bad" : "")"
                                            list="@ListId(def, groupIndex, rowIndex)" placeholder="value" autocomplete="off"
-                                           value="@row.Value" @onchange="@(e => SetValue(groupIndex, rowIndex, Text(e)))"/>
+                                           @bind:get="row.Value" @bind:set="@(v => SetValue(groupIndex, rowIndex, v ?? ""))"/>
                                     @if (def.Options is not null) {
                                         <datalist id="@ListId(def, groupIndex, rowIndex)">
                                             @foreach (var option in Options(def)) {

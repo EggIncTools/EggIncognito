@@ -37,7 +37,7 @@
             <div class="custom-config">
                 <label>Custom proxy URL</label>
                 <input type="url" placeholder="https://your-proxy.example/" spellcheck="false"
-                       value="@CustomTarget" @attributes="InputAttrs.NoAutofill" @oninput="OnCustomInput"/>
+                       @attributes="InputAttrs.NoAutofill" @bind:get="CustomTarget" @bind:set="v => CustomTargetChanged.InvokeAsync(v)" @bind:event="oninput"/>
                 <span class="muted">
                     Your browser posts the built request directly to this URL (this server is
                     bypassed); the proxy must reach auxbrain and allow this origin (CORS).
@@ -73,10 +73,6 @@
     [Parameter] public EventCallback<string> CustomTargetChanged { get; set; }
     [Parameter] public EventCallback OnBuild { get; set; }
     [Parameter] public EventCallback OnSend { get; set; }
-
-    Task OnCustomInput(ChangeEventArgs e) {
-        return CustomTargetChanged.InvokeAsync(e.Value?.ToString() ?? "");
-    }
 
     Task OnSealedToggle(ChangeEventArgs e) {
         return SealedChanged.InvokeAsync(e.Value is bool b && b);

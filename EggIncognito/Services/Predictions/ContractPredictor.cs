@@ -90,10 +90,19 @@ public sealed class ContractPredictor(
             entries.Add(new WatchEntry(
                 egg.Key, EggIcons.Label(last.Egg, egg.Key), false, EggIcons.Url(last.Egg, egg.Key),
                 ContractPalette.BarStyle(false, last.Leggacy, last.ProphecyEggs),
-                last.Start, last.Start + last.LengthSeconds, next, last.Name));
+                last.Start, last.Start + last.LengthSeconds, next, last.Name,
+                next.Count == 0 ? NoNextReason(model, names.Keys, now) : null));
         }
 
         return [.. entries.OrderBy(e => e.Label, StringComparer.OrdinalIgnoreCase)];
+    }
+
+    private static string NoNextReason(ContractModel model, IEnumerable<string> contractIds, double now) {
+        var ids = contractIds.ToHashSet(StringComparer.Ordinal);
+        bool eligible = model.Pools.Values.Any(p => OldestFirstPools.Eligible(p, now).Any(c => ids.Contains(c.ContractId)));
+        return eligible
+            ? "Ran too recently. Leggacies rerun oldest first, so it is not due within a year."
+            : "No rerun in far longer than usual. It looks retired.";
     }
 
     internal static IReadOnlyList<WatchEntry> Watch(
@@ -104,10 +113,12 @@ public sealed class ContractPredictor(
         var entries = new List<WatchEntry>();
         foreach (var c in model.Pools.Values.SelectMany(p => p.Candidates).DistinctBy(c => c.ContractId)) {
             if (!last.TryGetValue(c.ContractId, out var row)) continue;
+            var next = forecasts.GetValueOrDefault(c.ContractId) ?? [];
             entries.Add(new WatchEntry(
                 c.ContractId, c.Name, false, EggIcons.Url(row.Egg, row.CustomEggId),
                 ContractPalette.BarStyle(false, row.Leggacy, row.ProphecyEggs),
-                row.Start, row.Start + row.LengthSeconds, forecasts.GetValueOrDefault(c.ContractId) ?? []));
+                row.Start, row.Start + row.LengthSeconds, next,
+                NoNextReason: next.Count == 0 ? NoNextReason(model, [c.ContractId], now) : null));
         }
 
         return [.. entries.OrderBy(e => e.Label, StringComparer.OrdinalIgnoreCase)];

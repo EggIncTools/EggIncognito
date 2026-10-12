@@ -4,8 +4,8 @@
             URL path parameter (e.g. EID)
             <button type="button" class="forget-eids" @onclick="OnForget">forget</button>
         </label>
-        <input list="recentEids" placeholder="EI1234567890123456" value="@Value"
-               @attributes="InputAttrs.NoAutofill" @oninput="OnInput"/>
+        <input list="recentEids" placeholder="EI1234567890123456" @attributes="InputAttrs.NoAutofill"
+               @bind:get="Value" @bind:set="v => ValueChanged.InvokeAsync(v)" @bind:event="oninput"/>
     </div>
 }
 <datalist id="recentEids">
@@ -20,9 +20,4 @@
     [Parameter] public EventCallback<string> ValueChanged { get; set; }
     [Parameter] public IReadOnlyList<string> RecentEids { get; set; } = [];
     [Parameter] public EventCallback OnForget { get; set; }
-
-    Task OnInput(ChangeEventArgs e) {
-        return ValueChanged.InvokeAsync(e.Value?.ToString() ?? "");
-    }
-
 }

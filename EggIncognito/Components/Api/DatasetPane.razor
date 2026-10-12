@@ -46,8 +46,8 @@
             @if (s.AcceptsName) {
                 var name = State.NameFor(State.DatasetKey);
                 <FieldLabel Label="Asset name" Class="ds-field">
-                    <input class="field-input ds-name" placeholder="afx_ornate_gusset_2" value="@name"
-                           @oninput="OnNameInput"/>
+                    <input class="field-input ds-name" placeholder="afx_ornate_gusset_2" @bind:get="name"
+                           @bind:set="v => State.Names[State.DatasetKey] = v ?? string.Empty" @bind:event="oninput"/>
                 </FieldLabel>
                 @if (name.Length > 0) {
                     <img class="ds-asset" src="@AssetUrl(s, name)" alt="@name"/>
@@ -117,10 +117,6 @@
             Logger.LogDebug(ex, "data source {Url} could not be read", url);
             return new DataPayloadEntry(0, "");
         }
-    }
-
-    void OnNameInput(ChangeEventArgs e) {
-        State.Names[State.DatasetKey] = e.Value?.ToString() ?? "";
     }
 
 }

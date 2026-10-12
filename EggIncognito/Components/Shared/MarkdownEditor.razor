@@ -24,7 +24,7 @@
             }
             <button type="button" class="btn-primary" disabled="@_busy" @onclick="Save">Save</button>
         </div>
-        <textarea class="md-source" spellcheck="false" value="@_value" @oninput="OnInput"></textarea>
+        <textarea class="md-source" spellcheck="false" @bind="_value" @bind:event="oninput" @bind:after="MarkDirty"></textarea>
         <div class="md-preview-wrap">
             <div class="md-preview-label">Preview</div>
             <Markdown Body="@_value" CssClass="md-preview"/>
@@ -71,8 +71,7 @@
         }
     }
 
-    void OnInput(ChangeEventArgs e) {
-        _value = e.Value?.ToString() ?? "";
+    void MarkDirty() {
         _dirty = true;
     }
 

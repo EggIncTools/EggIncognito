@@ -15,7 +15,7 @@
     }
     <div class="tpl-main">
         <textarea class="tpl-area" rows="@Rows" spellcheck="false" aria-label="@(Label is { Length: > 0 } ? Label : "Message")"
-                  value="@Value" @oninput="OnInput" @ref="_area"></textarea>
+                  @bind:get="Value" @bind:set="v => ValueChanged.InvokeAsync(v)" @bind:event="oninput" @ref="_area"></textarea>
         @if (Tokens.Count > 0) {
             <div class="tpl-tokens">
                 <span class="tpl-tokens-head">Variables</span>
@@ -64,8 +64,6 @@
 
         return missing;
     }
-
-    Task OnInput(ChangeEventArgs e) => ValueChanged.InvokeAsync(e.Value?.ToString() ?? "");
 
     async Task Insert(string name) {
         _dom ??= new Dom(JS);

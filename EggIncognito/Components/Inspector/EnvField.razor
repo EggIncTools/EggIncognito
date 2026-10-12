@@ -12,8 +12,8 @@
             <input class="env-check" type="checkbox" checked="@(Row.Value == "true")" @onchange="OnBool"/>
         } else {
             <input class="env-input @(Row.IsInvalid() ? "env-invalid" : "")" list="@ListId" type="search" role="combobox"
-                   name="@($"env-{Row.Key}-{_salt}")" value="@Row.Value" placeholder="@Row.Hint" @attributes="InputAttrs.NoAutofill"
-                   @oninput="OnText"/>
+                   name="@($"env-{Row.Key}-{_salt}")" placeholder="@Row.Hint" @attributes="InputAttrs.NoAutofill"
+                   @bind:get="Row.Value" @bind:set="Commit" @bind:event="oninput"/>
         }
     </label>
 }
@@ -28,10 +28,6 @@
     string? ListId => Row?.Editor == EnvEditor.Eid ? "recentEids" : null;
 
     Task OnSelect(ChangeEventArgs e) {
-        return Commit(e.Value?.ToString());
-    }
-
-    Task OnText(ChangeEventArgs e) {
         return Commit(e.Value?.ToString());
     }
 

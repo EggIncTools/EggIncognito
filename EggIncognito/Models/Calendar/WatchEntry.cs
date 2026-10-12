@@ -9,7 +9,8 @@ public sealed record WatchEntry(
     double? LastStart,
     double? LastEnd,
     IReadOnlyList<WatchForecast> Next,
-    string? LastNote = null);
+    string? LastNote = null,
+    string? NoNextReason = null);
 
 public sealed record WatchForecast(double Start, double End, double Confidence, string Rule, string? Note = null);
 

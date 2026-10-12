@@ -56,11 +56,11 @@
                 <div class="theme-head-row">
                     <label class="theme-field">
                         <span>Name</span>
-                        <input class="reg-filter-input" value="@State.Draft.Name" @onchange="OnNameChanged"/>
+                        <input class="reg-filter-input" @bind="State.Draft.Name"/>
                     </label>
                     <label class="theme-field">
                         <span>Slug</span>
-                        <input class="reg-filter-input" value="@State.Draft.Slug" @onchange="OnSlugChanged"/>
+                        <input class="reg-filter-input" @bind:get="State.Draft.Slug" @bind:set="v => State.Draft.Slug = (v ?? string.Empty).ToLowerInvariant()"/>
                     </label>
                 </div>
                 <div>
@@ -127,7 +127,7 @@
                         <p class="theme-note">Custom CSS needs the contributor role and the admin switch. The rest of the theme works without it.</p>
                     }
 
-                    <textarea class="theme-css-input" spellcheck="false" value="@State.Draft.Css" @onchange="OnCssChanged" disabled="@(!_cssEligible)"></textarea>
+                    <textarea class="theme-css-input" spellcheck="false" @bind:get="State.Draft.Css" @bind:set="OnCssChanged" disabled="@(!_cssEligible)"></textarea>
                     @if (_cssErrors.Count > 0) {
                         <div class="theme-css-errors">
                             @foreach (var err in _cssErrors) {
@@ -398,18 +398,10 @@
         RefreshAll();
     }
 
-    void OnCssChanged(ChangeEventArgs e) {
-        State.Draft.Css = e.Value?.ToString() ?? "";
+    void OnCssChanged(string? value) {
+        State.Draft.Css = value ?? "";
         _cssErrors = State.Draft.Css.Length > 0 ? ThemeCss.Parse(State.Draft.Css).Errors : [];
         RefreshAll();
-    }
-
-    void OnNameChanged(ChangeEventArgs e) {
-        State.Draft.Name = e.Value?.ToString() ?? "";
-    }
-
-    void OnSlugChanged(ChangeEventArgs e) {
-        State.Draft.Slug = (e.Value?.ToString() ?? "").ToLowerInvariant();
     }
 
     void SetMode(string mode) {

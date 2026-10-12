@@ -89,7 +89,11 @@
                         <span class="watch-line">
                             <span class="watch-k">Next</span>
                             @if (e.Next.Count == 0) {
-                                <span>no prediction</span>
+                                @if (e.NoNextReason is { } why) {
+                                    <Tooltip Text="@why"><span class="watch-none watch-hover" tabindex="0">no prediction</span></Tooltip>
+                                } else {
+                                    <span class="watch-none">no prediction</span>
+                                }
                             } else {
                                 <span class="watch-next">
                                     @foreach (var f in e.Next.Take(MaxNext)) {

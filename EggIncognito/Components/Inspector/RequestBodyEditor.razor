@@ -13,7 +13,7 @@
     </div>
 } else if (RawMode) {
     <textarea class="raw-json" spellcheck="false" @attributes="InputAttrs.NoAutofill"
-              value="@RawJson" @oninput="OnRawInput"></textarea>
+              @bind:get="RawJson" @bind:set="v => RawJsonChanged.InvokeAsync(v)" @bind:event="oninput"></textarea>
     @if (RawError is not null) {
         <div class="muted">@RawError</div>
     }
@@ -63,10 +63,6 @@
 
     Task ToggleRaw(ChangeEventArgs e) {
         return RawModeChanged.InvokeAsync(e.Value is bool b && b);
-    }
-
-    Task OnRawInput(ChangeEventArgs e) {
-        return RawJsonChanged.InvokeAsync(e.Value?.ToString() ?? "");
     }
 
 }
