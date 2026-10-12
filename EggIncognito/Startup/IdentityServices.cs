@@ -48,6 +48,7 @@ public static class IdentityServices {
             o.Allow("capture.prefs", TimeSpan.FromDays(365));
             o.Allow("watch.events", TimeSpan.FromDays(365));
             o.Allow("watch.contracts", TimeSpan.FromDays(365));
+            o.Allow("watch.colleggtibles", TimeSpan.FromDays(365));
         });
         builder.Services.AddEggIdentitySuite("incognito", o => {
             o.DefaultTheme = ThemeResolver.NoTheme;
