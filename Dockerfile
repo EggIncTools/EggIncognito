@@ -37,16 +37,14 @@ COPY EggIncognito.Artifacts/ EggIncognito.Artifacts/
 COPY EggIncognito.Extensibility/ EggIncognito.Extensibility/
 COPY EggIncognito/ EggIncognito/
 
-ARG GIT_SHA
-ARG APP_VERSION
+ARG BUILD_HEIGHT
+ARG BUILD_SHA
 RUN set -eux; \
-    STAMP=""; \
-    [ -n "$GIT_SHA" ] && STAMP="$STAMP -p:SourceRevisionId=$GIT_SHA"; \
-    [ -n "$APP_VERSION" ] && STAMP="$STAMP -p:MinVerVersionOverride=$APP_VERSION"; \
+    BUILD_HEIGHT="$BUILD_HEIGHT" BUILD_SHA="$BUILD_SHA" \
     dotnet publish EggIncognito/EggIncognito.csproj -c Release -o /app/publish \
         -p:ContainerPublish=true \
         -p:EmitTypes=false -p:RunAnalyzers=false -p:EnforceCodeStyleInBuild=false \
-        -p:TreatWarningsAsErrors=false -p:GenerateDocumentationFile=false $STAMP; \
+        -p:TreatWarningsAsErrors=false -p:GenerateDocumentationFile=false; \
     grep -q "btn-primary" /app/publish/wwwroot/app.css; \
     test -s /app/publish/wwwroot/EggIncognito.styles.css; \
     test -s /app/publish/wwwroot/_framework/blazor.web.js; \
@@ -65,8 +63,10 @@ RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
 VOLUME ["/app/Endpoints"]
 
-ARG GIT_SHA
-ENV GIT_SHA=$GIT_SHA
+ARG BUILD_HEIGHT
+ARG BUILD_SHA
+ENV GIT_SHA=$BUILD_SHA
+ENV APP_VERSION=${BUILD_HEIGHT}.0.0
 
 ENV ASPNETCORE_URLS=http://+:8080
 ENV EndpointsPath=/app/Endpoints

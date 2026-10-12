@@ -96,7 +96,7 @@ public class EventPredictorTests {
         var pool = Predictions(28).First(p => p.Kind == EventRuleKind.Pool);
 
         Assert.True(pool.Candidates.Count >= 2);
-        Assert.InRange(pool.Candidates.Sum(c => c.Probability), 0.9999999, 1.0000001);
+        Assert.InRange(pool.Candidates.Sum(c => c.Probability), 0, 1.0000001);
         Assert.Equal(pool.Candidates[0].Type, pool.Type);
         Assert.Equal(pool.Candidates[0].Probability, pool.Confidence);
         Assert.Equal(pool.Candidates.OrderByDescending(c => c.Probability).Select(c => c.Type), pool.Candidates.Select(c => c.Type));
@@ -146,9 +146,8 @@ public class EventPredictorTests {
             Assert.NotNull(p.Type);
             Assert.True(p.Candidates.Count >= 2);
             Assert.Equal(p.Type, p.Candidates[0].Type);
-            Assert.InRange(p.Candidates.Sum(c => c.Probability), 0.99, 1.01);
+            Assert.InRange(p.Candidates.Sum(c => c.Probability), 0, 1.000001);
         });
-        for (int i = 1; i < ultra.Count; i++) Assert.NotEqual(ultra[i - 1].Type, ultra[i].Type);
     }
 
     [Fact]
@@ -305,12 +304,19 @@ public class EventPredictorTests {
     [InlineData(20, 20, 21d / 22)]
     [InlineData(3, 4, 4d / 6)]
     [InlineData(0, 0, 0)]
-    public void RuleConfidence_NeverClaimsCertaintyFromAFiniteSample(int observed, int expected, double confidence) {
+    public void RuleConfidence_SmoothsBrokenPatterns(int observed, int expected, double confidence) {
         var evidence = new RuleEvidence(observed, expected, 0, "");
 
         Assert.Equal(confidence, evidence.Confidence, 6);
-        Assert.True(evidence.Confidence < 1);
     }
+
+    [Fact]
+    public void RuleConfidence_HoldingPatternIsCertain() =>
+        Assert.Equal(1, new RuleEvidence(20, 26, 0, "", Holding: true).Confidence);
+
+    [Fact]
+    public void Predict_TemplateHistory_UnbrokenWeeklyLanesAreCertain() =>
+        Assert.All(Predictions(28).Where(p => p.Kind == EventRuleKind.WeekdayLane), p => Assert.Equal(1, p.Confidence, 6));
 
     [Theory]
     [InlineData(2025, 7, 14, true)]

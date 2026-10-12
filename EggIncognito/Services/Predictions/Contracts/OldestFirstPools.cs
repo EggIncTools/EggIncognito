@@ -51,9 +51,9 @@ public static class OldestFirstPools {
         return ordered[^1].UltraOnly ? ContractSlotKind.PeLeggacy : ContractSlotKind.PeLeggacyUltra;
     }
 
-    public static IReadOnlyList<ContractCandidate> Top(ContractPool pool, double now, int skip = 0) {
+    public static List<ContractCandidate> Eligible(ContractPool pool, double now) {
         double cutoff = pool.GapSeconds is { } gap ? RecencyGapMultiplier * gap : FallbackCutoffSeconds;
-        return pool.Candidates.Where(c => now - c.LastReleased <= cutoff).Skip(skip).Take(TopCandidates).ToList();
+        return [.. pool.Candidates.Where(c => now - c.LastReleased <= cutoff)];
     }
 
     private static string Summary(ContractSlotKind kind, int count, double? gap, int gapSamples) {

@@ -8,18 +8,21 @@ public sealed class PeriodicLaneRule : IEventRule {
     public const int MinGap = 14;
     public const int MaxGap = 56;
     public const double MinWeekdayShare = 0.9;
+    private const double OverdueHazard = 0.5;
 
     private readonly DateOnly _anchor;
     private readonly double _duration;
     private readonly Func<DateOnly, bool>? _hostOn;
+    private readonly IReadOnlyList<int> _gaps;
 
     private PeriodicLaneRule(
-        string type, DayOfWeek weekday, DateOnly anchor, int period, double duration, string? ridesOn,
-        Func<DateOnly, bool>? hostOn, RuleEvidence evidence) {
+        string type, DayOfWeek weekday, DateOnly anchor, int period, IReadOnlyList<int> gaps, double duration,
+        string? ridesOn, Func<DateOnly, bool>? hostOn, RuleEvidence evidence) {
         Type = type;
         Weekday = weekday;
         _anchor = anchor;
         PeriodDays = period;
+        _gaps = gaps;
         _duration = duration;
         RidesOn = ridesOn;
         _hostOn = hostOn;
@@ -77,7 +80,7 @@ public sealed class PeriodicLaneRule : IEventRule {
                 dates.Count, Math.Max(expected, dates.Count), occurrences[^1].Start,
                 $"{RuleDates.Weekday(group.Key.DayOfWeek)}, every {period} days{before}{riding}, {dates.Count} observed");
             rules.Add(new PeriodicLaneRule(
-                group.Key.Type, group.Key.DayOfWeek, dates[^1], period,
+                group.Key.Type, group.Key.DayOfWeek, dates[^1], period, gaps,
                 RobustStats.Median(occurrences.Select(o => o.Duration).ToList()), ridesOn, hostOn, evidence));
             claimed.Add((group.Key.Type, group.Key.DayOfWeek));
         }
@@ -95,25 +98,21 @@ public sealed class PeriodicLaneRule : IEventRule {
     }
 
     public IEnumerable<DateOnly> Dates(double asOf, double horizonEnd) {
-        var date = _anchor.AddDays(PeriodDays);
-        while (NoonEastern.SlotTime(date) < horizonEnd) {
-            if (_hostOn is not null && !_hostOn(date)) {
-                date = date.AddDays(WeekdayLaneRule.Period);
-                continue;
-            }
-
-            if (NoonEastern.SlotTime(date) >= asOf) yield return date;
-            date = date.AddDays(PeriodDays);
+        for (var date = _anchor.AddDays(WeekdayLaneRule.Period);
+             NoonEastern.SlotTime(date) < horizonEnd;
+             date = date.AddDays(WeekdayLaneRule.Period)) {
+            if (NoonEastern.SlotTime(date) >= asOf && (_hostOn is null || _hostOn(date))) yield return date;
         }
     }
 
-    public EventPrediction Realize(DateOnly date, EventLedger ledger) {
-        double start = NoonEastern.SlotTime(date);
-        ledger.Touch(Type!, false, start, date);
-        return new EventPrediction(
-            Type, false, Kind, Key, Evidence.Summary, start, start + _duration, Evidence.Confidence,
-            [new EventCandidate(Type!, 1)], Evidence.Observed, Evidence.Expected, PeriodDays, Evidence.LastStart);
-    }
+    public double Duration(string type) => _duration;
 
-    EventPrediction? IEventRule.Realize(DateOnly date, EventLedger ledger) => Realize(date, ledger);
+    public IReadOnlyList<EventCandidate> Odds(DateOnly date, EventLedger ledger) {
+        if (!ledger.LastDate.TryGetValue((Type!, false), out var last)) return [new EventCandidate(Type!, 1)];
+        int since = date.DayNumber - last.DayNumber;
+        int atOrAfter = _gaps.Count(g => g >= since);
+        if (atOrAfter == 0) return [new EventCandidate(Type!, OverdueHazard / (_gaps.Count + 1))];
+        double p = _gaps.Count(g => g == since) / (double)atOrAfter;
+        return p > 0 ? [new EventCandidate(Type!, p)] : [];
+    }
 }

@@ -15,4 +15,7 @@ public sealed record EventPrediction(
     int PeriodDays,
     double LastStart) {
     public IReadOnlyList<EventMagnitudeOdds> Magnitudes { get; init; } = [];
+
+    public double Chance(EventCandidate candidate) =>
+        Kind is EventRuleKind.Pool or EventRuleKind.Ultra ? candidate.Probability : Confidence * candidate.Probability;
 }

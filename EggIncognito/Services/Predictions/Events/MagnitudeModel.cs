@@ -4,85 +4,86 @@ namespace EggIncognito.Services.Predictions.Events;
 
 public sealed class MagnitudeModel {
     public const int WindowDays = 365;
-    public const int MinCycleRuns = 3;
-    public const int SlackDays = 1;
 
-    private readonly IReadOnlyList<(double Multiplier, double Share)> _shares;
-    private readonly IReadOnlyList<Cycle> _cycles;
+    private readonly double _common;
+    private readonly IReadOnlyList<RareChain> _rare;
 
-    private sealed record Cycle(double Multiplier, int PeriodDays, DateOnly Last, double Fit);
+    private sealed class RareChain(double multiplier, double share, IReadOnlyList<int> gaps, int since) {
+        private double[] _state = Point(since);
 
-    private MagnitudeModel(IReadOnlyList<(double, double)> shares, IReadOnlyList<Cycle> cycles) {
-        _shares = shares;
-        _cycles = cycles;
+        public double Multiplier { get; } = multiplier;
+
+        private static double[] Point(int n) {
+            var state = new double[n + 1];
+            state[n] = 1;
+            return state;
+        }
+
+        private double Hazard(int n) {
+            if (n <= 0) return 0;
+            int atOrAfter = 0, exact = 0;
+            foreach (int g in gaps) {
+                if (g >= n) atOrAfter++;
+                if (g == n) exact++;
+            }
+
+            return atOrAfter == 0 ? share : (exact + share) / (atOrAfter + 1);
+        }
+
+        public double Odds() {
+            double p = 0;
+            for (int n = 0; n < _state.Length; n++) p += _state[n] * Hazard(n + 1);
+            return p;
+        }
+
+        public void Advance(double occurs) {
+            var next = new double[_state.Length + 1];
+            for (int n = 0; n < _state.Length; n++) {
+                double h = Hazard(n + 1);
+                next[n] += _state[n] * (1 - occurs);
+                next[0] += _state[n] * occurs * h;
+                next[n + 1] += _state[n] * occurs * (1 - h);
+            }
+
+            _state = next;
+        }
+    }
+
+    private MagnitudeModel(double common, IReadOnlyList<RareChain> rare) {
+        _common = common;
+        _rare = rare;
     }
 
     public static MagnitudeModel Build(IEnumerable<EventRow> runs, double asOf) {
         double windowStart = asOf - WindowDays * EventHistory.Day;
-        var recent = runs
+        var sequence = runs
             .Where(r => r.Start < asOf && r.Start >= windowStart && r.Multiplier > 0)
-            .GroupBy(r => (Date: NoonEastern.LocalDate(r.Start), r.Multiplier))
-            .Select(g => g.Key)
-            .OrderBy(k => k.Date)
+            .GroupBy(r => NoonEastern.LocalDate(r.Start))
+            .OrderBy(g => g.Key)
+            .Select(g => g.First().Multiplier)
             .ToList();
-        if (recent.Count == 0) return new MagnitudeModel([], []);
-        var shares = recent
-            .GroupBy(k => k.Multiplier)
-            .Select(g => (g.Key, (double)g.Count() / recent.Count))
-            .OrderByDescending(s => s.Item2)
-            .ToList();
-        var cycles = new List<Cycle>();
-        if (shares.Count > 1) {
-            foreach (var (multiplier, _) in shares) {
-                var dates = recent.Where(k => k.Multiplier == multiplier).Select(k => k.Date).ToList();
-                if (CycleOf(multiplier, dates) is { } cycle) cycles.Add(cycle);
-            }
+        if (sequence.Count == 0) return new MagnitudeModel(0, []);
+        var counts = sequence.GroupBy(m => m).OrderByDescending(g => g.Count()).ThenBy(g => g.Key).ToList();
+        var rare = new List<RareChain>();
+        foreach (var group in counts.Skip(1)) {
+            var at = sequence.Select((m, i) => (m, i)).Where(x => x.m == group.Key).Select(x => x.i).ToList();
+            var gaps = at.Zip(at.Skip(1), (a, b) => b - a).ToList();
+            rare.Add(new RareChain(group.Key, group.Count() / (double)sequence.Count, gaps, sequence.Count - 1 - at[^1]));
         }
 
-        return new MagnitudeModel(shares, cycles);
+        return new MagnitudeModel(counts[0].Key, rare);
     }
 
-    private static Cycle? CycleOf(double multiplier, IReadOnlyList<DateOnly> dates) {
-        if (dates.Count < MinCycleRuns) return null;
-        var gaps = dates.Zip(dates.Skip(1), (a, b) => (double)(b.DayNumber - a.DayNumber)).ToList();
-        double median = RobustStats.Median(gaps);
-        int period = (int)Math.Round(median);
-        if (period < 2 || RobustStats.Mad(gaps, median) > Math.Max(SlackDays, period * 0.1)) return null;
-        var first = dates[0];
-        var last = dates[^1];
-        int expected = (int)Math.Round((last.DayNumber - first.DayNumber) / (double)period) + 1;
-        int hits = dates.Count(d => OnCycle(d, last, period));
-        return new Cycle(multiplier, period, last, (Math.Min(hits, expected) + 1d) / (expected + 2d));
-    }
-
-    private static bool OnCycle(DateOnly date, DateOnly anchor, int period) {
-        int offset = ((date.DayNumber - anchor.DayNumber) % period + period) % period;
-        return offset <= SlackDays || offset >= period - SlackDays;
-    }
-
-    public IReadOnlyList<EventMagnitudeOdds> At(double start) {
-        if (_shares.Count == 0) return [];
-        if (_shares.Count == 1) return [new EventMagnitudeOdds(_shares[0].Multiplier, 1)];
-        var date = NoonEastern.LocalDate(start);
-        var claim = _cycles.Where(c => date > c.Last && OnCycle(date, c.Last, c.PeriodDays)).MaxBy(c => c.Fit);
-        var odds = new Dictionary<double, double>();
-        double rest = 1;
-        if (claim is not null) {
-            odds[claim.Multiplier] = claim.Fit;
-            rest = 1 - claim.Fit;
-        }
-
-        var weights = _shares
-            .Where(s => s.Multiplier != claim?.Multiplier)
-            .Select(s => (s.Multiplier, Weight: _cycles.FirstOrDefault(c => c.Multiplier == s.Multiplier) is { } cycle
-                ? s.Share * (1 - cycle.Fit)
-                : s.Share))
-            .ToList();
-        double weightSum = weights.Sum(w => w.Weight);
-        foreach (var (multiplier, weight) in weights) {
-            odds[multiplier] = weightSum > 0 ? rest * weight / weightSum : 0;
-        }
-
-        return [.. odds.Select(o => new EventMagnitudeOdds(o.Key, o.Value)).OrderByDescending(o => o.Probability)];
+    public IReadOnlyList<EventMagnitudeOdds> Step(double occurs) {
+        if (_common == 0) return [];
+        var odds = _rare.Select(c => (c.Multiplier, P: c.Odds())).ToList();
+        double rareSum = odds.Sum(o => o.P);
+        if (rareSum > 1) odds = [.. odds.Select(o => (o.Multiplier, o.P / rareSum))];
+        foreach (var chain in _rare) chain.Advance(occurs);
+        return [
+            .. odds.Prepend((_common, Math.Max(0, 1 - Math.Min(1, rareSum))))
+                .Select(o => new EventMagnitudeOdds(o.Item1, o.Item2))
+                .OrderByDescending(o => o.Probability)
+        ];
     }
 }

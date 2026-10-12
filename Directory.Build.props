@@ -14,7 +14,6 @@
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="MinVer" PrivateAssets="All" />
     <PackageReference Include="EggIdentity.CodeStyle" PrivateAssets="all" />
   </ItemGroup>
   <PropertyGroup Condition="$(MSBuildProjectName.EndsWith('.Tests'))">
@@ -26,16 +25,4 @@
     <PackageReference Include="xunit.runner.visualstudio" />
     <PackageReference Include="coverlet.collector" />
   </ItemGroup>
-  <PropertyGroup>
-    <MinVerTagPrefix>v</MinVerTagPrefix>
-  </PropertyGroup>
-  <Target Name="SetSourceRevisionId" BeforeTargets="GetAssemblyVersion" Condition="'$(SourceRevisionId)' == ''">
-    <Exec Command="git rev-parse HEAD" ConsoleToMSBuild="true" ContinueOnError="true" StandardOutputImportance="low">
-      <Output TaskParameter="ConsoleOutput" PropertyName="_GitSha" />
-      <Output TaskParameter="ExitCode" PropertyName="_GitExit" />
-    </Exec>
-    <PropertyGroup Condition="'$(_GitExit)' == '0'">
-      <SourceRevisionId>$(_GitSha)</SourceRevisionId>
-    </PropertyGroup>
-  </Target>
 </Project>

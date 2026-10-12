@@ -19,5 +19,7 @@ public interface IEventRule {
 
     IEnumerable<DateOnly> Dates(double asOf, double horizonEnd);
 
-    EventPrediction? Realize(DateOnly date, EventLedger ledger);
+    double Duration(string type);
+
+    IReadOnlyList<EventCandidate> Odds(DateOnly date, EventLedger ledger);
 }

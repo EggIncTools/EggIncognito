@@ -21,7 +21,7 @@ public sealed class ContractPredictor(
         double nowSeconds = UnixSeconds.FromTime(now);
         var model = ContractModel.Train(samples, nowSeconds);
         WarnLowConformance(model);
-        return new ContractPredictionResponse(nowSeconds, model.Slots(now, horizonSlots, nowSeconds));
+        return new ContractPredictionResponse(nowSeconds, model.Slots(now, horizonSlots));
     }
 
     public async Task<ContractNextEstimate?> GetContractAsync(string contractId, CancellationToken ct = default) {
@@ -55,39 +55,24 @@ public sealed class ContractPredictor(
         IReadOnlyList<ContractReleaseSample> samples, ContractModel model, double now) {
         var last = samples.Where(s => s.Start < now).GroupBy(s => s.ContractId)
             .ToDictionary(g => g.Key, g => g.MaxBy(s => s.Start), StringComparer.Ordinal);
-        var rates = ContractBacktest.Sweep(samples, now).Totals.ToDictionary(t => t.Kind);
-        var upcoming = model.Grid.Next(UnixSeconds.ToTime(now), WatchWeeks * ReleaseGrid.AllKinds.Length)
-            .GroupBy(s => s.Slot.Kind)
-            .ToDictionary(g => g.Key, g => g.Select(s => s.Time).ToList());
-
-        var entries = new List<WatchEntry>();
-        foreach (var kind in ReleaseGrid.AllKinds) {
-            var pool = model.Pools[kind];
-            var slots = upcoming.GetValueOrDefault(kind) ?? [];
-            for (int position = 0; position < pool.Candidates.Count; position++) {
-                var c = pool.Candidates[position];
-                if (!last.TryGetValue(c.ContractId, out var row)) continue;
-                var next = position < slots.Count
-                    ? new[] {
-                        new WatchForecast(
-                            slots[position], slots[position] + pool.LengthSeconds, QueueConfidence(rates[kind], position),
-                            $"{Label(kind)}, queue position {position + 1} of {pool.Candidates.Count}")
-                    }
-                    : [];
-                entries.Add(new WatchEntry(
-                    c.ContractId, c.Name, row.UltraOnly, EggIcons.Url(row.Egg, row.CustomEggId),
-                    ContractPalette.BarStyle(row.UltraOnly, row.Leggacy, row.ProphecyEggs),
-                    row.Start, row.Start + row.LengthSeconds, next));
+        var forecasts = new Dictionary<string, List<WatchForecast>>(StringComparer.Ordinal);
+        foreach (var slot in model.Slots(UnixSeconds.ToTime(now), WatchWeeks * ReleaseGrid.AllKinds.Length)) {
+            foreach (var c in slot.Candidates) {
+                if (!forecasts.TryGetValue(c.ContractId, out var list)) forecasts[c.ContractId] = list = [];
+                list.Add(new WatchForecast(slot.SlotTime, slot.SlotTime + slot.LengthSeconds, c.Probability, Label(slot.Kind)));
             }
         }
 
-        return [.. entries.OrderBy(e => e.Label, StringComparer.OrdinalIgnoreCase)];
-    }
+        var entries = new List<WatchEntry>();
+        foreach (var c in model.Pools.Values.SelectMany(p => p.Candidates)) {
+            if (!last.TryGetValue(c.ContractId, out var row)) continue;
+            entries.Add(new WatchEntry(
+                c.ContractId, c.Name, row.UltraOnly, EggIcons.Url(row.Egg, row.CustomEggId),
+                ContractPalette.BarStyle(row.UltraOnly, row.Leggacy, row.ProphecyEggs),
+                row.Start, row.Start + row.LengthSeconds, forecasts.GetValueOrDefault(c.ContractId) ?? []));
+        }
 
-    internal static double QueueConfidence(ContractBacktestKindResult rate, int position) {
-        if (rate.SlotHit == 0) return 0;
-        double top1 = (rate.Top1Hit + 1d) / (rate.SlotHit + 2d);
-        return Math.Pow(top1, position + 1);
+        return [.. entries.OrderBy(e => e.Label, StringComparer.OrdinalIgnoreCase)];
     }
 
     private static string Label(ContractSlotKind kind) => kind switch {

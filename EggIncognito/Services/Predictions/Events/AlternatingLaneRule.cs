@@ -86,9 +86,12 @@ public sealed class AlternatingLaneRule : IEventRule {
                 g => g.Key, g => g.Select(o => o.Date).ToHashSet(), StringComparer.Ordinal);
             var durations = members.ToDictionary(
                 g => g.Key, g => RobustStats.Median(g.Select(o => o.Duration).ToList()), StringComparer.Ordinal);
+            bool holding = WeekdayLaneRule.HeldRecently(dates[^1], [.. dates], history.Last)
+                           && Conformance([.. sequence.TakeLast(WeekdayLaneRule.MinTrailingRun)], cycle) == 1;
             var evidence = new RuleEvidence(
                 dates.Count, expected, occurrences[^1].Start,
-                $"{RuleDates.Weekday(weekday)}, {string.Join(" and ", cycle)} alternate every {WeekdayLaneRule.Period * n} days, {dates.Count} of {expected}");
+                $"{RuleDates.Weekday(weekday)}, {string.Join(" and ", cycle)} alternate every {WeekdayLaneRule.Period * n} days, {dates.Count} of {expected}",
+                holding);
             rules.Add(new AlternatingLaneRule(weekday, cycle, n - 1, dates[^1], durations, memberDates, evidence));
             foreach (var member in cycle) claimed.Add((member, weekday));
         }
@@ -111,13 +114,8 @@ public sealed class AlternatingLaneRule : IEventRule {
     public IEnumerable<DateOnly> Dates(double asOf, double horizonEnd) =>
         RuleDates.Future(_anchor, WeekdayLaneRule.Period, asOf, horizonEnd);
 
-    public EventPrediction? Realize(DateOnly date, EventLedger ledger) {
-        if (TypeOn(date) is not { } type) return null;
-        double start = NoonEastern.SlotTime(date);
-        double duration = _durations.GetValueOrDefault(type, EventHistory.Day);
-        ledger.Touch(type, false, start, date);
-        return new EventPrediction(
-            type, false, Kind, Key, Evidence.Summary, start, start + duration, Evidence.Confidence,
-            [new EventCandidate(type, 1)], Evidence.Observed, Evidence.Expected, PeriodDays, Evidence.LastStart);
-    }
+    public double Duration(string type) => _durations.GetValueOrDefault(type, EventHistory.Day);
+
+    public IReadOnlyList<EventCandidate> Odds(DateOnly date, EventLedger ledger) =>
+        TypeOn(date) is { } type ? [new EventCandidate(type, Evidence.Confidence)] : [];
 }

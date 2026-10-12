@@ -76,7 +76,7 @@ public class ContractPredictorTests {
         var model = ContractModel.Train(ContractTemplate.Build(26), AsOf);
         var thursday = ContractTemplate.Day(ContractTemplate.LastMonday.AddDays(3)).AddHours(2);
 
-        var slots = model.Slots(thursday, 4, UnixSeconds.FromTime(thursday));
+        var slots = model.Slots(thursday, 4);
 
         Assert.Equal(
             [ContractSlotKind.PeLeggacy, ContractSlotKind.PeLeggacyUltra, ContractSlotKind.NewContract, ContractSlotKind.Leggacy],
@@ -145,7 +145,7 @@ public class ContractPredictorTests {
             Leggacy("fresh", now - 1 * Week)
         ];
 
-        var top = OldestFirstPools.Top(OldestFirstPools.Fit(samples)[ContractSlotKind.Leggacy], now);
+        var top = OldestFirstPools.Eligible(OldestFirstPools.Fit(samples)[ContractSlotKind.Leggacy], now);
 
         Assert.Equal(["gapper2", "gapper", "fresh"], top.Select(c => c.ContractId).ToList());
     }
@@ -155,7 +155,7 @@ public class ContractPredictorTests {
         double now = UnixSeconds.FromTime(ContractTemplate.AsOf);
         ContractReleaseSample[] samples = [Leggacy("ancient", now - 209 * Week), Leggacy("recent", now - 52 * Week)];
 
-        var top = OldestFirstPools.Top(OldestFirstPools.Fit(samples)[ContractSlotKind.Leggacy], now);
+        var top = OldestFirstPools.Eligible(OldestFirstPools.Fit(samples)[ContractSlotKind.Leggacy], now);
 
         Assert.Equal("recent", Assert.Single(top).ContractId);
     }
@@ -241,31 +241,12 @@ public class ContractPredictorTests {
                 Assert.True(f.Start >= AsOf);
                 Assert.Equal(new TimeOnly(12, 0), TimeOnly.FromDateTime(Local(f.Start).DateTime));
                 Assert.InRange(f.Confidence, 0, 1);
-                Assert.Contains("queue position", f.Rule);
             });
         });
         var queue = model.Pools[ContractSlotKind.Leggacy].Candidates;
         var head = watch.Single(e => e.Key == queue[0].ContractId);
-        var second = watch.Single(e => e.Key == queue[1].ContractId);
-        Assert.Equal(DayOfWeek.Wednesday, Local(Assert.Single(head.Next).Start).DayOfWeek);
-        Assert.Equal(7 * 86400d, Assert.Single(second.Next).Start - Assert.Single(head.Next).Start);
-        Assert.True(head.Next[0].Confidence > second.Next[0].Confidence);
-        Assert.All(watch, e => Assert.True(e.Next[0].Confidence < 1));
-        Assert.All(watch, e => Assert.Single(e.Next));
-        Assert.All(watch.GroupBy(e => e.Next[0].Start), g => Assert.Equal(g.Count(), g.Select(e => e.Next[0].Rule).Distinct().Count()));
-    }
-
-    [Theory]
-    [InlineData(10, 10, 10, 0, 11d / 12)]
-    [InlineData(10, 10, 10, 1, 121d / 144)]
-    [InlineData(10, 9, 10, 0, 10d / 12)]
-    [InlineData(10, 0, 5, 0, 1d / 12)]
-    [InlineData(0, 0, 0, 0, 0)]
-    public void QueueConfidence_DecaysTheMeasuredTop1RateByQueuePosition(
-        int slotHit, int top1, int top5, int position, double expected) {
-        var rate = new ContractBacktestKindResult(ContractSlotKind.Leggacy, slotHit, slotHit, top1, top5);
-
-        Assert.Equal(expected, ContractPredictor.QueueConfidence(rate, position), 6);
+        Assert.Equal(DayOfWeek.Wednesday, Local(head.Next.Min(f => f.Start)).DayOfWeek);
+        Assert.All(watch.SelectMany(e => e.Next).GroupBy(f => (f.Start, f.Rule)), g => Assert.InRange(g.Sum(f => f.Confidence), 0, 1.000001));
     }
 
     private static ContractReleaseSample Leggacy(string id, double start) =>

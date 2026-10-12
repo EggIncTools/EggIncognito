@@ -52,9 +52,11 @@ public sealed class RotatingPoolRule : IEventRule {
             int observed = mine.Select(o => o.Date).Distinct().Count();
             if (observed < MinFill * expected) continue;
             int seen = mine.Select(o => o.Type).Distinct(StringComparer.Ordinal).Count();
+            var filled = mine.Select(o => o.Date).ToHashSet();
             var evidence = new RuleEvidence(
                 observed, expected, mine.Max(o => o.Start),
-                $"{RuleDates.Weekday(weekday)} slot, {observed} of {expected} days, {seen} types seen, ranked by how overdue each type is");
+                $"{RuleDates.Weekday(weekday)} slot, {observed} of {expected} days, {seen} types seen, each type's odds from its own gap history",
+                WeekdayLaneRule.HeldRecently(filled.Max(), filled, history.Last));
             rules.Add(new RotatingPoolRule(
                 weekday, types, gaps, RobustStats.Median(mine.Select(o => o.Duration).ToList()), evidence));
         }
@@ -65,41 +67,21 @@ public sealed class RotatingPoolRule : IEventRule {
     public IEnumerable<DateOnly> Dates(double asOf, double horizonEnd) =>
         RuleDates.FutureDays(asOf, horizonEnd).Where(d => d.DayOfWeek == Weekday);
 
-    public EventPrediction Realize(DateOnly date, EventLedger ledger) {
-        double start = NoonEastern.SlotTime(date);
-        var candidates = Score(ledger, start, date);
-        var top = candidates.Count > 0 ? candidates[0] : null;
-        if (top is not null) ledger.Guess(top.Type, false, date, top.Probability);
-        return new EventPrediction(
-            top?.Type, false, Kind, Key, Evidence.Summary, start, start + _duration, top?.Probability ?? 0,
-            candidates, Evidence.Observed, Evidence.Expected, 1, Evidence.LastStart);
-    }
+    public double Duration(string type) => _duration;
 
-    EventPrediction? IEventRule.Realize(DateOnly date, EventLedger ledger) => Realize(date, ledger);
-
-    private List<EventCandidate> Score(EventLedger ledger, double at, DateOnly date) {
+    public IReadOnlyList<EventCandidate> Odds(DateOnly date, EventLedger ledger) {
+        double at = NoonEastern.SlotTime(date);
         var scores = new List<(string Type, double Score)>(Types.Count);
         double sum = 0;
         foreach (string type in Types) {
-            double score = 0;
-            if (!ledger.Repeats(type, false, date, RepeatBlockDays) && _gaps.TryGetValue(type, out var gaps)) {
-                score = PoolHazard.Hazard(gaps, ledger.DaysSince(type, false, at))
-                        * ledger.GuessedRepeatWeight(type, false, date, RepeatBlockDays)
-                        * ledger.GuessedDueWeight(type, false, at)
-                        * ledger.WeekWeight(date, type, false, SameWeekPenalty);
-            }
-
+            if (ledger.Repeats(type, false, date, RepeatBlockDays) || !_gaps.TryGetValue(type, out var gaps)) continue;
+            double score = PoolHazard.Hazard(gaps, ledger.DaysSince(type, false, at))
+                           * ledger.WeekWeight(date, type, false, SameWeekPenalty);
             scores.Add((type, score));
             sum += score;
         }
 
-        if (sum <= 0) return [];
-        return [
-            .. scores
-                .Where(s => s.Score > 0)
-                .Select(s => new EventCandidate(s.Type, s.Score / sum))
-                .OrderByDescending(c => c.Probability)
-                .ThenBy(c => c.Type, StringComparer.Ordinal)
-        ];
+        double fill = Evidence.Confidence;
+        return sum <= 0 ? [] : [.. scores.Where(s => s.Score > 0).Select(s => new EventCandidate(s.Type, fill * s.Score / sum))];
     }
 }

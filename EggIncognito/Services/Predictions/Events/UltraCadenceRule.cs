@@ -7,6 +7,7 @@ public sealed class UltraCadenceRule : IEventRule {
     public const double MaxJitterDays = 0.5;
     public const double MinFill = 0.8;
     public const int MinGapSamples = 2;
+    public const int MinTrailingRun = 13;
     private const double Smoothing = 0.5;
     private const double MinDue = 0.1;
     private const double MaxDue = 3d;
@@ -61,9 +62,13 @@ public sealed class UltraCadenceRule : IEventRule {
         var prior = ordered.GroupBy(o => o.Type, StringComparer.Ordinal)
             .ToDictionary(g => g.Key, g => (double)g.Count(), StringComparer.Ordinal);
         var types = prior.Keys.Order(StringComparer.Ordinal).ToList();
+        int run = 1;
+        while (run < dates.Count && dates[^run].DayNumber - dates[^(run + 1)].DayNumber == period) run++;
+        bool holding = run >= MinTrailingRun && dates[^1].AddDays(period) > history.Last;
         var evidence = new RuleEvidence(
             dates.Count, expected, ordered[^1].Start,
-            $"Every {period} days, {dates.Count} of {expected}, {types.Count} types, each due by its own median gap");
+            $"Every {period} days, {dates.Count} of {expected}, {types.Count} types, each due by its own median gap",
+            holding);
         return new UltraCadenceRule(
             dates[^1], period, RobustStats.Median(ordered.Select(o => o.Duration).ToList()),
             types, prior, ordered.Count, evidence);
@@ -72,41 +77,21 @@ public sealed class UltraCadenceRule : IEventRule {
     public IEnumerable<DateOnly> Dates(double asOf, double horizonEnd) =>
         RuleDates.Future(_anchor, PeriodDays, asOf, horizonEnd);
 
-    public EventPrediction Realize(DateOnly date, EventLedger ledger) {
-        double start = NoonEastern.SlotTime(date);
-        var candidates = Score(ledger, start, date);
-        var top = candidates.Count > 0 ? candidates[0] : null;
-        if (top is not null) ledger.Guess(top.Type, true, date, top.Probability);
-        return new EventPrediction(
-            top?.Type, true, Kind, Key, Evidence.Summary, start, start + _duration, top?.Probability ?? 0,
-            candidates, Evidence.Observed, Evidence.Expected, PeriodDays, Evidence.LastStart);
-    }
+    public double Duration(string type) => _duration;
 
-    EventPrediction? IEventRule.Realize(DateOnly date, EventLedger ledger) => Realize(date, ledger);
-
-    private List<EventCandidate> Score(EventLedger ledger, double at, DateOnly date) {
+    public IReadOnlyList<EventCandidate> Odds(DateOnly date, EventLedger ledger) {
+        double at = NoonEastern.SlotTime(date);
         var scores = new List<(string Type, double Score)>(Types.Count);
         double sum = 0;
         foreach (string type in Types) {
-            double score = 0;
-            if (!ledger.Repeats(type, true, date, PeriodDays)) {
-                double prior = (_prior.GetValueOrDefault(type) + Smoothing) / (_total + Smoothing * Types.Count);
-                score = prior * ledger.Due(type, true, at, MinDue, MaxDue, MinGapSamples)
-                        * ledger.GuessedRepeatWeight(type, true, date, PeriodDays)
-                        * ledger.GuessedDueWeight(type, true, at);
-            }
-
+            if (ledger.Repeats(type, true, date, PeriodDays)) continue;
+            double prior = (_prior.GetValueOrDefault(type) + Smoothing) / (_total + Smoothing * Types.Count);
+            double score = prior * ledger.Due(type, true, at, MinDue, MaxDue, MinGapSamples);
             scores.Add((type, score));
             sum += score;
         }
 
-        if (sum <= 0) return [];
-        return [
-            .. scores
-                .Where(s => s.Score > 0)
-                .Select(s => new EventCandidate(s.Type, s.Score / sum))
-                .OrderByDescending(c => c.Probability)
-                .ThenBy(c => c.Type, StringComparer.Ordinal)
-        ];
+        double fill = Evidence.Confidence;
+        return sum <= 0 ? [] : [.. scores.Where(s => s.Score > 0).Select(s => new EventCandidate(s.Type, fill * s.Score / sum))];
     }
 }

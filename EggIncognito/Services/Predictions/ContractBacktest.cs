@@ -16,7 +16,7 @@ public static class ContractBacktest {
         int horizon = Math.Clamp(horizonSlots, MinHorizonSlots, MaxHorizonSlots);
         var training = samples.Where(s => s.Start < asOf).ToList();
         var model = ContractModel.Train(training, asOf);
-        var slots = model.Slots(UnixSeconds.ToTime(asOf), horizon, asOf);
+        var slots = model.Slots(UnixSeconds.ToTime(asOf), horizon);
         double end = slots.Count > 0 ? slots.Max(s => s.SlotTime) + SlotToleranceSeconds : asOf;
         var actual = samples.Where(s => s.Start >= asOf && s.Start <= end).ToList();
 

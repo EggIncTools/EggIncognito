@@ -40,14 +40,14 @@ public sealed class EventPredictor(EggIncognitoDbContext db, EventDataVersion ve
         var past = rows.Where(r => r.Start < asOf).ToList();
         var next = new Dictionary<(string Type, bool Ultra), List<(WatchForecast Forecast, IReadOnlyList<EventMagnitudeOdds> Odds)>>();
         foreach (var p in predictions.Where(p => p.PredictedStart >= asOf)) {
-            if (p.Type is { } type) {
+            if (p.Type is { } type && p.Kind is not (EventRuleKind.Pool or EventRuleKind.Ultra)) {
                 Add(next, (type, p.Ultra), (new WatchForecast(p.PredictedStart, p.PredictedEnd, p.Confidence, p.Rule), p.Magnitudes));
                 continue;
             }
 
             foreach (var c in p.Candidates) {
                 Add(next, (c.Type, p.Ultra),
-                    (new WatchForecast(p.PredictedStart, p.PredictedEnd, p.Confidence * c.Probability, p.Rule), c.Magnitudes));
+                    (new WatchForecast(p.PredictedStart, p.PredictedEnd, p.Chance(c), p.Rule), c.Magnitudes));
             }
         }
 
@@ -120,11 +120,18 @@ public sealed class EventPredictor(EggIncognitoDbContext db, EventDataVersion ve
             return m;
         }
 
-        return [
-            .. projected.Select(p => p with {
-                Magnitudes = p.Type is { } type ? ModelOf(type, p.Ultra).At(p.PredictedStart) : [],
-                Candidates = [.. p.Candidates.Select(c => c with { Magnitudes = ModelOf(c.Type, p.Ultra).At(p.PredictedStart) })]
-            })
-        ];
+        var result = new List<EventPrediction>(projected.Count);
+        foreach (var p in projected.OrderBy(p => p.PredictedStart)) {
+            var candidates = p.Candidates
+                .Select(c => c with { Magnitudes = ModelOf(c.Type, p.Ultra).Step(p.Chance(c)) })
+                .ToList();
+            var own = p.Type is { } type ? candidates.FirstOrDefault(c => c.Type == type)?.Magnitudes : null;
+            result.Add(p with {
+                Magnitudes = own ?? (p.Type is { } t ? ModelOf(t, p.Ultra).Step(p.Confidence) : []),
+                Candidates = candidates
+            });
+        }
+
+        return result;
     }
 }

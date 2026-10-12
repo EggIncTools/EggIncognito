@@ -6,7 +6,7 @@ public sealed class WeekdayLaneRule : IEventRule {
     public const int Period = 7;
     public const int MinSamples = 4;
     public const double MinFill = 0.8;
-    private const int MinTrailingRun = 13;
+    public const int MinTrailingRun = 13;
 
     private readonly DateOnly _anchor;
     private readonly double _duration;
@@ -48,10 +48,11 @@ public sealed class WeekdayLaneRule : IEventRule {
             if (expected < MinSamples) continue;
             var dates = occurrences.Select(o => o.Date).ToHashSet();
             var anchor = occurrences[^1].Date;
-            if (dates.Count < MinFill * expected && !HeldRecently(anchor, dates, history.Last)) continue;
+            bool holding = HeldRecently(anchor, dates, history.Last);
+            if (dates.Count < MinFill * expected && !holding) continue;
             var evidence = new RuleEvidence(
                 dates.Count, expected, occurrences[^1].Start,
-                $"{RuleDates.Weekday(group.Key.DayOfWeek)}, every {Period} days, {dates.Count} of {expected}");
+                $"{RuleDates.Weekday(group.Key.DayOfWeek)}, every {Period} days, {dates.Count} of {expected}", holding);
             lanes.Add(new WeekdayLaneRule(
                 group.Key.Type, group.Key.DayOfWeek, anchor, dates,
                 RobustStats.Median(occurrences.Select(o => o.Duration).ToList()), evidence));
@@ -60,7 +61,7 @@ public sealed class WeekdayLaneRule : IEventRule {
         return lanes;
     }
 
-    private static bool HeldRecently(DateOnly anchor, HashSet<DateOnly> dates, DateOnly last) {
+    internal static bool HeldRecently(DateOnly anchor, HashSet<DateOnly> dates, DateOnly last) {
         if (anchor.AddDays(Period) <= last) return false;
         int run = 0;
         for (var d = anchor; dates.Contains(d); d = d.AddDays(-Period)) run++;
@@ -70,13 +71,8 @@ public sealed class WeekdayLaneRule : IEventRule {
     public IEnumerable<DateOnly> Dates(double asOf, double horizonEnd) =>
         RuleDates.Future(_anchor, Period, asOf, horizonEnd);
 
-    public EventPrediction Realize(DateOnly date, EventLedger ledger) {
-        double start = NoonEastern.SlotTime(date);
-        ledger.Touch(Type!, false, start, date);
-        return new EventPrediction(
-            Type, false, Kind, Key, Evidence.Summary, start, start + _duration, Evidence.Confidence,
-            [new EventCandidate(Type!, 1)], Evidence.Observed, Evidence.Expected, Period, Evidence.LastStart);
-    }
+    public double Duration(string type) => _duration;
 
-    EventPrediction? IEventRule.Realize(DateOnly date, EventLedger ledger) => Realize(date, ledger);
+    public IReadOnlyList<EventCandidate> Odds(DateOnly date, EventLedger ledger) =>
+        [new EventCandidate(Type!, Evidence.Confidence)];
 }

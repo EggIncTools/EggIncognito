@@ -77,7 +77,7 @@ public static class BotServices {
         IStatusProvider status, BuildInfo buildInfo, DateTimeOffset startedAt, ILogger logger) {
         var snap = new DashboardSnapshot {
             AppName = "EggIncognito",
-            Version = buildInfo.Version,
+            Version = BuildVersion.Describe(buildInfo.Version, buildInfo.Sha == "unknown" ? null : buildInfo.Sha),
             BuildHash = buildInfo.Sha,
             DeployStatus = "online",
             UptimeSince = startedAt,
