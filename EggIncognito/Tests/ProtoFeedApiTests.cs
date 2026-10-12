@@ -6,11 +6,13 @@ using EggIncognito.Controllers;
 using EggIncognito.Data.Models;
 using EggIncognito.Data.Services;
 using EggIncognito.Models.Protos;
+using EggIncognito.Services;
 using EggIncognito.Services.Feed;
 using EggIncognito.Services.Feed.Kinds;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Infrastructure;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 
 namespace EggIncognito.Tests;
 
@@ -23,7 +25,10 @@ public class ProtoFeedApiTests {
 
     private static ProtoFeedController Controller(ICurrentUser user,
         Func<HttpRequestMessage, HttpResponseMessage> respond) =>
-        new(user, new StubHttpFactory(new StubHttpMessageHandler(respond)));
+        new(user, Sender(new StubHttpFactory(new StubHttpMessageHandler(respond))));
+
+    private static FeedSender Sender(IHttpClientFactory http) =>
+        new(http, new BotDmClientFactory(http, new ConfigurationBuilder().Build()));
 
     private static int Status(IActionResult r) => ((IStatusCodeActionResult)r).StatusCode ?? 200;
 

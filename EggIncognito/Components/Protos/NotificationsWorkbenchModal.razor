@@ -8,6 +8,7 @@
 @inject ILogger<NotificationsWorkbenchModal> Logger
 @inject IServiceProvider Services
 @using System.Text.Json
+@using EggIdentity.Contract
 @using EggIdentity.Filters
 @using EggIncognito.Components.Shared.Editor
 @using EggIncognito.Models.Notifications
@@ -26,7 +27,7 @@
             }
         } else if (State.Creating) {
             <button type="button" class="btn-primary nwb-act"
-                    disabled="@(_busy || !User.Current.IsAuthenticated || State.NewDraft.Url.Trim().Length == 0 || !State.NewDraft.FilterReady)"
+                    disabled="@(_busy || !User.Current.IsAuthenticated || !State.NewDraft.TargetReady || (State.NewDraft.Dm && _dm?.State != DmReachability.Reachable) ||!State.NewDraft.FilterReady)"
                     @onclick="Create">
                 @CreateLabel
             </button>
@@ -143,6 +144,7 @@
     int _previewSeq;
 
     List<KindInfo> _kinds = [];
+    DmReachabilityResponse? _dm;
     List<NotificationRow>? _rows;
     List<PreviewRow>? _preview;
 
@@ -314,16 +316,37 @@
             </div>
         }
         <div class="nwb-surface">
-            <div class="nwb-row">
-                <span class="nwb-k">Webhook</span>
-                @if (row is null) {
-                    <input class="nwb-field nwb-mono" aria-label="Discord webhook URL"
-                           placeholder="https://discord.com/api/webhooks/..."
-                           @bind="d.Url" @bind:event="oninput"/>
+            @if (row is null) {
+                <div class="nwb-row">
+                    <span class="nwb-k">Deliver</span>
+                    <div class="nwb-kinds" role="radiogroup" aria-label="Delivery">
+                        <button type="button" role="radio" aria-checked="@(d.Dm ? "false" : "true")"
+                                class="@(d.Dm ? "nwb-kind" : "nwb-kind on")" @onclick="@(() => PickDelivery(d, false))">
+                            Webhook
+                        </button>
+                        <button type="button" role="radio" aria-checked="@(d.Dm ? "true" : "false")"
+                                class="@(d.Dm ? "nwb-kind on" : "nwb-kind")" @onclick="@(() => PickDelivery(d, true))">
+                            Discord DM
+                        </button>
+                    </div>
+                </div>
+                @if (d.Dm) {
+                    <DiscordDmSetupCard State="@_dm?.State" GuildInviteUrl="@_dm?.GuildInviteUrl"
+                                        ProfileUrl="/account" OnRecheck="LoadDm" OnSendTest="SendDmTest"/>
                 } else {
-                    <span class="nwb-static nwb-mono">@row.UrlMasked</span>
+                    <div class="nwb-row">
+                        <span class="nwb-k">Webhook</span>
+                        <input class="nwb-field nwb-mono" aria-label="Discord webhook URL"
+                               placeholder="https://discord.com/api/webhooks/..."
+                               @bind="d.Url" @bind:event="oninput"/>
+                    </div>
                 }
-            </div>
+            } else {
+                <div class="nwb-row">
+                    <span class="nwb-k">Target</span>
+                    <span class="nwb-static nwb-mono">@row.UrlMasked</span>
+                </div>
+            }
             <div class="nwb-row">
                 <span class="nwb-k">Label</span>
                 <input class="nwb-field" aria-label="Label" placeholder="@KindLabel(d.EventKind)"
@@ -777,6 +800,27 @@
         return ResetFilter(d);
     }
 
+    async Task PickDelivery(NotificationDraft d, bool dm) {
+        d.Dm = dm;
+        if (dm && _dm is null) await LoadDm();
+    }
+
+    async Task LoadDm() {
+        try {
+            _dm = await Client().GetFromJsonAsync<DmReachabilityResponse>("/api/protos/feed/dm/reachability", SelfCallJson.Web);
+        } catch (Exception ex) {
+            Logger.LogWarning(ex, "checking DM reachability failed");
+            _dm = new DmReachabilityResponse { State = DmReachability.Unknown };
+        }
+    }
+
+    async Task<DmSendResult> SendDmTest() {
+        var res = await Client().PostAsync("/api/protos/feed/dm/test", null);
+        return res.IsSuccessStatusCode
+            ? await res.Content.ReadFromJsonAsync<DmSendResult>(SelfCallJson.Web) ?? new DmSendResult(DmSendStatus.Failed)
+            : new DmSendResult(DmSendStatus.Failed);
+    }
+
     static string? LabelOf(NotificationDraft d) {
         return string.IsNullOrWhiteSpace(d.Label) ? null : d.Label.Trim();
     }
@@ -786,7 +830,7 @@
         try {
             var d = State.NewDraft;
             var body = new {
-                webhookUrl = d.Url, eventKind = d.EventKind, label = LabelOf(d), filter = FilterBody(d),
+                webhookUrl = d.Dm ? null : d.Url, channel = d.Dm ? "dm" : "webhook", eventKind = d.EventKind, label = LabelOf(d), filter = FilterBody(d),
                 messageTemplate = string.IsNullOrWhiteSpace(d.MessageTemplate) ? null : d.MessageTemplate
             };
             var res = await Client().PostAsJsonAsync("/api/protos/feed", body, SelfCallJson.Web);
@@ -837,7 +881,7 @@
         var sample = SelectedSample()?.Key ?? "";
         try {
             var res = await Client().PostAsync($"/api/protos/feed/{id}/test?sample={Uri.EscapeDataString(sample)}", null);
-            Note(res.IsSuccessStatusCode ? "Sent to the webhook." : "The webhook rejected it.", res.IsSuccessStatusCode);
+            Note(res.IsSuccessStatusCode ? "Sent." : "Delivery was rejected.", res.IsSuccessStatusCode);
         } catch (Exception ex) {
             Logger.LogWarning(ex, "sending sample {SampleKey} failed", sample);
             Note("Send failed.", false);

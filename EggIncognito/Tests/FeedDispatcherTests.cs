@@ -2,11 +2,13 @@ using System.Net;
 using EggIncognito.Core.Services.ProtoExtract;
 using EggIncognito.Data.Models;
 using EggIncognito.Data.Services;
+using EggIncognito.Services;
 using EggIncognito.Services.Contracts;
 using EggIncognito.Services.DataApi;
 using EggIncognito.Services.Events;
 using EggIncognito.Services.Feed;
 using EggIncognito.Services.Feed.Kinds;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace EggIncognito.Tests;
@@ -15,7 +17,13 @@ public class FeedDispatcherTests {
     private static readonly DateTimeOffset Start = new(2026, 10, 12, 16, 0, 0, TimeSpan.Zero);
 
     private static FeedDispatcher Dispatcher(FakeStore store, HttpMessageHandler handler) =>
-        new(store, new StubHttpFactory(handler), NullLogger<FeedDispatcher>.Instance, TimeProvider.System);
+        new(store, Sender(handler), NullLogger<FeedDispatcher>.Instance, TimeProvider.System);
+
+    private static FeedSender Sender(HttpMessageHandler handler) {
+        var http = new StubHttpFactory(handler);
+        return new FeedSender(http, new BotDmClientFactory(http,
+            new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?> { ["Discord:BotToken"] = "token" }).Build()));
+    }
 
     private static StubHttpMessageHandler Ok() =>
         new(_ => new HttpResponseMessage(HttpStatusCode.NoContent));

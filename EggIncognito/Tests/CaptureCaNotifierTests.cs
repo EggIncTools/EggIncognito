@@ -52,8 +52,8 @@ public sealed class CaptureCaNotifierTests : IDisposable {
     public async Task DiscordNotifier_FailingHttp_ReturnsFalse() {
         var handler = new StubHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.Forbidden));
         var notifier = new DiscordCaptureCaNotifier(
-            new StubHttpFactory(handler),
-            Config(new Dictionary<string, string?> { ["Discord:BotToken"] = "token" }),
+            new BotDmClientFactory(new StubHttpFactory(handler),
+                Config(new Dictionary<string, string?> { ["Discord:BotToken"] = "token" })),
             NullLogger<DiscordCaptureCaNotifier>.Instance);
 
         bool ok = await notifier.SendSetupAsync(Dm(), CancellationToken.None);
@@ -64,8 +64,7 @@ public sealed class CaptureCaNotifierTests : IDisposable {
     public async Task DiscordNotifier_NoToken_ReturnsFalse() {
         var handler = new StubHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.OK));
         var notifier = new DiscordCaptureCaNotifier(
-            new StubHttpFactory(handler),
-            Config([]),
+            new BotDmClientFactory(new StubHttpFactory(handler), Config([])),
             NullLogger<DiscordCaptureCaNotifier>.Instance);
 
         bool ok = await notifier.SendSetupAsync(Dm(), CancellationToken.None);

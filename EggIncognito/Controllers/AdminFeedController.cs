@@ -1,4 +1,3 @@
-using System.Text;
 using EggIdentity.Client;
 using EggIncognito.Data.Services;
 using EggIncognito.Services.Admin;
@@ -13,7 +12,7 @@ namespace EggIncognito.Controllers;
 [Route("api/admin/feed")]
 [ApiAccess(ApiAccessLevel.Admin)]
 [EnableRateLimiting("write")]
-public sealed class AdminFeedController(IHttpClientFactory httpFactory) : ApiControllerBase {
+public sealed class AdminFeedController(FeedSender sender) : ApiControllerBase {
     [HttpGet("subscriptions")]
     [EnableRateLimiting("read")]
     [RequiresDb]
@@ -51,11 +50,9 @@ public sealed class AdminFeedController(IHttpClientFactory httpFactory) : ApiCon
         var sub = await store.AdminByIdAsync(id, ct);
         if (sub is null) return Fail(404, "subscription not found");
 
-        var http = httpFactory.CreateClient("discord-api");
-        string body = await ProtoFeedController.TestBodyAsync(sub, sample, samples, ct);
-        var res = await http.PostAsync(sub.TargetUrl, new StringContent(body, Encoding.UTF8, "application/json"), ct);
-        if (!res.IsSuccessStatusCode)
-            return Fail(400, "webhook rejected the test message");
+        var res = await sender.SendAsync(sub, await ProtoFeedController.TestBodyAsync(sub, sample, samples, ct), ct);
+        if (!res.Ok)
+            return Fail(400, FeedSender.IsDm(sub) ? "Discord refused the test DM" : "webhook rejected the test message");
         return Ok(new { tested = true, sample });
     }
 }

@@ -1,7 +1,9 @@
-using System.Text;
 using System.Text.Json;
 using EggIdentity.Auth;
+using EggIdentity.Client;
+using EggIdentity.Contract;
 using EggIdentity.Filters;
+using EggIncognito.Services;
 using EggIncognito.Data.Models;
 using EggIncognito.Data.Services;
 using EggIncognito.Models.Protos;
@@ -16,7 +18,7 @@ namespace EggIncognito.Controllers;
 [ApiController]
 [Route("api/protos/feed")]
 [ApiAccess(ApiAccessLevel.Public)]
-public sealed class ProtoFeedController(ICurrentUser currentUser, IHttpClientFactory httpFactory)
+public sealed class ProtoFeedController(ICurrentUser currentUser, FeedSender sender)
     : ApiControllerBase {
     [HttpGet("kinds")]
     public async Task<IActionResult> Kinds([FromServices] FeedSampleSource samples, CancellationToken ct) {
@@ -58,11 +60,16 @@ public sealed class ProtoFeedController(ICurrentUser currentUser, IHttpClientFac
         [FromServices] FeedSubscriptionStore store, [FromServices] AdminNotifier? notifier, CancellationToken ct) {
         var owner = currentUser.Current.Id;
         if (owner is null) return Fail(401, "log in to manage subscriptions");
-        if (string.IsNullOrWhiteSpace(req.WebhookUrl) ||
-            !Uri.TryCreate(req.WebhookUrl, UriKind.Absolute, out var webhook) ||
+        bool dm = string.Equals(req.Channel, "dm", StringComparison.OrdinalIgnoreCase);
+        string? discordId = currentUser.Current.DiscordId;
+        Uri? webhook = null;
+        if (dm && string.IsNullOrEmpty(discordId))
+            return Fail(400, "link a Discord account to get DMs");
+        if (!dm && (string.IsNullOrWhiteSpace(req.WebhookUrl) ||
+            !Uri.TryCreate(req.WebhookUrl, UriKind.Absolute, out webhook) ||
             webhook.Scheme != Uri.UriSchemeHttps ||
             !string.Equals(webhook.Host, "discord.com", StringComparison.OrdinalIgnoreCase) ||
-            !webhook.AbsolutePath.StartsWith("/api/webhooks/", StringComparison.Ordinal))
+            !webhook.AbsolutePath.StartsWith("/api/webhooks/", StringComparison.Ordinal)))
             return Fail(400, "a Discord webhook URL is required");
 
         var info = FeedEventKinds.Find(FeedEventKinds.Normalize(req.EventKind)) ?? FeedEventKinds.Proto;
@@ -75,17 +82,18 @@ public sealed class ProtoFeedController(ICurrentUser currentUser, IHttpClientFac
 
         if (Problems(info, filter) is { } problems) return Fail(400, problems);
 
-        var http = httpFactory.CreateClient("discord-api");
-        var test = await http.PostAsync(webhook,
-            new StringContent("""{"content":"EggIncognito proto feed connected."}""",
-                Encoding.UTF8, "application/json"), ct);
-        if (!test.IsSuccessStatusCode)
-            return Fail(400, "webhook rejected the test message");
+        var target = new FeedSubscription {
+            Kind = dm ? FeedSender.DmKind : FeedSender.WebhookKind,
+            TargetUrl = dm ? discordId! : webhook!.ToString()
+        };
+        var test = await sender.SendAsync(target, ConnectedBody, ct);
+        if (!test.Ok)
+            return Fail(400, dm ? "Discord refused the test DM" : "webhook rejected the test message");
 
         var sub = await store.AddAsync(new FeedSubscription {
-            Kind = "discord",
+            Kind = target.Kind,
             EventKind = info.Key,
-            TargetUrl = webhook.ToString(),
+            TargetUrl = target.TargetUrl,
             FilterSet = FilterCodec.Serialize(filter),
             Label = string.IsNullOrWhiteSpace(req.Label) ? null : req.Label.Trim(),
             MessageTemplate = string.IsNullOrWhiteSpace(req.MessageTemplate) ? null : req.MessageTemplate,
@@ -112,7 +120,7 @@ public sealed class ProtoFeedController(ICurrentUser currentUser, IHttpClientFac
             s.LastDeliveryAt,
             s.FailCount,
             s.MessageTemplate,
-            UrlMasked = MaskWebhook(s.TargetUrl)
+            UrlMasked = FeedSender.Describe(s)
         }));
     }
 
@@ -141,13 +149,35 @@ public sealed class ProtoFeedController(ICurrentUser currentUser, IHttpClientFac
         var sub = (await store.ByOwnerAsync(owner.Value, ct)).FirstOrDefault(s => s.Id == id);
         if (sub is null) return Fail(404, "subscription not found");
 
-        var http = httpFactory.CreateClient("discord-api");
-        var res = await http.PostAsync(sub.TargetUrl,
-            new StringContent(await TestBodyAsync(sub, sample, samples, ct), Encoding.UTF8, "application/json"), ct);
-        if (!res.IsSuccessStatusCode)
-            return Fail(400, "webhook rejected the test message");
+        var res = await sender.SendAsync(sub, await TestBodyAsync(sub, sample, samples, ct), ct);
+        if (!res.Ok)
+            return Fail(400, FeedSender.IsDm(sub) ? "Discord refused the test DM" : "webhook rejected the test message");
         return Ok(new { tested = true, sample });
     }
+
+    [HttpGet("dm/reachability")]
+    public async Task<IActionResult> DmReachability([FromServices] AuthState auth,
+        [FromServices] IdentityApiClient? identity, CancellationToken ct) {
+        if (currentUser.Current.Id is null) return Fail(401, "log in to manage subscriptions");
+        string token = Request.Cookies[auth.SessionCookieName] ?? "";
+        var res = identity is null || token.Length == 0 ? null : await identity.GetDmReachabilityAsync(token, AppName, ct);
+        return Ok(res ?? new DmReachabilityResponse {
+            State = string.IsNullOrEmpty(currentUser.Current.DiscordId) ? EggIdentity.Contract.DmReachability.NoDiscordLink : EggIdentity.Contract.DmReachability.Unknown
+        });
+    }
+
+    [HttpPost("dm/test")]
+    [EnableRateLimiting("write")]
+    public async Task<IActionResult> DmTest(CancellationToken ct) {
+        if (currentUser.Current.Id is null) return Fail(401, "log in to manage subscriptions");
+        if (currentUser.Current.DiscordId is not { Length: > 0 } discordId)
+            return Ok(new DmSendResult(DmSendStatus.Failed));
+        return Ok(await sender.DmAsync(discordId, DmTestBody, ct));
+    }
+
+    private const string AppName = "eggincognito";
+    private const string ConnectedBody = """{"content":"EggIncognito notifications connected."}""";
+    private const string DmTestBody = """{"content":"EggIncognito test DM. Notifications can reach you here."}""";
 
     [HttpPost("preview")]
     [EnableRateLimiting("read")]

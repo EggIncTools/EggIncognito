@@ -1,4 +1,3 @@
-using System.Text;
 using EggIncognito.Data.Models;
 using EggIncognito.Data.Services;
 using EggIncognito.Services.Admin;
@@ -7,7 +6,7 @@ namespace EggIncognito.Services.Feed;
 
 public sealed class FeedDispatcher(
     IFeedSubscriptionStore store,
-    IHttpClientFactory httpFactory,
+    FeedSender sender,
     ILogger<FeedDispatcher> logger,
     TimeProvider time,
     AdminNotifier? notifier = null) {
@@ -21,7 +20,6 @@ public sealed class FeedDispatcher(
     public async Task DispatchAsync(INotificationEvent evt, CancellationToken ct = default) {
         var kind = FeedEventKinds.For(evt);
         var subs = await store.ActiveAsync(ct);
-        var http = httpFactory.CreateClient("discord-api");
         foreach (var sub in subs) {
             if (!string.Equals(FeedEventKinds.Normalize(sub.EventKind), kind.Key, StringComparison.Ordinal))
                 continue;
@@ -40,12 +38,10 @@ public sealed class FeedDispatcher(
             int? code = null;
             bool ok = false;
             try {
-                string body = DiscordFeedPayload.Build(evt, sub.MessageTemplate);
-                var res = await http.PostAsync(sub.TargetUrl,
-                    new StringContent(body, Encoding.UTF8, "application/json"), ct);
-                code = (int)res.StatusCode;
-                ok = res.IsSuccessStatusCode;
-                if (code is 404 or 410) await DeactivateAsync(sub.Id, ct);
+                var sent = await sender.SendAsync(sub, DiscordFeedPayload.Build(evt, sub.MessageTemplate), ct);
+                code = sent.Code;
+                ok = sent.Ok;
+                if (sent.Dead) await DeactivateAsync(sub.Id, ct);
             } catch (Exception ex) {
                 logger.LogWarning(ex, "feed dispatch to sub {Id} threw", sub.Id);
             }

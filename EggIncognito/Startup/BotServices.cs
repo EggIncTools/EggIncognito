@@ -5,6 +5,7 @@ using EggIdentity.Contract;
 using EggIncognito.Bot;
 using EggIncognito.Core.Services;
 using EggIncognito.Services;
+using EggIncognito.Services.Feed;
 
 namespace EggIncognito.Startup;
 
@@ -14,6 +15,8 @@ public static class BotServices {
 
     public static void AddBotServices(this WebApplicationBuilder builder, BootFlags boot) {
         builder.Services.AddHttpClient("discord-api", c => c.Timeout = TimeSpan.FromSeconds(8));
+        builder.Services.AddSingleton<BotDmClientFactory>();
+        builder.Services.AddSingleton<FeedSender>();
         if (boot.BotEnabled)
             builder.Services.AddSingleton<ICaptureCaNotifier, DiscordCaptureCaNotifier>();
         else

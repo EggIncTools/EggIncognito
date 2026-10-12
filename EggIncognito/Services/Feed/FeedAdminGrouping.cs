@@ -16,7 +16,7 @@ public static class FeedAdminGrouping {
                 FeedEventKinds.Normalize(s.EventKind),
                 s.Kind,
                 s.Label,
-                WebhookMask.Mask(s.TargetUrl),
+                FeedSender.Describe(s),
                 EggIdentity.Filters.FilterCodec.Serialize(
                     (FeedEventKinds.Find(FeedEventKinds.Normalize(s.EventKind)) ?? FeedEventKinds.Proto).FilterOf(s)),
                 s.Active,

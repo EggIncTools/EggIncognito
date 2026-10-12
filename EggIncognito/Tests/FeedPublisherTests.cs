@@ -1,6 +1,7 @@
 using System.Net;
 using EggIncognito.Data.Models;
 using EggIncognito.Data.Services;
+using EggIncognito.Services;
 using EggIncognito.Services.Events;
 using EggIncognito.Services.Feed;
 using EggIncognito.Services.Feed.Kinds;
@@ -26,7 +27,9 @@ public class FeedPublisherTests {
         services.AddSingleton<IHttpClientFactory>(new StubHttpFactory(handler));
         services.AddSingleton(TimeProvider.System);
         services.AddScoped<FeedDispatcher>(sp => new FeedDispatcher(
-            sp.GetRequiredService<IFeedSubscriptionStore>(), sp.GetRequiredService<IHttpClientFactory>(),
+            sp.GetRequiredService<IFeedSubscriptionStore>(),
+            new FeedSender(sp.GetRequiredService<IHttpClientFactory>(),
+                new BotDmClientFactory(sp.GetRequiredService<IHttpClientFactory>(), new ConfigurationBuilder().Build())),
             NullLogger<FeedDispatcher>.Instance, TimeProvider.System));
         var provider = services.BuildServiceProvider();
         var config = new ConfigurationBuilder()

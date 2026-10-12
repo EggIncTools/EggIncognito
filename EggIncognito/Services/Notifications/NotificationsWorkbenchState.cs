@@ -6,6 +6,8 @@ namespace EggIncognito.Services.Notifications;
 
 public sealed class NotificationDraft {
     public string Url { get; set; } = "";
+    public bool Dm { get; set; }
+    public bool TargetReady => Dm || Url.Trim().Length > 0;
     public string Label { get; set; } = "";
     public string EventKind { get; set; } = FeedEventKinds.ProtoBuild;
     public bool Active { get; set; } = true;
