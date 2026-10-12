@@ -40,7 +40,7 @@ COPY EggIncognito/ EggIncognito/
 ARG BUILD_HEIGHT
 ARG BUILD_SHA
 RUN set -eux; \
-    BUILD_HEIGHT="$BUILD_HEIGHT" BUILD_SHA="$BUILD_SHA" \
+    BUILD_HEIGHT="${BUILD_HEIGHT:-}" BUILD_SHA="${BUILD_SHA:-}" \
     dotnet publish EggIncognito/EggIncognito.csproj -c Release -o /app/publish \
         -p:ContainerPublish=true \
         -p:EmitTypes=false -p:RunAnalyzers=false -p:EnforceCodeStyleInBuild=false \
