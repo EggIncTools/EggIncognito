@@ -13,4 +13,6 @@ public sealed record EventPrediction(
     int Observed,
     int Expected,
     int PeriodDays,
-    double LastStart);
+    double LastStart) {
+    public IReadOnlyList<EventMagnitudeOdds> Magnitudes { get; init; } = [];
+}

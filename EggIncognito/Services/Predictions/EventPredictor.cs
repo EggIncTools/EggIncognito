@@ -38,16 +38,16 @@ public sealed class EventPredictor(EggIncognitoDbContext db, EventDataVersion ve
     public static IReadOnlyList<WatchEntry> Watch(
         IReadOnlyList<EventRow> rows, IReadOnlyList<EventPrediction> predictions, double asOf) {
         var past = rows.Where(r => r.Start < asOf).ToList();
-        var next = new Dictionary<(string Type, bool Ultra), List<WatchForecast>>();
+        var next = new Dictionary<(string Type, bool Ultra), List<(WatchForecast Forecast, IReadOnlyList<EventMagnitudeOdds> Odds)>>();
         foreach (var p in predictions.Where(p => p.PredictedStart >= asOf)) {
             if (p.Type is { } type) {
-                Add(next, (type, p.Ultra), new WatchForecast(p.PredictedStart, p.PredictedEnd, p.Confidence, p.Rule));
+                Add(next, (type, p.Ultra), (new WatchForecast(p.PredictedStart, p.PredictedEnd, p.Confidence, p.Rule), p.Magnitudes));
                 continue;
             }
 
             foreach (var c in p.Candidates) {
                 Add(next, (c.Type, p.Ultra),
-                    new WatchForecast(p.PredictedStart, p.PredictedEnd, p.Confidence * c.Probability, p.Rule));
+                    (new WatchForecast(p.PredictedStart, p.PredictedEnd, p.Confidence * c.Probability, p.Rule), c.Magnitudes));
             }
         }
 
@@ -56,32 +56,32 @@ public sealed class EventPredictor(EggIncognitoDbContext db, EventDataVersion ve
         foreach (var kind in past.Select(r => (r.Type, r.Ultra)).Union(next.Keys).OrderBy(k => k.Ultra).ThenBy(k => k.Type, StringComparer.Ordinal)) {
             var history = past.Where(r => r.Type == kind.Type && r.Ultra == kind.Ultra).ToList();
             var recent = history.Where(r => r.Start >= windowStart).ToList();
-            var forecasts = next.TryGetValue(kind, out var list) ? list.OrderBy(f => f.Start).ToList() : [];
+            var forecasts = next.TryGetValue(kind, out var list) ? list.OrderBy(f => f.Forecast.Start).ToList() : [];
             var magnitudes = recent.Select(r => r.Multiplier).Distinct().OrderBy(m => m).ToList();
             if (magnitudes.Count == 0) magnitudes = [history.Count > 0 ? history[^1].Multiplier : 0];
             foreach (var magnitude in magnitudes) {
                 var runs = history.Where(r => r.Multiplier == magnitude).ToList();
                 var lastRun = runs.Count > 0 ? runs.MaxBy(r => r.Start) : (EventRow?)null;
-                double share = magnitudes.Count == 1 || recent.Count == 0
-                    ? 1
-                    : (double)recent.Count(r => r.Multiplier == magnitude) / recent.Count;
                 string scalar = EventMagnitude.Describe(magnitude);
                 entries.Add(new WatchEntry(
                     FormattableString.Invariant($"{kind.Type}:{(kind.Ultra ? "ultra" : "std")}:{magnitude:0.###}"),
                     scalar.Length > 0 ? $"{EventTypeLabel(kind.Type)} {scalar}" : EventTypeLabel(kind.Type), kind.Ultra,
                     EventPalette.IconUrl(kind.Type, kind.Ultra), EventPalette.BarStyle(kind.Type, kind.Ultra),
                     lastRun?.Start, lastRun?.End,
-                    [.. forecasts.Select(f => f with { Confidence = f.Confidence * share })]));
+                    [.. forecasts.Select(f => f.Forecast with { Confidence = f.Forecast.Confidence * MagnitudeShare(f.Odds, magnitude, magnitudes.Count) })]));
             }
         }
 
         return entries;
     }
 
-    private static void Add<TKey>(Dictionary<TKey, List<WatchForecast>> map, TKey key, WatchForecast forecast)
+    private static double MagnitudeShare(IReadOnlyList<EventMagnitudeOdds> odds, double magnitude, int kinds) =>
+        kinds == 1 ? 1 : odds.FirstOrDefault(o => o.Multiplier == magnitude)?.Probability ?? 0;
+
+    private static void Add<TKey, TValue>(Dictionary<TKey, List<TValue>> map, TKey key, TValue value)
         where TKey : notnull {
         if (!map.TryGetValue(key, out var list)) map[key] = list = [];
-        list.Add(forecast);
+        list.Add(value);
     }
 
     private static string EventTypeLabel(string type) =>
@@ -110,6 +110,21 @@ public sealed class EventPredictor(EggIncognitoDbContext db, EventDataVersion ve
 
     public static IReadOnlyList<EventPrediction> Predict(IReadOnlyList<EventRow> rows, double asOf, int horizonDays) {
         var history = EventHistory.Build(rows, asOf);
-        return EventProjector.Project(EventModelTrainer.Train(history, asOf), history, asOf, horizonDays);
+        var projected = EventProjector.Project(EventModelTrainer.Train(history, asOf), history, asOf, horizonDays);
+        var models = new Dictionary<(string, bool), MagnitudeModel>();
+        MagnitudeModel ModelOf(string type, bool ultra) {
+            if (!models.TryGetValue((type, ultra), out var m)) {
+                models[(type, ultra)] = m = MagnitudeModel.Build(rows.Where(r => r.Type == type && r.Ultra == ultra), asOf);
+            }
+
+            return m;
+        }
+
+        return [
+            .. projected.Select(p => p with {
+                Magnitudes = p.Type is { } type ? ModelOf(type, p.Ultra).At(p.PredictedStart) : [],
+                Candidates = [.. p.Candidates.Select(c => c with { Magnitudes = ModelOf(c.Type, p.Ultra).At(p.PredictedStart) })]
+            })
+        ];
     }
 }

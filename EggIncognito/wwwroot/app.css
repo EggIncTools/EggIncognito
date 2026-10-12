@@ -535,8 +535,9 @@ body:has(.modal-backdrop) { overflow: hidden; }
 .modal-card.wb-card { --wb-card-w: fit-content; --wb-card-max: 97vw; min-width: min(92vw, 60rem); }
 .wb-card.calwb-card { --wb-card-w: 97vw; --wb-card-max: none; }
 .wb-card.nwb-card { min-width: min(92vw, 48rem); max-height: 96vh; }
-.nwb-card .wb-body { min-height: 0; }
-.nwb-card .wb-main { min-height: 0; overflow-y: auto; }
+.wb-card.awb-card { max-height: 96vh; }
+.nwb-card .wb-body, .awb-card .wb-body { min-height: 0; }
+.nwb-card .wb-main, .awb-card .wb-main { min-height: 0; overflow-y: auto; }
 .nwb-card .wb-rail { --wb-rail-w: 16rem; scrollbar-gutter: auto; }
 .nwb-card .wb-entry-meta { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 

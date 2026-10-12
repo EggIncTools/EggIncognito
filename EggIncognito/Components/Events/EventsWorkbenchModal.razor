@@ -48,16 +48,18 @@
     </Rail>
     <Bar>
         @if (Choices(context.Item.Prediction) is { Count: > 1 } choices) {
-            <button type="button" class="@(BarCss(context) + " evcal-bar-multi")" style="@BarStyle(context)" @onclick="@(() => _cal?.Select(context))">
-                @foreach (var choice in choices) {
-                    <span class="evcal-choice" @key="choice.Type" style="@(EventPalette.BarStyle(choice.Type, context.Item.Ultra) + PctStyle(choice.Probability))">
-                        @if (EventPalette.IconUrl(choice.Type, context.Item.Ultra) is { } choiceIcon) {
-                            <FallbackImg Class="evcal-bar-icon" Src="@choiceIcon" Alt=""/>
-                        }
-                        <span class="evcal-bar-label">@Pretty(choice.Type)</span>
-                        <span class="evcal-choice-pct" style="@PctStyle(choice.Probability)">@Percent(choice.Probability)</span>
-                    </span>
+            var lead = choices[0];
+            <button type="button" class="@(BarCss(context) + " evcal-bar-multi")" style="@(BarStyle(context) + EventPalette.BarStyle(lead.Type, context.Item.Ultra))" @onclick="@(() => _cal?.Select(context))">
+                @if (EventPalette.IconUrl(lead.Type, context.Item.Ultra) is { } leadIcon) {
+                    <FallbackImg Class="evcal-bar-icon" Src="@leadIcon" Alt=""/>
                 }
+                <span class="evcal-bar-label">@ChoiceLabel(lead)?</span>
+                <span class="evcal-multi-more">+@(choices.Count - 1)</span>
+                <span class="evcal-multi-strip">
+                    @foreach (var choice in choices) {
+                        <span class="evcal-multi-seg" @key="choice.Type" style="@(EventPalette.BarStyle(choice.Type, context.Item.Ultra) + PctStyle(choice.Probability))"></span>
+                    }
+                </span>
             </button>
         } else {
             <button type="button" class="@BarCss(context)" style="@BarStyle(context)" @onclick="@(() => _cal?.Select(context))">
@@ -90,11 +92,21 @@
                 <span class="evcal-pop-big">@Percent(p.Confidence)</span>
             </div>
             <span class="evcal-pop-when">@Absolute(p.PredictedStart) to @Absolute(p.PredictedEnd)</span>
+            @if (p.Magnitudes.Count > 1) {
+                <div class="evcal-pop-choices">
+                    @foreach (var odds in p.Magnitudes) {
+                        <span class="evcal-pop-choice" @key="odds.Multiplier">
+                            <span>@EventMagnitude.Describe(odds.Multiplier)</span>
+                            <span class="evcal-choice-pct" style="@PctStyle(odds.Probability)">@Percent(odds.Probability)</span>
+                        </span>
+                    }
+                </div>
+            }
             @if (Choices(p) is { Count: > 1 } popChoices) {
                 <div class="evcal-pop-choices">
                     @foreach (var candidate in popChoices) {
                         <span class="evcal-pop-choice" @key="candidate.Type">
-                            <span>@Pretty(candidate.Type)</span>
+                            <span>@ChoiceLabel(candidate)</span>
                             <span class="evcal-choice-pct" style="@PctStyle(candidate.Probability)">@Percent(candidate.Probability)</span>
                         </span>
                     }
@@ -281,7 +293,7 @@
     static string Label(EventCalendarItem item) {
         if (item.Prediction is { } p) {
             if (p.Type is not { Length: > 0 } type) return p.Ultra ? "Ultra event" : "Standard event";
-            var pretty = Pretty(type);
+            var pretty = WithMagnitude(Pretty(type), p.Magnitudes);
             return p.Kind is EventRuleKind.Pool or EventRuleKind.Ultra && p.Confidence < UncertainConfidence ? pretty + "?" : pretty;
         }
 
@@ -306,6 +318,11 @@
         p is { Candidates.Count: > 1 }
             ? [.. p.Candidates.Where(c => !string.IsNullOrEmpty(c.Type)).OrderByDescending(c => c.Probability)]
             : [];
+
+    static string ChoiceLabel(EventCandidate c) => WithMagnitude(Pretty(c.Type), c.Magnitudes);
+
+    static string WithMagnitude(string label, IReadOnlyList<EventMagnitudeOdds> odds) =>
+        odds.Count > 0 && EventMagnitude.Describe(odds[0].Multiplier) is { Length: > 0 } scalar ? $"{label} {scalar}" : label;
 
     static string PctStyle(double p) => FormattableString.Invariant($"--p:{Math.Clamp(p, 0, 1):0.###};");
 
