@@ -1,3 +1,4 @@
+using EggIdentity.Filters;
 using EggIdentity.UI;
 using EggIncognito.Services.Feed;
 
@@ -7,13 +8,26 @@ public sealed class NotificationDraft {
     public string Url { get; set; } = "";
     public string Label { get; set; } = "";
     public string EventKind { get; set; } = FeedEventKinds.ProtoBuild;
-    public string Trigger { get; set; } = FeedEventKinds.Proto.DefaultTrigger;
-    public bool Android { get; set; } = true;
-    public bool Ios { get; set; } = true;
     public bool Active { get; set; } = true;
     public string MessageTemplate { get; set; } = "";
-    public HashSet<string> Filters { get; set; } = [];
+    public FilterSet Filter { get; set; } = FeedEventKinds.Proto.Defaults;
+    public FilterDraft Rows { get; set; } = Hydrated(FeedEventKinds.Proto.Defaults);
+    public FilterDraftState? Validity { get; set; }
     public string? SampleKey { get; set; }
+
+    public bool FilterReady => Validity is not { HasIncomplete: true };
+
+    public void ResetFilter(FilterSet set) {
+        Filter = set;
+        Rows = Hydrated(set);
+        Validity = null;
+    }
+
+    private static FilterDraft Hydrated(FilterSet set) {
+        var draft = new FilterDraft();
+        draft.Hydrate(set);
+        return draft;
+    }
 }
 
 public sealed class NotificationsWorkbenchState : WorkbenchStateBase {
@@ -41,12 +55,9 @@ public sealed class NotificationsWorkbenchState : WorkbenchStateBase {
         NewDraft.Label = "";
         NewDraft.SampleKey = null;
         NewDraft.EventKind = FeedEventKinds.ProtoBuild;
-        NewDraft.Trigger = FeedEventKinds.Proto.DefaultTrigger;
-        NewDraft.Android = true;
-        NewDraft.Ios = true;
         NewDraft.Active = true;
         NewDraft.MessageTemplate = "";
-        NewDraft.Filters = [];
+        NewDraft.ResetFilter(FeedEventKinds.Proto.Defaults);
     }
 
     public override string? Hash() {

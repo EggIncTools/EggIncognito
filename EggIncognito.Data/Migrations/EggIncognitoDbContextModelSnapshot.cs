@@ -1258,6 +1258,10 @@ namespace EggIncognito.Data.Migrations
                         .HasColumnName("filters")
                         .HasDefaultValueSql("'{}'");
 
+                    b.Property<string>("FilterSet")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("filter_set");
+
                     b.Property<string>("Kind")
                         .IsRequired()
                         .HasColumnType("text")

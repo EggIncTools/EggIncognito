@@ -1,5 +1,7 @@
 using System.Text;
+using System.Text.Json;
 using EggIdentity.Auth;
+using EggIdentity.Filters;
 using EggIncognito.Data.Models;
 using EggIncognito.Data.Services;
 using EggIncognito.Models.Protos;
@@ -23,12 +25,17 @@ public sealed class ProtoFeedController(ICurrentUser currentUser, IHttpClientFac
         k.Key,
         k.Label,
         k.Description,
-        Triggers = k.Triggers.Select(t => new { t.Value, t.Label }),
-        k.DefaultTrigger,
-        k.PlatformScoped,
-        Filters = k.Filters.Select(f => new { f.Key, f.Label, f.DefaultOn }),
+        Catalog = JsonElement.Parse(FilterCodec.SerializeCatalog(k.Catalog)),
         Vars = FeedVars.Describe(k)
     };
+
+    public static FilterSet ParseFilter(JsonElement? raw, FilterSet fallback) =>
+        raw is { ValueKind: JsonValueKind.Object } json ? FilterCodec.Deserialize(json.GetRawText()) : fallback;
+
+    public static string? Problems(NotificationKind kind, FilterSet set) =>
+        kind.Validate(set) is { Count: > 0 } problems
+            ? string.Join("; ", problems.Select(p => $"row {p.Row + 1}: {kind.FieldLabel(p.Condition.Field)}: {p.Reason}"))
+            : null;
 
     public static string TestBody(FeedSubscription sub, string? sample) {
         string kind = FeedEventKinds.Normalize(sub.EventKind);
@@ -53,6 +60,16 @@ public sealed class ProtoFeedController(ICurrentUser currentUser, IHttpClientFac
             !webhook.AbsolutePath.StartsWith("/api/webhooks/", StringComparison.Ordinal))
             return Fail(400, "a Discord webhook URL is required");
 
+        var info = FeedEventKinds.Find(FeedEventKinds.Normalize(req.EventKind)) ?? FeedEventKinds.Proto;
+        FilterSet filter;
+        try {
+            filter = ParseFilter(req.Filter, info.Defaults);
+        } catch (JsonException) {
+            return Fail(400, "the filter is not valid JSON");
+        }
+
+        if (Problems(info, filter) is { } problems) return Fail(400, problems);
+
         var http = httpFactory.CreateClient("discord-api");
         var test = await http.PostAsync(webhook,
             new StringContent("""{"content":"EggIncognito proto feed connected."}""",
@@ -60,20 +77,17 @@ public sealed class ProtoFeedController(ICurrentUser currentUser, IHttpClientFac
         if (!test.IsSuccessStatusCode)
             return Fail(400, "webhook rejected the test message");
 
-        string kind = FeedEventKinds.Normalize(req.EventKind);
         var sub = await store.AddAsync(new FeedSubscription {
             Kind = "discord",
-            EventKind = kind,
+            EventKind = info.Key,
             TargetUrl = webhook.ToString(),
-            Platforms = req.Platforms is { Length: > 0 } ? req.Platforms : ["android", "ios"],
-            Trigger = FeedEventKinds.NormalizeTrigger(kind, req.Trigger),
-            Filters = FeedEventKinds.NormalizeFilters(kind, req.Filters),
+            FilterSet = FilterCodec.Serialize(filter),
             Label = string.IsNullOrWhiteSpace(req.Label) ? null : req.Label.Trim(),
             MessageTemplate = string.IsNullOrWhiteSpace(req.MessageTemplate) ? null : req.MessageTemplate,
             OwnerUserId = owner.Value
         }, ct);
         FeedSubscriptionNotify.Changed(notifier);
-        return Ok(new { sub.Id, sub.EventKind, sub.Platforms, sub.Trigger });
+        return Ok(new { sub.Id, sub.EventKind });
     }
 
     [HttpGet("mine")]
@@ -87,9 +101,7 @@ public sealed class ProtoFeedController(ICurrentUser currentUser, IHttpClientFac
             s.Id,
             s.Label,
             EventKind = FeedEventKinds.Normalize(s.EventKind),
-            s.Platforms,
-            s.Trigger,
-            s.Filters,
+            Filter = FilterJson(s),
             s.Active,
             s.CreatedAt,
             s.LastDeliveryAt,
@@ -135,27 +147,30 @@ public sealed class ProtoFeedController(ICurrentUser currentUser, IHttpClientFac
     [HttpPost("preview")]
     [EnableRateLimiting("read")]
     public IActionResult Preview([FromBody] FeedPreviewReq req) {
-        string kind = FeedEventKinds.Normalize(req.EventKind);
-        var probe = new FeedSubscription {
-            EventKind = kind,
-            Platforms = req.Platforms is { Length: > 0 } ? req.Platforms : ["android", "ios"],
-            Trigger = FeedEventKinds.NormalizeTrigger(kind, req.Trigger),
-            Filters = FeedEventKinds.NormalizeFilters(kind, req.Filters),
-            MessageTemplate = string.IsNullOrWhiteSpace(req.MessageTemplate) ? null : req.MessageTemplate
-        };
+        var info = FeedEventKinds.Find(FeedEventKinds.Normalize(req.EventKind)) ?? FeedEventKinds.Proto;
+        FilterSet filter;
+        try {
+            filter = ParseFilter(req.Filter, info.Defaults);
+        } catch (JsonException) {
+            return Fail(400, "the filter is not valid JSON");
+        }
 
-        return Ok(PreviewRows(probe));
+        return Ok(PreviewRows(info, filter,
+            string.IsNullOrWhiteSpace(req.MessageTemplate) ? null : req.MessageTemplate));
     }
 
-    public static List<FeedPreviewRow> PreviewRows(FeedSubscription probe) {
-        var info = FeedEventKinds.Find(FeedEventKinds.Normalize(probe.EventKind)) ?? FeedEventKinds.Proto;
-        return [.. info.Samples.Select(s => {
-            bool matches = info.Matches(s.Event, probe);
-            var blocked = matches ? info.BlockedBy(s.Event, probe) : [];
+    public static List<FeedPreviewRow> PreviewRows(NotificationKind info, FilterSet filter, string? template) =>
+        [.. info.Samples.Select(s => {
+            var result = info.Evaluate(s.Event, filter);
             return new FeedPreviewRow(
-                s.Key, s.Label, s.Event.Summary, matches, blocked,
-                DiscordFeedPayload.Build(s.Event, probe.MessageTemplate));
+                s.Key, s.Label, s.Event.Summary, result.Matched,
+                [.. result.Failed.Select(f => $"{info.FieldLabel(f.Condition.Field)} {f.Condition.Op} {f.Condition.Value}".Trim())],
+                DiscordFeedPayload.Build(s.Event, template));
         })];
+
+    public static JsonElement FilterJson(FeedSubscription sub) {
+        var info = FeedEventKinds.Find(FeedEventKinds.Normalize(sub.EventKind)) ?? FeedEventKinds.Proto;
+        return JsonElement.Parse(FilterCodec.Serialize(info.FilterOf(sub)));
     }
 
     [HttpPatch("{id:int}")]
@@ -169,15 +184,21 @@ public sealed class ProtoFeedController(ICurrentUser currentUser, IHttpClientFac
         var sub = (await store.ByOwnerAsync(owner.Value, ct)).FirstOrDefault(s => s.Id == id);
         if (sub is null) return Fail(404, "subscription not found");
 
-        string trigger = FeedEventKinds.NormalizeTrigger(
-            FeedEventKinds.Normalize(sub.EventKind), req.Trigger ?? sub.Trigger);
+        var info = FeedEventKinds.Find(FeedEventKinds.Normalize(sub.EventKind)) ?? FeedEventKinds.Proto;
+        FilterSet filter;
+        try {
+            filter = ParseFilter(req.Filter, info.FilterOf(sub));
+        } catch (JsonException) {
+            return Fail(400, "the filter is not valid JSON");
+        }
+
+        if (Problems(info, filter) is { } problems) return Fail(400, problems);
+
         bool ok = await store.UpdateAsync(
             id, owner.Value,
-            req.Platforms ?? ["android", "ios"],
-            trigger,
-            req.Active ?? true,
+            req.Active ?? sub.Active,
             req.MessageTemplate,
-            ResolveFilters(sub, req.Filters),
+            FilterCodec.Serialize(filter),
             req.Label ?? sub.Label, ct);
         if (!ok) return Fail(404, "subscription not found");
         FeedSubscriptionNotify.Changed(notifier);
@@ -220,9 +241,6 @@ public sealed class ProtoFeedController(ICurrentUser currentUser, IHttpClientFac
     }
 
     private const int ActivityTake = 25;
-
-    public static string[] ResolveFilters(FeedSubscription sub, string[]? requested) =>
-        FeedEventKinds.NormalizeFilters(FeedEventKinds.Normalize(sub.EventKind), requested ?? sub.Filters);
 
     public static string MaskWebhook(string url) => WebhookMask.Mask(url);
 }

@@ -35,7 +35,7 @@
                         }
                     </div>
                     @if (def is not null) {
-                        @if (def.Kind == FilterValueKind.Bool) {
+                        @if (def.Kind == EgiFilterValueKind.Bool) {
                             <select class="fl-fil-sel @(row.OpSet ? "" : "fl-fil-bad")" value="@BoolText(row)"
                                     @onchange="@(e => SetBool(groupIndex, rowIndex, Text(e)))">
                                 <option value="">is...</option>
@@ -51,7 +51,7 @@
                                 }
                             </select>
                             @if (row.OpSet) {
-                                @if (def.Kind is FilterValueKind.Select or FilterValueKind.Version) {
+                                @if (def.Kind is EgiFilterValueKind.Select or EgiFilterValueKind.Version) {
                                     <select class="fl-fil-val @(row.Value.Length == 0 ? "fl-fil-bad" : "")"
                                             value="@row.Value" @onchange="@(e => SetValue(groupIndex, rowIndex, Text(e)))">
                                         <option value="">value...</option>
@@ -59,7 +59,7 @@
                                             <option value="@option.Value">@option.Label</option>
                                         }
                                     </select>
-                                } else if (def.Kind == FilterValueKind.Date) {
+                                } else if (def.Kind == EgiFilterValueKind.Date) {
                                     <input type="date" class="fl-fil-val @(row.Value.Length == 0 ? "fl-fil-bad" : "")"
                                            value="@row.Value" @onchange="@(e => SetValue(groupIndex, rowIndex, Text(e)))"/>
                                 } else {
@@ -88,7 +88,7 @@
 
 @code {
 
-    [Parameter, EditorRequired] public FilterSchema<TItem> Schema { get; set; } = null!;
+    [Parameter, EditorRequired] public EgiFilterSchema<TItem> Schema { get; set; } = null!;
 
     [Parameter] public ListQuery Query { get; set; } = ListQuery.Empty;
 
@@ -100,7 +100,7 @@
 
     readonly string _listPrefix = "flfil-" + Guid.NewGuid().ToString("N")[..8];
     readonly List<DraftGroup> _groups = [];
-    readonly Dictionary<string, IReadOnlyList<FilterOption>> _options = [];
+    readonly Dictionary<string, IReadOnlyList<EgiFilterOption>> _options = [];
 
     IReadOnlyList<TItem>? _optionSource;
     string _signature = "";
@@ -148,7 +148,7 @@
         if (last.Rows.Count == 0 || last.Rows[^1].Field.Length > 0) last.Rows.Add(new DraftRow());
     }
 
-    IReadOnlyList<FilterOption> Options(FilterFieldDef<TItem> def) {
+    IReadOnlyList<EgiFilterOption> Options(EgiFilterFieldDef<TItem> def) {
         if (def.Options is null) return [];
         if (_options.TryGetValue(def.Key, out var cached)) return cached;
         var built = def.Options(Rows);
@@ -156,7 +156,7 @@
         return built;
     }
 
-    string ListId(FilterFieldDef<TItem> def, int groupIndex, int rowIndex) {
+    string ListId(EgiFilterFieldDef<TItem> def, int groupIndex, int rowIndex) {
         return $"{_listPrefix}-{def.Key}-{groupIndex}-{rowIndex}";
     }
 
@@ -170,11 +170,11 @@
 
     static string BoolText(DraftRow row) {
         if (!row.OpSet) return "";
-        return row.Op == FilterOp.True ? "True" : "False";
+        return row.Op == EgiFilterOp.True ? "True" : "False";
     }
 
     static bool Complete(DraftRow row) {
-        return row.OpSet && new FilterCondition(row.Field, row.Op, row.Value).Complete;
+        return row.OpSet && new EgiFilterCondition(row.Field, row.Op, row.Value).Complete;
     }
 
     static bool HasComplete(DraftGroup group) {
@@ -186,7 +186,7 @@
         if (row.Field == value) return Task.CompletedTask;
         row.Field = value;
         row.OpSet = false;
-        row.Op = FilterOp.Is;
+        row.Op = EgiFilterOp.Is;
         row.Value = "";
         EnsureTrailing();
         return Emit();
@@ -194,12 +194,12 @@
 
     Task SetOp(int groupIndex, int rowIndex, string value) {
         var row = _groups[groupIndex].Rows[rowIndex];
-        if (Enum.TryParse(value, out FilterOp op)) {
+        if (Enum.TryParse(value, out EgiFilterOp op)) {
             row.Op = op;
             row.OpSet = true;
         } else {
             row.OpSet = false;
-            row.Op = FilterOp.Is;
+            row.Op = EgiFilterOp.Is;
         }
 
         return Emit();
@@ -208,7 +208,7 @@
     Task SetBool(int groupIndex, int rowIndex, string value) {
         var row = _groups[groupIndex].Rows[rowIndex];
         row.OpSet = value is "True" or "False";
-        row.Op = value == "False" ? FilterOp.False : FilterOp.True;
+        row.Op = value == "False" ? EgiFilterOp.False : EgiFilterOp.True;
         row.Value = "";
         return Emit();
     }
@@ -233,16 +233,16 @@
     }
 
     Task Emit() {
-        var groups = new List<FilterGroup>();
+        var groups = new List<EgiFilterGroup>();
         foreach (var group in _groups) {
             var conditions = group.Rows
                 .Where(Complete)
-                .Select(r => new FilterCondition(r.Field, r.Op, r.Value))
+                .Select(r => new EgiFilterCondition(r.Field, r.Op, r.Value))
                 .ToList();
-            if (conditions.Count > 0) groups.Add(new FilterGroup(conditions));
+            if (conditions.Count > 0) groups.Add(new EgiFilterGroup(conditions));
         }
 
-        var next = FilterOps.Prune(Query with { Groups = groups });
+        var next = EgiFilterOps.Prune(Query with { Groups = groups });
         _signature = next.Signature();
         return QueryChanged.InvokeAsync(next);
     }

@@ -39,7 +39,7 @@ public class SessionFilterTests {
     [Fact]
     public void StateConditionSelectsOneBucket() {
         var pendingOnly = new ListQuery("", "", [
-            new FilterGroup([new FilterCondition("state", FilterOp.Is, SessionFilter.Pending)])
+            new EgiFilterGroup([new EgiFilterCondition("state", EgiFilterOp.Is, SessionFilter.Pending)])
         ]);
         Assert.True(SessionFilter.Schema.Matches(Entry("queued"), pendingOnly));
         Assert.False(SessionFilter.Schema.Matches(Entry(), pendingOnly));
@@ -48,7 +48,7 @@ public class SessionFilterTests {
     [Fact]
     public void PlatformAndSizeFilter() {
         Assert.False(SessionFilter.Schema.Matches(Entry(platform: "ios"), ListQuery.Empty with { Platform = "android" }));
-        var big = new ListQuery("", "", [new FilterGroup([new FilterCondition("sizeMb", FilterOp.AtLeast, "30")])]);
+        var big = new ListQuery("", "", [new EgiFilterGroup([new EgiFilterCondition("sizeMb", EgiFilterOp.AtLeast, "30")])]);
         Assert.True(SessionFilter.Schema.Matches(Entry(), big));
     }
 }

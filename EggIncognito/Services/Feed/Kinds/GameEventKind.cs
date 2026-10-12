@@ -1,3 +1,5 @@
+using EggIdentity.Filters;
+using EggIncognito.Data.Models;
 using EggIncognito.Services.Events;
 
 namespace EggIncognito.Services.Feed.Kinds;
@@ -15,11 +17,21 @@ public sealed record GameEventAddedEvent(
     string PageUrl) : INotificationEvent {
     public string Kind => FeedEventKinds.GameEvent;
     public string DedupKey => $"{EventId}:{FeedText.Unix(Start)}";
-    public string? Platform => null;
 
-    public bool Fresh => (SeenAt - Start).Duration() <= FeedEventKinds.FreshWindow;
+    public double AgeHours => (SeenAt - Start).Duration().TotalHours;
+    public bool Fresh => AgeHours <= FeedEventKinds.FreshWindow.TotalHours;
     public bool FromDevice => string.Equals(Source, GameEventSources.Device, StringComparison.Ordinal);
     public double DurationHours => (End - Start).TotalHours;
+
+    public FilterSubjectValue Subject(string field) => field switch {
+        GameEventKind.EventType => FilterSubjectValue.Of(EventType),
+        GameEventKind.Ultra => FilterSubjectValue.Of(Ultra),
+        GameEventKind.Multiplier => FilterSubjectValue.Of(Multiplier),
+        GameEventKind.DurationHours => FilterSubjectValue.Of(DurationHours),
+        GameEventKind.Source => FilterSubjectValue.Of(Source),
+        GameEventKind.AgeHours => FilterSubjectValue.Of(AgeHours),
+        _ => FilterSubjectValue.Absent
+    };
 
     public string Summary => $"{(Ultra ? "ultra " : "")}{EventType} {FeedText.Stamp(Start)}";
 
@@ -50,11 +62,27 @@ public sealed record GameEventAddedEvent(
 }
 
 public static class GameEventKind {
+    public const string EventType = "event_type";
+    public const string Ultra = "ultra";
+    public const string Multiplier = "multiplier";
+    public const string DurationHours = "duration_hours";
+    public const string Source = "source";
+    public const string AgeHours = "age_hours";
+
     private static readonly DateTimeOffset SampleStart = new(2026, 10, 12, 16, 0, 0, TimeSpan.Zero);
     private const string SampleUrl = FeedDispatcher.DefaultPageBaseUrl + "/events";
 
-    private static bool Added(INotificationEvent evt, Func<GameEventAddedEvent, bool> test) =>
-        evt is GameEventAddedEvent g && test(g);
+    public static readonly FilterSet Defaults = FeedFilter.Rows(
+        [FeedFilter.AtMost(AgeHours, FeedEventKinds.FreshWindow.TotalHours)],
+        [FeedFilter.Is(Source, GameEventSources.Device)]);
+
+    public static FilterSet Legacy(FeedSubscription sub) {
+        var rows = new List<FilterCondition[]>();
+        if (sub.Trigger == FeedEventKinds.TriggerUltraOnly) rows.Add([FeedFilter.Flag(Ultra, true)]);
+        if (sub.Trigger == FeedEventKinds.TriggerStandardOnly) rows.Add([FeedFilter.Flag(Ultra, false)]);
+        rows.AddRange(FeedEventKinds.IngestLegacyFilters(sub, AgeHours, Source, GameEventSources.Device));
+        return FeedFilter.Rows(rows);
+    }
 
     private static GameEventAddedEvent Sample(string id, string type, string message, double multiplier, bool ultra,
         string source, TimeSpan age) =>
@@ -65,19 +93,16 @@ public static class GameEventKind {
         FeedEventKinds.GameEvent, "Game event",
         "A game event first appeared in the periodicals: boosts, sales, research discounts and the like.",
         [
-            new FeedTriggerOption(FeedEventKinds.TriggerAny, "Any event", e => Added(e, _ => true)),
-            new FeedTriggerOption(FeedEventKinds.TriggerUltraOnly, "Ultra events only", e => Added(e, g => g.Ultra)),
-            new FeedTriggerOption(FeedEventKinds.TriggerStandardOnly, "Standard events only", e => Added(e, g => !g.Ultra))
+            FeedFilter.Text(EventType, "Event type"),
+            FeedFilter.Bool(Ultra, "Ultra"),
+            FeedFilter.Number(Multiplier, "Multiplier"),
+            FeedFilter.Number(DurationHours, "Duration in hours"),
+            FeedFilter.Select(Source, "Seen by", FeedFilter.Sources),
+            FeedFilter.Number(AgeHours, "Hours between start and sighting")
         ],
-        FeedEventKinds.TriggerAny,
-        [
-            new FeedFilterOption(FeedEventKinds.FilterFreshOnly, "Require a current event", true,
-                e => e is GameEventAddedEvent { Fresh: false }),
-            new FeedFilterOption(FeedEventKinds.FilterDeviceOnly, "Require a device observation", true,
-                e => e is GameEventAddedEvent { FromDevice: false })
-        ],
+        Defaults,
+        Legacy,
         ["eventId", "eventType", "message", "ultra", "start", "end", "durationHours", "multiplier", "pageUrl"],
-        false,
         [
             new FeedSample("boost", "Standard event seen live",
                 Sample("egg-boost-2026-10-12", "boost-sale", "Boost sale, 30% off", 0.7, false,
@@ -88,6 +113,5 @@ public static class GameEventKind {
             new FeedSample("backfill", "Old event from a history import",
                 Sample("egg-boost-2025-01-05", "boost-sale", "Boost sale, 30% off", 0.7, false,
                     GameEventSources.Carpet, TimeSpan.FromDays(640)))
-        ],
-        []);
+        ]);
 }

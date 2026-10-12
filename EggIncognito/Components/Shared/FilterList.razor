@@ -96,7 +96,7 @@
 </div>
 
 @code {
-    [Parameter, EditorRequired] public FilterSchema<TItem> Schema { get; set; } = null!;
+    [Parameter, EditorRequired] public EgiFilterSchema<TItem> Schema { get; set; } = null!;
 
     [Parameter, EditorRequired] public IReadOnlyList<TItem> Items { get; set; } = [];
 
@@ -186,8 +186,8 @@
         var groups = Query.Groups.Select(g => g.Conditions.ToList()).ToList();
         if (index < 0 || index >= groups[groupIndex].Count) return Task.CompletedTask;
         groups[groupIndex].RemoveAt(index);
-        var kept = groups.Where(c => c.Count > 0).Select(c => new FilterGroup(c)).ToList();
-        return QueryChanged.InvokeAsync(FilterOps.Prune(Query with { Groups = kept }));
+        var kept = groups.Where(c => c.Count > 0).Select(c => new EgiFilterGroup(c)).ToList();
+        return QueryChanged.InvokeAsync(EgiFilterOps.Prune(Query with { Groups = kept }));
     }
 
 }

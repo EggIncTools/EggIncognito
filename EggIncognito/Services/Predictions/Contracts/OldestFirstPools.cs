@@ -18,9 +18,11 @@ public static class OldestFirstPools {
         foreach (var group in samples.GroupBy(s => s.ContractId, StringComparer.Ordinal)) {
             var ordered = group.OrderBy(s => s.Start).ToList();
             var newest = ordered[^1];
-            var pool = NextKind(ordered);
-            members[pool].Add(new ContractCandidate(group.Key, newest.Name, newest.Start, ordered.Count));
-            for (int i = 1; i < ordered.Count; i++) gaps[pool].Add(ordered[i].Start - ordered[i - 1].Start);
+            var candidate = new ContractCandidate(group.Key, newest.Name, newest.Start, ordered.Count);
+            foreach (var pool in PoolsOf(ordered)) {
+                members[pool].Add(candidate);
+                for (int i = 1; i < ordered.Count; i++) gaps[pool].Add(ordered[i].Start - ordered[i - 1].Start);
+            }
         }
 
         var pools = new Dictionary<ContractSlotKind, ContractPool>();
@@ -46,10 +48,10 @@ public static class OldestFirstPools {
         return pools;
     }
 
-    public static ContractSlotKind NextKind(IReadOnlyList<ContractReleaseSample> ordered) {
-        if (ordered.Max(s => s.ProphecyEggs) <= 0) return ContractSlotKind.Leggacy;
-        return ordered[^1].UltraOnly ? ContractSlotKind.PeLeggacy : ContractSlotKind.PeLeggacyUltra;
-    }
+    public static readonly ContractSlotKind[] PeKinds = [ContractSlotKind.PeLeggacy, ContractSlotKind.PeLeggacyUltra];
+
+    public static IReadOnlyList<ContractSlotKind> PoolsOf(IReadOnlyList<ContractReleaseSample> ordered) =>
+        ordered.Max(s => s.ProphecyEggs) <= 0 ? [ContractSlotKind.Leggacy] : PeKinds;
 
     public static List<ContractCandidate> Eligible(ContractPool pool, double now) {
         double cutoff = pool.GapSeconds is { } gap ? RecencyGapMultiplier * gap : FallbackCutoffSeconds;
@@ -64,8 +66,8 @@ public static class OldestFirstPools {
             ContractSlotKind.NewContract => "New contract: never seen before, no candidates",
             ContractSlotKind.Leggacy => $"Leggacy without PE: oldest last release first, {count} contracts{cadence}",
             ContractSlotKind.PeLeggacy =>
-                $"PE leggacy, standard: contracts whose last run was ultra-only, oldest first, {count} contracts{cadence}",
-            _ => $"PE leggacy, ultra-only: contracts whose last run was standard, oldest first, {count} contracts{cadence}"
+                $"PE leggacy, standard: every PE leggacy, oldest last release first, {count} contracts{cadence}",
+            _ => $"PE leggacy, ultra only: every PE leggacy, oldest last release first, {count} contracts{cadence}"
         };
     }
 }

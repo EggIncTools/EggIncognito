@@ -1,12 +1,12 @@
+using System.Text.Json;
+
 namespace EggIncognito.Models.Notifications;
 
 public record NotificationRow(
     int Id,
     string? Label,
     string EventKind,
-    string[] Platforms,
-    string Trigger,
-    string[] Filters,
+    JsonElement Filter,
     bool Active,
     DateTimeOffset CreatedAt,
     DateTimeOffset? LastDeliveryAt,

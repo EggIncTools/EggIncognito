@@ -1,3 +1,5 @@
+using EggIdentity.Filters;
+using EggIncognito.Data.Models;
 using EggIncognito.Services.Feed.Kinds;
 
 namespace EggIncognito.Services.Feed;
@@ -8,6 +10,7 @@ public static class FeedEventKinds {
     public const string GameDataRebuilt = "gamedata_rebuilt";
     public const string GameEvent = "game_event";
     public const string ContractRelease = "contract_release";
+    public const string Colleggtible = "colleggtible_added";
 
     public const string LegacyPeriodicalsChanged = "periodicals_changed";
 
@@ -43,8 +46,10 @@ public static class FeedEventKinds {
     public static NotificationKind GameData => GameDataRebuiltKind.Definition;
     public static NotificationKind Events => GameEventKind.Definition;
     public static NotificationKind Contracts => ContractReleaseKind.Definition;
+    public static NotificationKind Colleggtibles => ColleggtibleKind.Definition;
 
-    public static readonly IReadOnlyList<NotificationKind> All = [Proto, Config, GameData, Events, Contracts];
+    public static readonly IReadOnlyList<NotificationKind> All =
+        [Proto, Config, GameData, Events, Contracts, Colleggtibles];
 
     public static NotificationKind? Find(string? key) => All.FirstOrDefault(k => k.Key == key);
 
@@ -58,16 +63,10 @@ public static class FeedEventKinds {
             ? ConfigChanged
             : Find(key)?.Key ?? ProtoBuild;
 
-    public static string NormalizeTrigger(string kind, string? trigger) {
-        var info = Find(kind) ?? Proto;
-        return info.Trigger(trigger)?.Value ?? info.DefaultTrigger;
-    }
-
-    public static string[] NormalizeFilters(string kind, IEnumerable<string>? filters) {
-        var info = Find(kind) ?? Proto;
-        return filters is null
-            ? [.. info.Filters.Where(f => f.DefaultOn).Select(f => f.Key)]
-            : [.. info.Filters.Where(f => filters.Contains(f.Key, StringComparer.Ordinal)).Select(f => f.Key)];
+    public static IEnumerable<FilterCondition[]> IngestLegacyFilters(
+        FeedSubscription sub, string ageField, string sourceField, string device) {
+        if (sub.Filters.Contains(FilterFreshOnly)) yield return [FeedFilter.AtMost(ageField, FreshWindow.TotalHours)];
+        if (sub.Filters.Contains(FilterDeviceOnly)) yield return [FeedFilter.Is(sourceField, device)];
     }
 
     public static IReadOnlyList<FeedSample> Samples(string? kind) => Find(kind)?.Samples ?? [];

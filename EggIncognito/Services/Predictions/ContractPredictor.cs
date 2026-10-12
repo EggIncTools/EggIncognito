@@ -64,11 +64,11 @@ public sealed class ContractPredictor(
         }
 
         var entries = new List<WatchEntry>();
-        foreach (var c in model.Pools.Values.SelectMany(p => p.Candidates)) {
+        foreach (var c in model.Pools.Values.SelectMany(p => p.Candidates).DistinctBy(c => c.ContractId)) {
             if (!last.TryGetValue(c.ContractId, out var row)) continue;
             entries.Add(new WatchEntry(
-                c.ContractId, c.Name, row.UltraOnly, EggIcons.Url(row.Egg, row.CustomEggId),
-                ContractPalette.BarStyle(row.UltraOnly, row.Leggacy, row.ProphecyEggs),
+                c.ContractId, c.Name, false, EggIcons.Url(row.Egg, row.CustomEggId),
+                ContractPalette.BarStyle(false, row.Leggacy, row.ProphecyEggs),
                 row.Start, row.Start + row.LengthSeconds, forecasts.GetValueOrDefault(c.ContractId) ?? []));
         }
 

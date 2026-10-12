@@ -12,28 +12,28 @@ public static class SessionFilter {
         return e.IsAnalyzed ? Analysed : Pending;
     }
 
-    public static FilterSchema<StagedEntry> Schema { get; } = new() {
+    public static EgiFilterSchema<StagedEntry> Schema { get; } = new() {
         Fields = [
-            new("state", "State", FilterValueKind.Select, FilterOps.Equality,
+            new("state", "State", EgiFilterValueKind.Select, EgiFilterOps.Equality,
                 _ => [new(Pending, "pending"), new(Failed, "failed"), new(Analysed, "analysed")]),
-            new("appVersion", "App version", FilterValueKind.Version, FilterOps.Comparison,
-                rows => FilterOps.ByVersion(rows.Select(r => r.AppVersion))),
-            new("build", "Build", FilterValueKind.Text, FilterOps.Text,
-                rows => FilterOps.ByText(rows.Select(r => r.Build))),
-            new("client", "Client version", FilterValueKind.Version, FilterOps.Comparison,
-                rows => FilterOps.ByVersion(rows.Select(r => r.ClientVersionText))),
-            new("file", "File name", FilterValueKind.Text, FilterOps.Text, null),
-            new("fileSha", "File SHA", FilterValueKind.Text, FilterOps.Text, null),
-            new("sha", "Proto SHA", FilterValueKind.Text, FilterOps.Text, null),
-            new("sizeMb", "Size (MB)", FilterValueKind.Number, FilterOps.Comparison, null)
+            new("appVersion", "App version", EgiFilterValueKind.Version, EgiFilterOps.Comparison,
+                rows => EgiFilterOps.ByVersion(rows.Select(r => r.AppVersion))),
+            new("build", "Build", EgiFilterValueKind.Text, EgiFilterOps.Text,
+                rows => EgiFilterOps.ByText(rows.Select(r => r.Build))),
+            new("client", "Client version", EgiFilterValueKind.Version, EgiFilterOps.Comparison,
+                rows => EgiFilterOps.ByVersion(rows.Select(r => r.ClientVersionText))),
+            new("file", "File name", EgiFilterValueKind.Text, EgiFilterOps.Text, null),
+            new("fileSha", "File SHA", EgiFilterValueKind.Text, EgiFilterOps.Text, null),
+            new("sha", "Proto SHA", EgiFilterValueKind.Text, EgiFilterOps.Text, null),
+            new("sizeMb", "Size (MB)", EgiFilterValueKind.Number, EgiFilterOps.Comparison, null)
         ],
         Platform = e => e.Platform,
-        Quick = (e, q) => FilterOps.Has(e.FileName, q)
-                          || FilterOps.Has(e.AppVersion, q)
-                          || FilterOps.Has(e.Build, q)
-                          || FilterOps.Has(e.ClientVersionText, q)
-                          || FilterOps.Prefix(e.Result?.FileSha, q)
-                          || FilterOps.Prefix(e.Result?.ProtoSha, q),
+        Quick = (e, q) => EgiFilterOps.Has(e.FileName, q)
+                          || EgiFilterOps.Has(e.AppVersion, q)
+                          || EgiFilterOps.Has(e.Build, q)
+                          || EgiFilterOps.Has(e.ClientVersionText, q)
+                          || EgiFilterOps.Prefix(e.Result?.FileSha, q)
+                          || EgiFilterOps.Prefix(e.Result?.ProtoSha, q),
         Text = (e, key) => key switch {
             "state" => StateOf(e),
             "appVersion" => e.AppVersion,

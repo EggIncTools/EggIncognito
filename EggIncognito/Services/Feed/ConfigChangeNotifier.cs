@@ -2,6 +2,7 @@ using EggIncognito.Core;
 using EggIncognito.Core.Services;
 using EggIncognito.Data.Models;
 using EggIncognito.Data.Services;
+using EggIncognito.Models.Contracts;
 using EggIncognito.Services.Contracts;
 using EggIncognito.Services.DataApi;
 using EggIncognito.Services.Events;
@@ -136,9 +137,36 @@ public sealed class ConfigChangeNotifier(
             if (sp.GetService<ContractIngestor>() is not { } ingestor) return;
             response ??= (PeriodicalsResponse)JsonParser.Default.Parse(json, PeriodicalsResponse.Descriptor);
             var observations = ContractMapper.FromPeriodicals(response, time.GetUtcNow());
-            if (observations.Count > 0) await ingestor.IngestAsync(observations);
+            if (observations.Count == 0) return;
+            var firstSeen = await FirstSeenColleggtiblesAsync(sp, observations);
+            await ingestor.IngestAsync(observations);
+            PublishColleggtibles(response, observations, firstSeen);
         } catch (Exception ex) {
             logger.LogWarning(ex, "contract ingest from periodicals snapshot failed");
+        }
+    }
+
+    private static async Task<IReadOnlyList<string>> FirstSeenColleggtiblesAsync(
+        IServiceProvider sp, IReadOnlyList<ContractObservation> observations) {
+        string[] carried = [.. observations.Select(o => o.CustomEggId).OfType<string>().Distinct(StringComparer.Ordinal)];
+        if (carried.Length == 0 || sp.GetService<EggIncognitoDbContext>() is not { } db) return [];
+        var known = await db.ContractReleases
+            .Where(r => r.CustomEggId != null && carried.Contains(r.CustomEggId))
+            .Select(r => r.CustomEggId!)
+            .Distinct()
+            .ToListAsync();
+        return [.. carried.Except(known, StringComparer.Ordinal)];
+    }
+
+    private void PublishColleggtibles(
+        PeriodicalsResponse response, IReadOnlyList<ContractObservation> observations, IReadOnlyList<string> firstSeen) {
+        if (publisher is null || firstSeen.Count == 0) return;
+        var eggs = response.Contracts?.CustomEggs ?? [];
+        string pageUrl = publisher.PageUrl("periodicals");
+        foreach (string id in firstSeen) {
+            if (eggs.FirstOrDefault(e => e.Identifier == id) is not { } egg) continue;
+            publisher.Publish(ColleggtibleKind.From(egg,
+                [.. observations.Where(o => o.CustomEggId == id).Select(o => o.ContractId)], pageUrl));
         }
     }
 }

@@ -613,7 +613,7 @@
     public void OpenGroup(string protoSha) {
         if (string.IsNullOrWhiteSpace(protoSha)) return;
         State.Query = ListQuery.Empty with {
-            Groups = [new FilterGroup([new FilterCondition("sha", FilterOp.Is, protoSha)])]
+            Groups = [new EgiFilterGroup([new EgiFilterCondition("sha", EgiFilterOp.Is, protoSha)])]
         };
         Open();
         var match = ProtoVersionOrdering.SortByRelease(

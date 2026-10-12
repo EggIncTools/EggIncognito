@@ -1,3 +1,5 @@
+using EggIdentity.Filters;
+using EggIncognito.Data.Models;
 using EggIncognito.Services.Assets;
 using EggIncognito.Services.Contracts;
 
@@ -20,12 +22,27 @@ public sealed record ContractReleasedEvent(
     string PageUrl) : INotificationEvent {
     public string Kind => FeedEventKinds.ContractRelease;
     public string DedupKey => $"{ContractId}:{FeedText.Unix(Start)}";
-    public string? Platform => null;
 
-    public bool Fresh => (SeenAt - Start).Duration() <= FeedEventKinds.FreshWindow;
+    public double AgeHours => (SeenAt - Start).Duration().TotalHours;
+    public bool Fresh => AgeHours <= FeedEventKinds.FreshWindow.TotalHours;
     public bool FromDevice => string.Equals(Source, ContractSources.Device, StringComparison.Ordinal);
     public double LengthDays => LengthSeconds / 86400d;
     public string EggLabel => CustomEggId ?? EggIcons.Name((Ei.Egg)Egg);
+    public string EggKey => CustomEggId ?? ((Ei.Egg)Egg).ToString();
+
+    public FilterSubjectValue Subject(string field) => field switch {
+        ContractReleaseKind.EggField => FilterSubjectValue.Of(EggKey),
+        ContractReleaseKind.ContractIdField => FilterSubjectValue.Of(ContractId),
+        ContractReleaseKind.LeggacyField => FilterSubjectValue.Of(Leggacy),
+        ContractReleaseKind.UltraField => FilterSubjectValue.Of(UltraOnly),
+        ContractReleaseKind.Colleggtible => FilterSubjectValue.Of(CustomEggId is not null),
+        ContractReleaseKind.ProphecyEggsField => FilterSubjectValue.Of((double)ProphecyEggs),
+        ContractReleaseKind.MaxCoopSizeField => FilterSubjectValue.Of((double)MaxCoopSize),
+        ContractReleaseKind.LengthDaysField => FilterSubjectValue.Of(LengthDays),
+        ContractReleaseKind.Source => FilterSubjectValue.Of(Source),
+        ContractReleaseKind.AgeHoursField => FilterSubjectValue.Of(AgeHours),
+        _ => FilterSubjectValue.Absent
+    };
 
     public string Summary =>
         $"{Name}{(Leggacy ? " (leggacy)" : "")}{(UltraOnly ? " ultra" : "")} {FeedText.Stamp(Start)}";
@@ -60,11 +77,48 @@ public sealed record ContractReleasedEvent(
 }
 
 public static class ContractReleaseKind {
+    public const string EggField = "egg";
+    public const string ContractIdField = "contract_id";
+    public const string LeggacyField = "leggacy";
+    public const string UltraField = "ultra_only";
+    public const string Colleggtible = "colleggtible";
+    public const string ProphecyEggsField = "prophecy_eggs";
+    public const string MaxCoopSizeField = "max_coop_size";
+    public const string LengthDaysField = "length_days";
+    public const string Source = "source";
+    public const string AgeHoursField = "age_hours";
+
     private static readonly DateTimeOffset SampleStart = new(2026, 10, 12, 16, 0, 0, TimeSpan.Zero);
     private const string SampleUrl = FeedDispatcher.DefaultPageBaseUrl + "/contracts";
 
-    private static bool Released(INotificationEvent evt, Func<ContractReleasedEvent, bool> test) =>
-        evt is ContractReleasedEvent c && test(c);
+    private static IEnumerable<FilterOption> EggOptions() =>
+        Enum.GetValues<Ei.Egg>()
+            .Where(e => e is not (Ei.Egg.CustomEgg or Ei.Egg.Unknown))
+            .Select(e => new FilterOption(e.ToString(), EggIcons.Label((int)e, null)) {
+                Image = EggIcons.Url((int)e, null)
+            });
+
+    public static readonly FilterSet Defaults = FeedFilter.Rows(
+        [FeedFilter.AtMost(AgeHoursField, FeedEventKinds.FreshWindow.TotalHours)],
+        [FeedFilter.Is(Source, ContractSources.Device)]);
+
+    public static FilterSet Legacy(FeedSubscription sub) {
+        var rows = new List<FilterCondition[]>();
+        switch (sub.Trigger) {
+            case FeedEventKinds.TriggerNewOnly:
+                rows.Add([FeedFilter.Flag(LeggacyField, false)]);
+                break;
+            case FeedEventKinds.TriggerLeggacyOnly:
+                rows.Add([FeedFilter.Flag(LeggacyField, true)]);
+                break;
+            case FeedEventKinds.TriggerUltraOnly:
+                rows.Add([FeedFilter.Flag(UltraField, true)]);
+                break;
+        }
+
+        rows.AddRange(FeedEventKinds.IngestLegacyFilters(sub, AgeHoursField, Source, ContractSources.Device));
+        return FeedFilter.Rows(rows);
+    }
 
     private static ContractReleasedEvent Sample(string id, string name, int egg, bool leggacy, bool ultra,
         int prophecy, string source, TimeSpan age) =>
@@ -75,23 +129,23 @@ public static class ContractReleaseKind {
         FeedEventKinds.ContractRelease, "Contract release",
         "A contract went live in the periodicals, whether a first release or a leggacy run.",
         [
-            new FeedTriggerOption(FeedEventKinds.TriggerAny, "Any release", e => Released(e, _ => true)),
-            new FeedTriggerOption(FeedEventKinds.TriggerNewOnly, "First releases only", e => Released(e, c => !c.Leggacy)),
-            new FeedTriggerOption(FeedEventKinds.TriggerLeggacyOnly, "Leggacies only", e => Released(e, c => c.Leggacy)),
-            new FeedTriggerOption(FeedEventKinds.TriggerUltraOnly, "Ultra only releases", e => Released(e, c => c.UltraOnly))
+            FeedFilter.Searchable(EggField, "Egg", EggOptions()),
+            FeedFilter.Text(ContractIdField, "Contract id"),
+            FeedFilter.Bool(LeggacyField, "Leggacy"),
+            FeedFilter.Bool(UltraField, "Ultra only"),
+            FeedFilter.Bool(Colleggtible, "Carries a colleggtible"),
+            FeedFilter.Number(ProphecyEggsField, "Prophecy eggs"),
+            FeedFilter.Number(MaxCoopSizeField, "Co-op size"),
+            FeedFilter.Number(LengthDaysField, "Length in days"),
+            FeedFilter.Select(Source, "Seen by", FeedFilter.Sources),
+            FeedFilter.Number(AgeHoursField, "Hours between start and sighting")
         ],
-        FeedEventKinds.TriggerAny,
-        [
-            new FeedFilterOption(FeedEventKinds.FilterFreshOnly, "Require a current release", true,
-                e => e is ContractReleasedEvent { Fresh: false }),
-            new FeedFilterOption(FeedEventKinds.FilterDeviceOnly, "Require a device observation", true,
-                e => e is ContractReleasedEvent { FromDevice: false })
-        ],
+        Defaults,
+        Legacy,
         [
             "contractId", "name", "egg", "leggacy", "ultra", "start", "end", "lengthDays", "prophecyEggs",
             "maxCoopSize", "pageUrl"
         ],
-        false,
         [
             new FeedSample("new", "New contract seen live",
                 Sample("hab-rush-2026", "Hab Rush", (int)Ei.Egg.Fusion, false, false, 1,
@@ -105,6 +159,5 @@ public static class ContractReleaseKind {
             new FeedSample("backfill", "Old release from a history import",
                 Sample("hab-rush-2023", "Hab Rush", (int)Ei.Egg.Fusion, false, false, 1,
                     ContractSources.Carpet, TimeSpan.FromDays(900)))
-        ],
-        []);
+        ]);
 }

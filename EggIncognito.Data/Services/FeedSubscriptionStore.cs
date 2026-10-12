@@ -14,8 +14,8 @@ public interface IFeedSubscriptionStore {
     Task<List<FeedSubscription>> ByOwnerAsync(Guid ownerUserId, CancellationToken ct = default);
     Task<bool> DeleteAsync(int id, Guid ownerUserId, CancellationToken ct = default);
 
-    Task<bool> UpdateAsync(int id, Guid ownerUserId, string[] platforms, string trigger, bool active,
-        string? messageTemplate, string[] filters, string? label, CancellationToken ct = default);
+    Task<bool> UpdateAsync(int id, Guid ownerUserId, bool active, string? messageTemplate, string filterSet,
+        string? label, CancellationToken ct = default);
 
     Task SuppressAsync(int subId, string eventKind, string dedupKey, string reason, string? summary,
         CancellationToken ct = default);
@@ -80,15 +80,13 @@ public sealed class FeedSubscriptionStore(EggIncognitoDbContext db, TimeProvider
             .ExecuteDeleteAsync(ct) > 0;
 
     public async Task<bool> UpdateAsync(
-        int id, Guid ownerUserId, string[] platforms, string trigger, bool active, string? messageTemplate,
-        string[] filters, string? label, CancellationToken ct = default) {
+        int id, Guid ownerUserId, bool active, string? messageTemplate, string filterSet, string? label,
+        CancellationToken ct = default) {
         var row = await db.FeedSubscriptions.FirstOrDefaultAsync(s => s.Id == id && s.OwnerUserId == ownerUserId, ct);
         if (row is null) return false;
-        row.Platforms = platforms is { Length: > 0 } ? platforms : ["android", "ios"];
-        row.Trigger = string.IsNullOrWhiteSpace(trigger) ? row.Trigger : trigger;
         row.Active = active;
         row.MessageTemplate = string.IsNullOrWhiteSpace(messageTemplate) ? null : messageTemplate;
-        row.Filters = filters;
+        row.FilterSet = filterSet;
         row.Label = string.IsNullOrWhiteSpace(label) ? null : label.Trim();
         await db.SaveChangesAsync(ct);
         return true;

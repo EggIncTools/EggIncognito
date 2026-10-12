@@ -15,10 +15,13 @@ public static class QueueRanks {
             .OrderBy(g => g.Key);
         foreach (var batch in releases) {
             var pools = OldestFirstPools.Fit([.. samples.Where(s => s.Start < batch.Key)]);
-            foreach (var release in batch) {
-                var queue = OldestFirstPools.Eligible(pools[release.ReleaseKind], release.Start);
+            var taken = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var release in batch.OrderBy(r => Array.IndexOf(ReleaseGrid.AllKinds, r.ReleaseKind))) {
+                var queue = OldestFirstPools.Eligible(pools[release.ReleaseKind], release.Start)
+                    .Where(c => !taken.Contains(c.ContractId)).ToList();
                 int rank = queue.FindIndex(c => c.ContractId == release.ContractId);
                 if (rank >= 0) counts[release.ReleaseKind].Add(rank);
+                taken.Add(release.ContractId);
             }
         }
 

@@ -25,12 +25,14 @@ public sealed class FeedDispatcher(
         foreach (var sub in subs) {
             if (!string.Equals(FeedEventKinds.Normalize(sub.EventKind), kind.Key, StringComparison.Ordinal))
                 continue;
-            if (!kind.Matches(evt, sub)) continue;
             if (await store.AlreadyDeliveredAsync(sub.Id, kind.Key, evt.DedupKey, ct)) continue;
 
-            if (kind.BlockedBy(evt, sub) is { Count: > 0 } blocked) {
-                string reason = string.Join(",", blocked);
-                logger.LogInformation("feed sub {Id}: {Summary} suppressed by {Reason}", sub.Id, evt.Summary, reason);
+            var result = kind.Evaluate(evt, kind.FilterOf(sub));
+            if (result.Ignored.Count > 0)
+                logger.LogWarning("feed sub {Id}: ignored filter conditions {Ignored}", sub.Id, kind.Describe(result.Ignored));
+            if (!result.Matched) {
+                string reason = kind.Describe(result.Failed);
+                logger.LogInformation("feed sub {Id}: {Summary} filtered out: {Reason}", sub.Id, evt.Summary, reason);
                 await store.SuppressAsync(sub.Id, kind.Key, evt.DedupKey, reason, evt.Summary, ct);
                 continue;
             }

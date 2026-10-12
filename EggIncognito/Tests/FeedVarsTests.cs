@@ -24,6 +24,7 @@ public class FeedVarsTests {
     [InlineData(FeedEventKinds.GameDataRebuilt)]
     [InlineData(FeedEventKinds.GameEvent)]
     [InlineData(FeedEventKinds.ContractRelease)]
+    [InlineData(FeedEventKinds.Colleggtible)]
     public void KindVars_AreAllPopulatedByTheFirstSample(string kind) {
         var described = FeedVars.Describe(FeedEventKinds.Find(kind)!);
         Assert.All(described, v => Assert.False(string.IsNullOrEmpty(v.Example), v.Name));

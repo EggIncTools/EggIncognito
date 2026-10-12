@@ -11,6 +11,7 @@ public sealed class FeedSubscription {
     [Column("platforms")] public string[] Platforms { get; set; } = ["android", "ios"];
     [Column("trigger")] public string Trigger { get; set; } = "version_up";
     [Column("filters")] public string[] Filters { get; set; } = [];
+    [Column("filter_set", TypeName = "jsonb")] public string? FilterSet { get; set; }
     [Column("secret")] public string? Secret { get; set; }
     [Column("label")] public string? Label { get; set; }
 

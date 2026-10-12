@@ -191,7 +191,7 @@ public class FeedDispatcherTests {
 
         Assert.Empty(handler.Requests);
         var blocked = Assert.Single(store.Suppressions);
-        Assert.Contains(FeedEventKinds.FilterRequireAspects, blocked.Reason, StringComparison.Ordinal);
+        Assert.Contains("Changed aspect count", blocked.Reason, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -232,8 +232,8 @@ public class FeedDispatcherTests {
         await d.DispatchAsync(EventEvt("old", false, GameEventSources.Carpet, TimeSpan.FromDays(400)));
         Assert.Single(handler.Requests);
         var blocked = Assert.Single(store.Suppressions);
-        Assert.Contains(FeedEventKinds.FilterFreshOnly, blocked.Reason, StringComparison.Ordinal);
-        Assert.Contains(FeedEventKinds.FilterDeviceOnly, blocked.Reason, StringComparison.Ordinal);
+        Assert.Contains("Hours between start and sighting", blocked.Reason, StringComparison.Ordinal);
+        Assert.Contains("Seen by", blocked.Reason, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -284,7 +284,19 @@ public class FeedDispatcherTests {
             ContractEvt("carpet", false, false, ContractSources.Carpet, TimeSpan.Zero));
 
         Assert.Empty(handler.Requests);
-        Assert.Equal(FeedEventKinds.FilterDeviceOnly, Assert.Single(store.Suppressions).Reason);
+        Assert.Contains("Seen by", Assert.Single(store.Suppressions).Reason, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Colleggtible_DedupsOnIdentifier_AcrossContracts() {
+        var store = new FakeStore(KindSub(1, FeedEventKinds.Colleggtible, FeedEventKinds.TriggerAny));
+        var handler = Ok();
+        var d = Dispatcher(store, handler);
+
+        await d.DispatchAsync(new ColleggtibleAddedEvent("glacier", "Glacier Egg", "", [], ["c1"], "https://x/p"));
+        await d.DispatchAsync(new ColleggtibleAddedEvent("glacier", "Glacier Egg", "", [], ["c2"], "https://x/p"));
+        Assert.Single(handler.Requests);
+        Assert.Equal("glacier", store.Deliveries[0].DedupKey);
     }
 
     private static FeedSubscription Guarded(int id, string trigger, params string[] platforms) {
@@ -318,7 +330,19 @@ public class FeedDispatcherTests {
 
         Assert.Empty(handler.Requests);
         Assert.Empty(store.Deliveries);
-        Assert.Empty(store.Suppressions);
+        Assert.All(store.Suppressions, s => Assert.Contains("Version delta", s.Reason, StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task StoredFilterSet_WinsOverLegacyColumns_AndOrMatchesEitherValue() {
+        var sub = Sub(1, FeedEventKinds.TriggerSuspect, "ios");
+        sub.FilterSet = EggIdentity.Filters.FilterCodec.Serialize(
+            FeedFilter.Rows(FeedFilter.AnyOf(ProtoBuildKind.Platform, ["ios", "android"])!));
+        var store = new FakeStore(sub);
+        var handler = Ok();
+        await Dispatcher(store, handler).DispatchAsync(ProtoEvt(false));
+
+        Assert.Single(handler.Requests);
     }
 
     [Fact]
@@ -343,9 +367,9 @@ public class FeedDispatcherTests {
         Assert.Empty(handler.Requests);
         Assert.Empty(store.Deliveries);
         var blocked = Assert.Single(store.Suppressions);
-        Assert.Contains(FeedEventKinds.FilterRequireClientVersion, blocked.Reason, StringComparison.Ordinal);
-        Assert.Contains(FeedEventKinds.FilterSaneBuild, blocked.Reason, StringComparison.Ordinal);
-        Assert.DoesNotContain(FeedEventKinds.FilterKnownDelta, blocked.Reason, StringComparison.Ordinal);
+        Assert.Contains(ProtoVersionQuality.FlawNoClientVersion, blocked.Reason, StringComparison.Ordinal);
+        Assert.Contains(ProtoVersionQuality.FlawBuildPlatformMismatch, blocked.Reason, StringComparison.Ordinal);
+        Assert.DoesNotContain("Version delta", blocked.Reason, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -356,10 +380,11 @@ public class FeedDispatcherTests {
 
         await d.DispatchAsync(ProtoEvt(true, id: 5) with { Delta = VersionDelta.Forward, Flaws = [] });
         Assert.Empty(handler.Requests);
+        Assert.Single(store.Suppressions);
 
         await d.DispatchAsync(BrokenIosEvt());
         Assert.Single(handler.Requests);
-        Assert.Empty(store.Suppressions);
+        Assert.Single(store.Suppressions);
     }
 
     [Fact]
@@ -449,15 +474,13 @@ public class FeedDispatcherTests {
             return Task.FromResult(true);
         }
 
-        public Task<bool> UpdateAsync(int id, Guid ownerUserId, string[] platforms, string trigger,
-            bool active, string? messageTemplate, string[] filters, string? label, CancellationToken ct = default) {
+        public Task<bool> UpdateAsync(int id, Guid ownerUserId, bool active, string? messageTemplate,
+            string filterSet, string? label, CancellationToken ct = default) {
             var s = Subs.FirstOrDefault(x => x.Id == id && x.OwnerUserId == ownerUserId);
             if (s is null) return Task.FromResult(false);
-            s.Platforms = platforms;
-            s.Trigger = trigger;
             s.Active = active;
             s.MessageTemplate = messageTemplate;
-            s.Filters = filters;
+            s.FilterSet = filterSet;
             s.Label = label;
             return Task.FromResult(true);
         }

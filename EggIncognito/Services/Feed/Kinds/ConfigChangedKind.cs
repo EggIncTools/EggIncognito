@@ -1,3 +1,5 @@
+using EggIdentity.Filters;
+using EggIncognito.Data.Models;
 using EggIncognito.Services.DataApi;
 
 namespace EggIncognito.Services.Feed.Kinds;
@@ -10,7 +12,14 @@ public sealed record ConfigChangedEvent(
     string? DedupSha = null) : INotificationEvent {
     public string Kind => FeedEventKinds.ConfigChanged;
     public string DedupKey => $"{Feed}:{DedupSha ?? Sha}";
-    public string? Platform => null;
+
+    public FilterSubjectValue Subject(string field) => field switch {
+        ConfigChangedKind.Feed => FilterSubjectValue.Of(Feed),
+        ConfigChangedKind.Changed => FilterSubjectValue.Of(Changed),
+        ConfigChangedKind.ChangedCount => FilterSubjectValue.Of((double)Changed.Count),
+        ConfigChangedKind.IdCount => FilterSubjectValue.Of((double)(Added.Count + Removed.Count)),
+        _ => FilterSubjectValue.Absent
+    };
 
     public string FeedLabel => ConfigFeeds.LabelOf(Feed);
 
@@ -55,28 +64,42 @@ public static class ConfigChangedKind {
             : $"{root}/data";
     }
 
+    public const string Feed = "feed";
+    public const string Changed = "changed";
+    public const string ChangedCount = "changed_count";
+    public const string IdCount = "id_count";
+
+    private static readonly string[] Aspects = [
+        "sales", "events", "liveConfig", "mail", "contracts", "colleggtibles", "admin", "dlcItems", "shells",
+        "shellSets", "decorators", "shellObjects", "shellGroups", "fontPacks", "artifacts", "missions", "crafting",
+        "seasons"
+    ];
+
+    public static readonly FilterSet Defaults = FeedFilter.Rows([FeedFilter.Above(ChangedCount, 0)]);
+
+    public static FilterSet Legacy(FeedSubscription sub) {
+        var rows = new List<FilterCondition[]>();
+        if (ConfigFeeds.ById(sub.Trigger) is { } feed) rows.Add([FeedFilter.Is(Feed, feed.Id)]);
+        if (sub.Filters.Contains(FeedEventKinds.FilterRequireAspects)) rows.Add([FeedFilter.Above(ChangedCount, 0)]);
+        if (sub.Filters.Contains(FeedEventKinds.FilterRequireIds)) rows.Add([FeedFilter.Above(IdCount, 0)]);
+        return FeedFilter.Rows(rows);
+    }
+
     private static ConfigChangedEvent Sample(string feed, ConfigChangeSummary? change) =>
         new(feed, SampleSha, PageUrl(null, feed), change);
-
-    private static FeedTriggerOption FeedTrigger(ConfigFeed feed) =>
-        new(feed.Id, feed.Label, e => e is ConfigChangedEvent c && string.Equals(c.Feed, feed.Id, StringComparison.Ordinal));
 
     public static readonly NotificationKind Definition = new(
         FeedEventKinds.ConfigChanged, "Config changed",
         "A periodicals, game config, artifacts config or season response changed on the live server.",
         [
-            new FeedTriggerOption(FeedEventKinds.TriggerAnyFeed, "Any response", e => e is ConfigChangedEvent),
-            .. ConfigFeeds.All.Select(FeedTrigger)
+            FeedFilter.Select(Feed, "Response", ConfigFeeds.All.Select(f => new FilterOption(f.Id, f.Label))),
+            FeedFilter.Set(Changed, "Changed aspect", FeedFilter.Options(Aspects)),
+            FeedFilter.Number(ChangedCount, "Changed aspect count"),
+            FeedFilter.Number(IdCount, "Added or removed entry count")
         ],
-        FeedEventKinds.TriggerAnyFeed,
-        [
-            new FeedFilterOption(FeedEventKinds.FilterRequireAspects, "Require identified change", true,
-                e => e is ConfigChangedEvent { Changed.Count: 0 }),
-            new FeedFilterOption(FeedEventKinds.FilterRequireIds, "Require added or removed entries", false,
-                e => e is ConfigChangedEvent { Added.Count: 0, Removed.Count: 0 })
-        ],
+        Defaults,
+        Legacy,
         ["feed", "feedLabel", "sha", "pageUrl", "changed", "added", "removed"],
-        false,
         [
             new FeedSample("periodicals", "Periodicals: new contract and event",
                 Sample(ConfigFeeds.Periodicals, new ConfigChangeSummary(
@@ -94,6 +117,5 @@ public static class ConfigChangedKind {
                 Sample(ConfigFeeds.Seasons, new ConfigChangeSummary(["seasons"], ["season:fall-2026"], []))),
             new FeedSample("bare", "Response changed, nothing identified",
                 Sample(ConfigFeeds.Periodicals, null))
-        ],
-        []);
+        ]);
 }

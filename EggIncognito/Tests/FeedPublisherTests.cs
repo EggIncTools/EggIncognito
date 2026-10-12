@@ -101,8 +101,8 @@ public class FeedPublisherTests {
 
         public Task<bool> DeleteAsync(int id, Guid ownerUserId, CancellationToken ct = default) => Task.FromResult(false);
 
-        public Task<bool> UpdateAsync(int id, Guid ownerUserId, string[] platforms, string trigger, bool active,
-            string? messageTemplate, string[] filters, string? label, CancellationToken ct = default) =>
+        public Task<bool> UpdateAsync(int id, Guid ownerUserId, bool active, string? messageTemplate,
+            string filterSet, string? label, CancellationToken ct = default) =>
             Task.FromResult(false);
 
         public Task SuppressAsync(int subId, string eventKind, string dedupKey, string reason, string? summary,

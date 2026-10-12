@@ -87,20 +87,17 @@ public class ContractPredictorTests {
     }
 
     [Fact]
-    public void Pools_PeContractAlternatesStandardAndUltraOnEveryRelease() {
+    public void Pools_EveryPeContractIsACandidateForBothFridaySlots() {
         var samples = ContractTemplate.Build(26);
         var pools = OldestFirstPools.Fit(samples);
 
         var standard = pools[ContractSlotKind.PeLeggacy].Candidates.Select(c => c.ContractId).ToHashSet();
         var ultra = pools[ContractSlotKind.PeLeggacyUltra].Candidates.Select(c => c.ContractId).ToHashSet();
-        var lastKind = samples.Where(s => s.ProphecyEggs > 0).GroupBy(s => s.ContractId)
-            .ToDictionary(g => g.Key, g => g.MaxBy(s => s.Start).UltraOnly);
+        var pe = samples.Where(s => s.ProphecyEggs > 0).Select(s => s.ContractId).ToHashSet();
 
-        Assert.NotEmpty(standard);
-        Assert.NotEmpty(ultra);
-        Assert.Empty(standard.Intersect(ultra));
-        Assert.All(standard, id => Assert.True(lastKind[id]));
-        Assert.All(ultra, id => Assert.False(lastKind[id]));
+        Assert.NotEmpty(pe);
+        Assert.Equal(pe, standard);
+        Assert.Equal(pe, ultra);
     }
 
     [Fact]
@@ -174,9 +171,6 @@ public class ContractPredictorTests {
             Assert.True(row.Predicted > 0);
             Assert.True(row.Predicted == row.Top5Hit, $"{kind} top-5 {row.Top5Hit} of {row.Predicted}");
         }
-
-        var ultra = result.Kinds.Single(k => k.Kind == ContractSlotKind.PeLeggacyUltra);
-        Assert.True(ultra.Predicted == ultra.Top1Hit, $"ultra top-1 {ultra.Top1Hit} of {ultra.Predicted}");
     }
 
     [Fact]
@@ -230,7 +224,7 @@ public class ContractPredictorTests {
 
         var watch = ContractPredictor.Watch(samples, model, AsOf);
 
-        var candidates = ReleaseGrid.AllKinds.SelectMany(k => model.Pools[k].Candidates).ToList();
+        var candidates = ReleaseGrid.AllKinds.SelectMany(k => model.Pools[k].Candidates).DistinctBy(c => c.ContractId).ToList();
         Assert.Equal(candidates.Count, watch.Count);
         Assert.Equal(watch.OrderBy(e => e.Label, StringComparer.OrdinalIgnoreCase).Select(e => e.Key), watch.Select(e => e.Key));
         Assert.All(watch, e => {

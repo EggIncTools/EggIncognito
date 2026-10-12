@@ -4,7 +4,7 @@ using EggIncognito.Core.Services.ProtoExtract;
 
 namespace EggIncognito.Services.Filtering;
 
-public enum FilterValueKind {
+public enum EgiFilterValueKind {
     Select,
     Text,
     Version,
@@ -13,7 +13,7 @@ public enum FilterValueKind {
     Bool
 }
 
-public enum FilterOp {
+public enum EgiFilterOp {
     Is,
     IsNot,
     Greater,
@@ -32,19 +32,19 @@ public enum FilterOp {
     False
 }
 
-public sealed record FilterOpDef(FilterOp Op, string Label);
+public sealed record EgiFilterOpDef(EgiFilterOp Op, string Label);
 
-public sealed record FilterOption(string Value, string Label);
+public sealed record EgiFilterOption(string Value, string Label);
 
-public sealed record FilterCondition(string Field, FilterOp Op, string Value) {
+public sealed record EgiFilterCondition(string Field, EgiFilterOp Op, string Value) {
     public bool Complete =>
         !string.IsNullOrWhiteSpace(Field)
-        && (Op is FilterOp.True or FilterOp.False || !string.IsNullOrWhiteSpace(Value));
+        && (Op is EgiFilterOp.True or EgiFilterOp.False || !string.IsNullOrWhiteSpace(Value));
 }
 
-public sealed record FilterGroup(IReadOnlyList<FilterCondition> Conditions);
+public sealed record EgiFilterGroup(IReadOnlyList<EgiFilterCondition> Conditions);
 
-public sealed record ListQuery(string Platform, string Quick, IReadOnlyList<FilterGroup> Groups) {
+public sealed record ListQuery(string Platform, string Quick, IReadOnlyList<EgiFilterGroup> Groups) {
     public static readonly ListQuery Empty = new("", "", []);
 
     public bool IsEmpty => Platform.Length == 0 && Quick.Length == 0 && Groups.Count == 0;
@@ -53,9 +53,9 @@ public sealed record ListQuery(string Platform, string Quick, IReadOnlyList<Filt
         var text = new StringBuilder();
         Part(text, Platform);
         Part(text, Quick);
-        foreach (FilterGroup group in Groups) {
+        foreach (EgiFilterGroup group in Groups) {
             text.Append("g|");
-            foreach (FilterCondition condition in group.Conditions) {
+            foreach (EgiFilterCondition condition in group.Conditions) {
                 text.Append("c|");
                 Part(text, condition.Field);
                 text.Append((int)condition.Op).Append('|');
@@ -72,55 +72,55 @@ public sealed record ListQuery(string Platform, string Quick, IReadOnlyList<Filt
     }
 }
 
-public sealed record FilterFieldDef<TItem>(
+public sealed record EgiFilterFieldDef<TItem>(
     string Key,
     string Label,
-    FilterValueKind Kind,
-    IReadOnlyList<FilterOpDef> Ops,
-    Func<IReadOnlyList<TItem>, IReadOnlyList<FilterOption>>? Options,
+    EgiFilterValueKind Kind,
+    IReadOnlyList<EgiFilterOpDef> Ops,
+    Func<IReadOnlyList<TItem>, IReadOnlyList<EgiFilterOption>>? Options,
     bool AdminOnly = false);
 
-public static class FilterOps {
-    public static IReadOnlyList<FilterOpDef> Equality { get; } = [
-        new(FilterOp.Is, "is"),
-        new(FilterOp.IsNot, "is not")
+public static class EgiFilterOps {
+    public static IReadOnlyList<EgiFilterOpDef> Equality { get; } = [
+        new(EgiFilterOp.Is, "is"),
+        new(EgiFilterOp.IsNot, "is not")
     ];
 
-    public static IReadOnlyList<FilterOpDef> Comparison { get; } = [
-        new(FilterOp.Is, "is"),
-        new(FilterOp.IsNot, "is not"),
-        new(FilterOp.Greater, "greater than"),
-        new(FilterOp.Less, "less than"),
-        new(FilterOp.AtLeast, "at least"),
-        new(FilterOp.AtMost, "at most")
+    public static IReadOnlyList<EgiFilterOpDef> Comparison { get; } = [
+        new(EgiFilterOp.Is, "is"),
+        new(EgiFilterOp.IsNot, "is not"),
+        new(EgiFilterOp.Greater, "greater than"),
+        new(EgiFilterOp.Less, "less than"),
+        new(EgiFilterOp.AtLeast, "at least"),
+        new(EgiFilterOp.AtMost, "at most")
     ];
 
-    public static IReadOnlyList<FilterOpDef> Text { get; } = [
-        new(FilterOp.Is, "is"),
-        new(FilterOp.IsNot, "is not"),
-        new(FilterOp.Contains, "contains"),
-        new(FilterOp.NotContains, "does not contain"),
-        new(FilterOp.StartsWith, "starts with")
+    public static IReadOnlyList<EgiFilterOpDef> Text { get; } = [
+        new(EgiFilterOp.Is, "is"),
+        new(EgiFilterOp.IsNot, "is not"),
+        new(EgiFilterOp.Contains, "contains"),
+        new(EgiFilterOp.NotContains, "does not contain"),
+        new(EgiFilterOp.StartsWith, "starts with")
     ];
 
-    public static IReadOnlyList<FilterOpDef> Date { get; } = [
-        new(FilterOp.On, "on"),
-        new(FilterOp.Before, "before"),
-        new(FilterOp.After, "after"),
-        new(FilterOp.OnOrBefore, "on or before"),
-        new(FilterOp.OnOrAfter, "on or after")
+    public static IReadOnlyList<EgiFilterOpDef> Date { get; } = [
+        new(EgiFilterOp.On, "on"),
+        new(EgiFilterOp.Before, "before"),
+        new(EgiFilterOp.After, "after"),
+        new(EgiFilterOp.OnOrBefore, "on or before"),
+        new(EgiFilterOp.OnOrAfter, "on or after")
     ];
 
-    public static IReadOnlyList<FilterOpDef> Bool { get; } = [
-        new(FilterOp.True, "True"),
-        new(FilterOp.False, "False")
+    public static IReadOnlyList<EgiFilterOpDef> Bool { get; } = [
+        new(EgiFilterOp.True, "True"),
+        new(EgiFilterOp.False, "False")
     ];
 
     public static ListQuery Prune(ListQuery query) {
-        List<FilterGroup> groups = [.. query.Groups
+        List<EgiFilterGroup> groups = [.. query.Groups
             .Select(group => group.Conditions.Where(c => c.Complete).ToList())
             .Where(kept => kept.Count > 0)
-            .Select(kept => new FilterGroup(kept))];
+            .Select(kept => new EgiFilterGroup(kept))];
         return query with { Groups = groups };
     }
 
@@ -130,17 +130,17 @@ public static class FilterOps {
     public static bool Prefix(string? field, string needle) =>
         field is { Length: > 0 } && field.StartsWith(needle, StringComparison.OrdinalIgnoreCase);
 
-    public static List<FilterOption> ByVersion(IEnumerable<string?> values) => [
+    public static List<EgiFilterOption> ByVersion(IEnumerable<string?> values) => [
         .. Distinct(values)
             .OrderByDescending(ProtoVersionQuality.DottedVersionKey)
             .ThenBy(v => v, StringComparer.OrdinalIgnoreCase)
-            .Select(v => new FilterOption(v, v))
+            .Select(v => new EgiFilterOption(v, v))
     ];
 
-    public static List<FilterOption> ByText(IEnumerable<string?> values) => [
+    public static List<EgiFilterOption> ByText(IEnumerable<string?> values) => [
         .. Distinct(values)
             .OrderBy(v => v, StringComparer.OrdinalIgnoreCase)
-            .Select(v => new FilterOption(v, v))
+            .Select(v => new EgiFilterOption(v, v))
     ];
 
     private static IEnumerable<string> Distinct(IEnumerable<string?> values) =>
@@ -149,8 +149,8 @@ public static class FilterOps {
             .Distinct(StringComparer.OrdinalIgnoreCase);
 }
 
-public sealed class FilterSchema<TItem> {
-    public required IReadOnlyList<FilterFieldDef<TItem>> Fields { get; init; }
+public sealed class EgiFilterSchema<TItem> {
+    public required IReadOnlyList<EgiFilterFieldDef<TItem>> Fields { get; init; }
     public required Func<TItem, string> Platform { get; init; }
     public required Func<TItem, string, bool> Quick { get; init; }
     public Func<TItem, string, string?> Text { get; init; } = (_, _) => null;
@@ -158,31 +158,31 @@ public sealed class FilterSchema<TItem> {
     public Func<TItem, string, bool> Flag { get; init; } = (_, _) => false;
     public Func<TItem, string, DateTime?> Date { get; init; } = (_, _) => null;
 
-    public IReadOnlyList<FilterFieldDef<TItem>> FieldsFor(bool admin) =>
+    public IReadOnlyList<EgiFilterFieldDef<TItem>> FieldsFor(bool admin) =>
         admin ? Fields : [.. Fields.Where(f => !f.AdminOnly)];
 
-    public FilterFieldDef<TItem>? Field(string? key) {
+    public EgiFilterFieldDef<TItem>? Field(string? key) {
         if (string.IsNullOrWhiteSpace(key)) return null;
-        foreach (FilterFieldDef<TItem> def in Fields) {
+        foreach (EgiFilterFieldDef<TItem> def in Fields) {
             if (string.Equals(def.Key, key, StringComparison.Ordinal)) return def;
         }
 
         return null;
     }
 
-    public string OpLabel(string? field, FilterOp op) {
-        IReadOnlyList<FilterOpDef> ops = Field(field)?.Ops ?? [];
-        foreach (FilterOpDef def in ops) {
+    public string OpLabel(string? field, EgiFilterOp op) {
+        IReadOnlyList<EgiFilterOpDef> ops = Field(field)?.Ops ?? [];
+        foreach (EgiFilterOpDef def in ops) {
             if (def.Op == op) return def.Label;
         }
 
         return op.ToString().ToLowerInvariant();
     }
 
-    public string ConditionText(FilterCondition condition) {
+    public string ConditionText(EgiFilterCondition condition) {
         string label = Field(condition.Field)?.Label ?? condition.Field;
         string op = OpLabel(condition.Field, condition.Op);
-        if (condition.Op is FilterOp.True or FilterOp.False) return $"{label} is {op}";
+        if (condition.Op is EgiFilterOp.True or EgiFilterOp.False) return $"{label} is {op}";
         return $"{label} {op} {condition.Value}";
     }
 
@@ -195,15 +195,15 @@ public sealed class FilterSchema<TItem> {
         if (query.Quick.Length > 0 && !Quick(item, query.Quick)) return false;
         if (query.Groups.Count == 0) return true;
 
-        foreach (FilterGroup group in query.Groups) {
+        foreach (EgiFilterGroup group in query.Groups) {
             if (GroupMatches(item, group)) return true;
         }
 
         return false;
     }
 
-    private bool GroupMatches(TItem item, FilterGroup group) {
-        foreach (FilterCondition condition in group.Conditions) {
+    private bool GroupMatches(TItem item, EgiFilterGroup group) {
+        foreach (EgiFilterCondition condition in group.Conditions) {
             if (!condition.Complete) continue;
             if (!ConditionMatches(item, condition)) return false;
         }
@@ -211,41 +211,41 @@ public sealed class FilterSchema<TItem> {
         return true;
     }
 
-    private bool ConditionMatches(TItem item, FilterCondition condition) {
+    private bool ConditionMatches(TItem item, EgiFilterCondition condition) {
         if (Field(condition.Field) is not { } def) return false;
 
         return def.Kind switch {
-            FilterValueKind.Bool => BoolMatch(Flag(item, def.Key), condition.Op),
-            FilterValueKind.Date => DateMatch(Date(item, def.Key), condition),
-            FilterValueKind.Number => NumberMatch(Number(item, def.Key), condition),
-            FilterValueKind.Version => VersionMatch(Text(item, def.Key), condition),
+            EgiFilterValueKind.Bool => BoolMatch(Flag(item, def.Key), condition.Op),
+            EgiFilterValueKind.Date => DateMatch(Date(item, def.Key), condition),
+            EgiFilterValueKind.Number => NumberMatch(Number(item, def.Key), condition),
+            EgiFilterValueKind.Version => VersionMatch(Text(item, def.Key), condition),
             _ => TextMatch(Text(item, def.Key), condition)
         };
     }
 
-    private static bool TextMatch(string? value, FilterCondition condition) {
-        if (string.IsNullOrWhiteSpace(value)) return condition.Op is FilterOp.IsNot or FilterOp.NotContains;
+    private static bool TextMatch(string? value, EgiFilterCondition condition) {
+        if (string.IsNullOrWhiteSpace(value)) return condition.Op is EgiFilterOp.IsNot or EgiFilterOp.NotContains;
 
         return condition.Op switch {
-            FilterOp.Is => string.Equals(value, condition.Value, StringComparison.OrdinalIgnoreCase),
-            FilterOp.IsNot => !string.Equals(value, condition.Value, StringComparison.OrdinalIgnoreCase),
-            FilterOp.Contains => value.Contains(condition.Value, StringComparison.OrdinalIgnoreCase),
-            FilterOp.NotContains => !value.Contains(condition.Value, StringComparison.OrdinalIgnoreCase),
-            FilterOp.StartsWith => value.StartsWith(condition.Value, StringComparison.OrdinalIgnoreCase),
+            EgiFilterOp.Is => string.Equals(value, condition.Value, StringComparison.OrdinalIgnoreCase),
+            EgiFilterOp.IsNot => !string.Equals(value, condition.Value, StringComparison.OrdinalIgnoreCase),
+            EgiFilterOp.Contains => value.Contains(condition.Value, StringComparison.OrdinalIgnoreCase),
+            EgiFilterOp.NotContains => !value.Contains(condition.Value, StringComparison.OrdinalIgnoreCase),
+            EgiFilterOp.StartsWith => value.StartsWith(condition.Value, StringComparison.OrdinalIgnoreCase),
             _ => false
         };
     }
 
-    private static bool VersionMatch(string? value, FilterCondition condition) {
+    private static bool VersionMatch(string? value, EgiFilterCondition condition) {
         long left = ProtoVersionQuality.DottedVersionKey(value);
-        if (left == long.MinValue) return condition.Op == FilterOp.IsNot;
+        if (left == long.MinValue) return condition.Op == EgiFilterOp.IsNot;
 
         long right = ProtoVersionQuality.DottedVersionKey(condition.Value);
         return right != long.MinValue && CompareMatch(left.CompareTo(right), condition.Op);
     }
 
-    private static bool NumberMatch(long? value, FilterCondition condition) {
-        if (value is not { } left) return condition.Op == FilterOp.IsNot;
+    private static bool NumberMatch(long? value, EgiFilterCondition condition) {
+        if (value is not { } left) return condition.Op == EgiFilterOp.IsNot;
         if (!long.TryParse(condition.Value, NumberStyles.Integer, CultureInfo.InvariantCulture, out long right)) {
             return false;
         }
@@ -253,7 +253,7 @@ public sealed class FilterSchema<TItem> {
         return CompareMatch(left.CompareTo(right), condition.Op);
     }
 
-    private static bool DateMatch(DateTime? value, FilterCondition condition) {
+    private static bool DateMatch(DateTime? value, EgiFilterCondition condition) {
         if (value is not { } stamp) return false;
         if (!DateTime.TryParse(condition.Value, CultureInfo.InvariantCulture, DateTimeStyles.None,
                 out DateTime target)) {
@@ -262,28 +262,28 @@ public sealed class FilterSchema<TItem> {
 
         int cmp = stamp.ToLocalTime().Date.CompareTo(target.Date);
         return condition.Op switch {
-            FilterOp.On => cmp == 0,
-            FilterOp.Before => cmp < 0,
-            FilterOp.After => cmp > 0,
-            FilterOp.OnOrBefore => cmp <= 0,
-            FilterOp.OnOrAfter => cmp >= 0,
+            EgiFilterOp.On => cmp == 0,
+            EgiFilterOp.Before => cmp < 0,
+            EgiFilterOp.After => cmp > 0,
+            EgiFilterOp.OnOrBefore => cmp <= 0,
+            EgiFilterOp.OnOrAfter => cmp >= 0,
             _ => false
         };
     }
 
-    private static bool BoolMatch(bool value, FilterOp op) => op switch {
-        FilterOp.True => value,
-        FilterOp.False => !value,
+    private static bool BoolMatch(bool value, EgiFilterOp op) => op switch {
+        EgiFilterOp.True => value,
+        EgiFilterOp.False => !value,
         _ => false
     };
 
-    private static bool CompareMatch(int cmp, FilterOp op) => op switch {
-        FilterOp.Is => cmp == 0,
-        FilterOp.IsNot => cmp != 0,
-        FilterOp.Greater => cmp > 0,
-        FilterOp.Less => cmp < 0,
-        FilterOp.AtLeast => cmp >= 0,
-        FilterOp.AtMost => cmp <= 0,
+    private static bool CompareMatch(int cmp, EgiFilterOp op) => op switch {
+        EgiFilterOp.Is => cmp == 0,
+        EgiFilterOp.IsNot => cmp != 0,
+        EgiFilterOp.Greater => cmp > 0,
+        EgiFilterOp.Less => cmp < 0,
+        EgiFilterOp.AtLeast => cmp >= 0,
+        EgiFilterOp.AtMost => cmp <= 0,
         _ => false
     };
 }

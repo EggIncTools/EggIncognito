@@ -1,10 +1,13 @@
 using System.Net;
+using System.Text.Json;
 using EggIdentity.Auth;
+using EggIdentity.Filters;
 using EggIncognito.Controllers;
 using EggIncognito.Data.Models;
 using EggIncognito.Data.Services;
 using EggIncognito.Models.Protos;
 using EggIncognito.Services.Feed;
+using EggIncognito.Services.Feed.Kinds;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Infrastructure;
 using Microsoft.EntityFrameworkCore;
@@ -28,7 +31,7 @@ public class ProtoFeedApiTests {
     public async Task Create_Anon_Returns401() {
         var c = Controller(StubUser(null), _ => new HttpResponseMessage(HttpStatusCode.OK));
         var r = await c.Create(new FeedCreateReq(
-            "https://discord.com/api/webhooks/1/abc", null, null, null, null), UnconnectedStore(), null,
+            "https://discord.com/api/webhooks/1/abc", null, null), UnconnectedStore(), null,
             CancellationToken.None);
         Assert.Equal(401, Status(r));
     }
@@ -37,7 +40,7 @@ public class ProtoFeedApiTests {
     public async Task Create_BadUrl_Returns400() {
         var c = Controller(StubUser("42"), _ => new HttpResponseMessage(HttpStatusCode.OK));
         var r = await c.Create(new FeedCreateReq(
-            "https://evil.example.com/hook", null, null, null, null), UnconnectedStore(), null,
+            "https://evil.example.com/hook", null, null), UnconnectedStore(), null,
             CancellationToken.None);
         Assert.Equal(400, Status(r));
     }
@@ -45,7 +48,7 @@ public class ProtoFeedApiTests {
     [Fact]
     public async Task Create_EmptyUrl_Returns400() {
         var c = Controller(StubUser("42"), _ => new HttpResponseMessage(HttpStatusCode.OK));
-        var r = await c.Create(new FeedCreateReq("", null, null, null, null), UnconnectedStore(), null,
+        var r = await c.Create(new FeedCreateReq("", null, null), UnconnectedStore(), null,
             CancellationToken.None);
         Assert.Equal(400, Status(r));
     }
@@ -67,7 +70,7 @@ public class ProtoFeedApiTests {
     [Fact]
     public async Task Update_Anon_Returns401() {
         var c = Controller(StubUser(null), _ => new HttpResponseMessage(HttpStatusCode.OK));
-        var r = await c.Update(1, new FeedUpdateReq(["android"], "new_version", true, null), UnconnectedStore(), null,
+        var r = await c.Update(1, new FeedUpdateReq(true, null), UnconnectedStore(), null,
             CancellationToken.None);
         Assert.Equal(401, Status(r));
     }
@@ -82,53 +85,82 @@ public class ProtoFeedApiTests {
         Assert.DoesNotContain("abcdEFGHtoken1234", masked);
     }
 
-    private static FeedSubscription Sub(string eventKind, params string[] filters) => new() {
-        Id = 1,
-        EventKind = eventKind,
-        Filters = filters
-    };
-
     [Fact]
-    public void ResolveFilters_NullRequest_KeepsStoredFilters() {
-        var sub = Sub(FeedEventKinds.ProtoBuild, FeedEventKinds.FilterRequireProto);
+    public void ParseFilter_NoBody_FallsBackToTheGivenSet() {
+        var fallback = FeedEventKinds.Proto.Defaults;
 
-        Assert.Equal([FeedEventKinds.FilterRequireProto], ProtoFeedController.ResolveFilters(sub, null));
+        Assert.Same(fallback, ProtoFeedController.ParseFilter(null, fallback));
     }
 
     [Fact]
-    public void ResolveFilters_NullRequest_DoesNotReEnableGuardsTheOwnerTurnedOff() {
-        var sub = Sub(FeedEventKinds.ProtoBuild);
+    public void ParseFilter_EmptyObject_IsTheEmptySet_SoAnOwnerCanClearEveryCondition() {
+        var parsed = ProtoFeedController.ParseFilter(JsonElement.Parse("{}"), FeedEventKinds.Proto.Defaults);
 
-        Assert.Empty(ProtoFeedController.ResolveFilters(sub, null));
+        Assert.True(parsed.IsEmpty);
     }
 
     [Fact]
-    public void ResolveFilters_NullRequest_KeepsConfigOptIn() {
-        var sub = Sub(FeedEventKinds.ConfigChanged, FeedEventKinds.FilterRequireAspects);
+    public void Problems_UnknownField_IsRejected_WithTheRow() {
+        var set = FeedFilter.Rows([new FilterCondition("not_a_field", FilterOps.Eq, "x")]);
 
-        Assert.Equal([FeedEventKinds.FilterRequireAspects], ProtoFeedController.ResolveFilters(sub, null));
+        string? problems = ProtoFeedController.Problems(FeedEventKinds.Proto, set);
+
+        Assert.NotNull(problems);
+        Assert.Contains("row 1", problems, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void ResolveFilters_LegacyPeriodicalsKind_NormalizesAgainstConfig() {
-        var sub = Sub(FeedEventKinds.LegacyPeriodicalsChanged, FeedEventKinds.FilterRequireAspects);
+    public void Problems_EmptyValue_IsRejected() {
+        var set = FeedFilter.Rows([new FilterCondition(ProtoBuildKind.AppVersion, FilterOps.Gte, "")]);
 
-        Assert.Equal([FeedEventKinds.FilterRequireAspects], ProtoFeedController.ResolveFilters(sub, null));
+        Assert.NotNull(ProtoFeedController.Problems(FeedEventKinds.Proto, set));
     }
 
     [Fact]
-    public void ResolveFilters_EmptyRequest_ClearsFilters() {
-        var sub = Sub(FeedEventKinds.ProtoBuild, FeedEventKinds.FilterRequireProto, FeedEventKinds.FilterSaneBuild);
-
-        Assert.Empty(ProtoFeedController.ResolveFilters(sub, []));
+    public void Problems_EveryKindDefault_IsValid() {
+        foreach (var kind in FeedEventKinds.All) Assert.Null(ProtoFeedController.Problems(kind, kind.Defaults));
     }
 
     [Fact]
-    public void ResolveFilters_SuppliedRequest_NormalizesAgainstTheEventKind() {
-        var sub = Sub(FeedEventKinds.ProtoBuild, FeedEventKinds.FilterRequireProto);
+    public void FilterJson_LegacyRow_ConvertsFromTriggerAndFilters() {
+        var sub = new FeedSubscription {
+            EventKind = FeedEventKinds.ProtoBuild,
+            Trigger = FeedEventKinds.TriggerProtoChanged,
+            Platforms = ["ios"],
+            Filters = [FeedEventKinds.FilterRequireProto]
+        };
 
-        Assert.Equal([FeedEventKinds.FilterSaneBuild],
-            ProtoFeedController.ResolveFilters(sub, [FeedEventKinds.FilterSaneBuild, "not_a_filter"]));
+        var set = FilterCodec.Deserialize(ProtoFeedController.FilterJson(sub).GetRawText());
+
+        Assert.Contains(set.And, c => c.Field == ProtoBuildKind.ProtoChangedField && c.Op == FilterOps.True);
+        Assert.Contains(set.And, c => c.Field == ProtoBuildKind.Platform && c.Value == "ios");
+        Assert.Contains(set.And, c => c.Field == ProtoBuildKind.FlawsField && c.Op == FilterOps.NotContains);
+        Assert.Null(ProtoFeedController.Problems(FeedEventKinds.Proto, set));
+    }
+
+    [Fact]
+    public void FilterJson_StoredSet_WinsOverLegacyColumns() {
+        var stored = FeedFilter.Rows([FeedFilter.Is(ProtoBuildKind.Platform, "android")]);
+        var sub = new FeedSubscription {
+            EventKind = FeedEventKinds.ProtoBuild,
+            Trigger = FeedEventKinds.TriggerSuspect,
+            FilterSet = FilterCodec.Serialize(stored)
+        };
+
+        Assert.Equal(FilterCodec.Serialize(stored), FilterCodec.Serialize(
+            FilterCodec.Deserialize(ProtoFeedController.FilterJson(sub).GetRawText())));
+    }
+
+    [Fact]
+    public void PreviewRows_ReportTheFailingConditions() {
+        var set = FeedFilter.Rows([FeedFilter.Is(ProtoBuildKind.Platform, "ios")]);
+
+        var rows = ProtoFeedController.PreviewRows(FeedEventKinds.Proto, set, null);
+
+        var forward = Assert.Single(rows, r => r.Key == "forward");
+        Assert.False(forward.Matches);
+        Assert.Contains("Platform", Assert.Single(forward.BlockedBy), StringComparison.Ordinal);
+        Assert.Contains(rows, r => r.Key == "broken" && r.Matches);
     }
 
     [Fact]

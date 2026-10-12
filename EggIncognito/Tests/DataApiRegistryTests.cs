@@ -84,11 +84,10 @@ public class DataApiRegistryTests {
     public void Catalog_PeriodicalFeeds_MatchFeedEventKinds() {
         var c = new DataCatalog();
         string[] feeds = [.. c.PeriodicalFeeds().OrderBy(x => x, StringComparer.Ordinal)];
-        string[] triggers = [
-            .. FeedEventKinds.Config.Triggers
-                .Select(t => t.Value).Where(v => v != FeedEventKinds.TriggerAnyFeed)
-                .OrderBy(x => x, StringComparer.Ordinal)
-        ];
+        var feedField = EggIdentity.Filters.FilterFields.Find(
+            FeedEventKinds.Config.Fields, EggIncognito.Services.Feed.Kinds.ConfigChangedKind.Feed);
+        Assert.NotNull(feedField);
+        string[] triggers = [.. feedField.Options.Select(o => o.Value).OrderBy(x => x, StringComparer.Ordinal)];
         Assert.Equal(triggers, feeds);
     }
 

@@ -1,5 +1,5 @@
+using System.Text.Json;
+
 namespace EggIncognito.Models.Protos;
 
-public sealed record FeedUpdateReq(
-    string[]? Platforms, string? Trigger, bool? Active, string? MessageTemplate, string[]? Filters = null,
-    string? Label = null);
+public sealed record FeedUpdateReq(bool? Active, string? MessageTemplate, JsonElement? Filter = null, string? Label = null);

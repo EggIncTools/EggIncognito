@@ -16,7 +16,8 @@ public sealed record ContractModel(
     public IReadOnlyList<ContractSlotPrediction> Slots(DateTimeOffset from, int horizonSlots) {
         var grid = Grid.Next(from, horizonSlots).ToList();
         var tallies = grid.Select(_ => new Dictionary<string, int>(StringComparer.Ordinal)).ToList();
-        var byId = Pools.Values.SelectMany(p => p.Candidates).ToDictionary(c => c.ContractId, StringComparer.Ordinal);
+        var byId = Pools.Values.SelectMany(p => p.Candidates).DistinctBy(c => c.ContractId)
+            .ToDictionary(c => c.ContractId, StringComparer.Ordinal);
         var random = new Random(Seed);
         for (int path = 0; path < Paths; path++) {
             var queues = Pools.ToDictionary(kv => kv.Key, kv => kv.Value.Candidates.ToList());
@@ -27,9 +28,11 @@ public sealed record ContractModel(
                 if (eligible.Count == 0) continue;
                 var pick = eligible[SampleRank(Ranks[slot.Kind], eligible.Count, random.NextDouble())];
                 tallies[i][pick.ContractId] = tallies[i].GetValueOrDefault(pick.ContractId) + 1;
-                queues[slot.Kind].Remove(pick);
                 var released = pick with { LastReleased = time, Releases = pick.Releases + 1 };
-                queues[NextPool(slot.Kind)].Add(released);
+                foreach (var kind in SharedPools(slot.Kind)) {
+                    queues[kind].RemoveAll(c => c.ContractId == pick.ContractId);
+                    queues[kind].Add(released);
+                }
             }
         }
 
@@ -52,11 +55,8 @@ public sealed record ContractModel(
         return slots;
     }
 
-    private static ContractSlotKind NextPool(ContractSlotKind kind) => kind switch {
-        ContractSlotKind.PeLeggacy => ContractSlotKind.PeLeggacyUltra,
-        ContractSlotKind.PeLeggacyUltra => ContractSlotKind.PeLeggacy,
-        _ => kind
-    };
+    private static ContractSlotKind[] SharedPools(ContractSlotKind kind) =>
+        kind is ContractSlotKind.PeLeggacy or ContractSlotKind.PeLeggacyUltra ? OldestFirstPools.PeKinds : [kind];
 
     private static int SampleRank(IReadOnlyList<double> ranks, int count, double u) {
         int width = Math.Min(ranks.Count, count);
