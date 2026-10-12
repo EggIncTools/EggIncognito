@@ -6,16 +6,16 @@
     <PackageVersion Include="AngleSharp" Version="1.8.4" />
     <PackageVersion Include="bunit" Version="2.11.3" />
     <PackageVersion Include="coverlet.collector" Version="6.0.4" />
-    <PackageVersion Include="EggIdentity.Admin" Version="259.0.0" />
-    <PackageVersion Include="EggIdentity.Auth" Version="259.0.0" />
-    <PackageVersion Include="EggIdentity.Bot" Version="259.0.0" />
-    <PackageVersion Include="EggIdentity.Brand" Version="259.0.0" />
-    <PackageVersion Include="EggIdentity.CodeStyle" Version="259.0.0" />
-    <PackageVersion Include="EggIdentity.Core" Version="259.0.0" />
-    <PackageVersion Include="EggIdentity.Data" Version="259.0.0" />
-    <PackageVersion Include="EggIdentity.Testing" Version="259.0.0" />
-    <PackageVersion Include="EggIdentity.UI" Version="259.0.0" />
-    <PackageVersion Include="EggIdentity.Web" Version="259.0.0" />
+    <PackageVersion Include="EggIdentity.Admin" Version="260.0.0" />
+    <PackageVersion Include="EggIdentity.Auth" Version="260.0.0" />
+    <PackageVersion Include="EggIdentity.Bot" Version="260.0.0" />
+    <PackageVersion Include="EggIdentity.Brand" Version="260.0.0" />
+    <PackageVersion Include="EggIdentity.CodeStyle" Version="260.0.0" />
+    <PackageVersion Include="EggIdentity.Core" Version="260.0.0" />
+    <PackageVersion Include="EggIdentity.Data" Version="260.0.0" />
+    <PackageVersion Include="EggIdentity.Testing" Version="260.0.0" />
+    <PackageVersion Include="EggIdentity.UI" Version="260.0.0" />
+    <PackageVersion Include="EggIdentity.Web" Version="260.0.0" />
     <PackageVersion Include="Gee.External.Capstone" Version="2.3.0" />
     <PackageVersion Include="Google.Protobuf" Version="3.36.2" />
     <PackageVersion Include="Grpc.Tools" Version="2.84.0" />
