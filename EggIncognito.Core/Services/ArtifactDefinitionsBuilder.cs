@@ -24,7 +24,8 @@ public static class ArtifactDefinitionsBuilder {
                 f.Description,
                 [.. f.Tiers.OrderBy(t => t.Level).Select(t => new TierRow(t.Level, t.Name, t.RarityCount,
                     [.. t.Recipe.Select(r => new IngredientRow(r.AfxId, r.Level, r.Count))],
-                    [.. t.Effects.Select(e => new EffectRow(e.Rarity, e.Magnitude, e.Template))]))]))
+                    [.. t.Effects.Select(e => new EffectRow(e.Rarity, ArtifactEffectValues.Magnitude(f.Dimension, e), e.Template))]))],
+                ArtifactEffectValues.Label(f)))
             .ToList();
 
         var dimensionLabels = labels.Labels
@@ -50,7 +51,7 @@ public static class ArtifactDefinitionsBuilder {
         IReadOnlyList<EffectRow> Effects);
 
     private sealed record FamilyRow(string Name, int AfxId, string BinaryId, string PluralName, int Kind,
-        int Dimension, int Order, string Description, IReadOnlyList<TierRow> Tiers);
+        int Dimension, int Order, string Description, IReadOnlyList<TierRow> Tiers, string? Label);
 
     private sealed record DefinitionsFile(IReadOnlyList<FamilyRow> Families,
         IReadOnlyDictionary<string, string> DimensionLabels, string EffectTemplate, string BinaryVersion,

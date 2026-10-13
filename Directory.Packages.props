@@ -16,12 +16,12 @@
     <PackageVersion Include="EggIdentity.Testing" Version="262.0.0" />
     <PackageVersion Include="EggIdentity.UI" Version="262.0.0" />
     <PackageVersion Include="EggIdentity.Web" Version="262.0.0" />
-    <PackageVersion Include="EggSharp.Core" Version="13.0.0" />
-    <PackageVersion Include="EggSharp.Ei.Google" Version="13.0.0" />
-    <PackageVersion Include="EggSharp.GameData" Version="13.0.0" />
-    <PackageVersion Include="EggSharp.GameData.Assets" Version="13.0.0" />
-    <PackageVersion Include="EggSharp.Protos" Version="13.0.0" />
-    <PackageVersion Include="EggSharp.Testing" Version="13.0.0" />
+    <PackageVersion Include="EggSharp.Core" Version="14.0.0" />
+    <PackageVersion Include="EggSharp.Ei.Google" Version="14.0.0" />
+    <PackageVersion Include="EggSharp.GameData" Version="14.0.0" />
+    <PackageVersion Include="EggSharp.GameData.Assets" Version="14.0.0" />
+    <PackageVersion Include="EggSharp.Protos" Version="14.0.0" />
+    <PackageVersion Include="EggSharp.Testing" Version="14.0.0" />
     <PackageVersion Include="Gee.External.Capstone" Version="2.3.0" />
     <PackageVersion Include="Google.Protobuf" Version="3.36.2" />
     <PackageVersion Include="LibUsbDotNet" Version="3.0.224" />

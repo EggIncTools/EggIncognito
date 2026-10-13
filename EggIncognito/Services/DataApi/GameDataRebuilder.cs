@@ -136,8 +136,11 @@ public sealed class GameDataRebuilder(
                 var r = ResearchCatalogExtractor.ExtractAuto(c.Bin);
                 if (!r.Ok || r.Entries.Count == 0) return null;
                 var prices = ResearchPriceExtractor.ExtractById(c.Bin, r.Entries);
-                var doc = GameDataDocBuilders.BuildResearch(r.Entries, c.Version, prices.Ok ? prices.Prices : null);
-                string? priceNote = prices.Ok ? null : "prices: " + prices.Diagnostics;
+                var curve = ResearchPriceCurveExtractor.Extract(c.Bin);
+                var doc = GameDataDocBuilders.BuildResearch(r.Entries, c.Version, prices.Ok ? prices.Prices : null,
+                    curve.Ok ? curve.Constants : null);
+                string? priceNote = !prices.Ok ? "prices: " + prices.Diagnostics
+                    : !curve.Ok ? "price curve: " + curve.Diagnostics : null;
                 string? note = SkipNote(doc.Skipped, "undecoded");
                 return (doc.Json, doc.Count, note is null ? priceNote : priceNote is null ? note : $"{note}; {priceNote}");
             }, ct);

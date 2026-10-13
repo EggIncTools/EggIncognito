@@ -31,7 +31,7 @@ public class BoostEffectExtractorTests {
         Assert.Equal(1000, orange.Magnitude);
 
         var doc = GameDataDocBuilders.BuildBoosts(r.Entries, "test");
-        Assert.Equal(["quantum_bulb"], doc.Skipped.Select(s => s[..s.IndexOf(' ')]));
+        Assert.True(doc.Skipped.Count == 0, string.Join("; ", doc.Skipped));
         GameDataProvider.Validate("boosts", doc.Json);
         var parsed = EffectDataLoader.Parse(doc.Json);
         var row = Assert.Single(parsed.Rows, x => x.Id == "tachyon_prism_orange");
@@ -43,5 +43,9 @@ public class BoostEffectExtractorTests {
         var cash = Assert.Single(parsed.Rows, x => x.Id == "blank_check");
         Assert.Equal(EffectTarget.Cash, cash.Target);
         Assert.Equal(1, cash.Magnitude);
+        var bulb = Assert.Single(parsed.Rows, x => x.Id == "quantum_bulb");
+        Assert.Equal(EffectTarget.None, bulb.Target);
+        var bulbMeta = Assert.IsAssignableFrom<IReadOnlyDictionary<string, System.Text.Json.JsonElement>>(bulb.Meta);
+        Assert.Equal(600, bulbMeta["durationSeconds"].GetInt64());
     }
 }

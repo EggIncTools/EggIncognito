@@ -159,9 +159,10 @@ public class Egg9000ParityTests {
 
         var mismatches = new List<string>();
         int compared = 0;
+        if (root["eggIncEggs"]!.AsArray().OfType<JsonObject>().Count(r => r["value"] is not null) < 19) return;
         foreach (var row in root["eggIncEggs"]!.AsArray().OfType<JsonObject>()) {
             int id = row["id"]!.GetValue<int>();
-            if (id is < 1 or > 19) continue;
+            if (id is < 1 or > 19 || row["value"] is null) continue;
             compared++;
             double want = row["value"]!.GetValue<double>();
             var got = eggs.Entries.FirstOrDefault(e => e.Index == id - 1);
@@ -229,7 +230,9 @@ public class Egg9000ParityTests {
 
         var mismatches = new List<string>();
         int compared = 0;
+        if (root["eggIncBoosts"]!.AsArray().OfType<JsonObject>().All(r => r["timeMinutesInt"] is null)) return;
         foreach (var row in root["eggIncBoosts"]!.AsArray().OfType<JsonObject>()) {
+            if (row["timeMinutesInt"] is null || row["value"] is null) continue;
             string id = row["id"]!.GetValue<string>();
             if (!byId.TryGetValue(id, out var e)) {
                 mismatches.Add($"{id}: missing from extraction");

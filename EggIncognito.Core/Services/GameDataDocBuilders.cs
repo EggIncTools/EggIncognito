@@ -110,7 +110,9 @@ public static class GameDataDocBuilders {
     }.ToFrozenDictionary();
 
     public static DocResult BuildResearch(IReadOnlyList<ResearchCatalogExtractor.ResearchEntry> entries,
-        string binaryVersion, IReadOnlyDictionary<string, ResearchPriceExtractor.Price>? prices = null) {
+        string binaryVersion, IReadOnlyDictionary<string, ResearchPriceExtractor.Price>? prices = null,
+        ResearchPriceCurve.Constants? curveConstants = null) {
+        var curve = curveConstants is { } constants ? ResearchPriceCurve.Build(ResearchPriceCurve.Standard, constants) : null;
         var rows = new List<object>();
         var skipped = new List<string>();
         foreach (var e in entries) {
@@ -144,6 +146,8 @@ public static class GameDataDocBuilders {
                         meta["priceEnd"] = price.PriceEnd;
                         meta["pricePercent"] = price.PricePercent;
                     }
+
+                    if (LevelPrices(price, curve) is { } perLevel) meta["prices"] = perLevel;
                 }
 
                 rows.Add(new {
@@ -164,11 +168,28 @@ public static class GameDataDocBuilders {
             ["epic"] = new("binary", "researchdata", "decoded")
         };
         if (prices is not null) provenance["price"] = new("binary", "researchdata", "decoded");
+        if (prices is not null && curve is not null)
+            provenance["prices"] = new("binary", "ResearchEngine::getPrice over PriceCurve::PriceCurve", "decoded");
         var doc = new { rows, binaryVersion, provenance };
         return new DocResult(JsonSerializer.Serialize(doc, CamelJson), rows.Count, skipped);
     }
 
+    private static double[]? LevelPrices(ResearchPriceExtractor.Price p, ResearchPriceCurve.Curve? curve) {
+        if (p.MaxLevel < 1) return null;
+        if (p.Epic) {
+            return [.. Enumerable.Range(0, p.MaxLevel).Select(level => p.MaxLevel == 1
+                ? Math.Max(1, (int)p.EpicPriceStart)
+                : (double)ResearchPriceCurve.EpicPrice(p.EpicPriceStart, p.EpicPriceEnd, p.MaxLevel, level))];
+        }
+
+        return curve is null
+            ? null
+            : [.. Enumerable.Range(0, p.MaxLevel).Select(level =>
+                ResearchPriceCurve.CommonPrice(p.PriceStart, p.PriceEnd, p.PricePercent, p.MaxLevel, level, curve))];
+    }
+
     private static readonly FrozenDictionary<int, string> GameDimensionTargets = new Dictionary<int, string> {
+        [0] = "None",
         [1] = "UnlimitedHatchery",
         [2] = "Earnings",
         [3] = "AwayEarnings",
@@ -258,8 +279,8 @@ public static class GameDataDocBuilders {
                     rows.Add(new {
                         id = $"{f.BinaryId}_t{t.Level}_r{e.Rarity}",
                         target,
-                        combineMode = CombineModeFor(f.Dimension),
-                        magnitude = e.Magnitude,
+                        combineMode = ArtifactEffectValues.Additive(f.Dimension) ? "Add" : CombineModeFor(f.Dimension),
+                        magnitude = ArtifactEffectValues.Magnitude(f.Dimension, e),
                         meta = new Dictionary<string, object>(StringComparer.Ordinal) {
                             ["boost"] = f.BinaryId,
                             ["tier"] = t.Level,

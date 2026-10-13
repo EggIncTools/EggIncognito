@@ -47,4 +47,18 @@ public class ResearchCatalogExtractorTests {
 
         Assert.Equal(78, r.Entries.Count(e => e.Parts.Count > 0));
     }
+
+    [Theory]
+    [InlineData("egginc-android-1.37.so")]
+    [InlineData("egginc")]
+    public void Extract_RecoversEveryDescription(string capture) {
+        if (!TryLoadCapture(capture, out byte[] bin)) return;
+
+        var r = CaptureFixture.ResearchCatalog(capture, bin);
+        Assert.True(r.Ok, r.Diagnostics);
+        Assert.All(r.Entries, e => Assert.True(e.Description is { Length: > 2 }, $"{e.Id}: '{e.Description}'"));
+
+        var epic = Assert.Single(r.Entries, e => e.Id == "epic_multiplier");
+        Assert.Equal("Increase max running chicken bonus by 2.0×!", epic.Description);
+    }
 }

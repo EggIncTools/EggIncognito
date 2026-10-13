@@ -495,6 +495,18 @@ public static class ResearchCatalogExtractor {
                     break;
 
                 case "ldp":
+                    if (ops.Count >= 3 && TryResolveMem(string.Join(", ", ops.Skip(2)), out string fpb,
+                            out long fpdisp) && fpb is "sp" or "x29" && !i.Operands.TrimEnd().EndsWith('!')) {
+                        int pelem = ops[0][0] == 'q' ? 16 : ops[0][0] is 'w' or 's' ? 4 : 8;
+                        bool lo = frame.TryGetValue((fpb, fpdisp), out ulong loSrc);
+                        bool hi = frame.TryGetValue((fpb, fpdisp + pelem), out ulong hiSrc);
+                        if (lo) Set(ops[0], new RegVal('s', 0, 0, 0, 0, loSrc));
+                        else ClobberPair(ops[0]);
+                        if (hi) Set(ops[1], new RegVal('s', 0, 0, 0, 0, hiSrc));
+                        else ClobberPair(ops[1]);
+                        break;
+                    }
+
                     if (ops.Count >= 3 && TryResolveMem(string.Join(", ", ops.Skip(2)), out string pb,
                             out long pdisp) && Get(pb) is { Kind: 'a' } pav) {
                         ulong src = pav.Addr + (ulong)pdisp;
@@ -529,6 +541,11 @@ public static class ResearchCatalogExtractor {
                         bool wb = i.Operands.TrimEnd().EndsWith('!');
                         int elem = ops[0][0] == 'q' ? 16 : ops[0][0] == 'w' ? 4 : 8;
                         DoStore(ops[0], mem, wb, "str");
+                        if (!wb && TryResolveMem(mem, out string fsb, out long fsDisp) && fsb is "sp" or "x29") {
+                            if (Get(ops[1]) is { Kind: 's' } fsv) frame[(fsb, fsDisp + elem)] = fsv.Src;
+                            else frame.Remove((fsb, fsDisp + elem));
+                        }
+
                         if (TryResolveMem(mem, out string spb, out long spDisp) && Get(spb) is { } spv &&
                             (spv.Kind == 'a' || spv.Kind == 't')) {
                             long second = (wb ? 0 : spDisp) + elem;
@@ -564,6 +581,7 @@ public static class ResearchCatalogExtractor {
             if (!string.IsNullOrEmpty(heap)) return heap;
         }
 
+        string? ssoBody = null;
         if (TryByte(walk, fieldVa, out byte size) && (size & 1) == 0 && size >= 2 && size >> 1 <= SsoCapacity) {
             int len = size >> 1;
             var chars = new List<(long Off, List<ByteWrite> W)>();
@@ -575,6 +593,7 @@ public static class ResearchCatalogExtractor {
             if (sso is not null) {
                 if (sso.Length > len) sso = sso[..len];
                 if (sso.Length == len) return sso;
+                ssoBody = sso;
             }
         }
 
@@ -583,7 +602,13 @@ public static class ResearchCatalogExtractor {
             if (walk.AbsBytes.TryGetValue(fieldVa + (ulong)o, out var list)) writes.Add((o, list));
         }
 
-        return writes.Count == 0 ? null : AssembleString(writes.Select(w => (w.Off, w.W)));
+        string? raw = writes.Count == 0 ? null : AssembleString(writes.Select(w => (w.Off, w.W)));
+        if (raw is not null && !string.IsNullOrEmpty(ssoBody) && raw.Length == ssoBody.Length + 1 &&
+            raw[0] == (char)size && raw.EndsWith(ssoBody, StringComparison.Ordinal)) {
+            return ssoBody;
+        }
+
+        return raw;
     }
 
     private static string? ReadStringFieldStrict(InitWalk walk, ulong fieldVa) {
