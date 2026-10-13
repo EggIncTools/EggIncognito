@@ -29,7 +29,11 @@ public class BoostEffectExtractorTests {
 
         var r = BoostEffectExtractor.Extract(bin);
         Assert.True(r.Ok, r.Diagnostics);
-        Assert.True(r.Entries.Count >= 14, r.Diagnostics);
+        Assert.Equal(33, r.Entries.Count);
+        Assert.Contains(r.Entries, e => e.Id == "quantum_bulb" && e.DurationSeconds == 600 && e.Magnitude == 1);
+        Assert.Contains(r.Entries, e => e.Id == "blank_check" && e.DurationSeconds == 0 && e.Magnitude == 1);
+        Assert.Contains(r.Entries, e => e.Id == "jimbos_orange_big" && e.DurationSeconds == 7200 && e.Magnitude == 50);
+        Assert.Contains(r.Entries, e => e.Id == "jimbos_orange" && e.DurationSeconds == 600 && e.Magnitude == 50);
 
         var blue = Assert.Single(r.Entries, e => e.Id == "jimbos_blue_v2");
         Assert.Equal(2, blue.Dimension);
@@ -42,7 +46,8 @@ public class BoostEffectExtractorTests {
         Assert.Equal(1000, orange.Magnitude);
 
         var doc = GameDataDocBuilders.BuildBoosts(r.Entries, "test");
-        Assert.True(doc.Skipped.Count == 0, string.Join("; ", doc.Skipped));
+        string[] noTarget = ["subsidy_application", "blank_check", "money_printer", "quantum_bulb"];
+        Assert.Equal(noTarget.Order(), doc.Skipped.Select(s => s[..s.IndexOf(' ')]).Order());
         GameDataProvider.Validate("boosts", doc.Json);
         var parsed = EffectDataLoader.Parse(doc.Json);
         var row = Assert.Single(parsed.Rows, x => x.Id == "tachyon_prism_orange");

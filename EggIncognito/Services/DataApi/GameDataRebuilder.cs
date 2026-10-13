@@ -8,6 +8,7 @@ using EggIncognito.Data.Models;
 using EggIncognito.Data.Services;
 using EggSharp.GameData;
 using EggIncognito.Services.Feed;
+using EggIncognito.Services.EggSharpSender;
 using EggIncognito.Services.Feed.Kinds;
 using Microsoft.EntityFrameworkCore;
 
@@ -22,7 +23,8 @@ public sealed class GameDataRebuilder(
     ILogger<GameDataRebuilder> logger,
     TimeProvider time,
     FeedPublisher? publisher = null,
-    EggIncognitoDbContext? dbContext = null) {
+    EggIncognitoDbContext? dbContext = null,
+    EggSharpDataPusher? eggSharp = null) {
     private string _inputSha = "";
     private readonly List<string> _changedDocs = [];
     private string _binaryVersion = "";
@@ -59,6 +61,7 @@ public sealed class GameDataRebuilder(
                 results.Add(new RebuildDocResult(id, "current", null, null, $"inputs unchanged ({inputSha[..12]})"));
             await LandColleggtiblesAsync(results, ct);
             await LandArtifactCatalogAsync(results, ct);
+            await LandMissionShipsAsync(results, ct);
             return (results, $"inputs unchanged ({inputSha[..12]})");
         }
 
@@ -132,8 +135,11 @@ public sealed class GameDataRebuilder(
             await LandBestAsync(results, "research", candidates, c => {
                 var r = ResearchCatalogExtractor.ExtractAuto(c.Bin);
                 if (!r.Ok || r.Entries.Count == 0) return null;
-                var doc = GameDataDocBuilders.BuildResearch(r.Entries, c.Version);
-                return (doc.Json, doc.Count, SkipNote(doc.Skipped, "undecoded"));
+                var prices = ResearchPriceExtractor.ExtractById(c.Bin, r.Entries);
+                var doc = GameDataDocBuilders.BuildResearch(r.Entries, c.Version, prices.Ok ? prices.Prices : null);
+                string? priceNote = prices.Ok ? null : "prices: " + prices.Diagnostics;
+                string? note = SkipNote(doc.Skipped, "undecoded");
+                return (doc.Json, doc.Count, note is null ? priceNote : priceNote is null ? note : $"{note}; {priceNote}");
             }, ct);
 
             await LandBestAsync(results, "habs", candidates, c => {
@@ -161,6 +167,7 @@ public sealed class GameDataRebuilder(
         CheckArtifactDefinitions(results, candidates);
         await LandColleggtiblesAsync(results, ct);
         await LandArtifactCatalogAsync(results, ct);
+        await LandMissionShipsAsync(results, ct);
 
         string? note = candidates.Count == 0
             ? found.Rejected.Count == 0 ? "no extraction binary available" : found.Diagnostics
@@ -168,6 +175,7 @@ public sealed class GameDataRebuilder(
 
         LogUnbuilt(results);
         await DispatchRebuiltAsync(ct);
+        if (_changedDocs.Count > 0) eggSharp?.Request();
         return (results, note);
     }
 
@@ -230,6 +238,14 @@ public sealed class GameDataRebuilder(
             var built = ArtifactCatalogBuilder.BuildFromJson(afx, GameVersionForAfx());
             string? note = built.Skipped.Count > 0 ? $"{built.Skipped.Count} rows skipped" : null;
             return (ArtifactCatalogBuilder.Serialize(built.File), built.File.Artifacts.Count, note);
+        }, ct);
+
+    private Task LandMissionShipsAsync(List<RebuildDocResult> results, CancellationToken ct) =>
+        LandAsync(results, MissionShipCatalog.DocumentId, () => {
+            string afx = DataCatalog.FixtureText(services, DataCatalog.AfxConfigRoute)
+                         ?? throw new InvalidOperationException("no captured ei_afx/config to decode");
+            var doc = GameDataDocBuilders.BuildMissionShipsFromJson(afx, GameVersionForAfx());
+            return (doc.Json, doc.Count, null);
         }, ct);
 
     private string GameVersionForAfx() =>

@@ -110,7 +110,7 @@ public static class GameDataDocBuilders {
     }.ToFrozenDictionary();
 
     public static DocResult BuildResearch(IReadOnlyList<ResearchCatalogExtractor.ResearchEntry> entries,
-        string binaryVersion) {
+        string binaryVersion, IReadOnlyDictionary<string, ResearchPriceExtractor.Price>? prices = null) {
         var rows = new List<object>();
         var skipped = new List<string>();
         foreach (var e in entries) {
@@ -135,6 +135,16 @@ public static class GameDataDocBuilders {
                 meta["dimension"] = p.Dimension;
                 if (e.Tier is not null) meta["tier"] = e.Tier.Value;
                 if (e.Parts.Count > 1) meta["research"] = e.Id;
+                if (prices is not null && prices.TryGetValue(e.Id, out var price)) {
+                    if (price.Epic) {
+                        meta["epicPriceStart"] = price.EpicPriceStart;
+                        meta["epicPriceEnd"] = price.EpicPriceEnd;
+                    } else {
+                        meta["priceStart"] = price.PriceStart;
+                        meta["priceEnd"] = price.PriceEnd;
+                        meta["pricePercent"] = price.PricePercent;
+                    }
+                }
 
                 rows.Add(new {
                     id = e.Parts.Count > 1 ? $"{e.Id}:{p.Dimension}" : e.Id,
@@ -147,16 +157,14 @@ public static class GameDataDocBuilders {
             }
         }
 
-        var doc = new {
-            rows,
-            binaryVersion,
-            provenance = new Dictionary<string, BoostCatalogBuilder.ProvenanceSource>(StringComparer.Ordinal) {
-                ["identity"] = new("binary", "researchdata"),
-                ["maxLevel"] = new("binary", "researchdata", "decoded"),
-                ["effects"] = new("binary", "researchdata", "decoded"),
-                ["epic"] = new("binary", "researchdata", "decoded")
-            }
+        var provenance = new Dictionary<string, BoostCatalogBuilder.ProvenanceSource>(StringComparer.Ordinal) {
+            ["identity"] = new("binary", "researchdata"),
+            ["maxLevel"] = new("binary", "researchdata", "decoded"),
+            ["effects"] = new("binary", "researchdata", "decoded"),
+            ["epic"] = new("binary", "researchdata", "decoded")
         };
+        if (prices is not null) provenance["price"] = new("binary", "researchdata", "decoded");
+        var doc = new { rows, binaryVersion, provenance };
         return new DocResult(JsonSerializer.Serialize(doc, CamelJson), rows.Count, skipped);
     }
 
@@ -254,7 +262,8 @@ public static class GameDataDocBuilders {
                         meta = new Dictionary<string, object>(StringComparer.Ordinal) {
                             ["boost"] = f.BinaryId,
                             ["tier"] = t.Level,
-                            ["rarity"] = e.Rarity
+                            ["rarity"] = e.Rarity,
+                            ["stoneCap"] = e.Slots
                         }
                     });
                 }
@@ -267,6 +276,7 @@ public static class GameDataDocBuilders {
             provenance = new Dictionary<string, BoostCatalogBuilder.ProvenanceSource>(StringComparer.Ordinal) {
                 ["identity"] = new("binary", "artifactdata", "decoded"),
                 ["effects"] = new("binary", "artifactdata", "decoded"),
+                ["stoneCap"] = new("binary", "artifactdata RarityData+0x0 via ArtifactsManager::attemptSetStones", "decoded"),
                 ["target"] = new("binary", "GameDimensions::name_str", "manual")
             }
         };
@@ -425,6 +435,40 @@ public static class GameDataDocBuilders {
         PlacementOrigin.Derived => "derived",
         _ => "authored"
     };
+
+    public static DocResult BuildMissionShips(Ei.ArtifactsConfigurationResponse config, string binaryVersion) {
+        var shipEnum = Ei.ArtifactsConfigurationResponse.Types.MissionParameters.Descriptor
+            .FindFieldByNumber(Ei.ArtifactsConfigurationResponse.Types.MissionParameters.ShipFieldNumber).EnumType;
+        var durationEnum = Ei.ArtifactsConfigurationResponse.Types.MissionParameters.Types.Duration.Descriptor
+            .FindFieldByNumber(Ei.ArtifactsConfigurationResponse.Types.MissionParameters.Types.Duration
+                .DurationTypeFieldNumber).EnumType;
+        var ships = config.MissionParameters.Select(p => new {
+            ship = shipEnum.FindValueByNumber((int)p.Ship)?.Name ?? p.Ship.ToString(),
+            levelMissionRequirements = p.LevelMissionRequirements.Count == 0 ? null : p.LevelMissionRequirements.ToArray(),
+            durations = p.Durations.Select(d => new {
+                type = durationEnum.FindValueByNumber((int)d.DurationType)?.Name ?? d.DurationType.ToString(),
+                seconds = d.Seconds,
+                capacity = d.Capacity,
+                levelCapacityBump = d.LevelCapacityBump,
+                quality = d.Quality,
+                minQuality = d.MinQuality,
+                maxQuality = d.MaxQuality,
+                levelQualityBump = d.LevelQualityBump
+            }).ToArray()
+        }).ToArray();
+        var doc = new {
+            ships,
+            binaryVersion,
+            provenance = new Dictionary<string, BoostCatalogBuilder.ProvenanceSource>(StringComparer.Ordinal) {
+                ["ships"] = new("fixture", "ei_afx/config", "captured")
+            }
+        };
+        return new DocResult(JsonSerializer.Serialize(doc, CamelJson), ships.Sum(s => s.durations.Length), []);
+    }
+
+    public static DocResult BuildMissionShipsFromJson(string afxConfigJson, string binaryVersion) =>
+        BuildMissionShips(Google.Protobuf.JsonParser.Default.Parse<Ei.ArtifactsConfigurationResponse>(afxConfigJson),
+            binaryVersion);
 
     public static DocResult BuildDimensions(IReadOnlyList<string> ids, string binaryVersion) {
         var doc = new {

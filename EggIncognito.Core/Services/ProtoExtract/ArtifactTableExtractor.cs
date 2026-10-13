@@ -20,6 +20,7 @@ public static partial class ArtifactTableExtractor {
     private static readonly Layout AppleLayout = new(8, 0x50, 0x58, 0x60, 0x78, false, 0);
     private static readonly Layout NdkLayout = new(0x10, 0x60, 0x68, 0x70, 0x88, true, 0xc0);
     private const int RarityKeyOffset = 0;
+    private const int RaritySlotsOffset = 0x10;
     private const int RarityMagnitudeOffset = 0x18;
     private const int RarityDescribePtr = 0x70;
     private const int FamilyDescribePtr = 0x50;
@@ -28,6 +29,7 @@ public static partial class ArtifactTableExtractor {
     public const string GenericTemplateSymbol = "_ZN12ArtifactSpec17effectDescriptionEP14GameController";
     private static readonly string[] TemplateTokens = ["{prefix", "{value", "{label"];
     private static readonly double[] LunarMagnitudes = [2, 4, 8, 20, 40, 50, 100, 150, 200];
+    private static readonly int[] LunarSlots = [0, 0, 1, 0, 1, 0, 1, 2, 3];
 
     private static readonly string[] LunarTiers =
         ["BASIC LUNAR TOTEM", "LUNAR TOTEM", "POWERFUL LUNAR TOTEM", "EGGCEPTIONAL LUNAR TOTEM"];
@@ -178,6 +180,8 @@ public static partial class ArtifactTableExtractor {
 
             Anchor(families, errors, 0, f => f.Tiers.SelectMany(t => t.Effects).Select(e => e.Magnitude)
                 .SequenceEqual(LunarMagnitudes));
+            Anchor(families, errors, 0, f => f.Tiers.SelectMany(t => t.Effects).Select(e => e.Slots)
+                .SequenceEqual(LunarSlots));
         }
         if (families.Count != ExpectedFamilies)
             errors.Add($"expected {ExpectedFamilies} families, read {families.Count}");
@@ -218,7 +222,7 @@ public static partial class ArtifactTableExtractor {
 
     public readonly record struct Ingredient(int AfxId, int Level, int Count);
 
-    public readonly record struct RarityEffect(int Rarity, double Magnitude, string Template);
+    public readonly record struct RarityEffect(int Rarity, double Magnitude, string Template, int Slots);
 
     public readonly record struct Tier(int Level, string Name, int RarityCount, IReadOnlyList<Ingredient> Recipe,
         IReadOnlyList<RarityEffect> Effects);
@@ -570,15 +574,17 @@ public static partial class ArtifactTableExtractor {
             for (int k = 0; k < count; k++) {
                 var e = elems.Plus((long)k * layout.RarityStride);
                 int? key = ReadInt32(e.Plus(RarityKeyOffset));
+                int? slots = ReadInt32(e.Plus(RaritySlotsOffset));
                 long? bits = ReadInt64(e.Plus(RarityMagnitudeOffset));
                 string? template = DescribeTemplate(e.Plus(RarityDescribePtr));
-                if (key is null || bits is null || template is null) {
-                    string missing = key is null ? "key" : bits is null ? "magnitude" : "template";
+                if (key is null || slots is null || bits is null || template is null) {
+                    string missing = key is null ? "key" : slots is null ? "slots" : bits is null ? "magnitude" : "template";
                     Issues.Add($"rarity {k} of tier {_tiers.Count} in family {Families.Count}: {missing} unresolved");
                     continue;
                 }
 
-                outp.Add(new RarityEffect(key.Value, BitConverter.Int64BitsToDouble(bits.Value), template));
+                outp.Add(new RarityEffect(key.Value, BitConverter.Int64BitsToDouble(bits.Value), template,
+                    slots.Value));
             }
 
             return outp;

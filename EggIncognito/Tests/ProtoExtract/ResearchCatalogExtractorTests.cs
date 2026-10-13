@@ -28,6 +28,10 @@ public class ResearchCatalogExtractorTests {
         var r = ResearchCatalogExtractor.Extract(bin);
         Assert.True(r.Ok, r.Diagnostics);
         Assert.Equal(80, r.Entries.Count);
+        Assert.All(r.Entries, e => {
+            Assert.NotNull(e.MaxLevel);
+            Assert.NotNull(e.Tier);
+        });
 
         var nests = Assert.Single(r.Entries, e => e.Id == "comfy_nests");
         Assert.Equal("COMFORTABLE NESTS", nests.Name);
@@ -38,6 +42,15 @@ public class ResearchCatalogExtractorTests {
         var incubators = Assert.Single(r.Entries, e => e.Id == "better_incubators");
         Assert.NotNull(incubators.Help);
         Assert.Equal(15, incubators.MaxLevel);
+
+        var remodel = Assert.Single(r.Entries, e => e.Id == "hab_capacity1");
+        Assert.Equal(8, remodel.MaxLevel);
+        Assert.Equal(1, remodel.Tier);
+
+        var holdToHatch = Assert.Single(r.Entries, e => e.Id == "hold_to_hatch");
+        Assert.True(holdToHatch.Epic);
+        Assert.Equal(15, holdToHatch.MaxLevel);
+        Assert.Equal(0, holdToHatch.Tier);
 
         var genetics = Assert.Single(r.Entries, e => e.Id == "improved_genetics");
         Assert.Equal(2, genetics.Parts.Count);

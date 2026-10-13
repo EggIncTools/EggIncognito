@@ -35,6 +35,7 @@ public static class StructInitReader {
         var imm = new Dictionary<string, (ulong Val, bool Wide)>(StringComparer.Ordinal);
         var vec = new Dictionary<string, byte[]>(StringComparer.Ordinal);
         var vecSrc = new Dictionary<string, ulong>(StringComparer.Ordinal);
+        var dataLoad = new Dictionary<string, ulong>(StringComparer.Ordinal);
         var byteWrites = new Dictionary<ulong, Dictionary<long, byte>>();
         var ptrWrites = new Dictionary<ulong, Dictionary<long, ulong>>();
         var tplWrites = new Dictionary<ulong, Dictionary<long, ulong>>();
@@ -74,6 +75,15 @@ public static class StructInitReader {
             }
         }
 
+        ulong GprValue(string reg, ulong pv, int width) {
+            if (!dataLoad.TryGetValue(reg, out ulong dv) || dv != pv) return pv;
+            byte[]? raw = ReadVecFrom(pv, width);
+            if (raw is null) return pv;
+            ulong v = 0;
+            for (int k = 0; k < raw.Length; k++) v |= (ulong)raw[k] << (k * 8);
+            return v;
+        }
+
         void Store(ulong baseVa, long off, int width, ulong raw, ulong? ptr) {
             if (!byteWrites.TryGetValue(baseVa, out var bytes)) {
                 bytes = [];
@@ -99,6 +109,7 @@ public static class StructInitReader {
             if (!TrackedProducers.Contains(i.Mnemonic) && !NonWritingMnemonics.Contains(i.Mnemonic)
                                                        && ops.Count >= 1 && LooksLikeGpr(ops[0])) {
                 page.Remove(ops[0]);
+                dataLoad.Remove(ops[0]);
                 imm.Remove(RegNum(ops[0]));
             }
 
@@ -114,6 +125,8 @@ public static class StructInitReader {
                     for (int r = 0; r <= 17; r++) {
                         page.Remove("x" + r);
                         page.Remove("w" + r);
+                        dataLoad.Remove("x" + r);
+                        dataLoad.Remove("w" + r);
                         imm.Remove(r.ToString(CultureInfo.InvariantCulture));
                     }
 
@@ -122,15 +135,21 @@ public static class StructInitReader {
                 case "adrp":
                     if (ops.Count == 2 && TryImm(ops[1], out ulong pg)) {
                         page[ops[0]] = pg;
+                        dataLoad.Remove(ops[0]);
                         imm.Remove(RegNum(ops[0]));
                     }
 
                     break;
 
                 case "add":
+                    if (ops.Count >= 1) dataLoad.Remove(ops[0]);
                     if (ops.Count == 3 && page.TryGetValue(ops[1], out ulong addBase) &&
                         TryImm(ops[2], out ulong addOff)) {
                         page[ops[0]] = addBase + addOff;
+                        imm.Remove(RegNum(ops[0]));
+                    } else if (ops.Count == 3 && page.TryGetValue(ops[1], out ulong addRegBase) &&
+                               LooksLikeGpr(ops[2]) && imm.TryGetValue(RegNum(ops[2]), out var addIdx)) {
+                        page[ops[0]] = addRegBase + addIdx.Val;
                         imm.Remove(RegNum(ops[0]));
                     } else if (ops.Count >= 1) {
                         page.Remove(ops[0]);
@@ -143,6 +162,8 @@ public static class StructInitReader {
                     if (ops.Count == 2) {
                         if (page.TryGetValue(ops[1], out ulong mv)) {
                             page[ops[0]] = mv;
+                            if (dataLoad.TryGetValue(ops[1], out ulong mdl)) dataLoad[ops[0]] = mdl;
+                            else dataLoad.Remove(ops[0]);
                             imm.Remove(RegNum(ops[0]));
                         } else if (imm.TryGetValue(RegNum(ops[1]), out var mi)) {
                             imm[RegNum(ops[0])] = mi;
@@ -176,6 +197,7 @@ public static class StructInitReader {
                                TryResolveMem(ops[^1], out string ldMreg, out ulong ldMoff) &&
                                page.TryGetValue(ldMreg, out ulong ldMbase)) {
                         page[ops[0]] = ldMbase + ldMoff;
+                        dataLoad[ops[0]] = ldMbase + ldMoff;
                         imm.Remove(RegNum(ops[0]));
                     } else if (ops.Count >= 1) {
                         page.Remove(ops[0]);
@@ -277,10 +299,12 @@ public static class StructInitReader {
                                 "strh" or "sturh" => 2,
                                 _ => rt.StartsWith('x') ? 8 : 4
                             };
-                            if (imm.TryGetValue(RegNum(rt), out var iv))
+                            if (IsZeroReg(rt))
+                                Store(sBase, off, width, 0, null);
+                            else if (imm.TryGetValue(RegNum(rt), out var iv))
                                 Store(sBase, off, width, iv.Val, null);
                             else if (page.TryGetValue(rt, out ulong pv))
-                                Store(sBase, off, width, pv, pv);
+                                Store(sBase, off, width, GprValue(rt, pv, width), pv);
                         }
 
                         if (writeback && IsWriteback(ops[^1])) page[sReg] = sBase + (ulong)off;
@@ -302,9 +326,15 @@ public static class StructInitReader {
                             }
                         } else {
                             int w0 = ops[0].StartsWith('x') ? 8 : 4;
-                            if (imm.TryGetValue(RegNum(ops[0]), out var iv0)) Store(pBase, off0, w0, iv0.Val, null);
-                            if (imm.TryGetValue(RegNum(ops[1]), out var iv1))
+                            if (IsZeroReg(ops[0])) Store(pBase, off0, w0, 0, null);
+                            else if (imm.TryGetValue(RegNum(ops[0]), out var iv0)) Store(pBase, off0, w0, iv0.Val, null);
+                            else if (page.TryGetValue(ops[0], out ulong pv0))
+                                Store(pBase, off0, w0, GprValue(ops[0], pv0, w0), pv0);
+                            if (IsZeroReg(ops[1])) Store(pBase, off0 + w0, w0, 0, null);
+                            else if (imm.TryGetValue(RegNum(ops[1]), out var iv1))
                                 Store(pBase, off0 + w0, w0, iv1.Val, null);
+                            else if (page.TryGetValue(ops[1], out ulong pv1))
+                                Store(pBase, off0 + w0, w0, GprValue(ops[1], pv1, w0), pv1);
                         }
 
                         if (writeback && IsWriteback(ops[^1])) page[pReg] = pBase + (ulong)off0;

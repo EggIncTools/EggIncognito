@@ -53,14 +53,26 @@ public static class ResearchCatalogExtractor {
     public static Result ExtractAuto(byte[] bin) {
         var img = BinaryImage.Load(bin);
         if (img is ElfImage) {
-            var loc = InitArrayLocator.Create(bin);
-            if (loc is null || !loc.TryLocateByString(SignatureString, out ulong s, out ulong e))
+            if (!TryLocateElfInit(bin, out ulong s, out ulong e))
                 return new Result(false, [], "researchdata init not located via signature on ELF");
             return ExtractCore(bin, img.Symbols, img, s, e);
         }
 
         return ExtractWith(bin, img?.Symbols ?? []);
     }
+
+    internal static bool TryLocateElfInit(byte[] bin, out ulong start, out ulong end) {
+        start = 0;
+        end = 0;
+        var loc = InitArrayLocator.Create(bin);
+        return loc is not null && loc.TryLocateByString(SignatureString, out start, out end);
+    }
+
+    internal static bool TryResolveElfBases(byte[] bin, IBinaryImage img,
+        IReadOnlyList<Arm64DataTableReader.Insn> insns, int stride, int commonCount, int epicCount,
+        out ulong commonBase, out ulong epicBase) =>
+        TryResolveElfBases(FindIdRuns(WalkInit(bin, img, insns), stride), stride, commonCount, epicCount,
+            out commonBase, out epicBase);
 
     public static Result ExtractWith(byte[] bin, IReadOnlyList<MachoSymbols.Symbol> syms) {
         var img = BinaryImage.Load(bin);
@@ -185,7 +197,7 @@ public static class ResearchCatalogExtractor {
         return map;
     }
 
-    private static bool TryReadEnumArray(byte[] bin, IReadOnlyList<MachoSymbols.Symbol> syms, string needle,
+    internal static bool TryReadEnumArray(byte[] bin, IReadOnlyList<MachoSymbols.Symbol> syms, string needle,
         out ulong globalVa, out int count, out int stride) {
         globalVa = 0;
         count = 0;
@@ -251,6 +263,8 @@ public static class ResearchCatalogExtractor {
             if (regs.TryGetValue(reg, out var v)) return v;
             if (reg.Length >= 2 && reg[0] == 'w' && regs.TryGetValue("x" + reg[1..], out var xv) && xv.Kind == 'i')
                 return xv;
+            if (reg.Length >= 2 && reg[0] == 'x' && regs.TryGetValue("w" + reg[1..], out var wv) && wv.Kind == 'i')
+                return wv with { Imm = (long)(uint)wv.Imm };
             if (reg is "wzr" or "xzr") return new RegVal('i', 0, 0, 0, 0, 0);
             return null;
         }

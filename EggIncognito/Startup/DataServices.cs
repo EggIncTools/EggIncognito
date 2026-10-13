@@ -7,6 +7,7 @@ using EggIncognito.Services.Coverage;
 using EggIncognito.Services.DataApi;
 using EggIncognito.Services.Devices;
 using EggIncognito.Services.Docs;
+using EggIncognito.Services.EggSharpSender;
 using EggIncognito.Services.Events;
 using EggIncognito.Services.Feed;
 using EggIncognito.Services.Inspector;
@@ -154,6 +155,19 @@ public static class DataServices {
         builder.Services.AddSingleton<EventDataVersion>();
         builder.Services.AddSingleton<ContractDataVersion>();
         builder.Services.AddScoped<IProtoUpsertObserver, ProtoUpsertNotifier>();
+        if (EggSharpAppConfig.FromEnvironment() is { } eggSharpApp) {
+            builder.Services.AddSingleton(eggSharpApp);
+            builder.Services.AddHttpClient<EggSharpGitHub>();
+        }
+
+        builder.Services.AddScoped<IProtoUpsertObserver>(sp => new EggSharpProtoSender(
+            sp.GetRequiredService<ProtoRegistryStore>(), sp.GetRequiredService<ILogger<EggSharpProtoSender>>(),
+            sp.GetService<EggSharpGitHub>()));
+        builder.Services.AddScoped(sp => new EggSharpDataSender(
+            sp.GetRequiredService<EggIncognitoDbContext>(), sp.GetRequiredService<ILogger<EggSharpDataSender>>(),
+            sp.GetRequiredService<TimeProvider>(), sp.GetService<EggSharpGitHub>()));
+        builder.Services.AddSingleton<EggSharpDataPusher>();
+        builder.Services.AddHostedService(sp => sp.GetRequiredService<EggSharpDataPusher>());
         builder.Services.AddScoped<ApiKeyStore>();
         builder.Services.AddScoped<ApiKeyFeatureStore>();
         builder.Services.AddScoped<UserThemeStore>();

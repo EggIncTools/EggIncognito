@@ -126,8 +126,8 @@ public class GameDataDocBuilderTests {
     [Fact]
     public void BuildArtifacts_EmitsOneRowPerRarity_AndValidates() {
         var tier = new ArtifactTableExtractor.Tier(0, "BASIC LUNAR TOTEM", 2, [], [
-            new ArtifactTableExtractor.RarityEffect(0, 2, "{value} {label}"),
-            new ArtifactTableExtractor.RarityEffect(1, 4, "{value} {label}")
+            new ArtifactTableExtractor.RarityEffect(0, 2, "{value} {label}", 0),
+            new ArtifactTableExtractor.RarityEffect(1, 4, "{value} {label}", 1)
         ]);
         var doc = GameDataDocBuilders.BuildArtifacts([
             new ArtifactTableExtractor.Family(0, 0, "lunar_totem", "LUNAR TOTEMS", 0, 3, "", [tier]),
@@ -146,6 +146,7 @@ public class GameDataDocBuilderTests {
         var meta = Assert.IsAssignableFrom<IReadOnlyDictionary<string, System.Text.Json.JsonElement>>(rare.Meta);
         Assert.Equal("lunar_totem", meta["boost"].GetString());
         Assert.Equal(1, meta["rarity"].GetInt32());
+        Assert.Equal(1, meta["stoneCap"].GetInt32());
     }
 
     [Fact]
