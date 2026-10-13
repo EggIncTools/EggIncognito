@@ -167,7 +167,7 @@ public sealed class GameDataRebuilder(
             }, ct);
         }
 
-        CheckArtifactDefinitions(results, candidates);
+        await LandArtifactDefinitionsAsync(results, candidates, ct);
         await LandColleggtiblesAsync(results, ct);
         await LandArtifactCatalogAsync(results, ct);
         await LandMissionShipsAsync(results, ct);
@@ -182,31 +182,38 @@ public sealed class GameDataRebuilder(
         return (results, note);
     }
 
-    private const string ArtifactDefinitionsId = "artifact-definitions";
+    public const string ArtifactDefinitionsId = "artifact-definitions";
 
-    private static void CheckArtifactDefinitions(List<RebuildDocResult> results, IReadOnlyList<Candidate> candidates) {
+    private async Task LandArtifactDefinitionsAsync(List<RebuildDocResult> results, IReadOnlyList<Candidate> candidates,
+        CancellationToken ct) {
         var c = candidates.FirstOrDefault(x => x.IsElf);
         if (c is null) {
             results.Add(new RebuildDocResult(ArtifactDefinitionsId, "skipped", null, null, "no Android candidate"));
             return;
         }
 
+        string json;
+        int count;
         try {
             var table = ArtifactTableExtractor.ExtractWith(c.Bin, c.Syms);
+            if (!table.Ok) throw new InvalidOperationException(table.Diagnostics);
             var labels = DimensionLabelExtractor.ExtractWith(c.Bin, c.Syms);
-            var parsed = ArtifactDefinitions.Parse(ArtifactDefinitionsBuilder.Build(table, labels, c.Version));
-            bool same = string.Equals(
-                ArtifactDefinitions.Fingerprint(parsed.Families, parsed.Labels, parsed.EffectTemplate),
-                ArtifactDefinitions.Fingerprint(ArtifactDefinitions.All, ArtifactDefinitions.Labels,
-                    ArtifactDefinitions.EffectTemplate),
-                StringComparison.Ordinal);
-            results.Add(new RebuildDocResult(ArtifactDefinitionsId, same ? "current" : "drift", parsed.Families.Count,
-                null, same
-                    ? $"{c.Platform} {c.Version}"
-                    : $"snapshot {ArtifactDefinitions.BinaryVersion} differs from {c.Platform} {c.Version}; regenerate via write_artifact_definitions"));
+            json = ArtifactDefinitionsBuilder.Build(table, labels, c.Version);
+            count = ArtifactDefinitions.Parse(json).Families.Count;
         } catch (Exception ex) {
             results.Add(new RebuildDocResult(ArtifactDefinitionsId, "failed", null, null, ex.Message));
+            return;
         }
+
+        try {
+            await UpsertAsync(ArtifactDefinitionsId, json, ct);
+        } catch (Exception ex) {
+            results.Add(new RebuildDocResult(ArtifactDefinitionsId, "failed", count, null, "db write failed: " + ex.Message));
+            return;
+        }
+
+        results.Add(new RebuildDocResult(ArtifactDefinitionsId, "built", count, Encoding.UTF8.GetByteCount(json),
+            $"{c.Platform} {c.Version}"));
     }
 
     private Task DispatchRebuiltAsync(CancellationToken ct) {

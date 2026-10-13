@@ -38,15 +38,14 @@ public sealed partial class IconCdnOrigin(
             if (bytes.Length == 0) return null;
             logger.LogInformation("cdn icon: fetched {Name} ({Bytes}B)", key.Name, bytes.Length);
             return new GameAsset(key, bytes, "image/png", $"cdn@auxbrain:{key.Name}", time.GetUtcNow());
+        } catch (OperationCanceledException) when (ct.IsCancellationRequested) {
+            return null;
         } catch (Exception ex) {
             logger.LogWarning(ex, "cdn icon fetch failed {Name}", key.Name);
             return null;
         }
     }
 
-    private string? CustomEggUrl(string identifier) {
-        string? route = catalog.ById("periodical", "get_periodicals")?.WireRoute;
-        var live = route is null ? null : LiveColleggtibleSource.Derive(services, route);
-        return live?.Icons.GetValueOrDefault(identifier);
-    }
+    private string? CustomEggUrl(string identifier) =>
+        LiveColleggtibleSource.IconUrl(services, catalog.ById("periodical", "get_periodicals")?.WireRoute, identifier);
 }

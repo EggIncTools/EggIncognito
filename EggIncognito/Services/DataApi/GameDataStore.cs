@@ -63,6 +63,7 @@ public sealed class GameDataStore(IServiceScopeFactory scopeFactory, ILogger<Gam
 
     private GameDataProvider? BuildProvider() {
         var docs = WithDb(db => db.GameDataDocuments.AsNoTracking()
+            .Where(d => d.Id != GameDataRebuilder.ArtifactDefinitionsId)
             .ToDictionary(d => d.Id, d => d.Json, StringComparer.Ordinal));
         if (docs is null) return null;
         var missing = GameDataProvider.RequiredDocumentIds.Where(id => !docs.ContainsKey(id)).ToList();

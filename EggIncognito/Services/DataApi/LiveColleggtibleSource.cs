@@ -28,6 +28,41 @@ public static class LiveColleggtibleSource {
     private static readonly FrozenDictionary<int, string> DimensionNames =
         ColleggtibleCatalog.DimensionCodes.ToFrozenDictionary(kv => kv.Value, kv => kv.Key);
 
+    public const string ContractsInfoRoute = "ei_ctx/get_contracts_info";
+
+    public static string? IconUrl(IServiceProvider services, string? periodicalsRoute, string identifier) {
+        if (periodicalsRoute is not null && Derive(services, periodicalsRoute)?.Icons.GetValueOrDefault(identifier) is { } live)
+            return live;
+        foreach ((string? json, _) in Candidates(services, ContractsInfoRoute)) {
+            if (json is null) continue;
+            try {
+                var info = ContractsInfoResponse.Parser.ParseJson(json);
+                if (info.CustomEggs.FirstOrDefault(e => e.Identifier == identifier)?.Icon?.Url is { Length: > 0 } url)
+                    return url;
+            } catch {
+                continue;
+            }
+        }
+
+        return null;
+    }
+
+    public static IEnumerable<string> IconIdentifiers(IServiceProvider services, string? periodicalsRoute) {
+        var ids = new HashSet<string>(StringComparer.Ordinal);
+        if (periodicalsRoute is not null && Derive(services, periodicalsRoute) is { } live) ids.UnionWith(live.Icons.Keys);
+        foreach ((string? json, _) in Candidates(services, ContractsInfoRoute)) {
+            if (json is null) continue;
+            try {
+                foreach (var egg in ContractsInfoResponse.Parser.ParseJson(json).CustomEggs)
+                    if (!string.IsNullOrEmpty(egg.Identifier) && !string.IsNullOrEmpty(egg.Icon?.Url)) ids.Add(egg.Identifier);
+            } catch {
+                continue;
+            }
+        }
+
+        return ids;
+    }
+
     public static LiveColleggtibles? Derive(IServiceProvider services, string route) {
         foreach ((string? json, string origin) in Candidates(services, route)) {
             if (json is null) continue;

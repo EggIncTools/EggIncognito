@@ -1,5 +1,6 @@
 using EggIncognito.Data.Services;
 using EggSharp.GameData;
+using EggSharp.GameData.Artifacts;
 using Microsoft.EntityFrameworkCore;
 
 namespace EggIncognito.Services.EggSharpSender;
@@ -39,10 +40,24 @@ public sealed class EggSharpDataSender(
             }
         }
 
+        if (ours.TryGetValue(DefinitionsId, out string? defs)) {
+            string? theirs = await github.FileTextAsync($"{DataDir}/{DefinitionsId}.json", mainSha, ct);
+            if (!string.Equals(defs, theirs, StringComparison.Ordinal)) {
+                if (DefinitionsProblem(defs, theirs) is { } problem) {
+                    logger.LogWarning("EggSharp data push rejected: {Error}", problem);
+                    return new DataPushOutcome("rejected", null, [DefinitionsId], problem);
+                }
+
+                candidate[DefinitionsId] = defs;
+                changed.Add(DefinitionsId);
+            }
+        }
+
         if (changed.Count == 0) return new DataPushOutcome("current", null, [], null);
 
         try {
-            GameDataProvider.Verify(candidate);
+            GameDataProvider.Verify(candidate.Where(kv => kv.Key != DefinitionsId)
+                .ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.Ordinal));
         } catch (GameDataSchemaException ex) {
             logger.LogWarning("EggSharp data push rejected by Verify: {Error}", ex.Message);
             return new DataPushOutcome("rejected", null, changed, ex.Message);
@@ -68,6 +83,23 @@ public sealed class EggSharpDataSender(
         }
 
         return new DataPushOutcome("timeout", sha, changed, $"no {PromoteContext} result within {PromoteTimeout}");
+    }
+
+    private const string DefinitionsId = "artifact-definitions";
+
+    public static string? DefinitionsProblem(string mine, string? theirs) {
+        string[] a;
+        try {
+            a = [.. ArtifactDefinitions.Parse(mine).Families.Select(f => f.BinaryId).Order(StringComparer.Ordinal)];
+        } catch (Exception ex) {
+            return $"{DefinitionsId} does not parse: {ex.Message}";
+        }
+
+        if (theirs is null) return null;
+        string[] b = [.. ArtifactDefinitions.Parse(theirs).Families.Select(f => f.BinaryId).Order(StringComparer.Ordinal)];
+        return a.SequenceEqual(b, StringComparer.Ordinal)
+            ? null
+            : $"{DefinitionsId} family set changed ({b.Length} -> {a.Length}): {string.Join(", ", a.Except(b).Concat(b.Except(a)))}";
     }
 
     private static IEnumerable<string> ContributedIds =>

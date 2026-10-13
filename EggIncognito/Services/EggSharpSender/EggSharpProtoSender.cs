@@ -1,4 +1,5 @@
 using EggIncognito.Core.Services.ProtoExtract;
+using EggIncognito.Data.Models;
 using EggIncognito.Data.Services;
 
 namespace EggIncognito.Services.EggSharpSender;
@@ -21,7 +22,9 @@ public sealed class EggSharpProtoSender(
                 notice.HasProtoText).Count > 0) return;
 
         try {
-            var outcome = await SendAsync(notice.Platform, notice.Build, notice.AppVersion, ct);
+            var latest = await LatestAsync(ct);
+            if (latest is null || latest.Platform != notice.Platform || latest.Build != notice.Build) return;
+            var outcome = await SendAsync(latest.Platform, latest.Build, latest.AppVersion, ct);
             if (outcome.Status == "opened") logger.LogInformation("EggSharp proto PR opened: {Url}", outcome.Detail);
         } catch (Exception ex) when (ex is not OperationCanceledException) {
             logger.LogWarning(ex, "EggSharp proto PR failed for {Platform} {Build}", notice.Platform, notice.Build);
@@ -31,18 +34,20 @@ public sealed class EggSharpProtoSender(
     public async Task<ProtoSendOutcome> SendLatestAsync(CancellationToken ct) {
         if (github is null) return new ProtoSendOutcome("disabled", null, null, null, "EGGSHARP_APP_* not configured");
 
-        var rows = await Store.ListAsync(null, ct);
-        var latest = rows
-            .Where(r => !string.IsNullOrEmpty(r.ProtoSha) && r.CanonicalId is null)
-            .Where(r => ProtoVersionQuality.Flaws(r.Platform, r.Build, r.ClientVersion, r.ProtoSha, true).Count == 0)
-            .Select(r => (Row: r, Key: ProtoVersionQuality.LatestSortKey(r.Platform, r.Build, r.AppVersion)))
-            .Where(x => x.Key != long.MinValue)
-            .OrderByDescending(x => x.Key)
-            .Select(x => x.Row)
-            .FirstOrDefault();
+        var latest = await LatestAsync(ct);
         if (latest is null) return new ProtoSendOutcome("none", null, null, null, "no clean registry version with a proto");
 
         return await SendAsync(latest.Platform, latest.Build, latest.AppVersion, ct);
+    }
+
+    private async Task<ProtoVersion?> LatestAsync(CancellationToken ct) {
+        var rows = await Store.ListAsync(null, ct);
+        var clean = rows
+            .Where(r => !string.IsNullOrEmpty(r.ProtoSha) && r.CanonicalId is null)
+            .Where(r => ProtoVersionQuality.Flaws(r.Platform, r.Build, r.ClientVersion, r.ProtoSha, true).Count == 0)
+            .Where(r => ProtoVersionQuality.LatestSortKey(r.Platform, r.Build, r.AppVersion) != long.MinValue);
+        return ProtoVersionOrdering.Latest(clean,
+            r => new VersionKey(r.Platform, r.AppVersion, r.Build, r.ClientVersion, null, r.DetectedAt.UtcDateTime));
     }
 
     private async Task<ProtoSendOutcome> SendAsync(string platform, string build, string appVersion, CancellationToken ct) {

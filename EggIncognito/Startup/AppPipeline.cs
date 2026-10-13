@@ -77,6 +77,7 @@ public static class AppPipeline {
             ctx.Request.Headers.Remove("Sec-WebSocket-Extensions");
             await next();
         });
+        app.UseMiddleware<SlowRequestLogMiddleware>();
         app.UseExceptionHandler();
         app.UseMiddleware<Services.Security.SecurityHeadersMiddleware>();
         app.UseSuitePrerender();

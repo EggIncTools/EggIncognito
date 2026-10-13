@@ -83,7 +83,7 @@ public sealed class PeriodicalsController(
                         name = live.Names.GetValueOrDefault(id),
                         dimension = buffs is null ? "" : DimensionName(buffs.Dimension),
                         tierValues = buffs?.TierValues ?? [],
-                        icon = live.Icons.GetValueOrDefault(id)
+                        icon = live.Icons.ContainsKey(id) ? EggIcons.Url(0, id) : null
                     };
                 })
             };
@@ -127,7 +127,7 @@ public sealed class PeriodicalsController(
             try {
                 var per = PeriodicalsResponse.Parser.ParseJson(perJson);
                 AddSightings(sightings, per.Contracts?.Contracts ?? []);
-                foreach (var egg in per.Contracts?.CustomEggs ?? []) icons[egg.Identifier] = egg.Icon?.Url;
+                foreach (var egg in per.Contracts?.CustomEggs ?? []) icons[egg.Identifier] = CachedIcon(egg);
             } catch (InvalidProtocolBufferException ex) {
                 logger.LogWarning(ex, "periodicals: colleggtible enrichment skipped, periodicals capture unreadable");
             }
@@ -138,7 +138,7 @@ public sealed class PeriodicalsController(
             try {
                 var info = ContractsInfoResponse.Parser.ParseJson(infoJson);
                 AddSightings(sightings, info.Contracts);
-                foreach (var egg in info.CustomEggs) icons.TryAdd(egg.Identifier, egg.Icon?.Url);
+                foreach (var egg in info.CustomEggs) icons.TryAdd(egg.Identifier, CachedIcon(egg));
             } catch (InvalidProtocolBufferException ex) {
                 logger.LogWarning(ex, "periodicals: contracts info fixture unreadable, colleggtible first-seen limited");
             }
@@ -164,7 +164,10 @@ public sealed class PeriodicalsController(
         return Ok(new { seasons = SeasonList(infos, seasonEggs) });
     }
 
-    private const string ContractsInfoRoute = "ei_ctx/get_contracts_info";
+    private const string ContractsInfoRoute = LiveColleggtibleSource.ContractsInfoRoute;
+
+    private static string? CachedIcon(CustomEgg egg) =>
+        string.IsNullOrEmpty(egg.Icon?.Url) ? null : EggIcons.Url(0, egg.Identifier);
 
     private static void AddSightings(List<EggSighting> sightings, IEnumerable<Contract> contracts) {
         foreach (var c in contracts) {

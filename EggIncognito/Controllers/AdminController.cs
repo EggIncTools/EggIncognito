@@ -189,8 +189,13 @@ public sealed partial class AdminController(
     [RequiresDb]
     public async Task<IActionResult> SendToEggSharp([FromServices] EggSharpProtoSender protos,
         [FromServices] EggSharpDataPusher data, CancellationToken ct) {
-        var proto = await protos.SendLatestAsync(ct);
         if (protos.Enabled) data.Request();
+        ProtoSendOutcome proto;
+        try {
+            proto = await protos.SendLatestAsync(ct);
+        } catch (HttpRequestException ex) {
+            proto = new ProtoSendOutcome("failed", null, null, null, ex.Message);
+        }
         return Ok(new EggSharpSendResponse(protos.Enabled, proto, protos.Enabled ? "queued" : "disabled", data.Last));
     }
 

@@ -69,6 +69,7 @@ public static class DataServices {
         builder.Services.AddSingleton(new BlobOffloadGate(
             builder.Configuration.GetValue("Storage:BlobOffloadEnabled", false)));
         builder.Services.AddHostedService<BlobOffloadService>();
+        builder.Services.AddHostedService<Services.Assets.AssetWarmup>();
         builder.Services.AddDataProtection()
             .SetApplicationName("EggIncognito")
             .PersistKeysToDbContext<EggIncognitoDbContext>();
