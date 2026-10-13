@@ -61,13 +61,22 @@ public sealed class EggSharpProtoSender(
             && string.Equals(mainCanon, canonical.Sha, StringComparison.Ordinal))
             return new ProtoSendOutcome("current", platform, build, canonical.Sha, "EggSharp main already has this proto");
 
+        string text = canonical.Text;
+        if (onMain is not null) {
+            var patch = ProtoLayoutPatcher.Apply(onMain, canonical.Text);
+            if (!patch.Ok) return new ProtoSendOutcome("unpatchable", platform, build, canonical.Sha, patch.Error);
+            if (string.Equals(patch.Text, onMain, StringComparison.Ordinal))
+                return new ProtoSendOutcome("current", platform, build, canonical.Sha, "EggSharp main already matches this proto");
+            text = patch.Text!;
+        }
+
         string branch = $"egi/proto-{canonical.Sha[..12]}";
         if (await github.OpenPullExistsAsync(branch, ct))
             return new ProtoSendOutcome("pending", platform, build, canonical.Sha, $"open PR already on {branch}");
 
         string title = $"proto: {platform} {appVersion} ({build})";
         string commit = await github.CommitFilesAsync(mainSha,
-            new Dictionary<string, string>(StringComparer.Ordinal) { [ProtoPath] = canonical.Text }, title, ct);
+            new Dictionary<string, string>(StringComparer.Ordinal) { [ProtoPath] = text }, title, ct);
         await github.SetBranchAsync(branch, commit, ct);
 
         string body = string.Join('\n',
