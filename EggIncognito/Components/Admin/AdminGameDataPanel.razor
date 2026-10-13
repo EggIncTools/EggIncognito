@@ -8,6 +8,7 @@
             <input type="checkbox" checked="@_force" @onchange="e => _force = e.Value is true"/>force
         </label>
         <button type="button" class="btn-mini" disabled="@_busy" @onclick="Rebuild">Rebuild</button>
+        <button type="button" class="btn-mini" disabled="@_busy" @onclick="SendToEggSharp">Send to EggSharp</button>
         <button type="button" class="btn-mini" disabled="@_busy" @onclick="LoadAsync">Refresh</button>
     </Tools>
 </AdminPaneHead>
@@ -149,6 +150,24 @@
     string RebuildNote(string id) {
         if (_rebuildResult?.Results.FirstOrDefault(r => r.Id == id) is not { } r) return "";
         return string.IsNullOrEmpty(r.Note) ? r.Status : $"{r.Status}: {r.Note}";
+    }
+
+    async Task SendToEggSharp() {
+        if (Api is null) return;
+        _busy = true;
+        _notice?.Clear();
+        var res = await Api.PostAsync("/api/admin/eggsharp/send", TimeSpan.FromMinutes(2));
+        if (res.Ok && res.Json<EggSharpSendResponse>() is { } send) {
+            if (!send.Enabled) _notice?.Fail("EggSharp sender disabled: EGGSHARP_APP_* not set on the host");
+            else _notice?.Ok($"proto {send.Proto.Status}" +
+                             (string.IsNullOrEmpty(send.Proto.Detail) ? "" : $" ({send.Proto.Detail})") +
+                             $"; data push {send.Data}" +
+                             (send.LastData is { } d ? $", last {d.Status}" : ""));
+        } else {
+            _notice?.Fail($"send failed: {res.Describe()}");
+        }
+
+        _busy = false;
     }
 
     async Task Rebuild() {

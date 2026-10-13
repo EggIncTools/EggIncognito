@@ -3,26 +3,12 @@ using EggIncognito.Core.Services.ProtoExtract;
 namespace EggIncognito.Tests.ProtoExtract;
 
 public class ResearchPriceExtractorTests {
-    private static bool TryLoadCapture(string file, out byte[] bin) {
-        bin = [];
-        string? dir = AppContext.BaseDirectory;
-        while (dir is not null) {
-            string candidate = Path.Combine(dir, "EggIncognito", "captures", file);
-            if (File.Exists(candidate)) {
-                bin = File.ReadAllBytes(candidate);
-                return bin.Length > 0;
-            }
+    private static bool TryLoadCapture(string file, out byte[] bin) => CaptureFixture.TryLoad(file, out bin);
 
-            dir = Path.GetDirectoryName(dir);
-        }
-
-        return false;
-    }
-
-    private static ResearchPriceExtractor.ByIdResult ExtractPrices(byte[] bin) {
-        var catalog = ResearchCatalogExtractor.Extract(bin);
+    private static ResearchPriceExtractor.ByIdResult ExtractPrices(string capture, byte[] bin) {
+        var catalog = CaptureFixture.ResearchCatalog(capture, bin);
         Assert.True(catalog.Ok, catalog.Diagnostics);
-        return ResearchPriceExtractor.ExtractById(bin, catalog.Entries);
+        return CaptureFixture.ResearchPrices(capture, bin);
     }
 
     [Theory]
@@ -33,7 +19,7 @@ public class ResearchPriceExtractorTests {
 
         var curve = ResearchPriceCurveExtractor.Extract(bin);
         Assert.True(curve.Ok, curve.Diagnostics);
-        var prices = ExtractPrices(bin);
+        var prices = ExtractPrices(capture, bin);
         Assert.True(prices.Ok, prices.Diagnostics);
 
         var standard = ResearchPriceCurve.Build(ResearchPriceCurve.Standard, curve.Constants);
@@ -49,7 +35,7 @@ public class ResearchPriceExtractorTests {
     public void Price_HoldToHatchLevelZeroCostsTenEggs(string capture) {
         if (!TryLoadCapture(capture, out byte[] bin)) return;
 
-        var prices = ExtractPrices(bin);
+        var prices = ExtractPrices(capture, bin);
         Assert.True(prices.Ok, prices.Diagnostics);
         var hatch = prices.Prices["hold_to_hatch"];
         Assert.True(hatch.Epic);
@@ -62,7 +48,7 @@ public class ResearchPriceExtractorTests {
     public void Extract_ReadsComfyNestsPriceFields(string capture) {
         if (!TryLoadCapture(capture, out byte[] bin)) return;
 
-        var r = ExtractPrices(bin);
+        var r = ExtractPrices(capture, bin);
         Assert.True(r.Ok, r.Diagnostics);
         Assert.Equal(80, r.Prices.Count);
 
@@ -85,8 +71,8 @@ public class ResearchPriceExtractorTests {
         if (!TryLoadCapture("egginc", out byte[] apple)) return;
         if (!TryLoadCapture("egginc-android-1.37.so", out byte[] ndk)) return;
 
-        var a = ExtractPrices(apple);
-        var n = ExtractPrices(ndk);
+        var a = ExtractPrices("egginc", apple);
+        var n = ExtractPrices("egginc-android-1.37.so", ndk);
         Assert.True(a.Ok, a.Diagnostics);
         Assert.True(n.Ok, n.Diagnostics);
         Assert.Equal(80, a.Prices.Count);

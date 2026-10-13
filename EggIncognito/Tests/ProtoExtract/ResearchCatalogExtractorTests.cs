@@ -1,23 +1,8 @@
-using EggIncognito.Core.Services.ProtoExtract;
 
 namespace EggIncognito.Tests.ProtoExtract;
 
 public class ResearchCatalogExtractorTests {
-    private static bool TryLoadCapture(string file, out byte[] bin) {
-        bin = [];
-        string? dir = AppContext.BaseDirectory;
-        while (dir is not null) {
-            string candidate = Path.Combine(dir, "EggIncognito", "captures", file);
-            if (File.Exists(candidate)) {
-                bin = File.ReadAllBytes(candidate);
-                return bin.Length > 0;
-            }
-
-            dir = Path.GetDirectoryName(dir);
-        }
-
-        return false;
-    }
+    private static bool TryLoadCapture(string file, out byte[] bin) => CaptureFixture.TryLoad(file, out bin);
 
     [Theory]
     [InlineData("egginc-android-1.37.so")]
@@ -25,7 +10,7 @@ public class ResearchCatalogExtractorTests {
     public void Extract_ReadsIdentityAndEffects(string capture) {
         if (!TryLoadCapture(capture, out byte[] bin)) return;
 
-        var r = ResearchCatalogExtractor.Extract(bin);
+        var r = CaptureFixture.ResearchCatalog(capture, bin);
         Assert.True(r.Ok, r.Diagnostics);
         Assert.Equal(80, r.Entries.Count);
         Assert.All(r.Entries, e => {

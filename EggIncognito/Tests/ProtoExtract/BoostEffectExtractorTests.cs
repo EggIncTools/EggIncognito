@@ -1,25 +1,10 @@
 using EggIncognito.Core.Services;
-using EggIncognito.Core.Services.ProtoExtract;
 using EggSharp.GameData;
 
 namespace EggIncognito.Tests.ProtoExtract;
 
 public class BoostEffectExtractorTests {
-    private static bool TryLoadCapture(string file, out byte[] bin) {
-        bin = [];
-        string? dir = AppContext.BaseDirectory;
-        while (dir is not null) {
-            string candidate = Path.Combine(dir, "EggIncognito", "captures", file);
-            if (File.Exists(candidate)) {
-                bin = File.ReadAllBytes(candidate);
-                return bin.Length > 0;
-            }
-
-            dir = Path.GetDirectoryName(dir);
-        }
-
-        return false;
-    }
+    private static bool TryLoadCapture(string file, out byte[] bin) => CaptureFixture.TryLoad(file, out bin);
 
     [Theory]
     [InlineData("egginc-android-1.37.so")]
@@ -27,7 +12,7 @@ public class BoostEffectExtractorTests {
     public void Extract_DecodesAnchoredRecords_AndBuildsValidDocument(string capture) {
         if (!TryLoadCapture(capture, out byte[] bin)) return;
 
-        var r = BoostEffectExtractor.Extract(bin);
+        var r = CaptureFixture.BoostTable(capture, bin);
         Assert.True(r.Ok, r.Diagnostics);
         Assert.Equal(33, r.Entries.Count);
         Assert.Contains(r.Entries, e => e.Id == "quantum_bulb" && e.DurationSeconds == 600 && e.Magnitude == 1);
@@ -46,8 +31,7 @@ public class BoostEffectExtractorTests {
         Assert.Equal(1000, orange.Magnitude);
 
         var doc = GameDataDocBuilders.BuildBoosts(r.Entries, "test");
-        string[] noTarget = ["subsidy_application", "blank_check", "money_printer", "quantum_bulb"];
-        Assert.Equal(noTarget.Order(), doc.Skipped.Select(s => s[..s.IndexOf(' ')]).Order());
+        Assert.Equal(["quantum_bulb"], doc.Skipped.Select(s => s[..s.IndexOf(' ')]));
         GameDataProvider.Validate("boosts", doc.Json);
         var parsed = EffectDataLoader.Parse(doc.Json);
         var row = Assert.Single(parsed.Rows, x => x.Id == "tachyon_prism_orange");
@@ -56,5 +40,8 @@ public class BoostEffectExtractorTests {
         Assert.Equal(1000, row.Magnitude);
         var meta = Assert.IsAssignableFrom<IReadOnlyDictionary<string, System.Text.Json.JsonElement>>(row.Meta);
         Assert.Equal(600, meta["durationSeconds"].GetInt64());
+        var cash = Assert.Single(parsed.Rows, x => x.Id == "blank_check");
+        Assert.Equal(EffectTarget.Cash, cash.Target);
+        Assert.Equal(1, cash.Magnitude);
     }
 }

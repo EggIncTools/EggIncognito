@@ -1,10 +1,15 @@
+using System.Runtime.CompilerServices;
+
 namespace EggIncognito.Core.Services.ProtoExtract;
 
 public sealed class InitArrayLocator {
+    private static readonly ConditionalWeakTable<byte[], InitArrayLocator> Cache = [];
+
     private readonly byte[] _bin;
     private readonly IBinaryImage _img;
     private readonly ulong[] _syms;
     private readonly List<ulong> _inits;
+    private readonly Lazy<IReadOnlyList<Init>> _scanned;
 
     private InitArrayLocator(byte[] bin, IBinaryImage img) {
         _bin = bin;
@@ -12,11 +17,16 @@ public sealed class InitArrayLocator {
         _syms = [.. img.Symbols.Where(s => s.Value != 0).Select(s => s.Value).Distinct().Order()];
         _inits = [.. img.GetInitArrayTargets().Where(t => t != 0).Distinct()];
         _inits.Sort();
+        _scanned = new Lazy<IReadOnlyList<Init>>(ScanAll);
     }
 
     public static InitArrayLocator? Create(byte[] bin) {
+        if (Cache.TryGetValue(bin, out var cached)) return cached;
         var img = BinaryImage.Load(bin);
-        return img is null ? null : new InitArrayLocator(bin, img);
+        if (img is null) return null;
+        var made = new InitArrayLocator(bin, img);
+        Cache.AddOrUpdate(bin, made);
+        return made;
     }
 
     public IReadOnlyList<ulong> Inits => _inits;
@@ -34,12 +44,22 @@ public sealed class InitArrayLocator {
     }
 
     public IEnumerable<(ulong Start, ulong End)> LocateAllByString(string needle) {
+        foreach (var init in _scanned.Value) {
+            if (init.Strings.Any(s => s.Contains(needle, StringComparison.OrdinalIgnoreCase)))
+                yield return (init.Start, init.End);
+        }
+    }
+
+    private List<Init> ScanAll() {
+        var outp = new List<Init>(_inits.Count);
         for (int i = 0; i < _inits.Count; i++) {
             ulong s = _inits[i];
             ulong cap = i + 1 < _inits.Count ? _inits[i + 1] : EndOf(s);
             ulong fnEnd = FunctionEnd(s, cap);
-            if (ContainsString(s, fnEnd, needle)) yield return (s, fnEnd);
+            outp.Add(new Init(s, fnEnd, StringsIn(s, fnEnd)));
         }
+
+        return outp;
     }
 
     private ulong FunctionEnd(ulong start, ulong cap) {
@@ -52,16 +72,17 @@ public sealed class InitArrayLocator {
         return cap;
     }
 
-    private bool ContainsString(ulong startVa, ulong endVa, string needle) {
+    private string[] StringsIn(ulong startVa, ulong endVa) {
         var scan = Arm64DataTableReader.ScanRange(_bin, startVa, endVa);
-        if (!scan.Ok) return false;
+        if (!scan.Ok) return [];
+        var strings = new List<string>();
         foreach (var r in scan.Addresses) {
             if (!IsStringSection(r.Section)) continue;
-            if (BinaryStrings.ReadCstr(_bin, _img, r.Va, 200).Contains(needle, StringComparison.OrdinalIgnoreCase))
-                return true;
+            string s = BinaryStrings.ReadCstr(_bin, _img, r.Va, 200);
+            if (s.Length > 0) strings.Add(s);
         }
 
-        return false;
+        return [.. strings];
     }
 
     private ulong EndOf(ulong start) {
@@ -78,4 +99,6 @@ public sealed class InitArrayLocator {
 
     private static bool IsStringSection(string name) =>
         name is "__cstring" or ".rodata" or ".data.rel.ro" or "__const";
+
+    private sealed record Init(ulong Start, ulong End, string[] Strings);
 }

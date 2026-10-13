@@ -7,13 +7,16 @@ namespace EggIncognito.Tests.ProtoExtract;
 public class Egg9000ParityTests {
     public static TheoryData<string> Captures => ["egginc", "egginc-android-1.37.so"];
 
-    private static bool TryLoadCapture(string file, out byte[] bin) {
-        bin = [];
-        string? path = Find(Path.Combine("EggIncognito", "captures", file));
-        if (path is null) return false;
-        bin = File.ReadAllBytes(path);
-        return bin.Length > 0;
-    }
+    private static bool TryLoadCapture(string file, out byte[] bin) => CaptureFixture.TryLoad(file, out bin);
+
+    private static ResearchCatalogExtractor.Result Catalog(string capture, byte[] bin) =>
+        CaptureFixture.ResearchCatalog(capture, bin);
+
+    private static ResearchPriceExtractor.ByIdResult ResearchPrices(string capture, byte[] bin) =>
+        CaptureFixture.ResearchPrices(capture, bin);
+
+    private static BoostEffectExtractor.Result BoostTable(string capture, byte[] bin) =>
+        CaptureFixture.BoostTable(capture, bin);
 
     private static JsonNode? Egg9000Json(string file) {
         string? path = Find(Path.Combine("..", "EGG9000", "EGG9000.Common", "JsonData", file));
@@ -44,9 +47,9 @@ public class Egg9000ParityTests {
     public void Research_CommonMaxLevelTierAndPrices_MatchEgg9000(string capture) {
         if (!TryLoadCapture(capture, out byte[] bin) || Egg9000Json("researches.json") is not JsonArray known) return;
 
-        var catalog = ResearchCatalogExtractor.Extract(bin);
+        var catalog = Catalog(capture, bin);
         Assert.True(catalog.Ok, catalog.Diagnostics);
-        var prices = ResearchPriceExtractor.ExtractById(bin, catalog.Entries);
+        var prices = ResearchPrices(capture, bin);
         Assert.True(prices.Ok, prices.Diagnostics);
         var constants = ResearchPriceCurveExtractor.Extract(bin);
         Assert.True(constants.Ok, constants.Diagnostics);
@@ -109,9 +112,9 @@ public class Egg9000ParityTests {
     public void Research_EpicMaxLevelAndCosts_MatchEgg9000(string capture) {
         if (!TryLoadCapture(capture, out byte[] bin) || Egg9000Json("ei-epic-research.json") is not JsonObject root) return;
 
-        var catalog = ResearchCatalogExtractor.Extract(bin);
+        var catalog = Catalog(capture, bin);
         Assert.True(catalog.Ok, catalog.Diagnostics);
-        var prices = ResearchPriceExtractor.ExtractById(bin, catalog.Entries);
+        var prices = ResearchPrices(capture, bin);
         Assert.True(prices.Ok, prices.Diagnostics);
 
         var mismatches = new List<string>();
@@ -220,7 +223,7 @@ public class Egg9000ParityTests {
     public void Boosts_MultiplierAndDurationMatchEgg9000(string capture) {
         if (!TryLoadCapture(capture, out byte[] bin) || Egg9000Json("ei-statics.json") is not JsonObject root) return;
 
-        var boosts = BoostEffectExtractor.Extract(bin);
+        var boosts = BoostTable(capture, bin);
         Assert.True(boosts.Ok, boosts.Diagnostics);
         var byId = boosts.Entries.ToDictionary(e => e.Id, StringComparer.Ordinal);
 
@@ -262,8 +265,8 @@ public class Egg9000ParityTests {
         if (!TryLoadCapture("egginc", out byte[] ios) || !TryLoadCapture("egginc-android-1.37.so", out byte[] android))
             return;
 
-        var a = BoostEffectExtractor.Extract(ios);
-        var b = BoostEffectExtractor.Extract(android);
+        var a = BoostTable("egginc", ios);
+        var b = BoostTable("egginc-android-1.37.so", android);
         Assert.True(a.Ok, a.Diagnostics);
         Assert.True(b.Ok, b.Diagnostics);
         List<(string, int, double, double)> rows = [.. a.Entries.Select(e => (e.Id, e.Dimension, e.DurationSeconds, e.Magnitude)).Order()];

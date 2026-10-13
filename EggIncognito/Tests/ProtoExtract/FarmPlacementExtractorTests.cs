@@ -3,21 +3,7 @@ using EggIncognito.Core.Services.ProtoExtract;
 namespace EggIncognito.Tests.ProtoExtract;
 
 public class FarmPlacementExtractorTests {
-    private static bool TryLoadCapture(string file, out byte[] bin) {
-        bin = [];
-        string? dir = AppContext.BaseDirectory;
-        while (dir is not null) {
-            string candidate = Path.Combine(dir, "EggIncognito", "captures", file);
-            if (File.Exists(candidate)) {
-                bin = File.ReadAllBytes(candidate);
-                return bin.Length > 0;
-            }
-
-            dir = Path.GetDirectoryName(dir);
-        }
-
-        return false;
-    }
+    private static bool TryLoadCapture(string file, out byte[] bin) => CaptureFixture.TryLoad(file, out bin);
 
     [Theory]
     [InlineData("egginc-android-1.37.so")]

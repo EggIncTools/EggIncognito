@@ -160,9 +160,10 @@ public static class DataServices {
             builder.Services.AddHttpClient<EggSharpGitHub>();
         }
 
-        builder.Services.AddScoped<IProtoUpsertObserver>(sp => new EggSharpProtoSender(
+        builder.Services.AddScoped(sp => new EggSharpProtoSender(
             sp.GetRequiredService<ProtoRegistryStore>(), sp.GetRequiredService<ILogger<EggSharpProtoSender>>(),
             sp.GetService<EggSharpGitHub>()));
+        builder.Services.AddScoped<IProtoUpsertObserver>(sp => sp.GetRequiredService<EggSharpProtoSender>());
         builder.Services.AddScoped(sp => new EggSharpDataSender(
             sp.GetRequiredService<EggIncognitoDbContext>(), sp.GetRequiredService<ILogger<EggSharpDataSender>>(),
             sp.GetRequiredService<TimeProvider>(), sp.GetService<EggSharpGitHub>()));

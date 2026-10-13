@@ -15,6 +15,7 @@ using EggIncognito.Services;
 using EggIncognito.Services.Auth;
 using EggIncognito.Services.DataApi;
 using EggIncognito.Services.Devices;
+using EggIncognito.Services.EggSharpSender;
 using EggIncognito.Tools;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
@@ -182,6 +183,15 @@ public sealed partial class AdminController(
         List<GameDataRebuildDocResult> rows =
             [.. results.Select(r => new GameDataRebuildDocResult(r.Id, r.Status, r.Count, r.Bytes, r.Note))];
         return Ok(new GameDataRebuildResponse(rows, binaryNote, [.. gameDataStore.MissingIds()]));
+    }
+
+    [HttpPost("eggsharp/send")]
+    [RequiresDb]
+    public async Task<IActionResult> SendToEggSharp([FromServices] EggSharpProtoSender protos,
+        [FromServices] EggSharpDataPusher data, CancellationToken ct) {
+        var proto = await protos.SendLatestAsync(ct);
+        if (protos.Enabled) data.Request();
+        return Ok(new EggSharpSendResponse(protos.Enabled, proto, protos.Enabled ? "queued" : "disabled", data.Last));
     }
 
     [HttpPost("protos/realign")]

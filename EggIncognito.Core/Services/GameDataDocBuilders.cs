@@ -178,6 +178,7 @@ public static class GameDataDocBuilders {
         [7] = "BoostEffectiveness",
         [8] = "BoostDuration",
         [9] = "SoulEggCollectionRate",
+        [10] = "Cash",
         [11] = "SoulMirror",
         [12] = "SoulEggBonus",
         [13] = "DroneRewards",
