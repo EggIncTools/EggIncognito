@@ -38,9 +38,6 @@ jobs:
       build-sha: ${{ needs.identity.outputs.sha }}
       pack-targets: |
         EggIncognito.Core/EggIncognito.Core.csproj
-        EggIncognito.GameData/EggIncognito.GameData.csproj
-        EggIncognito.Artifacts/EggIncognito.Artifacts.csproj
-        EggIncognito.Protos/EggIncognito.Protos.csproj
     secrets:
       PACKAGES_PAT: ${{ secrets.PACKAGES_PAT }}
 

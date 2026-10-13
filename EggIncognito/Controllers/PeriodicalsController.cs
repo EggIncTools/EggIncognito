@@ -5,7 +5,7 @@ using System.Text.Json;
 using EggIncognito.Core.Services;
 using EggIncognito.Core.Services.Assets;
 using EggIncognito.Data.Services;
-using EggIncognito.GameData;
+using EggSharp.GameData;
 using EggIncognito.Models.Periodicals;
 using EggIncognito.Services;
 using EggIncognito.Services.Assets;

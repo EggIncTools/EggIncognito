@@ -1,4 +1,4 @@
-using EggIncognito.GameData;
+using EggSharp.GameData;
 using EggIncognito.Services.Auth;
 using EggIncognito.Services.DataApi;
 using Microsoft.AspNetCore.Mvc;

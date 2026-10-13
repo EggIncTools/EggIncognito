@@ -1,5 +1,5 @@
 using EggIncognito.Core.Services;
-using EggIncognito.GameData;
+using EggSharp.GameData;
 
 namespace EggIncognito.Tests.GameData;
 

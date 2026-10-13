@@ -11,4 +11,3 @@ docs/
 !EggIncognito/Endpoints/**
 dist/
 EggIncognito/Tests/
-EggIncognito.GameData/Tests/

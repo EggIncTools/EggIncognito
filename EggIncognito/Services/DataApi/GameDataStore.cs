@@ -1,6 +1,6 @@
 using System.Text;
 using EggIncognito.Data.Services;
-using EggIncognito.GameData;
+using EggSharp.GameData;
 using Microsoft.EntityFrameworkCore;
 
 namespace EggIncognito.Services.DataApi;

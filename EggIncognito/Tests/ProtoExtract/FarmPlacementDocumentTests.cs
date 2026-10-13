@@ -1,6 +1,6 @@
 using EggIncognito.Core.Services;
-using EggIncognito.Core.Services.Farm;
-using EggIncognito.GameData;
+using EggSharp.GameData;
+using EggSharp.GameData.Farm;
 
 namespace EggIncognito.Tests.ProtoExtract;
 

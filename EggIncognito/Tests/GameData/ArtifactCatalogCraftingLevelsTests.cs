@@ -1,6 +1,7 @@
 using EggIncognito.Core.Services;
+using EggSharp.GameData;
 
-namespace EggIncognito.GameData.Tests;
+namespace EggIncognito.Tests.GameData;
 
 public sealed class ArtifactCatalogCraftingLevelsTests {
     [Fact]

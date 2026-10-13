@@ -1,7 +1,7 @@
 using System.Collections.Frozen;
 using System.Text.Json;
-using EggIncognito.Core.Services.Farm;
 using EggIncognito.Core.Services.ProtoExtract;
+using EggSharp.GameData.Farm;
 
 namespace EggIncognito.Core.Services;
 

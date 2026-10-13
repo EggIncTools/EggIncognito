@@ -7,18 +7,13 @@
 
   <ItemGroup>
     <PackageReference Include="Google.Protobuf" />
-    <PackageReference Include="Grpc.Tools">
-      <PrivateAssets>all</PrivateAssets>
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-    </PackageReference>
+    <PackageReference Include="EggSharp.Protos" />
+    <PackageReference Include="EggSharp.Ei.Google" />
+    <PackageReference Include="EggSharp.Core" />
+    <PackageReference Include="EggSharp.GameData" />
     <PackageReference Include="EggIdentity.Core" />
     <PackageReference Include="Microsoft.Extensions.Http" />
     <PackageReference Include="SharpGLTF.Toolkit" />
     <PackageReference Include="Gee.External.Capstone" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Protobuf Include="Proto\ei.proto" ProtoRoot="Proto" GrpcServices="None" />
-    <Content Include="Proto\ei.proto" Link="Proto\ei.proto" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

@@ -1,3 +1,4 @@
+using EggSharp.GameData.Farm;
 using FarmElement = Ei.ShellDB.Types.FarmElement;
 
 namespace EggIncognito.Core.Services.Farm;

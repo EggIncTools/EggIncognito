@@ -5,6 +5,7 @@ using EggIncognito.Models.Farm;
 using EggIncognito.Services;
 using EggIncognito.Services.Auth;
 using EggIncognito.Services.DataApi;
+using EggSharp.GameData.Farm;
 using Ei;
 using Google.Protobuf;
 using Microsoft.AspNetCore.Mvc;

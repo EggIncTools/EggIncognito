@@ -1,5 +1,5 @@
-using EggIncognito.Core.Services.Farm;
-using EggIncognito.GameData;
+using EggSharp.GameData;
+using EggSharp.GameData.Farm;
 
 namespace EggIncognito.Services.DataApi;
 

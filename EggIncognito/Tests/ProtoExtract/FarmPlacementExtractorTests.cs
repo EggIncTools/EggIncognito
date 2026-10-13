@@ -54,8 +54,8 @@ public class FarmPlacementExtractorTests {
         Assert.Equal(1.5f, d.MissionControlOffset);
         Assert.Equal(40f, d.CameraUiDivisor);
         Assert.Equal(0.1f, d.CameraUiDistanceScale, 1e-6f);
-        Assert.Equal(new Core.Services.Farm.Vec3(-3.5f, 0f, 10.5f), d.CameraStaticFocus[2]);
-        Assert.Equal(new Core.Services.Farm.Vec3(12f, 0f, 21f), d.CameraStaticFocus[6]);
+        Assert.Equal(new EggSharp.GameData.Farm.Vec3(-3.5f, 0f, 10.5f), d.CameraStaticFocus[2]);
+        Assert.Equal(new EggSharp.GameData.Farm.Vec3(12f, 0f, 21f), d.CameraStaticFocus[6]);
         Assert.Equal(3.5f, d.FocusExtentPivot);
         Assert.Equal(0.5f, d.FocusExtentScale);
         Assert.Equal(3f, d.HoaFocusExtra);

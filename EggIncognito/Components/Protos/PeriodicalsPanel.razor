@@ -576,7 +576,7 @@
     }
 
     static readonly IReadOnlyList<string> ProtoDimensions = [
-        .. EggIncognito.GameData.ColleggtibleCatalog.DimensionCodes.Where(kv => kv.Value > 0).OrderBy(kv => kv.Value).Select(kv => kv.Key)
+        .. EggSharp.GameData.ColleggtibleCatalog.DimensionCodes.Where(kv => kv.Value > 0).OrderBy(kv => kv.Value).Select(kv => kv.Key)
     ];
 
     static string TierCellClass(int tierIx) {

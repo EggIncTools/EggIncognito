@@ -113,7 +113,7 @@ public static class GameDataRebuiltKind {
             FeedFilter.Version(BinaryVersionField, "Binary version"),
             FeedFilter.Bool(BinaryMovedField, "New binary version"),
             FeedFilter.Set(Docs, "Changed document",
-                EggIncognito.GameData.GameDataProvider.ImportableIds.Select(id => new FilterOption(id, id))),
+                EggSharp.GameData.GameDataProvider.ImportableIds.Select(id => new FilterOption(id, id))),
             FeedFilter.Number(DocCount, "Changed document count")
         ],
         Defaults,

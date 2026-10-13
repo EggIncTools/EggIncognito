@@ -8,7 +8,7 @@ using EggIncognito.Core.Services;
 using EggIncognito.Core.Services.Devices;
 using EggIncognito.Data.Models;
 using EggIncognito.Data.Services;
-using EggIncognito.GameData;
+using EggSharp.GameData;
 using EggIncognito.Models.Admin;
 using EggIncognito.Models.AdminUi;
 using EggIncognito.Services;

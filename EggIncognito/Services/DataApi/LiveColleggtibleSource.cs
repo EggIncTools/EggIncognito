@@ -3,7 +3,7 @@ using System.Globalization;
 using System.Text.Json;
 using EggIncognito.Core.Services;
 using EggIncognito.Data.Services;
-using EggIncognito.GameData;
+using EggSharp.GameData;
 using Ei;
 using Microsoft.EntityFrameworkCore;
 using ProvenanceSource = EggIncognito.Core.Services.ProvenanceSource;

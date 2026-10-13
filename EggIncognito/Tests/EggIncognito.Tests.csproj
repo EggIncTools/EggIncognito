@@ -4,12 +4,17 @@
     <PackageReference Include="AngleSharp" />
     <PackageReference Include="bunit" />
     <PackageReference Include="EggIdentity.Testing" />
+    <PackageReference Include="EggSharp.Protos" />
     <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
   </ItemGroup>
 
   <ItemGroup>
     <Using Include="Xunit" />
     <Using Include="EggIdentity.Testing" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="$(EggIncProtoPath)" Link="Proto\ei.proto" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>

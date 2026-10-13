@@ -1,3 +1,4 @@
+using EggSharp.GameData.Farm;
 using Ei;
 using AssetType = Ei.ShellSpec.Types.AssetType;
 

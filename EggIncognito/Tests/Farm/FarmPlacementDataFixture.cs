@@ -1,4 +1,5 @@
-using EggIncognito.Core.Services.Farm;
+using EggSharp.GameData.Farm;
+
 namespace EggIncognito.Tests.Farm;
 
 internal static class FarmPlacementDataFixture {

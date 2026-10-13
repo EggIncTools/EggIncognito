@@ -1,5 +1,0 @@
-<Project>
-  <PropertyGroup>
-    <EggIncProtoPath>$([MSBuild]::NormalizePath('$(MSBuildThisFileDirectory)../proto/ei.proto'))</EggIncProtoPath>
-  </PropertyGroup>
-</Project>

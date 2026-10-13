@@ -1,4 +1,4 @@
-using EggIncognito.Core.Services.Farm;
+using EggSharp.GameData.Farm;
 
 namespace EggIncognito.Core.Services.ProtoExtract;
 

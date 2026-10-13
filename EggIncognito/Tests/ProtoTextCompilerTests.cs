@@ -538,7 +538,7 @@ public class ProtoTextCompilerTests {
     [Fact]
     public void Normalize_RepoEiProto_MatchesCompiledDescriptorHash() {
         string text = ReadRepoEiProto();
-        Assert.False(string.IsNullOrEmpty(text), "repo ei.proto not found next to the test assembly or in the source tree");
+        Assert.False(string.IsNullOrEmpty(text), "EggSharp.Protos ei.proto not found next to the test assembly");
 
         var result = ProtoCanonicalForm.Normalize(text);
         Assert.True(result.Ok, $"normalize failed: {result.Error}");
@@ -546,20 +546,7 @@ public class ProtoTextCompilerTests {
     }
 
     private static string ReadRepoEiProto() {
-        string[] candidates = [
-            Path.Combine(AppContext.BaseDirectory, "Proto", "ei.proto"),
-            "../../../../../EggIncognito.Core/Proto/ei.proto",
-            "../../../../EggIncognito.Core/Proto/ei.proto",
-            "../../../../../../EggIncognito.Core/Proto/ei.proto"
-        ];
-
-        foreach (string candidate in candidates) {
-            string full = Path.IsPathRooted(candidate)
-                ? candidate
-                : Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, candidate));
-            if (File.Exists(full)) return File.ReadAllText(full);
-        }
-
-        return "";
+        string path = Path.Combine(AppContext.BaseDirectory, "Proto", "ei.proto");
+        return File.Exists(path) ? File.ReadAllText(path) : "";
     }
 }

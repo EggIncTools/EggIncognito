@@ -4,7 +4,7 @@ using System.Text.Json.Nodes;
 using EggIncognito.Core.Services;
 using EggIncognito.Core.Services.Assets;
 using EggIncognito.Data.Services;
-using EggIncognito.GameData;
+using EggSharp.GameData;
 using EggIncognito.Services.Assets;
 using EggIncognito.Services.Auth;
 using Ei;

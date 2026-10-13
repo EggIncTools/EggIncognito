@@ -1,7 +1,7 @@
-using EggIncognito.Artifacts;
+using EggSharp.GameData.Artifacts;
 using EggIncognito.Data.Models;
 using EggIncognito.Data.Services;
-using EggIncognito.GameData;
+using EggSharp.GameData;
 using EggIncognito.Models.Coverage;
 using EggIncognito.Services.DataApi;
 using Microsoft.EntityFrameworkCore;
