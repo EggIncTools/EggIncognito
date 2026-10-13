@@ -6,12 +6,14 @@ namespace EggIncognito.Services.EggSharpSender;
 public sealed record ProtoSendOutcome(string Status, string? Platform, string? Build, string? Sha, string? Detail);
 
 public sealed class EggSharpProtoSender(
-    ProtoRegistryStore store,
+    IServiceProvider services,
     ILogger<EggSharpProtoSender> logger,
     EggSharpGitHub? github = null) : IProtoUpsertObserver {
     public const string ProtoPath = "EggSharp.Protos/proto/ei.proto";
 
     public bool Enabled => github is not null;
+
+    private ProtoRegistryStore Store => services.GetRequiredService<ProtoRegistryStore>();
 
     public async Task OnUpsertAsync(ProtoUpsertNotice notice, CancellationToken ct) {
         if (github is null || !notice.ProtoChanged || !notice.HasProtoText) return;
@@ -29,7 +31,7 @@ public sealed class EggSharpProtoSender(
     public async Task<ProtoSendOutcome> SendLatestAsync(CancellationToken ct) {
         if (github is null) return new ProtoSendOutcome("disabled", null, null, null, "EGGSHARP_APP_* not configured");
 
-        var rows = await store.ListAsync(null, ct);
+        var rows = await Store.ListAsync(null, ct);
         var latest = rows
             .Where(r => !string.IsNullOrEmpty(r.ProtoSha) && r.CanonicalId is null)
             .Where(r => ProtoVersionQuality.Flaws(r.Platform, r.Build, r.ClientVersion, r.ProtoSha, true).Count == 0)
@@ -44,7 +46,7 @@ public sealed class EggSharpProtoSender(
     }
 
     private async Task<ProtoSendOutcome> SendAsync(string platform, string build, string appVersion, CancellationToken ct) {
-        var (_, canonical) = await store.GetCanonicalForVersionAsync(platform, build, ct);
+        var (_, canonical) = await Store.GetCanonicalForVersionAsync(platform, build, ct);
         if (!canonical.Ok || canonical.Text is null || canonical.Sha is null)
             return new ProtoSendOutcome("no-proto", platform, build, null, canonical.Error);
 
