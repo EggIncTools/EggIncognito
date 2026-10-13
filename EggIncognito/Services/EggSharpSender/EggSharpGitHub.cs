@@ -3,10 +3,11 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Text.RegularExpressions;
 
 namespace EggIncognito.Services.EggSharpSender;
 
-public sealed record EggSharpAppConfig(string AppId, string InstallationId, string PrivateKeyPem) {
+public sealed partial record EggSharpAppConfig(string AppId, string InstallationId, string PrivateKeyPem) {
     public const string Owner = "EggIncTools";
     public const string Repo = "EggSharp";
 
@@ -16,8 +17,33 @@ public sealed record EggSharpAppConfig(string AppId, string InstallationId, stri
         string? key = Environment.GetEnvironmentVariable("EGGSHARP_APP_PRIVATE_KEY");
         return string.IsNullOrWhiteSpace(appId) || string.IsNullOrWhiteSpace(installation) || string.IsNullOrWhiteSpace(key)
             ? null
-            : new EggSharpAppConfig(appId, installation, key.Replace("\\n", "\n", StringComparison.Ordinal));
+            : new EggSharpAppConfig(appId, installation, NormalizePem(key));
     }
+
+    public static string NormalizePem(string raw) {
+        string text = raw.Trim().Trim('"', '\'');
+        if (!text.Contains("-----", StringComparison.Ordinal)) {
+            try {
+                text = Encoding.ASCII.GetString(Convert.FromBase64String(text));
+            } catch (FormatException) {
+                return text;
+            }
+        }
+
+        text = text.Replace("\\n", "\n", StringComparison.Ordinal).Replace("\r", "", StringComparison.Ordinal);
+        var match = PemBlock().Match(text);
+        if (!match.Success) return text;
+
+        string label = match.Groups["label"].Value;
+        string body = string.Concat(match.Groups["body"].Value.Where(c => !char.IsWhiteSpace(c)));
+        var lines = new List<string> { $"-----BEGIN {label}-----" };
+        for (int i = 0; i < body.Length; i += 64) lines.Add(body.Substring(i, Math.Min(64, body.Length - i)));
+        lines.Add($"-----END {label}-----");
+        return string.Join('\n', lines);
+    }
+
+    [GeneratedRegex(@"-----BEGIN (?<label>[A-Z ]+)-----(?<body>.*?)-----END \k<label>-----", RegexOptions.Singleline)]
+    private static partial Regex PemBlock();
 }
 
 public sealed class EggSharpGitHub(HttpClient http, EggSharpAppConfig config, TimeProvider time) {
