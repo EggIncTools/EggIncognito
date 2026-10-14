@@ -27,11 +27,9 @@ public sealed record RawConsumptionEvent(
     string? ClientVersion);
 
 public sealed class ConsumptionReportRows(EggIncognitoDbContext db) {
-    private const string ConsumeAction = "consume";
-
     public async Task<IReadOnlyList<ConsumptionDropRow>> ReadAsync(CancellationToken ct) {
         var events = await db.ArtifactConsumeObservations.AsNoTracking()
-            .Where(o => o.Action == ConsumeAction && o.Success)
+            .CountedConsumes()
             .Select(o => new RawConsumptionEvent(o.Id, o.SpecName, o.SpecLevel, o.SpecRarity, o.Byproducts, o.GoldenEggs, o.ClientVersion))
             .ToListAsync(ct);
         return Materialize(events);

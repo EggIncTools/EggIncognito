@@ -6,16 +6,16 @@
     <PackageVersion Include="AngleSharp" Version="1.8.4" />
     <PackageVersion Include="bunit" Version="2.11.3" />
     <PackageVersion Include="coverlet.collector" Version="6.0.4" />
-    <PackageVersion Include="EggIdentity.Admin" Version="263.0.0" />
-    <PackageVersion Include="EggIdentity.Auth" Version="263.0.0" />
-    <PackageVersion Include="EggIdentity.Bot" Version="263.0.0" />
-    <PackageVersion Include="EggIdentity.Brand" Version="263.0.0" />
-    <PackageVersion Include="EggIdentity.CodeStyle" Version="263.0.0" />
-    <PackageVersion Include="EggIdentity.Core" Version="263.0.0" />
-    <PackageVersion Include="EggIdentity.Data" Version="263.0.0" />
-    <PackageVersion Include="EggIdentity.Testing" Version="263.0.0" />
-    <PackageVersion Include="EggIdentity.UI" Version="263.0.0" />
-    <PackageVersion Include="EggIdentity.Web" Version="263.0.0" />
+    <PackageVersion Include="EggIdentity.Admin" Version="265.0.0" />
+    <PackageVersion Include="EggIdentity.Auth" Version="265.0.0" />
+    <PackageVersion Include="EggIdentity.Bot" Version="265.0.0" />
+    <PackageVersion Include="EggIdentity.Brand" Version="265.0.0" />
+    <PackageVersion Include="EggIdentity.CodeStyle" Version="265.0.0" />
+    <PackageVersion Include="EggIdentity.Core" Version="265.0.0" />
+    <PackageVersion Include="EggIdentity.Data" Version="265.0.0" />
+    <PackageVersion Include="EggIdentity.Testing" Version="265.0.0" />
+    <PackageVersion Include="EggIdentity.UI" Version="265.0.0" />
+    <PackageVersion Include="EggIdentity.Web" Version="265.0.0" />
     <PackageVersion Include="EggSharp.Core" Version="18.0.0" />
     <PackageVersion Include="EggSharp.Ei.Google" Version="18.0.0" />
     <PackageVersion Include="EggSharp.GameData" Version="18.0.0" />
@@ -25,16 +25,16 @@
     <PackageVersion Include="Gee.External.Capstone" Version="2.3.0" />
     <PackageVersion Include="Google.Protobuf" Version="3.36.2" />
     <PackageVersion Include="LibUsbDotNet" Version="3.0.224" />
-    <PackageVersion Include="Microsoft.AspNetCore.DataProtection.EntityFrameworkCore" Version="10.0.12" />
-    <PackageVersion Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.12" />
+    <PackageVersion Include="Microsoft.AspNetCore.DataProtection.EntityFrameworkCore" Version="10.0.13" />
+    <PackageVersion Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.13" />
     <PackageVersion Include="Microsoft.CodeAnalysis.Analyzers" Version="5.9.0" />
     <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="5.9.0" />
-    <PackageVersion Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.12" />
-    <PackageVersion Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.12" />
-    <PackageVersion Include="Microsoft.Extensions.Configuration.Abstractions" Version="10.0.12" />
-    <PackageVersion Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.12" />
-    <PackageVersion Include="Microsoft.Extensions.Http" Version="10.0.12" />
-    <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.12" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.13" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.13" />
+    <PackageVersion Include="Microsoft.Extensions.Configuration.Abstractions" Version="10.0.13" />
+    <PackageVersion Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.13" />
+    <PackageVersion Include="Microsoft.Extensions.Http" Version="10.0.13" />
+    <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.13" />
     <PackageVersion Include="Microsoft.Extensions.TimeProvider.Testing" Version="10.10.0" />
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.10.1" />
     <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.3" />

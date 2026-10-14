@@ -9,8 +9,6 @@ using Microsoft.EntityFrameworkCore;
 namespace EggIncognito.Services.Coverage;
 
 public sealed class ConsumeCoverageService(EggIncognitoDbContext db, GameDataStore gameData, TimeProvider time) {
-    private const string ConsumeAction = "consume";
-
     public async Task<ConsumeCoverageMap?> MapAsync(CancellationToken ct) {
         if (gameData.Doc(ArtifactCatalog.DocumentId) is not { } json) return null;
 
@@ -25,7 +23,7 @@ public sealed class ConsumeCoverageService(EggIncognitoDbContext db, GameDataSto
                 StringComparer.Ordinal);
 
         var device = await db.ArtifactConsumeObservations.AsNoTracking()
-            .Where(o => o.Action == ConsumeAction && o.Success)
+            .CountedConsumes()
             .Select(o => new { o.SpecName, o.SpecLevel, o.SpecRarity, o.CountRequested })
             .ToListAsync(ct);
         var targets = await db.ConsumeCoverageTargets.AsNoTracking()

@@ -29,14 +29,12 @@ public sealed class CoverageMapAccess(IServiceScopeFactory scopes) : ICoverageMa
 }
 
 public sealed class ArtifactObservationQuery(IServiceScopeFactory scopes) : IArtifactObservationQuery {
-    private const string ConsumeAction = "consume";
-
     public async Task<IReadOnlyDictionary<(string Family, string Level, string Rarity), int>> ConsumedCountsAsync(
         CancellationToken ct) {
         using var scope = scopes.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<EggIncognitoDbContext>();
         var rows = await db.ArtifactConsumeObservations.AsNoTracking()
-            .Where(o => o.Action == ConsumeAction && o.Success)
+            .CountedConsumes()
             .GroupBy(o => new { o.SpecName, o.SpecLevel, o.SpecRarity })
             .Select(g => new { g.Key.SpecName, g.Key.SpecLevel, g.Key.SpecRarity, Count = g.Sum(o => o.CountRequested) })
             .ToListAsync(ct);
@@ -48,8 +46,8 @@ public sealed class ArtifactObservationQuery(IServiceScopeFactory scopes) : IArt
         using var scope = scopes.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<EggIncognitoDbContext>();
         var rows = await db.ArtifactConsumeObservations.AsNoTracking()
-            .Where(o => o.Action == ConsumeAction && o.Success
-                                                  && o.SpecName == family && o.SpecLevel == level && o.SpecRarity == rarity)
+            .CountedConsumes()
+            .Where(o => o.SpecName == family && o.SpecLevel == level && o.SpecRarity == rarity)
             .Select(o => o.Byproducts)
             .ToListAsync(ct);
         return [.. rows.Select(ParseByproducts)];
@@ -60,8 +58,8 @@ public sealed class ArtifactObservationQuery(IServiceScopeFactory scopes) : IArt
         using var scope = scopes.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<EggIncognitoDbContext>();
         return await db.ArtifactConsumeObservations.AsNoTracking()
-            .Where(o => o.Action == ConsumeAction && o.Success
-                                                  && o.SpecName == family && o.SpecLevel == level && o.SpecRarity == rarity)
+            .CountedConsumes()
+            .Where(o => o.SpecName == family && o.SpecLevel == level && o.SpecRarity == rarity)
             .Select(o => o.GoldenEggs)
             .ToListAsync(ct);
     }

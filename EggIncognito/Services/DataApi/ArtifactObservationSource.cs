@@ -39,7 +39,7 @@ public static class ArtifactObservationSource {
 
     private static async Task<string> BuildAsync(EggIncognitoDbContext db, CancellationToken ct) {
         var rows = await db.ArtifactConsumeObservations.AsNoTracking()
-            .Where(o => o.Success)
+            .Where(ConsumeDropFilter.Counted)
             .Select(o => new Observation(
                 o.Action, o.SpecName, o.SpecLevel, o.SpecRarity, o.Byproducts, o.GoldenEggs,
                 o.CountRequested, o.RarityAchieved, o.GoldPricePaid, o.CraftingCount))
