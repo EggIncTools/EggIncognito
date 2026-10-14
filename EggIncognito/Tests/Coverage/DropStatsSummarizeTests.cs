@@ -29,13 +29,6 @@ public sealed class DropStatsSummarizeTests {
     [Fact]
     public void Gold_NeverDroppedIsNull() => Assert.Null(DropStats.SummarizeGold([0, 0]));
 
-    [Theory]
-    [InlineData("LIGHT_OF_EGGENDIL", true)]
-    [InlineData("PROPHECY_STONE", false)]
-    [InlineData("SHELL_STONE_FRAGMENT", false)]
-    public void Gold_SkipsStonesAndFragments(string family, bool tracked) =>
-        Assert.Equal(tracked, DropStats.TracksGold(family));
-
     [Fact]
     public void MalformedRowCountsAsEmptyConsume() {
         var parsed = ArtifactObservationQuery.ParseByproducts("{not json");

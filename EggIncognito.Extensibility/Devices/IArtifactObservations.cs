@@ -16,6 +16,13 @@ public interface IArtifactObservationQuery {
         string family, string level, string rarity, CancellationToken ct);
 
     Task<IReadOnlyList<double>> ConsumeGoldenEggsAsync(string family, string level, string rarity, CancellationToken ct);
+
+    Task<IReadOnlyList<double>> ConsumePiggyFillAsync(string family, string level, string rarity, CancellationToken ct);
+
+    Task<IReadOnlyDictionary<(string Family, string Level, string Rarity), int>> ConsumeEventCountsAsync(CancellationToken ct);
+
+    Task<IReadOnlyList<(string Family, string Level, string Rarity, IReadOnlyList<ArtifactByproductRow> Byproducts)>> ConsumesDroppingAsync(
+        string name, CancellationToken ct);
 }
 
 public interface ICoverageMap {

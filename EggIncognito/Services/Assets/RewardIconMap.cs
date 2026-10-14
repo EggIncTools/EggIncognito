@@ -10,7 +10,8 @@ public static class RewardIconMap {
             RewardType.SoulEggs => "egg_soul",
             RewardType.EggsOfProphecy => "egg_of_prophecy",
             RewardType.EpicResearchItem => string.IsNullOrEmpty(subType) ? null : "r_icon_" + subType,
-            RewardType.PiggyFill or RewardType.PiggyMultiplier or RewardType.PiggyLevelBump => "icon_piggy",
+            RewardType.PiggyFill => "icon_piggy_golden_egg",
+            RewardType.PiggyMultiplier or RewardType.PiggyLevelBump => "icon_piggy",
             RewardType.Boost => string.IsNullOrEmpty(subType)
                 ? null
                 : "b_icon_" + (subType.EndsWith("_v2", StringComparison.Ordinal) ? subType[..^3] : subType),

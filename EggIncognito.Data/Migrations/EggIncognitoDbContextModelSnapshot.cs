@@ -264,9 +264,17 @@ namespace EggIncognito.Data.Migrations
                         .HasColumnName("other_rewards")
                         .HasDefaultValueSql("'[]'");
 
+                    b.Property<double>("PiggyFill")
+                        .HasColumnType("double precision")
+                        .HasColumnName("piggy_fill");
+
                     b.Property<string>("RarityAchieved")
                         .HasColumnType("text")
                         .HasColumnName("rarity_achieved");
+
+                    b.Property<bool>("ServerDenied")
+                        .HasColumnType("boolean")
+                        .HasColumnName("server_denied");
 
                     b.Property<string>("SpecLevel")
                         .IsRequired()

@@ -112,7 +112,7 @@ public static class ArtifactObservationSource {
                 })]);
 
             double[] goldenEggs = [.. group.Select(g => g.GoldenEggs)];
-            var gold = DropStats.TracksGold(group.Key.SpecName) ? DropStats.SummarizeGold(goldenEggs) : null;
+            var gold = DropStats.SummarizeGold(goldenEggs);
             double[] pricesPaid = [.. group.Where(g => g.GoldPricePaid is not null).Select(g => g.GoldPricePaid!.Value)];
             groups.Add(new JsonObject {
                 ["specName"] = group.Key.SpecName,

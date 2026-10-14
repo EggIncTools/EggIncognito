@@ -3,8 +3,8 @@ using EggIncognito.Services.Coverage;
 namespace EggIncognito.Tests.Coverage;
 
 public sealed class ConsumptionReportRowsMaterializeTests {
-    private static RawConsumptionEvent Ev(long id, string family, string level, string rarity, string byproducts, double gold = 0, string? version = null) =>
-        new(id, family, level, rarity, byproducts, gold, version);
+    private static RawConsumptionEvent Ev(long id, string family, string level, string rarity, string byproducts, double gold = 0, double piggy = 0, string? version = null) =>
+        new(id, family, level, rarity, byproducts, gold, piggy, version);
 
     [Fact]
     public void NonDroppingEventGetsZeroCountRowForCellCandidates() {
@@ -24,7 +24,7 @@ public sealed class ConsumptionReportRowsMaterializeTests {
     public void RowsCarryTheirOwnEventIdAsSampleKey() {
         var events = new[] {
             Ev(7, "GUSSET", "COMMON", "LEGENDARY",
-                """[{"name":"LUNAR_STONE_FRAGMENT","level":"INFERIOR","rarity":"COMMON","count":2}]""", gold: 5, version: "1.2.3"),
+                """[{"name":"LUNAR_STONE_FRAGMENT","level":"INFERIOR","rarity":"COMMON","count":2}]""", gold: 5, piggy: 8, version: "1.2.3"),
         };
 
         var rows = ConsumptionReportRows.Materialize(events);
@@ -33,6 +33,7 @@ public sealed class ConsumptionReportRowsMaterializeTests {
         Assert.Equal("7", row.EventId);
         Assert.Equal(2, row.Count);
         Assert.Equal(5, row.GoldenEggs);
+        Assert.Equal(8, row.PiggyFill);
         Assert.Equal("1.2.3", row.ClientVersion);
     }
 

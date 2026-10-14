@@ -22,17 +22,34 @@ public sealed record GoldStats(int Observations, double Share, double Mean, doub
     IReadOnlyList<GoldBucket> Buckets);
 
 public sealed record DropSummary(string Family, string Level, string Rarity, int Observations, IReadOnlyList<DropRow> Rows,
-    GoldStats? Gold = null);
+    GoldStats? Gold = null, GoldStats? Piggy = null);
 
 public sealed class DropStats(IArtifactObservationQuery observations) {
     public async Task<DropSummary> ForCellAsync(string family, string level, string rarity, CancellationToken ct) {
         var summary = Summarize(family, level, rarity, await observations.ConsumeByproductsAsync(family, level, rarity, ct));
-        if (!TracksGold(family)) return summary;
-        return summary with { Gold = SummarizeGold(await observations.ConsumeGoldenEggsAsync(family, level, rarity, ct)) };
+        var gold = SummarizeGold(await observations.ConsumeGoldenEggsAsync(family, level, rarity, ct));
+        var piggy = SummarizeGold(await observations.ConsumePiggyFillAsync(family, level, rarity, ct));
+        return summary with { Gold = gold, Piggy = piggy };
     }
 
-    public static bool TracksGold(string family) =>
-        !family.EndsWith("_STONE", StringComparison.Ordinal) && !family.EndsWith("_FRAGMENT", StringComparison.Ordinal);
+    public async Task<IReadOnlyList<(string Family, string Level, string Rarity, DropRow Hit)>> SourcesOfAsync(
+        string name, string level, string rarity, CancellationToken ct) {
+        var totals = await observations.ConsumeEventCountsAsync(ct);
+        var dropping = await observations.ConsumesDroppingAsync(name, ct);
+        var result = new List<(string, string, string, DropRow)>();
+        foreach (var cell in dropping.GroupBy(d => (d.Family, d.Level, d.Rarity))) {
+            var matched = cell.Where(d => d.Byproducts.Any(b => b.Name == name && b.Level == level && b.Rarity == rarity))
+                .Select(d => d.Byproducts).ToList();
+            if (matched.Count == 0) continue;
+            int total = Math.Max(totals.GetValueOrDefault(cell.Key), matched.Count);
+            var padded = matched.Concat(Enumerable.Repeat<IReadOnlyList<ArtifactByproductRow>>([], total - matched.Count)).ToList();
+            var hit = Summarize(cell.Key.Family, cell.Key.Level, cell.Key.Rarity, padded).Rows
+                .First(r => r.Name == name && r.Level == level && r.Rarity == rarity);
+            result.Add((cell.Key.Family, cell.Key.Level, cell.Key.Rarity, hit));
+        }
+
+        return result;
+    }
 
     public static GoldStats? SummarizeGold(IReadOnlyList<double> amounts) {
         int total = amounts.Count;

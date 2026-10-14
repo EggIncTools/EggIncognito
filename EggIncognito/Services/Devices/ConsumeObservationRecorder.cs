@@ -120,6 +120,12 @@ public sealed class ConsumeObservationRecorder(
             .Where(r => r.RewardType == RewardType.Gold)
             .Sum(r => r.RewardAmount);
 
+        double piggyFill = response.OtherRewards
+            .Where(r => r.RewardType == RewardType.PiggyFill)
+            .Sum(r => r.RewardAmount);
+
+        bool serverDenied = IsServerDenial(action, request, response, byproducts);
+
         return new ArtifactConsumeObservation {
             Action = action,
             SpecName = ProtoEnumNames.SpecName(request.Spec.Name),
@@ -129,11 +135,25 @@ public sealed class ConsumeObservationRecorder(
             Byproducts = JsonSerializer.Serialize(byproducts, CamelJson),
             OtherRewards = JsonSerializer.Serialize(rewards, CamelJson),
             GoldenEggs = goldenEggs,
+            PiggyFill = piggyFill,
+            ServerDenied = serverDenied,
             Success = success,
             ClientVersion = string.IsNullOrEmpty(request.Rinfo?.Version) ? null : request.Rinfo.Version,
             DeviceId = string.IsNullOrEmpty(deviceId) ? null : deviceId,
             ObservedAt = now
         };
+    }
+
+    private static bool IsServerDenial(string action, ConsumeArtifactRequest request, ConsumeArtifactResponse response,
+        ArtifactByproductRow[] byproducts) {
+        if (!string.Equals(action, "consume", StringComparison.Ordinal)) return false;
+        if (string.IsNullOrEmpty(request.ArtifactServerId)) return false;
+        var rarity = request.Spec.Rarity;
+        if (rarity is not (ArtifactSpec.Types.Rarity.Rare or ArtifactSpec.Types.Rarity.Epic or ArtifactSpec.Types.Rarity.Legendary)) return false;
+        if (byproducts.Length != 0) return false;
+        if (response.OtherRewards.Count != 1) return false;
+        var reward = response.OtherRewards[0];
+        return reward.RewardType == RewardType.Gold && reward.RewardAmount == 1;
     }
 
     public Task StartAsync(CancellationToken cancellationToken) {

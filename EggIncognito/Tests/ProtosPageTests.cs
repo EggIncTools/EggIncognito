@@ -88,6 +88,17 @@ public class ProtosPageTests {
 
             public Task<IReadOnlyList<double>> ConsumeGoldenEggsAsync(string family, string level, string rarity, CancellationToken ct) =>
                 Task.FromResult<IReadOnlyList<double>>([]);
+
+            public Task<IReadOnlyList<double>> ConsumePiggyFillAsync(string family, string level, string rarity, CancellationToken ct) =>
+                Task.FromResult<IReadOnlyList<double>>([]);
+
+            public Task<IReadOnlyDictionary<(string Family, string Level, string Rarity), int>> ConsumeEventCountsAsync(CancellationToken ct) =>
+                Task.FromResult<IReadOnlyDictionary<(string Family, string Level, string Rarity), int>>(
+                    new Dictionary<(string Family, string Level, string Rarity), int>());
+
+            public Task<IReadOnlyList<(string Family, string Level, string Rarity, IReadOnlyList<ArtifactByproductRow> Byproducts)>>
+                ConsumesDroppingAsync(string name, CancellationToken ct) =>
+                Task.FromResult<IReadOnlyList<(string Family, string Level, string Rarity, IReadOnlyList<ArtifactByproductRow> Byproducts)>>([]);
         }
 
         [Fact]

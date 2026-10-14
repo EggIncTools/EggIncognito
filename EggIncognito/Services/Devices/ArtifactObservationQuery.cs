@@ -64,6 +64,41 @@ public sealed class ArtifactObservationQuery(IServiceScopeFactory scopes) : IArt
             .ToListAsync(ct);
     }
 
+    public async Task<IReadOnlyList<double>> ConsumePiggyFillAsync(string family, string level, string rarity,
+        CancellationToken ct) {
+        using var scope = scopes.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<EggIncognitoDbContext>();
+        return await db.ArtifactConsumeObservations.AsNoTracking()
+            .CountedConsumes()
+            .Where(o => o.SpecName == family && o.SpecLevel == level && o.SpecRarity == rarity)
+            .Select(o => o.PiggyFill)
+            .ToListAsync(ct);
+    }
+
+    public async Task<IReadOnlyDictionary<(string Family, string Level, string Rarity), int>> ConsumeEventCountsAsync(
+        CancellationToken ct) {
+        using var scope = scopes.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<EggIncognitoDbContext>();
+        var rows = await db.ArtifactConsumeObservations.AsNoTracking()
+            .CountedConsumes()
+            .GroupBy(o => new { o.SpecName, o.SpecLevel, o.SpecRarity })
+            .Select(g => new { g.Key.SpecName, g.Key.SpecLevel, g.Key.SpecRarity, Count = g.Count() })
+            .ToListAsync(ct);
+        return rows.ToDictionary(x => (x.SpecName, x.SpecLevel, x.SpecRarity), x => x.Count);
+    }
+
+    public async Task<IReadOnlyList<(string Family, string Level, string Rarity, IReadOnlyList<ArtifactByproductRow> Byproducts)>>
+        ConsumesDroppingAsync(string name, CancellationToken ct) {
+        using var scope = scopes.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<EggIncognitoDbContext>();
+        var rows = await db.ArtifactConsumeObservations.AsNoTracking()
+            .CountedConsumes()
+            .Where(o => o.Byproducts.Contains(name))
+            .Select(o => new { o.SpecName, o.SpecLevel, o.SpecRarity, o.Byproducts })
+            .ToListAsync(ct);
+        return [.. rows.Select(r => (r.SpecName, r.SpecLevel, r.SpecRarity, ParseByproducts(r.Byproducts)))];
+    }
+
     public static IReadOnlyList<ArtifactByproductRow> ParseByproducts(string json) {
         if (string.IsNullOrWhiteSpace(json)) return [];
         try {
@@ -100,4 +135,17 @@ internal sealed class NoArtifactObservations : IArtifactObservationSink, IArtifa
     public Task<IReadOnlyList<double>> ConsumeGoldenEggsAsync(string family, string level, string rarity,
         CancellationToken ct) =>
         Task.FromResult<IReadOnlyList<double>>([]);
+
+    public Task<IReadOnlyList<double>> ConsumePiggyFillAsync(string family, string level, string rarity,
+        CancellationToken ct) =>
+        Task.FromResult<IReadOnlyList<double>>([]);
+
+    public Task<IReadOnlyDictionary<(string Family, string Level, string Rarity), int>> ConsumeEventCountsAsync(
+        CancellationToken ct) =>
+        Task.FromResult<IReadOnlyDictionary<(string Family, string Level, string Rarity), int>>(
+            new Dictionary<(string Family, string Level, string Rarity), int>());
+
+    public Task<IReadOnlyList<(string Family, string Level, string Rarity, IReadOnlyList<ArtifactByproductRow> Byproducts)>>
+        ConsumesDroppingAsync(string name, CancellationToken ct) =>
+        Task.FromResult<IReadOnlyList<(string Family, string Level, string Rarity, IReadOnlyList<ArtifactByproductRow> Byproducts)>>([]);
 }

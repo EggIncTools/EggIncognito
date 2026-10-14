@@ -23,6 +23,10 @@ public class ArtifactConsumeObservation {
 
     [Column("golden_eggs")] public double GoldenEggs { get; set; }
 
+    [Column("piggy_fill")] public double PiggyFill { get; set; }
+
+    [Column("server_denied")] public bool ServerDenied { get; set; }
+
     [Column("rarity_achieved")] public string? RarityAchieved { get; set; }
 
     [Column("gold_price_paid")] public double? GoldPricePaid { get; set; }

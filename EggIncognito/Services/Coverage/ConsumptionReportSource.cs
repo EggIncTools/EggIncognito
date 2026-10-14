@@ -90,6 +90,19 @@ public static class ConsumptionReportSource {
         DistinctBy = EventKey,
     };
 
+    public static readonly ReportMeasure PiggyFill = new("piggy_fill", "Piggy fill") {
+        Aggregations = [Aggregation.Avg, Aggregation.Min, Aggregation.Max],
+        Default = Aggregation.Avg,
+        DistinctBy = EventKey,
+    };
+
+    public static readonly ReportMeasure PiggyFillDistribution = new("piggy_fill_distribution", "Piggy fill distribution") {
+        Kind = MeasureKind.Distribution,
+        Aggregations = [Aggregation.Avg],
+        Default = Aggregation.Avg,
+        DistinctBy = EventKey,
+    };
+
     public static readonly IReadOnlyList<ReportPreset> Presets = [
         new("consumption-drops-by-item", "What does each item drop",
             new ReportDefinition(
@@ -121,7 +134,7 @@ public static class ConsumptionReportSource {
         SourceId,
         "Consumption",
         [InputFamily, InputTier, InputRarity, OutputItem, OutputTier, OutputRarity, ClientVersion],
-        [Observations, DropChance, Count, CountDistribution, GoldenEggs, GoldenEggsDistribution],
+        [Observations, DropChance, Count, CountDistribution, GoldenEggs, GoldenEggsDistribution, PiggyFill, PiggyFillDistribution],
         Read) {
         SampleKey = EventKey,
         Presets = Presets,
@@ -134,7 +147,8 @@ public static class ConsumptionReportSource {
             new GroupKey(OutputItem.Key), new GroupKey(OutputTier.Key), new GroupKey(OutputRarity.Key),
             new GroupKey(ClientVersion.Key),
         ],
-        [Observations.Key, DropChance.Key, Count.Key, CountDistribution.Key, GoldenEggs.Key, GoldenEggsDistribution.Key]) {
+        [Observations.Key, DropChance.Key, Count.Key, CountDistribution.Key, GoldenEggs.Key, GoldenEggsDistribution.Key,
+            PiggyFill.Key, PiggyFillDistribution.Key]) {
         FanOut = [OutputItem.Key, OutputTier.Key, OutputRarity.Key],
     };
 
@@ -150,6 +164,7 @@ public static class ConsumptionReportSource {
         "drop_chance" => FilterSubjectValue.Of(row.Count > 0 ? 1d : 0d),
         "count" or "count_distribution" => FilterSubjectValue.Of((double)row.Count),
         "golden_eggs" or "golden_eggs_distribution" => FilterSubjectValue.Of(row.GoldenEggs),
+        "piggy_fill" or "piggy_fill_distribution" => FilterSubjectValue.Of(row.PiggyFill),
         _ => FilterSubjectValue.Absent,
     };
 

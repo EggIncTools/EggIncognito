@@ -51,6 +51,8 @@ public class ConsumeObservationRecorderTests {
         Assert.Equal("LEGENDARY", row.SpecRarity);
         Assert.Equal(1, row.CountRequested);
         Assert.Equal(42, row.GoldenEggs);
+        Assert.Equal(7, row.PiggyFill);
+        Assert.False(row.ServerDenied);
         Assert.True(row.Success);
         Assert.Equal("1.37", row.ClientVersion);
         Assert.Equal("ios-1", row.DeviceId);
@@ -132,6 +134,99 @@ public class ConsumeObservationRecorderTests {
         Assert.Equal(17, row.CraftingCount);
         Assert.True(row.Success);
         Assert.Equal("ios-1", row.DeviceId);
+    }
+
+    [Theory]
+    [InlineData(ArtifactSpec.Types.Rarity.Rare)]
+    [InlineData(ArtifactSpec.Types.Rarity.Epic)]
+    [InlineData(ArtifactSpec.Types.Rarity.Legendary)]
+    public void ConsumeRow_SingleOneGoldReward_WithServerId_IsServerDenied(ArtifactSpec.Types.Rarity rarity) {
+        var request = new ConsumeArtifactRequest {
+            Spec = new ArtifactSpec { Name = ArtifactSpec.Types.Name.LunarTotem, Rarity = rarity },
+            ArtifactServerId = "server-1"
+        };
+        var response = new ConsumeArtifactResponse {
+            Success = true,
+            OtherRewards = { new Reward { RewardType = RewardType.Gold, RewardAmount = 1 } }
+        };
+
+        var row = ConsumeObservationRecorder.ConsumeRow("consume", "android-1", request, response, success: true,
+            DateTimeOffset.UnixEpoch);
+
+        Assert.NotNull(row);
+        Assert.True(row.ServerDenied);
+    }
+
+    [Fact]
+    public void ConsumeRow_CommonRarity_SingleOneGoldReward_WithServerId_IsNotServerDenied() {
+        var request = new ConsumeArtifactRequest {
+            Spec = new ArtifactSpec { Name = ArtifactSpec.Types.Name.LunarTotem, Rarity = ArtifactSpec.Types.Rarity.Common },
+            ArtifactServerId = "server-1"
+        };
+        var response = new ConsumeArtifactResponse {
+            Success = true,
+            OtherRewards = { new Reward { RewardType = RewardType.Gold, RewardAmount = 1 } }
+        };
+
+        var row = ConsumeObservationRecorder.ConsumeRow("consume", "android-1", request, response, success: true,
+            DateTimeOffset.UnixEpoch);
+
+        Assert.NotNull(row);
+        Assert.False(row.ServerDenied);
+    }
+
+    [Fact]
+    public void ConsumeRow_WithoutServerId_IsNotServerDenied() {
+        var request = new ConsumeArtifactRequest {
+            Spec = new ArtifactSpec { Name = ArtifactSpec.Types.Name.LunarTotem, Rarity = ArtifactSpec.Types.Rarity.Legendary }
+        };
+        var response = new ConsumeArtifactResponse {
+            Success = true,
+            OtherRewards = { new Reward { RewardType = RewardType.Gold, RewardAmount = 1 } }
+        };
+
+        var row = ConsumeObservationRecorder.ConsumeRow("consume", "android-1", request, response, success: true,
+            DateTimeOffset.UnixEpoch);
+
+        Assert.NotNull(row);
+        Assert.False(row.ServerDenied);
+    }
+
+    [Fact]
+    public void ConsumeRow_GoldAmountTwo_WithServerId_IsNotServerDenied() {
+        var request = new ConsumeArtifactRequest {
+            Spec = new ArtifactSpec { Name = ArtifactSpec.Types.Name.LunarTotem, Rarity = ArtifactSpec.Types.Rarity.Legendary },
+            ArtifactServerId = "server-1"
+        };
+        var response = new ConsumeArtifactResponse {
+            Success = true,
+            OtherRewards = { new Reward { RewardType = RewardType.Gold, RewardAmount = 2 } }
+        };
+
+        var row = ConsumeObservationRecorder.ConsumeRow("consume", "android-1", request, response, success: true,
+            DateTimeOffset.UnixEpoch);
+
+        Assert.NotNull(row);
+        Assert.False(row.ServerDenied);
+    }
+
+    [Fact]
+    public void ConsumeRow_WithByproducts_IsNotServerDenied() {
+        var request = new ConsumeArtifactRequest {
+            Spec = new ArtifactSpec { Name = ArtifactSpec.Types.Name.LunarTotem, Rarity = ArtifactSpec.Types.Rarity.Legendary },
+            ArtifactServerId = "server-1"
+        };
+        var response = new ConsumeArtifactResponse {
+            Success = true,
+            Byproducts = { Fragment(ArtifactSpec.Types.Name.ProphecyStoneFragment) },
+            OtherRewards = { new Reward { RewardType = RewardType.Gold, RewardAmount = 1 } }
+        };
+
+        var row = ConsumeObservationRecorder.ConsumeRow("consume", "android-1", request, response, success: true,
+            DateTimeOffset.UnixEpoch);
+
+        Assert.NotNull(row);
+        Assert.False(row.ServerDenied);
     }
 
     [Fact]

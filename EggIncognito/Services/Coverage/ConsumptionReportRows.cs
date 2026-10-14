@@ -16,6 +16,7 @@ public sealed record ConsumptionDropRow(
     string OutputRarity,
     int Count,
     double GoldenEggs,
+    double PiggyFill,
     string? ClientVersion);
 
 public sealed record RawConsumptionEvent(
@@ -25,13 +26,14 @@ public sealed record RawConsumptionEvent(
     string SpecRarity,
     string Byproducts,
     double GoldenEggs,
+    double PiggyFill,
     string? ClientVersion);
 
 public sealed class ConsumptionReportRows(EggIncognitoDbContext db) : IReportRowProvider<ConsumptionDropRow> {
     public async ValueTask<IReadOnlyList<ConsumptionDropRow>> ReadAsync(CancellationToken ct) {
         var events = await db.ArtifactConsumeObservations.AsNoTracking()
             .CountedConsumes()
-            .Select(o => new RawConsumptionEvent(o.Id, o.SpecName, o.SpecLevel, o.SpecRarity, o.Byproducts, o.GoldenEggs, o.ClientVersion))
+            .Select(o => new RawConsumptionEvent(o.Id, o.SpecName, o.SpecLevel, o.SpecRarity, o.Byproducts, o.GoldenEggs, o.PiggyFill, o.ClientVersion))
             .ToListAsync(ct);
         return Materialize(events);
     }
@@ -46,7 +48,7 @@ public sealed class ConsumptionReportRows(EggIncognitoDbContext db) : IReportRow
 
     public static IReadOnlyList<ConsumptionDropRow> Materialize(IReadOnlyList<RawConsumptionEvent> events) {
         var parsed = events
-            .Select(e => (e.Id, e.SpecName, e.SpecLevel, e.SpecRarity, e.GoldenEggs, e.ClientVersion,
+            .Select(e => (e.Id, e.SpecName, e.SpecLevel, e.SpecRarity, e.GoldenEggs, e.PiggyFill, e.ClientVersion,
                 Byproducts: ArtifactObservationQuery.ParseByproducts(e.Byproducts)))
             .ToList();
 
@@ -58,7 +60,7 @@ public sealed class ConsumptionReportRows(EggIncognitoDbContext db) : IReportRow
                 var (name, level, rarity) = item is not null ? (item.Name, item.Level, item.Rarity) : SplitCandidate(candidate);
                 var count = item is null ? 0 : Math.Max(1, item.Count);
                 return new ConsumptionDropRow(e.Id.ToString(CultureInfo.InvariantCulture), e.SpecName, e.SpecLevel, e.SpecRarity,
-                    name, level, rarity, count, e.GoldenEggs, e.ClientVersion);
+                    name, level, rarity, count, e.GoldenEggs, e.PiggyFill, e.ClientVersion);
             });
     }
 

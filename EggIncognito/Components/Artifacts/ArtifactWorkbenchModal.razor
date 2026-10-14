@@ -61,7 +61,7 @@
                     <p class="atb-desc">@family.Description</p>
                 }
                 <div class="atb-seg" role="tablist" aria-label="View">
-                    @foreach (var view in Enum.GetValues<ArtifactView>().Where(v => v != ArtifactView.ComesFrom || IsFragment(family))) {
+                    @foreach (var view in Enum.GetValues<ArtifactView>().Where(v => v != ArtifactView.ComesFrom || CanComeFromConsume(family))) {
                             var v = view;
                             <button type="button" role="tab" aria-selected="@(State.View == v ? "true" : "false")"
                                     class="atb-seg-btn @(State.View == v ? "atb-on" : "")"
@@ -89,6 +89,8 @@
                     </div>
             </div>
 
+            <ArtifactNodeDetail Ingredients="@_detailIngredients" Price="@_detailPrice" Row="@_detailRow"/>
+
             <div class="atb-canvas">
                 @if (_loadingGraph) {
                     <div class="wb-note">Loading...</div>
@@ -97,7 +99,15 @@
                 } else if (State.View != ArtifactView.Crafting && _graph.Nodes.Count == 1) {
                     <EmptyState Title="No recorded drops" Hint="No consume observations cover this tier and rarity yet."/>
                 } else {
-                    <TreeDiagram Graph="@_graph" Roots="@_roots" Direction="DiagramDirection.Down"
+                    <div class="atb-seg atb-dir" role="radiogroup" aria-label="Layout">
+                        <button type="button" role="radio" aria-checked="@(_direction == DiagramDirection.Down ? "true" : "false")"
+                                class="atb-seg-btn @(_direction == DiagramDirection.Down ? "atb-on" : "")"
+                                @onclick="@(() => _direction = DiagramDirection.Down)">Top down</button>
+                        <button type="button" role="radio" aria-checked="@(_direction == DiagramDirection.Right ? "true" : "false")"
+                                class="atb-seg-btn @(_direction == DiagramDirection.Right ? "atb-on" : "")"
+                                @onclick="@(() => _direction = DiagramDirection.Right)">Side branches</button>
+                    </div>
+                    <TreeDiagram Graph="@_graph" Roots="@_roots" Direction="@_direction"
                                  AriaLabel="@(n => NodeName(n.Id))"
                                  NodeClass="@(n => NodeClass(n.Node.Id))"
                                  SelectedId="@_selectedNodeId" SelectedIdChanged="OnNodeSelectedAsync"
@@ -116,7 +126,6 @@
                 }
             </div>
 
-            <ArtifactNodeDetail Ingredients="@_detailIngredients" Price="@_detailPrice" Row="@_detailRow"/>
         }
     </ChildContent>
 </WorkbenchModal>
@@ -125,6 +134,7 @@
     bool _open;
     PathRouteSync? _hash;
     bool _loadingGraph;
+    DiagramDirection _direction = DiagramDirection.Right;
     DiagramGraph? _graph;
     IReadOnlyList<string> _roots = [];
     string? _selectedNodeId;
@@ -206,7 +216,7 @@
         await WriteHashAsync();
     }
 
-    static bool IsFragment(ArtifactFamily family) => family.Name.EndsWith("_FRAGMENT", StringComparison.Ordinal);
+    static bool CanComeFromConsume(ArtifactFamily family) => family.Kind == ArtifactKind.Stone || ArtifactTreeBuilder.IsFragment(family.Name);
 
     async Task RefreshAsync(ArtifactFamily family) {
         await RebuildGraphAsync(family);
@@ -242,7 +252,7 @@
             string levelName = ArtifactTreeBuilder.LevelName(tier.Level);
             string rarityName = ArtifactTreeBuilder.RarityName(rarity);
             if (State.View == ArtifactView.ComesFrom) {
-                _graph = await ArtifactTreeBuilder.BuildReverseConsumptionGraphAsync(Stats, ArtifactDefinitions.All,
+                _graph = await ArtifactTreeBuilder.BuildReverseConsumptionGraphAsync(Stats,
                     family.Name, levelName, rarityName, CancellationToken.None);
             } else {
                 _consumeSummary = await Stats.ForCellAsync(family.Name, levelName, rarityName, CancellationToken.None);
@@ -418,7 +428,7 @@
         _open = true;
         await LoadCoverageAsync();
         if (CurrentFamily() is { } family) {
-            if (State.View == ArtifactView.ComesFrom && !IsFragment(family)) State.View = ArtifactView.Crafting;
+            if (State.View == ArtifactView.ComesFrom && !CanComeFromConsume(family)) State.View = ArtifactView.Crafting;
             State.Rarity = State.NeedsRarity ? State.Rarity ?? 0 : null;
             await RefreshAsync(family);
         }

@@ -3,32 +3,48 @@
 
 <div class="atb-detail">
     @if (Ingredients is { Count: > 0 } ingredients) {
-        <div class="atb-recipe" aria-label="Recipe">
-            @foreach (var ingredient in ingredients) {
-                <Tooltip Text="@ingredient.Hover">
-                    <span class="atb-recipe-item">
-                        <img class="atb-recipe-ico" src="@ingredient.Icon" alt="@ingredient.Name" loading="lazy"/>
-                        <span class="atb-recipe-count mono">@ingredient.Count</span>
-                    </span>
-                </Tooltip>
-            }
-        </div>
+        <section class="atb-detail-col">
+            <span class="atb-detail-head">Recipe</span>
+            <div class="atb-recipe">
+                @foreach (var ingredient in ingredients) {
+                    <Tooltip Text="@ingredient.Hover">
+                        <span class="atb-recipe-item">
+                            <img class="atb-recipe-ico" src="@ingredient.Icon" alt="@ingredient.Name" loading="lazy"/>
+                            <span class="atb-recipe-count mono">@ingredient.Count</span>
+                        </span>
+                    </Tooltip>
+                }
+            </div>
+        </section>
     }
     @if (Price is { } price) {
-        <Tooltip Text="@PriceHover(price)">
-            <svg class="atb-curve" viewBox="0 0 @W @H" preserveAspectRatio="none" role="img" aria-label="@PriceHover(price)">
-                <polyline class="atb-curve-line" points="@CurvePoints(price)"/>
-            </svg>
-        </Tooltip>
+        <section class="atb-detail-col">
+            <span class="atb-detail-head">Crafting price</span>
+            <Tooltip Text="@PriceHover(price)">
+                <svg class="atb-curve" viewBox="0 0 @W @H" preserveAspectRatio="none" role="img" aria-label="@PriceHover(price)">
+                    <polyline class="atb-curve-line" points="@CurvePoints(price)"/>
+                </svg>
+            </Tooltip>
+        </section>
     }
-    @if (Row is { Buckets.Count: > 0 } row) {
-        <div class="atb-buckets" aria-label="Drop count distribution">
-            @foreach (var bucket in row.Buckets) {
-                <Tooltip Text="@BucketHover(bucket.Count, bucket.Share)">
-                    <span class="atb-bucket" style="--p:@bucket.Share.ToString("0.###", CultureInfo.InvariantCulture)"></span>
-                </Tooltip>
-            }
-        </div>
+    @if (Row is { Buckets.Count: 1 } single) {
+        <section class="atb-detail-col">
+            <span class="atb-detail-head">Drops per consume</span>
+            <Tooltip Text="@BucketHover(single.Buckets[0].Count, single.Buckets[0].Share)">
+                <span class="atb-fixed mono">@single.Buckets[0].Count</span>
+            </Tooltip>
+        </section>
+    } else if (Row is { Buckets.Count: > 0 } row) {
+        <section class="atb-detail-col">
+            <span class="atb-detail-head">Drops per consume</span>
+            <div class="atb-buckets">
+                @foreach (var bucket in row.Buckets) {
+                    <Tooltip Text="@BucketHover(bucket.Count, bucket.Share)">
+                        <span class="atb-bucket" style="--p:@bucket.Share.ToString("0.###", CultureInfo.InvariantCulture)"></span>
+                    </Tooltip>
+                }
+            </div>
+        </section>
     }
 </div>
 

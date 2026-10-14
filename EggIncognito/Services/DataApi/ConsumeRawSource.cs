@@ -26,6 +26,8 @@ public static class ConsumeRawSource {
                 o.Byproducts,
                 o.OtherRewards,
                 o.GoldenEggs,
+                o.PiggyFill,
+                o.ServerDenied,
                 o.ClientVersion,
                 o.ObservedAt
             })
@@ -42,6 +44,8 @@ public static class ConsumeRawSource {
                 ["byproducts"] = ArrayOf(r.Byproducts),
                 ["otherRewards"] = ArrayOf(r.OtherRewards),
                 ["goldenEggs"] = r.GoldenEggs,
+                ["piggyFill"] = r.PiggyFill,
+                ["serverDenied"] = r.ServerDenied,
                 ["clientVersion"] = r.ClientVersion,
                 ["observedAt"] = r.ObservedAt
             })]),

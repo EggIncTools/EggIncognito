@@ -97,24 +97,16 @@ public static class ArtifactTreeBuilder {
     }
 
     public static async Task<DiagramGraph> BuildReverseConsumptionGraphAsync(DropStats dropStats,
-        IReadOnlyList<ArtifactFamily> all, string targetName, string targetLevel, string targetRarity, CancellationToken ct) {
+        string targetName, string targetLevel, string targetRarity, CancellationToken ct) {
         string targetId = CellNodeId(targetName, targetLevel, targetRarity);
         var nodes = new List<DiagramNode> { new(targetId) { Width = TierNodeWidth, Height = TierNodeHeight } };
         var edges = new List<DiagramEdge>();
 
-        foreach (var family in all) {
-            foreach (var tier in family.Tiers) {
-                for (int rarity = 0; rarity < tier.RarityCount; rarity++) {
-                    string rarityName = RarityName(rarity);
-                    string levelName = LevelName(tier.Level);
-                    var summary = await dropStats.ForCellAsync(family.Name, levelName, rarityName, ct);
-                    var hit = summary.Rows.FirstOrDefault(r => r.Name == targetName && r.Level == targetLevel && r.Rarity == targetRarity);
-                    if (hit is null) continue;
-                    string sourceId = CellNodeId(family.Name, levelName, rarityName);
-                    nodes.Add(new DiagramNode(sourceId) { Width = TierNodeWidth, Height = TierNodeHeight });
-                    edges.Add(new DiagramEdge(targetId, sourceId) { Weight = hit.Mean, Label = FormatShare(hit.Share) });
-                }
-            }
+        var sources = await dropStats.SourcesOfAsync(targetName, targetLevel, targetRarity, ct);
+        foreach (var (family, level, rarity, hit) in sources.OrderByDescending(s => s.Hit.Share)) {
+            string sourceId = CellNodeId(family, level, rarity);
+            nodes.Add(new DiagramNode(sourceId) { Width = TierNodeWidth, Height = TierNodeHeight });
+            edges.Add(new DiagramEdge(targetId, sourceId) { Weight = hit.Mean, Label = FormatShare(hit.Share) });
         }
 
         return new DiagramGraph(nodes, edges);

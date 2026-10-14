@@ -30,7 +30,7 @@
             <tr>
                 <td colspan="5" class="muted"><Icon Name="loader" Class="icon-sm text-muted"/></td>
             </tr>
-        } else if (_summary.Rows.Count == 0 && _summary.Gold is null) {
+        } else if (_summary.Rows.Count == 0 && _summary.Gold is null && _summary.Piggy is null) {
             <tr>
                 <td colspan="5" class="muted">No drops recorded for this cell.</td>
             </tr>
@@ -57,14 +57,58 @@
                     <td></td>
                 </tr>
                 @if (_detail) {
-                    <CoverageDistributionBar TBucket="GoldBucket" @key="@("gold|bar")" Buckets="gold.Buckets" Total="_summary.Observations" Share="b => b.Share" Observations="b => b.Observations">
-                        <SegmentText Context="b">
-                            <span class="mono cdp-seg-text">@Avg(b.Amount)</span>
-                        </SegmentText>
-                        <Title Context="b">
-                            <span class="tt-title">@Avg(b.Amount) golden eggs</span>
-                        </Title>
-                    </CoverageDistributionBar>
+                    @if (gold.Buckets.Count == 1) {
+                        <tr @key="@("gold|fixed")">
+                            <td colspan="5" class="cdp-fixed">Always @Avg(gold.Buckets[0].Amount) golden eggs</td>
+                        </tr>
+                    } else {
+                        <CoverageDistributionBar TBucket="GoldBucket" @key="@("gold|bar")" Buckets="gold.Buckets" Total="_summary.Observations" Share="b => b.Share" Observations="b => b.Observations">
+                            <SegmentText Context="b">
+                                <span class="mono cdp-seg-text">@Avg(b.Amount)</span>
+                            </SegmentText>
+                            <Title Context="b">
+                                <span class="tt-title">@Avg(b.Amount) golden eggs</span>
+                            </Title>
+                        </CoverageDistributionBar>
+                    }
+                }
+            }
+            @if (_summary.Piggy is { } piggy) {
+                <tr @key="@("piggy")" class="@(_detail ? "cdp-open" : "")">
+                    <td>
+                        <span class="cdp-drop">
+                            <span class="cdp-disc bg-r-0">
+                                <img src="@PiggyIcon" alt="" loading="lazy"/>
+                            </span>
+                            <span>Piggy fill</span>
+                        </span>
+                    </td>
+                    <td class="mono cdp-nowrap">@Avg(piggy.Mean)</td>
+                    <td class="mono cdp-nowrap">@Pct(piggy.Share)</td>
+                    <td class="mono cdp-nowrap">
+                        @if (piggy.Min.Equals(piggy.Max)) {
+                            @Avg(piggy.Min)
+                        } else {
+                            <span>@Avg(piggy.Min)<span class="muted"> - </span>@Avg(piggy.Max)</span>
+                        }
+                    </td>
+                    <td></td>
+                </tr>
+                @if (_detail) {
+                    @if (piggy.Buckets.Count == 1) {
+                        <tr @key="@("piggy|fixed")">
+                            <td colspan="5" class="cdp-fixed">Always @Avg(piggy.Buckets[0].Amount) piggy fill</td>
+                        </tr>
+                    } else {
+                        <CoverageDistributionBar TBucket="GoldBucket" @key="@("piggy|bar")" Buckets="piggy.Buckets" Total="_summary.Observations" Share="b => b.Share" Observations="b => b.Observations">
+                            <SegmentText Context="b">
+                                <span class="mono cdp-seg-text">@Avg(b.Amount)</span>
+                            </SegmentText>
+                            <Title Context="b">
+                                <span class="tt-title">@Avg(b.Amount) piggy fill</span>
+                            </Title>
+                        </CoverageDistributionBar>
+                    }
                 }
             }
             @foreach (var row in _summary.Rows) {
@@ -89,14 +133,20 @@
                     <td></td>
                 </tr>
                 @if (_detail) {
-                    <CoverageDistributionBar TBucket="DropBucket" @key="@(Key(row) + "|bar")" Buckets="row.Buckets" Total="_summary.Observations" Share="b => b.Share" Observations="b => b.Observations">
-                        <SegmentText Context="b">
-                            <span class="mono cdp-seg-text">@b.Count</span>
-                        </SegmentText>
-                        <Title Context="b">
-                            <span class="tt-title">@b.Count @(b.Count == 1 ? "drop" : "drops")</span>
-                        </Title>
-                    </CoverageDistributionBar>
+                    @if (row.Buckets.Count == 1) {
+                        <tr @key="@(Key(row) + "|fixed")">
+                            <td colspan="5" class="cdp-fixed">Always @row.Buckets[0].Count @(row.Buckets[0].Count == 1 ? "drop" : "drops")</td>
+                        </tr>
+                    } else {
+                        <CoverageDistributionBar TBucket="DropBucket" @key="@(Key(row) + "|bar")" Buckets="row.Buckets" Total="_summary.Observations" Share="b => b.Share" Observations="b => b.Observations">
+                            <SegmentText Context="b">
+                                <span class="mono cdp-seg-text">@b.Count</span>
+                            </SegmentText>
+                            <Title Context="b">
+                                <span class="tt-title">@b.Count @(b.Count == 1 ? "drop" : "drops")</span>
+                            </Title>
+                        </CoverageDistributionBar>
+                    }
                 }
             }
         }
@@ -133,6 +183,8 @@
     }
 
     static readonly string? GoldIcon = EggIcons.Asset("icon", RewardIconMap.Stem(Ei.RewardType.Gold, null)!);
+
+    static readonly string? PiggyIcon = EggIcons.Asset("icon", RewardIconMap.Stem(Ei.RewardType.PiggyFill, null)!);
 
     static string Key(DropRow r) => $"{r.Name}|{r.Level}|{r.Rarity}";
 
