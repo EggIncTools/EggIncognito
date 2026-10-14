@@ -28,6 +28,7 @@ public static class DimensionLabelExtractor {
         var calls = new PltCallResolver(bin, img);
         var labels = new Dictionary<int, string>();
         for (int i = 0; i < count; i++) {
+            if (i == (int)Ei.GameDimension.Invalid) continue;
             if (!img.TryVaToFileOffset(tableVa + (ulong)(2 * i), out int fo, out _) || fo + 2 > bin.Length)
                 return Fail($"jump table entry {i} unreadable");
             ulong target = baseVa + ((ulong)BitConverter.ToUInt16(bin, fo) << 2);
