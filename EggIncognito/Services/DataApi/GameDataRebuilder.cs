@@ -31,7 +31,7 @@ public sealed class GameDataRebuilder(
 
     private static readonly string[] BinaryDocIds = [
         "boost-catalog", "boosts", "missions", "eggs", "vehicles", "dimensions", "research", "habs", "artifacts",
-        FarmPlacementCatalog.DocumentId
+        FarmPlacementCatalog.DocumentId, ArtifactDefinitionsId
     ];
 
     private sealed record Candidate(string Platform, string Version, byte[] Bin,
