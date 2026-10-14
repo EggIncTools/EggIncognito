@@ -1,0 +1,4 @@
+.cov-overview { display: flex; flex: none; flex-direction: column; gap: 0.5rem; padding-bottom: 0.75rem; border-bottom: 1px solid var(--color-border); }
+.cov-desc { margin: 0; font-size: 0.8125rem; color: var(--color-muted); }
+.cov-access { font-size: 0.75rem; color: var(--color-muted); }
+.cov-access-item { display: inline-flex; align-items: center; gap: 0.25rem; }

@@ -1,0 +1,135 @@
+@using EggIncognito.Models.Periodicals
+@using EggIncognito.Services.Calendar
+@using EggIncognito.Services.Assets
+@using EggIncognito.Services.Events
+@inherits SelfCallComponentBase
+@inject IServiceProvider Services
+@inject ILogger<PdSeasonPanel> Logger
+
+@if (_seasons is { Count: > 0 } seasonList) {
+    <section class="panel pd-w-season">
+        @{
+            var season = seasonList[Math.Clamp(_seasonIx, 0, seasonList.Count - 1)];
+        }
+        <div class="season-top">
+            <h3 class="cegg-title">Season</h3>
+            <div class="season-nav">
+                <button type="button" class="icon-btn icon-btn-sm season-nav-btn"
+                        disabled="@(_seasonIx >= seasonList.Count - 1)"
+                        aria-label="Older season" @onclick="() => MoveSeason(1)">
+                    <Icon Name="chevron-left"/>
+                </button>
+                <button type="button" class="icon-btn icon-btn-sm season-nav-btn"
+                        disabled="@(_seasonIx <= 0)"
+                        aria-label="Newer season" @onclick="() => MoveSeason(-1)">
+                    <Icon Name="chevron-right"/>
+                </button>
+            </div>
+        </div>
+        <div class="season-head">
+            <div class="season-id">
+                <div class="season-date">
+                    <div class="season-date-m">@StartDate(season).ToString("MMM")</div>
+                    <div class="season-date-d">@StartDate(season).Day</div>
+                </div>
+                <div class="season-id-body">
+                    <div class="season-name">@season.Name</div>
+                    @if (IsActive(season)) {
+                        <div class="season-sub">Next season ~@NextStartLabel(season)</div>
+                        <div class="season-sub">@ContractsLeftLabel(season)</div>
+                    } else {
+                        <div class="season-sub">@StartLabel(season)</div>
+                    }
+                </div>
+            </div>
+        </div>
+        <PdSeasonRewardTable Season="season"/>
+        @if (season.Colleggtibles is { Count: > 0 } ceggs) {
+            <table class="data-table season-table season-ceggs" @key="@(season.Id + "|ceggs")">
+                <thead>
+                <tr>
+                    <th>@(ceggs.Count == 1 ? "Colleggtible" : "Colleggtibles")</th>
+                    <th>Contracts</th>
+                </tr>
+                </thead>
+                <tbody>
+                @foreach (var egg in ceggs) {
+                    <tr>
+                        <td>
+                            <span class="season-cegg">
+                                @if (egg.Icon is not null) {
+                                    <FallbackImg Class="season-cegg-icon" Src="@egg.Icon" Alt="@egg.Id"/>
+                                }
+                                <span class="season-cegg-name">@EggIcons.Pretty(egg.Id)</span>
+                            </span>
+                        </td>
+                        <td class="season-cegg-contracts">
+                            @(egg.Contracts is { Count: > 0 } cnames ? string.Join(", ", cnames) : "")
+                        </td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        }
+    </section>
+}
+
+@code {
+    List<Models.Periodicals.Season>? _seasons;
+    int _seasonIx;
+
+    protected override async Task OnInitializedAsync() {
+        if (Speculative) return;
+        try {
+            var seasonsRes = await Client().GetFromJsonAsync<SeasonsResponse>("/api/periodicals/seasons", JsonPresets.Web);
+            if (seasonsRes?.Seasons is { Count: > 0 } ls) {
+                _seasons = ls;
+                var now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+                var ix = ls.FindIndex(s => s.StartTime <= now);
+                _seasonIx = ix < 0 ? 0 : ix;
+            }
+        } catch (Exception ex) {
+            Logger.LogWarning(ex, "the periodicals season list could not be loaded");
+        }
+    }
+
+    void MoveSeason(int delta) {
+        if (_seasons is null) return;
+        _seasonIx = Math.Clamp(_seasonIx + delta, 0, _seasons.Count - 1);
+    }
+
+    DateTimeOffset StartDate(Models.Periodicals.Season s) {
+        return ViewerClock.At(Services, DateTimeOffset.FromUnixTimeSeconds((long)s.StartTime));
+    }
+
+    string StartLabel(Models.Periodicals.Season s) {
+        var d = StartDate(s);
+        var verb = d <= DateTimeOffset.UtcNow ? "Started" : "Starts";
+        var derived = s.StartDerived ? " (derived)" : "";
+        return $"{verb} {d.ToString("MMMM d, yyyy")}{derived}";
+    }
+
+    static bool IsActive(Models.Periodicals.Season s) {
+        var now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        return s.StartTime <= now && now < s.NextStartTime;
+    }
+
+    string NextStartLabel(Models.Periodicals.Season s) {
+        return ViewerClock.At(Services, DateTimeOffset.FromUnixTimeSeconds((long)s.NextStartTime)).ToString("MMMM d");
+    }
+
+    string ContractsLeftLabel(Models.Periodicals.Season s) {
+        var nextLocal = ViewerClock.At(Services, DateTimeOffset.FromUnixTimeSeconds((long)s.NextStartTime));
+        var mondays = MondaysBetween(ViewerClock.At(Services, DateTimeOffset.UtcNow), nextLocal);
+        return $"{mondays} {(mondays == 1 ? "contract" : "contracts")} left";
+    }
+
+    static int MondaysBetween(DateTimeOffset nowLocal, DateTimeOffset endLocal) {
+        var count = 0;
+        for (var d = nowLocal.Date.AddDays(1); d < endLocal.Date; d = d.AddDays(1)) {
+            if (d.DayOfWeek == DayOfWeek.Monday) count++;
+        }
+
+        return count;
+    }
+}

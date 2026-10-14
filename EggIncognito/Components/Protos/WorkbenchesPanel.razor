@@ -9,7 +9,8 @@
     <PanelHead Title="Workbenches">
         <Tools>
             <button type="button" class="btn-mini" @onclick="@(() => OnOpenNotifications.InvokeAsync())">Notifications</button>
-            <button type="button" class="btn-mini" @onclick="@(() => OnOpenApiWorkbench.InvokeAsync())">API &amp; Data</button>
+            <button type="button" class="btn-mini" @onclick="@(() => OnOpenApis.InvokeAsync())">APIs</button>
+            <button type="button" class="btn-mini" @onclick="@(() => OnOpenData.InvokeAsync())">Data</button>
         </Tools>
     </PanelHead>
     @if (Summary is { } s) {
@@ -60,7 +61,9 @@
 
     [Parameter] public EventCallback OnOpenNotifications { get; set; }
 
-    [Parameter] public EventCallback OnOpenApiWorkbench { get; set; }
+    [Parameter] public EventCallback OnOpenApis { get; set; }
+
+    [Parameter] public EventCallback OnOpenData { get; set; }
 
     [Parameter] public EventCallback<string> OnOpenFeed { get; set; }
 

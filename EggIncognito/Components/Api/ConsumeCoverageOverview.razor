@@ -1,0 +1,23 @@
+@using EggIncognito.Services.DataApi
+@inject DataCatalog Catalog
+
+@if (Catalog.ById("observation", "artifact-consume") is { } src) {
+    <div class="cov-overview">
+        <p class="cov-desc">@src.Description</p>
+        <div class="cov-access meta-dots">
+            <span class="cov-access-item">
+                <Icon Name="key" Class="icon-sm"/>
+                API key with approved Consume observations access
+            </span>
+            <span>Request access per key in API keys</span>
+        </div>
+        <DataRouteCurl Url="@Catalog.UrlFor(src)"/>
+        @foreach (var child in Catalog.Children(src)) {
+            <p class="cov-desc">@child.Description</p>
+            <DataRouteCurl Url="@Catalog.UrlFor(child)"/>
+        }
+    </div>
+}
+
+@code {
+}

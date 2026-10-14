@@ -3,13 +3,14 @@
 @using EggIncognito.Services.Events
 @inherits SelfCallComponentBase
 @inject ViewerCookies Viewer
-@inject IServiceProvider Services
 @inject ILogger<WatchList> Logger
 
 <div class="watch">
     <div class="watch-head">
         <span class="watch-title">Pinned</span>
         @if (_entries is { Count: > 0 }) {
+            <PercentSlider Value="_minPct" ValueChanged="OnMin" Min="0" Max="95" Step="5" Label="Min"
+                           Title="Hide predictions below this chance" AriaLabel="Minimum prediction chance"/>
             <button type="button" class="btn-mini watch-pick-btn" aria-expanded="@(_open ? "true" : "false")" @onclick="Toggle">
                 <Icon Name="@(_open ? "x" : "plus")" Class="icon-sm"/>@(_open ? "Done" : AddLabel)
             </button>
@@ -57,78 +58,13 @@
     } else {
         <ul class="watch-rows">
             @foreach (var e in Pinned) {
-                <li class="watch-card" style="@e.BarStyle" @key="e.Key">
-                    <span class="watch-swatch"></span>
-                    @if (e.IconUrl is { } icon) {
-                        <FallbackImg Class="watch-icon" Src="@icon" Alt=""/>
-                    }
-                    <span class="watch-body">
-                        <span class="watch-label">
-                            <span class="watch-name">@e.Label</span>
-                            @if (e.Ultra) {
-                                <span class="watch-ultra">ultra</span>
-                            }
-                            <button type="button" class="icon-btn icon-btn-sm watch-unpin" aria-label="@($"Unpin {e.Label}")" @onclick="() => Unpin(e.Key)">
-                                <Icon Name="x"/>
-                            </button>
-                        </span>
-                        <span class="watch-line">
-                            <span class="watch-k">Last</span>
-                            @if (e.LastStart is { } ls) {
-                                <span class="watch-when">
-                                    <TimeAgo At="@UnixSeconds.ToTime(ls)" Class="time-ago watch-hover"/>
-                                    <span class="watch-date">@Short(ls)</span>
-                                    @if (e.LastNote is { } ln) {
-                                        <span class="watch-note-inline">@ln</span>
-                                    }
-                                </span>
-                            } else {
-                                <span>never seen</span>
-                            }
-                        </span>
-                        <span class="watch-line">
-                            <span class="watch-k">Next</span>
-                            @if (e.Next.Count == 0) {
-                                @if (e.NoNextReason is { } why) {
-                                    <Tooltip Text="@why"><span class="watch-none watch-hover" tabindex="0">no prediction</span></Tooltip>
-                                } else {
-                                    <span class="watch-none">no prediction</span>
-                                }
-                            } else {
-                                <span class="watch-next">
-                                    @foreach (var f in e.Next.Take(MaxNext)) {
-                                        <span class="watch-forecast">
-                                            <Tooltip>
-                                                <ChildContent>
-                                                    <span class="time-ago watch-hover" tabindex="0">@Countdown(f.Start)</span>
-                                                </ChildContent>
-                                                <Content>
-                                                    <span class="tt-title">@Absolute(f.Start)</span>
-                                                    <span class="tt-line">@f.Rule</span>
-                                                    @if (f.Note is { } fn) {
-                                                        <span class="tt-line">@fn</span>
-                                                    }
-                                                </Content>
-                                            </Tooltip>
-                                            <span class="watch-date">@Short(f.Start)</span>
-                                            <span class="watch-conf" style="@PctStyle(f.Confidence)">@Percent(f.Confidence)</span>
-                                            @if (f.Note is { } note) {
-                                                <span class="watch-note-inline">@note</span>
-                                            }
-                                        </span>
-                                    }
-                                </span>
-                            }
-                        </span>
-                    </span>
-                </li>
+                <WatchPinnedCard @key="e.Key" Entry="e" MinPct="_minPct" OnUnpin="Unpin"/>
             }
         </ul>
     }
 </div>
 
 @code {
-    const int MaxNext = 3;
     [Parameter, EditorRequired] public string Source { get; set; } = "";
 
     [Parameter, EditorRequired] public string PrefKey { get; set; } = "";
@@ -145,6 +81,7 @@
     bool _prefsLoaded;
     bool _open;
     bool _ultra;
+    int _minPct;
     string _query = "";
     int _active = -1;
     List<WatchEntry> _shown = [];
@@ -179,7 +116,17 @@
         if (!firstRender || _prefsLoaded) return;
         _prefsLoaded = true;
         _pinned = Parse(Viewer.Get(PrefKey));
+        if (int.TryParse(Viewer.Get(MinKey), System.Globalization.NumberStyles.Integer,
+                System.Globalization.CultureInfo.InvariantCulture, out int min))
+            _minPct = Math.Clamp(min, 0, 95);
         StateHasChanged();
+    }
+
+    string MinKey => PrefKey + ".min";
+
+    void OnMin(int v) {
+        _minPct = v;
+        Viewer.Set(MinKey, _minPct.ToString(System.Globalization.CultureInfo.InvariantCulture));
     }
 
     static List<string> Parse(string? raw) {
@@ -253,27 +200,10 @@
         Save();
     }
 
-    string Countdown(double unix) {
-        var at = UnixSeconds.ToTime(unix);
-        var now = DateTimeOffset.UtcNow;
-        return at <= now ? "now" : "in " + EventCountdown.Span(at - now);
-    }
-
-    string Absolute(double unix) =>
-        ViewerClock.At(Services, UnixSeconds.ToTime(unix)).ToString("dddd d MMMM yyyy 'at' HH:mm zzz", System.Globalization.CultureInfo.InvariantCulture);
-
-    string Short(double unix) =>
-        ViewerClock.At(Services, UnixSeconds.ToTime(unix)).ToString("ddd d MMM", System.Globalization.CultureInfo.InvariantCulture);
-
     void Unpin(string key) {
         _pinned = [.. _pinned.Where(k => k != key)];
         Save();
     }
 
     void Save() => Viewer.Set(PrefKey, JsonSerializer.Serialize(_pinned));
-
-    static string Percent(double value) => (value * 100).ToString("0", System.Globalization.CultureInfo.InvariantCulture) + "%";
-
-    static string PctStyle(double p) => FormattableString.Invariant($"--p:{Math.Clamp(p, 0, 1):0.###};");
-
 }

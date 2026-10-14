@@ -1,0 +1,24 @@
+<div class="awb-pane">
+    <h4 class="awb-pane-title">Live capture</h4>
+    @if (!IsAuthenticated) {
+        <div class="panel" id="hostedLogin">
+            <p class="capture-note">
+                Log in to start a capture session. Any account can record crafting, consume and demote
+                results; supporters get full capture.
+            </p>
+            <LoginButton/>
+        </div>
+    } else {
+        <div class="panel" id="hostedCapacity">
+            <p class="capture-note capture-note-tight">
+                All capture slots are in use right now. Try again in a few
+                minutes.
+            </p>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public bool IsAuthenticated { get; set; }
+}

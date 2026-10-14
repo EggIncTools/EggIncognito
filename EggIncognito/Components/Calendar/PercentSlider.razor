@@ -1,0 +1,34 @@
+<label class="pct-slider" title="@Title">
+    <span class="pct-slider-k">@Label</span>
+    <input type="range" class="pct-slider-range" min="@Min" max="@Max" step="@Step" value="@Value"
+           style="@FormattableString.Invariant($"--fill:{(Value - Min) / (double)(Max - Min):0.###}")"
+           aria-label="@AriaLabel" @oninput="OnInput"/>
+    <span class="pct-slider-v">@(Value)%</span>
+</label>
+
+@code {
+    [Parameter, EditorRequired] public int Value { get; set; }
+
+    [Parameter] public EventCallback<int> ValueChanged { get; set; }
+
+    [Parameter] public int Min { get; set; } = 0;
+
+    [Parameter] public int Max { get; set; } = 100;
+
+    [Parameter] public int Step { get; set; } = 5;
+
+    [Parameter] public string Label { get; set; } = "Min";
+
+    [Parameter] public string? Title { get; set; }
+
+    [Parameter] public string? AriaLabel { get; set; }
+
+    async Task OnInput(ChangeEventArgs e) {
+        if (!int.TryParse(e.Value?.ToString(), System.Globalization.NumberStyles.Integer,
+                System.Globalization.CultureInfo.InvariantCulture, out int v)) return;
+        v = Math.Clamp(v, Min, Max);
+        Value = v;
+        await ValueChanged.InvokeAsync(v);
+    }
+
+}

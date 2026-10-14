@@ -1,0 +1,8 @@
+.theme-chroma-grid { display: flex; flex-direction: column; gap: 0.625rem; max-width: 28rem; }
+.theme-knob { display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.75rem; color: var(--color-muted); }
+.theme-knob input[type="range"] { accent-color: var(--color-accent); }
+.theme-knob-toggle { flex-direction: row; align-items: center; gap: 0.5rem; }
+.theme-contrast { display: flex; flex-direction: column; gap: 0.125rem; margin-top: 0.25rem; }
+.theme-contrast-row { font-family: var(--font-mono); }
+.theme-ok { font-size: 0.75rem; color: var(--color-ok); }
+.theme-err { font-size: 0.75rem; color: var(--color-err); }

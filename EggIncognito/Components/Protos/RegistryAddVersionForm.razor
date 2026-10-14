@@ -1,0 +1,77 @@
+@using EggIncognito.Models.Protos
+@using EggIncognito.Models.Registry
+@using EggIncognito.Services.Protos
+
+<div class="pwb-admin-grid">
+    <div class="pwb-field">
+        <span class="pwb-field-label">Platform</span>
+        <div class="segmented pwb-field-seg" role="radiogroup" aria-label="Platform">
+            <button type="button" class="segmented-opt @(Platform == PlatAndroid ? "active" : "")"
+                    @onclick="@(() => PlatformChanged.InvokeAsync(PlatAndroid))">
+                android
+            </button>
+            <button type="button" class="segmented-opt @(Platform == PlatIos ? "active" : "")"
+                    @onclick="@(() => PlatformChanged.InvokeAsync(PlatIos))">
+                ios
+            </button>
+        </div>
+    </div>
+    <label class="pwb-field">
+        <span class="pwb-field-label">App version<span class="pwb-field-req">*</span></span>
+        <FilterInput Class="reg-filter-input" Placeholder="1.37.2" AriaLabel="App version" Value="AppVersion" ValueChanged="AppVersionChanged"/>
+    </label>
+    <label class="pwb-field">
+        <span class="pwb-field-label">Build<span class="pwb-field-req">*</span></span>
+        <FilterInput Class="reg-filter-input" Placeholder="137200" AriaLabel="Build" Value="Build" ValueChanged="BuildChanged"/>
+    </label>
+    <label class="pwb-field">
+        <span class="pwb-field-label">Client version<span class="pwb-field-hint">optional</span></span>
+        <FilterInput Class="reg-filter-input" Placeholder="" AriaLabel="Client version" Value="Client" ValueChanged="ClientChanged"/>
+    </label>
+    <label class="pwb-field">
+        <span class="pwb-field-label">Source<span class="pwb-field-hint">optional</span></span>
+        <FilterInput Class="reg-filter-input" Placeholder="" AriaLabel="Source" Value="Source" ValueChanged="SourceChanged"/>
+    </label>
+</div>
+<label class="pwb-field pwb-field-block">
+    <span class="pwb-field-label">Proto<span class="pwb-field-hint">optional</span></span>
+    <textarea class="pwb-code-input" rows="6" spellcheck="false" aria-label="Proto" value="@Proto" @onchange="@(e => ProtoChanged.InvokeAsync(e.Value?.ToString() ?? ""))"></textarea>
+</label>
+<div class="pwb-admin-foot">
+    <span class="pwb-admin-foot-note">Platform, app version and build are required.</span>
+    <button type="button" class="btn-primary" disabled="@Busy" @onclick="@(() => OnSave.InvokeAsync())">@(Busy ? "Saving..." : "Save")</button>
+</div>
+
+@code {
+    [Parameter] public string Platform { get; set; } = "";
+
+    [Parameter] public EventCallback<string> PlatformChanged { get; set; }
+
+    [Parameter] public string AppVersion { get; set; } = "";
+
+    [Parameter] public EventCallback<string> AppVersionChanged { get; set; }
+
+    [Parameter] public string Build { get; set; } = "";
+
+    [Parameter] public EventCallback<string> BuildChanged { get; set; }
+
+    [Parameter] public string Client { get; set; } = "";
+
+    [Parameter] public EventCallback<string> ClientChanged { get; set; }
+
+    [Parameter] public string Source { get; set; } = "";
+
+    [Parameter] public EventCallback<string> SourceChanged { get; set; }
+
+    [Parameter] public string Proto { get; set; } = "";
+
+    [Parameter] public EventCallback<string> ProtoChanged { get; set; }
+
+    [Parameter] public bool Busy { get; set; }
+
+    [Parameter] public string PlatAndroid { get; set; } = "";
+
+    [Parameter] public string PlatIos { get; set; } = "";
+
+    [Parameter] public EventCallback OnSave { get; set; }
+}

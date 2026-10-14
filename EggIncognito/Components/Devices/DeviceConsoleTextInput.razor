@@ -1,0 +1,31 @@
+@if (CaptureKeys) {
+    <span class="dcon-keys-note">keys go to the device</span>
+} else {
+    <input class="field-input dcon-text" aria-label="Text to send" value="@Text" @oninput="e => TextChanged.InvokeAsync(e.Value?.ToString() ?? string.Empty)"
+           @onkeydown="e => OnTextKeyDown.InvokeAsync(e)"/>
+    <button type="button" class="btn-mini" disabled="@(Text.Length == 0)" @onclick="() => OnSend.InvokeAsync()">
+        <Icon Name="send" Class="icon-sm"/>
+        Send
+    </button>
+}
+<button type="button" class="btn-mini @(CaptureKeys ? "dcon-on" : "")" @onclick="() => OnToggleCapture.InvokeAsync()"
+        title="Send every keystroke to the device as you type">
+    <Icon Name="@(CaptureKeys ? "circle-check" : "circle")" Class="icon-sm"/>
+    Live keys
+</button>
+
+@code {
+
+    [Parameter] public bool CaptureKeys { get; set; }
+
+    [Parameter] public string Text { get; set; } = "";
+
+    [Parameter] public EventCallback<string> TextChanged { get; set; }
+
+    [Parameter] public EventCallback<KeyboardEventArgs> OnTextKeyDown { get; set; }
+
+    [Parameter] public EventCallback OnSend { get; set; }
+
+    [Parameter] public EventCallback OnToggleCapture { get; set; }
+
+}

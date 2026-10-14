@@ -1,0 +1,65 @@
+@using System.Globalization
+@using EggIdentity.Styles.Theming
+@using EggIncognito.Models.Theme
+@using EggIncognito.Services.Theme
+
+<div class="theme-token-grid">
+    @foreach (var token in ThemeTokens.Settable) {
+        <label class="theme-token-row">
+            <span class="theme-token-name">@token</span>
+            <input type="color" class="theme-color-input" value="@TokenHex(token)" @oninput="e => OnTokenChanged(token, e)"/>
+            <span class="theme-token-hex">@TokenHex(token)</span>
+        </label>
+    }
+</div>
+<div class="theme-oklch-row">
+    <span class="theme-token-name">accent oklch</span>
+    <label>L <input type="number" step="0.01" min="0" max="1" class="theme-num" value="@Draft.AccentL" @onchange="e => OnAccentOklch(e,0)"/></label>
+    <label>C <input type="number" step="0.005" min="0" max="0.5" class="theme-num" value="@Draft.AccentC" @onchange="e => OnAccentOklch(e,1)"/></label>
+    <label>H <input type="number" step="1" min="0" max="360" class="theme-num" value="@Draft.AccentH" @onchange="e => OnAccentOklch(e,2)"/></label>
+</div>
+
+@code {
+    [Parameter]
+    public ThemeDraft Draft { get; set; } = null!;
+
+    [Parameter]
+    public EventCallback OnChanged { get; set; }
+
+    string TokenHex(string token) {
+        return Draft.TokenHex.TryGetValue(token, out var hex) ? hex : ThemePresets.DefaultToken(token).Hex ?? "#000000";
+    }
+
+    async Task OnTokenChanged(string token, ChangeEventArgs e) {
+        var value = e.Value?.ToString() ?? "";
+        if (ThemeColor.FromHex(value) is not null) {
+            Draft.TokenHex[token] = value.ToLowerInvariant();
+            if (token == "accent") {
+                Draft.AccentL = null;
+                Draft.AccentC = null;
+                Draft.AccentH = null;
+            }
+
+            await OnChanged.InvokeAsync();
+        }
+    }
+
+    async Task OnAccentOklch(ChangeEventArgs e, int component) {
+        if (!double.TryParse(e.Value?.ToString(), NumberStyles.Float,
+                CultureInfo.InvariantCulture, out var value)) return;
+        var current = CurrentAccent();
+        var l = component == 0 ? value : current.L;
+        var c = component == 1 ? value : current.C;
+        var h = component == 2 ? value : current.H;
+        var color = ThemeColor.FromOklch(l, c, h);
+        Draft.AccentL = color.L;
+        Draft.AccentC = color.C;
+        Draft.AccentH = color.H;
+        await OnChanged.InvokeAsync();
+    }
+
+    ThemeColor CurrentAccent() {
+        if (Draft is { AccentL: { } l, AccentC: { } c, AccentH: { } h }) return ThemeColor.FromOklch(l, c, h);
+        return ThemeColor.FromHex(TokenHex("accent")) ?? ThemePresets.DefaultToken("accent");
+    }
+}

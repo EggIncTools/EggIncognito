@@ -1,0 +1,8 @@
+.docs-modal { display: grid; grid-template-columns: 18rem minmax(0, 1fr); gap: 0.75rem; min-height: 60vh; max-height: 75vh; }
+.docs-modal-rail { display: flex; flex-direction: column; gap: 0.5rem; min-height: 0; }
+.docs-modal-filter { width: 100%; }
+.docs-modal-rail-body { display: flex; flex-direction: column; gap: 0.5rem; min-height: 0; overflow: auto; }
+.docs-modal-pane { min-height: 0; overflow: auto; }
+@media (max-width: 48rem) {
+  .docs-modal { grid-template-columns: 1fr; max-height: none; }
+}

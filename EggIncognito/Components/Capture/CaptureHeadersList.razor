@@ -1,0 +1,37 @@
+@using EggIncognito.Capture
+
+@if (Headers.Count > 0) {
+    <div class="headers-box">
+        @foreach (var h in Headers) {
+            var blur = View.IsBlurMode && h.Sensitive;
+            var key = "hdr:" + KeyPrefix + ":" + h.Name + ":" + h.Value;
+            <span class="h-name">@h.Name</span>
+            @if (blur) {
+                <span class="h-val mask @RevealCls(key)"
+                      @onclick="() => ToggleReveal(key)">
+                    @h.Value
+                </span>
+            } else {
+                <span class="h-val">@h.Value</span>
+            }
+        }
+    </div>
+}
+
+@code {
+    [Parameter] public string KeyPrefix { get; set; } = null!;
+
+    [Parameter] public IReadOnlyList<DashboardHeader>? Redacted { get; set; }
+
+    [Parameter] public IReadOnlyList<DashboardHeader>? Raw { get; set; }
+
+    [Parameter] public CaptureViewState View { get; set; } = new();
+
+    [Parameter] public CodeRevealState Reveal { get; set; } = null!;
+
+    IReadOnlyList<DashboardHeader> Headers => View.IsBlurMode || View.ShowRawHeaders ? Raw ?? Redacted ?? [] : Redacted ?? [];
+
+    void ToggleReveal(string key) => Reveal.Toggle(key);
+
+    string RevealCls(string key) => Reveal.IsRevealed(key) ? "revealed" : "";
+}

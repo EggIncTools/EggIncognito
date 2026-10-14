@@ -1,0 +1,41 @@
+@using EggIncognito.Capture
+
+<div class="known-card">
+    <div class="known-card-title">Known endpoint</div>
+    @KnownRow("Request type", Flow!.RequestType ?? "none", Flow!.RequestType is null)
+    @KnownRow("Response type", Flow!.ResponseType ?? "none", Flow!.ResponseType is null)
+    @{ var meta = View.CompareToKnown ? CaptureHelpers.Outcome(Flow!.Outcome) : null; }
+    @if (meta is not null) {
+        <div class="known-card-line">
+            <span class="known-card-label">Comparison</span>
+            <span class="known-card-val outcome-text">
+                <Icon Name="@meta.Icon" Class="icon-sm"/>
+                @if (CaptureHelpers.HasDiffCounts(Flow!.Outcome, Flow!.DiffAdded, Flow!.DiffRemoved)) {
+                    <text>@(meta.Label + " (")@DiffCounts(Flow!.DiffAdded, Flow!.DiffRemoved)@(")")</text>
+                } else {
+                    @meta.Label
+                }
+            </span>
+        </div>
+        <div class="known-card-explain muted">@meta.Desc</div>
+    }
+</div>
+
+@code {
+    [Parameter] public DashboardFlow Flow { get; set; } = null!;
+    [Parameter] public CaptureViewState View { get; set; } = new();
+
+    RenderFragment KnownRow(string label, string value, bool unknown) => @<div class="known-card-line">
+                                                                             <span class="known-card-label">@label</span>
+                                                                             <span class="known-card-val @(unknown ? "unknown" : "")">@value</span>
+                                                                         </div>;
+
+    RenderFragment DiffCounts(int added, int removed) => @<text>
+                                                              @if (added > 0) {
+                                                                  <span class="diff-add">@("+" + added)</span>
+                                                              }
+                                                              @if (removed > 0) {
+                                                                  <span class="diff-del">@("-" + removed)</span>
+                                                              }
+                                                          </text>;
+}

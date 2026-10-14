@@ -1,0 +1,28 @@
+@using EggIncognito.Components.Inspector
+@using EggIncognito.Models.Inspector
+
+@if (Open) {
+    <ModalShell Title="Documentation" TitleId="docsModalTitle" Width="ModalWidth.Large" OnClose="OnClose">
+        <div class="docs-modal">
+            <div class="docs-modal-rail">
+                <input class="field-input docs-modal-filter" placeholder="Filter documentation"
+                       value="@Filter" @oninput="@(e => FilterChanged.InvokeAsync((string?)e.Value ?? ""))"/>
+                <div class="docs-modal-rail-body">
+                    <DocsRail Filter="@Filter" OnSelectSubject="OnSelectSubject"/>
+                </div>
+            </div>
+            <div class="docs-modal-pane">
+                <DocsPane Subject="@Subject" OnSelectSubject="OnSelectSubject"/>
+            </div>
+        </div>
+    </ModalShell>
+}
+
+@code {
+    [Parameter] public bool Open { get; set; }
+    [Parameter] public string? Filter { get; set; }
+    [Parameter] public EventCallback<string> FilterChanged { get; set; }
+    [Parameter] public DocSubjectRef? Subject { get; set; }
+    [Parameter] public EventCallback<DocSubjectRef> OnSelectSubject { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+}

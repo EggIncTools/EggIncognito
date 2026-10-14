@@ -6,7 +6,6 @@
 @using EggIncognito.Components.Inspector
 @using EggIncognito.Core
 @using EggIncognito.Core.Services.Devices
-@using EggIncognito.Models.Data
 @using EggIncognito.Models.Inspector
 @using EggIncognito.Services.Api
 @using EggIncognito.Services.Assets
@@ -22,95 +21,28 @@
 @inject IJSRuntime JS
 @inject IWebHostEnvironment Env
 @inject NavigationManager Nav
-@inject ApiWorkbenchState State
+@inject ApisWorkbenchState State
 @inject ToastService Toasts
-@inject ILogger<ApiWorkbenchModal> Logger
+@inject ILogger<ApisWorkbenchModal> Logger
 @inject EggIdentity.UI.Suite.SuiteContext Suite
 
-<WorkbenchModal Open="_open" Title="@("API & Data")" TitleId="apiWorkbenchTitle" Size="WorkbenchSize.Wide"
+<WorkbenchModal Open="_open" Title="@("APIs")" TitleId="apisWorkbenchTitle" Size="WorkbenchSize.Wide"
                 CardClass="awb-card" OnClose="CloseAsync">
-    <HeadTools>
-        <WorkbenchModes Modes="State.Modes" Current="@State.Mode" CurrentChanged="SetMode" Disabled="ModeDisabled"
-                        Label="Workbench mode"/>
-    </HeadTools>
     <Rail>
-        @if (State.Mode == ApiWorkbenchState.ModeDocs) {
-            <WorkbenchRail HasFilter="true" Filter="@State.DocsFilter" FilterChanged="OnDocsFilter"
-                           FilterLabel="Filter documentation">
-                <DocsRail Filter="@State.DocsFilter" OnSelectSubject="SelectDocsSubject"/>
-            </WorkbenchRail>
-        } else if (State.Mode == ApiWorkbenchState.ModeApis) {
-            <WorkbenchRail Class="wb-rail-popout" HasFilter="true" Filter="@State.RailFilter" FilterChanged="OnRailFilter"
-                           FilterLabel="Filter endpoints">
-                <InspectorRail Filter="@State.RailFilter" OnSelectEndpoint="SelectEndpointFromRail"
-                               OnOpenSalt="OpenSalt"
-                               ShowRouteCatalog="State.IsContributor" RouteCatalogSelected="@(State.Kind == ApiSelectionKind.Routes)"
-                               OnOpenRouteCatalog="@(() => SelectSection(ApiSelectionKind.Routes))" RouteSummary="_routeSummary"
-                               OnRestoreHistory="RestoreHistory" OnDeleteHistory="DeleteHistory"
-                               OnClearHistory="ClearHistory"/>
-            </WorkbenchRail>
-        } else if (State.Mode == ApiWorkbenchState.ModeData) {
-            <WorkbenchRail>
-                @if (User.Current.IsAuthenticated) {
-                    <div class="awb-tools">
-                        <button type="button" class="btn-mini" @onclick="@(() => State.KeysOpen = true)">
-                            <Icon Name="key" Class="icon-sm"/> API keys
-                        </button>
-                    </div>
-                }
-                <WorkbenchLoad T="DataSourceRow" Items="@State.Sources" EmptyText="No data sources on this instance."
-                               Context="sources">
-                    @foreach (var group in DataGroups(sources)) {
-                        <WorkbenchSection Label="@DataGroupLabel(group)">
-                            @foreach (var root in DataRootsOf(sources, group)) {
-                                <WorkbenchEntry @key="root.Url"
-                                                Selected="@(State.Kind == ApiSelectionKind.Dataset && State.Sub is null && State.Group == root.Group && State.Id == root.Id)"
-                                                OnClick="@(_ => SelectDataset(root, null))"
-                                                Trail="@RowTrail(root)" MetaLine="@RowMeta(root)">
-                                    <Name>@root.DisplayName</Name>
-                                </WorkbenchEntry>
-                                @if (root.Children is { Count: > 0 } children) {
-                                    <div class="ds-children">
-                                        @foreach (var child in children) {
-                                            <WorkbenchEntry @key="child.Url"
-                                                            Selected="@(State.Kind == ApiSelectionKind.Dataset && State.Sub == child.Id && State.Group == root.Group && State.Id == root.Id)"
-                                                            OnClick="@(_ => SelectDataset(root, child))"
-                                                            Trail="@RowTrail(child)" MetaLine="@RowMeta(child)">
-                                                <Name>@child.DisplayName</Name>
-                                            </WorkbenchEntry>
-                                        }
-                                    </div>
-                                }
-                            }
-                        </WorkbenchSection>
-                    }
-                </WorkbenchLoad>
-                <WorkbenchSection Label="Coverage">
-                    <WorkbenchEntry Selected="@(State.Kind == ApiSelectionKind.Coverage)"
-                                    OnClick="@(_ => SelectSection(ApiSelectionKind.Coverage))"
-                                    Trail="@CoverageTrail">
-                        <Name>Consume coverage</Name>
-                    </WorkbenchEntry>
-                </WorkbenchSection>
-            </WorkbenchRail>
-        }
+        <WorkbenchRail Class="wb-rail-popout" HasFilter="true" Filter="@State.RailFilter" FilterChanged="OnRailFilter"
+                       FilterLabel="Filter endpoints">
+            <InspectorRail Filter="@State.RailFilter" OnSelectEndpoint="SelectEndpointFromRail"
+                           OnOpenSalt="OpenSalt"
+                           ShowRouteCatalog="State.IsContributor" RouteCatalogSelected="@(State.Kind == ApisPaneKind.Routes)"
+                           OnOpenRouteCatalog="@(() => SelectSection(ApisPaneKind.Routes))" RouteSummary="_routeSummary"
+                           OnRestoreHistory="RestoreHistory" OnDeleteHistory="DeleteHistory"
+                           OnClearHistory="ClearHistory"/>
+        </WorkbenchRail>
     </Rail>
     <ChildContent>
         @switch (State.Kind) {
-            case ApiSelectionKind.Docs:
-                <DocsPane Subject="@State.Docs" OnSelectSubject="SelectDocsSubject"/>
-                break;
-            case ApiSelectionKind.Dataset:
-                <DatasetPane Current="@State.CurrentDataset()"/>
-                break;
-            case ApiSelectionKind.Routes:
+            case ApisPaneKind.Routes:
                 <RouteCatalogPane OnChanged="ReloadRouteSummary"/>
-                break;
-            case ApiSelectionKind.Capture:
-                <CapturePane/>
-                break;
-            case ApiSelectionKind.Coverage:
-                <ConsumeCoveragePane/>
                 break;
             default:
                 <div class="awb-try">
@@ -142,13 +74,13 @@
                             @if (sel is not null) {
                                 <div class="insp-reader-subject">
                                     <span class="insp-route">@sel.Path</span>
-                                    <RouteTypes Route="sel" OnSelectType="@(n => SelectDocsSubject(new DocSubjectRef(DocSubjectKind.Message, n)))"/>
+                                    <RouteTypes Route="sel" OnSelectType="@(n => OpenDocs(new DocSubjectRef(DocSubjectKind.Message, n)))"/>
                                 </div>
                             } else {
                                 <span class="insp-reader-hint">Pick an endpoint to see its transaction here.</span>
                             }
                             <button type="button" class="btn-mini insp-docs-btn" disabled="@(State.Selected is null)"
-                                    @onclick="@(() => SelectDocsSubject(new DocSubjectRef(DocSubjectKind.Endpoint, State.Selected!.Path)))">
+                                    @onclick="@(() => OpenDocs(new DocSubjectRef(DocSubjectKind.Endpoint, State.Selected!.Path)))">
                                 <Icon Name="scroll-text" Class="icon-sm"/> Docs
                             </button>
                         </div>
@@ -167,7 +99,8 @@
 
 <SaltDialog Open="_saltOpen" OnSave="SaveSalt" OnClose="@(() => _saltOpen = false)"/>
 <LiveConsentDialog Open="_liveConsentOpen" OnAccept="AcceptLiveConsent" OnClose="@(() => _liveConsentOpen = false)"/>
-<ApiKeysModal Open="State.KeysOpen" OnClose="@(() => State.KeysOpen = false)"/>
+<DocsModal Open="State.DocsOpen" Filter="@State.DocsFilter" FilterChanged="OnDocsFilter"
+           Subject="@State.Docs" OnSelectSubject="OpenDocs" OnClose="CloseDocs"/>
 
 @code {
     readonly Dictionary<string, SchemaMessage?> _schemaCache = new();
@@ -200,7 +133,7 @@
 
     void OnDocsRequested(DocSubjectRef subject) {
         _ = InvokeAsync(async () => {
-            await SelectDocsSubject(subject);
+            await OpenDocs(subject);
             StateHasChanged();
         });
     }
@@ -260,26 +193,7 @@
     public async Task Open() {
         await LoadStore();
         _open = true;
-        await LoadSources();
         LoadRouteSummary();
-        await WriteHash(true);
-        StateHasChanged();
-    }
-
-    public Task OpenCapture() => OpenWith(() => State.Kind = ApiSelectionKind.Capture);
-
-    public Task OpenCoverage() => OpenWith(() => State.Kind = ApiSelectionKind.Coverage);
-
-    public Task OpenFeed(string feed) => OpenWith(() => {
-        if (State.Sources?.FirstOrDefault(s => s.Feed == feed) is { } src) State.SelectDataset(src.Group, src.Id, null);
-    });
-
-    async Task OpenWith(Action select) {
-        await LoadStore();
-        _open = true;
-        await LoadSources();
-        LoadRouteSummary();
-        select();
         await WriteHash(true);
         StateHasChanged();
     }
@@ -287,13 +201,6 @@
     async Task CloseAsync() {
         _open = false;
         await WriteHash(true, true);
-    }
-
-    async Task LoadSources() {
-        if (State.Sources is not null) return;
-        var index = await Client().OneAsync<DataIndex>("/api/v1/data", Logger);
-        State.Sources = index?.Sources ?? [];
-        if (State.Sources.Count == 0) Toasts.Push(StatusNoteKind.Error, "The source catalog could not be read.");
     }
 
     void LoadRouteSummary() {
@@ -310,103 +217,25 @@
         State.RailFilter = value;
     }
 
-    async Task SelectDataset(DataSourceRow root, DataSourceRow? child) {
-        State.SelectDataset(root.Group, root.Id, child?.Id);
-        await WriteHash();
-    }
-
-    async Task SelectSection(ApiSelectionKind kind) {
+    async Task SelectSection(ApisPaneKind kind) {
         State.Kind = kind;
         await WriteHash();
     }
 
-    async Task SelectDocsSubject(DocSubjectRef subject) {
+    async Task OpenDocs(DocSubjectRef subject) {
         State.Docs = subject;
-        State.Kind = ApiSelectionKind.Docs;
+        State.DocsOpen = true;
         await WriteHash(true);
+    }
+
+    async Task CloseDocs() {
+        State.DocsOpen = false;
+        await WriteHash();
     }
 
     void OnDocsFilter(string value) {
         State.DocsFilter = value;
     }
-
-    bool ModeDisabled(string key) {
-        return key == ApiWorkbenchState.ModeData && (State.Sources?.Count ?? 0) == 0;
-    }
-
-    async Task SetMode(string key) {
-        var mode = State.NormalizeMode(key);
-        if (mode == State.Mode || ModeDisabled(mode)) return;
-        State.RememberSelection();
-        if (!State.RestoreSelection(mode)) ApplyModeDefault(mode);
-        await WriteHash();
-    }
-
-    void ApplyModeDefault(string mode) {
-        if (mode == ApiWorkbenchState.ModeCapture) {
-            State.Kind = ApiSelectionKind.Capture;
-            return;
-        }
-
-        if (mode == ApiWorkbenchState.ModeDocs) {
-            State.Kind = ApiSelectionKind.Docs;
-            return;
-        }
-
-        if (mode != ApiWorkbenchState.ModeData) {
-            State.Kind = ApiSelectionKind.Endpoint;
-            return;
-        }
-
-        if (State.Sources?.FirstOrDefault() is not { } first) return;
-        State.SelectDataset(first.Group, first.Id, null);
-    }
-
-    static IEnumerable<string> DataGroups(IReadOnlyCollection<DataSourceRow> sources) {
-        return sources.Select(s => s.Group).Distinct(StringComparer.Ordinal);
-    }
-
-    static string DataGroupLabel(string key) {
-        return key switch {
-            "periodical" => "Periodical",
-            "gamedata" => "Game data",
-            "asset" => "Assets",
-            _ => EggIcons.Pretty(key)
-        };
-    }
-
-    static List<DataSourceRow> DataRootsOf(IReadOnlyCollection<DataSourceRow> sources, string group) {
-        return [.. sources.Where(s => string.Equals(s.Group, group, StringComparison.Ordinal))];
-    }
-
-    static RenderFragment? RowMeta(DataSourceRow r) {
-        if (r.Bytes is not { } bytes) return null;
-        return b => b.AddContent(0, ByteFormat.Compact(bytes));
-    }
-
-    static bool NeedsKey(DataSourceRow r) {
-        return string.Equals(r.Access, "Authenticated", StringComparison.Ordinal);
-    }
-
-    static RenderFragment RowTrail(DataSourceRow r) {
-        return @<span class="ds-trail">
-                   <span title="@(NeedsKey(r) ? "Requires an API key" : "Public")">
-                       <Icon Name="@(NeedsKey(r) ? "key" : "globe")" Class="icon-sm"/>
-                   </span>
-                   @if (r.AcceptsName) {
-                       <span title="Takes a name in the URL, no raw GET">
-                           <Icon Name="link" Class="icon-sm"/>
-                       </span>
-                   }
-               </span>;
-    }
-
-    static readonly RenderFragment CoverageTrail = @<span class="ds-trail">
-                                                     <span title="Requires an API key with approved access">
-                                                         <Icon Name="key" Class="icon-sm"/>
-                                                     </span>
-                                                 </span>;
-
 
     async Task<RinfoSeed> ServerSeed() {
         return await Client().OneAsync<RinfoSeed>("/api/inspector/rinfo-seed", Logger) ?? new RinfoSeed();
@@ -418,7 +247,7 @@
     }
 
     async Task SelectEndpoint(RouteInfo e) {
-        State.Kind = ApiSelectionKind.Endpoint;
+        State.Kind = ApisPaneKind.Endpoint;
         State.Selected = e;
         State.Notice = null;
         State.ClearTransaction();
@@ -932,7 +761,6 @@
 
         _open = true;
         await LoadStore();
-        await LoadSources();
         LoadRouteSummary();
         await ResolvePending();
         StateHasChanged();
@@ -952,11 +780,11 @@
                 State.Notice = $"The link points at message type {name}, which this build does not know.";
             } else {
                 State.Docs = new DocSubjectRef(DocSubjectKind.Message, name);
-                State.Kind = ApiSelectionKind.Docs;
+                State.DocsOpen = true;
             }
         }
 
-        if (State.Kind is ApiSelectionKind.Routes && !State.IsContributor) State.Kind = ApiSelectionKind.Endpoint;
+        if (State.Kind is ApisPaneKind.Routes && !State.IsContributor) State.Kind = ApisPaneKind.Endpoint;
     }
 
     Task WriteHash(bool push = false, bool clear = false) {

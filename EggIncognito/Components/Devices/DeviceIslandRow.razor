@@ -1,0 +1,38 @@
+@using EggIncognito.Models.Devices
+
+<div class="dis-row @(Current ? "dis-row-on" : "")" role="option" aria-selected="@(Current ? "true" : "false")">
+    <button type="button" class="dis-pick" @onclick="@(() => OnPick.InvokeAsync(Island.AndroidUserId))">
+        <span class="dis-cur dis-cur-on">
+            @if (Current) {
+                <Icon Name="check" Class="icon-sm"/>
+            }
+        </span>
+        <span class="dis-name">@Label(Island)</span>
+        <span class="dis-user"
+              title="@(Island.Provisioned ? null : "setup wizard not marked complete for this user; interstitials may cover the app")">
+            user @Island.AndroidUserId@(Island.Provisioned ? "" : ", unprovisioned")
+        </span>
+    </button>
+    <button type="button" class="btn-mini btn-danger" title="Remove this island" disabled="@Busy"
+            @onclick="@(() => OnRemove.InvokeAsync(Island.AndroidUserId))">
+        <Icon Name="x" Class="icon-sm"/>
+    </button>
+</div>
+
+@code {
+
+    [Parameter] public IslandRow Island { get; set; } = null!;
+
+    [Parameter] public bool Current { get; set; }
+
+    [Parameter] public bool Busy { get; set; }
+
+    [Parameter] public EventCallback<int> OnPick { get; set; }
+
+    [Parameter] public EventCallback<int> OnRemove { get; set; }
+
+    static string Label(IslandRow island) {
+        return string.IsNullOrWhiteSpace(island.Label) ? $"user {island.AndroidUserId}" : island.Label;
+    }
+
+}

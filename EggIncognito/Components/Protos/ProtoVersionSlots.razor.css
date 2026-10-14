@@ -1,0 +1,14 @@
+.pwb-slots { display: flex; flex-direction: row; flex-wrap: wrap; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; max-width: 100%; }
+.pwb-slot { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; min-width: 0; max-width: 100%; }
+.pwb-slot.pwb-dim { opacity: 0.55; }
+.pwb-slot-note { font-size: 0.6875rem; color: var(--color-muted); }
+.pwb-tier-note { font-size: 0.6875rem; color: var(--color-muted); }
+.pwb-swap { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 1.5rem; height: 1.5rem; padding: 0; border: 1px solid var(--color-border); border-radius: 0.25rem; background-color: transparent; color: var(--color-muted); cursor: pointer; }
+.pwb-swap:hover:not(:disabled) { color: var(--color-fg); border-color: var(--color-accent); }
+.pwb-swap:disabled { opacity: 0.4; cursor: not-allowed; }
+.pwb-warn { color: var(--color-warn); }
+@media (max-width: 48rem) {
+  .pwb-slots { flex-direction: column; align-items: stretch; }
+  .pwb-slots .pwb-slot { width: 100%; }
+  .pwb-swap { align-self: flex-start; transform: rotate(90deg); }
+}

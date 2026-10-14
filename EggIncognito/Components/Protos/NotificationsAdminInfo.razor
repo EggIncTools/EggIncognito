@@ -1,0 +1,50 @@
+@using EggIncognito.Models.Notifications
+
+<div class="nwb-surface">
+    <div class="nwb-row">
+        <span class="nwb-k">Owner</span>
+        <span class="nwb-static">@Row.OwnerUsername</span>
+    </div>
+    <div class="nwb-row">
+        <span class="nwb-k">Target</span>
+        <span class="nwb-static nwb-mono">@Row.TargetMasked</span>
+    </div>
+    <div class="nwb-row">
+        <span class="nwb-k">Event</span>
+        <span class="nwb-static">@KindLabel</span>
+    </div>
+    <div class="nwb-row">
+        <span class="nwb-cell">
+            <span class="nwb-k">Created</span>
+            <span class="nwb-static">@CreatedStamp</span>
+        </span>
+        <span class="nwb-cell">
+            <span class="nwb-k">Last delivery</span>
+            <span class="nwb-static">@LastDeliveryStamp</span>
+        </span>
+    </div>
+    <div class="nwb-row">
+        <span class="nwb-cell">
+            <span class="nwb-k">Failures</span>
+            <span class="nwb-static">@Row.FailCount</span>
+        </span>
+        <span class="nwb-cell">
+            <span class="nwb-k">State</span>
+            <span class="nwb-static">@(Row.Active ? "active" : "paused")</span>
+        </span>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public AdminFeedRow Row { get; set; } = default!;
+
+    [Parameter]
+    public string KindLabel { get; set; } = "";
+
+    [Parameter]
+    public string CreatedStamp { get; set; } = "";
+
+    [Parameter]
+    public string LastDeliveryStamp { get; set; } = "";
+}

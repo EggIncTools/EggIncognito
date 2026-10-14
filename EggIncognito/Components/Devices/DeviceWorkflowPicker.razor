@@ -1,0 +1,81 @@
+@using EggIncognito.Core.Services.Devices
+@using EggIncognito.Models.Devices
+
+<div class="drm-pick-host">
+<ToolBar Class="drm-pick">
+    @if (Workflows.Count > 0 || Steps.Count > 0) {
+        <select class="field-input drm-book" aria-label="Cookbook" value="@BookId"
+                disabled="@RunBusy" @onchange="OnBookChanged">
+            @if (Workflows is { Count: > 0 } workflows) {
+                <optgroup label="workflows">
+                    @foreach (var book in workflows) {
+                        <option value="@book.Id" disabled="@(!book.Available)" title="@book.Unavailable">@book.Title</option>
+                    }
+                </optgroup>
+            }
+            @if (Steps is { Count: > 0 } steps) {
+                <optgroup label="steps">
+                    @foreach (var book in steps) {
+                        <option value="@book.Id" disabled="@(!book.Available)" title="@book.Unavailable">@book.Title</option>
+                    }
+                </optgroup>
+            }
+        </select>
+        @if (Chosen is { Options: { Count: > 0 } options } chosen) {
+            <select class="field-input drm-arg" aria-label="@(chosen.ArgumentLabel ?? "Option")"
+                    value="@ArgValue" disabled="@RunBusy" @onchange="@(e => OnArgChanged.InvokeAsync(e))">
+                @foreach (var option in options) {
+                    <option value="@option.Value" title="@option.Detail">@option.Label</option>
+                }
+            </select>
+        }
+        <button type="button" class="btn-primary" disabled="@(!CanRun)" @onclick="OnRun">
+            <Icon Name="play" Class="icon-sm"/>
+            Run
+        </button>
+        @if (AndroidUserId is { } target) {
+            <span class="drm-hint">to user @target</span>
+        }
+    } else {
+        <span class="drm-hint">@(BooksBusy ? "loading cookbooks" : BooksError ?? "no cookbooks for this device")</span>
+        @if (!BooksBusy) {
+            <button type="button" class="btn-mini" @onclick="OnRetry">
+                <Icon Name="refresh-cw" Class="icon-sm"/>
+                Retry
+            </button>
+        }
+    }
+</ToolBar>
+</div>
+
+@code {
+
+    [Parameter] public List<DeviceCookbookInfo> Workflows { get; set; } = [];
+
+    [Parameter] public List<DeviceCookbookInfo> Steps { get; set; } = [];
+
+    [Parameter] public DeviceCookbookInfo? Chosen { get; set; }
+
+    [Parameter] public string BookId { get; set; } = "";
+
+    [Parameter] public string? ArgValue { get; set; }
+
+    [Parameter] public bool RunBusy { get; set; }
+
+    [Parameter] public bool BooksBusy { get; set; }
+
+    [Parameter] public string? BooksError { get; set; }
+
+    [Parameter] public bool CanRun { get; set; }
+
+    [Parameter] public int? AndroidUserId { get; set; }
+
+    [Parameter] public EventCallback<ChangeEventArgs> OnBookChanged { get; set; }
+
+    [Parameter] public EventCallback<ChangeEventArgs> OnArgChanged { get; set; }
+
+    [Parameter] public EventCallback OnRun { get; set; }
+
+    [Parameter] public EventCallback OnRetry { get; set; }
+
+}

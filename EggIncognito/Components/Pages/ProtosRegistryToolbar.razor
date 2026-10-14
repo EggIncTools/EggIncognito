@@ -1,0 +1,27 @@
+@using EggIncognito.Components.Protos
+@using EggIncognito.Services.Protos
+<div class="reg-toolbar">
+    <BrandPanel Rows="Rows" OnOpenVersion="OnOpenVersion"/>
+    <div class="reg-toolbar-controls">
+        <Tooltip Text="APK, APKM, XAPK or IPA">
+            <label id="protoPageDrop" class="reg-drop" for="wbFile">
+                <Icon Name="upload" Class="icon-sm"/>
+                <span>Drop a build</span>
+            </label>
+        </Tooltip>
+        <button type="button" class="reg-intake"
+                aria-label="Open the proto workbench" @onclick="@(() => OnOpenWorkbench.InvokeAsync())">
+            <span>Proto workbench</span>
+            <Icon Name="chevron-right" Class="icon-sm"/>
+        </button>
+    </div>
+</div>
+
+@code {
+    [Parameter] public List<ProtoRegistryRow> Rows { get; set; } = [];
+
+    [Parameter] public EventCallback<ProtoRegistryRow> OnOpenVersion { get; set; }
+
+    [Parameter] public EventCallback OnOpenWorkbench { get; set; }
+
+}

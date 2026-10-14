@@ -1,0 +1,55 @@
+@using EggIncognito.Core.Services.ProtoExtract
+<div class="cstruct-entry">
+    <div class="cstruct-head">
+        @if (Entry.Kind == MessageDiffKind.Renamed) {
+            <span class="cstruct-path cstruct-rem">@Entry.OldPath</span>
+            <span class="cstruct-arrow">-&gt;</span>
+            <span class="cstruct-path cstruct-add">@Entry.NewPath</span>
+        } else {
+            <span class="cstruct-path @PathClass(Entry.Kind)">@Entry.DisplayPath</span>
+        }
+    </div>
+    @if (Entry.Kind is MessageDiffKind.Added or MessageDiffKind.Removed) {
+        <details>
+            <summary class="cstruct-toggle">@Entry.Body.Count lines</summary>
+            <div class="cstruct-rows">
+                @foreach (var line in Entry.Body) {
+                    <span class="@(Entry.Kind == MessageDiffKind.Added ? "cstruct-add" : "cstruct-rem")">@(Entry.Kind == MessageDiffKind.Added ? "+" : "-")@line</span>
+                }
+            </div>
+        </details>
+    } else if (Entry.FieldChanges.Count > 0 || Entry.EnumChanges.Count > 0) {
+        <div class="cstruct-rows">
+            @foreach (var c in Entry.FieldChanges.OrderBy(c => c.Number)) {
+                @if (c.Old is not null) {
+                    <span class="cstruct-rem">-@c.Old.Raw</span>
+                }
+
+                @if (c.New is not null) {
+                    <span class="cstruct-add">+@c.New.Raw</span>
+                }
+            }
+            @foreach (var c in Entry.EnumChanges.OrderBy(c => c.Number)) {
+                @if (c.Old is not null) {
+                    <span class="cstruct-rem">-@c.Old.Raw</span>
+                }
+
+                @if (c.New is not null) {
+                    <span class="cstruct-add">+@c.New.Raw</span>
+                }
+            }
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public MessageDiff Entry { get; set; } = default!;
+
+    static string PathClass(MessageDiffKind kind) {
+        return kind switch {
+            MessageDiffKind.Added => "cstruct-add",
+            MessageDiffKind.Removed => "cstruct-rem",
+            _ => ""
+        };
+    }
+}

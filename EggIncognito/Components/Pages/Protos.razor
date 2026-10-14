@@ -17,11 +17,11 @@
 @inject AdminNotifier Notifier
 @inject IServiceProvider Services
 @using System.Text.Json
+@using EggIncognito.Core.Services.ProtoExtract
 @using EggIncognito.Components.Api
 @using EggIncognito.Components.Contracts
 @using EggIncognito.Components.Events
 @using EggIncognito.Components.Protos
-@using EggIncognito.Core.Services.ProtoExtract
 @using EggIncognito.Services.Protos
 @using EggIncognito.Services.Events
 @implements IAsyncDisposable
@@ -39,40 +39,18 @@
         </div>
         <div class="pd-main pd-stack pd-mobile-order-3">
             <section class="reg-wrap">
-                <div class="reg-toolbar">
-                    <BrandPanel Rows="_rows" OnOpenVersion="OpenVersion"/>
-                    <div class="reg-toolbar-controls">
-                        <Tooltip Text="APK, APKM, XAPK or IPA">
-                            <label id="protoPageDrop" class="reg-drop" for="wbFile">
-                                <Icon Name="upload" Class="icon-sm"/>
-                                <span>Drop a build</span>
-                            </label>
-                        </Tooltip>
-                        <button type="button" class="reg-intake"
-                                aria-label="Open the proto workbench" @onclick="@(() => _workbench?.Open())">
-                            <span>Proto workbench</span>
-                            <Icon Name="chevron-right" Class="icon-sm"/>
-                        </button>
-                    </div>
-                </div>
+                <ProtosRegistryToolbar Rows="_rows" OnOpenVersion="OpenVersion" OnOpenWorkbench="@(() => _workbench?.Open())"/>
                 @if (_loading && _rows.Count == 0) {
                     <div class="reg-loading">Loading...</div>
                 } else if (_rows.Count == 0) {
                     <EmptyState Tall="true" Title="No proto versions yet." Hint="Drop a build on the toolbar, or open the proto workbench, to add one."/>
                 } else {
-                    <div class="reg-combined">@RegistryTable(_rows)</div>
+                    <div class="reg-combined">
+                        <ProtosRegistryTable Rows="_rows" OnOpenVersion="OpenVersion" OnOpenGroup="@(sha => _workbench?.OpenGroup(sha))"/>
+                    </div>
                     <div class="reg-split">
                         @foreach (var platform in SplitPlatforms) {
-                            var subset = _rows.Where(r => string.Equals(r.Platform, platform, StringComparison.OrdinalIgnoreCase)).ToList();
-                            if (subset.Count > 0) {
-                                <div class="reg-split-col">
-                                    <div class="reg-split-head">
-                                        <PlatformIcon Platform="@platform"/>
-                                        <span>@PageMeta.PlatformLabel(platform)</span>
-                                    </div>
-                                    @RegistryTable(subset, false)
-                                </div>
-                            }
+                            <ProtosRegistrySplitColumn Platform="@platform" Rows="_rows" OnOpenVersion="OpenVersion" OnOpenGroup="@(sha => _workbench?.OpenGroup(sha))"/>
                         }
                     </div>
                 }
@@ -81,9 +59,9 @@
         <div class="pd-mod pd-side pd-mobile-order-2">
             <CircuitGuard Name="Side column">
                 <PeriodicalsPanel OnManageDevices="OpenDeviceWorkbench" OnOpenNotifications="OpenNotifications"
-                                  OnOpenApiWorkbench="OpenApiWorkbench" OnOpenCapture="OpenCaptureWorkbench"
-                                  OnOpenFeed="@(f => _apiWorkbench?.OpenFeed(f) ?? Task.CompletedTask)"
-                                  OnOpenCoverage="@(() => _apiWorkbench?.OpenCoverage() ?? Task.CompletedTask)"
+                                  OnOpenApis="OpenApisWorkbench" OnOpenData="OpenDataWorkbench" OnOpenCapture="OpenCaptureModal"
+                                  OnOpenFeed="@(f => _dataWorkbench?.OpenFeed(f) ?? Task.CompletedTask)"
+                                  OnOpenCoverage="@(() => _dataWorkbench?.OpenCoverage() ?? Task.CompletedTask)"
                                   OnOpenEvents="OpenEvents" OnOpenContracts="OpenContracts" OnOpenSupport="OpenSupport"/>
             </CircuitGuard>
         </div>
@@ -93,101 +71,19 @@
 
 @code {
     static readonly string[] SplitPlatforms = ["ios", "android"];
-
-    RenderFragment RegistryTable(List<ProtoRegistryRow> source, bool platformIcons = true) {
-        var bands = SortedBandsOf(source);
-        var layout = ShaLanes.Build(
-            bands.Select(b => b.Key).ToList(),
-            bands.Select(b => b.Primary.Key()).ToList(),
-            ReleasesOf(source).Select(r => r.Primary.Key()).ToList());
-        var laneRows = layout.Rows;
-        return @<div class="reg-scroll">
-                        <table class="data-table reg-table" style="--reg-gutter: @Gutter(ShaLanes.LaneCount(layout))">
-                            <thead>
-                            <tr>
-                                <th class="reg-th-sort reg-c-app" @onclick="@(() => Sort("appVersion"))">
-                                    <span>App</span>@Caret("appVersion")
-                                </th>
-                                <th class="reg-th-sort reg-c-build" @onclick="@(() => Sort("build"))">
-                                    <span>Build</span>@Caret("build")
-                                </th>
-                                <th class="reg-th-sort reg-c-client" @onclick="@(() => Sort("client"))">
-                                    <span>Client</span>@Caret("client")
-                                </th>
-                                <th class="reg-th-sort reg-c-sha" @onclick="@(() => Sort("sha"))">
-                                    <span>SHA</span>@Caret("sha")
-                                </th>
-                            </tr>
-                            </thead>
-                            @foreach (var band in bands) {
-                                var lane = laneRows.GetValueOrDefault(band.Key);
-                                var span = band.Releases.Count;
-                                <tbody class="reg-band">
-                                @for (var i = 0; i < span; i++) {
-                                    var rel = band.Releases[i];
-                                    var primary = rel.Primary;
-                                    <tr class="reg-row" @onclick="@(() => OpenVersion(primary))">
-                                        <td class="reg-version reg-c-app" data-label="App version">@primary.AppVersion</td>
-                                        <td class="reg-c-build" data-label="Build">
-                                            <span class="reg-builds">
-                                                @foreach (var m in rel.Members) {
-                                                    <button type="button" class="reg-build-link" @onclick:stopPropagation="true"
-                                                            @onclick="@(() => OpenVersion(m))">
-                                                        @if (platformIcons) {
-                                                            <PlatformIcon Platform="@m.Platform"/>
-                                                        }
-                                                        @if (m.BuildFlag is { } memberFlag) {
-                                                            <Tooltip Text="@FlagLabel(memberFlag)" Error="true">
-                                                                <span class="reg-num reg-num-bad">@m.Build</span>
-                                                            </Tooltip>
-                                                        } else {
-                                                            <span class="reg-num">@m.Build</span>
-                                                        }
-                                                    </button>
-                                                }
-                                            </span>
-                                        </td>
-                                        @if (i == 0) {
-                                            <td class="reg-num reg-c-client" data-label="Client" rowspan="@span">@ClientText(band.Primary)</td>
-                                            <td class="reg-c-sha reg-sha-cell" data-label="Proto SHA" rowspan="@span">
-                                                @if (lane is not null) {
-                                                    foreach (var seg in lane.Segments) {
-                                                        <span class="@LaneSpanClass(layout, seg)" style="--lane: @seg.Lane"
-                                                              role="button" aria-label="Open proto group"
-                                                              @onclick:stopPropagation="true" @onclick="@(() => OpenGroup(layout, seg.GroupId))"
-                                                              @onmouseenter="@(() => SetHotGroup(layout, seg.GroupId))"
-                                                              @onmouseleave="@(() => SetHotGroup(layout, null))">
-                                                        </span>
-                                                    }
-                                                }
-                                                <span class="reg-sha-group"
-                                                      @onmouseenter="@(() => SetHotGroup(layout, lane?.GroupId))"
-                                                      @onmouseleave="@(() => SetHotGroup(layout, null))">
-                                                    <span class="@ShaChipClass(layout, lane)">@Short(band.Primary.ProtoSha)</span>
-                                                    @if (band.Primary.SortOrder is { } so && so != 0) {
-                                                        <span class="reg-order">@OrderLabel(so)</span>
-                                                    }
-                                                </span>
-                                            </td>
-                                        }
-                                    </tr>
-                                }
-                                </tbody>
-                            }
-                        </table>
-                    </div>;
-    }
 }
 
 <CircuitGuard Name="Workbench">
     <NotificationsWorkbenchModal @ref="_notificationsModal"/>
     <ProtoWorkbenchModal @ref="_workbench" OnChanged="OnMutated" OnRefChanged="OnWorkbenchRef" OnClosed="OnWorkbenchClosed"/>
     <DeviceWorkbenchModal @ref="_deviceWorkbench" OnChanged="OnMutated"/>
-    <ApiWorkbenchModal @ref="_apiWorkbench"/>
+    <ApisWorkbenchModal @ref="_apisWorkbench"/>
+    <DataWorkbenchModal @ref="_dataWorkbench"/>
     <EventsWorkbenchModal @ref="_eventsModal"/>
     <ContractsWorkbenchModal @ref="_contractsModal"/>
     <AdminWorkbenchModal @ref="_adminWorkbench"/>
 </CircuitGuard>
+<CaptureModal @ref="_captureModal"/>
 <SupportModal @ref="_supportModal"/>
 <TermsModal @ref="_termsModal"/>
 <PrivacyModal @ref="_privacyModal"/>
@@ -195,7 +91,9 @@
 @code {
     ProtoWorkbenchModal? _workbench;
     DeviceWorkbenchModal? _deviceWorkbench;
-    ApiWorkbenchModal? _apiWorkbench;
+    ApisWorkbenchModal? _apisWorkbench;
+    DataWorkbenchModal? _dataWorkbench;
+    CaptureModal? _captureModal;
     AdminWorkbenchModal? _adminWorkbench;
     EventsWorkbenchModal? _eventsModal;
     ContractsWorkbenchModal? _contractsModal;
@@ -223,12 +121,17 @@
         return _deviceWorkbench?.Open(deviceId) ?? Task.CompletedTask;
     }
 
-    Task OpenApiWorkbench() {
-        return _apiWorkbench?.Open() ?? Task.CompletedTask;
+    Task OpenApisWorkbench() {
+        return _apisWorkbench?.Open() ?? Task.CompletedTask;
     }
 
-    Task OpenCaptureWorkbench() {
-        return _apiWorkbench?.OpenCapture() ?? Task.CompletedTask;
+    Task OpenDataWorkbench() {
+        return _dataWorkbench?.Open() ?? Task.CompletedTask;
+    }
+
+    Task OpenCaptureModal() {
+        _captureModal?.Open();
+        return Task.CompletedTask;
     }
 
     Task OpenEvents() {
@@ -242,9 +145,6 @@
     List<ProtoRegistryRow> _rows = [];
 
     bool _loading = true;
-
-    string _sortCol = "appVersion";
-    bool _sortDesc = true;
 
     NotificationsWorkbenchModal? _notificationsModal;
 
@@ -337,136 +237,6 @@
         }
 
         ApplyRef(ProtoRefParser.Parse(tail));
-    }
-
-    static int ByVersion(ProtoRegistryRow a, ProtoRegistryRow b) {
-        return ProtoVersionOrdering.Compare(b.Key(), a.Key());
-    }
-
-    Comparison<ProtoRegistryRow> RowComparison {
-        get {
-            Comparison<ProtoRegistryRow> primary = _sortCol switch {
-                "platform" => (a, b) => string.Compare(a.Platform, b.Platform, StringComparison.OrdinalIgnoreCase),
-                "appVersion" => (a, b) => ByVersion(a, b),
-                "build" => (a, b) => {
-                    var p = string.Compare(a.Platform, b.Platform, StringComparison.OrdinalIgnoreCase);
-                    return p != 0 ? p : EggIncognito.Core.Services.Devices.VersionCompare.Build(a.Build, b.Build);
-                },
-                "client" => (a, b) => CompareNumeric(a.ClientVersion, b.ClientVersion),
-                "sha" => (a, b) => string.Compare(a.ProtoSha, b.ProtoSha, StringComparison.OrdinalIgnoreCase),
-                _ => ByVersion
-            };
-            return (a, b) => {
-                var v = primary(a, b);
-                return v != 0 ? v : ByVersion(a, b);
-            };
-        }
-    }
-
-    static List<Models.Registry.Release> ReleasesOf(IEnumerable<ProtoRegistryRow> rows) {
-        var byKey = new Dictionary<long, List<ProtoRegistryRow>>();
-        foreach (var r in rows) {
-            var key = ReleaseKey(r);
-            if (!byKey.TryGetValue(key, out var list)) {
-                list = [];
-                byKey[key] = list;
-            }
-
-            list.Add(r);
-        }
-
-        return byKey
-            .Select(kv => new Models.Registry.Release(kv.Key, kv.Value.OrderBy(m => m.Platform, StringComparer.OrdinalIgnoreCase)
-                .ThenByDescending(m => m.Build, EggIncognito.Core.Services.Devices.VersionCompare.BuildComparer).ToList()))
-            .ToList();
-    }
-
-    List<Models.Registry.ReleaseBand> SortedBandsOf(IEnumerable<ProtoRegistryRow> source) {
-        var releases = ReleasesOf(source);
-        var cmp = RowComparison;
-        releases.Sort((x, y) => cmp(x.Primary, y.Primary));
-        if (_sortDesc) releases.Reverse();
-        return Models.Registry.ReleaseBand.Of(releases);
-    }
-
-    void Sort(string col) {
-        if (_sortCol == col) _sortDesc = !_sortDesc;
-        else {
-            _sortCol = col;
-            _sortDesc = false;
-        }
-    }
-
-    static string FlagLabel(string flag) {
-        return flag == "android_build_on_ios" ? "Android build number on an iOS version" : flag.Replace('_', ' ');
-    }
-
-    string? _hotSha;
-
-    static string Gutter(int lanes) {
-        return FormattableString.Invariant($"{lanes * 0.75 + 0.375:0.###}rem");
-    }
-
-    static string LaneClass(ShaLaneMark mark) {
-        return mark switch {
-            ShaLaneMark.Start => "reg-lane reg-lane-start",
-            ShaLaneMark.Node => "reg-lane reg-lane-node",
-            ShaLaneMark.End => "reg-lane reg-lane-end",
-            _ => "reg-lane reg-lane-pass"
-        };
-    }
-
-    string LaneSpanClass(ShaLaneLayout layout, ShaLaneSegment seg) {
-        var css = $"{LaneClass(seg.Mark)} reg-lane-c{seg.Lane % 4}";
-        return IsHotGroup(layout, seg.GroupId) ? $"{css} reg-lane-hot" : css;
-    }
-
-    string ShaChipClass(ShaLaneLayout layout, ShaLaneRow? lane) {
-        const string css = "code-chip reg-sha";
-        return lane?.GroupId is { } groupId && IsHotGroup(layout, groupId) ? $"{css} reg-sha-hot" : css;
-    }
-
-    bool IsHotGroup(ShaLaneLayout layout, int groupId) {
-        return _hotSha is { Length: > 0 } hot
-               && layout.GroupShas.TryGetValue(groupId, out var sha)
-               && string.Equals(sha, hot, StringComparison.OrdinalIgnoreCase);
-    }
-
-    void SetHotGroup(ShaLaneLayout layout, int? groupId) {
-        _hotSha = groupId is { } gid && layout.GroupShas.TryGetValue(gid, out var sha) ? sha : null;
-    }
-
-    void OpenGroup(ShaLaneLayout layout, int groupId) {
-        if (!layout.GroupShas.TryGetValue(groupId, out var sha)) return;
-        _workbench?.OpenGroup(sha);
-    }
-
-    static string ClientText(ProtoRegistryRow r) {
-        return r.ClientVersion ?? "";
-    }
-
-    MarkupString Caret(string col) {
-        return new MarkupString(_sortCol == col ? _sortDesc ? " ▾" : " ▴" : "");
-    }
-
-    static int CompareNumeric(string? a, string? b) {
-        var ax = long.TryParse(a, out var al);
-        var bx = long.TryParse(b, out var bl);
-        if (ax && bx) return al.CompareTo(bl);
-        return string.Compare(a, b, StringComparison.OrdinalIgnoreCase);
-    }
-
-    static int CompareSemver(string? a, string? b) {
-        var ap = (a ?? "").Split('.');
-        var bp = (b ?? "").Split('.');
-        var n = Math.Max(ap.Length, bp.Length);
-        for (var i = 0; i < n; i++) {
-            var av = i < ap.Length && long.TryParse(ap[i], out var x) ? x : 0;
-            var bv = i < bp.Length && long.TryParse(bp[i], out var y) ? y : 0;
-            if (av != bv) return av.CompareTo(bv);
-        }
-
-        return string.Compare(a, b, StringComparison.OrdinalIgnoreCase);
     }
 
     protected override void OnInitialized() {
@@ -593,14 +363,6 @@
         }
     }
 
-    static string OrderLabel(int order) {
-        return order > 0 ? $"+{order}" : $"{order}";
-    }
-
-    static string Short(string? sha) {
-        return EggIncognito.Core.Hashes.Short(sha, 6);
-    }
-
     void OnZoneChanged() => _ = InvokeAsync(StateHasChanged);
 
     public async ValueTask DisposeAsync() {
@@ -612,9 +374,4 @@
         await _protoDrop.DisposeModuleAsync(logger: Logger);
         _routeSync?.Dispose();
     }
-
-    static long ReleaseKey(ProtoRegistryRow r) {
-        return r.CanonicalId ?? r.Id;
-    }
-
 }

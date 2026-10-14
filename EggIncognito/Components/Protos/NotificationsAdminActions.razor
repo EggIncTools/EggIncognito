@@ -1,0 +1,28 @@
+@using EggIncognito.Models.Notifications
+
+<FlexRow Gap="true">
+    <button type="button" class="btn-mini" disabled="@Busy"
+            @onclick="@(() => OnTest.InvokeAsync())">
+        @(ConfirmTest ? "Confirm, send test" : "Send test")
+    </button>
+    @if (Row.Active) {
+        <button type="button" class="btn-mini" disabled="@Busy"
+                @onclick="@(() => OnDeactivate.InvokeAsync())">
+            Deactivate
+        </button>
+    }
+    <button type="button" class="btn-mini" disabled="@Busy"
+            @onclick="@(() => OnDelete.InvokeAsync())">
+        @(ConfirmDelete ? "Confirm delete" : "Delete")
+    </button>
+</FlexRow>
+
+@code {
+    [Parameter] public AdminFeedRow Row { get; set; } = null!;
+    [Parameter] public bool Busy { get; set; }
+    [Parameter] public bool ConfirmTest { get; set; }
+    [Parameter] public bool ConfirmDelete { get; set; }
+    [Parameter] public EventCallback OnTest { get; set; }
+    [Parameter] public EventCallback OnDeactivate { get; set; }
+    [Parameter] public EventCallback OnDelete { get; set; }
+}

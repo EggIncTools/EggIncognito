@@ -10,22 +10,7 @@
 @inject ILogger<RouteCatalogPane> Logger
 
 <div class="awb-pane">
-    <div class="routes-head">
-        <h4 class="awb-pane-title">Route catalog</h4>
-        <div class="routes-head-meta">
-            @if (_binary is { } b && !string.IsNullOrWhiteSpace(b.BinaryVersion)) {
-                <VersionLine App="@b.BinaryVersion"/>
-            } else {
-                <span class="muted">binary unknown</span>
-            }
-            @if (_binary?.LastRefresh is { } lr) {
-                <span class="muted">last refresh <TimeAgo At="@lr" Class="time-ago"/></span>
-            } else {
-                <span class="muted">never refreshed</span>
-            }
-            <button type="button" class="btn-mini" disabled="@(_refreshing || _binaryUnavailable)" @onclick="RefreshBinary">@(_refreshing ? "Refreshing..." : "Refresh")</button>
-        </div>
-    </div>
+    <RouteCatalogHeadBar Binary="_binary" Refreshing="_refreshing" BinaryUnavailable="_binaryUnavailable" OnRefresh="RefreshBinary"/>
     @if (_binaryUnavailable) {
         <p class="routes-note">Binary route status unavailable (no database).</p>
     }
@@ -90,75 +75,7 @@
                     @if (_expandedPath == row.Path) {
                         <tr class="row-edit">
                             <td colspan="4">
-                                <div class="routes-editor">
-                                    <p class="routes-note">@(row.Source == "orphan" ? "No matching route in routes.yaml or the binary catalog." : "Saved overrides persist to the database and win over routes.yaml.")</p>
-                                    <div class="routes-editor-grid">
-                                        <label class="routes-editor-field">
-                                            Request type
-                                            <select class="field-input" value="@(_draftRequest ?? "")" @onchange="OnDraftRequest">
-                                                <option value="">(none)</option>
-                                                @if (_draftRequest is { } dr && !KnownType(dr)) {
-                                                    <option value="@dr">@dr (not in proto)</option>
-                                                }
-                                                <optgroup label="Request types">
-                                                    @foreach (var m in _roles.Request) {
-                                                        <option value="@m">@m</option>
-                                                    }
-                                                </optgroup>
-                                                <optgroup label="Other messages">
-                                                    @foreach (var m in _roles.RequestOthers) {
-                                                        <option value="@m">@m</option>
-                                                    }
-                                                </optgroup>
-                                            </select>
-                                        </label>
-                                        <label class="routes-editor-field">
-                                            Response type
-                                            <select class="field-input" value="@(_draftResponse ?? "")" @onchange="OnDraftResponse">
-                                                <option value="">(none)</option>
-                                                @if (_draftResponse is { } ds && !KnownType(ds)) {
-                                                    <option value="@ds">@ds (not in proto)</option>
-                                                }
-                                                <optgroup label="Response types">
-                                                    @foreach (var m in _roles.Response) {
-                                                        <option value="@m">@m</option>
-                                                    }
-                                                </optgroup>
-                                                <optgroup label="Other messages">
-                                                    @foreach (var m in _roles.ResponseOthers) {
-                                                        <option value="@m">@m</option>
-                                                    }
-                                                </optgroup>
-                                            </select>
-                                        </label>
-                                    </div>
-                                    <div class="routes-editor-checks">
-                                        <label class="form-check"><input type="checkbox" checked="@_draftRequestWrapped" @onchange="e => _draftRequestWrapped = e.Value is true"/> Request wrapped (AuthenticatedMessage)</label>
-                                        <label class="form-check"><input type="checkbox" checked="@_draftResponseWrapped" @onchange="e => _draftResponseWrapped = e.Value is true"/> Response wrapped (AuthenticatedMessage)</label>
-                                        <label class="form-check"><input type="checkbox" checked="@_draftPathParam" @onchange="e => _draftPathParam = e.Value is true"/> Path param</label>
-                                    </div>
-                                    @if (drift.Count > 0) {
-                                        <div class="routes-drift-list">
-                                            @foreach (var d in drift) {
-                                                <div class="routes-drift-row">
-                                                    <span class="route-flag">
-                                                        <Icon Name="@(d.Reliable ? "circle-alert" : "info")" Class="icon-sm"/> @(d.Reliable ? "drift" : "advisory")
-                                                    </span>
-                                                    <span class="muted">@d.Field: effective @(d.EffectiveValue ?? "-") vs binary @(d.BinaryValue ?? "-")</span>
-                                                    <button type="button" class="btn-mini" disabled="@_busy" @onclick="() => ApplyDrift(d)">Apply</button>
-                                                </div>
-                                            }
-                                        </div>
-                                    }
-                                    <div class="routes-editor-actions">
-                                        @if (row.Source != "orphan") {
-                                            <button type="button" class="btn-mini" disabled="@_busy" @onclick="() => Save(row)">Save</button>
-                                        }
-                                        @if (row.Override is not null) {
-                                            <button type="button" class="btn-mini btn-danger" disabled="@_busy" @onclick="() => Clear(row.Path)">Reset</button>
-                                        }
-                                    </div>
-                                </div>
+                                <RouteEditorRow Row="row" Drift="drift" Roles="_roles" DraftRequest="@_draftRequest" DraftResponse="@_draftResponse" @bind-DraftRequestWrapped="_draftRequestWrapped" @bind-DraftResponseWrapped="_draftResponseWrapped" @bind-DraftPathParam="_draftPathParam" Busy="_busy" OnDraftRequest="OnDraftRequest" OnDraftResponse="OnDraftResponse" OnApplyDrift="ApplyDrift" OnSave="@(() => Save(row))" OnClear="@(() => Clear(row.Path))" KnownType="KnownType"/>
                             </td>
                         </tr>
                     }

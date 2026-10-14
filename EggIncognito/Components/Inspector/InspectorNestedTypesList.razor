@@ -1,0 +1,24 @@
+@if (Nested.Count > 0) {
+    <div class="doc-section-title">Nested types (@Nested.Count)</div>
+    <TableScroll MaxHeight="12rem">
+        <div class="doc-name-grid">
+            @foreach (var nested in Nested) {
+                <button type="button" class="doc-link" @key="nested" @onclick="() => OnSelectMessage.InvokeAsync(nested)">
+                    @RelativeName(nested)
+                </button>
+            }
+        </div>
+    </TableScroll>
+}
+
+@code {
+    [Parameter] public IReadOnlyList<string> Nested { get; set; } = [];
+    [Parameter] public string? ParentName { get; set; }
+    [Parameter] public EventCallback<string> OnSelectMessage { get; set; }
+
+    string RelativeName(string full) {
+        var prefix = (ParentName ?? "") + ".";
+        return full.StartsWith(prefix, StringComparison.Ordinal) ? full[prefix.Length..] : full;
+    }
+
+}

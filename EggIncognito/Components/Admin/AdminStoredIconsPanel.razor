@@ -1,0 +1,53 @@
+@using EggIncognito.Models.Admin
+@using EggIncognito.Services.Events
+@inject IServiceProvider Services
+
+<SubSectionHead>
+    <ChildContent>Stored icons</ChildContent>
+    <Tools>
+        <span class="subhead-fact">@Icons.Count stored</span>
+        <button type="button" class="btn-mini" disabled="@IconBusy" @onclick="OnRefresh">Refresh</button>
+    </Tools>
+</SubSectionHead>
+@if (Icons.Count == 0) {
+    <Note>No stored icons. Import one above; the name is how the app asks for it.</Note>
+} else {
+    <TableScroll>
+        <table class="data-table">
+            <thead>
+            <tr>
+                <th>Name</th><th>Platform</th><th>Type</th><th>Bytes</th><th>SHA-256</th><th>Updated</th><th></th>
+            </tr>
+            </thead>
+            <tbody>
+            @foreach (var icon in Icons) {
+                <tr @key="icon.Name">
+                    <td class="mono">@icon.Name</td>
+                    <td class="small">@icon.Platform</td>
+                    <td class="small">@icon.ContentType</td>
+                    <td class="mono">@icon.Bytes.ToString("N0")</td>
+                    <td class="mono">@EggIncognito.Core.Hashes.Short(icon.Sha256)</td>
+                    <td class="muted">@ViewerClock.At(Services, icon.UpdatedAt).ToString("yyyy-MM-dd HH:mm:ss")</td>
+                    <td class="tools">
+                        <button type="button" class="btn-mini btn-danger" disabled="@IconBusy" @onclick="() => OnDelete.InvokeAsync(icon.Name)">Delete</button>
+                    </td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </TableScroll>
+}
+
+@code {
+    [Parameter]
+    public List<IconRow> Icons { get; set; } = [];
+
+    [Parameter]
+    public bool IconBusy { get; set; }
+
+    [Parameter]
+    public EventCallback OnRefresh { get; set; }
+
+    [Parameter]
+    public EventCallback<string> OnDelete { get; set; }
+}

@@ -1,0 +1,2 @@
+.capture-modal-body { display: flex; flex-direction: column; min-height: 70vh; }
+.capture-modal-body ::deep .capture-body { flex: 1 1 0; min-height: 0; }

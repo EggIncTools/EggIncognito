@@ -1,0 +1,40 @@
+@using EggIncognito.Models.Devices
+
+@if (!string.IsNullOrEmpty(Note)) {
+    <div class="dwb-note">@Note</div>
+}
+@if (Running is { } run) {
+    <div class="dwb-job-line dwb-gap">
+        <span class="dwb-status wb-st-run">
+            <Icon Name="play" Class="icon-sm"/>
+            <span>@run.Kind</span>
+        </span>
+        <span class="muted">@run.Message</span>
+    </div>
+}
+@if (Recert is { } rc) {
+    <div class="dwb-job-lines dwb-gap">
+        <div class="dwb-job-line">
+            <span class="dwb-status">
+                <Icon Name="@(rc.Ok ? "circle-check" : "circle-x")"
+                      Class="@($"icon-sm {(rc.Ok ? "text-ok" : "text-err")}")"/>
+                <span>@(rc.Ok ? "recert ok" : "recert failed")</span>
+            </span>
+            @if (!rc.Ok) {
+                <span class="muted">at @(rc.FailedStep ?? "an unknown step")</span>
+            }
+        </div>
+        @if (rc.Fields.TryGetValue("expiry", out var expiry)) {
+            <div class="dwb-job-line muted">expiry @expiry</div>
+        }
+        @foreach (var line in rc.Log) {
+            <div class="dwb-job-line dwb-mono muted">@line</div>
+        }
+    </div>
+}
+
+@code {
+    [Parameter] public string? Note { get; set; }
+    [Parameter] public LiveJob? Running { get; set; }
+    [Parameter] public RecertResultDto? Recert { get; set; }
+}

@@ -1,11 +1,10 @@
 @using System.Text.Json
-@using EggSharp.GameData.Artifacts
 @using EggIncognito.Core.Services.Devices
 @using EggIncognito.Services.Assets
 @using EggSharp.GameData
+@using EggSharp.GameData.Artifacts
 @using EggIncognito.Models.Coverage
 @using EggIncognito.Services.Coverage
-@using EggIncognito.Services.DataApi
 @implements IDisposable
 @inject IServiceScopeFactory Scopes
 @inject IEnumerable<IDevicePanel> Panels
@@ -13,43 +12,11 @@
 @inject IEnumerable<ICoverageAnnotations> Annotations
 @inject ILogger<ConsumeCoveragePane> Logger
 @inject ICurrentUser User
-@inject DataCatalog Catalog
 
     <div class="cov">
-        <div class="cov-headline">
-            <PanelHead Title="Consume coverage"/>
-            <span class="cov-head-tools">
-                @if (_map is { } m) {
-                    <Tooltip Text="Average validity across in-scope cells">
-                        <span class="cov-pct mono" style="@PctStyle(m.Validity)">@Pct(m.Validity)</span>
-                    </Tooltip>
-                    <Tooltip Text="@($"{m.CellsComplete} of {m.CellsInScope} cells complete")">
-                        <span class="cov-tick mono"><Icon Name="layout-grid" Class="icon-sm"/>@m.CellsComplete/@m.CellsInScope</span>
-                    </Tooltip>
-                    <Tooltip Text="@($"{m.Observations:N0} consumed")">
-                        <span class="cov-tick mono"><Icon Name="database" Class="icon-sm"/>@Compact(m.Observations)</span>
-                    </Tooltip>
-                }
-            </span>
-        </div>
+        <ConsumeCoverageHeadlineStats Map="_map"/>
 
-        @if (Catalog.ById("observation", "artifact-consume") is { } src) {
-            <div class="cov-overview">
-                <p class="cov-desc">@src.Description</p>
-                <div class="cov-access meta-dots">
-                    <span class="cov-access-item">
-                        <Icon Name="key" Class="icon-sm"/>
-                        API key with approved Consume observations access
-                    </span>
-                    <span>Request access per key in API keys</span>
-                </div>
-                <DataRouteCurl Url="@Catalog.UrlFor(src)"/>
-                @foreach (var child in Catalog.Children(src)) {
-                    <p class="cov-desc">@child.Description</p>
-                    <DataRouteCurl Url="@Catalog.UrlFor(child)"/>
-                }
-            </div>
-        }
+        <ConsumeCoverageOverview/>
 
         @if (_admin && PanelShelf.Any(Panels, DevicePanelShelves.CoverageHead)) {
             <ToolBar Start="true" Class="cov-head-shelf">
@@ -103,45 +70,7 @@
                         @if (Open(f)) {
                             <tr class="cov-grid-row">
                                 <td colspan="4">
-                                    <div class="cov-grid">
-                                        <span></span>
-                                        @for (int r = 0; r < RarityHeads.Length; r++) {
-                                            <span class="cov-head cov-head-r-@r">
-                                                @RarityHeads[r]
-                                                @if (Annotation(f, r) is { } note) {
-                                                    <span class="cov-head-note">@note</span>
-                                                }
-                                            </span>
-                                        }
-                                        <span></span>
-                                        @foreach (var t in f.Tiers) {
-                                            <Tooltip Text="@t.Name"><span class="cov-tier">T@(t.AfxLevel + 1)</span></Tooltip>
-                                            @for (int r = 0; r < RarityHeads.Length; r++) {
-                                                var cell = t.Cells.FirstOrDefault(c => c.AfxRarity == r);
-                                                if (cell is null) {
-                                                    <span class="cov-cell-none"></span>
-                                                    continue;
-                                                }
-
-                                                <button type="button" class="cov-cell @(cell.InScope ? "" : "cov-cell-off") @(Selected(f, t, cell) ? "cov-cell-sel" : "")"
-                                                        style="@CellStyle(cell)"
-                                                        @onclick="() => Select(f, t, cell)" @onclick:stopPropagation="true">
-                                                    <Tooltip Text="@ArtifactDefinitions.EffectText(f.SpecName, t.AfxLevel, cell.AfxRarity)">
-                                                        <span class="cov-disc bg-r-@cell.AfxRarity"><img src="@IconSrc(f.SpecName, t.AfxLevel)" alt="" loading="lazy"/></span>
-                                                    </Tooltip>
-                                                    <Tooltip Text="@($"{cell.Observations:N0} consumed")">
-                                                        <span class="cov-nk">@Compact(cell.Observations)</span>
-                                                    </Tooltip>
-                                                </button>
-                                            }
-                                            <span></span>
-                                        }
-                                    </div>
-                                    @if (_sel is { } ds && ds.Family == f.SpecName) {
-                                        <div class="cov-drops" @onclick:stopPropagation="true">
-                                            <CoverageDrops Family="@ds.Family" Level="@ds.Level" Rarity="@ds.Rarity" Version="_version"/>
-                                        </div>
-                                    }
+                                    <ConsumeCoverageFamilyGrid Family="f" Selection="_sel" OnSelect="@(((CoverageTier Tier, CoverageCell Cell) x) => Select(f, x.Tier, x.Cell))" Annotation="Annotation" Version="_version"/>
                                 </td>
                             </tr>
                         }
@@ -163,11 +92,6 @@
     [Parameter] public string? DeviceId { get; set; }
 
     [Parameter] public int? AndroidUserId { get; set; }
-
-    static readonly string[] RarityHeads = [
-        .. Enum.GetValues<Ei.ArtifactSpec.Types.Rarity>().OrderBy(r => (int)r)
-            .Select(r => EggIcons.Pretty(r.ToString()))
-    ];
 
     ConsumeCoverageMap? _map;
     bool _noDb;
@@ -239,15 +163,8 @@
         if (!_open.Remove(spec)) _open.Add(spec);
     }
 
-    bool Selected(CoverageFamily f, CoverageTier t, CoverageCell c) =>
-        _sel is { } s && s.Family == f.SpecName && s.Level == t.Level && s.Rarity == c.Rarity;
-
     void Select(CoverageFamily f, CoverageTier t, CoverageCell c) =>
         _sel = new CoverageSelection(f.SpecName, t.Level, c.Rarity, c);
-
-    static string IconSrc(string spec, int level) => ArtifactAssets.IconPath(ArtifactAssets.KeyFor(spec), level + 1);
-
-    static string CellStyle(CoverageCell c) => FormattableString.Invariant($"--v:{c.Validity:0.###};");
 
     static string Pct(double v) => FormattableString.Invariant($"{v * 100:0.#}%");
 

@@ -1,0 +1,108 @@
+@using EggIncognito.Capture
+@inject IServiceProvider Services
+
+<div class="flow-filters">
+    <span class="flow-filters-label">Filters</span>
+    <select class="flow-filter-select" aria-label="API group" value="@Group" @onchange="OnGroupChange">
+        <option value="">All groups</option>
+        @foreach (var g in GroupOptions()) {
+            <option value="@g">@g</option>
+        }
+    </select>
+    <div class="flow-combo">
+        <FilterInput Class="flow-filter-input" Placeholder="path..."
+                     Value="@PathFilter" ValueChanged="@(v => PathFilterChanged.InvokeAsync(v.Trim()))"
+                     @onfocus="@(() => _openCombo = "path")" @onblur="CloseCombo"/>
+        @if (_openCombo == "path") {
+            <div class="popover popover-combo open">
+                @{ List<string> pathOpts = [.. PathOptions()]; }
+                @if (pathOpts.Count == 0) {
+                    <div class="combo-empty">No matches</div>
+                }
+                @foreach (var p in pathOpts) {
+                    <button type="button" class="popover-combo-opt" @onmousedown:preventDefault="true" @onclick="@(() => PickPath(p))">@p</button>
+                }
+            </div>
+        }
+    </div>
+    <div class="flow-combo">
+        <FilterInput Class="flow-filter-input" Placeholder="request/response type..."
+                     Value="@TypeFilter" ValueChanged="@(v => TypeFilterChanged.InvokeAsync(v.Trim()))"
+                     @onfocus="@(() => _openCombo = "type")" @onblur="CloseCombo"/>
+        @if (_openCombo == "type") {
+            <div class="popover popover-combo open">
+                @{ List<string> typeOpts = [.. TypeOptions()]; }
+                @if (typeOpts.Count == 0) {
+                    <div class="combo-empty">No matches</div>
+                }
+                @foreach (var t in typeOpts) {
+                    <button type="button" class="popover-combo-opt" @onmousedown:preventDefault="true" @onclick="@(() => PickType(t))">@t</button>
+                }
+            </div>
+        }
+    </div>
+    <button type="button" class="btn-mini" aria-label="Reset all filters" @onclick="OnClear">
+        <Icon Name="x" Class="icon-sm"/>
+    </button>
+</div>
+
+@code {
+    [Parameter] public IReadOnlyList<DashboardFlow> Flows { get; set; } = [];
+    [Parameter] public string Group { get; set; } = "";
+    [Parameter] public EventCallback<string> GroupChanged { get; set; }
+    [Parameter] public string PathFilter { get; set; } = "";
+    [Parameter] public EventCallback<string> PathFilterChanged { get; set; }
+    [Parameter] public string TypeFilter { get; set; } = "";
+    [Parameter] public EventCallback<string> TypeFilterChanged { get; set; }
+    [Parameter] public EventCallback OnClear { get; set; }
+
+    string? _openCombo;
+
+    Task OnGroupChange(ChangeEventArgs e) => GroupChanged.InvokeAsync(e.Value?.ToString() ?? "");
+
+    void CloseCombo() => _openCombo = null;
+
+    void PickPath(string p) {
+        PathFilterChanged.InvokeAsync(p);
+        _openCombo = null;
+    }
+
+    void PickType(string t) {
+        TypeFilterChanged.InvokeAsync(t);
+        _openCombo = null;
+    }
+
+    IEnumerable<string> GroupOptions() {
+        var set = new SortedSet<string>(StringComparer.Ordinal);
+        if (Services.GetService(typeof(AuxbrainSurface)) is AuxbrainSurface surface) set.UnionWith(surface.Namespaces);
+        foreach (var f in Flows) {
+            var p = f.Path ?? "";
+            var i = p.IndexOf('/');
+            if (i > 0) set.Add(p[..i]);
+        }
+
+        return set;
+    }
+
+    IEnumerable<string> PathOptions() {
+        var seen = new SortedSet<string>(StringComparer.Ordinal);
+        foreach (var f in Flows)
+            if (!string.IsNullOrEmpty(f.Path))
+                seen.Add(f.Path);
+        var q = PathFilter.ToLowerInvariant();
+        return q.Length == 0 ? seen : seen.Where(p => p.ToLowerInvariant().Contains(q));
+    }
+
+    IEnumerable<string> TypeOptions() {
+        var q = TypeFilter.ToLowerInvariant();
+        return q.Length == 0 ? SeenTypes() : SeenTypes().Where(t => t.ToLowerInvariant().Contains(q));
+    }
+
+    IEnumerable<string> SeenTypes() {
+        var set = new SortedSet<string>(StringComparer.Ordinal);
+        set.UnionWith(Flows.SelectMany(f => new[] { f.RequestType, f.ResponseType })
+            .Where(t => !string.IsNullOrEmpty(t))!);
+        return set;
+    }
+
+}

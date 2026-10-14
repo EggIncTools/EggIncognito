@@ -1,0 +1,45 @@
+@using EggIncognito.Models.Notifications
+
+<WorkbenchRail HasFilter="true" Filter="@AdminFilter" FilterChanged="OnAdminFilterChanged"
+               FilterLabel="Filter notifications">
+    <select class="nwb-rail-select" aria-label="Filter by event" @bind="AdminKind" @bind:after="NotifyKindChanged">
+        <option value="">Every event</option>
+        @foreach (var k in Kinds) {
+            <option value="@k.Key">@k.Label</option>
+        }
+    </select>
+    <WorkbenchLoad T="AdminFeedRow" Items="@Rows" EmptyText="@EmptyText"
+                   Context="rows">
+        @foreach (var g in rows.GroupBy(r => r.OwnerUsername, StringComparer.OrdinalIgnoreCase)) {
+            <WorkbenchSection Label="@g.Key">
+                @foreach (var r in g) {
+                    <WorkbenchEntry @key="r.Id" Selected="@(SelectedId == r.Id)"
+                                    Status="@HealthStatusOf(r)" OnClick="@(_ => OnSelect.InvokeAsync(r))">
+                        <Name>@RowLabelOf(r)</Name>
+                        <MetaLine>@r.TargetMasked</MetaLine>
+                        <Foot>@HealthOf(r)</Foot>
+                    </WorkbenchEntry>
+                }
+            </WorkbenchSection>
+        }
+    </WorkbenchLoad>
+</WorkbenchRail>
+
+@code {
+    [Parameter] public string AdminFilter { get; set; } = "";
+    [Parameter] public EventCallback<string> OnAdminFilterChanged { get; set; }
+    [Parameter] public string AdminKind { get; set; } = "";
+    [Parameter] public EventCallback<string> AdminKindChanged { get; set; }
+    [Parameter] public List<KindInfo> Kinds { get; set; } = [];
+    [Parameter] public IReadOnlyCollection<AdminFeedRow>? Rows { get; set; }
+    [Parameter] public string EmptyText { get; set; } = "";
+    [Parameter] public int? SelectedId { get; set; }
+    [Parameter] public Func<AdminFeedRow, WorkbenchStatusKind> HealthStatusOf { get; set; } = null!;
+    [Parameter] public Func<AdminFeedRow, string> HealthOf { get; set; } = null!;
+    [Parameter] public EventCallback<AdminFeedRow> OnSelect { get; set; }
+    [Parameter] public Func<AdminFeedRow, string> RowLabelOf { get; set; } = null!;
+
+    Task NotifyKindChanged() {
+        return AdminKindChanged.InvokeAsync(AdminKind);
+    }
+}

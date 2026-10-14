@@ -1,0 +1,46 @@
+@using EggIncognito.Core.Services.Devices
+@using EggIncognito.Models.Devices
+
+<div class="drm-head">
+    <span class="drm-title">@Title</span>
+    <span class="meta-dots">
+        <span class="drm-elapsed">@Line.Elapsed</span>
+        <DeviceStatusLine Icon="@Line.Icon" IconClass="@Line.IconClass" Text="@Line.State" Detail="@RunDetail"/>
+    </span>
+    <span class="drm-head-tools">
+        @if (ShowStop) {
+            <button type="button" class="btn-mini btn-danger" disabled="@StopBusy" @onclick="OnStop">
+                @(StopBusy ? "Stopping..." : "Stop")
+            </button>
+        }
+        <CopyButton Text="@RunReport" Label="Copy report" ShowIcon="false" Class="btn-mini">
+            <ChildContent>Copy report</ChildContent>
+            <DoneContent>Copied</DoneContent>
+        </CopyButton>
+        @if (RunDone) {
+            <button type="button" class="btn-mini" @onclick="OnDone">Clear</button>
+        }
+    </span>
+</div>
+
+@code {
+
+    [Parameter] public string? Title { get; set; }
+
+    [Parameter] public DeviceRunLine Line { get; set; } = default!;
+
+    [Parameter] public string? RunDetail { get; set; }
+
+    [Parameter] public bool ShowStop { get; set; }
+
+    [Parameter] public bool StopBusy { get; set; }
+
+    [Parameter] public bool RunDone { get; set; }
+
+    [Parameter] public string RunReport { get; set; } = "";
+
+    [Parameter] public EventCallback OnStop { get; set; }
+
+    [Parameter] public EventCallback OnDone { get; set; }
+
+}

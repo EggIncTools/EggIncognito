@@ -1,0 +1,35 @@
+.dcon-count { font-size: 0.75rem; color: var(--color-muted); }
+.dcon-list { table-layout: auto; font-size: 0.75rem; }
+.dcon-list td { white-space: nowrap; vertical-align: middle; }
+.dcon-list td.dcon-cur { width: 1.5rem; padding-right: 0; color: var(--color-muted); }
+.dcon-list td.dcon-list-title { width: 100%; max-width: 0; overflow: hidden; text-overflow: ellipsis; font-family: var(--font-mono); }
+.dcon-list td.dcon-row-tools { text-align: right; }
+.dcon-list td.dcon-row-tools .btn-mini { margin-left: 0.25rem; }
+.dcon-list td.dcon-node-kind { font-family: var(--font-mono); font-size: 0.6875rem; color: var(--color-muted); }
+.dcon-node { cursor: pointer; }
+.dcon-list tbody tr.dcon-node:hover { background-color: var(--color-panel2); }
+.dcon-list tbody tr.dcon-node-on, .dcon-list tbody tr.dcon-node-on:hover { background-color: color-mix(in oklab, var(--color-accent) 14%, transparent); }
+.dcon-sel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  padding: 0.625rem 0.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.5rem;
+  background-color: var(--color-panel2);
+  min-width: 0;
+}
+.dcon-snip-row { display: flex; align-items: center; gap: 0.5rem; min-width: 0; }
+.dcon-snip-by { flex: 0 0 auto; font-size: 0.625rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--color-muted); white-space: nowrap; }
+.dcon-snip {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 0.1875rem 0.375rem;
+  border-radius: 0.25rem;
+  background-color: var(--color-bg);
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  color: var(--color-fg);
+  overflow-x: auto;
+  white-space: pre;
+}

@@ -1,0 +1,69 @@
+@using System.Globalization
+@using System.Text.Json
+@using EggIncognito.Components.Calendar
+@using EggIncognito.Models.Calendar
+@using EggIncognito.Models.Events
+@using EggIncognito.Services.Assets
+@using EggIncognito.Services.Events
+
+@if (Choices(Bar.Item.Prediction) is { Count: > 1 } choices) {
+    var lead = choices[0];
+    <button type="button" class="@(Css + " evcal-bar-multi")" style="@(Style + EventPalette.BarStyle(lead.Type, Bar.Item.Ultra))" @onclick="@(() => OnSelect.InvokeAsync())">
+        @if (EventPalette.IconUrl(lead.Type, Bar.Item.Ultra) is { } leadIcon) {
+            <FallbackImg Class="evcal-bar-icon" Src="@leadIcon" Alt=""/>
+        }
+        <span class="evcal-bar-label">@ChoiceLabel(lead)?</span>
+        <span class="evcal-multi-more">+@(choices.Count - 1)</span>
+        <span class="evcal-multi-strip">
+            @foreach (var choice in choices) {
+                <span class="evcal-multi-seg" @key="choice.Type" style="@(EventPalette.BarStyle(choice.Type, Bar.Item.Ultra) + PctStyle(choice.Probability))"></span>
+            }
+        </span>
+    </button>
+} else {
+    <button type="button" class="@Css" style="@Style" @onclick="@(() => OnSelect.InvokeAsync())">
+        @if (EventPalette.IconUrl(Bar.Item.Type, Bar.Item.Ultra) is { } iconUrl) {
+            <FallbackImg Class="evcal-bar-icon" Src="@iconUrl" Alt=""/>
+        }
+        <span class="evcal-bar-label">@Label(Bar.Item)</span>
+    </button>
+}
+
+@code {
+    const double UncertainConfidence = 0.5;
+
+    [Parameter]
+    public CalendarBar<EventCalendarItem> Bar { get; set; } = null!;
+
+    [Parameter]
+    public string Css { get; set; } = "";
+
+    [Parameter]
+    public string Style { get; set; } = "";
+
+    [Parameter]
+    public EventCallback OnSelect { get; set; }
+
+    static IReadOnlyList<EventCandidate> Choices(EventPrediction? p) =>
+        p is { Candidates.Count: > 1 }
+            ? [.. p.Candidates.Where(c => !string.IsNullOrEmpty(c.Type)).OrderByDescending(c => c.Probability)]
+            : [];
+
+    static string ChoiceLabel(EventCandidate c) => WithMagnitude(EggIcons.Pretty(c.Type), c.Magnitudes);
+
+    static string WithMagnitude(string label, IReadOnlyList<EventMagnitudeOdds> odds) =>
+        odds.Count > 0 && EventMagnitude.Describe(odds[0].Multiplier) is { Length: > 0 } scalar ? $"{label} {scalar}" : label;
+
+    static string PctStyle(double p) => FormattableString.Invariant($"--p:{Math.Clamp(p, 0, 1):0.###};");
+
+    static string Label(EventCalendarItem item) {
+        if (item.Prediction is { } p) {
+            if (p.Type is not { Length: > 0 } type) return p.Ultra ? "Ultra event" : "Standard event";
+            var pretty = WithMagnitude(EggIcons.Pretty(type), p.Magnitudes);
+            return p.Kind is EventRuleKind.Pool or EventRuleKind.Ultra && p.Confidence < UncertainConfidence ? pretty + "?" : pretty;
+        }
+
+        if (item.Event is not { } e) return "";
+        return string.IsNullOrWhiteSpace(e.Message) ? EggIcons.Pretty(e.Type) : e.Message;
+    }
+}

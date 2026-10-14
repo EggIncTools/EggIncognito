@@ -1,0 +1,20 @@
+<div class="dcon-nav" role="group" aria-label="Device navigation">
+    <button type="button" class="dcon-nav-btn" aria-label="Recents" title="Recents"
+            @onclick="@(() => OnKey.InvokeAsync("recents"))">
+        <span class="dcon-nav-recents" aria-hidden="true"></span>
+    </button>
+    <button type="button" class="dcon-nav-btn" aria-label="Home" title="Home"
+            @onclick="@(() => OnKey.InvokeAsync("home"))">
+        <span class="dcon-nav-home" aria-hidden="true"></span>
+    </button>
+    <button type="button" class="dcon-nav-btn" aria-label="Back" title="Back"
+            @onclick="@(() => OnKey.InvokeAsync("back"))">
+        <span class="dcon-nav-back" aria-hidden="true"></span>
+    </button>
+</div>
+
+@code {
+
+    [Parameter] public EventCallback<string> OnKey { get; set; }
+
+}

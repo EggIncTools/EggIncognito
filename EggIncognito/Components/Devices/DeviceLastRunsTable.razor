@@ -1,0 +1,49 @@
+@using EggIncognito.Models.Devices
+
+@if (Jobs.Count > 0) {
+    <TableScroll MaxHeight="12rem">
+        <table class="data-table drm-steps">
+            <tbody>
+            @foreach (var job in Jobs) {
+                <tr class="row-click" @key="job.Id" title="@job.Message" @onclick="@(() => OnOpenRun.InvokeAsync(job))">
+                    <td class="drm-cur">
+                        <Icon Name="@OutcomeIcon(job.State)" Class="@("icon-sm " + OutcomeIconClass(job.State))"/>
+                    </td>
+                    <td class="drm-stamp">@Stamp(job.LastAt)</td>
+                    <td class="drm-step-title drm-run-name">@RunTitle(job)</td>
+                    <td class="drm-step-note">@(job.Outcome ?? job.State)</td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </TableScroll>
+}
+
+@code {
+
+    [Parameter] public List<JobGroupRow> Jobs { get; set; } = [];
+
+    [Parameter] public Func<DateTimeOffset, string> Stamp { get; set; } = _ => "";
+
+    [Parameter] public Func<JobGroupRow, string> RunTitle { get; set; } = _ => "";
+
+    [Parameter] public EventCallback<JobGroupRow> OnOpenRun { get; set; }
+
+    static string OutcomeIcon(string state) {
+        return state.ToLowerInvariant() switch {
+            "succeeded" => "circle-check",
+            "failed" => "circle-x",
+            "running" => "play",
+            _ => "circle"
+        };
+    }
+
+    static string OutcomeIconClass(string state) {
+        return state.ToLowerInvariant() switch {
+            "succeeded" => "text-ok",
+            "failed" => "text-err",
+            _ => "text-muted"
+        };
+    }
+
+}

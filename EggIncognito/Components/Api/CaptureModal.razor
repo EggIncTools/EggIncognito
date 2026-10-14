@@ -1,0 +1,21 @@
+@if (_open) {
+    <ModalShell Title="Capture" TitleId="captureModalTitle" Width="ModalWidth.Large" OnClose="Close">
+        <div class="modal-body capture-modal-body">
+            <CapturePane/>
+        </div>
+    </ModalShell>
+}
+
+@code {
+    bool _open;
+
+    public void Open() {
+        _open = true;
+        StateHasChanged();
+    }
+
+    void Close() {
+        _open = false;
+    }
+
+}

@@ -1,0 +1,4 @@
+.awb-pane { display: flex; flex-direction: column; gap: 0.75rem; min-height: 0; }
+.awb-pane-title { margin: 0; font-size: 0.875rem; font-weight: 600; }
+.capture-note { margin: 0 0 0.75rem; font-size: 0.875rem; color: var(--color-muted); }
+.capture-note-tight { margin-bottom: 0; }

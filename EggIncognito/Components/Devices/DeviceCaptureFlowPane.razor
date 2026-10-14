@@ -1,0 +1,37 @@
+@inherits SelfCallComponentBase
+@inject ICaptureContributionKinds Kinds
+@using EggIncognito.Capture
+@using EggIncognito.Components.Capture
+@using EggIncognito.Models.Devices
+
+<div class="dwb-capture-body">
+    <FlowList Flows="Flows" SelectedId="SelectedId" Connected="Connected"
+              View="View" OnSelect="OnSelect"/>
+    @if (SelectedFlow is { } selected) {
+        <DetailPane Flow="selected" View="View" ClientFactory="Client">
+            <Tools>
+                @if (Kinds.For(selected.Path) is not null) {
+                    <button type="button" class="btn-mini" disabled="@(OfferBusy || OfferedIds.Contains(selected.Id))"
+                            @onclick="@(() => OnOffer.InvokeAsync(selected))">
+                        <Icon Name="send" Class="icon-sm"/>
+                        @(OfferedIds.Contains(selected.Id) ? "Offered" : OfferBusy ? "Offering..." : "Offer for review")
+                    </button>
+                }
+            </Tools>
+        </DetailPane>
+    }
+</div>
+
+@code {
+    [Parameter] public List<DashboardFlow> Flows { get; set; } = [];
+    [Parameter] public long? SelectedId { get; set; }
+    [Parameter] public bool Connected { get; set; }
+    [Parameter] public CaptureViewState View { get; set; } = null!;
+    [Parameter] public DeviceRow Device { get; set; } = null!;
+    [Parameter] public bool OfferBusy { get; set; }
+    [Parameter] public HashSet<long> OfferedIds { get; set; } = [];
+    [Parameter] public EventCallback<long> OnSelect { get; set; }
+    [Parameter] public EventCallback<DashboardFlow> OnOffer { get; set; }
+
+    DashboardFlow? SelectedFlow => SelectedId is { } id ? Flows.FirstOrDefault(f => f.Id == id) : null;
+}

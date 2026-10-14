@@ -66,38 +66,9 @@
                     }
                 </div>
                 @if (IsAndroid) {
-                    <div class="dcon-nav" role="group" aria-label="Device navigation">
-                        <button type="button" class="dcon-nav-btn" aria-label="Recents" title="Recents"
-                                @onclick="@(() => KeyAsync("recents"))">
-                            <span class="dcon-nav-recents" aria-hidden="true"></span>
-                        </button>
-                        <button type="button" class="dcon-nav-btn" aria-label="Home" title="Home"
-                                @onclick="@(() => KeyAsync("home"))">
-                            <span class="dcon-nav-home" aria-hidden="true"></span>
-                        </button>
-                        <button type="button" class="dcon-nav-btn" aria-label="Back" title="Back"
-                                @onclick="@(() => KeyAsync("back"))">
-                            <span class="dcon-nav-back" aria-hidden="true"></span>
-                        </button>
-                    </div>
+                    <DeviceConsoleNavBar OnKey="KeyAsync"/>
                 }
-                <div class="dcon-input">
-                    @if (_captureKeys) {
-                        <span class="dcon-keys-note">keys go to the device</span>
-                    } else {
-                        <input class="field-input dcon-text" aria-label="Text to send" @bind="_text" @bind:event="oninput"
-                               @onkeydown="TextKeyAsync"/>
-                        <button type="button" class="btn-mini" disabled="@(_text.Length == 0)" @onclick="SendTextAsync">
-                            <Icon Name="send" Class="icon-sm"/>
-                            Send
-                        </button>
-                    }
-                    <button type="button" class="btn-mini @(_captureKeys ? "dcon-on" : "")" @onclick="ToggleCapture"
-                            title="Send every keystroke to the device as you type">
-                        <Icon Name="@(_captureKeys ? "circle-check" : "circle")" Class="icon-sm"/>
-                        Live keys
-                    </button>
-                </div>
+                <DeviceConsoleTextInput CaptureKeys="_captureKeys" @bind-Text="_text" OnTextKeyDown="TextKeyAsync" OnSend="SendTextAsync" OnToggleCapture="ToggleCapture"/>
             </div>
 
             <div class="dcon-side">
@@ -112,36 +83,7 @@
                     }
 
                     <div class="dcon-row">
-                        <ToolBar Flat="true">
-                            <span class="tbar-group">
-                                <span class="tbar-k">Stream</span>
-                                <span title="@StreamTitle()">
-                                    <DeviceStatusLine Icon="@StreamIcon()" IconClass="@StreamIconClass()" Text="@StreamLabel()" Detail="@StreamDetail()"/>
-                                </span>
-                            </span>
-                            <span class="tbar-group">
-                                <select class="field-input dcon-rate" aria-label="Quality" value="@QualityValue()" @onchange="QualityPicked">
-                                    @if (_useVideo) {
-                                        <option value="@StreamQuality.Fluid">Fluid</option>
-                                        <option value="@StreamQuality.Balanced">Balanced</option>
-                                        <option value="@StreamQuality.Crisp">Crisp</option>
-                                    } else {
-                                        @foreach (var fps in Rates) {
-                                            <option value="@fps">@fps fps</option>
-                                        }
-                                    }
-                                </select>
-                                <button type="button" class="btn-mini" @onclick="ToggleStreamAsync">
-                                    <Icon Name="@(_live ? "pause" : "play")" Class="icon-sm"/>
-                                    @(_live ? "Pause" : "Resume")
-                                </button>
-                                <button type="button" class="btn-mini @(_mode == DeviceConsoleMode.Record ? "dcon-on" : "")"
-                                        title="Record every tap, hold and swipe on the stage as flow steps" @onclick="ToggleRecord">
-                                    <Icon Name="@(_mode == DeviceConsoleMode.Record ? "circle-check" : "circle")" Class="icon-sm"/>
-                                    Record
-                                </button>
-                            </span>
-                        </ToolBar>
+                        <DeviceConsoleStreamBar StreamIcon="@StreamIcon()" StreamIconClass="@StreamIconClass()" StreamLabel="@StreamLabel()" StreamDetail="@StreamDetail()" StreamTitle="@StreamTitle()" UseVideo="_useVideo" QualityValue="@QualityValue()" Rates="Rates" Live="_live" Recording="@(_mode == DeviceConsoleMode.Record)" OnQualityPicked="QualityPicked" OnToggleStream="ToggleStreamAsync" OnToggleRecord="ToggleRecord"/>
                     </div>
 
                     @if (IsAndroid) {
@@ -173,62 +115,7 @@
                         </div>
 
                         <div class="dcon-record" hidden="@(!State.ShelfIs(DeviceWorkbenchState.ShelfRecord))">
-                            <ToolBar>
-                                <span class="tbar-group">
-                                    <span class="tbar-k">Record</span>
-                                    <span class="dcon-count">@_recorded.Count @(_recorded.Count == 1 ? "step" : "steps")</span>
-                                </span>
-                                <span class="tbar-group">
-                                    <CopyButton Text="@RecordedGesture.FlowText(_recorded)" Label="Copy flow" ShowIcon="false" Class="btn-mini">
-                                        <ChildContent>Copy flow</ChildContent>
-                                        <DoneContent>Copied</DoneContent>
-                                    </CopyButton>
-                                    <button type="button" class="btn-mini" disabled="@(_recorded.Count == 0 || _replaying)" @onclick="ReplayAllAsync">
-                                        <Icon Name="play" Class="icon-sm"/>
-                                        @(_replaying ? "Replaying..." : "Replay")
-                                    </button>
-                                    <button type="button" class="btn-mini" disabled="@(_recorded.Count == 0)" @onclick="ClearRecorded">Clear</button>
-                                </span>
-                            </ToolBar>
-                            @if (_recorded.Count == 0) {
-                                <DeviceStatusLine Muted="true" Text="@(_mode == DeviceConsoleMode.Record ? "Tap, hold or swipe the screen. Each gesture lands here as a flow step at device pixels." : "Press Record in the stream bar, then tap, hold or swipe the screen.")"/>
-                            } else {
-                                <TableScroll MaxHeight="26rem" MinHeight="8rem">
-                                    <table class="data-table dcon-list">
-                                        <tbody>
-                                        @foreach (var index in Enumerable.Range(0, _recorded.Count)) {
-                                            var g = _recorded[index];
-                                            <tr @key="index" class="dcon-node @(ReferenceEquals(_selectedGesture, g) ? "dcon-node-on" : "")"
-                                                @onclick="@(() => SelectGesture(g))">
-                                                <td class="dcon-cur">@(index + 1)</td>
-                                                <td class="dcon-node-kind">@GestureKind(g)</td>
-                                                <td class="dcon-list-title">@g.Where</td>
-                                                <td class="dcon-node-kind">@(g.DurationMs > 0 ? $"{g.DurationMs}ms" : "")</td>
-                                                <td class="dcon-row-tools">
-                                                    <button type="button" class="btn-mini" disabled="@_replaying" title="Replay this step"
-                                                            @onclick="@(() => ReplayAsync(g))" @onclick:stopPropagation="true">
-                                                        <Icon Name="play" Class="icon-sm"/>
-                                                    </button>
-                                                    <button type="button" class="btn-mini" title="Remove this step"
-                                                            @onclick="@(() => RemoveGesture(index))" @onclick:stopPropagation="true">
-                                                        <Icon Name="x" Class="icon-sm"/>
-                                                    </button>
-                                                </td>
-                                            </tr>
-                                        }
-                                        </tbody>
-                                    </table>
-                                </TableScroll>
-                            }
-                            @if (_selectedGesture is { } sel) {
-                                <div class="dcon-sel">
-                                    <div class="dcon-snip-row">
-                                        <span class="dcon-snip-by">step</span>
-                                        <code class="dcon-snip">@sel.StepLine</code>
-                                        <CopyButton Text="@sel.StepLine" Label="Copy flow step" Class="icon-btn icon-btn-sm"/>
-                                    </div>
-                                </div>
-                            }
+                            <DeviceConsoleRecordShelf Recorded="_recorded" SelectedGesture="_selectedGesture" Replaying="_replaying" Mode="_mode" OnSelect="SelectGesture" OnReplay="ReplayAsync" OnReplayAll="ReplayAllAsync" OnRemove="RemoveGesture" OnClear="ClearRecorded"/>
                         </div>
 
                         @Sections
@@ -662,12 +549,6 @@
             _replaying = false;
         }
     }
-
-    static string GestureKind(RecordedGesture g) => g.Kind switch {
-        RecordedGestureKind.Tap => "tap",
-        RecordedGestureKind.Hold => "hold",
-        _ => "swipe"
-    };
 
     string PointStyle(int x, int y) {
         var (fx, fy) = Fraction(x, y);

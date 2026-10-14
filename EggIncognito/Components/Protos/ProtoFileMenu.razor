@@ -1,0 +1,74 @@
+@using EggIncognito.Core.Services.ProtoExtract
+@using EggIncognito.Services.Protos
+
+<div class="pwb-menu-wrap">
+    <button type="button" class="pwb-menu-btn" aria-haspopup="true" disabled="@Disabled"
+            aria-expanded="@(Open ? "true" : "false")" @onclick="OnToggle">
+        File
+    </button>
+    @if (Open) {
+        <div class="popover-backdrop" @onmousedown="OnClose" @onwheel="OnClose"></div>
+        <div class="pwb-menu">
+            <div class="pwb-menu-label">Download</div>
+            @if (RefA is { } dlA) {
+                @DownloadItemTemplate(dlA, "A")
+            }
+            @if (RefB is { } dlB) {
+                @DownloadItemTemplate(dlB, "B")
+            }
+            @if (Bundle is { } dlBundle) {
+                @if (ApiPair is { Length: > 0 } api) {
+                    <a class="pwb-menu-item" href="@($"/api/protos/diff?{api}&format=unified&download=1")"
+                       target="_blank" rel="noopener" @onclick="OnClose">
+                        unified .diff
+                    </a>
+                    <a class="pwb-menu-item" href="@($"/api/protos/diff?{api}&format=json&download=1")"
+                       target="_blank" rel="noopener" @onclick="OnClose">
+                        structural .json
+                    </a>
+                } else {
+                    <button type="button" class="pwb-menu-item"
+                            @onclick="OnSaveUnified">
+                        unified .diff
+                    </button>
+                    <button type="button" class="pwb-menu-item"
+                            @onclick="OnSaveJson">
+                        structural .json
+                    </button>
+                }
+            }
+            <div class="pwb-menu-sep"></div>
+            <div class="pwb-menu-label">Clipboard</div>
+            <CopyButton Text="@ViewText" Class="pwb-menu-item" IconClass="icon-sm" Label="Copy view text">Copy view text</CopyButton>
+            <CopyButton Text="@Permalink" Class="pwb-menu-item" IconClass="icon-sm" Label="Copy permalink">Copy permalink</CopyButton>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public bool Open { get; set; }
+
+    [Parameter] public bool Disabled { get; set; }
+
+    [Parameter] public EventCallback OnToggle { get; set; }
+
+    [Parameter] public EventCallback OnClose { get; set; }
+
+    [Parameter] public ProtoRef? RefA { get; set; }
+
+    [Parameter] public ProtoRef? RefB { get; set; }
+
+    [Parameter] public DiffBundle? Bundle { get; set; }
+
+    [Parameter] public string? ApiPair { get; set; }
+
+    [Parameter] public Func<ProtoRef, string, RenderFragment> DownloadItemTemplate { get; set; } = null!;
+
+    [Parameter] public EventCallback OnSaveUnified { get; set; }
+
+    [Parameter] public EventCallback OnSaveJson { get; set; }
+
+    [Parameter] public string ViewText { get; set; } = "";
+
+    [Parameter] public string Permalink { get; set; } = "";
+}

@@ -27,43 +27,9 @@
             </div>
             @foreach (var island in Islands) {
                 var current = Selected == island.AndroidUserId;
-                <div class="dis-row @(current ? "dis-row-on" : "")" role="option" aria-selected="@(current ? "true" : "false")" @key="island.AndroidUserId">
-                    <button type="button" class="dis-pick" @onclick="@(() => PickAsync(island.AndroidUserId))">
-                        <span class="dis-cur dis-cur-on">
-                            @if (current) {
-                                <Icon Name="check" Class="icon-sm"/>
-                            }
-                        </span>
-                        <span class="dis-name">@Label(island)</span>
-                        <span class="dis-user"
-                              title="@(island.Provisioned ? null : "setup wizard not marked complete for this user; interstitials may cover the app")">
-                            user @island.AndroidUserId@(island.Provisioned ? "" : ", unprovisioned")
-                        </span>
-                    </button>
-                    <button type="button" class="btn-mini btn-danger" title="Remove this island" disabled="@Busy"
-                            @onclick="@(() => OnRemove.InvokeAsync(island.AndroidUserId))">
-                        <Icon Name="x" Class="icon-sm"/>
-                    </button>
-                </div>
+                <DeviceIslandRow @key="island.AndroidUserId" Island="island" Current="current" Busy="Busy" OnPick="PickAsync" OnRemove="OnRemove"/>
             }
-            <div class="dis-foot">
-                @if (_creating) {
-                    <input class="field-input" placeholder="island label" aria-label="New island label"
-                           @bind="_label" @bind:event="oninput" @onkeydown="LabelKeyAsync"/>
-                    <button type="button" class="btn-mini" disabled="@(Busy || _label.Trim().Length == 0)" @onclick="CreateAsync">Create</button>
-                    <button type="button" class="btn-mini" @onclick="CancelCreate">Cancel</button>
-                } else {
-                    <button type="button" class="btn-mini" disabled="@Busy" @onclick="StartCreate">
-                        <Icon Name="plus" Class="icon-sm"/>
-                        New island
-                    </button>
-                    <button type="button" class="btn-mini" disabled="@Busy" @onclick="@(() => OnRefresh.InvokeAsync())">
-                        <Icon Name="refresh-cw" Class="icon-sm"/>
-                        Refresh
-                    </button>
-                    <span class="dis-note">one island runs at a time</span>
-                }
-            </div>
+            <DeviceIslandFooter Busy="Busy" OnCreate="OnCreate" OnRefresh="OnRefresh"/>
         </div>
     }
 </div>
@@ -85,8 +51,6 @@
     [Parameter] public EventCallback OnRefresh { get; set; }
 
     bool _open;
-    bool _creating;
-    string _label = "";
 
     IslandRow? Current => Selected is { } uid ? Islands.FirstOrDefault(i => i.AndroidUserId == uid) : null;
 
@@ -104,44 +68,16 @@
 
     void Toggle() {
         _open = !_open;
-        if (!_open) CancelCreate();
     }
 
     void Close() {
         _open = false;
-        CancelCreate();
     }
 
     async Task PickAsync(int androidUserId) {
         _open = false;
         if (androidUserId == CurrentUser()) return;
         await OnSwitch.InvokeAsync(androidUserId);
-    }
-
-
-    void StartCreate() {
-        _creating = true;
-        _label = "";
-    }
-
-    void CancelCreate() {
-        _creating = false;
-        _label = "";
-    }
-
-    Task LabelKeyAsync(KeyboardEventArgs e) {
-        if (e.Key == "Enter") return CreateAsync();
-        if (e.Key == "Escape") CancelCreate();
-        return Task.CompletedTask;
-    }
-
-    async Task CreateAsync() {
-        var label = _label.Trim();
-        if (label.Length == 0) return;
-        _creating = false;
-        _label = "";
-        _open = false;
-        await OnCreate.InvokeAsync(label);
     }
 
 }

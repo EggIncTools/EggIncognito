@@ -1,0 +1,27 @@
+@using EggIncognito.Services.Protos
+
+@if (_subset.Count > 0) {
+    <div class="reg-split-col">
+        <div class="reg-split-head">
+            <PlatformIcon Platform="@Platform"/>
+            <span>@PageMeta.PlatformLabel(Platform)</span>
+        </div>
+        <ProtosRegistryTable Rows="_subset" PlatformIcons="false" OnOpenVersion="OnOpenVersion" OnOpenGroup="OnOpenGroup"/>
+    </div>
+}
+
+@code {
+    [Parameter] public string Platform { get; set; } = null!;
+
+    [Parameter] public List<ProtoRegistryRow> Rows { get; set; } = [];
+
+    [Parameter] public EventCallback<ProtoRegistryRow> OnOpenVersion { get; set; }
+
+    [Parameter] public EventCallback<string> OnOpenGroup { get; set; }
+
+    List<ProtoRegistryRow> _subset = [];
+
+    protected override void OnParametersSet() {
+        _subset = Rows.Where(r => string.Equals(r.Platform, Platform, StringComparison.OrdinalIgnoreCase)).ToList();
+    }
+}

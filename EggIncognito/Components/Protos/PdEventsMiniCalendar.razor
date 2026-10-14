@@ -1,0 +1,71 @@
+@using EggIncognito.Components.Calendar
+@using EggIncognito.Models.Calendar
+@using EggIncognito.Models.Events
+@using EggIncognito.Services.Calendar
+@using EggIncognito.Services.Events
+@using EggIncognito.Services.Assets
+@inherits SelfCallComponentBase
+@inject ILogger<PdEventsMiniCalendar> Logger
+
+<button type="button" class="pd-cal-title" @onclick="@(() => OnOpenEvents.InvokeAsync())">
+    Events<Icon Name="chevron-right" Class="icon-sm"/>
+</button>
+<MiniCalendar TItem="EventCalendarItem" Load="LoadMiniEvents" EmptyNote="No events in the last week.">
+    <Bar>
+        @{ var e = context.Item.Event!; }
+        <div class="evcal-bar-tip" style="@EventBarStyle(context)">
+            <Tooltip>
+                <ChildContent>
+                    <button type="button" class="@CalendarBars.Css(context)" @onclick="@(() => OnOpenEvents.InvokeAsync())">
+                        @if (EventPalette.IconUrl(e.Type, e.Ultra) is { } iconUrl) {
+                            <FallbackImg Class="evcal-bar-icon" Src="@iconUrl" Alt=""/>
+                        }
+
+                        <span class="evcal-bar-label">@EventMagnitude.Scalar(e)</span>
+                    </button>
+                </ChildContent>
+                <Content>
+                    <span class="tt-title">@EventLabel(e)</span>
+                    @if (e.Ultra) {
+                        <span class="tt-ultra">ULTRA ONLY</span>
+                    }
+
+                    <span class="tt-line">@EventCountdown.Describe(e.StartTimestamp, e.EndTimestamp, DateTimeOffset.UtcNow)</span>
+                </Content>
+            </Tooltip>
+        </div>
+    </Bar>
+</MiniCalendar>
+<WatchList Source="/api/v1/events/predictions/watch" PrefKey="watch.events"
+           AddLabel="Pin event" Placeholder="event type..." EmptyNote="Pin event types to see their last run and next predicted dates."/>
+
+@code {
+    [Parameter] public EventCallback OnOpenEvents { get; set; }
+
+    const int MiniFetchLimit = 500;
+
+    async Task<CalendarItemsLoad<EventCalendarItem>> LoadMiniEvents(DateTimeOffset start, DateTimeOffset end) {
+        if (Speculative) return CalendarItemsLoad.Ok<EventCalendarItem>([]);
+        var url = FormattableString.Invariant(
+            $"/api/v1/events?after={UnixSeconds.FromTime(start):0}&before={UnixSeconds.FromTime(end):0}&limit={MiniFetchLimit}");
+        try {
+            var res = await Client().GetAsync(url);
+            if ((int)res.StatusCode == 503) return CalendarItemsLoad.Failed<EventCalendarItem>("Event history needs a database. This instance has none.");
+            if (!res.IsSuccessStatusCode) return CalendarItemsLoad.Failed<EventCalendarItem>("Events could not be loaded.");
+            var body = await res.Content.ReadFromJsonAsync<GameEventListResponse>(JsonPresets.Web);
+            return CalendarItemsLoad.Ok<EventCalendarItem>([.. (body?.Events ?? []).Select(EventCalendarItem.Of)]);
+        } catch (Exception ex) {
+            Logger.LogWarning(ex, "the mini event calendar could not be loaded");
+            return CalendarItemsLoad.Failed<EventCalendarItem>("Events could not be loaded.");
+        }
+    }
+
+    static string EventBarStyle(CalendarBar<EventCalendarItem> bar) {
+        var e = bar.Item.Event!;
+        return CalendarBars.PositionStyle(bar) + EventPalette.BarStyle(e.Type, e.Ultra);
+    }
+
+    static string EventLabel(GameEventDto e) {
+        return string.IsNullOrWhiteSpace(e.Message) ? EggIcons.Pretty(e.Type) : e.Message;
+    }
+}

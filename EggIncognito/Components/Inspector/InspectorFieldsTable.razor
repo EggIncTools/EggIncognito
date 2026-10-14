@@ -1,0 +1,49 @@
+@using EggIncognito.Models.Docs
+@using EggIncognito.Services.Docs
+@using EggIncognito.Services.Inspector
+@inject IDocUsageIndex Usage
+
+<div class="doc-section-title">Fields (@Fields.Count)</div>
+@if (Fields.Count == 0) {
+    <div class="doc-none">This message has no fields.</div>
+} else {
+    <TableScroll MaxHeight="24rem">
+        <table class="data-table">
+            <thead>
+            <tr>
+                <th class="doc-field-num">#</th>
+                <th>Name</th>
+                <th>Type</th>
+                <th>Kind</th>
+            </tr>
+            </thead>
+            <tbody>
+            @foreach (var f in Fields) {
+                <tr @key="f.Number">
+                    <td class="doc-field-num">@f.Number</td>
+                    <td class="mono">@f.Name</td>
+                    <td>
+                        @if (f.Type == "message" && Usage.IsKnown(f.MessageType)) {
+                            <button type="button" class="doc-link" @onclick="() => OnSelectMessage.InvokeAsync(f.MessageType!)">
+                                @f.MessageType
+                            </button>
+                        } else {
+                            <span class="mono muted">@(f.MessageType ?? f.Type)</span>
+                        }
+                    </td>
+                    <td class="muted">@FieldKind(f)</td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </TableScroll>
+}
+
+@code {
+    [Parameter] public IReadOnlyList<SchemaField> Fields { get; set; } = [];
+    [Parameter] public EventCallback<string> OnSelectMessage { get; set; }
+
+    static string FieldKind(SchemaField f) {
+        return f.Repeated ? "repeated" : f.Required ? "required" : "optional";
+    }
+}

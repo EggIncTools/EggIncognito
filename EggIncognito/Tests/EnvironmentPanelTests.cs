@@ -7,7 +7,7 @@ using Microsoft.Extensions.DependencyInjection;
 namespace EggIncognito.Tests;
 
 public class EnvironmentPanelTests : BunitContext {
-    private readonly ApiWorkbenchState _state = new();
+    private readonly ApisWorkbenchState _state = new();
 
     private IRenderedComponent<EnvironmentPanel> RenderPanel() {
         Services.AddSingleton(_state);

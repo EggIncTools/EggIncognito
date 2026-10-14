@@ -1,0 +1,33 @@
+.dcon-nav {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: space-evenly;
+  box-sizing: border-box;
+  width: calc(var(--dcon-stage-h, 30rem) * 9 / 19.5);
+  max-width: 100%;
+  height: var(--dcon-nav-h);
+  margin-top: var(--dcon-nav-gap);
+  padding: 0 1.25rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.5rem;
+  background-color: var(--color-panel2);
+}
+.dcon-nav-btn {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 3rem;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background-color: transparent;
+  color: var(--color-fg);
+  cursor: pointer;
+}
+.dcon-nav-btn:hover { color: var(--color-accent); }
+.dcon-nav-back { width: 0; height: 0; border-top: 0.4375rem solid transparent; border-bottom: 0.4375rem solid transparent; border-right: 0.5rem solid currentColor; }
+.dcon-nav-home { width: 0.8125rem; height: 0.8125rem; border: 2px solid currentColor; border-radius: 50%; }
+.dcon-nav-recents { width: 0.75rem; height: 0.75rem; border: 2px solid currentColor; border-radius: 0.125rem; }

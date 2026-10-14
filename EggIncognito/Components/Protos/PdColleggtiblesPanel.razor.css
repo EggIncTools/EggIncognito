@@ -1,0 +1,54 @@
+.pd-w-cegg { order: 5; min-width: 0; max-width: 100%; }
+@container pdmod (min-width: 60rem) {
+  .pd-w-cegg { order: 0; }
+}
+.cegg-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem; }
+.cegg-title { margin: 0; font-size: 0.875rem; font-weight: 600; }
+.cegg-scroll { max-width: 100%; overflow-x: auto; scrollbar-width: thin; border: 1px solid var(--color-border); border-radius: 0.375rem; }
+.cegg-scroll .cegg-table { border: 0; border-radius: 0; }
+.cegg-table th, .cegg-table td { white-space: nowrap; }
+.cegg-table thead th { vertical-align: bottom; }
+.cegg-table .cegg-tier-group { text-align: center; }
+.cegg-table .cegg-tier { text-align: right; width: 2.75rem; }
+.cegg-table .cegg-tier-first { border-left: 1px solid var(--color-border); }
+.cegg-ident { display: flex; align-items: center; gap: 0.625rem; }
+.cegg-table ::deep .cegg-icon { flex: none; width: 1.875rem; height: 1.875rem; object-fit: contain; }
+@container pdmod (max-width: 34rem) {
+  .cegg-ident { flex-direction: column; align-items: center; gap: 0.25rem; text-align: center; }
+  .cegg-name-text { font-size: 0.6875rem; white-space: normal; line-height: 1.2; }
+  .cegg-table th, .cegg-table td { padding-inline: 0.375rem; }
+  .cegg-table .cegg-tier { width: auto; }
+  .cegg-dim { text-align: left; }
+  .cegg-chip { white-space: normal; }
+}
+.cegg-none { font-size: 0.75rem; color: var(--color-muted); }
+.cegg-name { color: var(--color-accent); }
+.cegg-dim { font-size: 0.75rem; color: var(--color-muted); text-align: right; }
+.cegg-chip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.3rem;
+  padding: 0.0625rem 0.375rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.25rem;
+  background-color: var(--color-bg);
+  font-size: 0.6875rem;
+  color: var(--color-fg-soft);
+}
+.cegg-chip-unit { font-family: var(--font-mono); color: var(--color-muted); }
+.cegg-table td.mono { font-size: 0.75rem; }
+.cegg-legend {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  margin-top: 0.75rem;
+  padding: 0.5rem 0.625rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.375rem;
+  background-color: var(--color-panel2);
+}
+.cegg-legend-k { font-size: 0.625rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--color-muted); }
+.cegg-legend-list { margin: 0; padding-left: 1rem; list-style: disc; columns: 3; column-gap: 1.75rem; }
+.cegg-legend-list > li { break-inside: avoid; }
+.cegg-legend-chip { font-size: 0.6875rem; color: var(--color-muted); opacity: 0.55; }
+.cegg-legend-chip.cegg-legend-on { color: var(--color-fg-soft); opacity: 1; }

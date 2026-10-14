@@ -1,0 +1,122 @@
+@using System.Globalization
+@using EggIncognito.Models.Devices
+@using EggIncognito.Services.Devices
+
+<ToolBar Flat="true">
+    <span class="tbar-group">
+        <span class="tbar-k">Locks</span>
+        @if (Watch.Points.Count > 0) {
+            <button type="button" class="btn-mini @(Watch.Paused ? "dlk-on" : "")" disabled="@Busy" @onclick="@(() => OnTogglePause.InvokeAsync())"
+                    title="@(Watch.Paused ? "Resume tapping every locked point" : "Stop tapping every locked point; the points stay")">
+                <Icon Name="@(Watch.Paused ? "play" : "pause")" Class="icon-sm"/>
+                @(Watch.Paused ? "Resume all" : "Pause all")
+            </button>
+        }
+        <button type="button" class="btn-mini @(Arming ? "active" : "")" title="@ArmTitle" @onclick="@(() => ArmingChanged.InvokeAsync(!Arming))">
+            <Icon Name="eye" Class="icon-sm"/>
+            @(Arming ? "Tap the screen" : "Lock a point")
+        </button>
+        <select class="field-input dlk-kind" aria-label="Click type for new points" value="@NewKind" @onchange="NewKindChanged">
+            <option value="@PixelWatchKinds.Tap">tap</option>
+            <option value="@PixelWatchKinds.Double">double</option>
+            <option value="@PixelWatchKinds.Hold">hold</option>
+        </select>
+        @if (NewKind == PixelWatchKinds.Hold) {
+            <label class="dlk-num-label">hold
+                <input type="number" class="field-input dlk-num" aria-label="Hold length in ms" min="@PixelWatchService.MinHoldMs"
+                       max="@PixelWatchService.MaxHoldMs" step="50" value="@NewHoldMs" @onchange="NewHoldMsChangedHandler"/>
+                <span class="dlk-unit">ms</span>
+            </label>
+        }
+        <label class="dlk-num-label">every
+            <input type="number" class="field-input dlk-num" aria-label="Click rate in ms" min="@PixelWatchService.MinRateMs"
+                   max="@PixelWatchService.MaxRateMs" step="50" value="@NewRateMs" @onchange="NewRateMsChangedHandler"/>
+            <span class="dlk-unit">ms</span>
+        </label>
+    </span>
+    <span class="tbar-group">
+        @if (CanGroup) {
+            <label class="dlk-num-label">offset
+                <input type="number" class="field-input dlk-num" aria-label="Gap between grouped taps in ms" min="0"
+                       max="@PixelWatchService.MaxOffsetMs" step="10" value="@OffsetMs" @onchange="OffsetMsChangedHandler"/>
+                <span class="dlk-unit">ms</span>
+            </label>
+            <button type="button" class="btn-mini" disabled="@Busy" @onclick="@(() => OnGroupSelected.InvokeAsync())">
+                <Icon Name="link" Class="icon-sm"/>
+                Group @SelectedCount
+            </button>
+        } else if (SelectedCount >= 2) {
+            <span class="dlk-unit">grouped points must share a colour</span>
+        }
+        @if (Watch.Points.Count > 0) {
+            <button type="button" class="btn-mini btn-danger" disabled="@Busy" @onclick="@(() => OnClearAll.InvokeAsync())">Clear all</button>
+        }
+    </span>
+    @if (Arming) {
+        <span class="tbar-group tbar-fill">
+            <DeviceStatusLine Icon="eye" IconClass="text-accent" Text="tap the screen"/>
+        </span>
+    } else if (Watch.Points.Count > 0 && Watch.Paused) {
+        <span class="tbar-group tbar-fill">
+            <DeviceStatusLine Icon="pause" Text="paused" Muted="true"/>
+        </span>
+    }
+</ToolBar>
+
+@code {
+
+    [Parameter] public PixelWatchState Watch { get; set; } = PixelWatchState.Empty;
+
+    [Parameter] public bool Busy { get; set; }
+
+    [Parameter] public bool Arming { get; set; }
+
+    [Parameter] public EventCallback<bool> ArmingChanged { get; set; }
+
+    [Parameter] public string ArmTitle { get; set; } = "";
+
+    [Parameter] public string NewKind { get; set; } = PixelWatchKinds.Tap;
+
+    [Parameter] public EventCallback<ChangeEventArgs> NewKindChanged { get; set; }
+
+    [Parameter] public int NewHoldMs { get; set; }
+
+    [Parameter] public EventCallback<int> NewHoldMsChanged { get; set; }
+
+    [Parameter] public int NewRateMs { get; set; }
+
+    [Parameter] public EventCallback<int> NewRateMsChanged { get; set; }
+
+    [Parameter] public int OffsetMs { get; set; }
+
+    [Parameter] public EventCallback<int> OffsetMsChanged { get; set; }
+
+    [Parameter] public int SelectedCount { get; set; }
+
+    [Parameter] public bool CanGroup { get; set; }
+
+    [Parameter] public EventCallback OnTogglePause { get; set; }
+
+    [Parameter] public EventCallback OnGroupSelected { get; set; }
+
+    [Parameter] public EventCallback OnClearAll { get; set; }
+
+    async Task NewHoldMsChangedHandler(ChangeEventArgs e) {
+        if (int.TryParse(e.Value?.ToString(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var n)) {
+            await NewHoldMsChanged.InvokeAsync(n);
+        }
+    }
+
+    async Task NewRateMsChangedHandler(ChangeEventArgs e) {
+        if (int.TryParse(e.Value?.ToString(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var n)) {
+            await NewRateMsChanged.InvokeAsync(n);
+        }
+    }
+
+    async Task OffsetMsChangedHandler(ChangeEventArgs e) {
+        if (int.TryParse(e.Value?.ToString(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var n)) {
+            await OffsetMsChanged.InvokeAsync(n);
+        }
+    }
+
+}

@@ -15,7 +15,8 @@ public static class WorkbenchRegistration {
         services.AddScoped<ProtoWorkbenchState>();
         services.AddScoped<DeviceWorkbenchState>();
         services.AddScoped<NotificationsWorkbenchState>();
-        services.AddScoped<ApiWorkbenchState>();
+        services.AddScoped<ApisWorkbenchState>();
+        services.AddScoped<DataWorkbenchState>();
         services.AddScoped<EventsWorkbenchState>();
         services.AddScoped<ContractsWorkbenchState>();
         services.AddScoped<AdminWorkbenchState>();

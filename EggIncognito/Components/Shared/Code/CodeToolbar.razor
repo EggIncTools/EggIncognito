@@ -1,0 +1,56 @@
+@using EggIncognito.Core.Services.Syntax
+<div class="code-toolbar">
+    @if (ShowLanguagePicker) {
+        <select class="code-select code-lang" aria-label="Syntax language" value="@LanguageNow"
+                @onchange="LanguageChanged">
+            @foreach (var option in SyntaxHighlighter.Options) {
+                <option value="@option.Id">@option.Label</option>
+            }
+        </select>
+    }
+    @Tools
+    @if (ShowFilter && Filter is null) {
+        <FilterInput Class="code-filter" Placeholder="Filter" AriaLabel="Filter lines"
+                     Value="@FilterValue" ValueChanged="FilterValueChanged"/>
+    }
+    <span class="code-toolbar-gap"></span>
+    @Actions
+    @if (ShowGutterToggle && GutterActive) {
+        <button type="button" class="btn-mini code-toggle-gutter @(GutterOff ? "" : "code-toggle-on")"
+                @onclick="ToggleGutter">
+            @GutterLabelText
+        </button>
+    }
+    @if (ShowWrapToggle) {
+        <button type="button" class="btn-mini code-toggle-wrap @(WrapNow ? "code-toggle-on" : "")"
+                disabled="@WrapLocked" @onclick="ToggleWrap">
+            Wrap
+        </button>
+    }
+    @if (ShowCopy) {
+        <CopyButton Text="@CopyText" Class="btn-mini data-copy" IconClass="icon-sm">Copy</CopyButton>
+    }
+</div>
+
+@code {
+    [Parameter] public bool ShowLanguagePicker { get; set; }
+    [Parameter] public string LanguageNow { get; set; } = "text";
+    [Parameter] public EventCallback<ChangeEventArgs> LanguageChanged { get; set; }
+    [Parameter] public RenderFragment? Tools { get; set; } = null!;
+    [Parameter] public bool ShowFilter { get; set; }
+    [Parameter] public string? Filter { get; set; } = null;
+    [Parameter] public string FilterValue { get; set; } = "";
+    [Parameter] public EventCallback<string> FilterValueChanged { get; set; }
+    [Parameter] public RenderFragment? Actions { get; set; } = null!;
+    [Parameter] public bool ShowGutterToggle { get; set; }
+    [Parameter] public bool GutterActive { get; set; }
+    [Parameter] public bool GutterOff { get; set; }
+    [Parameter] public string GutterLabelText { get; set; } = "";
+    [Parameter] public EventCallback ToggleGutter { get; set; }
+    [Parameter] public bool ShowWrapToggle { get; set; }
+    [Parameter] public bool WrapNow { get; set; }
+    [Parameter] public bool WrapLocked { get; set; }
+    [Parameter] public EventCallback ToggleWrap { get; set; }
+    [Parameter] public bool ShowCopy { get; set; }
+    [Parameter] public string CopyText { get; set; } = "";
+}

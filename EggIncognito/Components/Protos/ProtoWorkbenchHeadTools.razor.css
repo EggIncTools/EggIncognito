@@ -1,0 +1,4 @@
+.pwb-split-btn { display: none; }
+@media (min-width: 100rem) {
+  .pwb-split-btn { display: inline-flex; }
+}

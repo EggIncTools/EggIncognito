@@ -1,0 +1,7 @@
+.code-scroll { flex: 1 1 auto; min-height: 0; overflow: auto; scrollbar-gutter: stable; }
+.code-rows { font-family: var(--font-mono); font-size: 0.75rem; min-width: max-content; padding: 0.375rem 0; }
+.code-note { padding: 0 0.5rem; color: var(--color-muted); font-family: var(--font-mono); font-size: 0.75rem; }
+.code-wrap { min-width: 0; }
+.code-wrap ::deep .code-row { height: auto; min-height: var(--code-row-h); align-items: start; }
+.code-wrap ::deep .code-line { white-space: pre-wrap; overflow-wrap: break-word; word-break: normal; hyphens: none; -webkit-hyphens: none; }
+.code-rows ::deep mark, .code-rows ::deep .code-mark { padding-inline: 1px; border-radius: 0.125rem; background-color: var(--code-mark-bg); color: var(--code-mark-fg); }

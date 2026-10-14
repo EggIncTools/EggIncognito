@@ -1,0 +1,15 @@
+.section-head { display: flex; align-items: center; justify-content: space-between; margin: 14px 0 6px; }
+.section-head h3 { margin: 0; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--color-muted); }
+.params-box {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  margin-bottom: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.375rem;
+  background-color: var(--color-panel2);
+}
+.param-row { display: flex; gap: 0.75rem; align-items: baseline; font-size: 0.75rem; }
+.param-label { flex: none; min-width: 76px; color: var(--color-muted); }
+.param-val { font-family: var(--font-mono); color: var(--color-fg); overflow-wrap: break-word; word-break: normal; hyphens: none; -webkit-hyphens: none; }

@@ -1,0 +1,66 @@
+@using EggIncognito.Core.Services.Devices
+@using EggIncognito.Models.Devices
+@using EggIncognito.Services.Devices
+
+<div class="dcon-row">
+    <ToolBar Flat="true">
+        <span class="tbar-group">
+            <span class="tbar-k">Stream</span>
+            <span title="@StreamTitle">
+                <DeviceStatusLine Icon="@StreamIcon" IconClass="@StreamIconClass" Text="@StreamLabel" Detail="@StreamDetail"/>
+            </span>
+        </span>
+        <span class="tbar-group">
+            <select class="field-input dcon-rate" aria-label="Quality" value="@QualityValue" @onchange="OnQualityPicked">
+                @if (UseVideo) {
+                    <option value="@StreamQuality.Fluid">Fluid</option>
+                    <option value="@StreamQuality.Balanced">Balanced</option>
+                    <option value="@StreamQuality.Crisp">Crisp</option>
+                } else {
+                    @foreach (var fps in Rates) {
+                        <option value="@fps">@fps fps</option>
+                    }
+                }
+            </select>
+            <button type="button" class="btn-mini" @onclick="OnToggleStream">
+                <Icon Name="@(Live ? "pause" : "play")" Class="icon-sm"/>
+                @(Live ? "Pause" : "Resume")
+            </button>
+            <button type="button" class="btn-mini @(Recording ? "dcon-on" : "")"
+                    title="Record every tap, hold and swipe on the stage as flow steps" @onclick="OnToggleRecord">
+                <Icon Name="@(Recording ? "circle-check" : "circle")" Class="icon-sm"/>
+                Record
+            </button>
+        </span>
+    </ToolBar>
+</div>
+
+@code {
+
+    [Parameter] public string StreamIcon { get; set; } = "";
+
+    [Parameter] public string StreamIconClass { get; set; } = "";
+
+    [Parameter] public string StreamLabel { get; set; } = "";
+
+    [Parameter] public string? StreamDetail { get; set; }
+
+    [Parameter] public string StreamTitle { get; set; } = "";
+
+    [Parameter] public bool UseVideo { get; set; }
+
+    [Parameter] public string QualityValue { get; set; } = "";
+
+    [Parameter] public int[] Rates { get; set; } = [];
+
+    [Parameter] public bool Live { get; set; }
+
+    [Parameter] public bool Recording { get; set; }
+
+    [Parameter] public EventCallback<ChangeEventArgs> OnQualityPicked { get; set; }
+
+    [Parameter] public EventCallback OnToggleStream { get; set; }
+
+    [Parameter] public EventCallback OnToggleRecord { get; set; }
+
+}

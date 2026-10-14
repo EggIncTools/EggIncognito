@@ -1,0 +1,86 @@
+@using EggIncognito.Models.Devices
+
+<ToolBar>
+    <span class="tbar-group">
+        <span class="tbar-k">Record</span>
+        <span class="dcon-count">@Recorded.Count @(Recorded.Count == 1 ? "step" : "steps")</span>
+    </span>
+    <span class="tbar-group">
+        <CopyButton Text="@RecordedGesture.FlowText(Recorded)" Label="Copy flow" ShowIcon="false" Class="btn-mini">
+            <ChildContent>Copy flow</ChildContent>
+            <DoneContent>Copied</DoneContent>
+        </CopyButton>
+        <button type="button" class="btn-mini" disabled="@(Recorded.Count == 0 || Replaying)" @onclick="@(() => OnReplayAll.InvokeAsync())">
+            <Icon Name="play" Class="icon-sm"/>
+            @(Replaying ? "Replaying..." : "Replay")
+        </button>
+        <button type="button" class="btn-mini" disabled="@(Recorded.Count == 0)" @onclick="@(() => OnClear.InvokeAsync())">Clear</button>
+    </span>
+</ToolBar>
+@if (Recorded.Count == 0) {
+    <DeviceStatusLine Muted="true" Text="@(Mode == DeviceConsoleMode.Record ? "Tap, hold or swipe the screen. Each gesture lands here as a flow step at device pixels." : "Press Record in the stream bar, then tap, hold or swipe the screen.")"/>
+} else {
+    <TableScroll MaxHeight="26rem" MinHeight="8rem">
+        <table class="data-table dcon-list">
+            <tbody>
+            @foreach (var index in Enumerable.Range(0, Recorded.Count)) {
+                var g = Recorded[index];
+                <tr @key="index" class="dcon-node @(ReferenceEquals(SelectedGesture, g) ? "dcon-node-on" : "")"
+                    @onclick="@(() => OnSelect.InvokeAsync(g))">
+                    <td class="dcon-cur">@(index + 1)</td>
+                    <td class="dcon-node-kind">@GestureKind(g)</td>
+                    <td class="dcon-list-title">@g.Where</td>
+                    <td class="dcon-node-kind">@(g.DurationMs > 0 ? $"{g.DurationMs}ms" : "")</td>
+                    <td class="dcon-row-tools">
+                        <button type="button" class="btn-mini" disabled="@Replaying" title="Replay this step"
+                                @onclick="@(() => OnReplay.InvokeAsync(g))" @onclick:stopPropagation="true">
+                            <Icon Name="play" Class="icon-sm"/>
+                        </button>
+                        <button type="button" class="btn-mini" title="Remove this step"
+                                @onclick="@(() => OnRemove.InvokeAsync(index))" @onclick:stopPropagation="true">
+                            <Icon Name="x" Class="icon-sm"/>
+                        </button>
+                    </td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </TableScroll>
+}
+@if (SelectedGesture is { } sel) {
+    <div class="dcon-sel">
+        <div class="dcon-snip-row">
+            <span class="dcon-snip-by">step</span>
+            <code class="dcon-snip">@sel.StepLine</code>
+            <CopyButton Text="@sel.StepLine" Label="Copy flow step" Class="icon-btn icon-btn-sm"/>
+        </div>
+    </div>
+}
+
+@code {
+
+    [Parameter] public List<RecordedGesture> Recorded { get; set; } = [];
+
+    [Parameter] public RecordedGesture? SelectedGesture { get; set; }
+
+    [Parameter] public bool Replaying { get; set; }
+
+    [Parameter] public DeviceConsoleMode Mode { get; set; }
+
+    [Parameter] public EventCallback<RecordedGesture> OnSelect { get; set; }
+
+    [Parameter] public EventCallback<RecordedGesture> OnReplay { get; set; }
+
+    [Parameter] public EventCallback OnReplayAll { get; set; }
+
+    [Parameter] public EventCallback<int> OnRemove { get; set; }
+
+    [Parameter] public EventCallback OnClear { get; set; }
+
+    static string GestureKind(RecordedGesture g) => g.Kind switch {
+        RecordedGestureKind.Tap => "tap",
+        RecordedGestureKind.Hold => "hold",
+        _ => "swipe"
+    };
+
+}

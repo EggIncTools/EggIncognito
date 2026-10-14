@@ -49,25 +49,17 @@
                                    CaptureCount="@(_hub is null ? null : _flows.Count)" JobCount="@_jobs?.Count"
                                    BinaryCount="@BinaryCount(dev)">
                     <Actions>
-                        <button type="button" class="btn-primary" disabled="@Busy" @onclick="@(() => Act($"/api/devices/{Current!.Id}/refresh", "probed"))">
-                            <Icon Name="refresh-cw" Class="icon-sm"/>
-                            Probe
-                        </button>
-                        <button type="button" class="btn-mini" disabled="@Busy" @onclick="@(() => Act($"/api/devices/{Current!.Id}/check-update", "store check started"))">Check store</button>
-                        <button type="button" class="btn-mini" disabled="@Busy" @onclick="RestartApp">Restart app</button>
-                        @if (Platforms.Matches(dev.Platform, Platforms.Android)) {
-                            <button type="button" class="btn-mini" disabled="@Busy" @onclick="Recert">Recert</button>
-                        }
-
-                        @if (_harvest is { InRegistry: false }) {
-                            <button type="button" class="btn-mini" disabled="@Busy" @onclick="@(() => Act($"/api/devices/{Current!.Id}/save", "installed to registry"))">
-                                Save to registry
-                            </button>
-                        }
-
-                        <button type="button" class="btn-mini" disabled="@Busy" @onclick="@(() => Act($"/api/devices/{Current!.Id}/poke", "harvest queued"))">Poke harvest</button>
+                        <DeviceActionsToolbar DeviceId="@dev.Id" Platform="@dev.Platform" Busy="Busy" InRegistry="@(_harvest is not { InRegistry: false })"
+                                              OnProbe="@(() => Act($"/api/devices/{dev.Id}/refresh", "probed"))"
+                                              OnCheckStore="@(() => Act($"/api/devices/{dev.Id}/check-update", "store check started"))"
+                                              OnRestartApp="RestartApp"
+                                              OnRecert="Recert"
+                                              OnSaveToRegistry="@(() => Act($"/api/devices/{dev.Id}/save", "installed to registry"))"
+                                              OnPokeHarvest="@(() => Act($"/api/devices/{dev.Id}/poke", "harvest queued"))"/>
                     </Actions>
-                    <ActionNotes>@ActionLines(dev)</ActionNotes>
+                    <ActionNotes>
+                        <DeviceActionNotes Note="@dev.Note" Running="RunningFor(dev.Id)" Recert="_recert"/>
+                    </ActionNotes>
                     <Sections>
                 <div hidden="@(!State.ShelfIs(DeviceWorkbenchState.ShelfCapture))">
                     @if (_hub is null) {
@@ -84,162 +76,22 @@
                                     Offer new captures for review automatically
                                 </label>
                             </ToolBar>
-                            <div class="dwb-capture-body">
-                                <FlowList Flows="_flows" SelectedId="_selectedFlowId" Connected="_connected"
-                                          View="State.Capture" OnSelect="SelectFlow"/>
-                                @if (_selectedFlow is { } selected) {
-                                    <DetailPane Flow="selected" View="State.Capture" ClientFactory="Client">
-                                        <Tools>
-                                            @if (Kinds.For(selected.Path) is not null) {
-                                                <button type="button" class="btn-mini" disabled="@(_offerBusy || _offered.Contains(selected.Id))"
-                                                        @onclick="@(() => OfferAsync(dev, selected))">
-                                                    <Icon Name="send" Class="icon-sm"/>
-                                                    @(_offered.Contains(selected.Id) ? "Offered" : _offerBusy ? "Offering..." : "Offer for review")
-                                                </button>
-                                            }
-                                        </Tools>
-                                    </DetailPane>
-                                }
-                            </div>
+                            <DeviceCaptureFlowPane Flows="_flows" SelectedId="_selectedFlowId" Connected="_connected"
+                                                   View="State.Capture" Device="dev" OfferBusy="_offerBusy" OfferedIds="_offered"
+                                                   OnSelect="SelectFlow" OnOffer="@(f => OfferAsync(dev, f))"/>
                             <ContributePanel @ref="_contribute" ClientFactory="Client"/>
                         </div>
                     }
                 </div>
 
                 <div hidden="@(!State.ShelfIs(DeviceWorkbenchState.ShelfJobs))">
-                        @if (RunningFor(dev.Id) is { } running) {
-                            <div class="dwb-status wb-st-run"><Icon Name="play" Class="icon-sm"/><span>@running.Kind</span></div>
-                        }
-                        <WorkbenchLoad T="JobGroupRow" Items="_jobs" EmptyText="No jobs yet." Context="jobs">
-                            <TableScroll>
-                                <table class="data-table dwb-jobs-table">
-                                    <thead>
-                                    <tr>
-                                        <th>when</th><th>kind</th><th>outcome</th><th>repeat</th><th>took</th><th>trigger</th>
-                                    </tr>
-                                    </thead>
-                                    <tbody>
-                                    @{
-                                        DateOnly? lastDay = null;
-                                    }
-                                    @foreach (var j in jobs) {
-                                        var open = State.Expanded.Contains(j.Id);
-                                        var day = DateOnly.FromDateTime(ViewerClock.At(Services, j.LastAt).DateTime);
-                                        if (day != lastDay) {
-                                            lastDay = day;
-                                            <tr class="row-day">
-                                                <td colspan="6">@day.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)</td>
-                                            </tr>
-                                        }
-
-                                        <tr class="row-click @(open ? "row-open" : "")" @key="j.Id" @onclick="@(() => ToggleJob(j))">
-                                            <td class="mono">@Stamp(j.LastAt)</td>
-                                            <td>@j.Kind</td>
-                                            <td>
-                                                <span class="dwb-status">
-                                                    <Icon Name="@StateIcon(j.State)" Class="@($"icon-sm {StateClass(j.State)}")"/>
-                                                    <span>@(j.Outcome ?? j.State)</span>
-                                                </span>
-                                            </td>
-                                            <td class="mono text-accent" title="@(j.Repeat > 1 ? $"since {Stamp(j.StartedAt)}" : null)">
-                                                @(j.Repeat > 1 ? $"x{j.Repeat}" : "")
-                                            </td>
-                                            <td class="mono">@Duration(j)</td>
-                                            <td class="dwb-job-trigger" title="@j.Trigger">@j.Trigger</td>
-                                        </tr>
-                                        @if (open) {
-                                            <tr class="row-detail">
-                                                <td colspan="6">
-                                                    <div class="dwb-job-lines">
-                                                        @if (!string.IsNullOrEmpty(j.Message)) {
-                                                            <div class="dwb-job-line muted">@j.Message</div>
-                                                        }
-                                                        @foreach (var l in LinesFor(j.Id)) {
-                                                            <div class="dwb-job-line">
-                                                                <span class="dwb-mono muted">@ViewerClock.At(Services, l.At).ToString("HH:mm:ss")</span>
-                                                                @if (l.Entry is not null) {
-                                                                    <span class="dwb-mono">@l.Entry</span>
-                                                                }
-                                                                <span class="@LevelClass(l.Level)">@l.Text</span>
-                                                                @if (l.Bytes is > 0) {
-                                                                    <span class="dwb-mono muted">@ByteFormat.Mb(l.Bytes.Value, "F1")</span>
-                                                                }
-                                                            </div>
-                                                        }
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        }
-                                    }
-                                    </tbody>
-                                </table>
-                            </TableScroll>
-                            @if (_jobsMore is not null) {
-                                <button type="button" class="btn-mini dwb-gap" disabled="@_jobsBusy" @onclick="LoadMoreJobsAsync">
-                                    @(_jobsBusy ? "Loading..." : "Older jobs")
-                                </button>
-                            }
-                        </WorkbenchLoad>
+                    <DeviceJobsShelf Running="RunningFor(dev.Id)" Jobs="_jobs" Expanded="State.Expanded"
+                                      JobLines="_jobLines" JobsMore="_jobsMore" JobsBusy="_jobsBusy"
+                                      OnToggleJob="ToggleJob" OnLoadMore="LoadMoreJobsAsync"/>
                 </div>
 
                 <div hidden="@(!State.ShelfIs(DeviceWorkbenchState.ShelfBinaries))">
-                        <TableScroll>
-                            <table class="data-table dwb-table">
-                                <thead>
-                                <tr>
-                                    <th>Version</th><th>SHA-256</th><th>Size</th><th>Symbols</th><th>Source</th><th>Pulled</th>
-                                    @if (_isContributor) {
-                                        <th></th>
-                                    }
-                                </tr>
-                                </thead>
-                                <tbody>
-                                @foreach (var b in (_binaries ?? []).Where(x => x.Platform == dev.Platform)) {
-                                    <tr>
-                                        <td>
-                                            <VersionLine App="@b.Version"/>
-                                        </td>
-                                        <td class="mono">@EggIncognito.Core.Hashes.Short(b.Sha256)</td>
-                                        <td class="mono">@ByteFormat.Mb(b.ByteSize, "F1")</td>
-                                        <td class="mono">@(b.EffectiveSymbols > 0 ? b.EffectiveSymbols : b.NativeSymbols)</td>
-                                        <td>@b.Source</td>
-                                        <td class="muted">@ViewerClock.At(Services, b.PulledAt).ToString("yyyy-MM-dd HH:mm")</td>
-                                        @if (_isContributor) {
-                                            <td class="tools">
-                                                <a class="btn-mini" href="@DownloadUrl(b)" download>
-                                                    <Icon Name="download" Class="icon-sm"/>
-                                                    Download
-                                                </a>
-                                            </td>
-                                        }
-                                    </tr>
-                                }
-                                </tbody>
-                            </table>
-                        </TableScroll>
-                        @if (_harvest is { Entries.Count: > 0 }) {
-                            <SubSectionHead>Latest harvest</SubSectionHead>
-                            <TableScroll>
-                                <table class="data-table dwb-table">
-                                    <thead>
-                                    <tr>
-                                        <th>Entry</th><th>Outcome</th><th>Size</th><th>Detail</th><th>When</th>
-                                    </tr>
-                                    </thead>
-                                    <tbody>
-                                    @foreach (var e in _harvest.Entries) {
-                                        <tr>
-                                            <td class="mono">@e.Entry</td>
-                                            <td>@e.Outcome</td>
-                                            <td class="mono">@ByteFormat.Mb(e.Bytes, "F1")</td>
-                                            <td class="muted">@e.Note</td>
-                                            <td class="muted">@ViewerClock.At(Services, e.RanAt).ToString("HH:mm:ss")</td>
-                                        </tr>
-                                    }
-                                    </tbody>
-                                </table>
-                            </TableScroll>
-                        }
+                    <DeviceBinariesShelf Binaries="_binaries" Platform="@dev.Platform" IsContributor="_isContributor" Harvest="_harvest"/>
                 </div>
                     </Sections>
                 </DeviceConsolePane>
@@ -280,7 +132,6 @@
     bool _connected;
     int _port;
     long? _selectedFlowId;
-    DashboardFlow? _selectedFlow;
     bool _offerBusy;
     readonly HashSet<long> _offered = [];
     ContributePanel? _contribute;
@@ -321,51 +172,12 @@
                </span>;
     }
 
-    RenderFragment ActionLines(DeviceRow dev) => @<text>
-                                                      @if (!string.IsNullOrEmpty(dev.Note)) {
-                                                          <div class="dwb-note">@dev.Note</div>
-                                                      }
-                                                      @if (RunningFor(dev.Id) is { } run) {
-                                                          <div class="dwb-job-line dwb-gap">
-                                                              <span class="dwb-status wb-st-run">
-                                                                  <Icon Name="play" Class="icon-sm"/>
-                                                                  <span>@run.Kind</span>
-                                                              </span>
-                                                              <span class="muted">@run.Message</span>
-                                                          </div>
-                                                      }
-                                                      @if (_recert is { } rc) {
-                                                          <div class="dwb-job-lines dwb-gap">
-                                                              <div class="dwb-job-line">
-                                                                  <span class="dwb-status">
-                                                                      <Icon Name="@(rc.Ok ? "circle-check" : "circle-x")"
-                                                                            Class="@($"icon-sm {(rc.Ok ? "text-ok" : "text-err")}")"/>
-                                                                      <span>@(rc.Ok ? "recert ok" : "recert failed")</span>
-                                                                  </span>
-                                                                  @if (!rc.Ok) {
-                                                                      <span class="muted">at @(rc.FailedStep ?? "an unknown step")</span>
-                                                                  }
-                                                              </div>
-                                                              @if (rc.Fields.TryGetValue("expiry", out var expiry)) {
-                                                                  <div class="dwb-job-line muted">expiry @expiry</div>
-                                                              }
-                                                              @foreach (var line in rc.Log) {
-                                                                  <div class="dwb-job-line dwb-mono muted">@line</div>
-                                                              }
-                                                          </div>
-                                                      }
-                                                  </text>;
-
     int? BinaryCount(DeviceRow dev) {
         return _binaries?.Count(x => x.Platform == dev.Platform);
     }
 
     async Task ShelfChanged(string tab) {
         if (tab == DeviceWorkbenchState.ShelfJobs && _jobs is null) await LoadJobsAsync();
-    }
-
-    string Stamp(DateTimeOffset at) {
-        return ViewerClock.At(Services, at).ToString("MM-dd HH:mm:ss", CultureInfo.InvariantCulture);
     }
 
     static string? Number(int? value) {
@@ -382,10 +194,6 @@
         base.OnInitialized();
         _isAdmin = User.Current.IsAtLeast(UserRole.Admin);
         _isContributor = User.Current.IsAtLeast(UserRole.Contributor);
-    }
-
-    static string DownloadUrl(StoredBinaryRow b) {
-        return $"/api/decomp/stored-binaries/{Uri.EscapeDataString(b.Platform)}/{Uri.EscapeDataString(b.Version)}/download";
     }
 
     public async Task Open(string? deviceId = null) {
@@ -539,10 +347,6 @@
         }
     }
 
-    IReadOnlyList<JobLineRow> LinesFor(long jobId) {
-        return _jobLines.TryGetValue(jobId, out var lines) ? lines : [];
-    }
-
     async Task ToggleJob(JobGroupRow job) {
         if (State.Expanded.Remove(job.Id)) return;
         State.Expanded.Add(job.Id);
@@ -559,34 +363,6 @@
     async Task LoadBinariesAsync() {
         var list = await Client().OneAsync<StoredBinaryList>("/api/decomp/stored-binaries", Logger);
         _binaries = list?.Binaries ?? [];
-    }
-
-    static string StateClass(string state) {
-        return WorkbenchStatus.Class(WorkbenchStatus.Parse(state));
-    }
-
-    static string StateIcon(string state) {
-        return WorkbenchStatus.Parse(state) switch {
-            WorkbenchStatusKind.Done => "circle-check",
-            WorkbenchStatusKind.Error => "circle-x",
-            WorkbenchStatusKind.Running => "play",
-            WorkbenchStatusKind.Queued => "clock",
-            _ => "circle"
-        };
-    }
-
-    static string LevelClass(string level) {
-        return level switch {
-            "error" => "text-err",
-            "warn" => "dwb-warn",
-            _ => "text-fg"
-        };
-    }
-
-    static string Duration(JobGroupRow j) {
-        if (j.FinishedAt is not { } end) return "running";
-        var span = end - j.LastAt;
-        return span.TotalSeconds < 1 ? "<1s" : $"{(int)span.TotalSeconds}s";
     }
 
     void Notice(DeviceNotice notice) {
@@ -793,7 +569,6 @@
         _flows.Clear();
         _flowIndex.Clear();
         _selectedFlowId = null;
-        _selectedFlow = null;
         _connected = false;
         _port = 0;
         _autoQueue.Clear();
@@ -816,7 +591,6 @@
     void AddOrUpdateFlow(DashboardFlow flow) {
         if (_flowIndex.TryGetValue(flow.Id, out var idx)) {
             _flows[idx] = flow;
-            if (_selectedFlowId == flow.Id) _selectedFlow = flow;
             AutoOffer(flow);
             return;
         }
@@ -833,7 +607,6 @@
 
     void SelectFlow(long id) {
         _selectedFlowId = id;
-        _selectedFlow = _flowIndex.TryGetValue(id, out var idx) ? _flows[idx] : null;
     }
 
     static async Task<T?> ReadBody<T>(HttpResponseMessage resp) {

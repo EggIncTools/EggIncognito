@@ -1,0 +1,54 @@
+@using EggIncognito.Models.Notifications
+
+<WorkbenchRail HasFilter="true" Filter="@RailFilter" FilterChanged="@(v => OnRailFilterChanged.InvokeAsync(v))"
+               FilterLabel="Filter notifications">
+    <WorkbenchEntry Selected="@Creating" OnClick="@(_ => OnSelectNew.InvokeAsync())">
+        <Name>New notification</Name>
+    </WorkbenchEntry>
+    @if (IsAuthenticated) {
+        <WorkbenchLoad T="NotificationRow" Items="@Rows" EmptyText="@EmptyText" Context="rows">
+            @foreach (var g in rows.GroupBy(s => s.EventKind).OrderBy(g => KindOrderOf(g.Key))) {
+                <WorkbenchSection Label="@KindLabelOf(g.Key)">
+                    @foreach (var s in g) {
+                        <WorkbenchEntry @key="s.Id" Selected="@(!Creating && SelectedId == s.Id)"
+                                        Status="@HealthStatusOf(s)" OnClick="@(_ => OnSelect.InvokeAsync(s))">
+                            <Name>@RowNameOf(s)</Name>
+                            <MetaLine>@s.UrlMasked</MetaLine>
+                            <Foot>@HealthOf(s)</Foot>
+                        </WorkbenchEntry>
+                    }
+                </WorkbenchSection>
+            }
+        </WorkbenchLoad>
+    }
+</WorkbenchRail>
+
+@code {
+    [Parameter] public string RailFilter { get; set; } = "";
+
+    [Parameter] public EventCallback<string> OnRailFilterChanged { get; set; }
+
+    [Parameter] public bool Creating { get; set; }
+
+    [Parameter] public EventCallback OnSelectNew { get; set; }
+
+    [Parameter] public bool IsAuthenticated { get; set; }
+
+    [Parameter] public List<NotificationRow>? Rows { get; set; }
+
+    [Parameter] public string EmptyText { get; set; } = "";
+
+    [Parameter] public int? SelectedId { get; set; }
+
+    [Parameter] public Func<string?, int> KindOrderOf { get; set; } = null!;
+
+    [Parameter] public Func<string?, string> KindLabelOf { get; set; } = null!;
+
+    [Parameter] public EventCallback<NotificationRow> OnSelect { get; set; }
+
+    [Parameter] public Func<NotificationRow, string> RowNameOf { get; set; } = null!;
+
+    [Parameter] public Func<NotificationRow, string> HealthOf { get; set; } = null!;
+
+    [Parameter] public Func<NotificationRow, WorkbenchStatusKind> HealthStatusOf { get; set; } = null!;
+}

@@ -1,0 +1,84 @@
+@using System.Text.Json
+@using EggIncognito.Models.Protos
+@using EggIncognito.Models.Notifications
+@using EggIncognito.Services.Feed
+@using EggIncognito.Services.Notifications
+
+<div class="nwb-preview">
+    <div class="nwb-preview-head">
+        <span class="nwb-k">Preview</span>
+        <button type="button" class="@(Json ? "nwb-view on" : "nwb-view")"
+                aria-pressed="@(Json ? "true" : "false")" @onclick="ToggleJson">
+            JSON
+        </button>
+    </div>
+    <WorkbenchLoad T="PreviewRow" Items="Preview" Class="nwb-empty" EmptyText="Nothing recorded for this kind yet.">
+        <div class="nwb-preview-split">
+            <div class="nwb-samples" role="listbox" aria-label="Sample events">
+                @foreach (var p in Preview!) {
+                    var selected = Selected?.Key == p.Key;
+                    <button type="button" role="option" aria-selected="@(selected ? "true" : "false")"
+                            class="@(selected ? "nwb-sample on" : "nwb-sample")"
+                            @onclick="@(() => OnPickSample.InvokeAsync(p.Key))">
+                        <span class="nwb-sample-name">@p.Label</span>
+                        <span class="@SampleBadgeClass(p)">@SampleBadge(p)</span>
+                        @if (!p.Matches && p.BlockedBy.Count > 0) {
+                            <span class="nwb-sample-why">@string.Join(", ", p.BlockedBy)</span>
+                        }
+                    </button>
+                }
+            </div>
+            <div class="nwb-preview-body">
+                @if (Selected is { Body.Length: > 0 } chosen) {
+                    @if (!WouldSend(chosen)) {
+                        <div class="nwb-note">This sample would not be posted with these settings. Shown for reference.</div>
+                    }
+                    @if (Json) {
+                        <CodeSurface Text="@Pretty(chosen.Body)" Language="json" ShowToolbar="false" MaxHeight="18rem"/>
+                    } else {
+                        <DiscordEmbedPreview Payload="@chosen.Body"/>
+                    }
+                } else {
+                    <div class="nwb-empty">Nothing would be sent with these settings.</div>
+                }
+            </div>
+        </div>
+    </WorkbenchLoad>
+</div>
+
+@code {
+    [Parameter] public List<PreviewRow>? Preview { get; set; }
+
+    [Parameter] public bool Json { get; set; }
+
+    [Parameter] public EventCallback<bool> JsonChanged { get; set; }
+
+    [Parameter] public PreviewRow? Selected { get; set; }
+
+    [Parameter] public EventCallback<string> OnPickSample { get; set; }
+
+    Task ToggleJson() {
+        return JsonChanged.InvokeAsync(!Json);
+    }
+
+    static bool WouldSend(PreviewRow p) {
+        return p.Matches;
+    }
+
+    static string SampleBadge(PreviewRow p) {
+        return p.Matches ? "would send" : "filtered out";
+    }
+
+    static string SampleBadgeClass(PreviewRow p) {
+        return p.Matches ? "nwb-badge ok" : "nwb-badge warn";
+    }
+
+    static string Pretty(string json) {
+        try {
+            using var doc = JsonDocument.Parse(json);
+            return JsonSerializer.Serialize(doc.RootElement, JsonPresets.Indented);
+        } catch (JsonException) {
+            return json;
+        }
+    }
+}

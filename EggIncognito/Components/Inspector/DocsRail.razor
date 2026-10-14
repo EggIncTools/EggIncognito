@@ -4,7 +4,7 @@
 @using Microsoft.AspNetCore.Components.Web.Virtualization
 @inject IDocRegistry Registry
 @inject IRouteCatalog Catalog
-@inject ApiWorkbenchState State
+@inject ApisWorkbenchState State
 
 @{ EnsureRows(); }
 <div class="wb-rail-slot awb-rail-list docs-rail-half">
@@ -76,7 +76,7 @@
 
     void EnsureRows() {
         var needle = (Filter ?? "").Trim();
-        var selected = State.Kind == ApiSelectionKind.Docs ? State.Docs : null;
+        var selected = State.DocsOpen ? State.Docs : null;
         var followedMessages = _messages.Follow(SelectionKey(selected, DocSubjectKind.Message), MessageAncestors(selected));
         var followedEndpoints = _endpoints.Follow(SelectionKey(selected, DocSubjectKind.Endpoint), EndpointAncestors(selected));
         var key = $"{needle}\n{_version}";
@@ -105,7 +105,7 @@
     }
 
     bool IsActive(DocSubject? leaf) {
-        return leaf is not null && State.Kind == ApiSelectionKind.Docs && State.Docs == RefFor(leaf);
+        return leaf is not null && State.DocsOpen && State.Docs == RefFor(leaf);
     }
 
     static string? SelectionKey(DocSubjectRef? selected, DocSubjectKind kind) {

@@ -1,0 +1,93 @@
+@using EggIncognito.Models.Inspector
+@using EggIncognito.Models.Routes
+
+<div class="routes-editor">
+    <p class="routes-note">@(Row.Source == "orphan" ? "No matching route in routes.yaml or the binary catalog." : "Saved overrides persist to the database and win over routes.yaml.")</p>
+    <div class="routes-editor-grid">
+        <label class="routes-editor-field">
+            Request type
+            <select class="field-input" value="@(DraftRequest ?? "")" @onchange="OnDraftRequest">
+                <option value="">(none)</option>
+                @if (DraftRequest is { } dr && !KnownType(dr)) {
+                    <option value="@dr">@dr (not in proto)</option>
+                }
+                <optgroup label="Request types">
+                    @foreach (var m in Roles.Request) {
+                        <option value="@m">@m</option>
+                    }
+                </optgroup>
+                <optgroup label="Other messages">
+                    @foreach (var m in Roles.RequestOthers) {
+                        <option value="@m">@m</option>
+                    }
+                </optgroup>
+            </select>
+        </label>
+        <label class="routes-editor-field">
+            Response type
+            <select class="field-input" value="@(DraftResponse ?? "")" @onchange="OnDraftResponse">
+                <option value="">(none)</option>
+                @if (DraftResponse is { } ds && !KnownType(ds)) {
+                    <option value="@ds">@ds (not in proto)</option>
+                }
+                <optgroup label="Response types">
+                    @foreach (var m in Roles.Response) {
+                        <option value="@m">@m</option>
+                    }
+                </optgroup>
+                <optgroup label="Other messages">
+                    @foreach (var m in Roles.ResponseOthers) {
+                        <option value="@m">@m</option>
+                    }
+                </optgroup>
+            </select>
+        </label>
+    </div>
+    <div class="routes-editor-checks">
+        <label class="form-check"><input type="checkbox" checked="@DraftRequestWrapped" @onchange="e => DraftRequestWrappedChanged.InvokeAsync(e.Value is true)"/> Request wrapped (AuthenticatedMessage)</label>
+        <label class="form-check"><input type="checkbox" checked="@DraftResponseWrapped" @onchange="e => DraftResponseWrappedChanged.InvokeAsync(e.Value is true)"/> Response wrapped (AuthenticatedMessage)</label>
+        <label class="form-check"><input type="checkbox" checked="@DraftPathParam" @onchange="e => DraftPathParamChanged.InvokeAsync(e.Value is true)"/> Path param</label>
+    </div>
+    @if (Drift.Count > 0) {
+        <div class="routes-drift-list">
+            @foreach (var d in Drift) {
+                <div class="routes-drift-row">
+                    <span class="route-flag">
+                        <Icon Name="@(d.Reliable ? "circle-alert" : "info")" Class="icon-sm"/> @(d.Reliable ? "drift" : "advisory")
+                    </span>
+                    <span class="muted">@d.Field: effective @(d.EffectiveValue ?? "-") vs binary @(d.BinaryValue ?? "-")</span>
+                    <button type="button" class="btn-mini" disabled="@Busy" @onclick="() => OnApplyDrift.InvokeAsync(d)">Apply</button>
+                </div>
+            }
+        </div>
+    }
+    <div class="routes-editor-actions">
+        @if (Row.Source != "orphan") {
+            <button type="button" class="btn-mini" disabled="@Busy" @onclick="() => OnSave.InvokeAsync()">Save</button>
+        }
+        @if (Row.Override is not null) {
+            <button type="button" class="btn-mini btn-danger" disabled="@Busy" @onclick="() => OnClear.InvokeAsync()">Reset</button>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter] public RouteRow Row { get; set; } = default!;
+    [Parameter] public List<RouteDriftRow> Drift { get; set; } = [];
+    [Parameter] public MessageRoles Roles { get; set; } = MessageRoles.Empty;
+    [Parameter] public string? DraftRequest { get; set; }
+    [Parameter] public string? DraftResponse { get; set; }
+    [Parameter] public bool DraftRequestWrapped { get; set; }
+    [Parameter] public bool DraftResponseWrapped { get; set; }
+    [Parameter] public bool DraftPathParam { get; set; }
+    [Parameter] public bool Busy { get; set; }
+    [Parameter] public EventCallback<ChangeEventArgs> OnDraftRequest { get; set; }
+    [Parameter] public EventCallback<ChangeEventArgs> OnDraftResponse { get; set; }
+    [Parameter] public EventCallback<bool> DraftRequestWrappedChanged { get; set; }
+    [Parameter] public EventCallback<bool> DraftResponseWrappedChanged { get; set; }
+    [Parameter] public EventCallback<bool> DraftPathParamChanged { get; set; }
+    [Parameter] public EventCallback<RouteDriftRow> OnApplyDrift { get; set; }
+    [Parameter] public EventCallback OnSave { get; set; }
+    [Parameter] public EventCallback OnClear { get; set; }
+    [Parameter] public Func<string, bool> KnownType { get; set; } = _ => false;
+}

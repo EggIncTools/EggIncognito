@@ -67,61 +67,9 @@
                     <WorkbenchModes Modes="State.Modes" Current="@State.Mode" CurrentChanged="SetMode"/>
                 </div>
                 @if (State.Mode == ThemeWorkbenchState.ModeTokens) {
-                    <div class="theme-token-grid">
-                        @foreach (var token in ThemeTokens.Settable) {
-                            <label class="theme-token-row">
-                                <span class="theme-token-name">@token</span>
-                                <input type="color" class="theme-color-input" value="@TokenHex(token)" @oninput="e => OnTokenChanged(token, e)"/>
-                                <span class="theme-token-hex">@TokenHex(token)</span>
-                            </label>
-                        }
-                    </div>
-                    <div class="theme-oklch-row">
-                        <span class="theme-token-name">accent oklch</span>
-                        <label>L <input type="number" step="0.01" min="0" max="1" class="theme-num" value="@State.Draft.AccentL" @onchange="e => OnAccentOklch(e,0)"/></label>
-                        <label>C <input type="number" step="0.005" min="0" max="0.5" class="theme-num" value="@State.Draft.AccentC" @onchange="e => OnAccentOklch(e,1)"/></label>
-                        <label>H <input type="number" step="1" min="0" max="360" class="theme-num" value="@State.Draft.AccentH" @onchange="e => OnAccentOklch(e,2)"/></label>
-                    </div>
+                    <ThemeTokenEditor Draft="State.Draft" OnChanged="RefreshAll"/>
                 } else if (State.Mode == ThemeWorkbenchState.ModeChroma) {
-                    <div class="theme-chroma-grid">
-                        <label class="theme-knob">
-                            <span>Surface tint @Fmt(State.Draft.SurfaceTint)%</span>
-                            <input type="range" min="0" max="12" step="0.5" value="@State.Draft.SurfaceTint" @oninput="e => OnKnob(e,k => State.Draft.SurfaceTint = k)"/>
-                        </label>
-                        <label class="theme-knob">
-                            <span>Gradient hue shift @Fmt(State.Draft.GradientHueShift)deg</span>
-                            <input type="range" min="-60" max="60" step="1" value="@State.Draft.GradientHueShift" @oninput="e => OnKnob(e,k => State.Draft.GradientHueShift = k)"/>
-                        </label>
-                        <label class="theme-knob">
-                            <span>Glow radius @Fmt(State.Draft.GlowRadius)px</span>
-                            <input type="range" min="0" max="24" step="1" value="@State.Draft.GlowRadius" @oninput="e => OnKnob(e,k => State.Draft.GlowRadius = k)"/>
-                        </label>
-                        <label class="theme-knob">
-                            <span>Glow alpha @Fmt(State.Draft.GlowAlpha)%</span>
-                            <input type="range" min="0" max="60" step="1" value="@State.Draft.GlowAlpha" @oninput="e => OnKnob(e,k => State.Draft.GlowAlpha = k)"/>
-                        </label>
-                        <label class="theme-knob theme-knob-toggle">
-                            <input type="checkbox" checked="@State.Draft.HueRotateEnabled" @onchange="OnHueRotateToggle"/>
-                            <span>Hue rotation</span>
-                        </label>
-                        @if (State.Draft.HueRotateEnabled) {
-                            <label class="theme-knob">
-                                <span>Rotation period @Fmt(State.Draft.HueRotateSeconds)s</span>
-                                <input type="range" min="6" max="120" step="1" value="@State.Draft.HueRotateSeconds" @oninput="e => OnKnob(e,k => State.Draft.HueRotateSeconds = k)"/>
-                            </label>
-                        }
-                    </div>
-                    <div class="theme-contrast">
-                        @if (_contrast is { Passes: true }) {
-                            <div class="theme-ok">Contrast checks pass.</div>
-                        } else if (_contrast is not null) {
-                            @foreach (var f in _contrast.Failures) {
-                                <div class="theme-contrast-row theme-err">
-                                    @f.Check: @f.A on @f.B measured @f.Measured, needs @f.Required@(f.AtHue is { } hue ? $" (at hue {Fmt(hue)})" : "")
-                                </div>
-                            }
-                        }
-                    </div>
+                    <ThemeChromaEditor Draft="State.Draft" Contrast="_contrast" OnChanged="RefreshAll"/>
                 } else if (State.Mode == ThemeWorkbenchState.ModeCss) {
                     @if (!_cssEligible) {
                         <p class="theme-note">Custom CSS needs the contributor role and the admin switch. The rest of the theme works without it.</p>
@@ -166,47 +114,7 @@
                     }
                 </div>
             </div>
-            <div class="theme-preview theme-preview-scope" style="@PreviewStyle()">
-                <div class="theme-pv-nav">
-                    <span class="theme-pv-brand">EggIncognito</span>
-                    <span class="theme-pv-nav-link active">Protos</span>
-                    <span class="theme-pv-nav-link">Capture</span>
-                </div>
-                <div class="theme-pv-panel">
-                    <div class="theme-pv-panel-title">Panel title</div>
-                    <table class="theme-pv-table">
-                        <thead>
-                        <tr>
-                            <th>Version</th>
-                            <th>Platform</th>
-                        </tr>
-                        </thead>
-                        <tbody>
-                        <tr>
-                            <td>1.37.1</td>
-                            <td>ios</td>
-                        </tr>
-                        <tr>
-                            <td>1.37.0</td>
-                            <td>android</td>
-                        </tr>
-                        </tbody>
-                    </table>
-                    <div class="theme-pv-buttons">
-                        <button type="button" class="btn-primary">Primary</button>
-                        <button type="button" class="btn-mini">Mini</button>
-                    </div>
-                    <div class="theme-pv-code">
-                        <span class="theme-pv-gutter">1</span><span>message EggIncFirstContactRequest {</span>
-                    </div>
-                    <div class="theme-pv-lines">
-                        <span class="theme-pv-ok">ok: capture running</span>
-                        <span class="theme-pv-err">err: device unreachable</span>
-                        <span class="theme-pv-info">info: 3 versions behind</span>
-                        <span class="theme-pv-muted">muted: last seen 2h ago</span>
-                    </div>
-                </div>
-            </div>
+            <ThemePreviewPane Draft="State.Draft"/>
         </div>
     </ChildContent>
 </WorkbenchModal>
@@ -357,47 +265,6 @@
         SetStatus("reset", true);
     }
 
-    void OnTokenChanged(string token, ChangeEventArgs e) {
-        var value = e.Value?.ToString() ?? "";
-        if (ThemeColor.FromHex(value) is not null) {
-            State.Draft.TokenHex[token] = value.ToLowerInvariant();
-            if (token == "accent") {
-                State.Draft.AccentL = null;
-                State.Draft.AccentC = null;
-                State.Draft.AccentH = null;
-            }
-
-            RefreshAll();
-        }
-    }
-
-    void OnAccentOklch(ChangeEventArgs e, int component) {
-        if (!double.TryParse(e.Value?.ToString(), NumberStyles.Float,
-                CultureInfo.InvariantCulture, out var value)) return;
-        var current = CurrentAccent();
-        var l = component == 0 ? value : current.L;
-        var c = component == 1 ? value : current.C;
-        var h = component == 2 ? value : current.H;
-        var color = ThemeColor.FromOklch(l, c, h);
-        State.Draft.AccentL = color.L;
-        State.Draft.AccentC = color.C;
-        State.Draft.AccentH = color.H;
-        RefreshAll();
-    }
-
-    void OnKnob(ChangeEventArgs e, Action<double> apply) {
-        if (double.TryParse(e.Value?.ToString(), NumberStyles.Float,
-                CultureInfo.InvariantCulture, out var value)) {
-            apply(value);
-            RefreshAll();
-        }
-    }
-
-    void OnHueRotateToggle(ChangeEventArgs e) {
-        State.Draft.HueRotateEnabled = e.Value is true;
-        RefreshAll();
-    }
-
     void OnCssChanged(string? value) {
         State.Draft.Css = value ?? "";
         _cssErrors = State.Draft.Css.Length > 0 ? ThemeCss.Parse(State.Draft.Css).Errors : [];
@@ -415,23 +282,6 @@
 
     string PreviewCss() {
         return Serializer.Serialize(State.Draft.ToModel(), ThemeScope.Preview, _cssEligible && _cssErrors.Count == 0);
-    }
-
-    string PreviewStyle() {
-        var model = State.Draft.ToModel();
-        var sb = new StringBuilder();
-        foreach (var token in ThemeTokens.Settable)
-            sb.Append("--color-").Append(token).Append(": ").Append(model.TokenOrDefault(token).ToCss()).Append("; ");
-        return sb.ToString();
-    }
-
-    ThemeColor CurrentAccent() {
-        if (State.Draft is { AccentL: { } l, AccentC: { } c, AccentH: { } h }) return ThemeColor.FromOklch(l, c, h);
-        return ThemeColor.FromHex(TokenHex("accent")) ?? ThemePresets.DefaultToken("accent");
-    }
-
-    string TokenHex(string token) {
-        return State.Draft.TokenHex.TryGetValue(token, out var hex) ? hex : ThemePresets.DefaultToken(token).Hex ?? "#000000";
     }
 
     static string PresetAccentCss(ThemeModel preset) {

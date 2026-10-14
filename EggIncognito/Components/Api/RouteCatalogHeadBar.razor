@@ -1,0 +1,32 @@
+@using EggIncognito.Models.Routes
+
+<div class="routes-head">
+    <h4 class="awb-pane-title">Route catalog</h4>
+    <div class="routes-head-meta">
+        @if (Binary is { } b && !string.IsNullOrWhiteSpace(b.BinaryVersion)) {
+            <VersionLine App="@b.BinaryVersion"/>
+        } else {
+            <span class="muted">binary unknown</span>
+        }
+        @if (Binary?.LastRefresh is { } lr) {
+            <span class="muted">last refresh <TimeAgo At="@lr" Class="time-ago"/></span>
+        } else {
+            <span class="muted">never refreshed</span>
+        }
+        <button type="button" class="btn-mini" disabled="@(Refreshing || BinaryUnavailable)" @onclick="RefreshBinary">@(Refreshing ? "Refreshing..." : "Refresh")</button>
+    </div>
+</div>
+
+@code {
+    [Parameter] public RouteBinaryStatus? Binary { get; set; }
+
+    [Parameter] public bool Refreshing { get; set; }
+
+    [Parameter] public bool BinaryUnavailable { get; set; }
+
+    [Parameter] public EventCallback OnRefresh { get; set; }
+
+    async Task RefreshBinary() {
+        await OnRefresh.InvokeAsync();
+    }
+}

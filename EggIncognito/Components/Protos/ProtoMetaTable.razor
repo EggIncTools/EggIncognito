@@ -1,0 +1,26 @@
+@using EggIncognito.Models.Registry
+
+<table class="data-table">
+    <thead>
+    <tr>
+        <th></th><th>@LabelA</th><th>@LabelB</th>
+    </tr>
+    </thead>
+    <tbody>
+    @foreach (var row in Rows) {
+        <tr class="@(row.Same ? "" : "pwb-meta-diff")">
+            <td class="pwb-key">@row.Key</td>
+            <td class="pwb-wrap">@row.A</td>
+            <td class="pwb-wrap">@row.B</td>
+        </tr>
+    }
+    </tbody>
+</table>
+
+@code {
+    [Parameter] public string LabelA { get; set; } = "";
+
+    [Parameter] public string LabelB { get; set; } = "";
+
+    [Parameter] public IReadOnlyList<ProtoMetaRow> Rows { get; set; } = [];
+}

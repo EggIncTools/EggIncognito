@@ -30,66 +30,21 @@
     <WorkbenchModal Open="true" Title="Proto workbench" Size="WorkbenchSize.Wide" CardClass="@CardCss(groups)"
                     BodyId="wbDrop" OnClose="Close">
     <HeadTools>
-        <button type="button" class="btn-mini pwb-split-btn @(State.SplitQuery is not null ? "active" : "")"
-                aria-pressed="@(State.SplitQuery is not null ? "true" : "false")" @onclick="ToggleSplit">
-            <Icon Name="layout-grid" Class="icon-sm"/> Split registry
-        </button>
-        @if (User.Current.IsAtLeast(UserRole.Contributor)) {
-            <button type="button" class="btn-mini @(_adminOpen ? "active" : "")"
-                    @onclick="@(() => _adminOpen = !_adminOpen)">
-                Registry admin
-            </button>
-        }
-        @if (offerAllCount > 0) {
-            <button type="button" class="btn-mini" disabled="@_offerBusy" @onclick="@(() => OfferBatch([.. groups.Where(CanOffer)]))">
-                <Icon Name="upload" Class="icon-sm"/> Offer all (@offerAllCount)
-            </button>
-        }
+        <ProtoWorkbenchHeadTools SplitActive="@(State.SplitQuery is not null)" OnToggleSplit="ToggleSplit"
+                                  ShowAdmin="@User.Current.IsAtLeast(UserRole.Contributor)" AdminOpen="_adminOpen"
+                                  AdminOpenChanged="@(v => _adminOpen = v)" OfferAllCount="offerAllCount" OfferBusy="_offerBusy"
+                                  OnOfferAll="@(() => OfferBatch([.. groups.Where(CanOffer)]))"/>
     </HeadTools>
     <Rail>
         <WorkbenchRail Class="wb-rail-popout">
-            @{ var hasSession = State.Entries.Count > 0; }
-            <div class="wb-rail-slot pwb-rail-sess @(hasSession ? "" : "pwb-rail-sess-empty")">
-                <WorkbenchSection Label="Session">
-                    <label id="wbRailDrop" class="pwb-drop" for="wbFile">
-                        <DropZonePrompt Prompt="Drop .ipa, .apk or bundle files"/>
-                    </label>
-                    @if (hasSession) {
-                        <FilterList TItem="StagedEntry" Schema="SessionFilter.Schema" Items="State.Entries"
-                                    Query="State.SessionQuery" QueryChanged="@(q => State.SessionQuery = q)"
-                                    Sections="SessionSections" FilterLabel="Filter session files" Class="pwb-sess-list">
-                            <Row Context="e">
-                                @Card(e, null, false)
-                            </Row>
-                            <SectionBody Context="section">
-                                @if (section.Key == SessionFilter.Analysed) {
-                                    @AnalysedBody(section.Items, groups)
-                                } else {
-                                    @foreach (var e in section.Items) {
-                                        @Card(e, null, false)
-                                    }
-                                }
-                            </SectionBody>
-                        </FilterList>
-                    }
-                </WorkbenchSection>
-            </div>
+            <ProtoSessionRail Entries="State.Entries" Query="State.SessionQuery" QueryChanged="@(q => State.SessionQuery = q)"
+                              CardTemplate="@((e, g, grouped) => Card(e, g, grouped))"
+                              AnalysedBodyTemplate="@(listed => AnalysedBody(listed, groups))"/>
             @if (State.SplitQuery is { } split) {
-                <div class="wb-rail-slot pwb-rail-reg wb-pane-in">
-                    <WorkbenchSection Label="Registry (split)">
-                        <Tools>
-                            <button type="button" class="pwb-x pwb-x-head" aria-label="Close split registry" @onclick="ToggleSplit">
-                                <Icon Name="x" Class="icon-sm"/>
-                            </button>
-                        </Tools>
-                        <ChildContent>
-                            <RegistryPane Query="split" QueryChanged="@(q => State.SplitQuery = q)" Rows="State.Registry"
-                                          IsAdmin="@User.Current.IsAtLeast(UserRole.Admin)" RowClass="RowClass" IsSelected="IsSelected"
-                                          OnRowClick="@(t => RegistryRowClick(t.Row, t.Args))" OnToggleRow="ToggleRow"
-                                          OnToggleAll="@(t => ToggleAll(t.Rows, t.On))"/>
-                        </ChildContent>
-                    </WorkbenchSection>
-                </div>
+                <ProtoSplitRegistryRail Split="split" OnClose="ToggleSplit" SplitChanged="@(q => State.SplitQuery = q)"
+                                        Rows="State.Registry" IsAdmin="@User.Current.IsAtLeast(UserRole.Admin)" RowClass="RowClass"
+                                        IsSelected="IsSelected" OnRowClick="@(t => RegistryRowClick(t.Row, t.Args))"
+                                        OnToggleRow="ToggleRow" OnToggleAll="@(t => ToggleAll(t.Rows, t.On))"/>
             }
             <div class="wb-rail-slot pwb-rail-reg">
                 <WorkbenchSection Label="Registry">
@@ -121,103 +76,19 @@
                 }
             </aside>
         }
-        <div class="pwb-slots">
-            <div class="@SlotClass(State.A)">
-                <VersionCombo Label="A" Items="ComboItems(null)" Selected="@State.A?.Format()"
-                              SelectedChanged="OnPickA"/>
-                @if (State.A is { } refA && IsLegacySha(refA)) {
-                    <span class="pwb-slot-note pwb-warn">
-                        legacy sha
-                    </span>
-                }
-            </div>
-            <button type="button" class="pwb-swap" aria-label="Swap A and B"
-                    disabled="@(State.B is null)" @onclick="SwapRefs">
-                <Icon Name="arrow-left-right" Class="icon-sm"/>
-            </button>
-            <div class="@SlotClass(State.B)">
-                <VersionCombo Label="B" Items="ComboItems(State.A)" Selected="@State.B?.Format()"
-                              SelectedChanged="OnPickB" AllowClear="true"/>
-                @if (State.B is { } refB && IsLegacySha(refB)) {
-                    <span class="pwb-slot-note pwb-warn">
-                        legacy sha
-                    </span>
-                }
-                @if (TierOf(counterparts, State.B) is { } tier) {
-                    <span class="pwb-slot-note pwb-tier-note @(tier.Weak ? "pwb-warn" : "")">
-                        @tier.Reason
-                    </span>
-                }
-            </div>
-        </div>
+        <ProtoVersionSlots A="State.A" B="State.B" AItems="ComboItems(null)" BItems="ComboItems(State.A)" OnPickA="OnPickA"
+                           OnPickB="OnPickB" OnSwap="SwapRefs" IsLegacySha="IsLegacySha" SlotClass="SlotClass"
+                           Tier="@TierOf(counterparts, State.B)"/>
         @{
             var selGroup = Selected is { } current
                 ? groups.FirstOrDefault(x => x.Members.Any(m => m.Id == current.Id))
                 : null;
         }
         @if (Selected is { } sel && ShowStatus(sel)) {
-            <div class="pwb-status">
-                <span class="pwb-file">@sel.FileName</span>
-                @if (sel.Status == "error") {
-                    <span class="pwb-note-inline pwb-err">@(sel.Error ?? "failed")</span>
-                } else if (!sel.IsDone) {
-                    <span class="pwb-dim-note">@sel.Status@(sel.Step is { Length: > 0 } ? $": {sel.Step}" : "")...</span>
-                } else if (sel.Result is { } r) {
-                    <span class="pwb-mono-note">@(r.Messages.Count) - @Sha12(r.ProtoSha)</span>
-                    @if (selGroup is { Conflict: true }) {
-                        <span class="pwb-note-inline pwb-err">conflict</span>
-                        <span class="pwb-dim-note">Pick the file to offer in the rail.</span>
-                    } else if (selGroup?.Status is { Rejected: true }) {
-                        <span class="pwb-note-inline pwb-warn">rejected before</span>
-                        <span class="pwb-dim-note">A reviewer rejected this proto. Resubmit with more version data to reopen it.</span>
-                    } else if (selGroup?.Status is { Known: true, ShaDiffers: true }) {
-                        <span class="pwb-note-inline pwb-warn">in registry, proto differs</span>
-                        <span class="pwb-dim-note">This build is registered with another proto. The archive text replaces it.</span>
-                    } else if (selGroup?.Status is { Known: true, MetaDiffers: true }) {
-                        <span class="pwb-note-inline pwb-warn">in registry, version data differs</span>
-                        <span class="pwb-dim-note">This build is registered with a different app or client version. The extracted values replace them.</span>
-                    } else if (selGroup?.Status is { Archived: true }) {
-                        <span class="pwb-note-inline pwb-ok">archive flagged</span>
-                    } else if (selGroup?.Status is { Known: true }) {
-                        <span class="pwb-note-inline pwb-ok">in registry</span>
-                    } else if (selGroup?.Status is { Failed: true }) {
-                        <span class="pwb-note-inline pwb-err">check failed</span>
-                        <button type="button" class="btn-mini" aria-label="Retry check"
-                                @onclick="@(() => RetryCheck(selGroup))">
-                            <Icon Name="refresh-cw" Class="icon-sm"/> Retry
-                        </button>
-                    } else if (selGroup?.Status is { Pending: true } or { Offered: true }) {
-                        @if (User.Current.IsAtLeast(UserRole.Contributor)) {
-                            <button type="button" class="pwb-pending-btn @(_adminOpen && _adminTab == RegistryAdminPanel.TabReview ? "active" : "")"
-                                    @onclick="ToggleQueue">
-                                pending review
-                            </button>
-                        } else {
-                            <span class="pwb-note-inline pwb-warn">pending review</span>
-                        }
-                    } else if (selGroup?.Status is { Offerable: true }) {
-                        @if (selGroup.Status.InRegistry) {
-                            <span class="pwb-note-inline">new build of a known sha</span>
-                        }
-                        @if (User.Current.IsAuthenticated) {
-                            <span class="pwb-note-inline">offerable</span>
-                        } else {
-                            <span class="pwb-dim-note">Log in to offer this version to the registry.</span>
-                        }
-                    }
-
-                    @if (selGroup is { } sg && CanOffer(sg)) {
-                        <button type="button" class="btn-mini" disabled="@_offerBusy"
-                                @onclick="@(() => OfferBatch([sg]))">
-                            @if (CanFlag(sg)) {
-                                <Icon Name="shield-check" Class="icon-sm"/> <text>@(sg.Status is { ShaDiffers: true } ? "Replace with archive" : sg.Status is { MetaDiffers: true } ? "Correct from archive" : "Flag archive")</text>
-                            } else {
-                                <Icon Name="upload" Class="icon-sm"/> <text>Offer</text>
-                            }
-                        </button>
-                    }
-                }
-            </div>
+            <ProtoSelectionStatusBar Sel="sel" SelGroup="selGroup" OfferBusy="_offerBusy" AdminOpen="_adminOpen"
+                                      IsReviewTab="@(_adminTab == RegistryAdminPanel.TabReview)" CanOffer="CanOffer" CanFlag="CanFlag"
+                                      OnOfferOne="@(() => OfferBatch([selGroup!]))" OnRetryCheck="@(() => RetryCheck(selGroup!))"
+                                      OnToggleQueue="ToggleQueue"/>
         }
         <div class="pwb-head">
             <WorkbenchModes Modes="State.Modes" Current="@State.Mode" CurrentChanged="SetMode" Disabled="ModeDisabled"/>
@@ -229,85 +100,17 @@
                     disabled="@(StepRef(-1) is null)" @onclick="@(() => SetA(StepRef(-1)))">
                 <Icon Name="chevron-right" Class="icon-sm"/>
             </button>
-            <div class="pwb-menu-wrap">
-                <button type="button" class="pwb-menu-btn" aria-haspopup="true" disabled="@(State.A is null)"
-                        aria-expanded="@(_menu == "file" ? "true" : "false")" @onclick="@(() => ToggleMenu("file"))">
-                    File
-                </button>
-                @if (_menu == "file") {
-                    <div class="popover-backdrop" @onmousedown="CloseMenu" @onwheel="CloseMenu"></div>
-                    <div class="pwb-menu">
-                        <div class="pwb-menu-label">Download</div>
-                        @if (State.A is { } dlA) {
-                            @DownloadItem(dlA, "A")
-                        }
-                        @if (State.B is { } dlB) {
-                            @DownloadItem(dlB, "B")
-                        }
-                        @if (State.Cached is { } dlBundle) {
-                            @if (ApiPair() is { Length: > 0 } api) {
-                                <a class="pwb-menu-item" href="@($"/api/protos/diff?{api}&format=unified&download=1")"
-                                   target="_blank" rel="noopener" @onclick="CloseMenu">
-                                    unified .diff
-                                </a>
-                                <a class="pwb-menu-item" href="@($"/api/protos/diff?{api}&format=json&download=1")"
-                                   target="_blank" rel="noopener" @onclick="CloseMenu">
-                                    structural .json
-                                </a>
-                            } else {
-                                <button type="button" class="pwb-menu-item"
-                                        @onclick="@(() => Save(PairName("diff"), dlBundle.Unified))">
-                                    unified .diff
-                                </button>
-                                <button type="button" class="pwb-menu-item"
-                                        @onclick="@(() => Save(PairName("json"), StructuralJson(dlBundle), "application/json"))">
-                                    structural .json
-                                </button>
-                            }
-                        }
-                        <div class="pwb-menu-sep"></div>
-                        <div class="pwb-menu-label">Clipboard</div>
-                        <CopyButton Text="@ViewText()" Class="pwb-menu-item" IconClass="icon-sm" Label="Copy view text">Copy view text</CopyButton>
-                        <CopyButton Text="@Permalink()" Class="pwb-menu-item" IconClass="icon-sm" Label="Copy permalink">Copy permalink</CopyButton>
-                    </div>
-                }
-            </div>
-            <div class="pwb-menu-wrap">
-                <button type="button" class="pwb-menu-btn" aria-haspopup="true" disabled="@(State.A is null)"
-                        aria-expanded="@(_menu == "compare" ? "true" : "false")"
-                        @onclick="@(() => ToggleMenu("compare"))">
-                    Compare
-                </button>
-                @if (_menu == "compare") {
-                    <div class="popover-backdrop" @onmousedown="CloseMenu" @onwheel="CloseMenu"></div>
-                    <div class="pwb-menu">
-                        <button type="button" class="pwb-menu-item" disabled="@(StepRef(1) is null)"
-                                @onclick="@(() => MenuDo(() => SetB(StepRef(1))))">
-                            vs previous
-                        </button>
-                        <button type="button" class="pwb-menu-item" disabled="@(LatestRef() is null)"
-                                @onclick="@(() => MenuDo(() => SetB(LatestRef())))">
-                            vs latest
-                        </button>
-                        @foreach (var target in CounterpartTargets()) {
-                            var link = counterparts.FirstOrDefault(l => l.Platform == target);
-                            <button type="button" class="pwb-menu-item" disabled="@(link is null)"
-                                    @onclick="@(() => MenuDo(() => SetCounterpart(link)))">
-                                vs @target
-                            </button>
-                        }
-                        <div class="pwb-menu-sep"></div>
-                        <button type="button" class="pwb-menu-item" disabled="@(State.B is null)"
-                                @onclick="@(() => MenuDo(SwapRefs))">
-                            Swap A and B
-                        </button>
-                        <button type="button" class="pwb-menu-item" disabled="@(State.B is null)"
-                                @onclick="@(() => MenuDo(() => SetB(null)))">
-                            Clear B
-                        </button>
-                    </div>
-                }
-            </div>
+            <ProtoFileMenu Open="@(_menu == "file")" Disabled="@(State.A is null)" OnToggle="@(() => ToggleMenu("file"))"
+                           OnClose="CloseMenu" RefA="State.A" RefB="State.B" Bundle="State.Cached" ApiPair="@ApiPair()"
+                           DownloadItemTemplate="DownloadItem" OnSaveUnified="@(() => Save(PairName("diff"), State.Cached!.Unified))"
+                           OnSaveJson="@(() => Save(PairName("json"), StructuralJson(State.Cached!), "application/json"))"
+                           ViewText="@ViewText()" Permalink="@Permalink()"/>
+            <ProtoCompareMenu Open="@(_menu == "compare")" Disabled="@(State.A is null)" OnToggle="@(() => ToggleMenu("compare"))"
+                              HasPrevious="@(StepRef(1) is not null)" HasLatest="@(LatestRef() is not null)" HasB="@(State.B is not null)"
+                              Targets="CounterpartTargets()" Counterparts="counterparts"
+                              OnVsPrevious="@(() => MenuDo(() => SetB(StepRef(1))))" OnVsLatest="@(() => MenuDo(() => SetB(LatestRef())))"
+                              OnVsCounterpart="@(target => MenuDo(() => SetCounterpart(counterparts.FirstOrDefault(l => l.Platform == target))))"
+                              OnSwap="@(() => MenuDo(SwapRefs))" OnClearB="@(() => MenuDo(() => SetB(null)))"/>
             @if (IsDiffMode() && State.Cached is { } sumBundle) {
                 <span class="pwb-sum">
                     <span class="pwb-sum-add">+@sumBundle.Summary.LinesAdded</span>
@@ -323,22 +126,7 @@
                 <CodeSurface Text="" AllowEmpty="true" Language="proto" Gutter="CodeGutter.None"
                              MinHeight="22.5rem" MaxHeight="48vh" ShowToolbar="false"/>
             } else if (State.Mode == "meta") {
-                <table class="data-table">
-                    <thead>
-                    <tr>
-                        <th></th><th>@RefLabel(State.A)</th><th>@RefLabel(State.B)</th>
-                    </tr>
-                    </thead>
-                    <tbody>
-                    @foreach (var row in MetaRows()) {
-                        <tr class="@(row.Same ? "" : "pwb-meta-diff")">
-                            <td class="pwb-key">@row.Key</td>
-                            <td class="pwb-wrap">@row.A</td>
-                            <td class="pwb-wrap">@row.B</td>
-                        </tr>
-                    }
-                    </tbody>
-                </table>
+                <ProtoMetaTable LabelA="@RefLabel(State.A)" LabelB="@RefLabel(State.B)" Rows="MetaRows()"/>
             } else if (State.Mode == "text") {
                 @if (!HasTextFor(viewA)) {
                     <div class="pwb-note">No stored proto text for this version.</div>
@@ -412,7 +200,6 @@
     CodeDiff? _splitDiff;
     CodeDiff? _unifiedDiff;
     const int AnalyzeSlots = 4;
-    const int PendingOpenLimit = 3;
     readonly SemaphoreSlim _gate = new(AnalyzeSlots, AnalyzeSlots);
     readonly HashSet<string> _checking = [];
     readonly Dictionary<string, bool> _legacy = [];
@@ -507,22 +294,6 @@
             }
         }
     };
-
-    static IReadOnlyList<FilterListSection<StagedEntry>> SessionSections(IReadOnlyList<StagedEntry> listed) {
-        var sections = new List<FilterListSection<StagedEntry>>();
-        var pending = listed.Where(e => SessionFilter.StateOf(e) == SessionFilter.Pending).ToList();
-        var failed = listed.Where(e => SessionFilter.StateOf(e) == SessionFilter.Failed).ToList();
-        var analysed = listed.Where(e => SessionFilter.StateOf(e) == SessionFilter.Analysed).ToList();
-        if (pending.Count > 0) {
-            var running = pending.Count(e => e.Status != "queued");
-            sections.Add(new(SessionFilter.Pending, running > 0 ? $"Pending ({running} running)" : "Pending", pending,
-                pending.Count > PendingOpenLimit, "warn"));
-        }
-
-        if (failed.Count > 0) sections.Add(new(SessionFilter.Failed, "Failed", failed, Tone: "bad"));
-        if (analysed.Count > 0) sections.Add(new(SessionFilter.Analysed, "Analysed", analysed));
-        return sections;
-    }
 
     RenderFragment LineFilter() => @<FilterInput Class="code-filter" AriaLabel="Filter lines"
                                                  Value="@ViewFilter" ValueChanged="OnLineFilterChanged"/>;

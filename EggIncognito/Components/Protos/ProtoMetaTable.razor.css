@@ -1,0 +1,3 @@
+.pwb-key { color: var(--color-muted); }
+.pwb-wrap { font-family: var(--font-mono); font-size: 0.75rem; overflow-wrap: break-word; word-break: normal; hyphens: none; -webkit-hyphens: none; }
+.pwb-meta-diff > td { background-color: color-mix(in oklab, var(--color-accent) 10%, transparent); }

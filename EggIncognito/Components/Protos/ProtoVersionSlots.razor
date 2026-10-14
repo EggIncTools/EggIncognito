@@ -1,0 +1,57 @@
+@using EggIncognito.Core.Services.ProtoExtract
+@using EggIncognito.Models.Registry
+@using EggIncognito.Services.Protos
+
+<div class="pwb-slots">
+    <div class="@SlotClass(A)">
+        <VersionCombo Label="A" Items="AItems" Selected="@A?.Format()"
+                      SelectedChanged="OnPickA"/>
+        @if (A is { } refA && IsLegacySha(refA)) {
+            <span class="pwb-slot-note pwb-warn">
+                legacy sha
+            </span>
+        }
+    </div>
+    <button type="button" class="pwb-swap" aria-label="Swap A and B"
+            disabled="@(B is null)" @onclick="OnSwap">
+        <Icon Name="arrow-left-right" Class="icon-sm"/>
+    </button>
+    <div class="@SlotClass(B)">
+        <VersionCombo Label="B" Items="BItems" Selected="@B?.Format()"
+                      SelectedChanged="OnPickB" AllowClear="true"/>
+        @if (B is { } refB && IsLegacySha(refB)) {
+            <span class="pwb-slot-note pwb-warn">
+                legacy sha
+            </span>
+        }
+        @if (Tier is { } tier) {
+            <span class="pwb-slot-note pwb-tier-note @(tier.Weak ? "pwb-warn" : "")">
+                @tier.Reason
+            </span>
+        }
+    </div>
+</div>
+
+@code {
+
+    [Parameter] public ProtoRef? A { get; set; }
+
+    [Parameter] public ProtoRef? B { get; set; }
+
+    [Parameter] public IReadOnlyList<VersionComboItem> AItems { get; set; } = [];
+
+    [Parameter] public IReadOnlyList<VersionComboItem> BItems { get; set; } = [];
+
+    [Parameter] public EventCallback<string?> OnPickA { get; set; }
+
+    [Parameter] public EventCallback<string?> OnPickB { get; set; }
+
+    [Parameter] public EventCallback OnSwap { get; set; }
+
+    [Parameter] public Func<ProtoRef, bool> IsLegacySha { get; set; } = null!;
+
+    [Parameter] public Func<ProtoRef?, string> SlotClass { get; set; } = null!;
+
+    [Parameter] public ProtoCounterpart? Tier { get; set; }
+
+}

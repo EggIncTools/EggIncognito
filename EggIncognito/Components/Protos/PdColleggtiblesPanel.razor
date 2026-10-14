@@ -1,0 +1,109 @@
+@using System.Globalization
+@using EggIncognito.Components.Calendar
+@using EggIncognito.Models.Periodicals
+@using EggIncognito.Services.Assets
+
+@if (Summary?.Colleggtibles is { } c) {
+    <section class="panel pd-w-cegg">
+        <div class="cegg-head">
+            <h3 class="cegg-title">Colleggtibles</h3>
+            <a class="icon-btn icon-btn-sm" href="/api/v1/data/periodical/get_periodicals/colleggtibles" download="colleggtibles.json" aria-label="Download JSON">
+                <Icon Name="download"/>
+            </a>
+        </div>
+        @{
+            var tierCount = Math.Max(1, c.Eggs.Select(e => e.TierValues.Count).DefaultIfEmpty(0).Max());
+        }
+        <div class="cegg-scroll">
+        <table class="data-table cegg-table">
+            <thead>
+            <tr>
+                <th rowspan="2">Name</th>
+                <th rowspan="2">Dimension</th>
+                <th class="cegg-tier-group cegg-tier-first" colspan="@tierCount">Tier</th>
+            </tr>
+            <tr>
+                @for (var t = 1; t <= tierCount; t++) {
+                    <th class="@TierCellClass(t - 1)">@t</th>
+                }
+            </tr>
+            </thead>
+            <tbody>
+            @foreach (var e in c.Eggs) {
+                <tr>
+                    <td class="cegg-name">
+                        <span class="cegg-ident">
+                            @if (!string.IsNullOrEmpty(e.Icon)) {
+                                <FallbackImg Class="cegg-icon" Src="@e.Icon" Alt="@e.Identifier">
+                                    <Fallback><span class="cegg-none">-</span></Fallback>
+                                </FallbackImg>
+                            } else {
+                                <span class="cegg-none">-</span>
+                            }
+                            <span class="cegg-name-text">@EggName(e)</span>
+                        </span>
+                    </td>
+                    @if (e.TierValues.Count == 0) {
+                        <td class="cegg-dim" colspan="@(tierCount + 1)">not yet published</td>
+                    } else {
+                        <td class="cegg-dim">
+                            <span class="cegg-chip"><span class="cegg-chip-unit">@TierUnit(e.TierValues)</span>@ShortDimension(e.Dimension)</span>
+                        </td>
+                        @for (var t = 0; t < tierCount; t++) {
+                            <td class="mono @TierCellClass(t)">@(t < e.TierValues.Count ? TierMagnitude(e.TierValues[t]) : "")</td>
+                        }
+                    }
+                </tr>
+            }
+            </tbody>
+        </table>
+        </div>
+        @{ var used = c.Eggs.Where(e => e.TierValues.Count > 0).Select(e => e.Dimension).ToHashSet(StringComparer.OrdinalIgnoreCase); }
+        <div class="cegg-legend">
+            <span class="cegg-legend-k">Possible dimensions</span>
+            <ul class="cegg-legend-list">
+                @foreach (var dim in ProtoDimensions) {
+                    <li class="cegg-legend-chip @(used.Contains(dim) ? "cegg-legend-on" : "")">@EggIcons.Pretty(dim)</li>
+                }
+            </ul>
+        </div>
+        <WatchList Source="/api/v1/contracts/predictions/watch/colleggtibles" PrefKey="watch.colleggtibles"
+                   AddLabel="Pin colleggtible" Placeholder="colleggtible..." EmptyNote="Pin colleggtibles to see the closest past and predicted contracts that carry them."/>
+    </section>
+}
+
+@code {
+    [Parameter] public PeriodicalsSummary? Summary { get; set; }
+
+    static string TierCellClass(int tierIx) {
+        return tierIx == 0 ? "cegg-tier cegg-tier-first" : "cegg-tier";
+    }
+
+    static string EggName(EggRow e) {
+        return EggIcons.Pretty(string.IsNullOrWhiteSpace(e.Name) ? e.Identifier : e.Name);
+    }
+
+    static string TierMagnitude(double value) {
+        var magnitude = Math.Abs(value - 1) * 100;
+        var digits = magnitude >= 10 ? "0.#" : "0.##";
+        return magnitude.ToString(digits, CultureInfo.InvariantCulture);
+    }
+
+    static string TierUnit(IReadOnlyList<double> values) {
+        return values.All(v => v < 1) ? "-%" : "+%";
+    }
+
+    static string ShortDimension(string dimension) {
+        var name = EggIcons.Pretty(dimension);
+        return name switch {
+            "Shipping Capacity" => "Shipping Cap",
+            "Internal Hatchery Rate" => "Hatchery Rate",
+            "Egg Laying Rate" => "Laying Rate",
+            _ => name
+        };
+    }
+
+    static readonly IReadOnlyList<string> ProtoDimensions = [
+        .. EggSharp.GameData.ColleggtibleCatalog.DimensionCodes.Where(kv => kv.Value > 0).OrderBy(kv => kv.Value).Select(kv => kv.Key)
+    ];
+}

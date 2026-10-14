@@ -1,0 +1,8 @@
+.drm-pick-host { display: contents; }
+.drm-pick-host ::deep .drm-pick { flex-wrap: wrap; }
+.drm-book { flex: 1 1 14rem; min-width: 0; width: auto; }
+.drm-arg { flex: 1 1 10rem; min-width: 0; width: auto; }
+
+@media (max-width: 40rem) {
+  .drm-book, .drm-arg { flex: 1 1 100%; }
+}

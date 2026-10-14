@@ -1,0 +1,126 @@
+@inject IServiceProvider Services
+@using System.Globalization
+@using EggIncognito.Core
+@using EggIncognito.Models.Devices
+@using EggIncognito.Services.Events
+
+@if (Running is { } running) {
+    <div class="dwb-status wb-st-run"><Icon Name="play" Class="icon-sm"/><span>@running.Kind</span></div>
+}
+<WorkbenchLoad T="JobGroupRow" Items="Jobs" EmptyText="No jobs yet." Context="jobs">
+    <TableScroll>
+        <table class="data-table dwb-jobs-table">
+            <thead>
+            <tr>
+                <th>when</th><th>kind</th><th>outcome</th><th>repeat</th><th>took</th><th>trigger</th>
+            </tr>
+            </thead>
+            <tbody>
+            @{
+                DateOnly? lastDay = null;
+            }
+            @foreach (var j in jobs) {
+                var open = Expanded.Contains(j.Id);
+                var day = DateOnly.FromDateTime(ViewerClock.At(Services, j.LastAt).DateTime);
+                if (day != lastDay) {
+                    lastDay = day;
+                    <tr class="row-day">
+                        <td colspan="6">@day.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)</td>
+                    </tr>
+                }
+
+                <tr class="row-click @(open ? "row-open" : "")" @key="j.Id" @onclick="@(() => OnToggleJob.InvokeAsync(j))">
+                    <td class="mono">@Stamp(j.LastAt)</td>
+                    <td>@j.Kind</td>
+                    <td>
+                        <span class="dwb-status">
+                            <Icon Name="@StateIcon(j.State)" Class="@($"icon-sm {StateClass(j.State)}")"/>
+                            <span>@(j.Outcome ?? j.State)</span>
+                        </span>
+                    </td>
+                    <td class="mono text-accent" title="@(j.Repeat > 1 ? $"since {Stamp(j.StartedAt)}" : null)">
+                        @(j.Repeat > 1 ? $"x{j.Repeat}" : "")
+                    </td>
+                    <td class="mono">@Duration(j)</td>
+                    <td class="dwb-job-trigger" title="@j.Trigger">@j.Trigger</td>
+                </tr>
+                @if (open) {
+                    <tr class="row-detail">
+                        <td colspan="6">
+                            <div class="dwb-job-lines">
+                                @if (!string.IsNullOrEmpty(j.Message)) {
+                                    <div class="dwb-job-line muted">@j.Message</div>
+                                }
+                                @foreach (var l in LinesFor(j.Id)) {
+                                    <div class="dwb-job-line">
+                                        <span class="dwb-mono muted">@ViewerClock.At(Services, l.At).ToString("HH:mm:ss")</span>
+                                        @if (l.Entry is not null) {
+                                            <span class="dwb-mono">@l.Entry</span>
+                                        }
+                                        <span class="@LevelClass(l.Level)">@l.Text</span>
+                                        @if (l.Bytes is > 0) {
+                                            <span class="dwb-mono muted">@ByteFormat.Mb(l.Bytes.Value, "F1")</span>
+                                        }
+                                    </div>
+                                }
+                            </div>
+                        </td>
+                    </tr>
+                }
+            }
+            </tbody>
+        </table>
+    </TableScroll>
+    @if (JobsMore is not null) {
+        <button type="button" class="btn-mini dwb-gap" disabled="@JobsBusy" @onclick="OnLoadMore">
+            @(JobsBusy ? "Loading..." : "Older jobs")
+        </button>
+    }
+</WorkbenchLoad>
+
+@code {
+    [Parameter] public LiveJob? Running { get; set; }
+    [Parameter] public List<JobGroupRow>? Jobs { get; set; }
+    [Parameter] public HashSet<long> Expanded { get; set; } = [];
+    [Parameter] public Dictionary<long, List<JobLineRow>> JobLines { get; set; } = [];
+    [Parameter] public long? JobsMore { get; set; }
+    [Parameter] public bool JobsBusy { get; set; }
+    [Parameter] public EventCallback<JobGroupRow> OnToggleJob { get; set; }
+    [Parameter] public EventCallback OnLoadMore { get; set; }
+
+    string Stamp(DateTimeOffset at) {
+        return ViewerClock.At(Services, at).ToString("MM-dd HH:mm:ss", CultureInfo.InvariantCulture);
+    }
+
+    static string StateClass(string state) {
+        return WorkbenchStatus.Class(WorkbenchStatus.Parse(state));
+    }
+
+    static string StateIcon(string state) {
+        return WorkbenchStatus.Parse(state) switch {
+            WorkbenchStatusKind.Done => "circle-check",
+            WorkbenchStatusKind.Error => "circle-x",
+            WorkbenchStatusKind.Running => "play",
+            WorkbenchStatusKind.Queued => "clock",
+            _ => "circle"
+        };
+    }
+
+    static string LevelClass(string level) {
+        return level switch {
+            "error" => "text-err",
+            "warn" => "dwb-warn",
+            _ => "text-fg"
+        };
+    }
+
+    static string Duration(JobGroupRow j) {
+        if (j.FinishedAt is not { } end) return "running";
+        var span = end - j.LastAt;
+        return span.TotalSeconds < 1 ? "<1s" : $"{(int)span.TotalSeconds}s";
+    }
+
+    IReadOnlyList<JobLineRow> LinesFor(long jobId) {
+        return JobLines.TryGetValue(jobId, out var lines) ? lines : [];
+    }
+}

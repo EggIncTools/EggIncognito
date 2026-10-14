@@ -1,0 +1,10 @@
+.cstruct-entry { padding: 0.5rem; }
+.cstruct-entry + .cstruct-entry { border-top: 1px solid var(--color-border); }
+.cstruct-head { display: flex; align-items: center; gap: 0.5rem; font-family: var(--font-mono); font-size: 0.875rem; }
+.cstruct-arrow { color: var(--color-muted); }
+.cstruct-path { min-width: 0; overflow-wrap: break-word; word-break: normal; hyphens: none; -webkit-hyphens: none; }
+.cstruct-toggle { font-size: 0.75rem; color: var(--color-muted); cursor: pointer; }
+.cstruct-rows { margin-top: 0.25rem; font-family: var(--font-mono); white-space: pre; overflow-x: auto; }
+.cstruct-add { display: block; color: var(--color-accent); }
+.cstruct-rem { display: block; color: var(--color-muted); }
+.cstruct-head .cstruct-add, .cstruct-head .cstruct-rem { display: inline; }

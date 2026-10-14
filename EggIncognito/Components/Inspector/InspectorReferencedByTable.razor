@@ -1,0 +1,69 @@
+@using EggIncognito.Models.Docs
+@using EggIncognito.Services.Docs
+@using EggIncognito.Services.Inspector
+
+<div class="doc-section-title">Referenced by (@Refs.Count)</div>
+@if (Refs.Count == 0) {
+    <div class="doc-none">No other message has a field of this type.</div>
+} else {
+    <TableScroll MaxHeight="18rem">
+        <table class="data-table">
+            <thead>
+            <tr>
+                <th>Message</th>
+                <th>Field</th>
+                <th>Kind</th>
+            </tr>
+            </thead>
+            <tbody>
+            @if (RefGroups is { } refGroups) {
+                @foreach (var group in refGroups) {
+                    @GroupRow((group.Key, group.Count(), "r:" + group.Key, 3))
+                    @if (_open.Contains("r:" + group.Key)) {
+                        @foreach (var r in group) {
+                            @RefRow(r)
+                        }
+                    }
+                }
+            } else {
+                @foreach (var r in Refs) {
+                    @RefRow(r)
+                }
+            }
+            </tbody>
+        </table>
+    </TableScroll>
+}
+
+@code {
+    [Parameter] public IReadOnlyList<MessageFieldRef> Refs { get; set; } = [];
+    [Parameter] public List<IGrouping<string, MessageFieldRef>>? RefGroups { get; set; }
+    [Parameter] public EventCallback<string> OnSelectMessage { get; set; }
+
+    readonly HashSet<string> _open = [];
+
+    RenderFragment<(string Title, int Count, string Key, int Span)> GroupRow => g =>
+        @<tr class="doc-group-row" @key="g.Key" @onclick="() => ToggleGroup(g.Key)">
+            <td colspan="@g.Span">
+                <span class="doc-group-head">
+                    <Caret Open="@_open.Contains(g.Key)"/>
+                    <span class="mono">@g.Title</span>
+                    <span class="muted">@g.Count</span>
+                </span>
+            </td>
+        </tr>;
+
+    RenderFragment<MessageFieldRef> RefRow => r =>
+        @<tr @key="@(r.Message + "." + r.Field)">
+            <td>
+                <button type="button" class="doc-link" @onclick="() => OnSelectMessage.InvokeAsync(r.Message)">@r.Message</button>
+            </td>
+            <td class="mono">@r.Field</td>
+            <td class="muted">@(r.Repeated ? "repeated" : "optional")</td>
+        </tr>;
+
+    void ToggleGroup(string key) {
+        if (!_open.Remove(key)) _open.Add(key);
+    }
+
+}

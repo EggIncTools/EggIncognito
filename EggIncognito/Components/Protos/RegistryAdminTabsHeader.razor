@@ -1,0 +1,45 @@
+<div class="pwb-admin-head">
+    <h3 class="pwb-admin-title">Registry admin</h3>
+    <div class="segmented pwb-admin-seg" role="radiogroup" aria-label="Registry admin action">
+        <button type="button" class="segmented-opt @(Tab == TabReview ? "active" : "")"
+                @onclick="@(() => OnPick.InvokeAsync(TabReview))">
+            Review
+        </button>
+        <button type="button" class="segmented-opt @(Tab == TabAdd ? "active" : "")"
+                @onclick="@(() => OnPick.InvokeAsync(TabAdd))">
+            Add version
+        </button>
+        <button type="button" class="segmented-opt @(Tab == TabEdit ? "active" : "")"
+                @onclick="@(() => OnPick.InvokeAsync(TabEdit))">
+            Edit version
+        </button>
+        @if (IsAdmin) {
+            <button type="button" class="segmented-opt @(Tab == TabDeleted ? "active" : "")"
+                    @onclick="@(() => OnPick.InvokeAsync(TabDeleted))">
+                Deleted
+            </button>
+        }
+    </div>
+    <button type="button" class="icon-btn icon-btn-sm pwb-admin-close" aria-label="Close registry admin"
+            @onclick="@(() => OnClose.InvokeAsync())">
+        <Icon Name="x"/>
+    </button>
+</div>
+
+@code {
+    [Parameter] public string Tab { get; set; } = "";
+
+    [Parameter] public bool IsAdmin { get; set; }
+
+    [Parameter] public string TabReview { get; set; } = "";
+
+    [Parameter] public string TabAdd { get; set; } = "";
+
+    [Parameter] public string TabEdit { get; set; } = "";
+
+    [Parameter] public string TabDeleted { get; set; } = "";
+
+    [Parameter] public EventCallback<string> OnPick { get; set; }
+
+    [Parameter] public EventCallback OnClose { get; set; }
+}

@@ -1,0 +1,101 @@
+@using System.Globalization
+@using EggIncognito.Models.Devices
+@using EggIncognito.Services.Devices
+
+<tr class="@(Point.Error is not null ? "dlk-row-err" : "")">
+    <td class="dlk-cur">
+        <input type="checkbox" aria-label="Select point" checked="@Selected"
+               @onchange="@(e => OnSelectChanged.InvokeAsync(e.Value is true))"/>
+    </td>
+    <td class="dlk-cur">
+        <span class="dlk-swatch" style="@($"background:{Point.Color}")" title="@Point.Color"></span>
+    </td>
+    <td class="dlk-mono">@Point.X,@Point.Y</td>
+    <td>
+        <span class="dlk-cell">
+            <select class="field-input dlk-kind" aria-label="Click type" value="@Point.Kind"
+                    @onchange="@(e => OnUpdate.InvokeAsync(new PixelWatchPointUpdate(Kind: e.Value?.ToString())))">
+                <option value="@PixelWatchKinds.Tap">tap</option>
+                <option value="@PixelWatchKinds.Double">double</option>
+                <option value="@PixelWatchKinds.Hold">hold</option>
+            </select>
+            @if (Point.Kind == PixelWatchKinds.Hold) {
+                <input type="number" class="field-input dlk-num" aria-label="Hold length in ms" value="@Point.HoldMs"
+                       min="@PixelWatchService.MinHoldMs" max="@PixelWatchService.MaxHoldMs" step="50"
+                       @onchange="@(e => OnUpdate.InvokeAsync(new PixelWatchPointUpdate(HoldMs: ParseInt(e.Value))))"/>
+            }
+        </span>
+    </td>
+    <td>
+        <span class="dlk-cell">
+            <input type="number" class="field-input dlk-num" aria-label="Click rate in ms" value="@Point.RateMs"
+                   min="@PixelWatchService.MinRateMs" max="@PixelWatchService.MaxRateMs" step="50"
+                   @onchange="@(e => OnUpdate.InvokeAsync(new PixelWatchPointUpdate(RateMs: ParseInt(e.Value))))"/>
+            <span class="dlk-unit">ms</span>
+        </span>
+    </td>
+    <td class="dlk-unit">
+        @if (Group is { } g) {
+            <span class="dlk-cell">
+                <span class="dlk-group-id">@GroupLabel</span>
+                <span class="dlk-muted">@(g.Position(Point.Id) + 1)/@g.PointIds.Count, @g.OffsetMs ms</span>
+                <button type="button" class="btn-mini" title="Dissolve this group" disabled="@Busy"
+                        @onclick="@(() => OnUngroup.InvokeAsync())">
+                    <Icon Name="x" Class="icon-sm"/>
+                </button>
+            </span>
+        }
+    </td>
+    <td class="dlk-mono">@Point.Taps</td>
+    <td class="dlk-last" title="@Point.Error">
+        @if (Point.LastTapAt is { } at) {
+            <TimeAgo At="@at" Hover="false" Class="time-ago"/>
+        }
+    </td>
+    <td class="tools">
+        <button type="button" class="btn-mini" title="Remove this point" disabled="@Busy"
+                @onclick="@(() => OnRemove.InvokeAsync())">
+            <Icon Name="x" Class="icon-sm"/>
+        </button>
+    </td>
+</tr>
+@if (Point.Error is { } err) {
+    <tr class="dlk-err-row">
+        <td colspan="9" class="dlk-err">@err</td>
+    </tr>
+}
+
+@code {
+
+    [Parameter]
+    public PixelWatchStatus Point { get; set; } = null!;
+
+    [Parameter]
+    public bool Selected { get; set; }
+
+    [Parameter]
+    public bool Busy { get; set; }
+
+    [Parameter]
+    public PixelWatchGroup? Group { get; set; }
+
+    [Parameter]
+    public string? GroupLabel { get; set; }
+
+    [Parameter]
+    public EventCallback<bool> OnSelectChanged { get; set; }
+
+    [Parameter]
+    public EventCallback<PixelWatchPointUpdate> OnUpdate { get; set; }
+
+    [Parameter]
+    public EventCallback OnUngroup { get; set; }
+
+    [Parameter]
+    public EventCallback OnRemove { get; set; }
+
+    static int? ParseInt(object? raw) {
+        return int.TryParse(raw?.ToString(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var n) ? n : null;
+    }
+
+}

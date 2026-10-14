@@ -1,0 +1,41 @@
+@using EggIncognito.Services.Protos
+
+<div class="wb-rail-slot pwb-rail-reg wb-pane-in">
+    <WorkbenchSection Label="Registry (split)">
+        <Tools>
+            <button type="button" class="pwb-x pwb-x-head" aria-label="Close split registry" @onclick="OnClose">
+                <Icon Name="x" Class="icon-sm"/>
+            </button>
+        </Tools>
+        <ChildContent>
+            <RegistryPane Query="Split" QueryChanged="SplitChanged" Rows="Rows"
+                          IsAdmin="IsAdmin" RowClass="RowClass" IsSelected="IsSelected"
+                          OnRowClick="OnRowClick" OnToggleRow="OnToggleRow"
+                          OnToggleAll="OnToggleAll"/>
+        </ChildContent>
+    </WorkbenchSection>
+</div>
+
+@code {
+
+    [Parameter, EditorRequired] public ListQuery Split { get; set; } = ListQuery.Empty;
+
+    [Parameter] public EventCallback OnClose { get; set; }
+
+    [Parameter] public EventCallback<ListQuery> SplitChanged { get; set; }
+
+    [Parameter] public IReadOnlyList<ProtoRegistryRow> Rows { get; set; } = [];
+
+    [Parameter] public bool IsAdmin { get; set; }
+
+    [Parameter] public Func<ProtoRegistryRow, string> RowClass { get; set; } = null!;
+
+    [Parameter] public Func<ProtoRegistryRow, bool> IsSelected { get; set; } = null!;
+
+    [Parameter] public EventCallback<(ProtoRegistryRow Row, MouseEventArgs Args)> OnRowClick { get; set; }
+
+    [Parameter] public EventCallback<ProtoRegistryRow> OnToggleRow { get; set; }
+
+    [Parameter] public EventCallback<(IReadOnlyList<ProtoRegistryRow> Rows, bool On)> OnToggleAll { get; set; }
+
+}

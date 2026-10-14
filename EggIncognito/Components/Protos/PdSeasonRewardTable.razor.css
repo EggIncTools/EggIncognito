@@ -1,0 +1,15 @@
+.season-table { width: auto; }
+.season-table td { white-space: normal; }
+.season-table thead th { text-align: center; vertical-align: bottom; }
+.season-table thead th:first-child { text-align: left; width: 3rem; }
+.season-table tbody td { text-align: center; vertical-align: middle; font-size: 0.75rem; }
+.season-table tbody td:first-child { text-align: left; }
+.season-goal-ix { font-family: var(--font-mono); color: var(--color-muted); }
+.season-table ::deep .season-grade-icon { width: 1.75rem; height: 1.75rem; object-fit: contain; display: inline-block; }
+.season-goal { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.125rem; }
+.season-goal-reward { flex: none; display: inline-flex; align-items: center; gap: 0.125rem; }
+.season-table ::deep .season-goal-img { width: 1.125rem; height: 1.125rem; object-fit: contain; display: block; }
+.season-goal-cs { color: var(--color-fg-soft); font-family: var(--font-mono); font-size: 0.6875rem; font-weight: 600; letter-spacing: -0.01em; white-space: nowrap; }
+.season-goal-unit { color: var(--color-muted); font-weight: 400; font-size: 0.5625rem; margin-left: 0.15rem; }
+.season-goal-amt { color: var(--color-muted); font-family: var(--font-mono); font-size: 0.625rem; font-weight: 400; }
+.season-none { font-size: 0.875rem; color: var(--color-muted); }

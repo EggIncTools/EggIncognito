@@ -4,47 +4,6 @@
 .flow-count { flex: none; font-family: var(--font-mono); font-size: 0.6875rem; color: var(--color-muted); }
 .flow-tools { margin-left: auto; display: flex; align-items: center; gap: 0.375rem; flex-wrap: wrap; min-width: 0; }
 .flow-tools ::deep a.btn-mini { text-decoration: none; }
-.flow-filters {
-  display: flex;
-  align-items: center;
-  gap: 0.375rem;
-  flex: none;
-  flex-wrap: wrap;
-  min-width: 0;
-  margin-bottom: 0.5rem;
-  padding: 0.375rem 0.5rem;
-  border: 1px solid var(--color-border);
-  border-radius: 0.375rem;
-  background-color: var(--color-panel2);
-}
-.flow-filters-label { margin-right: 0.125rem; font-size: 0.625rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--color-muted); }
-.flow-filter-select {
-  flex: none;
-  height: 1.75rem;
-  box-sizing: border-box;
-  padding: 0 0.5rem;
-  border: 1px solid var(--color-border);
-  border-radius: 0.25rem;
-  background-color: var(--color-bg);
-  font-size: 0.75rem;
-  color: var(--color-fg);
-}
-.flow-filter-select:focus { outline: none; border-color: var(--color-accent); }
-.flow-combo { position: relative; flex: 1 1 0; min-width: 100px; }
-.flow-combo ::deep .flow-filter-input {
-  width: 100%;
-  min-width: 0;
-  height: 1.75rem;
-  box-sizing: border-box;
-  padding: 0 0.5rem;
-  border: 1px solid var(--color-border);
-  border-radius: 0.25rem;
-  background-color: var(--color-bg);
-  font-size: 0.75rem;
-  color: var(--color-fg);
-}
-.flow-combo ::deep .flow-filter-input:focus { outline: none; border-color: var(--color-accent); }
-.combo-empty { padding: 0.375rem 0.625rem; font-size: 0.75rem; color: var(--color-muted); }
 .flow-wrap {
   flex: 1 1 0%;
   min-height: 12rem;

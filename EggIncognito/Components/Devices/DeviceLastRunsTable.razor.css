@@ -1,0 +1,7 @@
+.drm-steps { table-layout: auto; font-size: 0.75rem; }
+.drm-steps td { white-space: nowrap; vertical-align: middle; }
+.drm-cur { width: 1.5rem; padding-right: 0; }
+.drm-stamp { font-family: var(--font-mono); font-size: 0.75rem; color: var(--color-muted); }
+.drm-step-title { color: var(--color-fg); }
+.drm-run-name { width: 100%; max-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.drm-step-note { width: 100%; max-width: 0; overflow: hidden; text-overflow: ellipsis; font-size: 0.75rem; color: var(--color-muted); }

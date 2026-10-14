@@ -1,0 +1,27 @@
+@using Microsoft.AspNetCore.Components.Web.Virtualization
+<div class="code-scroll" style="@ScrollStyle">
+    <div class="code-rows @(WrapNow ? "code-wrap" : "")">
+        @if (NoMatch) {
+            <div class="code-row code-note">@NoMatchText</div>
+        } else if (Virtualized) {
+            <Virtualize Items="Rows" Context="row" ItemSize="CodeMetrics.RowHeightPx"
+                        OverscanCount="CodeMetrics.Overscan">
+                @RowTemplate(row)
+            </Virtualize>
+        } else {
+            @foreach (var row in Rows) {
+                @RowTemplate(row)
+            }
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter] public string? ScrollStyle { get; set; } = null;
+    [Parameter] public bool WrapNow { get; set; }
+    [Parameter] public string NoMatchText { get; set; } = null!;
+    [Parameter] public bool NoMatch { get; set; }
+    [Parameter] public bool Virtualized { get; set; }
+    [Parameter] public List<int> Rows { get; set; } = null!;
+    [Parameter] public RenderFragment<int> RowTemplate { get; set; } = null!;
+}

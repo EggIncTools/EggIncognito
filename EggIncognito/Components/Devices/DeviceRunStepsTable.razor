@@ -1,0 +1,63 @@
+@using EggIncognito.Core.Services.Devices
+
+@if (Steps.Count > 0 || RunNote is not null) {
+    <TableScroll MaxHeight="22rem">
+        <table class="data-table drm-steps">
+            <tbody>
+            @for (var i = 0; i < Steps.Count; i++) {
+                var step = Steps[i];
+                <tr @key="i">
+                    <td class="drm-cur">
+                        <Icon Name="@StepIcon(step.Status)" Class="@("icon-sm " + StepIconClass(step.Status))"/>
+                    </td>
+                    <td class="drm-step-title">@step.Title</td>
+                    <td class="drm-step-note">
+                        @(step.Status != CookbookStepStatus.Ok && step.Note is { Length: > 0 } note ? note : StepStateWord(step.Status))
+                    </td>
+                </tr>
+            }
+            @if (RunNote is { } runNote) {
+                <tr>
+                    <td class="drm-cur">
+                        <Icon Name="@LineIcon" Class="@("icon-sm " + LineIconClass)"/>
+                    </td>
+                    <td class="drm-step-title">@RunTitle</td>
+                    <td class="drm-step-note">@runNote</td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </TableScroll>
+}
+
+@code {
+
+    [Parameter] public List<CookbookStepResult> Steps { get; set; } = [];
+
+    [Parameter] public string? RunNote { get; set; }
+
+    [Parameter] public string? RunTitle { get; set; }
+
+    [Parameter] public string LineIcon { get; set; } = "";
+
+    [Parameter] public string LineIconClass { get; set; } = "";
+
+    [Parameter] public Func<CookbookStepStatus, string> StepStateWord { get; set; } = _ => "";
+
+    static string StepIcon(CookbookStepStatus status) {
+        return status switch {
+            CookbookStepStatus.Ok => "circle-check",
+            CookbookStepStatus.Skipped => "circle",
+            _ => "circle-x"
+        };
+    }
+
+    static string StepIconClass(CookbookStepStatus status) {
+        return status switch {
+            CookbookStepStatus.Ok => "text-ok",
+            CookbookStepStatus.Skipped => "text-muted",
+            _ => "text-err"
+        };
+    }
+
+}

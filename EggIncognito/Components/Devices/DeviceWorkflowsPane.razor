@@ -15,50 +15,10 @@
 @implements IDisposable
 
 <div class="drm" hidden="@(!Visible)">
-    <ToolBar Class="drm-pick">
-        @if (_books.Count > 0) {
-            <select class="field-input drm-book" aria-label="Cookbook" value="@_bookId"
-                    disabled="@_runBusy" @onchange="BookChanged">
-                @if (Workflows() is { Count: > 0 } workflows) {
-                    <optgroup label="workflows">
-                        @foreach (var book in workflows) {
-                            <option value="@book.Id" disabled="@(!book.Available)" title="@book.Unavailable">@book.Title</option>
-                        }
-                    </optgroup>
-                }
-                @if (Steps() is { Count: > 0 } steps) {
-                    <optgroup label="steps">
-                        @foreach (var book in steps) {
-                            <option value="@book.Id" disabled="@(!book.Available)" title="@book.Unavailable">@book.Title</option>
-                        }
-                    </optgroup>
-                }
-            </select>
-            @if (Chosen() is { Options: { Count: > 0 } options } chosen) {
-                <select class="field-input drm-arg" aria-label="@(chosen.ArgumentLabel ?? "Option")"
-                        value="@ArgFor(chosen)" disabled="@_runBusy" @onchange="@(e => SetArg(chosen.Id, e))">
-                    @foreach (var option in options) {
-                        <option value="@option.Value" title="@option.Detail">@option.Label</option>
-                    }
-                </select>
-            }
-            <button type="button" class="btn-primary" disabled="@(!CanRun())" @onclick="RunChosenAsync">
-                <Icon Name="play" Class="icon-sm"/>
-                Run
-            </button>
-            @if (AndroidUserId is { } target) {
-                <span class="drm-hint">to user @target</span>
-            }
-        } else {
-            <span class="drm-hint">@(_booksBusy ? "loading cookbooks" : _booksError ?? "no cookbooks for this device")</span>
-            @if (!_booksBusy) {
-                <button type="button" class="btn-mini" @onclick="RetryCookbooks">
-                    <Icon Name="refresh-cw" Class="icon-sm"/>
-                    Retry
-                </button>
-            }
-        }
-    </ToolBar>
+    <DeviceWorkflowPicker Workflows="Workflows()" Steps="Steps()" Chosen="Chosen()" BookId="@_bookId"
+                          ArgValue="@(Chosen() is { } c ? ArgFor(c) : null)" RunBusy="_runBusy" BooksBusy="_booksBusy"
+                          BooksError="@_booksError" CanRun="CanRun()" AndroidUserId="AndroidUserId" OnBookChanged="BookChanged"
+                          OnArgChanged="@((ChangeEventArgs e) => SetArg(Chosen()!.Id, e))" OnRun="RunChosenAsync" OnRetry="RetryCookbooks"/>
 
     @if (Chosen() is { Unavailable: { Length: > 0 } why, Available: false }) {
         <div class="drm-hint">@why</div>
@@ -66,97 +26,18 @@
 
     @if (_runTitle is not null) {
         <div class="drm-run">
-            <div class="drm-head">
-                <span class="drm-title">@_runTitle</span>
-                <span class="meta-dots">
-                    <span class="drm-elapsed">@Line().Elapsed</span>
-                    <DeviceStatusLine Icon="@Line().Icon" IconClass="@Line().IconClass" Text="@Line().State" Detail="@RunDetail()"/>
-                </span>
-                <span class="drm-head-tools">
-                    @if (!_runDone && !_runReadOnly && _runJobId is not null) {
-                        <button type="button" class="btn-mini btn-danger" disabled="@_stopBusy" @onclick="StopRunAsync">
-                            @(_stopBusy ? "Stopping..." : "Stop")
-                        </button>
-                    }
-                    <CopyButton Text="@RunReport()" Label="Copy report" ShowIcon="false" Class="btn-mini">
-                        <ChildContent>Copy report</ChildContent>
-                        <DoneContent>Copied</DoneContent>
-                    </CopyButton>
-                    @if (_runDone) {
-                        <button type="button" class="btn-mini" @onclick="Done">Clear</button>
-                    }
-                </span>
-            </div>
+            <DeviceRunHeaderBar Title="@_runTitle" Line="Line()" RunDetail="@RunDetail()"
+                                ShowStop="@(!_runDone && !_runReadOnly && _runJobId is not null)" StopBusy="_stopBusy"
+                                RunDone="_runDone" RunReport="@RunReport()" OnStop="StopRunAsync" OnDone="Done"/>
 
-            @if (_steps.Count > 0 || RunNote() is not null) {
-                <TableScroll MaxHeight="22rem">
-                    <table class="data-table drm-steps">
-                        <tbody>
-                        @for (var i = 0; i < _steps.Count; i++) {
-                            var step = _steps[i];
-                            <tr @key="i">
-                                <td class="drm-cur">
-                                    <Icon Name="@StepIcon(step.Status)" Class="@("icon-sm " + StepIconClass(step.Status))"/>
-                                </td>
-                                <td class="drm-step-title">@step.Title</td>
-                                <td class="drm-step-note">
-                                    @(step.Status != CookbookStepStatus.Ok && step.Note is { Length: > 0 } note ? note : StepStateWord(step.Status))
-                                </td>
-                            </tr>
-                        }
-                        @if (RunNote() is { } runNote) {
-                            <tr>
-                                <td class="drm-cur">
-                                    <Icon Name="@Line().Icon" Class="@("icon-sm " + Line().IconClass)"/>
-                                </td>
-                                <td class="drm-step-title">@_runTitle</td>
-                                <td class="drm-step-note">@runNote</td>
-                            </tr>
-                        }
-                        </tbody>
-                    </table>
-                </TableScroll>
-            }
+            <DeviceRunStepsTable Steps="_steps" RunNote="@RunNote()" RunTitle="@_runTitle" LineIcon="@Line().Icon"
+                                 LineIconClass="@Line().IconClass" StepStateWord="StepStateWord"/>
 
-            <Disclosure Open="_logOpen" OpenChanged="@(v => _logOpen = v)">
-                <Head>
-                    Log
-                    <span class="drm-log-count">@_runLog.Count @(_runLog.Count == 1 ? "line" : "lines")</span>
-                </Head>
-                <Tools>
-                    <button type="button" class="btn-mini" @onclick="ToggleWrap">@(_wrap ? "Nowrap" : "Wrap")</button>
-                </Tools>
-                <ChildContent>
-                    <TableScroll Class="drm-log-wrap">
-                        <div class="drm-log @(_wrap ? "" : "drm-log-nowrap")">
-                            @for (var i = _runLog.Count - 1; i >= 0; i--) {
-                                <div class="drm-log-line">@_runLog[i]</div>
-                            }
-                        </div>
-                    </TableScroll>
-                </ChildContent>
-            </Disclosure>
+            <DeviceRunLogDisclosure Lines="_runLog" Wrap="_wrap" @bind-Open="_logOpen" OnToggleWrap="ToggleWrap"/>
         </div>
     }
 
-    @if (_lastRuns.Count > 0) {
-        <TableScroll MaxHeight="12rem">
-            <table class="data-table drm-steps">
-                <tbody>
-                @foreach (var job in _lastRuns) {
-                    <tr class="row-click" @key="job.Id" title="@job.Message" @onclick="@(() => OpenRunAsync(job))">
-                        <td class="drm-cur">
-                            <Icon Name="@OutcomeIcon(job.State)" Class="@("icon-sm " + OutcomeIconClass(job.State))"/>
-                        </td>
-                        <td class="drm-stamp">@Stamp(job.LastAt)</td>
-                        <td class="drm-step-title drm-run-name">@RunTitle(job)</td>
-                        <td class="drm-step-note">@(job.Outcome ?? job.State)</td>
-                    </tr>
-                }
-                </tbody>
-            </table>
-        </TableScroll>
-    }
+    <DeviceLastRunsTable Jobs="_lastRuns" Stamp="Stamp" RunTitle="RunTitle" OnOpenRun="OpenRunAsync"/>
 </div>
 
 @code {
@@ -587,39 +468,6 @@
 
     string Stamp(DateTimeOffset at) {
         return ViewerClock.At(Services, at).ToString("HH:mm:ss", CultureInfo.InvariantCulture);
-    }
-
-    static string OutcomeIcon(string state) {
-        return state.ToLowerInvariant() switch {
-            "succeeded" => "circle-check",
-            "failed" => "circle-x",
-            "running" => "play",
-            _ => "circle"
-        };
-    }
-
-    static string OutcomeIconClass(string state) {
-        return state.ToLowerInvariant() switch {
-            "succeeded" => "text-ok",
-            "failed" => "text-err",
-            _ => "text-muted"
-        };
-    }
-
-    static string StepIcon(CookbookStepStatus status) {
-        return status switch {
-            CookbookStepStatus.Ok => "circle-check",
-            CookbookStepStatus.Skipped => "circle",
-            _ => "circle-x"
-        };
-    }
-
-    static string StepIconClass(CookbookStepStatus status) {
-        return status switch {
-            CookbookStepStatus.Ok => "text-ok",
-            CookbookStepStatus.Skipped => "text-muted",
-            _ => "text-err"
-        };
     }
 
     static string StepStateWord(CookbookStepStatus status) {

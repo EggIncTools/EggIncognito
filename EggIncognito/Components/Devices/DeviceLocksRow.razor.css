@@ -1,0 +1,13 @@
+.dlk-swatch { display: inline-block; width: 1rem; height: 1rem; border: 1px solid var(--color-border); border-radius: 50%; vertical-align: middle; }
+.dlk-kind { width: auto; min-width: 5rem; padding-block: 0.125rem; }
+.dlk-num { width: 4.75rem; padding-block: 0.125rem; }
+.dlk-unit { font-size: 0.75rem; color: var(--color-muted); }
+.dlk-cell { display: inline-flex; align-items: center; gap: 0.25rem; }
+.dlk-mono { font-family: var(--font-mono); }
+.dlk-group-id { font-family: var(--font-mono); color: var(--color-muted); }
+.dlk-muted { color: var(--color-muted); }
+.dlk-last { font-family: var(--font-mono); font-size: 0.75rem; color: var(--color-muted); }
+.dlk-row-err td { color: var(--color-err); }
+.dlk-err-row td { padding-top: 0; }
+.dlk-err { font-size: 0.75rem; color: var(--color-err); }
+.dlk-cur { width: 1.5rem; padding-right: 0; }

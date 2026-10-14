@@ -1,0 +1,239 @@
+@rendermode @(RenderModes.InteractiveServer)
+@implements IAsyncDisposable
+@using EggIncognito.Core
+@using EggIncognito.Models.Data
+@using EggIncognito.Services.Api
+@using EggIncognito.Services.Assets
+@inherits SelfCallComponentBase
+@inject ICurrentUser User
+@inject IJSRuntime JS
+@inject NavigationManager Nav
+@inject DataWorkbenchState State
+@inject ToastService Toasts
+@inject ILogger<DataWorkbenchModal> Logger
+
+<WorkbenchModal Open="_open" Title="@("Data")" TitleId="dataWorkbenchTitle" Size="WorkbenchSize.Wide"
+                CardClass="dwb-card" OnClose="CloseAsync">
+    <Rail>
+        <div class="dwb-rail-wrap">
+            <WorkbenchRail Class="wb-rail-popout">
+                @if (User.Current.IsAuthenticated) {
+                    <div class="awb-tools">
+                        <button type="button" class="btn-mini" @onclick="@(() => State.KeysOpen = true)">
+                            <Icon Name="key" Class="icon-sm"/> API keys
+                        </button>
+                    </div>
+                }
+                <WorkbenchLoad T="DataSourceRow" Items="@State.Sources" EmptyText="No data sources on this instance."
+                               Context="sources">
+                    <div class="dwb-rail-grid">
+                        <div class="dwb-rail-col">
+                            @foreach (var group in DataGroups(sources).Where(g => g != DataWorkbenchState.PeriodicalGroup)) {
+                                <WorkbenchSection Label="@DataGroupLabel(group)">
+                                    @foreach (var root in DataRootsOf(sources, group)) {
+                                        <WorkbenchEntry @key="root.Url"
+                                                        Selected="@(State.Kind == DataPaneKind.Dataset && State.Sub is null && State.Group == root.Group && State.Id == root.Id)"
+                                                        OnClick="@(_ => SelectDataset(root, null))"
+                                                        Trail="@RowTrail(root)" MetaLine="@RowMeta(root)">
+                                            <Name>@root.DisplayName</Name>
+                                        </WorkbenchEntry>
+                                        @if (root.Children is { Count: > 0 } children) {
+                                            <div class="ds-children">
+                                                @foreach (var child in children) {
+                                                    <WorkbenchEntry @key="child.Url"
+                                                                    Selected="@(State.Kind == DataPaneKind.Dataset && State.Sub == child.Id && State.Group == root.Group && State.Id == root.Id)"
+                                                                    OnClick="@(_ => SelectDataset(root, child))"
+                                                                    Trail="@RowTrail(child)" MetaLine="@RowMeta(child)">
+                                                        <Name>@child.DisplayName</Name>
+                                                    </WorkbenchEntry>
+                                                }
+                                            </div>
+                                        }
+                                    }
+                                </WorkbenchSection>
+                            }
+                            <WorkbenchSection Label="Coverage">
+                                <WorkbenchEntry Selected="@(State.Kind == DataPaneKind.Coverage)"
+                                                OnClick="@(_ => SelectSection(DataPaneKind.Coverage))"
+                                                Trail="@CoverageTrail">
+                                    <Name>Consume coverage</Name>
+                                </WorkbenchEntry>
+                            </WorkbenchSection>
+                        </div>
+                        <div class="dwb-rail-col">
+                            @foreach (var group in DataGroups(sources).Where(g => g == DataWorkbenchState.PeriodicalGroup)) {
+                                <WorkbenchSection Label="@DataGroupLabel(group)">
+                                    @foreach (var root in DataRootsOf(sources, group)) {
+                                        <WorkbenchEntry @key="root.Url"
+                                                        Selected="@(State.Kind == DataPaneKind.Dataset && State.Sub is null && State.Group == root.Group && State.Id == root.Id)"
+                                                        OnClick="@(_ => SelectDataset(root, null))"
+                                                        Trail="@RowTrail(root)" MetaLine="@RowMeta(root)">
+                                            <Name>@root.DisplayName</Name>
+                                        </WorkbenchEntry>
+                                        @if (root.Children is { Count: > 0 } children) {
+                                            <div class="ds-children">
+                                                @foreach (var child in children) {
+                                                    <WorkbenchEntry @key="child.Url"
+                                                                    Selected="@(State.Kind == DataPaneKind.Dataset && State.Sub == child.Id && State.Group == root.Group && State.Id == root.Id)"
+                                                                    OnClick="@(_ => SelectDataset(root, child))"
+                                                                    Trail="@RowTrail(child)" MetaLine="@RowMeta(child)">
+                                                        <Name>@child.DisplayName</Name>
+                                                    </WorkbenchEntry>
+                                                }
+                                            </div>
+                                        }
+                                    }
+                                </WorkbenchSection>
+                            }
+                        </div>
+                    </div>
+                </WorkbenchLoad>
+            </WorkbenchRail>
+        </div>
+    </Rail>
+    <ChildContent>
+        @switch (State.Kind) {
+            case DataPaneKind.Coverage:
+                <ConsumeCoveragePane/>
+                break;
+            default:
+                <DatasetPane Current="@State.CurrentDataset()"/>
+                break;
+        }
+    </ChildContent>
+</WorkbenchModal>
+
+<ApiKeysModal Open="State.KeysOpen" OnClose="@(() => State.KeysOpen = false)"/>
+
+@code {
+    bool _open;
+    PathRouteSync? _hash;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender) {
+        if (!firstRender) return;
+        _hash = new PathRouteSync(Nav, JS, "");
+        _hash.Changed += () => _ = InvokeAsync(async () => {
+            await ApplyHash(_hash.Fragment);
+            StateHasChanged();
+        });
+        _hash.Start();
+        await ApplyHash(_hash.Fragment);
+        StateHasChanged();
+    }
+
+    public async Task Open() {
+        await LoadSources();
+        _open = true;
+        await WriteHash(true);
+        StateHasChanged();
+    }
+
+    public Task OpenCoverage() => OpenWith(() => State.Kind = DataPaneKind.Coverage);
+
+    public Task OpenFeed(string feed) => OpenWith(() => {
+        if (State.Sources?.FirstOrDefault(s => s.Feed == feed) is { } src) State.SelectDataset(src.Group, src.Id, null);
+    });
+
+    async Task OpenWith(Action select) {
+        await LoadSources();
+        _open = true;
+        select();
+        await WriteHash(true);
+        StateHasChanged();
+    }
+
+    async Task CloseAsync() {
+        _open = false;
+        await WriteHash(true, true);
+    }
+
+    async Task LoadSources() {
+        if (State.Sources is not null) return;
+        var index = await Client().OneAsync<DataIndex>("/api/v1/data", Logger);
+        State.Sources = index?.Sources ?? [];
+        if (State.Sources.Count == 0) Toasts.Push(StatusNoteKind.Error, "The source catalog could not be read.");
+    }
+
+    async Task SelectDataset(DataSourceRow root, DataSourceRow? child) {
+        State.SelectDataset(root.Group, root.Id, child?.Id);
+        await WriteHash();
+    }
+
+    async Task SelectSection(DataPaneKind kind) {
+        State.Kind = kind;
+        await WriteHash();
+    }
+
+    static IEnumerable<string> DataGroups(IReadOnlyCollection<DataSourceRow> sources) {
+        return sources.Select(s => s.Group).Distinct(StringComparer.Ordinal);
+    }
+
+    static string DataGroupLabel(string key) {
+        return key switch {
+            DataWorkbenchState.PeriodicalGroup => "Periodical",
+            "gamedata" => "Game data",
+            "asset" => "Assets",
+            _ => EggIcons.Pretty(key)
+        };
+    }
+
+    static List<DataSourceRow> DataRootsOf(IReadOnlyCollection<DataSourceRow> sources, string group) {
+        return [.. sources.Where(s => string.Equals(s.Group, group, StringComparison.Ordinal))];
+    }
+
+    static RenderFragment? RowMeta(DataSourceRow r) {
+        if (r.Bytes is not { } bytes) return null;
+        return b => b.AddContent(0, ByteFormat.Compact(bytes));
+    }
+
+    static bool NeedsKey(DataSourceRow r) {
+        return string.Equals(r.Access, "Authenticated", StringComparison.Ordinal);
+    }
+
+    static RenderFragment RowTrail(DataSourceRow r) {
+        return @<span class="ds-trail">
+                   <span title="@(NeedsKey(r) ? "Requires an API key" : "Public")">
+                       <Icon Name="@(NeedsKey(r) ? "key" : "globe")" Class="icon-sm"/>
+                   </span>
+                   @if (r.AcceptsName) {
+                       <span title="Takes a name in the URL, no raw GET">
+                           <Icon Name="link" Class="icon-sm"/>
+                       </span>
+                   }
+               </span>;
+    }
+
+    static readonly RenderFragment CoverageTrail = @<span class="ds-trail">
+                                                     <span title="Requires an API key with approved access">
+                                                         <Icon Name="key" Class="icon-sm"/>
+                                                     </span>
+                                                 </span>;
+
+    async Task ApplyHash(string hash) {
+        if (!State.ApplyHash(hash)) {
+            if (_open) {
+                _open = false;
+                StateHasChanged();
+            }
+
+            return;
+        }
+
+        _open = true;
+        await LoadSources();
+        StateHasChanged();
+    }
+
+    Task WriteHash(bool push = false, bool clear = false) {
+        var fragment = clear ? "" : State.Hash() ?? "";
+        if (push) _hash?.PushFragment(fragment);
+        else _hash?.ReplaceFragment(fragment);
+        return Task.CompletedTask;
+    }
+
+    public ValueTask DisposeAsync() {
+        _hash?.Dispose();
+        return ValueTask.CompletedTask;
+    }
+
+}

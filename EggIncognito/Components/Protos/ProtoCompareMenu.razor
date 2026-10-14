@@ -1,0 +1,66 @@
+@using EggIncognito.Services.Protos
+
+<div class="pwb-menu-wrap">
+    <button type="button" class="pwb-menu-btn" aria-haspopup="true" disabled="@Disabled"
+            aria-expanded="@(Open ? "true" : "false")"
+            @onclick="OnToggle">
+        Compare
+    </button>
+    @if (Open) {
+        <div class="popover-backdrop" @onmousedown="OnToggle" @onwheel="OnToggle"></div>
+        <div class="pwb-menu">
+            <button type="button" class="pwb-menu-item" disabled="@(!HasPrevious)"
+                    @onclick="OnVsPrevious">
+                vs previous
+            </button>
+            <button type="button" class="pwb-menu-item" disabled="@(!HasLatest)"
+                    @onclick="OnVsLatest">
+                vs latest
+            </button>
+            @foreach (var target in Targets) {
+                var link = Counterparts.FirstOrDefault(l => l.Platform == target);
+                <button type="button" class="pwb-menu-item" disabled="@(link is null)"
+                        @onclick="@(() => OnVsCounterpart.InvokeAsync(target))">
+                    vs @target
+                </button>
+            }
+            <div class="pwb-menu-sep"></div>
+            <button type="button" class="pwb-menu-item" disabled="@(!HasB)"
+                    @onclick="OnSwap">
+                Swap A and B
+            </button>
+            <button type="button" class="pwb-menu-item" disabled="@(!HasB)"
+                    @onclick="OnClearB">
+                Clear B
+            </button>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public bool Open { get; set; }
+
+    [Parameter] public bool Disabled { get; set; }
+
+    [Parameter] public EventCallback OnToggle { get; set; }
+
+    [Parameter] public bool HasPrevious { get; set; }
+
+    [Parameter] public bool HasLatest { get; set; }
+
+    [Parameter] public bool HasB { get; set; }
+
+    [Parameter] public IReadOnlyList<string> Targets { get; set; } = [];
+
+    [Parameter] public IReadOnlyList<ProtoCounterpart> Counterparts { get; set; } = [];
+
+    [Parameter] public EventCallback OnVsPrevious { get; set; }
+
+    [Parameter] public EventCallback OnVsLatest { get; set; }
+
+    [Parameter] public EventCallback<string> OnVsCounterpart { get; set; }
+
+    [Parameter] public EventCallback OnSwap { get; set; }
+
+    [Parameter] public EventCallback OnClearB { get; set; }
+}

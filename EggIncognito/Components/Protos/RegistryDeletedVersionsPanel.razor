@@ -1,0 +1,81 @@
+@using EggIncognito.Models.Protos
+
+<SubSectionHead>
+    <ChildContent>Soft-deleted versions (@Deleted.Count)</ChildContent>
+    <Tools>
+        <button type="button" class="btn-mini" disabled="@Busy" @onclick="@(() => OnReload.InvokeAsync())">@(Busy ? "Loading..." : "Reload")</button>
+        @if (Deleted.Count > 0) {
+            <button type="button" class="btn-mini" disabled="@Busy" @onclick="@(() => OnPurgeAll.InvokeAsync())">
+                @(PurgeArmed ? $"Confirm purge of {Deleted.Count}" : "Purge all")
+            </button>
+        }
+    </Tools>
+</SubSectionHead>
+@if (Deleted.Count == 0) {
+    <Note Small="true">Nothing deleted.</Note>
+} else {
+    <Note Small="true">Purge removes a row for good. The next extraction of that build recreates it from the archive.</Note>
+    <TableScroll MaxHeight="60vh">
+        <table class="data-table">
+            <thead>
+            <tr>
+                <th>Platform</th>
+                <th>App version</th>
+                <th>Build</th>
+                <th>Client</th>
+                <th>Proto SHA</th>
+                <th>Deleted</th>
+                <th class="tools pwb-admin-row-tools">Actions</th>
+            </tr>
+            </thead>
+            <tbody>
+            @foreach (var d in Deleted) {
+                <tr>
+                    <td>
+                        <PlatformIcon Platform="@d.Platform"/>
+                    </td>
+                    <td class="reg-version">@d.AppVersion</td>
+                    <td class="reg-num">@d.Build</td>
+                    <td class="reg-num">@d.ClientVersion</td>
+                    <td>
+                        @if (EggIncognito.Core.Hashes.Short(d.ProtoSha) is { Length: > 0 } sha) {
+                            <span class="code-chip">@sha</span>
+                        }
+                    </td>
+                    <td class="muted">
+                        @if (d.DeletedAt is { } at) {
+                            <TimeAgo At="@at" Class="time-ago"/>
+                        }
+                    </td>
+                    <td class="tools pwb-admin-row-tools">
+                        <button type="button" class="btn-mini" disabled="@Busy"
+                                @onclick="@(() => OnRestore.InvokeAsync(d))">
+                            Restore
+                        </button>
+                        <button type="button" class="btn-mini" disabled="@Busy"
+                                @onclick="@(() => OnPurgeOne.InvokeAsync(d))">
+                            Purge
+                        </button>
+                    </td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </TableScroll>
+}
+
+@code {
+    [Parameter] public List<DeletedVersionRow> Deleted { get; set; } = [];
+
+    [Parameter] public bool Busy { get; set; }
+
+    [Parameter] public bool PurgeArmed { get; set; }
+
+    [Parameter] public EventCallback OnReload { get; set; }
+
+    [Parameter] public EventCallback OnPurgeAll { get; set; }
+
+    [Parameter] public EventCallback<DeletedVersionRow> OnRestore { get; set; }
+
+    [Parameter] public EventCallback<DeletedVersionRow> OnPurgeOne { get; set; }
+}

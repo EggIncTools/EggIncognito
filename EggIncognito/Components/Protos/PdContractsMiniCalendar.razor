@@ -1,0 +1,67 @@
+@using EggIncognito.Components.Calendar
+@using EggIncognito.Models.Calendar
+@using EggIncognito.Models.Contracts
+@using EggIncognito.Services.Assets
+@using EggIncognito.Services.Calendar
+@using EggIncognito.Services.Events
+@inherits SelfCallComponentBase
+@inject ILogger<PdContractsMiniCalendar> Logger
+
+<button type="button" class="pd-cal-title pd-cal-title-gap" @onclick="@(() => OnOpenContracts.InvokeAsync())">
+    Contracts<Icon Name="chevron-right" Class="icon-sm"/>
+</button>
+<MiniCalendar TItem="ContractCalendarItem" Load="LoadMiniContracts" EmptyNote="No contracts in the last week.">
+    <Bar>
+        @{ var c = context.Item.Release!; }
+        <div class="evcal-bar-tip" style="@ContractBarStyle(context)">
+            <Tooltip>
+                <ChildContent>
+                    <button type="button" class="@(CalendarBars.Css(context) + " evcal-bar-contract")"
+                            @onclick="@(() => OnOpenContracts.InvokeAsync())">
+                        @if (EggIcons.Url(c.Egg, c.CustomEggId) is { } eggUrl) {
+                            <FallbackImg Class="evcal-bar-egg" Src="@eggUrl" Alt=""/>
+                        }
+                        <span class="evcal-bar-label">@c.Name</span>
+                    </button>
+                </ChildContent>
+                <Content>
+                    <span class="tt-title">@c.Name</span>
+                    @if (c.UltraOnly) {
+                        <span class="tt-ultra">ULTRA ONLY</span>
+                    }
+
+                    <span class="tt-line">@EggIcons.Label(c.Egg, c.CustomEggId)</span>
+                    <span class="tt-line">@EventCountdown.Describe(c.StartTimestamp, c.EndTimestamp, DateTimeOffset.UtcNow)</span>
+                </Content>
+            </Tooltip>
+        </div>
+    </Bar>
+</MiniCalendar>
+<WatchList Source="/api/v1/contracts/predictions/watch" PrefKey="watch.contracts"
+           AddLabel="Pin contract" Placeholder="contract name..." EmptyNote="Pin contracts to see their last release and next predicted leggacy."/>
+
+@code {
+    const int MiniFetchLimit = 500;
+
+    [Parameter] public EventCallback OnOpenContracts { get; set; }
+
+    async Task<CalendarItemsLoad<ContractCalendarItem>> LoadMiniContracts(DateTimeOffset start, DateTimeOffset end) {
+        if (Speculative) return CalendarItemsLoad.Ok<ContractCalendarItem>([]);
+        var url = FormattableString.Invariant(
+            $"/api/v1/contracts?after={UnixSeconds.FromTime(start):0}&before={UnixSeconds.FromTime(end):0}&limit={MiniFetchLimit}");
+        try {
+            var res = await Client().GetAsync(url);
+            if ((int)res.StatusCode == 503) return CalendarItemsLoad.Failed<ContractCalendarItem>("Contract history needs a database. This instance has none.");
+            if (!res.IsSuccessStatusCode) return CalendarItemsLoad.Failed<ContractCalendarItem>("Contracts could not be loaded.");
+            var body = await res.Content.ReadFromJsonAsync<ContractReleaseListResponse>(JsonPresets.Web);
+            return CalendarItemsLoad.Ok<ContractCalendarItem>([.. (body?.Releases ?? []).Select(ContractCalendarItem.Of)]);
+        } catch (Exception ex) {
+            Logger.LogWarning(ex, "the mini contract calendar could not be loaded");
+            return CalendarItemsLoad.Failed<ContractCalendarItem>("Contracts could not be loaded.");
+        }
+    }
+
+    static string ContractBarStyle(CalendarBar<ContractCalendarItem> bar) {
+        return CalendarBars.PositionStyle(bar) + ContractPalette.BarStyle(bar.Item.Kind);
+    }
+}

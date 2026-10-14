@@ -1,0 +1,4 @@
+.dcon-row { min-width: 0; }
+.dcon-row + .dcon-row { border-top: 1px solid var(--color-border); }
+.dcon-rate { width: auto; min-width: 6rem; }
+.dcon-on { border-color: var(--color-accent); color: var(--color-accent); }

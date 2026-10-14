@@ -1,0 +1,59 @@
+@using System.Text
+@using EggIdentity.Styles.Theming
+@using EggIncognito.Models.Theme
+@using EggIncognito.Services.Theme
+
+<div class="theme-preview theme-preview-scope" style="@PreviewStyle()">
+    <div class="theme-pv-nav">
+        <span class="theme-pv-brand">EggIncognito</span>
+        <span class="theme-pv-nav-link active">Protos</span>
+        <span class="theme-pv-nav-link">Capture</span>
+    </div>
+    <div class="theme-pv-panel">
+        <div class="theme-pv-panel-title">Panel title</div>
+        <table class="theme-pv-table">
+            <thead>
+            <tr>
+                <th>Version</th>
+                <th>Platform</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr>
+                <td>1.37.1</td>
+                <td>ios</td>
+            </tr>
+            <tr>
+                <td>1.37.0</td>
+                <td>android</td>
+            </tr>
+            </tbody>
+        </table>
+        <div class="theme-pv-buttons">
+            <button type="button" class="btn-primary">Primary</button>
+            <button type="button" class="btn-mini">Mini</button>
+        </div>
+        <div class="theme-pv-code">
+            <span class="theme-pv-gutter">1</span><span>message EggIncFirstContactRequest {</span>
+        </div>
+        <div class="theme-pv-lines">
+            <span class="theme-pv-ok">ok: capture running</span>
+            <span class="theme-pv-err">err: device unreachable</span>
+            <span class="theme-pv-info">info: 3 versions behind</span>
+            <span class="theme-pv-muted">muted: last seen 2h ago</span>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public ThemeDraft Draft { get; set; } = null!;
+
+    string PreviewStyle() {
+        var model = Draft.ToModel();
+        var sb = new StringBuilder();
+        foreach (var token in ThemeTokens.Settable)
+            sb.Append("--color-").Append(token).Append(": ").Append(model.TokenOrDefault(token).ToCss()).Append("; ");
+        return sb.ToString();
+    }
+}

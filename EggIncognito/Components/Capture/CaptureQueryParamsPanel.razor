@@ -1,0 +1,125 @@
+@using EggIncognito.Capture
+
+@if (BuildParams() is { } section) {
+    @section
+}
+
+@code {
+    [Parameter] public DashboardFlow Flow { get; set; } = null!;
+    [Parameter] public CaptureViewState View { get; set; } = new();
+    [Parameter] public CodeRevealState Reveal { get; set; } = null!;
+
+    string RevealCls(string key) => Reveal.IsRevealed(key) ? "revealed" : "";
+
+    void ToggleReveal(string key) => Reveal.Toggle(key);
+
+    RenderFragment? BuildParams() {
+        var parsed = ParseFlowUrl(Flow);
+        if (parsed is null) return null;
+        var (path, query, pathParams) = parsed.Value;
+        if (pathParams.Count == 0 && query.Count == 0) return null;
+
+        var generalPath = "/" + (Flow.Path ?? "").TrimStart('/');
+        var basePath = StripPathParams(path, pathParams);
+        var showPath = !string.Equals(basePath, generalPath, StringComparison.Ordinal);
+        return @<div>
+                   <div class="section-head">
+                       <h3>Query</h3>
+                   </div>
+                   <div class="params-box">
+                       @if (showPath) {
+                           @ParamRow("path", PathFragment(basePath))
+                       }
+                       @foreach (var p in pathParams) {
+                           @ParamRow("query", ParamValueFragment(p))
+                       }
+                       @foreach (var (k, v) in query) {
+                           @ParamRow(k, ParamValueFragment(v))
+                       }
+                   </div>
+               </div>;
+    }
+
+    RenderFragment ParamRow(string label, RenderFragment value) => @<div class="param-row">
+                                                                       <span class="param-label">@label</span>
+                                                                       <span class="param-val">@value</span>
+                                                                   </div>;
+
+    RenderFragment PathFragment(string path) => @<text>
+                                                     @foreach (var (text, blur) in View.RenderRedactedPath(path)) {
+                                                         if (blur) {
+                                                             var key = "path:" + text;
+                                                             <span class="mask @RevealCls(key)" @onclick="() => ToggleReveal(key)">@text</span>
+                                                         } else {
+                                                             @text
+                                                         }
+                                                     }
+                                                 </text>;
+
+    RenderFragment ParamValueFragment(string value) => @<text>
+                                                            @{ var (text, blur) = View.RedactParamValue(value); }
+                                                            @if (blur) {
+                                                                var key = "param:" + text;
+                                                                <span class="mask @RevealCls(key)" @onclick="() => ToggleReveal(key)">@text</span>
+                                                            } else {
+                                                                @text
+                                                            }
+                                                        </text>;
+
+    static string StripPathParams(string path, List<string> pathParams) {
+        var result = path;
+        for (var i = pathParams.Count - 1; i >= 0; i--) {
+            var suffix = "/" + pathParams[i];
+            if (result.EndsWith(suffix, StringComparison.Ordinal))
+                result = result[..^suffix.Length];
+        }
+
+        return result.Length == 0 ? "/" : result;
+    }
+
+    (string Path, List<(string, string)> Query, List<string> PathParams)? ParseFlowUrl(DashboardFlow flow) {
+        var raw = flow.Url ?? "";
+        if (string.IsNullOrEmpty(raw)) return null;
+        var pathAndQuery = raw;
+        var schemeIdx = raw.IndexOf("://", StringComparison.Ordinal);
+        if (schemeIdx >= 0) {
+            var rest = raw[(schemeIdx + 3)..];
+            var slash = rest.IndexOf('/');
+            pathAndQuery = slash >= 0 ? rest[slash..] : "/";
+        }
+
+        var path = pathAndQuery;
+        var query = new List<(string, string)>();
+        var qIdx = pathAndQuery.IndexOf('?');
+        if (qIdx >= 0) {
+            path = pathAndQuery[..qIdx];
+            var qs = pathAndQuery[(qIdx + 1)..];
+            foreach (var pair in qs.Split('&')) {
+                if (pair.Length == 0) continue;
+                var eq = pair.IndexOf('=');
+                var k = eq >= 0 ? pair[..eq] : pair;
+                var v = eq >= 0 ? pair[(eq + 1)..] : "";
+                try {
+                    query.Add((Uri.UnescapeDataString(k), Uri.UnescapeDataString(v)));
+                } catch {
+                    query.Add((k, v));
+                }
+            }
+        }
+
+        var pathParams = new List<string>();
+        var segments = path.Split('/', StringSplitOptions.RemoveEmptyEntries);
+        var known = (flow.Path ?? "").Split('/', StringSplitOptions.RemoveEmptyEntries);
+        IEnumerable<string> extra = [];
+        if (known.Length > 0 && segments.Length > known.Length)
+            extra = segments.Skip(known.Length);
+        else {
+            var last = segments.Length > 0 ? segments[^1] : null;
+            if (last is not null && CaptureViewState.EidRe.IsMatch(last)) extra = [last];
+        }
+
+        pathParams.AddRange(extra);
+
+        return (path, query, pathParams);
+    }
+}

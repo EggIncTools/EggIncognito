@@ -1,0 +1,32 @@
+@using EggIdentity.Filters
+@using EggIncognito.Services.Notifications
+<div class="nwb-preview">
+    <div class="nwb-preview-head">
+        <span class="nwb-k">Send when</span>
+        @if (!ReadOnly) {
+            <button type="button" class="nwb-view" @onclick="@(() => OnReset.InvokeAsync())">Defaults</button>
+        }
+    </div>
+    <div class="nwb-preview-body">
+        <FilterBuilder Fields="@Fields" Value="@Draft.Filter" Draft="@Draft.Rows" ReadOnly="@ReadOnly"
+                       ValueChanged="@(v => OnFilterChanged.InvokeAsync(v))"
+                       ValidityChanged="@(s => OnValidityChanged.InvokeAsync(s))"/>
+        @if (Draft.Filter.IsEmpty) {
+            <div class="nwb-empty">Sends every event.</div>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter] public NotificationDraft Draft { get; set; } = null!;
+
+    [Parameter] public bool ReadOnly { get; set; }
+
+    [Parameter] public IReadOnlyList<FilterFieldDef> Fields { get; set; } = [];
+
+    [Parameter] public EventCallback OnReset { get; set; }
+
+    [Parameter] public EventCallback<FilterSet> OnFilterChanged { get; set; }
+
+    [Parameter] public EventCallback<FilterDraftState?> OnValidityChanged { get; set; }
+}

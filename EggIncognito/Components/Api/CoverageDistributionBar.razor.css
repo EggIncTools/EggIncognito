@@ -1,0 +1,3 @@
+.cdp-bar-cell { padding-top: 0; }
+.cdp-dist { display: flex; gap: 1px; width: 100%; height: 1.375rem; overflow: hidden; border-radius: 0.25rem; background-color: var(--color-panel2); }
+.cdp-seg { display: inline-flex; align-items: center; justify-content: center; min-width: 2rem; cursor: default; }

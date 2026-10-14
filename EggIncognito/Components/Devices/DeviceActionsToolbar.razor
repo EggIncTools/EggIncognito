@@ -1,0 +1,32 @@
+@using EggIncognito.Core.Services.Devices
+
+<button type="button" class="btn-primary" disabled="@Busy" @onclick="OnProbe">
+    <Icon Name="refresh-cw" Class="icon-sm"/>
+    Probe
+</button>
+<button type="button" class="btn-mini" disabled="@Busy" @onclick="OnCheckStore">Check store</button>
+<button type="button" class="btn-mini" disabled="@Busy" @onclick="OnRestartApp">Restart app</button>
+@if (Platforms.Matches(Platform, Platforms.Android)) {
+    <button type="button" class="btn-mini" disabled="@Busy" @onclick="OnRecert">Recert</button>
+}
+
+@if (!InRegistry) {
+    <button type="button" class="btn-mini" disabled="@Busy" @onclick="OnSaveToRegistry">
+        Save to registry
+    </button>
+}
+
+<button type="button" class="btn-mini" disabled="@Busy" @onclick="OnPokeHarvest">Poke harvest</button>
+
+@code {
+    [Parameter] public string DeviceId { get; set; } = null!;
+    [Parameter] public string Platform { get; set; } = null!;
+    [Parameter] public bool Busy { get; set; }
+    [Parameter] public bool InRegistry { get; set; }
+    [Parameter] public EventCallback OnProbe { get; set; }
+    [Parameter] public EventCallback OnCheckStore { get; set; }
+    [Parameter] public EventCallback OnRestartApp { get; set; }
+    [Parameter] public EventCallback OnRecert { get; set; }
+    [Parameter] public EventCallback OnSaveToRegistry { get; set; }
+    [Parameter] public EventCallback OnPokeHarvest { get; set; }
+}

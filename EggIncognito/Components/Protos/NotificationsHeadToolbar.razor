@@ -1,0 +1,66 @@
+@using EggIncognito.Models.Notifications
+@using EggIncognito.Models.Protos
+@using EggIncognito.Services.Feed
+@using EggIncognito.Services.Notifications
+
+@if (AdminScope) {
+    @if (AdminSummary is { } summary) {
+        <span class="nwb-head-note">@AdminHeadLine(summary)</span>
+    }
+} else if (Creating) {
+    <button type="button" class="btn-primary nwb-act"
+            disabled="@(Busy || !IsAuthenticated || !NewDraftReady || (NewDraftIsDm && DmState != DmReachability.Reachable))"
+            @onclick="OnCreate">
+        @CreateLabel
+    </button>
+} else if (Current is { } cur && IsAuthenticated) {
+    @if (Armed) {
+        <button type="button" class="btn-mini" disabled="@Busy" @onclick="OnSendTest">
+            Confirm, post to @cur.UrlMasked
+        </button>
+        <button type="button" class="btn-mini" @onclick="OnCancelArm">Cancel</button>
+    } else {
+        <button type="button" class="btn-mini" disabled="@(Busy || !HasSample)"
+                @onclick="OnArm">
+            Send test
+        </button>
+    }
+
+    <button type="button" class="btn-mini" disabled="@Busy" @onclick="OnTogglePause">
+        @(RowActive ? "Pause" : "Resume")
+    </button>
+    <button type="button" class="btn-mini" disabled="@Busy" @onclick="OnDelete">Delete</button>
+    <button type="button" class="btn-primary nwb-act" disabled="@(Busy || !DraftFilterReady)"
+            @onclick="OnSave">
+        @(Busy ? SavingLabel : "Save")
+    </button>
+}
+
+@code {
+    [Parameter] public bool AdminScope { get; set; }
+    [Parameter] public AdminFeedListResponse? AdminSummary { get; set; }
+    [Parameter] public bool Creating { get; set; }
+    [Parameter] public bool Busy { get; set; }
+    [Parameter] public bool IsAuthenticated { get; set; }
+    [Parameter] public bool NewDraftReady { get; set; }
+    [Parameter] public bool NewDraftIsDm { get; set; }
+    [Parameter] public DmReachability? DmState { get; set; }
+    [Parameter] public string CreateLabel { get; set; } = null!;
+    [Parameter] public EventCallback OnCreate { get; set; }
+    [Parameter] public NotificationRow? Current { get; set; }
+    [Parameter] public bool Armed { get; set; }
+    [Parameter] public bool HasSample { get; set; }
+    [Parameter] public EventCallback OnArm { get; set; }
+    [Parameter] public EventCallback OnCancelArm { get; set; }
+    [Parameter] public EventCallback OnSendTest { get; set; }
+    [Parameter] public bool RowActive { get; set; }
+    [Parameter] public EventCallback OnTogglePause { get; set; }
+    [Parameter] public EventCallback OnDelete { get; set; }
+    [Parameter] public bool DraftFilterReady { get; set; }
+    [Parameter] public EventCallback OnSave { get; set; }
+    [Parameter] public string SavingLabel { get; set; } = null!;
+
+    static string AdminHeadLine(AdminFeedListResponse a) {
+        return $"{a.Total} subscriptions, {a.ActiveCount} active, {a.Owners} owners";
+    }
+}

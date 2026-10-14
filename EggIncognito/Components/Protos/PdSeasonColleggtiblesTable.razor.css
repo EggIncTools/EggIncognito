@@ -1,0 +1,9 @@
+.season-table { width: auto; margin-top: 0.75rem; }
+.season-ceggs { min-width: 0; }
+.season-table td { white-space: normal; }
+.season-table thead th, .season-table tbody td { text-align: left; vertical-align: middle; }
+.season-table tbody td { font-size: 0.75rem; }
+.season-cegg { display: inline-flex; align-items: center; gap: 0.5rem; }
+.season-cegg-name { font-size: 0.75rem; font-weight: 500; white-space: nowrap; }
+.season-table tbody td.season-cegg-contracts { font-size: 0.6875rem; color: var(--color-muted); }
+.season-cegg ::deep .season-cegg-icon { width: 1.75rem; height: 1.75rem; object-fit: contain; }

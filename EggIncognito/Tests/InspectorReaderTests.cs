@@ -76,7 +76,7 @@ public class InspectorReaderTests : BunitContext {
 
     [Fact]
     public void EnvValidation_SurvivesATransactionClear() {
-        var state = new ApiWorkbenchState {
+        var state = new ApisWorkbenchState {
             EnvValidated = true,
             EnvOpen = false,
             LastBuild = new BuildResponse(null, "", "", false, null, null, null),
@@ -90,5 +90,5 @@ public class InspectorReaderTests : BunitContext {
     }
 
     [Fact]
-    public void TargetResetsToMockOnAFreshState() => Assert.Equal(InspectorTarget.Mock, new ApiWorkbenchState().Target);
+    public void TargetResetsToMockOnAFreshState() => Assert.Equal(InspectorTarget.Mock, new ApisWorkbenchState().Target);
 }

@@ -1,0 +1,181 @@
+<TableScroll>
+    <table class="data-table">
+        <tbody>
+        <tr>
+            <td>Backfill capture user ids</td>
+            <td>
+                <button type="button" class="btn-mini" disabled="@Busy" @onclick="OnBackfillCapture">Run</button>
+            </td>
+            <td class="small">@Result("backfill-capture")</td>
+        </tr>
+        <tr>
+            <td>Backfill owner/author user ids</td>
+            <td>
+                <button type="button" class="btn-mini" disabled="@Busy" @onclick="OnBackfillOwner">Run</button>
+            </td>
+            <td class="small">@Result("backfill-owner")</td>
+        </tr>
+        <tr>
+            <td>Proto realign</td>
+            <td>
+                <button type="button" class="btn-mini" disabled="@Busy" @onclick="OnRealignProtos">@(RealignArmed ? "Confirm realign" : "Run")</button>
+            </td>
+            <td class="small">@Result("realign")</td>
+        </tr>
+        <tr>
+            <td>Refresh endpoint catalog</td>
+            <td>
+                <button type="button" class="btn-mini" disabled="@Busy" @onclick="OnRefreshEndpoints">Run</button>
+            </td>
+            <td class="small">@Result("refresh-endpoints")</td>
+        </tr>
+        <tr>
+            <td>Check App Store versions (ipatool)</td>
+            <td>
+                <button type="button" class="btn-mini" disabled="@Busy" @onclick="OnCheckIpaToolVersions">Run</button>
+            </td>
+            <td class="small">@Result("ipatool-versions")</td>
+        </tr>
+        <tr>
+            <td>
+                <div class="am-row">
+                    <span>Config refresh-live</span>
+                    <select class="reg-filter-input am-input" value="@LivePlatform" @onchange="e => LivePlatformChanged.InvokeAsync((string)e.Value!)">
+                        <option value="ios">ios</option>
+                        <option value="android">android</option>
+                    </select>
+                </div>
+            </td>
+            <td>
+                <button type="button" class="btn-mini" disabled="@Busy" @onclick="OnConfigRefreshLive">Run</button>
+            </td>
+            <td class="small">@Result("refresh-live")</td>
+        </tr>
+        <tr>
+            <td>
+                <div class="am-row">
+                    <span>Config ingest JSON</span>
+                    <select class="reg-filter-input am-input" value="@IngestPlatform" @onchange="e => IngestPlatformChanged.InvokeAsync((string)e.Value!)">
+                        <option value="ios">ios</option>
+                        <option value="android">android</option>
+                    </select>
+                </div>
+                <textarea class="reg-filter-input am-json" rows="3" placeholder="ConfigResponse JSON" value="@IngestJson" @onchange="e => IngestJsonChanged.InvokeAsync((string)e.Value!)"></textarea>
+            </td>
+            <td>
+                <button type="button" class="btn-mini" disabled="@Busy" @onclick="OnIngestJson">Run</button>
+            </td>
+            <td class="small">@Result("ingest-json")</td>
+        </tr>
+        <tr>
+            <td>
+                <div class="am-row">
+                    <span>Icon import</span>
+                    <input class="reg-filter-input am-input" placeholder="name" value="@IconName" @onchange="e => IconNameChanged.InvokeAsync((string)e.Value!)"/>
+                    <InputFile OnChange="OnIconFile" class="am-file"/>
+                </div>
+            </td>
+            <td>
+                <button type="button" class="btn-mini" disabled="@Busy" @onclick="OnImportIcon">Run</button>
+            </td>
+            <td class="small">@Result("icon-import")</td>
+        </tr>
+        <tr>
+            <td>Sweep event snapshots</td>
+            <td>
+                <button type="button" class="btn-mini" disabled="@Busy" @onclick="OnEventSweep">Run</button>
+            </td>
+            <td class="small">@Result("event-sweep")</td>
+        </tr>
+        <tr>
+            <td>
+                <div class="am-row">
+                    <span>Import carpet events</span>
+                    <input class="reg-filter-input am-input" placeholder="@CarpetPlaceholder" value="@CarpetUrl" @onchange="e => CarpetUrlChanged.InvokeAsync((string)e.Value!)"/>
+                </div>
+            </td>
+            <td>
+                <button type="button" class="btn-mini" disabled="@Busy" @onclick="OnImportCarpetEvents">Run</button>
+            </td>
+            <td class="small">@Result("event-carpet")</td>
+        </tr>
+        </tbody>
+    </table>
+</TableScroll>
+
+@code {
+    [Parameter]
+    public bool Busy { get; set; }
+
+    [Parameter]
+    public bool RealignArmed { get; set; }
+
+    [Parameter]
+    public string LivePlatform { get; set; } = "";
+
+    [Parameter]
+    public EventCallback<string> LivePlatformChanged { get; set; }
+
+    [Parameter]
+    public string IngestPlatform { get; set; } = "";
+
+    [Parameter]
+    public EventCallback<string> IngestPlatformChanged { get; set; }
+
+    [Parameter]
+    public string IngestJson { get; set; } = "";
+
+    [Parameter]
+    public EventCallback<string> IngestJsonChanged { get; set; }
+
+    [Parameter]
+    public string CarpetUrl { get; set; } = "";
+
+    [Parameter]
+    public EventCallback<string> CarpetUrlChanged { get; set; }
+
+    [Parameter]
+    public string IconName { get; set; } = "";
+
+    [Parameter]
+    public EventCallback<string> IconNameChanged { get; set; }
+
+    [Parameter]
+    public Func<string, string> Result { get; set; } = _ => "";
+
+    [Parameter]
+    public string CarpetPlaceholder { get; set; } = "";
+
+    [Parameter]
+    public EventCallback<InputFileChangeEventArgs> OnIconFile { get; set; }
+
+    [Parameter]
+    public EventCallback OnBackfillCapture { get; set; }
+
+    [Parameter]
+    public EventCallback OnBackfillOwner { get; set; }
+
+    [Parameter]
+    public EventCallback OnRealignProtos { get; set; }
+
+    [Parameter]
+    public EventCallback OnRefreshEndpoints { get; set; }
+
+    [Parameter]
+    public EventCallback OnCheckIpaToolVersions { get; set; }
+
+    [Parameter]
+    public EventCallback OnConfigRefreshLive { get; set; }
+
+    [Parameter]
+    public EventCallback OnIngestJson { get; set; }
+
+    [Parameter]
+    public EventCallback OnImportIcon { get; set; }
+
+    [Parameter]
+    public EventCallback OnEventSweep { get; set; }
+
+    [Parameter]
+    public EventCallback OnImportCarpetEvents { get; set; }
+}

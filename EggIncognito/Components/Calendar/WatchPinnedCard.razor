@@ -1,0 +1,99 @@
+@using EggIncognito.Models.Calendar
+@using EggIncognito.Services.Events
+@inject IServiceProvider Services
+
+<li class="watch-card" style="@Entry.BarStyle">
+    <span class="watch-swatch"></span>
+    @if (Entry.IconUrl is { } icon) {
+        <FallbackImg Class="watch-icon" Src="@icon" Alt=""/>
+    }
+    <span class="watch-body">
+        <span class="watch-label">
+            <span class="watch-name">@Entry.Label</span>
+            @if (Entry.Ultra) {
+                <span class="watch-ultra">ultra</span>
+            }
+            <button type="button" class="icon-btn icon-btn-sm watch-unpin" aria-label="@($"Unpin {Entry.Label}")" @onclick="() => OnUnpin.InvokeAsync(Entry.Key)">
+                <Icon Name="x"/>
+            </button>
+        </span>
+        <span class="watch-line">
+            <span class="watch-k">Last</span>
+            @if (Entry.LastStart is { } ls) {
+                <span class="watch-when">
+                    <TimeAgo At="@UnixSeconds.ToTime(ls)" Class="time-ago watch-hover"/>
+                    <span class="watch-date">@Short(ls)</span>
+                    @if (Entry.LastNote is { } ln) {
+                        <span class="watch-note-inline">@ln</span>
+                    }
+                </span>
+            } else {
+                <span>never seen</span>
+            }
+        </span>
+        <span class="watch-line">
+            <span class="watch-k">Next</span>
+            @if (Visible(Entry).Count == 0 && Entry.Next.Count > 0) {
+                <span class="watch-none">none above @MinPct%</span>
+            } else if (Entry.Next.Count == 0) {
+                @if (Entry.NoNextReason is { } why) {
+                    <Tooltip Text="@why"><span class="watch-none watch-hover" tabindex="0">no prediction</span></Tooltip>
+                } else {
+                    <span class="watch-none">no prediction</span>
+                }
+            } else {
+                <span class="watch-next">
+                    @foreach (var f in Visible(Entry).Take(MaxNext)) {
+                        <span class="watch-forecast">
+                            <Tooltip>
+                                <ChildContent>
+                                    <span class="time-ago watch-hover" tabindex="0">@Countdown(f.Start)</span>
+                                </ChildContent>
+                                <Content>
+                                    <span class="tt-title">@Absolute(f.Start)</span>
+                                    <span class="tt-line">@f.Rule</span>
+                                    @if (f.Note is { } fn) {
+                                        <span class="tt-line">@fn</span>
+                                    }
+                                </Content>
+                            </Tooltip>
+                            <span class="watch-date">@Short(f.Start)</span>
+                            <span class="watch-conf" style="@PctStyle(f.Confidence)">@Percent(f.Confidence)</span>
+                            @if (f.Note is { } note) {
+                                <span class="watch-note-inline">@note</span>
+                            }
+                        </span>
+                    }
+                </span>
+            }
+        </span>
+    </span>
+</li>
+
+@code {
+    const int MaxNext = 3;
+    [Parameter, EditorRequired] public WatchEntry Entry { get; set; } = null!;
+
+    [Parameter] public int MinPct { get; set; }
+
+    [Parameter] public EventCallback<string> OnUnpin { get; set; }
+
+    List<WatchForecast> Visible(WatchEntry e) => [.. e.Next.Where(f => f.Confidence * 100 >= MinPct)];
+
+    string Countdown(double unix) {
+        var at = UnixSeconds.ToTime(unix);
+        var now = DateTimeOffset.UtcNow;
+        return at <= now ? "now" : "in " + EventCountdown.Span(at - now);
+    }
+
+    string Absolute(double unix) =>
+        ViewerClock.At(Services, UnixSeconds.ToTime(unix)).ToString("dddd d MMMM yyyy 'at' HH:mm zzz", System.Globalization.CultureInfo.InvariantCulture);
+
+    string Short(double unix) =>
+        ViewerClock.At(Services, UnixSeconds.ToTime(unix)).ToString("ddd d MMM", System.Globalization.CultureInfo.InvariantCulture);
+
+    static string Percent(double value) => (value * 100).ToString("0", System.Globalization.CultureInfo.InvariantCulture) + "%";
+
+    static string PctStyle(double p) => FormattableString.Invariant($"--p:{Math.Clamp(p, 0, 1):0.###};");
+
+}

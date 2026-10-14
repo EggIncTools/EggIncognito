@@ -1,0 +1,34 @@
+<Disclosure Open="Open" OpenChanged="OpenChanged">
+    <Head>
+        Log
+        <span class="drm-log-count">@Lines.Count @(Lines.Count == 1 ? "line" : "lines")</span>
+    </Head>
+    <Tools>
+        <button type="button" class="btn-mini" @onclick="OnToggleWrap">@(Wrap ? "Nowrap" : "Wrap")</button>
+    </Tools>
+    <ChildContent>
+        <div class="drm-log-host">
+            <TableScroll Class="drm-log-wrap">
+                <div class="drm-log @(Wrap ? "" : "drm-log-nowrap")">
+                    @for (var i = Lines.Count - 1; i >= 0; i--) {
+                        <div class="drm-log-line">@Lines[i]</div>
+                    }
+                </div>
+            </TableScroll>
+        </div>
+    </ChildContent>
+</Disclosure>
+
+@code {
+
+    [Parameter] public List<string> Lines { get; set; } = [];
+
+    [Parameter] public bool Wrap { get; set; }
+
+    [Parameter] public bool Open { get; set; }
+
+    [Parameter] public EventCallback<bool> OpenChanged { get; set; }
+
+    [Parameter] public EventCallback OnToggleWrap { get; set; }
+
+}

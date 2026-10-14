@@ -1,0 +1,21 @@
+.dis-row { display: flex; align-items: center; gap: 0.25rem; padding-right: 0.5rem; border-bottom: 1px solid var(--color-border); }
+.dis-row:hover { background-color: var(--color-panel2); }
+.dis-row-on { background-color: color-mix(in oklab, var(--color-accent) 12%, transparent); }
+.dis-pick {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+  padding: 0.5rem 0.75rem;
+  border: 0;
+  background: transparent;
+  color: var(--color-fg);
+  font-size: 0.75rem;
+  text-align: left;
+  cursor: pointer;
+}
+.dis-cur { display: inline-flex; width: 1rem; flex: none; }
+.dis-cur-on { color: var(--color-ok); }
+.dis-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--color-fg); }
+.dis-user { font-family: var(--font-mono); font-size: 0.75rem; color: var(--color-muted); }

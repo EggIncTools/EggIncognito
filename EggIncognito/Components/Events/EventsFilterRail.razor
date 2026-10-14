@@ -1,0 +1,74 @@
+@using EggIncognito.Components.Calendar
+@using EggIncognito.Services.Assets
+
+<WorkbenchRail>
+    <WorkbenchSection Label="Tier">
+        <CalendarRailRow On="ShowStandard" OnClick="@(() => OnSetTier.InvokeAsync(false))">Standard</CalendarRailRow>
+        <CalendarRailRow On="ShowUltra" Ultra="true" Style="@UltraRowStyle" OnClick="@(() => OnSetTier.InvokeAsync(true))">Ultra</CalendarRailRow>
+    </WorkbenchSection>
+    <WorkbenchSection Label="Types">
+        <Tools>
+            <span class="evwb-bulk">
+                <button type="button" class="evwb-bulk-btn" @onclick="@(() => OnSelectAllTypes.InvokeAsync())">All</button>
+                <button type="button" class="evwb-bulk-btn" @onclick="@(() => OnDeselectAllTypes.InvokeAsync())">None</button>
+            </span>
+        </Tools>
+        <ChildContent>
+            <div class="evwb-groups">
+                @foreach (var group in TypeGroups) {
+                    <div class="evwb-group" @key="group.Key">
+                        <div class="evwb-group-label">@group.Key</div>
+                        @foreach (var type in group) {
+                            <CalendarRailRow @key="type" On="TypeSelected(type)" DimWhenOff="true" Style="@TypeRowStyle(type)"
+                                             IconUrl="@EventPalette.IconUrl(type)" OnClick="@(() => OnToggleType.InvokeAsync(type))">
+                                <span>@EggIcons.Pretty(type)</span>
+                            </CalendarRailRow>
+                        }
+                    </div>
+                }
+            </div>
+        </ChildContent>
+    </WorkbenchSection>
+    <WorkbenchSection Label="Predictions">
+        <CalendarRailRow On="ShowPredictions" OnClick="@(() => OnTogglePredictions.InvokeAsync())">Show predictions</CalendarRailRow>
+    </WorkbenchSection>
+</WorkbenchRail>
+
+@code {
+    [Parameter]
+    public bool ShowStandard { get; set; }
+
+    [Parameter]
+    public bool ShowUltra { get; set; }
+
+    [Parameter]
+    public bool ShowPredictions { get; set; }
+
+    [Parameter]
+    public IEnumerable<IGrouping<string, string>> TypeGroups { get; set; } = Enumerable.Empty<IGrouping<string, string>>();
+
+    [Parameter]
+    public Func<string, bool> TypeSelected { get; set; } = _ => false;
+
+    [Parameter]
+    public EventCallback<bool> OnSetTier { get; set; }
+
+    [Parameter]
+    public EventCallback<string> OnToggleType { get; set; }
+
+    [Parameter]
+    public EventCallback OnSelectAllTypes { get; set; }
+
+    [Parameter]
+    public EventCallback OnDeselectAllTypes { get; set; }
+
+    [Parameter]
+    public EventCallback OnTogglePredictions { get; set; }
+
+    static string TypeRowStyle(string type) {
+        return FormattableString.Invariant($"--evt-color:{EventPalette.ColorFor(type)};");
+    }
+
+    static string UltraRowStyle => FormattableString.Invariant(
+        $"--evt-from:{EventPalette.CcGradientFrom};--evt-to:{EventPalette.CcGradientTo};");
+}

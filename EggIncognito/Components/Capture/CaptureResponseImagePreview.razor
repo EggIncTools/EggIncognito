@@ -1,0 +1,16 @@
+@using EggIncognito.Core
+
+<div>
+    <div class="image-preview">
+        <img src="data:@(Mime);base64,@(Base64)" alt="response image" loading="lazy"/>
+    </div>
+    <div class="image-meta muted">@(Mime + ", ~" + ByteFormat.Humanize(Bytes, "0.#"))</div>
+</div>
+
+@code {
+    [Parameter] public string Mime { get; set; } = null!;
+
+    [Parameter] public string Base64 { get; set; } = null!;
+
+    int Bytes => (Base64.Length * 3) / 4;
+}

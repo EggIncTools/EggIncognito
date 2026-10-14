@@ -1,0 +1,79 @@
+@inject IServiceProvider Services
+@using EggIncognito.Models.Devices
+@using EggIncognito.Services.Events
+
+<TableScroll>
+    <table class="data-table dwb-table">
+        <thead>
+        <tr>
+            <th>Version</th><th>SHA-256</th><th>Size</th><th>Symbols</th><th>Source</th><th>Pulled</th>
+            @if (IsContributor) {
+                <th></th>
+            }
+        </tr>
+        </thead>
+        <tbody>
+        @foreach (var b in (Binaries ?? []).Where(x => x.Platform == Platform)) {
+            <tr>
+                <td>
+                    <VersionLine App="@b.Version"/>
+                </td>
+                <td class="mono">@EggIncognito.Core.Hashes.Short(b.Sha256)</td>
+                <td class="mono">@ByteFormat.Mb(b.ByteSize, "F1")</td>
+                <td class="mono">@(b.EffectiveSymbols > 0 ? b.EffectiveSymbols : b.NativeSymbols)</td>
+                <td>@b.Source</td>
+                <td class="muted">@ViewerClock.At(Services, b.PulledAt).ToString("yyyy-MM-dd HH:mm")</td>
+                @if (IsContributor) {
+                    <td class="tools">
+                        <a class="btn-mini" href="@DownloadUrl(b)" download>
+                            <Icon Name="download" Class="icon-sm"/>
+                            Download
+                        </a>
+                    </td>
+                }
+            </tr>
+        }
+        </tbody>
+    </table>
+</TableScroll>
+@if (Harvest is { Entries.Count: > 0 }) {
+    <SubSectionHead>Latest harvest</SubSectionHead>
+    <TableScroll>
+        <table class="data-table dwb-table">
+            <thead>
+            <tr>
+                <th>Entry</th><th>Outcome</th><th>Size</th><th>Detail</th><th>When</th>
+            </tr>
+            </thead>
+            <tbody>
+            @foreach (var e in Harvest.Entries) {
+                <tr>
+                    <td class="mono">@e.Entry</td>
+                    <td>@e.Outcome</td>
+                    <td class="mono">@ByteFormat.Mb(e.Bytes, "F1")</td>
+                    <td class="muted">@e.Note</td>
+                    <td class="muted">@ViewerClock.At(Services, e.RanAt).ToString("HH:mm:ss")</td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </TableScroll>
+}
+
+@code {
+    [Parameter]
+    public List<StoredBinaryRow>? Binaries { get; set; }
+
+    [Parameter]
+    public string Platform { get; set; } = "";
+
+    [Parameter]
+    public bool IsContributor { get; set; }
+
+    [Parameter]
+    public HarvestInfo? Harvest { get; set; }
+
+    static string DownloadUrl(StoredBinaryRow b) {
+        return $"/api/decomp/stored-binaries/{Uri.EscapeDataString(b.Platform)}/{Uri.EscapeDataString(b.Version)}/download";
+    }
+}

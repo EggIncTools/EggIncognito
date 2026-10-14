@@ -1,0 +1,67 @@
+@using System.Globalization
+@using EggIdentity.Styles.Theming
+@using EggIncognito.Models.Theme
+@using EggIncognito.Services.Theme
+
+<div class="theme-chroma-grid">
+    <label class="theme-knob">
+        <span>Surface tint @Fmt(Draft.SurfaceTint)%</span>
+        <input type="range" min="0" max="12" step="0.5" value="@Draft.SurfaceTint" @oninput="e => OnKnob(e,k => Draft.SurfaceTint = k)"/>
+    </label>
+    <label class="theme-knob">
+        <span>Gradient hue shift @Fmt(Draft.GradientHueShift)deg</span>
+        <input type="range" min="-60" max="60" step="1" value="@Draft.GradientHueShift" @oninput="e => OnKnob(e,k => Draft.GradientHueShift = k)"/>
+    </label>
+    <label class="theme-knob">
+        <span>Glow radius @Fmt(Draft.GlowRadius)px</span>
+        <input type="range" min="0" max="24" step="1" value="@Draft.GlowRadius" @oninput="e => OnKnob(e,k => Draft.GlowRadius = k)"/>
+    </label>
+    <label class="theme-knob">
+        <span>Glow alpha @Fmt(Draft.GlowAlpha)%</span>
+        <input type="range" min="0" max="60" step="1" value="@Draft.GlowAlpha" @oninput="e => OnKnob(e,k => Draft.GlowAlpha = k)"/>
+    </label>
+    <label class="theme-knob theme-knob-toggle">
+        <input type="checkbox" checked="@Draft.HueRotateEnabled" @onchange="OnHueRotateToggle"/>
+        <span>Hue rotation</span>
+    </label>
+    @if (Draft.HueRotateEnabled) {
+        <label class="theme-knob">
+            <span>Rotation period @Fmt(Draft.HueRotateSeconds)s</span>
+            <input type="range" min="6" max="120" step="1" value="@Draft.HueRotateSeconds" @oninput="e => OnKnob(e,k => Draft.HueRotateSeconds = k)"/>
+        </label>
+    }
+</div>
+<div class="theme-contrast">
+    @if (Contrast is { Passes: true }) {
+        <div class="theme-ok">Contrast checks pass.</div>
+    } else if (Contrast is not null) {
+        @foreach (var f in Contrast.Failures) {
+            <div class="theme-contrast-row theme-err">
+                @f.Check: @f.A on @f.B measured @f.Measured, needs @f.Required@(f.AtHue is { } hue ? $" (at hue {Fmt(hue)})" : "")
+            </div>
+        }
+    }
+</div>
+
+@code {
+    [Parameter] public ThemeDraft Draft { get; set; } = null!;
+    [Parameter] public ContrastResult? Contrast { get; set; }
+    [Parameter] public EventCallback OnChanged { get; set; }
+
+    async Task OnKnob(ChangeEventArgs e, Action<double> apply) {
+        if (double.TryParse(e.Value?.ToString(), NumberStyles.Float,
+                CultureInfo.InvariantCulture, out var value)) {
+            apply(value);
+            await OnChanged.InvokeAsync();
+        }
+    }
+
+    async Task OnHueRotateToggle(ChangeEventArgs e) {
+        Draft.HueRotateEnabled = e.Value is true;
+        await OnChanged.InvokeAsync();
+    }
+
+    static string Fmt(double v) {
+        return v.ToString("0.#", CultureInfo.InvariantCulture);
+    }
+}

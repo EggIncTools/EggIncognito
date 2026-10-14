@@ -5,11 +5,8 @@
 .code-toolbar > span { display: inline-flex; align-items: center; }
 .code-toolbar-gap { flex: 1 1 auto; min-width: 0; }
 .code-lang, .code-mode { max-width: 11rem; }
-.code-toolbar ::deep .code-filter { width: 150px; padding: 0 0.5rem; border: 1px solid var(--color-border); border-radius: 0.25rem; background-color: var(--code-bg); color: var(--color-fg); font-size: 0.75rem; }
-.code-toolbar ::deep .code-filter:focus { outline: none; border-color: var(--color-accent); }
 .code-select { padding: 0 0.5rem; border: 1px solid var(--color-border); border-radius: 0.25rem; background-color: var(--code-bg); color: var(--color-fg); font-size: 0.75rem; cursor: pointer; }
 .code-select:focus { outline: none; border-color: var(--color-accent); }
-.code-toggle-on { color: var(--color-accent); border-color: var(--color-accent); }
 .code-scroll { flex: 1 1 auto; min-height: 0; overflow: auto; scrollbar-gutter: stable; }
 .code-view { display: flex; flex-direction: row; flex: 1 1 auto; min-height: 0; min-width: 0; }
 .code-row { display: grid; grid-template-columns: minmax(0, 1fr); align-items: center; height: var(--code-row-h); line-height: var(--code-row-h); }
@@ -45,13 +42,3 @@
 .code-wrap.cdiff .cdiff-text { white-space: pre-wrap; overflow-wrap: break-word; word-break: normal; hyphens: none; -webkit-hyphens: none; overflow: visible; text-overflow: clip; }
 .cstruct { display: flex; flex-direction: column; font-size: 0.75rem; }
 .cstruct-summary { margin: 0; padding: 0.375rem 0.5rem; color: var(--color-muted); border-bottom: 1px solid var(--color-border); background-color: var(--color-panel2); }
-.cstruct-entry { padding: 0.5rem; }
-.cstruct-entry + .cstruct-entry { border-top: 1px solid var(--color-border); }
-.cstruct-head { display: flex; align-items: center; gap: 0.5rem; font-family: var(--font-mono); font-size: 0.875rem; }
-.cstruct-arrow { color: var(--color-muted); }
-.cstruct-path { min-width: 0; overflow-wrap: break-word; word-break: normal; hyphens: none; -webkit-hyphens: none; }
-.cstruct-toggle { font-size: 0.75rem; color: var(--color-muted); cursor: pointer; }
-.cstruct-rows { margin-top: 0.25rem; font-family: var(--font-mono); white-space: pre; overflow-x: auto; }
-.cstruct-add { display: block; color: var(--color-accent); }
-.cstruct-rem { display: block; color: var(--color-muted); }
-.cstruct-head .cstruct-add, .cstruct-head .cstruct-rem { display: inline; }

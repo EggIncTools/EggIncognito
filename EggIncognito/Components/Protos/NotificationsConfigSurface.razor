@@ -1,0 +1,64 @@
+@using EggIncognito.Models.Notifications
+@using EggIncognito.Services.Notifications
+
+<div class="nwb-surface">
+    @if (Row is null) {
+        <div class="nwb-row">
+            <span class="nwb-k">Deliver</span>
+            <div class="nwb-kinds" role="radiogroup" aria-label="Delivery">
+                <button type="button" role="radio" aria-checked="@(Draft.Dm ? "false" : "true")"
+                        class="@(Draft.Dm ? "nwb-kind" : "nwb-kind on")" @onclick="@(() => OnPickDelivery.InvokeAsync(false))">
+                    Webhook
+                </button>
+                <button type="button" role="radio" aria-checked="@(Draft.Dm ? "true" : "false")"
+                        class="@(Draft.Dm ? "nwb-kind on" : "nwb-kind")" @onclick="@(() => OnPickDelivery.InvokeAsync(true))">
+                    Discord DM
+                </button>
+            </div>
+        </div>
+        @if (Draft.Dm) {
+            <DiscordDmSetupCard State="@DmState" GuildInviteUrl="@DmGuildInviteUrl"
+                                ProfileUrl="/account" OnRecheck="OnRecheckDm" OnSendTest="OnSendDmTest"/>
+        } else {
+            <div class="nwb-row">
+                <span class="nwb-k">Webhook</span>
+                <input class="nwb-field nwb-mono" aria-label="Discord webhook URL"
+                       placeholder="https://discord.com/api/webhooks/..."
+                       @bind="Draft.Url" @bind:event="oninput"/>
+            </div>
+        }
+    } else {
+        <div class="nwb-row">
+            <span class="nwb-k">Target</span>
+            <span class="nwb-static nwb-mono">@Row.UrlMasked</span>
+        </div>
+    }
+    <div class="nwb-row">
+        <span class="nwb-k">Label</span>
+        <input class="nwb-field" aria-label="Label" placeholder="@KindLabelOf(Draft.EventKind)"
+               @bind="Draft.Label" @bind:event="oninput"/>
+    </div>
+    @if (Row is not null) {
+        <div class="nwb-row">
+            <span class="nwb-cell">
+                <span class="nwb-k">Event</span>
+                <span class="nwb-static">@KindLabelOf(Draft.EventKind)</span>
+            </span>
+            <label class="nwb-toggle">
+                <input type="checkbox" class="nwb-toggle-input" @bind="Draft.Active"/>
+                <span class="nwb-toggle-text">Active</span>
+            </label>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public NotificationDraft Draft { get; set; } = null!;
+    [Parameter] public NotificationRow? Row { get; set; }
+    [Parameter] public DmReachability? DmState { get; set; }
+    [Parameter] public string? DmGuildInviteUrl { get; set; }
+    [Parameter] public EventCallback<bool> OnPickDelivery { get; set; }
+    [Parameter] public EventCallback OnRecheckDm { get; set; }
+    [Parameter] public Func<Task<DmSendResult>> OnSendDmTest { get; set; } = null!;
+    [Parameter] public Func<string?, string> KindLabelOf { get; set; } = null!;
+}

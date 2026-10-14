@@ -1,0 +1,86 @@
+@using EggIncognito.Models.Docs
+@if (Uses.Count == 0) {
+    <div class="doc-none">No endpoint sends or returns this message directly.</div>
+} else {
+    <TableScroll MaxHeight="18rem">
+        <table class="data-table">
+            <thead>
+            <tr>
+                <th>Endpoint</th>
+                <th>Role</th>
+                <th class="doc-lock-col">Lock</th>
+            </tr>
+            </thead>
+            <tbody>
+            @if (UseGroups is { } useGroups) {
+                @foreach (var group in useGroups) {
+                    @GroupRow((group.Key + "/", group.Count(), "u:" + group.Key, 3))
+                    @if (_open.Contains("u:" + group.Key)) {
+                        @foreach (var u in group) {
+                            @UseRow(u)
+                        }
+                    }
+                }
+            } else {
+                @foreach (var u in Uses) {
+                    @UseRow(u)
+                }
+            }
+            </tbody>
+        </table>
+    </TableScroll>
+}
+
+@code {
+    [Parameter] public IReadOnlyList<MessageEndpointUse> Uses { get; set; } = [];
+    [Parameter] public List<IGrouping<string, MessageEndpointUse>>? UseGroups { get; set; }
+    [Parameter] public EventCallback<RouteInfo> OnSelectEndpoint { get; set; }
+
+    readonly HashSet<string> _open = [];
+
+    RenderFragment<(string Title, int Count, string Key, int Span)> GroupRow => g =>
+        @<tr class="doc-group-row" @key="g.Key" @onclick="() => ToggleGroup(g.Key)">
+            <td colspan="@g.Span">
+                <span class="doc-group-head">
+                    <Caret Open="@_open.Contains(g.Key)"/>
+                    <span class="mono">@g.Title</span>
+                    <span class="muted">@g.Count</span>
+                </span>
+            </td>
+        </tr>;
+
+    RenderFragment<MessageEndpointUse> UseRow => u =>
+        @<tr @key="@(u.Path + ":" + u.Role)">
+            <td>
+                @if (u.Route is { } route) {
+                    <button type="button" class="doc-link" @onclick="() => OnSelectEndpoint.InvokeAsync(route)">@u.Path</button>
+                } else {
+                    <span class="mono doc-usedby-static">@u.Path, binary only</span>
+                }
+            </td>
+            <td class="muted">@RoleText(u.Role)</td>
+            <td class="doc-lock-col">
+                @if (u.Locked) {
+                    <span class="doc-signed">
+                        <Icon Name="lock" Class="icon-sm"/>
+                    </span>
+                }
+            </td>
+        </tr>;
+
+    void ToggleGroup(string key) {
+        if (!_open.Remove(key)) _open.Add(key);
+    }
+
+    static string RoleText(MessageUseRole role) {
+        return role switch {
+            MessageUseRole.Request => "Request",
+            MessageUseRole.Response => "Response",
+            MessageUseRole.Both => "Request + response",
+            MessageUseRole.WrapsRequest => "Wraps request",
+            MessageUseRole.WrapsResponse => "Wraps response",
+            _ => "Wraps both"
+        };
+    }
+
+}

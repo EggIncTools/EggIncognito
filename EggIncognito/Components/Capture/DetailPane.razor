@@ -18,7 +18,7 @@
     </div>
 
     @if (Flow.Known) {
-        @KnownCard()
+        <CaptureKnownEndpointCard Flow="Flow!" View="View" />
     } else {
         <div class="detail-types">
             @TypeLine("Request type", Flow.RequestType)
@@ -68,10 +68,6 @@
         }
     }
 
-    void ToggleReveal(string key) => _reveal.Toggle(key);
-
-    string RevealCls(string key) => _reveal.IsRevealed(key) ? "revealed" : "";
-
     async Task Save() {
         if (Flow is null || _saving) return;
         _saving = true;
@@ -92,51 +88,24 @@
                                                                 <span class="detail-type-val @(value is null ? "unknown" : "")">@(value ?? "unknown")</span>
                                                             </div>;
 
-    RenderFragment KnownCard() => @<div class="known-card">
-                                      <div class="known-card-title">Known endpoint</div>
-                                      @KnownRow("Request type", Flow!.RequestType ?? "none", Flow!.RequestType is null)
-                                      @KnownRow("Response type", Flow!.ResponseType ?? "none", Flow!.ResponseType is null)
-                                      @{ var meta = View.CompareToKnown ? CaptureHelpers.Outcome(Flow!.Outcome) : null; }
-                                      @if (meta is not null) {
-                                          <div class="known-card-line">
-                                              <span class="known-card-label">Comparison</span>
-                                              <span class="known-card-val outcome-text">
-                                                  <Icon Name="@meta.Icon" Class="icon-sm"/>
-                                                  @if (CaptureHelpers.HasDiffCounts(Flow!.Outcome, Flow!.DiffAdded, Flow!.DiffRemoved)) {
-                                                      <text>@(meta.Label + " (")@DiffCounts(Flow!.DiffAdded, Flow!.DiffRemoved)@(")")</text>
-                                                  } else {
-                                                      @meta.Label
-                                                  }
-                                              </span>
-                                          </div>
-                                          <div class="known-card-explain muted">@meta.Desc</div>
-                                      }
-                                  </div>;
-
-    RenderFragment KnownRow(string label, string value, bool unknown) => @<div class="known-card-line">
-                                                                             <span class="known-card-label">@label</span>
-                                                                             <span class="known-card-val @(unknown ? "unknown" : "")">@value</span>
-                                                                         </div>;
-
-    RenderFragment DiffCounts(int added, int removed) => @<text>
-                                                              @if (added > 0) {
-                                                                  <span class="diff-add">@("+" + added)</span>
-                                                              }
-                                                              @if (removed > 0) {
-                                                                  <span class="diff-del">@("-" + removed)</span>
-                                                              }
-                                                          </text>;
-
     RenderFragment RequestPane() => builder => {
         var f = Flow!;
         var seq = 0;
         if (View.ShowHeaders) {
-            var sec = BuildHeaders("request", f.RequestHeaders, f.RequestHeadersRaw);
-            if (sec is not null) builder.AddContent(seq++, sec);
+            builder.OpenComponent<CaptureHeadersList>(seq++);
+            builder.AddComponentParameter(seq++, nameof(CaptureHeadersList.KeyPrefix), "request");
+            builder.AddComponentParameter(seq++, nameof(CaptureHeadersList.Redacted), f.RequestHeaders);
+            builder.AddComponentParameter(seq++, nameof(CaptureHeadersList.Raw), f.RequestHeadersRaw);
+            builder.AddComponentParameter(seq++, nameof(CaptureHeadersList.View), View);
+            builder.AddComponentParameter(seq++, nameof(CaptureHeadersList.Reveal), _reveal);
+            builder.CloseComponent();
         }
 
-        var paramsSection = BuildParams(f);
-        if (paramsSection is not null) builder.AddContent(seq++, paramsSection);
+        builder.OpenComponent<CaptureQueryParamsPanel>(seq++);
+        builder.AddComponentParameter(seq++, nameof(CaptureQueryParamsPanel.Flow), f);
+        builder.AddComponentParameter(seq++, nameof(CaptureQueryParamsPanel.View), View);
+        builder.AddComponentParameter(seq++, nameof(CaptureQueryParamsPanel.Reveal), _reveal);
+        builder.CloseComponent();
 
         builder.AddContent(seq, RequestBodySection(f));
     };
@@ -162,8 +131,13 @@
         var f = Flow!;
         var seq = 0;
         if (View.ShowHeaders) {
-            var hdr = BuildHeaders("response", f.ResponseHeaders, f.ResponseHeadersRaw);
-            if (hdr is not null) builder.AddContent(seq++, hdr);
+            builder.OpenComponent<CaptureHeadersList>(seq++);
+            builder.AddComponentParameter(seq++, nameof(CaptureHeadersList.KeyPrefix), "response");
+            builder.AddComponentParameter(seq++, nameof(CaptureHeadersList.Redacted), f.ResponseHeaders);
+            builder.AddComponentParameter(seq++, nameof(CaptureHeadersList.Raw), f.ResponseHeadersRaw);
+            builder.AddComponentParameter(seq++, nameof(CaptureHeadersList.View), View);
+            builder.AddComponentParameter(seq++, nameof(CaptureHeadersList.Reveal), _reveal);
+            builder.CloseComponent();
         }
 
         if (f.ResponseText is not null) builder.AddContent(seq, TextResponseSection(f.ResponseText, f.ResponseIsAck));
@@ -173,7 +147,10 @@
             builder.AddContent(seq, "Acknowledgement - this endpoint returns a short non-protobuf ack.");
             builder.CloseElement();
         } else if (ImageMime(f) is { } mime && !string.IsNullOrEmpty(f.ResponseB64)) {
-            builder.AddContent(seq, ImageResponseSection(mime, f.ResponseB64));
+            builder.OpenComponent<CaptureResponseImagePreview>(seq++);
+            builder.AddComponentParameter(seq++, nameof(CaptureResponseImagePreview.Mime), mime);
+            builder.AddComponentParameter(seq, nameof(CaptureResponseImagePreview.Base64), f.ResponseB64);
+            builder.CloseComponent();
         } else {
             builder.OpenComponent<CodeFormats>(seq++);
             builder.AddComponentParameter(seq++, nameof(CodeFormats.Key), "Response");
@@ -216,159 +193,6 @@
         if (b.Length >= 12 && b[0] == 0x52 && b[1] == 0x49 && b[2] == 0x46 && b[3] == 0x46
             && b[8] == 0x57 && b[9] == 0x45 && b[10] == 0x42 && b[11] == 0x50) return "image/webp";
         return null;
-    }
-
-    RenderFragment ImageResponseSection(string mime, string b64) => builder => {
-        var seq = 0;
-        var bytes = (b64.Length * 3) / 4;
-        builder.OpenElement(seq++, "div");
-
-        builder.OpenElement(seq++, "div");
-        builder.AddAttribute(seq++, "class", "image-preview");
-        builder.OpenElement(seq++, "img");
-        builder.AddAttribute(seq++, "src", $"data:{mime};base64,{b64}");
-        builder.AddAttribute(seq++, "alt", "response image");
-        builder.AddAttribute(seq++, "loading", "lazy");
-        builder.CloseElement();
-        builder.CloseElement();
-
-        builder.OpenElement(seq++, "div");
-        builder.AddAttribute(seq++, "class", "image-meta muted");
-        builder.AddContent(seq, $"{mime}, ~{ByteFormat.Humanize(bytes, "0.#")}");
-        builder.CloseElement();
-
-        builder.CloseElement();
-    };
-
-    RenderFragment? BuildParams(DashboardFlow flow) {
-        var parsed = ParseFlowUrl(flow);
-        if (parsed is null) return null;
-        var (path, query, pathParams) = parsed.Value;
-        if (pathParams.Count == 0 && query.Count == 0) return null;
-
-        var generalPath = "/" + (flow.Path ?? "").TrimStart('/');
-        var basePath = StripPathParams(path, pathParams);
-        var showPath = !string.Equals(basePath, generalPath, StringComparison.Ordinal);
-        return @<div>
-                   <div class="section-head">
-                       <h3>Query</h3>
-                   </div>
-                   <div class="params-box">
-                       @if (showPath) {
-                           @ParamRow("path", PathFragment(basePath))
-                       }
-                       @foreach (var p in pathParams) {
-                           @ParamRow("query", ParamValueFragment(p))
-                       }
-                       @foreach (var (k, v) in query) {
-                           @ParamRow(k, ParamValueFragment(v))
-                       }
-                   </div>
-               </div>;
-    }
-
-    RenderFragment ParamRow(string label, RenderFragment value) => @<div class="param-row">
-                                                                       <span class="param-label">@label</span>
-                                                                       <span class="param-val">@value</span>
-                                                                   </div>;
-
-    RenderFragment PathFragment(string path) => @<text>
-                                                     @foreach (var (text, blur) in View.RenderRedactedPath(path)) {
-                                                         if (blur) {
-                                                             var key = "path:" + text;
-                                                             <span class="mask @RevealCls(key)" @onclick="() => ToggleReveal(key)">@text</span>
-                                                         } else {
-                                                             @text
-                                                         }
-                                                     }
-                                                 </text>;
-
-    RenderFragment ParamValueFragment(string value) => @<text>
-                                                            @{ var (text, blur) = View.RedactParamValue(value); }
-                                                            @if (blur) {
-                                                                var key = "param:" + text;
-                                                                <span class="mask @RevealCls(key)" @onclick="() => ToggleReveal(key)">@text</span>
-                                                            } else {
-                                                                @text
-                                                            }
-                                                        </text>;
-
-    static string StripPathParams(string path, List<string> pathParams) {
-        var result = path;
-        for (var i = pathParams.Count - 1; i >= 0; i--) {
-            var suffix = "/" + pathParams[i];
-            if (result.EndsWith(suffix, StringComparison.Ordinal))
-                result = result[..^suffix.Length];
-        }
-
-        return result.Length == 0 ? "/" : result;
-    }
-
-    (string Path, List<(string, string)> Query, List<string> PathParams)? ParseFlowUrl(DashboardFlow flow) {
-        var raw = flow.Url ?? "";
-        if (string.IsNullOrEmpty(raw)) return null;
-        var pathAndQuery = raw;
-        var schemeIdx = raw.IndexOf("://", StringComparison.Ordinal);
-        if (schemeIdx >= 0) {
-            var rest = raw[(schemeIdx + 3)..];
-            var slash = rest.IndexOf('/');
-            pathAndQuery = slash >= 0 ? rest[slash..] : "/";
-        }
-
-        var path = pathAndQuery;
-        var query = new List<(string, string)>();
-        var qIdx = pathAndQuery.IndexOf('?');
-        if (qIdx >= 0) {
-            path = pathAndQuery[..qIdx];
-            var qs = pathAndQuery[(qIdx + 1)..];
-            foreach (var pair in qs.Split('&')) {
-                if (pair.Length == 0) continue;
-                var eq = pair.IndexOf('=');
-                var k = eq >= 0 ? pair[..eq] : pair;
-                var v = eq >= 0 ? pair[(eq + 1)..] : "";
-                try {
-                    query.Add((Uri.UnescapeDataString(k), Uri.UnescapeDataString(v)));
-                } catch {
-                    query.Add((k, v));
-                }
-            }
-        }
-
-        var pathParams = new List<string>();
-        var segments = path.Split('/', StringSplitOptions.RemoveEmptyEntries);
-        var known = (flow.Path ?? "").Split('/', StringSplitOptions.RemoveEmptyEntries);
-        IEnumerable<string> extra = [];
-        if (known.Length > 0 && segments.Length > known.Length)
-            extra = segments.Skip(known.Length);
-        else {
-            var last = segments.Length > 0 ? segments[^1] : null;
-            if (last is not null && CaptureViewState.EidRe.IsMatch(last)) extra = [last];
-        }
-
-        pathParams.AddRange(extra);
-
-        return (path, query, pathParams);
-    }
-
-    RenderFragment? BuildHeaders(string keyPrefix, IReadOnlyList<DashboardHeader>? redacted, IReadOnlyList<DashboardHeader>? raw) {
-        var headers = View.IsBlurMode || View.ShowRawHeaders ? raw ?? redacted ?? [] : redacted ?? [];
-        if (headers.Count == 0) return null;
-
-        return @<div class="headers-box">
-                   @foreach (var h in headers) {
-                       var blur = View.IsBlurMode && h.Sensitive;
-                       var key = "hdr:" + keyPrefix + ":" + h.Name + ":" + h.Value;
-                       <span class="h-name">@h.Name</span>
-                       @if (blur) {
-                           <span class="h-val mask @RevealCls(key)"
-                                 @onclick="() => ToggleReveal(key)">
-                               @h.Value
-                           </span>
-                       } else {
-                           <span class="h-val">@h.Value</span>
-                       }
-                   }
-               </div>;
     }
 
 }

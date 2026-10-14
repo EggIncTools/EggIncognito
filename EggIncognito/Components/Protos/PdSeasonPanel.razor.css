@@ -1,0 +1,21 @@
+.pd-w-season { order: 3; align-self: flex-start; max-width: 100%; }
+@container pdmod (min-width: 60rem) {
+  .pd-w-season { order: 0; }
+}
+.cegg-title { margin: 0; font-size: 0.875rem; font-weight: 600; }
+.season-ceggs { min-width: 0; }
+.season-top { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 0.75rem; }
+.season-nav { display: flex; align-items: center; gap: 0.25rem; }
+.season-nav-btn:disabled { opacity: 0.4; cursor: default; }
+.season-nav-btn:disabled:hover { color: var(--color-muted); }
+.season-head { display: grid; gap: 1rem; grid-template-columns: 1fr; margin-bottom: 0.75rem; }
+@container pdmod (min-width: 34rem) {
+  .season-head { grid-template-columns: auto 1fr; align-items: center; }
+}
+.season-id { display: flex; align-items: center; gap: 0.75rem; min-width: 0; }
+.season-date { width: 3.5rem; flex-shrink: 0; overflow: hidden; text-align: center; border: 1px solid var(--color-border); border-radius: 0.25rem; background-color: var(--color-bg); }
+.season-date-m { padding: 0.125rem 0; background-color: var(--color-accent); color: var(--color-bg); font-size: 0.625rem; font-weight: 600; text-transform: uppercase; }
+.season-date-d { padding: 0.25rem 0; font-size: 1.125rem; font-weight: 600; }
+.season-id-body { min-width: 0; }
+.season-name { font-size: 0.875rem; font-weight: 600; }
+.season-sub { font-size: 0.75rem; color: var(--color-muted); }

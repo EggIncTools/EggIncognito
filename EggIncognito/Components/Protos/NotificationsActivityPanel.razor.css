@@ -1,0 +1,17 @@
+.nwb-preview { display: flex; flex-direction: column; min-width: 0; border: 1px solid var(--color-border); border-radius: 0.375rem; background-color: var(--color-bg); overflow: hidden; }
+.nwb-preview-head { flex: none; display: flex; align-items: stretch; min-height: 2rem; border-bottom: 1px solid var(--color-border); background-color: var(--color-panel2); }
+.nwb-preview-head .nwb-k { background-color: transparent; }
+.nwb-k { flex: none; display: inline-flex; align-items: center; padding-inline: 0.625rem; font-size: 0.6875rem; text-transform: uppercase; letter-spacing: 0.05em; line-height: 1; color: var(--color-muted); background-color: var(--color-panel2); }
+.nwb-k + * { border-left: 1px solid var(--color-border); }
+.nwb-view { flex: none; margin-left: auto; padding-inline: 0.75rem; border: 0; border-left: 1px solid var(--color-border); border-radius: 0; background-color: transparent; color: var(--color-muted); font-family: inherit; font-size: 0.6875rem; text-transform: uppercase; letter-spacing: 0.05em; cursor: pointer; }
+.nwb-view:hover { color: var(--color-fg); }
+.nwb-preview-body { min-width: 0; padding: 0.75rem; overflow-x: auto; }
+.nwb-empty, .nwb-preview-body ::deep .nwb-empty { font-size: 0.75rem; color: var(--color-muted); }
+.nwb-badge { display: inline-flex; align-items: center; padding: 0.0625rem 0.375rem; border-radius: 999px; font-size: 0.625rem; text-transform: uppercase; letter-spacing: 0.05em; line-height: 1.4; border: 1px solid currentColor; }
+.nwb-badge.ok { color: var(--color-ok); }
+.nwb-badge.warn { color: var(--color-warn); }
+.nwb-badge.err { color: var(--color-err); }
+.nwb-badge.muted { color: var(--color-muted); }
+.nwb-td-sm { font-size: 0.75rem; }
+.nwb-td-muted { font-size: 0.75rem; color: var(--color-muted); }
+.nwb-td-nowrap { white-space: nowrap; }

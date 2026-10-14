@@ -10,9 +10,6 @@
 .cdp-disc { display: block; flex: none; width: 1.5rem; height: 1.5rem; padding: 0.125rem; border-radius: 9999px; }
 .cdp-disc img { width: 100%; height: 100%; object-fit: contain; }
 .cdp-nowrap { white-space: nowrap; }
-.cdp-bar-cell { padding-top: 0; }
-.cdp-dist { display: flex; gap: 1px; width: 100%; height: 1.375rem; overflow: hidden; border-radius: 0.25rem; background-color: var(--color-panel2); }
-.cdp-seg { display: inline-flex; align-items: center; justify-content: center; min-width: 2rem; cursor: default; }
 .cdp-seg-text { font-size: 0.75rem; font-weight: 700; line-height: 1; color: var(--color-bg); white-space: nowrap; }
 .rar-0 { color: var(--color-fg); }
 .rar-1 { color: var(--color-rarity-1); }

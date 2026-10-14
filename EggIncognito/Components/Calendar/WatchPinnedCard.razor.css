@@ -1,0 +1,33 @@
+.watch-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  min-width: 0;
+  padding: 0.375rem 0.5rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.375rem;
+  background-color: var(--color-panel0);
+}
+.watch-swatch { flex: none; width: 0.25rem; align-self: stretch; border-radius: 0.125rem; background: linear-gradient(180deg, var(--evt-from), var(--evt-to)); }
+.watch-card ::deep .watch-icon { flex: none; width: 1.5rem; height: 1.5rem; object-fit: contain; margin-top: 0.125rem; }
+.watch-body { display: flex; flex-direction: column; gap: 0.0625rem; min-width: 0; flex: 1 1 auto; }
+.watch-label { display: flex; align-items: center; gap: 0.25rem; min-width: 0; font-size: 0.75rem; font-weight: 600; }
+.watch-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.watch-ultra { flex: none; font-size: 0.5625rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--color-accent); }
+.watch-unpin { flex: none; margin-left: auto; }
+.watch-line { display: flex; align-items: baseline; gap: 0.375rem; min-width: 0; font-size: 0.6875rem; color: var(--color-fg-soft); }
+.watch-k { flex: none; width: 2rem; color: var(--color-muted); text-transform: uppercase; font-size: 0.5625rem; letter-spacing: 0.05em; }
+.watch-when { display: flex; align-items: baseline; gap: 0.375rem; min-width: 0; }
+.watch-next { display: flex; flex-direction: column; gap: 0.125rem; min-width: 0; }
+.watch-forecast { display: flex; align-items: baseline; gap: 0.375rem; min-width: 0; white-space: nowrap; }
+.watch-line ::deep .watch-hover { text-decoration: underline dotted; text-underline-offset: 0.2em; text-decoration-color: var(--color-muted); cursor: help; }
+.watch-line ::deep .watch-hover:hover, .watch-line ::deep .watch-hover:focus-visible { color: var(--color-fg); text-decoration-color: currentColor; }
+.watch-line ::deep .watch-none, .watch-none { font-style: italic; color: var(--color-method-write); }
+.watch-date { flex: none; font-family: var(--font-mono); font-size: 0.625rem; color: var(--color-muted); }
+.watch-note-inline { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; font-size: 0.625rem; color: var(--color-muted); }
+.watch-conf {
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+  font-weight: 600;
+  color: color-mix(in oklab, var(--color-ok) calc(var(--p, 0) * 100%), var(--color-err));
+}

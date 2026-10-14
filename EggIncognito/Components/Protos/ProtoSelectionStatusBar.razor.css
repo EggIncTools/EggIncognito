@@ -1,0 +1,10 @@
+.pwb-status { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; min-width: 0; }
+.pwb-file { flex: 1 1 16rem; min-width: 0; font-family: var(--font-mono); font-size: 0.75rem; overflow-wrap: break-word; word-break: normal; hyphens: none; -webkit-hyphens: none; }
+.pwb-dim-note { font-size: 0.75rem; color: var(--color-muted); }
+.pwb-mono-note { font-family: var(--font-mono); font-size: 0.75rem; color: var(--color-muted); }
+.pwb-note-inline { font-size: 0.75rem; color: var(--color-muted); }
+.pwb-ok { color: var(--color-ok); }
+.pwb-warn { color: var(--color-warn); }
+.pwb-err { color: var(--color-err); }
+.pwb-pending-btn { display: inline-flex; align-items: center; height: 1.75rem; box-sizing: border-box; padding-inline: 0.625rem; border: 1px solid color-mix(in oklab, var(--color-warn) 45%, transparent); border-radius: 0.25rem; background-color: var(--color-panel2); font-size: 0.75rem; line-height: 1; color: var(--color-warn); cursor: pointer; }
+.pwb-pending-btn:hover, .pwb-pending-btn.active { border-color: var(--color-warn); }

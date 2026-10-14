@@ -81,7 +81,7 @@
 </div>
 
 @code {
-    [Inject] public ApiWorkbenchState State { get; set; } = default!;
+    [Inject] public ApisWorkbenchState State { get; set; } = default!;
 
     [Parameter] public string Filter { get; set; } = "";
     [Parameter] public EventCallback<RouteInfo> OnSelectEndpoint { get; set; }

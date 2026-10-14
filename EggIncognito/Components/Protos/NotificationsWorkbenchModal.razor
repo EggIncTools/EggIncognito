@@ -21,88 +21,32 @@
 <WorkbenchModal Open="_open" Title="Notifications" TitleId="notificationsWorkbenchTitle" CardClass="nwb-card"
                 OnClose="CloseAsync">
     <HeadTools>
-        @if (AdminScope) {
-            @if (_admin is { } summary) {
-                <span class="nwb-head-note">@AdminHeadLine(summary)</span>
-            }
-        } else if (State.Creating) {
-            <button type="button" class="btn-primary nwb-act"
-                    disabled="@(_busy || !User.Current.IsAuthenticated || !State.NewDraft.TargetReady || (State.NewDraft.Dm && _dm?.State != DmReachability.Reachable) ||!State.NewDraft.FilterReady)"
-                    @onclick="Create">
-                @CreateLabel
-            </button>
-        } else if (Current is { } cur && User.Current.IsAuthenticated) {
-            @if (_armed) {
-                <button type="button" class="btn-mini" disabled="@_busy" @onclick="@(() => SendTest(cur.Id))">
-                    Confirm, post to @cur.UrlMasked
-                </button>
-                <button type="button" class="btn-mini" @onclick="@(() => _armed = false)">Cancel</button>
-            } else {
-                <button type="button" class="btn-mini" disabled="@(_busy || SelectedSample() is null)"
-                        @onclick="@(() => _armed = true)">
-                    Send test
-                </button>
-            }
-
-            <button type="button" class="btn-mini" disabled="@_busy" @onclick="@(() => TogglePause(cur))">
-                @(cur.Active ? "Pause" : "Resume")
-            </button>
-            <button type="button" class="btn-mini" disabled="@_busy" @onclick="@(() => DeleteRow(cur.Id))">Delete</button>
-            <button type="button" class="btn-primary nwb-act" disabled="@(_busy || !State.Draft(cur.Id).FilterReady)"
-                    @onclick="@(() => Save(cur.Id))">
-                @(_busy ? "Saving..." : "Save")
-            </button>
-        }
+        <NotificationsHeadToolbar AdminScope="@AdminScope" AdminSummary="@_admin" Creating="@State.Creating"
+                                   Busy="@_busy" IsAuthenticated="@User.Current.IsAuthenticated"
+                                   NewDraftReady="@(State.NewDraft.TargetReady && State.NewDraft.FilterReady)"
+                                   NewDraftIsDm="@State.NewDraft.Dm" DmState="@_dm?.State" CreateLabel="@CreateLabel"
+                                   OnCreate="Create" Current="@Current" Armed="@_armed"
+                                   HasSample="@(SelectedSample() is not null)" OnArm="@(() => _armed = true)"
+                                   OnCancelArm="@(() => _armed = false)" OnSendTest="@(() => SendTest(Current!.Id))"
+                                   RowActive="@(Current?.Active ?? false)" OnTogglePause="@(() => TogglePause(Current!))"
+                                   OnDelete="@(() => DeleteRow(Current!.Id))"
+                                   DraftFilterReady="@(Current is not null && State.Draft(Current.Id).FilterReady)"
+                                   OnSave="@(() => Save(Current!.Id))" SavingLabel="Saving..."/>
     </HeadTools>
     <Rail>
         @if (AdminScope) {
-            <WorkbenchRail HasFilter="true" Filter="@_adminFilter" FilterChanged="OnAdminFilter"
-                           FilterLabel="Filter notifications">
-                <select class="nwb-rail-select" aria-label="Filter by event" @bind="_adminKind">
-                    <option value="">Every event</option>
-                    @foreach (var k in _kinds) {
-                        <option value="@k.Key">@k.Label</option>
-                    }
-                </select>
-                <WorkbenchLoad T="AdminFeedRow" Items="@AdminFilteredOrNull" EmptyText="@AdminEmptyRailText"
-                               Context="rows">
-                    @foreach (var g in rows.GroupBy(r => r.OwnerUsername, StringComparer.OrdinalIgnoreCase)) {
-                        <WorkbenchSection Label="@g.Key">
-                            @foreach (var r in g) {
-                                <WorkbenchEntry @key="r.Id" Selected="@(_adminSelectedId == r.Id)"
-                                                Status="@HealthStatus(r)" OnClick="@(_ => AdminSelect(r))">
-                                    <Name>@AdminRowLabel(r)</Name>
-                                    <MetaLine>@r.TargetMasked</MetaLine>
-                                    <Foot>@Health(r)</Foot>
-                                </WorkbenchEntry>
-                            }
-                        </WorkbenchSection>
-                    }
-                </WorkbenchLoad>
-            </WorkbenchRail>
+            <NotificationsAdminRail AdminFilter="@_adminFilter" OnAdminFilterChanged="OnAdminFilter"
+                                     AdminKind="@_adminKind" AdminKindChanged="OnAdminKindChanged" Kinds="@_kinds"
+                                     Rows="@AdminFilteredOrNull" EmptyText="@AdminEmptyRailText"
+                                     SelectedId="@_adminSelectedId" HealthStatusOf="HealthStatus" HealthOf="Health"
+                                     OnSelect="AdminSelect" RowLabelOf="AdminRowLabel"/>
         } else {
-            <WorkbenchRail HasFilter="true" Filter="@State.RailFilter" FilterChanged="OnRailFilter"
-                           FilterLabel="Filter notifications">
-                <WorkbenchEntry Selected="@State.Creating" OnClick="@(_ => SelectNew())">
-                    <Name>New notification</Name>
-                </WorkbenchEntry>
-                @if (User.Current.IsAuthenticated) {
-                    <WorkbenchLoad T="NotificationRow" Items="@FilteredOrNull" EmptyText="@EmptyRailText" Context="rows">
-                        @foreach (var g in rows.GroupBy(s => s.EventKind).OrderBy(g => KindOrder(g.Key))) {
-                            <WorkbenchSection Label="@KindLabel(g.Key)">
-                                @foreach (var s in g) {
-                                    <WorkbenchEntry @key="s.Id" Selected="@(!State.Creating && State.SelectedId == s.Id)"
-                                                    Status="@HealthStatus(s)" OnClick="@(_ => Select(s))">
-                                        <Name>@RowName(s)</Name>
-                                        <MetaLine>@s.UrlMasked</MetaLine>
-                                        <Foot>@Health(s)</Foot>
-                                    </WorkbenchEntry>
-                                }
-                            </WorkbenchSection>
-                        }
-                    </WorkbenchLoad>
-                }
-            </WorkbenchRail>
+            <NotificationsUserRail RailFilter="@State.RailFilter" OnRailFilterChanged="OnRailFilter"
+                                    Creating="@State.Creating" OnSelectNew="SelectNew"
+                                    IsAuthenticated="@User.Current.IsAuthenticated" Rows="@FilteredOrNull"
+                                    EmptyText="@EmptyRailText" SelectedId="@State.SelectedId" KindOrderOf="KindOrder"
+                                    KindLabelOf="KindLabel" OnSelect="Select" RowNameOf="RowName" HealthOf="Health"
+                                    HealthStatusOf="HealthStatus"/>
         }
     </Rail>
     <ChildContent>
@@ -199,10 +143,6 @@
         return string.IsNullOrWhiteSpace(s.Label) ? KindLabel(s.EventKind) : s.Label;
     }
 
-    static string AdminHeadLine(AdminFeedListResponse a) {
-        return $"{a.Total} subscriptions, {a.ActiveCount} active, {a.Owners} owners";
-    }
-
     readonly Dictionary<int, NotificationDraft> _adminDrafts = [];
 
     NotificationDraft AdminDraft(AdminFeedRow row) {
@@ -295,14 +235,6 @@
                ?? _preview[0];
     }
 
-    static string SampleBadge(PreviewRow p) {
-        return p.Matches ? "would send" : "filtered out";
-    }
-
-    static string SampleBadgeClass(PreviewRow p) {
-        return p.Matches ? "nwb-badge ok" : "nwb-badge warn";
-    }
-
     RenderFragment Config(NotificationDraft d, NotificationRow? row) => @<text>
         @if (row is null) {
             <div class="nwb-kinds" role="radiogroup" aria-label="Event">
@@ -315,57 +247,12 @@
                 }
             </div>
         }
-        <div class="nwb-surface">
-            @if (row is null) {
-                <div class="nwb-row">
-                    <span class="nwb-k">Deliver</span>
-                    <div class="nwb-kinds" role="radiogroup" aria-label="Delivery">
-                        <button type="button" role="radio" aria-checked="@(d.Dm ? "false" : "true")"
-                                class="@(d.Dm ? "nwb-kind" : "nwb-kind on")" @onclick="@(() => PickDelivery(d, false))">
-                            Webhook
-                        </button>
-                        <button type="button" role="radio" aria-checked="@(d.Dm ? "true" : "false")"
-                                class="@(d.Dm ? "nwb-kind on" : "nwb-kind")" @onclick="@(() => PickDelivery(d, true))">
-                            Discord DM
-                        </button>
-                    </div>
-                </div>
-                @if (d.Dm) {
-                    <DiscordDmSetupCard State="@_dm?.State" GuildInviteUrl="@_dm?.GuildInviteUrl"
-                                        ProfileUrl="/account" OnRecheck="LoadDm" OnSendTest="SendDmTest"/>
-                } else {
-                    <div class="nwb-row">
-                        <span class="nwb-k">Webhook</span>
-                        <input class="nwb-field nwb-mono" aria-label="Discord webhook URL"
-                               placeholder="https://discord.com/api/webhooks/..."
-                               @bind="d.Url" @bind:event="oninput"/>
-                    </div>
-                }
-            } else {
-                <div class="nwb-row">
-                    <span class="nwb-k">Target</span>
-                    <span class="nwb-static nwb-mono">@row.UrlMasked</span>
-                </div>
-            }
-            <div class="nwb-row">
-                <span class="nwb-k">Label</span>
-                <input class="nwb-field" aria-label="Label" placeholder="@KindLabel(d.EventKind)"
-                       @bind="d.Label" @bind:event="oninput"/>
-            </div>
-            @if (row is not null) {
-                <div class="nwb-row">
-                    <span class="nwb-cell">
-                        <span class="nwb-k">Event</span>
-                        <span class="nwb-static">@KindLabel(d.EventKind)</span>
-                    </span>
-                    <label class="nwb-toggle">
-                        <input type="checkbox" class="nwb-toggle-input" @bind="d.Active"/>
-                        <span class="nwb-toggle-text">Active</span>
-                    </label>
-                </div>
-            }
-        </div>
-        @Filter(d, false)
+        <NotificationsConfigSurface Draft="@d" Row="@row" DmState="@_dm?.State" DmGuildInviteUrl="@_dm?.GuildInviteUrl"
+                                     OnPickDelivery="@(isDm => PickDelivery(d, isDm))" OnRecheckDm="LoadDm"
+                                     OnSendDmTest="SendDmTest" KindLabelOf="KindLabel"/>
+        <NotificationsFilterPanel Draft="@d" ReadOnly="false" Fields="@FieldsOf(d.EventKind)"
+                                   OnReset="@(() => ResetFilter(d))" OnFilterChanged="@(v => OnFilterChanged(d, v))"
+                                   OnValidityChanged="@(s => d.Validity = s)"/>
         <TemplateEditor Label="Message" Hint="Leave empty to use defaults"
                         Value="@d.MessageTemplate"
                         ValueChanged="@(v => OnTemplateChanged(d, v))"
@@ -376,171 +263,29 @@
         }
     </text>;
 
-    RenderFragment Filter(NotificationDraft d, bool readOnly) => @<div class="nwb-preview">
-        <div class="nwb-preview-head">
-            <span class="nwb-k">Send when</span>
-            @if (!readOnly) {
-                <button type="button" class="nwb-view" @onclick="@(() => ResetFilter(d))">Defaults</button>
-            }
-        </div>
-        <div class="nwb-preview-body">
-            <FilterBuilder Fields="@FieldsOf(d.EventKind)" Value="@d.Filter" Draft="@d.Rows" ReadOnly="@readOnly"
-                           ValueChanged="@(v => OnFilterChanged(d, v))"
-                           ValidityChanged="@(s => d.Validity = s)"/>
-            @if (d.Filter.IsEmpty) {
-                <div class="nwb-empty">Sends every event.</div>
-            }
-        </div>
-    </div>;
+    RenderFragment Preview(NotificationDraft d) => @<NotificationsPreviewPanel Preview="_preview" @bind-Json="_json"
+                                                                                Selected="SelectedSample()"
+                                                                                OnPickSample="@((string key) => PickSample(d, key))"/>;
 
-    RenderFragment Preview(NotificationDraft d) => @<div class="nwb-preview">
-        <div class="nwb-preview-head">
-            <span class="nwb-k">Preview</span>
-            <button type="button" class="@(_json ? "nwb-view on" : "nwb-view")"
-                    aria-pressed="@(_json ? "true" : "false")" @onclick="@(() => _json = !_json)">
-                JSON
-            </button>
-        </div>
-        <WorkbenchLoad T="PreviewRow" Items="_preview" Class="nwb-empty" EmptyText="Nothing recorded for this kind yet.">
-            <div class="nwb-preview-split">
-                <div class="nwb-samples" role="listbox" aria-label="Sample events">
-                    @foreach (var p in _preview!) {
-                        var selected = SelectedSample()?.Key == p.Key;
-                        <button type="button" role="option" aria-selected="@(selected ? "true" : "false")"
-                                class="@(selected ? "nwb-sample on" : "nwb-sample")"
-                                @onclick="@(() => PickSample(d, p.Key))">
-                            <span class="nwb-sample-name">@p.Label</span>
-                            <span class="@SampleBadgeClass(p)">@SampleBadge(p)</span>
-                            @if (!p.Matches && p.BlockedBy.Count > 0) {
-                                <span class="nwb-sample-why">@string.Join(", ", p.BlockedBy)</span>
-                            }
-                        </button>
-                    }
-                </div>
-                <div class="nwb-preview-body">
-                    @if (SelectedSample() is { Body.Length: > 0 } chosen) {
-                        @if (!WouldSend(chosen)) {
-                            <div class="nwb-note">This sample would not be posted with these settings. Shown for reference.</div>
-                        }
-                        @if (_json) {
-                            <CodeSurface Text="@Pretty(chosen.Body)" Language="json" ShowToolbar="false" MaxHeight="18rem"/>
-                        } else {
-                            <DiscordEmbedPreview Payload="@chosen.Body"/>
-                        }
-                    } else {
-                        <div class="nwb-empty">Nothing would be sent with these settings.</div>
-                    }
-                </div>
-            </div>
-        </WorkbenchLoad>
-    </div>;
-
-    RenderFragment Activity(int id) => @<div class="nwb-preview">
-        <div class="nwb-preview-head">
-            <span class="nwb-k">Activity</span>
-            <button type="button" class="nwb-view" @onclick="@(() => LoadActivity(id))">Refresh</button>
-        </div>
-        <div class="nwb-preview-body">
-            @if (ActivityRows(id) is not { } rows) {
-                <div class="nwb-empty">Loading...</div>
-            } else if (rows.Count == 0) {
-                <div class="nwb-empty">
-                    Nothing delivered or suppressed yet. The event this watches has not fired since the
-                    subscription was created.
-                </div>
-            } else {
-                <TableScroll>
-                    <table class="data-table">
-                        <thead>
-                        <tr>
-                            <th>When</th><th>Outcome</th><th>Event</th><th>Detail</th>
-                        </tr>
-                        </thead>
-                        <tbody>
-                        @foreach (var r in rows) {
-                            <tr>
-                                <td class="nwb-td-muted nwb-td-nowrap">
-                                    @ViewerClock.At(Services, r.At).ToString("yyyy-MM-dd HH:mm:ss")
-                                </td>
-                                <td class="nwb-td-sm"><span class="@OutcomeClass(r)">@Outcome(r)</span></td>
-                                <td class="nwb-td-sm">@r.Event</td>
-                                <td class="nwb-td-muted">@Detail(r)</td>
-                            </tr>
-                        }
-                        </tbody>
-                    </table>
-                </TableScroll>
-            }
-        </div>
-    </div>;
+    RenderFragment Activity(int id) => @<NotificationsActivityPanel Rows="ActivityRows(id)" OnRefresh="@(() => LoadActivity(id))"/>;
 
     RenderFragment AdminDetail() => @<text>
         @if (AdminCurrent is { } row) {
-            <div class="nwb-surface">
-                <div class="nwb-row">
-                    <span class="nwb-k">Owner</span>
-                    <span class="nwb-static">@row.OwnerUsername</span>
-                </div>
-                <div class="nwb-row">
-                    <span class="nwb-k">Target</span>
-                    <span class="nwb-static nwb-mono">@row.TargetMasked</span>
-                </div>
-                <div class="nwb-row">
-                    <span class="nwb-k">Event</span>
-                    <span class="nwb-static">@KindLabel(row.EventKind)</span>
-                </div>
-                <div class="nwb-row">
-                    <span class="nwb-cell">
-                        <span class="nwb-k">Created</span>
-                        <span class="nwb-static">@AdminStamp(row.CreatedAt)</span>
-                    </span>
-                    <span class="nwb-cell">
-                        <span class="nwb-k">Last delivery</span>
-                        <span class="nwb-static">@AdminStamp(row.LastDeliveryAt)</span>
-                    </span>
-                </div>
-                <div class="nwb-row">
-                    <span class="nwb-cell">
-                        <span class="nwb-k">Failures</span>
-                        <span class="nwb-static">@row.FailCount</span>
-                    </span>
-                    <span class="nwb-cell">
-                        <span class="nwb-k">State</span>
-                        <span class="nwb-static">@(row.Active ? "active" : "paused")</span>
-                    </span>
-                </div>
-            </div>
-            <FlexRow Gap="true">
-                <button type="button" class="btn-mini" disabled="@_busy"
-                        @onclick="@(() => AdminTest(row.Id))">
-                    @(_confirmTest ? "Confirm, send test" : "Send test")
-                </button>
-                @if (row.Active) {
-                    <button type="button" class="btn-mini" disabled="@_busy"
-                            @onclick="@(() => AdminDeactivate(row.Id))">
-                        Deactivate
-                    </button>
-                }
-                <button type="button" class="btn-mini" disabled="@_busy"
-                        @onclick="@(() => AdminDelete(row.Id))">
-                    @(_confirmDelete ? "Confirm delete" : "Delete")
-                </button>
-            </FlexRow>
-            @Filter(AdminDraft(row), true)
+            <NotificationsAdminInfo Row="row" KindLabel="@KindLabel(row.EventKind)" CreatedStamp="@AdminStamp(row.CreatedAt)"
+                                     LastDeliveryStamp="@AdminStamp(row.LastDeliveryAt)"/>
+            <NotificationsAdminActions Row="row" Busy="_busy" ConfirmTest="_confirmTest"
+                                        ConfirmDelete="_confirmDelete" OnTest="@(() => AdminTest(row.Id))"
+                                        OnDeactivate="@(() => AdminDeactivate(row.Id))"
+                                        OnDelete="@(() => AdminDelete(row.Id))"/>
+            <NotificationsFilterPanel Draft="@AdminDraft(row)" ReadOnly="true" Fields="@FieldsOf(row.EventKind)"
+                                       OnReset="@(() => ResetFilter(AdminDraft(row)))"
+                                       OnFilterChanged="@(v => OnFilterChanged(AdminDraft(row), v))"
+                                       OnValidityChanged="@(s => AdminDraft(row).Validity = s)"/>
             @Activity(row.Id)
         } else {
             <div class="nwb-select-note">Select a notification.</div>
         }
     </text>;
-
-    static string Pretty(string json) {
-        try {
-            using var doc = JsonDocument.Parse(json);
-            return JsonSerializer.Serialize(doc.RootElement, JsonPresets.Indented);
-        } catch (JsonException) {
-            return json;
-        }
-    }
 
     public async Task Open(int? id = null) {
         _open = true;
@@ -701,26 +446,6 @@
 
     List<FeedActivityRow>? ActivityRows(int id) {
         return _activity.GetValueOrDefault(id);
-    }
-
-    static string Outcome(FeedActivityRow r) => r.Status switch {
-        "sent" => "delivered",
-        "failed" => "webhook rejected",
-        "blocked" => "suppressed",
-        _ => r.Status
-    };
-
-    static string OutcomeClass(FeedActivityRow r) => r.Status switch {
-        "sent" => "nwb-badge ok",
-        "failed" => "nwb-badge err",
-        "blocked" => "nwb-badge warn",
-        _ => "nwb-badge muted"
-    };
-
-    static string Detail(FeedActivityRow r) {
-        if (r.Reason is { Length: > 0 } reason) return reason;
-        if (r.ResponseCode is { } code) return $"HTTP {code}";
-        return r.Status == "failed" ? "no response from Discord" : "";
     }
 
     async Task LoadActivity(int id) {
@@ -909,6 +634,10 @@
 
     void OnAdminFilter(string value) {
         _adminFilter = value;
+    }
+
+    void OnAdminKindChanged(string value) {
+        _adminKind = value;
     }
 
     async Task AdminSelect(AdminFeedRow row) {

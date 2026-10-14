@@ -13,108 +13,15 @@
                    Load="LoadRange" Items="Items" DetailTitle="PopTitle" Filtering="Filtering"
                    CardClass="evwb-card" AnchorStyle="AnchorStyle" OnWindowChanged="EnsurePredictions">
     <Rail>
-        <WorkbenchRail>
-            <WorkbenchSection Label="Tier">
-                <CalendarRailRow On="_showStandard" OnClick="@(() => SetTier(false))">Standard</CalendarRailRow>
-                <CalendarRailRow On="_showUltra" Ultra="true" Style="@UltraRowStyle" OnClick="@(() => SetTier(true))">Ultra</CalendarRailRow>
-            </WorkbenchSection>
-            <WorkbenchSection Label="Types">
-                <Tools>
-                    <span class="evwb-bulk">
-                        <button type="button" class="evwb-bulk-btn" @onclick="SelectAllTypes">All</button>
-                        <button type="button" class="evwb-bulk-btn" @onclick="DeselectAllTypes">None</button>
-                    </span>
-                </Tools>
-                <ChildContent>
-                    <div class="evwb-groups">
-                        @foreach (var group in TypeGroups) {
-                            <div class="evwb-group" @key="group.Key">
-                                <div class="evwb-group-label">@group.Key</div>
-                                @foreach (var type in group) {
-                                    <CalendarRailRow @key="type" On="TypeSelected(type)" DimWhenOff="true" Style="@TypeRowStyle(type)"
-                                                     IconUrl="@EventPalette.IconUrl(type)" OnClick="@(() => ToggleType(type))">
-                                        <span>@EggIcons.Pretty(type)</span>
-                                    </CalendarRailRow>
-                                }
-                            </div>
-                        }
-                    </div>
-                </ChildContent>
-            </WorkbenchSection>
-            <WorkbenchSection Label="Predictions">
-                <CalendarRailRow On="_showPredictions" OnClick="TogglePredictions">Show predictions</CalendarRailRow>
-            </WorkbenchSection>
-        </WorkbenchRail>
+        <EventsFilterRail ShowStandard="_showStandard" ShowUltra="_showUltra" ShowPredictions="_showPredictions"
+                          TypeGroups="TypeGroups" TypeSelected="TypeSelected" OnSetTier="SetTier" OnToggleType="ToggleType"
+                          OnSelectAllTypes="SelectAllTypes" OnDeselectAllTypes="DeselectAllTypes" OnTogglePredictions="TogglePredictions"/>
     </Rail>
     <Bar>
-        @if (Choices(context.Item.Prediction) is { Count: > 1 } choices) {
-            var lead = choices[0];
-            <button type="button" class="@(BarCss(context) + " evcal-bar-multi")" style="@(BarStyle(context) + EventPalette.BarStyle(lead.Type, context.Item.Ultra))" @onclick="@(() => _cal?.Select(context))">
-                @if (EventPalette.IconUrl(lead.Type, context.Item.Ultra) is { } leadIcon) {
-                    <FallbackImg Class="evcal-bar-icon" Src="@leadIcon" Alt=""/>
-                }
-                <span class="evcal-bar-label">@ChoiceLabel(lead)?</span>
-                <span class="evcal-multi-more">+@(choices.Count - 1)</span>
-                <span class="evcal-multi-strip">
-                    @foreach (var choice in choices) {
-                        <span class="evcal-multi-seg" @key="choice.Type" style="@(EventPalette.BarStyle(choice.Type, context.Item.Ultra) + PctStyle(choice.Probability))"></span>
-                    }
-                </span>
-            </button>
-        } else {
-            <button type="button" class="@BarCss(context)" style="@BarStyle(context)" @onclick="@(() => _cal?.Select(context))">
-                @if (EventPalette.IconUrl(context.Item.Type, context.Item.Ultra) is { } iconUrl) {
-                    <FallbackImg Class="evcal-bar-icon" Src="@iconUrl" Alt=""/>
-                }
-                <span class="evcal-bar-label">@Label(context.Item)</span>
-            </button>
-        }
+        <EventsCalendarBar Bar="context" Css="@BarCss(context)" Style="@BarStyle(context)" OnSelect="@(() => _cal?.Select(context))"/>
     </Bar>
     <Detail>
-        @if (context.Event is { } e) {
-            <div class="evcal-pop-lead">
-                @if (EventPalette.IconUrl(e.Type, e.Ultra) is { } iconUrl) {
-                    <FallbackImg Class="evcal-pop-icon" Src="@iconUrl" Alt=""/>
-                }
-                <span class="evcal-pop-big">@EventMagnitude.Describe(e)</span>
-                <span>@EggIcons.Pretty(e.Type)</span>
-                @if (e.Ultra) {
-                    <span class="evcal-pop-ultra">ULTRA</span>
-                }
-            </div>
-            <span class="evcal-pop-when">@Countdown(context)</span>
-            <span class="evcal-pop-line">@Absolute(context.Start) to @Absolute(context.End)</span>
-        } else if (context.Prediction is { } p) {
-            <div class="evcal-pop-lead">
-                @if (EventPalette.IconUrl(p.Type, p.Ultra) is { } iconUrl) {
-                    <FallbackImg Class="evcal-pop-icon" Src="@iconUrl" Alt=""/>
-                }
-                <span class="evcal-pop-big">@Percent(p.Confidence)</span>
-            </div>
-            <span class="evcal-pop-when">@Absolute(p.PredictedStart) to @Absolute(p.PredictedEnd)</span>
-            @if (p.Magnitudes.Count > 1) {
-                <div class="evcal-pop-choices">
-                    @foreach (var odds in p.Magnitudes) {
-                        <span class="evcal-pop-choice" @key="odds.Multiplier">
-                            <span>@EventMagnitude.Describe(odds.Multiplier)</span>
-                            <span class="evcal-choice-pct" style="@PctStyle(odds.Probability)">@Percent(odds.Probability)</span>
-                        </span>
-                    }
-                </div>
-            }
-            @if (Choices(p) is { Count: > 1 } popChoices) {
-                <div class="evcal-pop-choices">
-                    @foreach (var candidate in popChoices) {
-                        <span class="evcal-pop-choice" @key="candidate.Type">
-                            <span>@ChoiceLabel(candidate)</span>
-                            <span class="evcal-choice-pct" style="@PctStyle(candidate.Probability)">@Percent(candidate.Probability)</span>
-                        </span>
-                    }
-                </div>
-            }
-        }
-
-        <span class="evcal-pop-hint">Click to pin</span>
+        <EventsCalendarDetail Item="context" Countdown="@Countdown(context)" Absolute="Absolute"/>
     </Detail>
 </CalendarWorkbench>
 
@@ -277,13 +184,6 @@
         return _cal?.Absolute(unixSeconds) ?? "";
     }
 
-    static string TypeRowStyle(string type) {
-        return FormattableString.Invariant($"--evt-color:{EventPalette.ColorFor(type)};");
-    }
-
-    static string UltraRowStyle => FormattableString.Invariant(
-        $"--evt-from:{EventPalette.CcGradientFrom};--evt-to:{EventPalette.CcGradientTo};");
-
     static string Countdown(EventCalendarItem item) {
         return EventCountdown.Describe(item.Start, item.End, DateTimeOffset.UtcNow);
     }
@@ -308,20 +208,6 @@
         return Label(item);
     }
 
-    static string Percent(double value) {
-        return (value * 100).ToString("0", CultureInfo.InvariantCulture) + "%";
-    }
-
-    static IReadOnlyList<EventCandidate> Choices(EventPrediction? p) =>
-        p is { Candidates.Count: > 1 }
-            ? [.. p.Candidates.Where(c => !string.IsNullOrEmpty(c.Type)).OrderByDescending(c => c.Probability)]
-            : [];
-
-    static string ChoiceLabel(EventCandidate c) => WithMagnitude(EggIcons.Pretty(c.Type), c.Magnitudes);
-
     static string WithMagnitude(string label, IReadOnlyList<EventMagnitudeOdds> odds) =>
         odds.Count > 0 && EventMagnitude.Describe(odds[0].Multiplier) is { Length: > 0 } scalar ? $"{label} {scalar}" : label;
-
-    static string PctStyle(double p) => FormattableString.Invariant($"--p:{Math.Clamp(p, 0, 1):0.###};");
-
 }

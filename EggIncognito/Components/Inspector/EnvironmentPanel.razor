@@ -44,7 +44,7 @@
 </div>
 
 @code {
-    [Inject] public ApiWorkbenchState State { get; set; } = default!;
+    [Inject] public ApisWorkbenchState State { get; set; } = default!;
 
     [Parameter] public IReadOnlyList<EnvRow> Rows { get; set; } = [];
     [Parameter] public EventCallback<EnvRow> OnChanged { get; set; }

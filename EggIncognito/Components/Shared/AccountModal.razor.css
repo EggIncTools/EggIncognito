@@ -38,5 +38,3 @@
 .acct-actions { display: flex; justify-content: flex-end; margin-top: 0.5rem; }
 .acct-actions .btn-mini { display: inline-flex; align-items: center; gap: 0.3rem; }
 .acct-eid { display: flex; flex-direction: column; gap: 0.375rem; margin-top: 1rem; padding-top: 0.75rem; border-top: 1px solid var(--color-border); }
-.acct-eid-row { display: flex; align-items: center; gap: 0.5rem; }
-.acct-eid-input { flex: 1 1 auto; min-width: 0; max-width: 20rem; font-family: var(--font-mono); }

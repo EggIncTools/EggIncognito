@@ -1,0 +1,67 @@
+@inject IServiceProvider Services
+@using EggIncognito.Models.Protos
+@using EggIncognito.Services.Events
+
+<div class="nwb-preview">
+    <div class="nwb-preview-head">
+        <span class="nwb-k">Activity</span>
+        <button type="button" class="nwb-view" @onclick="OnRefresh">Refresh</button>
+    </div>
+    <div class="nwb-preview-body">
+        @if (Rows is not { } rows) {
+            <div class="nwb-empty">Loading...</div>
+        } else if (rows.Count == 0) {
+            <div class="nwb-empty">
+                Nothing delivered or suppressed yet. The event this watches has not fired since the
+                subscription was created.
+            </div>
+        } else {
+            <TableScroll>
+                <table class="data-table">
+                    <thead>
+                    <tr>
+                        <th>When</th><th>Outcome</th><th>Event</th><th>Detail</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    @foreach (var r in rows) {
+                        <tr>
+                            <td class="nwb-td-muted nwb-td-nowrap">
+                                @ViewerClock.At(Services, r.At).ToString("yyyy-MM-dd HH:mm:ss")
+                            </td>
+                            <td class="nwb-td-sm"><span class="@OutcomeClass(r)">@Outcome(r)</span></td>
+                            <td class="nwb-td-sm">@r.Event</td>
+                            <td class="nwb-td-muted">@Detail(r)</td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </TableScroll>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter] public List<FeedActivityRow>? Rows { get; set; }
+    [Parameter] public EventCallback OnRefresh { get; set; }
+
+    static string Outcome(FeedActivityRow r) => r.Status switch {
+        "sent" => "delivered",
+        "failed" => "webhook rejected",
+        "blocked" => "suppressed",
+        _ => r.Status
+    };
+
+    static string OutcomeClass(FeedActivityRow r) => r.Status switch {
+        "sent" => "nwb-badge ok",
+        "failed" => "nwb-badge err",
+        "blocked" => "nwb-badge warn",
+        _ => "nwb-badge muted"
+    };
+
+    static string Detail(FeedActivityRow r) {
+        if (r.Reason is { Length: > 0 } reason) return reason;
+        if (r.ResponseCode is { } code) return $"HTTP {code}";
+        return r.Status == "failed" ? "no response from Discord" : "";
+    }
+}

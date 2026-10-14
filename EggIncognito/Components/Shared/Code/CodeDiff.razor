@@ -23,48 +23,7 @@
                 <div class="cstruct">
                     <p class="cstruct-summary">@Summary()</p>
                     @foreach (var e in Structural.Entries) {
-                        <div class="cstruct-entry">
-                            <div class="cstruct-head">
-                                @if (e.Kind == MessageDiffKind.Renamed) {
-                                    <span class="cstruct-path cstruct-rem">@e.OldPath</span>
-                                    <span class="cstruct-arrow">-&gt;</span>
-                                    <span class="cstruct-path cstruct-add">@e.NewPath</span>
-                                } else {
-                                    <span class="cstruct-path @PathClass(e.Kind)">@e.DisplayPath</span>
-                                }
-                            </div>
-                            @if (e.Kind is MessageDiffKind.Added or MessageDiffKind.Removed) {
-                                <details>
-                                    <summary class="cstruct-toggle">@e.Body.Count lines</summary>
-                                    <div class="cstruct-rows">
-                                        @foreach (var line in e.Body) {
-                                            <span class="@(e.Kind == MessageDiffKind.Added ? "cstruct-add" : "cstruct-rem")">@(e.Kind == MessageDiffKind.Added ? "+" : "-")@line</span>
-                                        }
-                                    </div>
-                                </details>
-                            } else if (e.FieldChanges.Count > 0 || e.EnumChanges.Count > 0) {
-                                <div class="cstruct-rows">
-                                    @foreach (var c in e.FieldChanges.OrderBy(c => c.Number)) {
-                                        @if (c.Old is not null) {
-                                            <span class="cstruct-rem">-@c.Old.Raw</span>
-                                        }
-
-                                        @if (c.New is not null) {
-                                            <span class="cstruct-add">+@c.New.Raw</span>
-                                        }
-                                    }
-                                    @foreach (var c in e.EnumChanges.OrderBy(c => c.Number)) {
-                                        @if (c.Old is not null) {
-                                            <span class="cstruct-rem">-@c.Old.Raw</span>
-                                        }
-
-                                        @if (c.New is not null) {
-                                            <span class="cstruct-add">+@c.New.Raw</span>
-                                        }
-                                    }
-                                </div>
-                            }
-                        </div>
+                        <CodeStructuredEntryRow Entry="e"/>
                     }
                 </div>
             </div>
@@ -75,33 +34,7 @@
 } else {
     <div class="code-surface">
         @if (ShowToolbar) {
-            <div class="code-toolbar">
-                @if (ShowLanguagePicker) {
-                    <select class="code-select code-lang" aria-label="Syntax language" value="@LanguageNow"
-                            @onchange="OnLanguageChanged">
-                        @foreach (var option in SyntaxHighlighter.Options) {
-                            <option value="@option.Id">@option.Label</option>
-                        }
-                    </select>
-                }
-                @Tools
-                @ModeSelect()
-                @if (Filter is null) {
-                    <FilterInput Class="code-filter" Placeholder="Filter" AriaLabel="Filter diff lines"
-                                 Value="@_filter" ValueChanged="OnFilterChanged"/>
-                }
-                <span class="code-toolbar-gap"></span>
-                @Actions
-                @if (ShowWrapToggle) {
-                    <button type="button" class="btn-mini code-toggle-wrap @(WrapNow ? "code-toggle-on" : "")"
-                            disabled="@WrapLocked" @onclick="ToggleWrap">
-                        Wrap
-                    </button>
-                }
-                @if (CanCopy) {
-                    <CopyButton Text="@CurrentText()" Class="btn-mini data-copy" IconClass="icon-sm">Copy</CopyButton>
-                }
-            </div>
+            <CodeDiffToolbar ShowLanguagePicker="ShowLanguagePicker" LanguageNow="@LanguageNow" LanguageChanged="OnLanguageChanged" Tools="Tools" ModeSelect="ModeSelect()" ShowFilter="@(Filter is null)" Filter="@_filter" FilterChanged="OnFilterChanged" Actions="Actions" ShowWrapToggle="ShowWrapToggle" WrapNow="WrapNow" WrapLocked="WrapLocked" OnToggleWrap="ToggleWrap" CanCopy="CanCopy" CopyText="@CurrentText()"/>
         }
         <div class="code-view cdiff-view">
             @if (Marks() is { Count: > 0 } marks) {
@@ -468,14 +401,6 @@
             TokenKind.Punct when text[0] == '+' => RowClass(DiffRowKind.Added),
             TokenKind.Punct when text[0] == '-' => RowClass(DiffRowKind.Removed),
             _ => RowClass(DiffRowKind.Context)
-        };
-    }
-
-    static string PathClass(MessageDiffKind kind) {
-        return kind switch {
-            MessageDiffKind.Added => "cstruct-add",
-            MessageDiffKind.Removed => "cstruct-rem",
-            _ => ""
         };
     }
 

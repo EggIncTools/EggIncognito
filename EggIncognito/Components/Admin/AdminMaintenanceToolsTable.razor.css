@@ -1,0 +1,4 @@
+.am-row { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem; }
+.am-input { width: auto; }
+.am-json { width: 100%; font-family: var(--font-mono); font-size: 0.75rem; }
+.am-file { font-size: 0.75rem; }

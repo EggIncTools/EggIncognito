@@ -1,6 +1,5 @@
 @using System.Globalization
 @using EggIncognito.Core.Services.Syntax
-@using Microsoft.AspNetCore.Components.Web.Virtualization
 @if (_empty) {
     @if (!string.IsNullOrEmpty(EmptyText)) {
         <div class="code-note">@EmptyText</div>
@@ -8,55 +7,15 @@
 } else {
     <div class="code-surface @GutterClass @CssClass" style="@RootStyle">
         @if (ShowToolbar) {
-            <div class="code-toolbar">
-                @if (ShowLanguagePicker) {
-                    <select class="code-select code-lang" aria-label="Syntax language" value="@LanguageNow"
-                            @onchange="OnLanguageChanged">
-                        @foreach (var option in SyntaxHighlighter.Options) {
-                            <option value="@option.Id">@option.Label</option>
-                        }
-                    </select>
-                }
-                @Tools
-                @if (ShowFilter && Filter is null) {
-                    <FilterInput Class="code-filter" Placeholder="Filter" AriaLabel="Filter lines"
-                                 Value="@_filter" ValueChanged="OnFilterChanged"/>
-                }
-                <span class="code-toolbar-gap"></span>
-                @Actions
-                @if (ShowGutterToggle && Gutter != CodeGutter.None) {
-                    <button type="button" class="btn-mini code-toggle-gutter @(_gutterOff ? "" : "code-toggle-on")"
-                            @onclick="ToggleGutter">
-                        @GutterLabelText
-                    </button>
-                }
-                @if (ShowWrapToggle) {
-                    <button type="button" class="btn-mini code-toggle-wrap @(WrapNow ? "code-toggle-on" : "")"
-                            disabled="@WrapLocked" @onclick="ToggleWrap">
-                        Wrap
-                    </button>
-                }
-                @if (ShowCopy) {
-                    <CopyButton Text="@CurrentText()" Class="btn-mini data-copy" IconClass="icon-sm">Copy</CopyButton>
-                }
-            </div>
+            <CodeToolbar ShowLanguagePicker="ShowLanguagePicker" LanguageNow="@LanguageNow" LanguageChanged="OnLanguageChanged"
+                         Tools="Tools" ShowFilter="ShowFilter" Filter="@Filter" FilterValue="@_filter" FilterValueChanged="OnFilterChanged"
+                         Actions="Actions" ShowGutterToggle="ShowGutterToggle" GutterActive="Gutter != CodeGutter.None"
+                         GutterOff="_gutterOff" GutterLabelText="@GutterLabelText" ToggleGutter="ToggleGutter"
+                         ShowWrapToggle="ShowWrapToggle" WrapNow="WrapNow" WrapLocked="WrapLocked" ToggleWrap="ToggleWrap"
+                         ShowCopy="ShowCopy" CopyText="@CurrentText()"/>
         }
-        <div class="code-scroll" style="@ScrollStyle">
-            <div class="code-rows @(WrapNow ? "code-wrap" : "")">
-                @if (_noMatch) {
-                    <div class="code-row code-note">@NoMatchText</div>
-                } else if (Virtualized) {
-                    <Virtualize Items="_rows" Context="row" ItemSize="CodeMetrics.RowHeightPx"
-                                OverscanCount="CodeMetrics.Overscan">
-                        @Row(row)
-                    </Virtualize>
-                } else {
-                    @foreach (var row in _rows) {
-                        @Row(row)
-                    }
-                }
-            </div>
-        </div>
+        <CodeRowList ScrollStyle="@ScrollStyle" WrapNow="WrapNow" NoMatchText="@NoMatchText" NoMatch="_noMatch"
+                     Virtualized="Virtualized" Rows="_rows" RowTemplate="Row"/>
     </div>
 }
 

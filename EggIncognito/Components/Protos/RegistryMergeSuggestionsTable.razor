@@ -1,0 +1,60 @@
+@using EggIncognito.Models.Registry
+
+@if (IsAdmin && Suggestions.Count > 0) {
+    <SubSectionHead>
+        <ChildContent>Suggested merges (@Suggestions.Count)</ChildContent>
+        <Tools>
+            <button type="button" class="btn-mini" disabled="@Busy" @onclick="@(() => OnMergeAll.InvokeAsync())">Merge all</button>
+        </Tools>
+    </SubSectionHead>
+    <Note Small="true">Separate entries with the same proto SHA and client version, on any platform or app version. Merge links them under one entry.</Note>
+    <TableScroll>
+        <table class="data-table">
+            <thead>
+            <tr>
+                <th>Client</th>
+                <th>Proto SHA</th>
+                <th>Members</th>
+                <th class="tools pwb-admin-row-tools">Actions</th>
+            </tr>
+            </thead>
+            <tbody>
+            @foreach (var s in Suggestions) {
+                <tr>
+                    <td class="reg-num">@s.ClientVersion</td>
+                    <td><span class="code-chip">@EggIncognito.Core.Hashes.Short(s.ProtoSha)</span></td>
+                    <td>
+                        <span class="pwb-merge-members">
+                            @foreach (var member in s.Members) {
+                                <span class="pwb-merge-member">
+                                    <PlatformIcon Platform="@member.Platform"/>
+                                    <span class="reg-version">@member.AppVersion</span>
+                                    <span class="reg-num">@member.Build</span>
+                                </span>
+                            }
+                        </span>
+                    </td>
+                    <td class="pwb-admin-row-tools">
+                        <button type="button" class="btn-mini" disabled="@Busy"
+                                @onclick="@(() => OnMergeOne.InvokeAsync(s))">
+                            Merge
+                        </button>
+                    </td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </TableScroll>
+}
+
+@code {
+    [Parameter] public bool IsAdmin { get; set; }
+
+    [Parameter] public List<MergeSuggestion> Suggestions { get; set; } = [];
+
+    [Parameter] public bool Busy { get; set; }
+
+    [Parameter] public EventCallback OnMergeAll { get; set; }
+
+    [Parameter] public EventCallback<MergeSuggestion> OnMergeOne { get; set; }
+}

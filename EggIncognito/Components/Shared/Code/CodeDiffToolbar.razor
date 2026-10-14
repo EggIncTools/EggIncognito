@@ -1,0 +1,46 @@
+@using EggIncognito.Core.Services.Syntax
+<div class="code-toolbar">
+    @if (ShowLanguagePicker) {
+        <select class="code-select code-lang" aria-label="Syntax language" value="@LanguageNow"
+                @onchange="LanguageChanged">
+            @foreach (var option in SyntaxHighlighter.Options) {
+                <option value="@option.Id">@option.Label</option>
+            }
+        </select>
+    }
+    @Tools
+    @ModeSelect
+    @if (ShowFilter) {
+        <FilterInput Class="code-filter" Placeholder="Filter" AriaLabel="Filter diff lines"
+                     Value="@Filter" ValueChanged="FilterChanged"/>
+    }
+    <span class="code-toolbar-gap"></span>
+    @Actions
+    @if (ShowWrapToggle) {
+        <button type="button" class="btn-mini code-toggle-wrap @(WrapNow ? "code-toggle-on" : "")"
+                disabled="@WrapLocked" @onclick="OnToggleWrap">
+            Wrap
+        </button>
+    }
+    @if (CanCopy) {
+        <CopyButton Text="@CopyText" Class="btn-mini data-copy" IconClass="icon-sm">Copy</CopyButton>
+    }
+</div>
+
+@code {
+    [Parameter] public bool ShowLanguagePicker { get; set; }
+    [Parameter] public string LanguageNow { get; set; } = "text";
+    [Parameter] public EventCallback<ChangeEventArgs> LanguageChanged { get; set; }
+    [Parameter] public RenderFragment? Tools { get; set; }
+    [Parameter] public RenderFragment? ModeSelect { get; set; }
+    [Parameter] public bool ShowFilter { get; set; }
+    [Parameter] public string Filter { get; set; } = "";
+    [Parameter] public EventCallback<string> FilterChanged { get; set; }
+    [Parameter] public RenderFragment? Actions { get; set; }
+    [Parameter] public bool ShowWrapToggle { get; set; }
+    [Parameter] public bool WrapNow { get; set; }
+    [Parameter] public bool WrapLocked { get; set; }
+    [Parameter] public EventCallback OnToggleWrap { get; set; }
+    [Parameter] public bool CanCopy { get; set; }
+    [Parameter] public string CopyText { get; set; } = "";
+}

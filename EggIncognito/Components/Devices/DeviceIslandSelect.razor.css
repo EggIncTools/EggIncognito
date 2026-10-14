@@ -55,6 +55,3 @@
 }
 .dis-cur { display: inline-flex; width: 1rem; flex: none; }
 .dis-cur-on { color: var(--color-ok); }
-.dis-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 0.375rem; padding: 0.5rem 0.75rem; }
-.dis-foot .field-input { flex: 1 1 8rem; min-width: 0; }
-.dis-note { margin-left: auto; font-size: 0.75rem; color: var(--color-muted); }

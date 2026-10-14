@@ -14,120 +14,13 @@
                 <button type="button" class="doc-link" @onclick="() => OnSelectMessage.InvokeAsync(parent)">@parent</button>
             }
 
-            <div class="doc-section-title">Fields (@_fields.Count)</div>
-            @if (_fields.Count == 0) {
-                <div class="doc-none">This message has no fields.</div>
-            } else {
-                <TableScroll MaxHeight="24rem">
-                    <table class="data-table">
-                        <thead>
-                        <tr>
-                            <th class="doc-field-num">#</th>
-                            <th>Name</th>
-                            <th>Type</th>
-                            <th>Kind</th>
-                        </tr>
-                        </thead>
-                        <tbody>
-                        @foreach (var f in _fields) {
-                            <tr @key="f.Number">
-                                <td class="doc-field-num">@f.Number</td>
-                                <td class="mono">@f.Name</td>
-                                <td>
-                                    @if (f.Type == "message" && Usage.IsKnown(f.MessageType)) {
-                                        <button type="button" class="doc-link" @onclick="() => OnSelectMessage.InvokeAsync(f.MessageType!)">
-                                            @f.MessageType
-                                        </button>
-                                    } else {
-                                        <span class="mono muted">@(f.MessageType ?? f.Type)</span>
-                                    }
-                                </td>
-                                <td class="muted">@FieldKind(f)</td>
-                            </tr>
-                        }
-                        </tbody>
-                    </table>
-                </TableScroll>
-            }
+            <InspectorFieldsTable Fields="_fields" OnSelectMessage="OnSelectMessage"/>
 
-            @if (_nested.Count > 0) {
-                <div class="doc-section-title">Nested types (@_nested.Count)</div>
-                <TableScroll MaxHeight="12rem">
-                    <div class="doc-name-grid">
-                        @foreach (var nested in _nested) {
-                            <button type="button" class="doc-link" @key="nested" @onclick="() => OnSelectMessage.InvokeAsync(nested)">
-                                @RelativeName(nested)
-                            </button>
-                        }
-                    </div>
-                </TableScroll>
-            }
+            <InspectorNestedTypesList Nested="_nested" ParentName="@Name" OnSelectMessage="OnSelectMessage"/>
 
-            <div class="doc-section-title">Used by (@_uses.Count)</div>
-            @if (_uses.Count == 0) {
-                <div class="doc-none">No endpoint sends or returns this message directly.</div>
-            } else {
-                <TableScroll MaxHeight="18rem">
-                    <table class="data-table">
-                        <thead>
-                        <tr>
-                            <th>Endpoint</th>
-                            <th>Role</th>
-                            <th class="doc-lock-col">Lock</th>
-                        </tr>
-                        </thead>
-                        <tbody>
-                        @if (_useGroups is { } useGroups) {
-                            @foreach (var group in useGroups) {
-                                @GroupRow((group.Key + "/", group.Count(), "u:" + group.Key, 3))
-                                @if (_open.Contains("u:" + group.Key)) {
-                                    @foreach (var u in group) {
-                                        @UseRow(u)
-                                    }
-                                }
-                            }
-                        } else {
-                            @foreach (var u in _uses) {
-                                @UseRow(u)
-                            }
-                        }
-                        </tbody>
-                    </table>
-                </TableScroll>
-            }
+            <InspectorUsedByTable Uses="_uses" UseGroups="_useGroups" OnSelectEndpoint="OnSelectEndpoint"/>
 
-            <div class="doc-section-title">Referenced by (@_refs.Count)</div>
-            @if (_refs.Count == 0) {
-                <div class="doc-none">No other message has a field of this type.</div>
-            } else {
-                <TableScroll MaxHeight="18rem">
-                    <table class="data-table">
-                        <thead>
-                        <tr>
-                            <th>Message</th>
-                            <th>Field</th>
-                            <th>Kind</th>
-                        </tr>
-                        </thead>
-                        <tbody>
-                        @if (_refGroups is { } refGroups) {
-                            @foreach (var group in refGroups) {
-                                @GroupRow((group.Key, group.Count(), "r:" + group.Key, 3))
-                                @if (_open.Contains("r:" + group.Key)) {
-                                    @foreach (var r in group) {
-                                        @RefRow(r)
-                                    }
-                                }
-                            }
-                        } else {
-                            @foreach (var r in _refs) {
-                                @RefRow(r)
-                            }
-                        }
-                        </tbody>
-                    </table>
-                </TableScroll>
-            }
+            <InspectorReferencedByTable Refs="_refs" RefGroups="_refGroups" OnSelectMessage="OnSelectMessage"/>
         </Footer>
     </DocSubjectView>
 }
@@ -145,53 +38,12 @@
     IReadOnlyList<string> _nested = [];
     List<IGrouping<string, MessageEndpointUse>>? _useGroups;
     List<IGrouping<string, MessageFieldRef>>? _refGroups;
-    readonly HashSet<string> _open = [];
     string? _parent;
     string? _loadedFor;
-
-    RenderFragment<(string Title, int Count, string Key, int Span)> GroupRow => g =>
-        @<tr class="doc-group-row" @key="g.Key" @onclick="() => ToggleGroup(g.Key)">
-            <td colspan="@g.Span">
-                <span class="doc-group-head">
-                    <Caret Open="@_open.Contains(g.Key)"/>
-                    <span class="mono">@g.Title</span>
-                    <span class="muted">@g.Count</span>
-                </span>
-            </td>
-        </tr>;
-
-    RenderFragment<MessageEndpointUse> UseRow => u =>
-        @<tr @key="@(u.Path + ":" + u.Role)">
-            <td>
-                @if (u.Route is { } route) {
-                    <button type="button" class="doc-link" @onclick="() => OnSelectEndpoint.InvokeAsync(route)">@u.Path</button>
-                } else {
-                    <span class="mono doc-usedby-static">@u.Path, binary only</span>
-                }
-            </td>
-            <td class="muted">@RoleText(u.Role)</td>
-            <td class="doc-lock-col">
-                @if (u.Locked) {
-                    <span class="doc-signed">
-                        <Icon Name="lock" Class="icon-sm"/>
-                    </span>
-                }
-            </td>
-        </tr>;
-
-    RenderFragment<MessageFieldRef> RefRow => r =>
-        @<tr @key="@(r.Message + "." + r.Field)">
-            <td>
-                <button type="button" class="doc-link" @onclick="() => OnSelectMessage.InvokeAsync(r.Message)">@r.Message</button>
-            </td>
-            <td class="mono">@r.Field</td>
-            <td class="muted">@(r.Repeated ? "repeated" : "optional")</td>
-        </tr>;
 
     protected override void OnParametersSet() {
         if (Name == _loadedFor) return;
         _loadedFor = Name;
-        _open.Clear();
         if (string.IsNullOrEmpty(Name)) {
             _fields = [];
             _uses = [];
@@ -220,33 +72,9 @@
         return total > GroupThreshold && groups.Count > 1 ? groups : null;
     }
 
-    void ToggleGroup(string key) {
-        if (!_open.Remove(key)) _open.Add(key);
-    }
-
-    string RelativeName(string full) {
-        var prefix = (Name ?? "") + ".";
-        return full.StartsWith(prefix, StringComparison.Ordinal) ? full[prefix.Length..] : full;
-    }
-
     static string TopLevelName(string name) {
         var i = name.IndexOf('.', StringComparison.Ordinal);
         return i < 0 ? name : name[..i];
-    }
-
-    static string FieldKind(SchemaField f) {
-        return f.Repeated ? "repeated" : f.Required ? "required" : "optional";
-    }
-
-    static string RoleText(MessageUseRole role) {
-        return role switch {
-            MessageUseRole.Request => "Request",
-            MessageUseRole.Response => "Response",
-            MessageUseRole.Both => "Request + response",
-            MessageUseRole.WrapsRequest => "Wraps request",
-            MessageUseRole.WrapsResponse => "Wraps response",
-            _ => "Wraps both"
-        };
     }
 
 }

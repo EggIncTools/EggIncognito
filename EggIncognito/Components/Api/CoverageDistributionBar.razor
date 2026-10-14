@@ -1,0 +1,41 @@
+@typeparam TBucket
+
+<tr>
+    <td colspan="5" class="cdp-bar-cell">
+        <span class="cdp-dist" style="@FormattableString.Invariant($"min-width:{Buckets.Count * 2.0625:0.##}rem")">
+            @foreach (var b in Buckets) {
+                <span class="cdp-seg" style="@Seg(Share(b))">
+                <Tooltip PopClass="tt-ctl">
+                    <ChildContent>
+                        @SegmentText(b)
+                    </ChildContent>
+                    <Content>
+                        @Title(b)
+                        <span class="tt-line">@Pct(Share(b)) of consumes</span>
+                        <span class="tt-line">@Observations(b) of @Total</span>
+                    </Content>
+                </Tooltip>
+                </span>
+            }
+        </span>
+    </td>
+</tr>
+
+@code {
+    [Parameter, EditorRequired] public IReadOnlyList<TBucket> Buckets { get; set; } = null!;
+
+    [Parameter, EditorRequired] public int Total { get; set; }
+
+    [Parameter, EditorRequired] public Func<TBucket, double> Share { get; set; } = null!;
+
+    [Parameter, EditorRequired] public Func<TBucket, int> Observations { get; set; } = null!;
+
+    [Parameter, EditorRequired] public RenderFragment<TBucket> SegmentText { get; set; } = null!;
+
+    [Parameter, EditorRequired] public RenderFragment<TBucket> Title { get; set; } = null!;
+
+    static string Seg(double share) =>
+        FormattableString.Invariant($"flex:{share:0.####} 1 0;background-color:color-mix(in oklab, var(--color-ok) {share * 100:0}%, var(--color-err))");
+
+    static string Pct(double v) => FormattableString.Invariant($"{v * 100:0.#}%");
+}

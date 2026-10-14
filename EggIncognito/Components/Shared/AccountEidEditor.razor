@@ -1,0 +1,47 @@
+@using EggIdentity.AdminUi
+@using EggIncognito.Services.Events
+@inject ToastService Toasts
+@inject EggIdentity.UI.Suite.SuiteContext Suite
+@inject ILogger<AccountEidEditor> Logger
+
+<div class="acct-eid">
+    <SubSectionHead>Active EID</SubSectionHead>
+    <div class="acct-eid-row">
+        <input class="field-input acct-eid-input" aria-label="Active EID" placeholder="EI1234567890123456"
+               spellcheck="false" autocomplete="off" @bind="_eid" @bind:event="oninput"/>
+        <button type="button" class="btn-mini" disabled="@(_eidBusy || _eid.Trim() == (Suite.ActiveEid ?? ""))" @onclick="SaveEid">
+            @(_eidBusy ? "Saving..." : "Save EID")
+        </button>
+    </div>
+    <Note Small="true">Shared with every EggInc.tools app as the account their tools load.</Note>
+</div>
+
+@code {
+    [Parameter] public string? ActiveEid { get; set; }
+
+    string _eid = "";
+    bool _eidBusy;
+    string? _seenEid;
+
+    protected override void OnParametersSet() {
+        if (_seenEid != ActiveEid) {
+            _seenEid = ActiveEid;
+            _eid = ActiveEid ?? "";
+        }
+    }
+
+    async Task SaveEid() {
+        _eidBusy = true;
+        try {
+            var eid = _eid.Trim();
+            await Suite.SetActiveEidAsync(eid.Length == 0 ? null : eid);
+            Toasts.Push(StatusNoteKind.Ok, eid.Length == 0 ? "Active EID cleared." : "Active EID saved.");
+        } catch (Exception ex) when (ex is HttpRequestException or ArgumentException or TaskCanceledException) {
+            Logger.LogDebug(ex, "the active EID could not be saved");
+            Toasts.Push(StatusNoteKind.Error, ex is ArgumentException ? "That is not a valid EID." : "The active EID could not be saved.");
+        } finally {
+            _eidBusy = false;
+        }
+    }
+
+}
