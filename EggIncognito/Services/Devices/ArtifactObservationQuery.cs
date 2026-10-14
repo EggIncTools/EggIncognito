@@ -55,6 +55,17 @@ public sealed class ArtifactObservationQuery(IServiceScopeFactory scopes) : IArt
         return [.. rows.Select(ParseByproducts)];
     }
 
+    public async Task<IReadOnlyList<double>> ConsumeGoldenEggsAsync(string family, string level, string rarity,
+        CancellationToken ct) {
+        using var scope = scopes.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<EggIncognitoDbContext>();
+        return await db.ArtifactConsumeObservations.AsNoTracking()
+            .Where(o => o.Action == ConsumeAction && o.Success
+                                                  && o.SpecName == family && o.SpecLevel == level && o.SpecRarity == rarity)
+            .Select(o => o.GoldenEggs)
+            .ToListAsync(ct);
+    }
+
     public static IReadOnlyList<ArtifactByproductRow> ParseByproducts(string json) {
         if (string.IsNullOrWhiteSpace(json)) return [];
         try {
@@ -87,4 +98,8 @@ internal sealed class NoArtifactObservations : IArtifactObservationSink, IArtifa
     public Task<IReadOnlyList<IReadOnlyList<ArtifactByproductRow>>> ConsumeByproductsAsync(
         string family, string level, string rarity, CancellationToken ct) =>
         Task.FromResult<IReadOnlyList<IReadOnlyList<ArtifactByproductRow>>>([]);
+
+    public Task<IReadOnlyList<double>> ConsumeGoldenEggsAsync(string family, string level, string rarity,
+        CancellationToken ct) =>
+        Task.FromResult<IReadOnlyList<double>>([]);
 }

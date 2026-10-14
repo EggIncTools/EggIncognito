@@ -18,6 +18,25 @@ public sealed class DropStatsSummarizeTests {
     }
 
     [Fact]
+    public void Gold_ReportsChanceAndDistributionIncludingMisses() {
+        var g = DropStats.SummarizeGold([0, 0, 2, 2]);
+        Assert.NotNull(g);
+        Assert.Equal(0.5, g.Share, 6);
+        Assert.Equal(1.0, g.Mean, 6);
+        Assert.Equal([0.0, 2.0], g.Buckets.Select(b => b.Amount));
+    }
+
+    [Fact]
+    public void Gold_NeverDroppedIsNull() => Assert.Null(DropStats.SummarizeGold([0, 0]));
+
+    [Theory]
+    [InlineData("LIGHT_OF_EGGENDIL", true)]
+    [InlineData("PROPHECY_STONE", false)]
+    [InlineData("SHELL_STONE_FRAGMENT", false)]
+    public void Gold_SkipsStonesAndFragments(string family, bool tracked) =>
+        Assert.Equal(tracked, DropStats.TracksGold(family));
+
+    [Fact]
     public void MalformedRowCountsAsEmptyConsume() {
         var parsed = ArtifactObservationQuery.ParseByproducts("{not json");
         var s = DropStats.Summarize("LUNAR_TOTEM", "GREATER", "COMMON", [[Frag(2)], parsed]);

@@ -16,11 +16,33 @@ public sealed record DropRow(
     int Max,
     IReadOnlyList<DropBucket> Buckets);
 
-public sealed record DropSummary(string Family, string Level, string Rarity, int Observations, IReadOnlyList<DropRow> Rows);
+public sealed record GoldBucket(double Amount, int Observations, double Share);
+
+public sealed record GoldStats(int Observations, double Share, double Mean, double Min, double Max,
+    IReadOnlyList<GoldBucket> Buckets);
+
+public sealed record DropSummary(string Family, string Level, string Rarity, int Observations, IReadOnlyList<DropRow> Rows,
+    GoldStats? Gold = null);
 
 public sealed class DropStats(IArtifactObservationQuery observations) {
-    public async Task<DropSummary> ForCellAsync(string family, string level, string rarity, CancellationToken ct) =>
-        Summarize(family, level, rarity, await observations.ConsumeByproductsAsync(family, level, rarity, ct));
+    public async Task<DropSummary> ForCellAsync(string family, string level, string rarity, CancellationToken ct) {
+        var summary = Summarize(family, level, rarity, await observations.ConsumeByproductsAsync(family, level, rarity, ct));
+        if (!TracksGold(family)) return summary;
+        return summary with { Gold = SummarizeGold(await observations.ConsumeGoldenEggsAsync(family, level, rarity, ct)) };
+    }
+
+    public static bool TracksGold(string family) =>
+        !family.EndsWith("_STONE", StringComparison.Ordinal) && !family.EndsWith("_FRAGMENT", StringComparison.Ordinal);
+
+    public static GoldStats? SummarizeGold(IReadOnlyList<double> amounts) {
+        int total = amounts.Count;
+        int hits = amounts.Count(a => a > 0);
+        if (total == 0 || hits == 0) return null;
+
+        var buckets = amounts.GroupBy(a => a).OrderBy(g => g.Key)
+            .Select(g => new GoldBucket(g.Key, g.Count(), (double)g.Count() / total)).ToList();
+        return new GoldStats(hits, (double)hits / total, amounts.Average(), amounts.Min(), amounts.Max(), buckets);
+    }
 
     public static DropSummary Summarize(string family, string level, string rarity,
         IReadOnlyList<IReadOnlyList<ArtifactByproductRow>> rows) {

@@ -30,11 +30,55 @@
             <tr>
                 <td colspan="5" class="muted"><Icon Name="loader" Class="icon-sm text-muted"/></td>
             </tr>
-        } else if (_summary.Rows.Count == 0) {
+        } else if (_summary.Rows.Count == 0 && _summary.Gold is null) {
             <tr>
                 <td colspan="5" class="muted">No drops recorded for this cell.</td>
             </tr>
         } else {
+            @if (_summary.Gold is { } gold) {
+                <tr @key="@("gold")" class="@(_detail ? "cdp-open" : "")">
+                    <td>
+                        <span class="cdp-drop">
+                            <span class="cdp-disc bg-r-0">
+                                <img src="@GoldIcon" alt="" loading="lazy"/>
+                            </span>
+                            <span>Golden eggs</span>
+                        </span>
+                    </td>
+                    <td class="mono cdp-nowrap">@Avg(gold.Mean)</td>
+                    <td class="mono cdp-nowrap">@Pct(gold.Share)</td>
+                    <td class="mono cdp-nowrap">
+                        @if (gold.Min.Equals(gold.Max)) {
+                            @Avg(gold.Min)
+                        } else {
+                            <span>@Avg(gold.Min)<span class="muted"> - </span>@Avg(gold.Max)</span>
+                        }
+                    </td>
+                    <td></td>
+                </tr>
+                @if (_detail) {
+                    <tr @key="@("gold|bar")">
+                        <td colspan="5" class="cdp-bar-cell">
+                            <span class="cdp-dist" style="@FormattableString.Invariant($"min-width:{gold.Buckets.Count * 2.0625:0.##}rem")">
+                                @foreach (var b in gold.Buckets) {
+                                    <span class="cdp-seg" style="@Seg(b.Share)">
+                                    <Tooltip PopClass="tt-ctl">
+                                        <ChildContent>
+                                            <span class="mono cdp-seg-text">@Avg(b.Amount)</span>
+                                        </ChildContent>
+                                        <Content>
+                                            <span class="tt-title">@Avg(b.Amount) golden eggs</span>
+                                            <span class="tt-line">@Pct(b.Share) of consumes</span>
+                                            <span class="tt-line">@b.Observations of @_summary.Observations</span>
+                                        </Content>
+                                    </Tooltip>
+                                    </span>
+                                }
+                            </span>
+                        </td>
+                    </tr>
+                }
+            }
             @foreach (var row in _summary.Rows) {
                 <tr @key="Key(row)" class="@(_detail ? "cdp-open" : "")">
                     <td>
@@ -61,7 +105,7 @@
                         <td colspan="5" class="cdp-bar-cell">
                             <span class="cdp-dist" style="@FormattableString.Invariant($"min-width:{row.Buckets.Count * 2.0625:0.##}rem")">
                                 @foreach (var b in row.Buckets) {
-                                    <span class="cdp-seg" style="@Seg(b)">
+                                    <span class="cdp-seg" style="@Seg(b.Share)">
                                     <Tooltip PopClass="tt-ctl">
                                         <ChildContent>
                                             <span class="mono cdp-seg-text">@b.Count</span>
@@ -112,8 +156,10 @@
         _summary = await Stats.ForCellAsync(Family, Level, Rarity, CancellationToken.None);
     }
 
-    static string Seg(DropBucket b) =>
-        FormattableString.Invariant($"flex:{b.Share:0.####} 1 0;background-color:color-mix(in oklab, var(--color-ok) {b.Share * 100:0}%, var(--color-err))");
+    static readonly string? GoldIcon = EggIcons.Asset("icon", RewardIconMap.Stem(Ei.RewardType.Gold, null)!);
+
+    static string Seg(double share) =>
+        FormattableString.Invariant($"flex:{share:0.####} 1 0;background-color:color-mix(in oklab, var(--color-ok) {share * 100:0}%, var(--color-err))");
 
     static string Key(DropRow r) => $"{r.Name}|{r.Level}|{r.Rarity}";
 

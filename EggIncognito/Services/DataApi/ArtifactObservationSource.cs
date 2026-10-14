@@ -112,6 +112,7 @@ public static class ArtifactObservationSource {
                 })]);
 
             double[] goldenEggs = [.. group.Select(g => g.GoldenEggs)];
+            var gold = DropStats.TracksGold(group.Key.SpecName) ? DropStats.SummarizeGold(goldenEggs) : null;
             double[] pricesPaid = [.. group.Where(g => g.GoldPricePaid is not null).Select(g => g.GoldPricePaid!.Value)];
             groups.Add(new JsonObject {
                 ["specName"] = group.Key.SpecName,
@@ -123,7 +124,15 @@ public static class ArtifactObservationSource {
                 ["goldenEggs"] = new JsonObject {
                     ["mean"] = goldenEggs.Average(),
                     ["min"] = goldenEggs.Min(),
-                    ["max"] = goldenEggs.Max()
+                    ["max"] = goldenEggs.Max(),
+                    ["share"] = gold?.Share ?? 0,
+                    ["buckets"] = gold is null
+                        ? null
+                        : new JsonArray([.. gold.Buckets.Select(b => (JsonNode)new JsonObject {
+                            ["amount"] = b.Amount,
+                            ["observations"] = b.Observations,
+                            ["share"] = b.Share
+                        })])
                 },
                 ["byproducts"] = byproducts,
                 ["rarityOutcomes"] = rarityOutcomes,
