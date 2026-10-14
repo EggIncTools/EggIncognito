@@ -65,7 +65,7 @@
     void Select(CoverageTier t, CoverageCell c) =>
         OnSelect.InvokeAsync((t, c));
 
-    static string IconSrc(string spec, int level) => ArtifactAssets.IconPath(ArtifactAssets.KeyFor(spec), level + 1);
+    static string IconSrc(string spec, int level) => EggIncognito.Services.Artifacts.ArtifactTreeBuilder.Icon(spec, level);
 
     static string CellStyle(CoverageCell c) => FormattableString.Invariant($"--v:{c.Validity:0.###};");
 

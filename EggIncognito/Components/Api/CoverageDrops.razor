@@ -140,12 +140,7 @@
 
     static int LevelIndex(string level) => Math.Max(0, Array.FindIndex(LevelNames, n => n.Equals(level, StringComparison.OrdinalIgnoreCase)));
 
-    static string Icon(DropRow r) {
-        if (r.Name.EndsWith(Fragment, StringComparison.Ordinal))
-            return ArtifactAssets.IconPath(r.Name[..^Fragment.Length], 1);
-        bool stone = r.Name.EndsWith("_STONE", StringComparison.Ordinal);
-        return ArtifactAssets.IconPath(ArtifactAssets.KeyFor(r.Name), LevelIndex(r.Level) + 1 + (stone ? 1 : 0));
-    }
+    static string Icon(DropRow r) => EggIncognito.Services.Artifacts.ArtifactTreeBuilder.Icon(r.Name, LevelIndex(r.Level));
 
     static string Label(DropRow r) {
         if (r.Name.EndsWith(Fragment, StringComparison.Ordinal))

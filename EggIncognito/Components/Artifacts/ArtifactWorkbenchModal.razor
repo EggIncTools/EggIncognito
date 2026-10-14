@@ -6,6 +6,7 @@
 @using EggIncognito.Data.Services
 @using EggIncognito.Models.Coverage
 @using EggIncognito.Services.Artifacts
+@using EggIncognito.Services.Assets
 @using EggIncognito.Services.Coverage
 @using EggIncognito.Services.DataApi
 @using EggSharp.GameData
@@ -34,7 +35,7 @@
                                                 OnClick="@(_ => SelectFamilyAsync(family))"
                                                 Trail="@TierCountTrail(family)" MetaLine="@CoverageMetaLine(family)">
                                     <Lead><img class="atb-ico" src="@ArtifactAssets.TargetIconFor(family.Name)" alt="" loading="lazy"/></Lead>
-                                    <Name>@family.PluralName</Name>
+                                    <Name>@EggIcons.Pretty(family.PluralName)</Name>
                                 </WorkbenchEntry>
                             }
                         </WorkbenchSection>
@@ -51,7 +52,7 @@
                 <div class="atb-head-row">
                     <img class="atb-ico atb-ico-lg" src="@ArtifactAssets.TargetIconFor(family.Name)" alt="" loading="lazy"/>
                     <div class="atb-head-title">
-                        <h2>@family.PluralName</h2>
+                        <h2>@EggIcons.Pretty(family.PluralName)</h2>
                         <span class="atb-head-kind">@family.Kind</span>
                     </div>
                     <button type="button" class="atb-explore" @onclick="OpenInDataAsync">Explore in Data</button>
@@ -59,9 +60,8 @@
                 @if (family.Description.Length > 0) {
                     <p class="atb-desc">@family.Description</p>
                 }
-                <div class="atb-controls">
-                    <div class="atb-seg" role="tablist" aria-label="View">
-                        @foreach (var view in Enum.GetValues<ArtifactView>().Where(v => v != ArtifactView.ComesFrom || IsFragment(family))) {
+                <div class="atb-seg" role="tablist" aria-label="View">
+                    @foreach (var view in Enum.GetValues<ArtifactView>().Where(v => v != ArtifactView.ComesFrom || IsFragment(family))) {
                             var v = view;
                             <button type="button" role="tab" aria-selected="@(State.View == v ? "true" : "false")"
                                     class="atb-seg-btn @(State.View == v ? "atb-on" : "")"
@@ -77,16 +77,16 @@
                                     int rarity = r;
                                     string rarityName = ArtifactTreeBuilder.RarityName(rarity);
                                     bool on = State.Tier == t.Level && (!State.NeedsRarity || State.Rarity == rarity);
-                                    string label = State.NeedsRarity ? $"{t.Name} {rarityName}" : t.Name;
-                                    <button type="button" class="atb-tier-btn @(State.NeedsRarity ? RarityClass(rarityName) : "") @(on ? "atb-on" : "")"
-                                            title="@label" aria-label="@label" @onclick="@(() => PickCellAsync(family, t, rarity))">
-                                        <img class="atb-ico" src="@ArtifactTreeBuilder.TierIcon(family, t.Level)" alt="" loading="lazy"/>
-                                    </button>
+                                    <Tooltip Text="@Hover(family.Name, t.Level, rarity)">
+                                        <button type="button" class="atb-tier-btn atb-r@(State.NeedsRarity ? rarity : 0) @(on ? "atb-on" : "")"
+                                                aria-label="@Hover(family.Name, t.Level, rarity)" @onclick="@(() => PickCellAsync(family, t, rarity))">
+                                            <img class="atb-ico" src="@ArtifactTreeBuilder.Icon(family.Name, t.Level)" alt="" loading="lazy"/>
+                                        </button>
+                                    </Tooltip>
                                 }
                             </div>
                         }
                     </div>
-                </div>
             </div>
 
             <div class="atb-canvas">
@@ -103,21 +103,20 @@
                                  SelectedId="@_selectedNodeId" SelectedIdChanged="OnNodeSelectedAsync"
                                  @bind-Collapsed="State.Collapsed">
                         <NodeTemplate Context="node">
-                            <span class="atb-node">
-                                @if (NodeIcon(node.Node.Id) is { } icon) {
-                                    <img class="atb-node-ico" src="@icon" alt="" loading="lazy"/>
-                                }
-                                <span class="atb-node-name">@NodeName(node.Node.Id)</span>
-                            </span>
+                            <Tooltip Text="@NodeHover(node.Node.Id)">
+                                <span class="atb-node">
+                                    @if (NodeIcon(node.Node.Id) is { } icon) {
+                                        <img class="atb-node-ico" src="@icon" alt="" loading="lazy"/>
+                                    }
+                                    <span class="atb-node-name">@NodeName(node.Node.Id)</span>
+                                </span>
+                            </Tooltip>
                         </NodeTemplate>
                     </TreeDiagram>
                 }
             </div>
 
-            <ArtifactNodeDetail Ingredients="@_detailIngredients" Effects="@_detailEffects" CraftingPrice="@_detailEntry?.CraftingPrice"
-                                 CraftingPriceLow="@_detailEntry?.CraftingPriceLow" CraftingPriceCurve="@_detailEntry?.CraftingPriceCurve"
-                                 CraftingPriceDomain="@_detailEntry?.CraftingPriceDomain" CraftingXp="@_detailEntry?.CraftingXp"
-                                 Row="@_detailRow"/>
+            <ArtifactNodeDetail Ingredients="@_detailIngredients" Price="@_detailPrice" Row="@_detailRow"/>
         }
     </ChildContent>
 </WorkbenchModal>
@@ -132,9 +131,8 @@
     DropSummary? _consumeSummary;
     ConsumeCoverageMap? _coverage;
     ArtifactCatalog? _catalog;
-    IReadOnlyList<(string Label, int Count)>? _detailIngredients;
-    IReadOnlyList<string>? _detailEffects;
-    ArtifactCatalogEntry? _detailEntry;
+    IReadOnlyList<ArtifactNodeDetail.Ingredient>? _detailIngredients;
+    ArtifactNodeDetail.PriceCurve? _detailPrice;
     DropRow? _detailRow;
 
     protected override async Task OnAfterRenderAsync(bool firstRender) {
@@ -176,7 +174,6 @@
         _ => "Crafting"
     };
 
-    static string RarityClass(string rarityName) => "atb-rar-" + rarityName.ToLowerInvariant();
 
     List<ArtifactFamily> FilteredFamilies(ArtifactKind kind) {
         var filter = State.RailFilter.Trim();
@@ -269,8 +266,7 @@
 
     void ClearDetail() {
         _detailIngredients = null;
-        _detailEffects = null;
-        _detailEntry = null;
+        _detailPrice = null;
         _detailRow = null;
     }
 
@@ -280,39 +276,59 @@
 
         if (ArtifactTreeBuilder.ResolveTierNode(ArtifactDefinitions.All, _selectedNodeId) is { } tierNode) {
             var tier = tierNode.Tier;
-            _detailIngredients = [.. tier.Recipe.Select(i => (IngredientLabel(i), i.Count))];
-            _detailEffects = [.. tier.Effects.Select(e => $"{ArtifactTreeBuilder.RarityName(e.Rarity)}: {ArtifactTreeBuilder.FormatEffect(e)}")];
+            _detailIngredients = [.. tier.Recipe.Select(ToIngredient).OfType<ArtifactNodeDetail.Ingredient>()];
             await LoadCatalogAsync();
             string levelName = ArtifactTreeBuilder.LevelName(tier.Level);
             string common = ArtifactTreeBuilder.RarityName(0);
-            _detailEntry = _catalog?.Artifacts.FirstOrDefault(a =>
+            var entry = _catalog?.Artifacts.FirstOrDefault(a =>
                 a.SpecName == tierNode.Family.Name && (a.Level == levelName || a.Level == tier.Name) && a.Rarity == common);
+            if (entry is { CraftingPrice: { } high, CraftingPriceLow: { } low, CraftingPriceCurve: { } curve, CraftingPriceDomain: { } domain }) {
+                _detailPrice = new ArtifactNodeDetail.PriceCurve(high, low, curve, domain);
+            }
+
             return;
         }
 
         if (_consumeSummary is not null) {
             _detailRow = _consumeSummary.Rows.FirstOrDefault(r => _selectedNodeId == ArtifactTreeBuilder.CellNodeId(r.Name, r.Level, r.Rarity));
         }
-
-        if (ArtifactTreeBuilder.ResolveCellNode(_selectedNodeId) is { } cell
-            && CellTier(cell.FamilyName, cell.LevelName) is { } cellTier
-            && cellTier.Tier.Effects.FirstOrDefault(e => ArtifactTreeBuilder.RarityName(e.Rarity) == cell.RarityName) is { } effect) {
-            _detailEffects = [$"{cell.RarityName}: {ArtifactTreeBuilder.FormatEffect(effect)}"];
-        }
     }
 
-    static (ArtifactFamily Family, ArtifactTier Tier)? CellTier(string familyName, string levelName) {
-        var family = FamilyOf(familyName);
-        var tier = family?.Tiers.FirstOrDefault(t => ArtifactTreeBuilder.LevelName(t.Level) == levelName);
-        return family is null || tier is null ? null : (family, tier);
-    }
-
-    static string IngredientLabel(ArtifactIngredient ingredient) {
+    static ArtifactNodeDetail.Ingredient? ToIngredient(ArtifactIngredient ingredient) {
         var family = ArtifactDefinitions.All.FirstOrDefault(f => f.AfxId == ingredient.AfxId);
-        if (family is null) return $"afx {ingredient.AfxId}";
-        var tier = family.Tiers.FirstOrDefault(t => t.Level == ingredient.Level);
-        return tier is null ? ArtifactAssets.ShortPlural(family.PluralName) : ArtifactTreeBuilder.TierShortName(family, tier);
+        if (family is null) return null;
+        string name = ShortName(family.Name, ingredient.Level);
+        return new ArtifactNodeDetail.Ingredient(ArtifactTreeBuilder.Icon(family.Name, ingredient.Level), name, ingredient.Count,
+            Hover(family.Name, ingredient.Level, 0));
     }
+
+    static string ShortName(string familyName, int level) {
+        var family = FamilyOf(familyName);
+        if (family is null) return EggIcons.Pretty(familyName);
+        var tier = family.Tiers.FirstOrDefault(t => t.Level == level);
+        return EggIcons.Pretty(tier?.Name ?? family.PluralName);
+    }
+
+    static string Hover(string familyName, int level, int rarity) {
+        string name = ShortName(familyName, level);
+        string? effect = ArtifactDefinitions.EffectText(familyName, level, rarity);
+        string rarityName = EggIcons.Pretty(ArtifactTreeBuilder.RarityName(rarity));
+        string head = rarity > 0 ? $"{rarityName} {name}" : name;
+        return string.IsNullOrWhiteSpace(effect) ? head : $"{head}: {effect}";
+    }
+
+    static string? NodeHover(string nodeId) {
+        if (ArtifactTreeBuilder.ResolveTierNode(ArtifactDefinitions.All, nodeId) is { } tierNode) {
+            return Hover(tierNode.Family.Name, tierNode.Tier.Level, 0);
+        }
+
+        if (ArtifactTreeBuilder.ResolveCellNode(nodeId) is { } cell) {
+            return Hover(cell.FamilyName, ArtifactTreeBuilder.LevelIndex(cell.LevelName), ArtifactTreeBuilder.RarityIndex(cell.RarityName));
+        }
+
+        return null;
+    }
+
 
     async Task LoadCatalogAsync() {
         if (_catalog is not null) return;
@@ -352,17 +368,18 @@
     }
 
     string NodeClass(string nodeId) {
-        string css = ArtifactTreeBuilder.ResolveCellNode(nodeId) is { } cell ? "atb-cell " + RarityClass(cell.RarityName) : "atb-tier";
-        return _selectedNodeId == nodeId ? css + " atb-node-current" : css;
+        int rarity = ArtifactTreeBuilder.ResolveCellNode(nodeId) is { } cell ? ArtifactTreeBuilder.RarityIndex(cell.RarityName) : 0;
+        string css = $"atb-r{rarity}";
+        return _selectedNodeId == nodeId ? css + " atb-on" : css;
     }
 
     static string? NodeIcon(string nodeId) {
         if (ArtifactTreeBuilder.ResolveTierNode(ArtifactDefinitions.All, nodeId) is { } tierNode) {
-            return ArtifactTreeBuilder.TierIcon(tierNode.Family, tierNode.Tier.Level);
+            return ArtifactTreeBuilder.Icon(tierNode.Family.Name, tierNode.Tier.Level);
         }
 
-        if (ArtifactTreeBuilder.ResolveCellNode(nodeId) is { } cell && CellTier(cell.FamilyName, cell.LevelName) is { } cellTier) {
-            return ArtifactTreeBuilder.TierIcon(cellTier.Family, cellTier.Tier.Level);
+        if (ArtifactTreeBuilder.ResolveCellNode(nodeId) is { } cell) {
+            return ArtifactTreeBuilder.Icon(cell.FamilyName, ArtifactTreeBuilder.LevelIndex(cell.LevelName));
         }
 
         return null;
@@ -370,13 +387,11 @@
 
     static string NodeName(string nodeId) {
         if (ArtifactTreeBuilder.ResolveTierNode(ArtifactDefinitions.All, nodeId) is { } tierNode) {
-            return ArtifactTreeBuilder.TierShortName(tierNode.Family, tierNode.Tier);
+            return ShortName(tierNode.Family.Name, tierNode.Tier.Level);
         }
 
         if (ArtifactTreeBuilder.ResolveCellNode(nodeId) is { } cell) {
-            return CellTier(cell.FamilyName, cell.LevelName) is { } cellTier
-                ? ArtifactTreeBuilder.TierShortName(cellTier.Family, cellTier.Tier)
-                : $"{cell.FamilyName} {cell.LevelName}";
+            return ShortName(cell.FamilyName, ArtifactTreeBuilder.LevelIndex(cell.LevelName));
         }
 
         return nodeId;

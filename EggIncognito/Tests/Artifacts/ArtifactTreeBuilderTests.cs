@@ -56,15 +56,13 @@ public sealed class ArtifactTreeBuilderTests {
     }
 
     [Fact]
-    public void FormatEffect_SubstitutesFractionalMagnitudeAsPercent() {
-        var effect = new ArtifactEffect(0, 0.25, "Increases shipping capacity by {value}.");
-        Assert.Equal("Increases shipping capacity by 25%.", ArtifactTreeBuilder.FormatEffect(effect));
+    public void Icon_FragmentUsesFirstStoneIcon() {
+        Assert.EndsWith("LUNAR_STONE/LUNAR_STONE_1.png", ArtifactTreeBuilder.Icon("LUNAR_STONE_FRAGMENT", 0));
     }
 
     [Fact]
-    public void FormatEffect_SubstitutesLargeMagnitudeAsPlainNumber() {
-        var effect = new ArtifactEffect(0, 40, "Reduces fuel tank refill time by {value} minutes.");
-        Assert.Equal("Reduces fuel tank refill time by 40 minutes.", ArtifactTreeBuilder.FormatEffect(effect));
+    public void Icon_StoneSkipsFragmentSlot() {
+        Assert.EndsWith("LUNAR_STONE/LUNAR_STONE_2.png", ArtifactTreeBuilder.Icon("LUNAR_STONE", 0));
     }
 
     [Fact]

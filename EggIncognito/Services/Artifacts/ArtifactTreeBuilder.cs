@@ -1,5 +1,4 @@
 using System.Globalization;
-using System.Text.RegularExpressions;
 using EggIdentity.Diagrams;
 using EggIncognito.Core.Services;
 using EggIncognito.Services.Coverage;
@@ -8,12 +7,12 @@ using Ei;
 
 namespace EggIncognito.Services.Artifacts;
 
-public static partial class ArtifactTreeBuilder {
-    [GeneratedRegex(@"\{[^}]*\}")]
-    private static partial Regex Token();
+public static class ArtifactTreeBuilder {
+    public const double TierNodeWidth = 160;
+    public const double TierNodeHeight = 88;
 
-    public const double TierNodeWidth = 144;
-    public const double TierNodeHeight = 72;
+    private const string FragmentSuffix = "_FRAGMENT";
+    private const string StoneSuffix = "_STONE";
 
     public static string TierNodeId(string familyName, int level) => $"t:{familyName}:{level}";
 
@@ -23,9 +22,19 @@ public static partial class ArtifactTreeBuilder {
 
     public static string LevelName(int level) => ProtoEnumNames.LevelName((ArtifactSpec.Types.Level)level);
 
-    public static string TierIcon(ArtifactFamily family, int level) => ArtifactAssets.IconPath(ArtifactAssets.KeyFor(family.Name), level + 1);
+    public static bool IsFragment(string familyName) => familyName.EndsWith(FragmentSuffix, StringComparison.Ordinal);
 
-    public static string TierShortName(ArtifactFamily family, ArtifactTier tier) => $"{ArtifactAssets.ShortPlural(family.PluralName)} {tier.Name}";
+    public static string Icon(string familyName, int level) {
+        if (IsFragment(familyName)) return ArtifactAssets.IconPath(familyName[..^FragmentSuffix.Length], 1);
+        int offset = familyName.EndsWith(StoneSuffix, StringComparison.Ordinal) ? 2 : 1;
+        return ArtifactAssets.IconPath(ArtifactAssets.KeyFor(familyName), level + offset);
+    }
+
+    public static int LevelIndex(string levelName) =>
+        Enum.TryParse<ArtifactSpec.Types.Level>(levelName, true, out var level) ? (int)level : 0;
+
+    public static int RarityIndex(string rarityName) =>
+        Enum.TryParse<ArtifactSpec.Types.Rarity>(rarityName, true, out var rarity) ? (int)rarity : 0;
 
     public static (ArtifactFamily Family, ArtifactTier Tier)? ResolveTierNode(IReadOnlyList<ArtifactFamily> all, string id) {
         if (!id.StartsWith("t:", StringComparison.Ordinal)) return null;
@@ -73,16 +82,6 @@ public static partial class ArtifactTreeBuilder {
 
     public static IReadOnlyList<string> CraftingRoots(ArtifactFamily family) =>
         [.. family.Tiers.Select(t => TierNodeId(family.Name, t.Level))];
-
-    public static string FormatEffect(ArtifactEffect effect) {
-        var match = Token().Match(effect.Template);
-        string value = Math.Abs(effect.Magnitude) < 10
-            ? (effect.Magnitude * 100).ToString("0.#", CultureInfo.InvariantCulture) + "%"
-            : effect.Magnitude.ToString("0.#", CultureInfo.InvariantCulture);
-        return match.Success
-            ? effect.Template[..match.Index] + value + effect.Template[(match.Index + match.Length)..]
-            : effect.Template;
-    }
 
     public static DiagramGraph BuildConsumptionGraph(DropSummary summary, string familyName, string levelName, string rarityName) {
         string rootId = CellNodeId(familyName, levelName, rarityName);
