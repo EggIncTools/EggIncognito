@@ -6,16 +6,16 @@
     <PackageVersion Include="AngleSharp" Version="1.8.4" />
     <PackageVersion Include="bunit" Version="2.11.3" />
     <PackageVersion Include="coverlet.collector" Version="6.0.4" />
-    <PackageVersion Include="EggIdentity.Admin" Version="263.0.0" />
-    <PackageVersion Include="EggIdentity.Auth" Version="263.0.0" />
-    <PackageVersion Include="EggIdentity.Bot" Version="263.0.0" />
-    <PackageVersion Include="EggIdentity.Brand" Version="263.0.0" />
-    <PackageVersion Include="EggIdentity.CodeStyle" Version="263.0.0" />
-    <PackageVersion Include="EggIdentity.Core" Version="263.0.0" />
-    <PackageVersion Include="EggIdentity.Data" Version="263.0.0" />
-    <PackageVersion Include="EggIdentity.Testing" Version="263.0.0" />
-    <PackageVersion Include="EggIdentity.UI" Version="263.0.0" />
-    <PackageVersion Include="EggIdentity.Web" Version="263.0.0" />
+    <PackageVersion Include="EggIdentity.Admin" Version="264.0.0" />
+    <PackageVersion Include="EggIdentity.Auth" Version="264.0.0" />
+    <PackageVersion Include="EggIdentity.Bot" Version="264.0.0" />
+    <PackageVersion Include="EggIdentity.Brand" Version="264.0.0" />
+    <PackageVersion Include="EggIdentity.CodeStyle" Version="264.0.0" />
+    <PackageVersion Include="EggIdentity.Core" Version="264.0.0" />
+    <PackageVersion Include="EggIdentity.Data" Version="264.0.0" />
+    <PackageVersion Include="EggIdentity.Testing" Version="264.0.0" />
+    <PackageVersion Include="EggIdentity.UI" Version="264.0.0" />
+    <PackageVersion Include="EggIdentity.Web" Version="264.0.0" />
     <PackageVersion Include="EggSharp.Core" Version="15.0.0" />
     <PackageVersion Include="EggSharp.Ei.Google" Version="15.0.0" />
     <PackageVersion Include="EggSharp.GameData" Version="15.0.0" />
