@@ -46,9 +46,10 @@ public static class IdentityServices {
         builder.Services.AddEggIdentityDownloads();
         builder.Services.AddEggIdentityViewerCookies(o => {
             o.Allow("capture.prefs", TimeSpan.FromDays(365));
-            o.Allow("watch.events", TimeSpan.FromDays(365));
-            o.Allow("watch.contracts", TimeSpan.FromDays(365));
-            o.Allow("watch.colleggtibles", TimeSpan.FromDays(365));
+            foreach (string watch in new[] { "watch.events", "watch.contracts", "watch.colleggtibles" }) {
+                o.Allow(watch, TimeSpan.FromDays(365));
+                o.Allow(watch + ".min", TimeSpan.FromDays(365));
+            }
         });
         builder.Services.AddEggIdentitySuite("incognito", o => {
             o.DefaultTheme = ThemeResolver.NoTheme;
