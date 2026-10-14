@@ -13,10 +13,9 @@
 @inject ILogger<DataWorkbenchModal> Logger
 
 <WorkbenchModal Open="_open" Title="@("Data")" TitleId="dataWorkbenchTitle" Size="WorkbenchSize.Wide"
-                CardClass="dwb-card" OnClose="CloseAsync">
+                CardClass="dtw-card" OnClose="CloseAsync">
     <Rail>
-        <div class="dwb-rail-wrap">
-            <WorkbenchRail Width="26rem">
+            <WorkbenchRail>
                 @if (User.Current.IsAuthenticated) {
                     <div class="awb-tools">
                         <button type="button" class="btn-mini" @onclick="@(() => State.KeysOpen = true)">
@@ -94,7 +93,6 @@
                     </div>
                 </WorkbenchLoad>
             </WorkbenchRail>
-        </div>
     </Rail>
     <ChildContent>
         @switch (State.Kind) {

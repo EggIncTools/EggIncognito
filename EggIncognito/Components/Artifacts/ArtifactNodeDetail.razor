@@ -11,6 +11,16 @@
             </ul>
         </div>
     }
+    @if (Effects is { Count: > 0 } effects) {
+        <div class="atb-detail-col">
+            <span class="atb-detail-head">Effects</span>
+            <ul class="atb-ingredients">
+                @foreach (var effect in effects) {
+                    <li>@effect</li>
+                }
+            </ul>
+        </div>
+    }
     @if (CraftingPrice is { } price) {
         <div class="atb-detail-col">
             <span class="atb-detail-head">Crafting price</span>
@@ -45,6 +55,7 @@
 
 @code {
     [Parameter] public IReadOnlyList<(string Label, int Count)>? Ingredients { get; set; }
+    [Parameter] public IReadOnlyList<string>? Effects { get; set; }
     [Parameter] public double? CraftingPrice { get; set; }
     [Parameter] public double? CraftingPriceLow { get; set; }
     [Parameter] public double? CraftingPriceCurve { get; set; }

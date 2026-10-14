@@ -13,15 +13,13 @@ public sealed class ArtifactTreeBuilderTests {
         new(level, name, rarityCount, recipe ?? [], effects ?? []);
 
     [Fact]
-    public void BuildCraftingGraph_AddsTierAndRarityNodes() {
-        var family = Family("LUNAR_TOTEM", 1, ArtifactKind.Artifact, Tier(0, "LESSER", 2));
+    public void BuildCraftingGraph_AddsOneNodePerTier() {
+        var family = Family("LUNAR_TOTEM", 1, ArtifactKind.Artifact, Tier(0, "LESSER", 2), Tier(1, "GREATER", 3));
         var graph = ArtifactTreeBuilder.BuildCraftingGraph([family], family);
 
-        string tierId = ArtifactTreeBuilder.TierNodeId("LUNAR_TOTEM", 0);
-        Assert.Contains(tierId, graph.Nodes.Select(n => n.Id));
-        Assert.Contains(ArtifactTreeBuilder.RarityNodeId("LUNAR_TOTEM", 0, 0), graph.Nodes.Select(n => n.Id));
-        Assert.Contains(ArtifactTreeBuilder.RarityNodeId("LUNAR_TOTEM", 0, 1), graph.Nodes.Select(n => n.Id));
-        Assert.Equal(2, graph.Edges.Count(e => e.From == tierId));
+        Assert.Equal([ArtifactTreeBuilder.TierNodeId("LUNAR_TOTEM", 0), ArtifactTreeBuilder.TierNodeId("LUNAR_TOTEM", 1)],
+            graph.Nodes.Select(n => n.Id));
+        Assert.Empty(graph.Edges);
     }
 
     [Fact]
@@ -55,14 +53,6 @@ public sealed class ArtifactTreeBuilderTests {
         var family = Family("LUNAR_TOTEM", 1, ArtifactKind.Artifact, Tier(0, "LESSER", 1), Tier(1, "GREATER", 1));
         var roots = ArtifactTreeBuilder.CraftingRoots(family);
         Assert.Equal([ArtifactTreeBuilder.TierNodeId("LUNAR_TOTEM", 0), ArtifactTreeBuilder.TierNodeId("LUNAR_TOTEM", 1)], roots);
-    }
-
-    [Fact]
-    public void DefaultCollapsed_ContainsEveryRarityNode() {
-        var family = Family("LUNAR_TOTEM", 1, ArtifactKind.Artifact, Tier(0, "LESSER", 3));
-        var collapsed = ArtifactTreeBuilder.DefaultCollapsed(family);
-        Assert.Equal(3, collapsed.Count);
-        for (int r = 0; r < 3; r++) Assert.Contains(ArtifactTreeBuilder.RarityNodeId("LUNAR_TOTEM", 0, r), collapsed);
     }
 
     [Fact]

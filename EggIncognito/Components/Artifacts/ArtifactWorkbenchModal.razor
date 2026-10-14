@@ -22,10 +22,9 @@
 <WorkbenchModal Open="_open" Title="@("Artifacts")" TitleId="artifactsWorkbenchTitle" Size="WorkbenchSize.Wide"
                 CardClass="atb-card" OnClose="CloseAsync">
     <Rail>
-        <div class="atb-rail-wrap">
-            <WorkbenchRail Class="wb-rail-popout">
-                <input class="atb-filter" type="text" placeholder="Filter families"
-                       value="@State.RailFilter" @oninput="@(e => State.RailFilter = (string?)e.Value ?? "")"/>
+        <WorkbenchRail HasFilter="true" Filter="@State.RailFilter" FilterChanged="@(v => State.RailFilter = v)"
+                       FilterLabel="Filter families">
+            <div class="atb-rail-grid">
                 @foreach (var kind in Enum.GetValues<ArtifactKind>()) {
                     var families = FilteredFamilies(kind);
                     @if (families.Count > 0) {
@@ -41,8 +40,8 @@
                         </WorkbenchSection>
                     }
                 }
-            </WorkbenchRail>
-        </div>
+            </div>
+        </WorkbenchRail>
     </Rail>
     <ChildContent>
         @if (CurrentFamily() is not { } family) {
@@ -55,70 +54,69 @@
                         <h2>@family.PluralName</h2>
                         <span class="atb-head-kind">@family.Kind</span>
                     </div>
+                    <button type="button" class="atb-explore" @onclick="OpenInDataAsync">Explore in Data</button>
                 </div>
                 @if (family.Description.Length > 0) {
                     <p class="atb-desc">@family.Description</p>
                 }
-                @if (family.Label is { Length: > 0 } label) {
-                    <p class="atb-label">@label</p>
-                }
-                <ToolBar Start="true" Class="atb-modes">
-                    <button type="button" class="btn-mini @(State.Tree == ArtifactTreeKind.Craft ? "active" : "")"
-                            @onclick="@(() => SwitchTreeAsync(ArtifactTreeKind.Craft))">Crafting
-                    </button>
-                    <button type="button" class="btn-mini @(State.Tree == ArtifactTreeKind.Consume ? "active" : "")"
-                            @onclick="@(() => SwitchTreeAsync(ArtifactTreeKind.Consume))">Consumption
-                    </button>
-                </ToolBar>
-                <div class="atb-picker">
-                    @foreach (var tier in family.Tiers) {
-                        <button type="button" class="btn-mini @(State.Tier == tier.Level ? "active" : "")"
-                                @onclick="@(() => PickTierAsync(family, tier))">@tier.Name
-                        </button>
-                    }
-                </div>
-                @if (State.Tier is { } tierLevel && family.Tiers.FirstOrDefault(t => t.Level == tierLevel) is { } pickedTier) {
-                    <div class="atb-picker">
-                        @for (int r = 0; r < pickedTier.RarityCount; r++) {
-                            int rarity = r;
-                            <button type="button" class="btn-mini @(State.Rarity == rarity ? "active" : "")"
-                                    @onclick="@(() => PickRarityAsync(family, pickedTier, rarity))">@ArtifactTreeBuilder.RarityName(rarity)
+                <div class="atb-controls">
+                    <div class="atb-seg" role="tablist" aria-label="View">
+                        @foreach (var view in Enum.GetValues<ArtifactView>()) {
+                            var v = view;
+                            <button type="button" role="tab" aria-selected="@(State.View == v ? "true" : "false")"
+                                    class="atb-seg-btn @(State.View == v ? "atb-on" : "")"
+                                    @onclick="@(() => SwitchViewAsync(v))">@ViewLabel(v)</button>
+                        }
+                    </div>
+                    <div class="atb-tiers">
+                        @foreach (var tier in family.Tiers) {
+                            var t = tier;
+                            <button type="button" class="atb-tier-btn @(State.Tier == t.Level ? "atb-on" : "")" title="@t.Name"
+                                    aria-label="@t.Name" @onclick="@(() => PickTierAsync(family, t))">
+                                <img class="atb-ico" src="@ArtifactTreeBuilder.TierIcon(family, t.Level)" alt="" loading="lazy"/>
                             </button>
                         }
                     </div>
-                    @if (State.Tree == ArtifactTreeKind.Consume && State.Rarity is not null) {
-                        <button type="button" class="btn-mini @(State.Reverse ? "active" : "")" @onclick="ToggleReverseAsync">
-                            Where does this come from
-                        </button>
+                    @if (State.NeedsRarity && CurrentTier(family) is { } pickedTier) {
+                        <div class="atb-rarities">
+                            @for (int r = 0; r < pickedTier.RarityCount; r++) {
+                                int rarity = r;
+                                string rarityName = ArtifactTreeBuilder.RarityName(rarity);
+                                <button type="button" class="atb-rar-chip @RarityClass(rarityName) @(State.Rarity == rarity ? "atb-on" : "")"
+                                        title="@rarityName" aria-label="@rarityName"
+                                        @onclick="@(() => PickRarityAsync(rarity))">@rarityName[..1]</button>
+                            }
+                        </div>
                     }
-                }
-                <ToolBar Start="true" Class="atb-overlays">
-                    <button type="button" class="btn-mini @(State.CoverageOverlay ? "active" : "")" @onclick="ToggleCoverageAsync">Coverage</button>
-                    <button type="button" class="btn-mini @(State.EffectsOverlay ? "active" : "")" @onclick="@(() => State.EffectsOverlay = !State.EffectsOverlay)">Effects</button>
-                    <button type="button" class="btn-mini @(State.RarityOverlay ? "active" : "")" @onclick="ToggleRarityOverlayAsync">Rarity variants</button>
-                    <button type="button" class="btn-mini" @onclick="OpenInDataAsync">Explore in Data</button>
-                </ToolBar>
+                </div>
             </div>
 
             <div class="atb-canvas">
                 @if (_loadingGraph) {
                     <div class="wb-note">Loading...</div>
-                } else if (_graph is null) {
-                    <EmptyState Title="Pick a tier and rarity" Hint="Choose a cell above to see what it yields."/>
+                } else if (_graph is null || _graph.Nodes.Count == 0) {
+                    <EmptyState Title="Nothing to show" Hint="Pick a tier above."/>
+                } else if (State.View != ArtifactView.Crafting && _graph.Nodes.Count == 1) {
+                    <EmptyState Title="No recorded drops" Hint="No consume observations cover this tier and rarity yet."/>
                 } else {
                     <TreeDiagram Graph="@_graph" Roots="@_roots" Direction="DiagramDirection.Down"
-                                 AriaLabel="@(n => NodeLabel(family, n.Id))"
+                                 AriaLabel="@(n => NodeName(n.Id))"
                                  NodeClass="@(n => NodeClass(n.Node.Id))"
-                                 @bind-SelectedId="_selectedNodeId"
+                                 SelectedId="@_selectedNodeId" SelectedIdChanged="OnNodeSelectedAsync"
                                  @bind-Collapsed="State.Collapsed">
                         <NodeTemplate Context="node">
-                            <span class="atb-node-label">@NodeLabel(family, node.Node.Id)</span>
+                            <span class="atb-node">
+                                @if (NodeIcon(node.Node.Id) is { } icon) {
+                                    <img class="atb-node-ico" src="@icon" alt="" loading="lazy"/>
+                                }
+                                <span class="atb-node-name">@NodeName(node.Node.Id)</span>
+                            </span>
                         </NodeTemplate>
                     </TreeDiagram>
                 }
             </div>
 
-            <ArtifactNodeDetail Ingredients="@_detailIngredients" CraftingPrice="@_detailEntry?.CraftingPrice"
+            <ArtifactNodeDetail Ingredients="@_detailIngredients" Effects="@_detailEffects" CraftingPrice="@_detailEntry?.CraftingPrice"
                                  CraftingPriceLow="@_detailEntry?.CraftingPriceLow" CraftingPriceCurve="@_detailEntry?.CraftingPriceCurve"
                                  CraftingPriceDomain="@_detailEntry?.CraftingPriceDomain" CraftingXp="@_detailEntry?.CraftingXp"
                                  Row="@_detailRow"/>
@@ -137,6 +135,7 @@
     ConsumeCoverageMap? _coverage;
     ArtifactCatalog? _catalog;
     IReadOnlyList<(string Label, int Count)>? _detailIngredients;
+    IReadOnlyList<string>? _detailEffects;
     ArtifactCatalogEntry? _detailEntry;
     DropRow? _detailRow;
 
@@ -154,6 +153,7 @@
 
     public async Task Open() {
         _open = true;
+        await LoadCoverageAsync();
         await WriteHashAsync(true);
         StateHasChanged();
     }
@@ -163,9 +163,22 @@
         await WriteHashAsync(true, true);
     }
 
-    static ArtifactFamily? CurrentFamilyOf(string name) => ArtifactDefinitions.All.FirstOrDefault(f => f.Name == name);
+    static ArtifactFamily? FamilyOf(string name) => ArtifactDefinitions.All.FirstOrDefault(f => f.Name == name);
 
-    ArtifactFamily? CurrentFamily() => State.HasFamily ? CurrentFamilyOf(State.Family) : null;
+    ArtifactFamily? CurrentFamily() => State.HasFamily ? FamilyOf(State.Family) : null;
+
+    ArtifactTier? CurrentTier(ArtifactFamily family) =>
+        State.Tier is { } level ? family.Tiers.FirstOrDefault(t => t.Level == level) : null;
+
+    static int? TopTier(ArtifactFamily family) => family.Tiers.Count == 0 ? null : family.Tiers.Max(t => t.Level);
+
+    static string ViewLabel(ArtifactView view) => view switch {
+        ArtifactView.ConsumesInto => "Consumes into",
+        ArtifactView.ComesFrom => "Comes from",
+        _ => "Crafting"
+    };
+
+    static string RarityClass(string rarityName) => "atb-rar-" + rarityName.ToLowerInvariant();
 
     List<ArtifactFamily> FilteredFamilies(ArtifactKind kind) {
         var filter = State.RailFilter.Trim();
@@ -177,89 +190,56 @@
     }
 
     async Task SelectFamilyAsync(ArtifactFamily family) {
-        State.SelectFamily(family.Name);
-        ResetCollapsed(family);
-        _selectedNodeId = null;
-        ClearDetail();
-        await RebuildGraphAsync();
+        State.SelectFamily(family.Name, TopTier(family));
+        State.Collapsed = new HashSet<string>(StringComparer.Ordinal);
+        await RefreshAsync(family);
         await WriteHashAsync();
     }
 
-    async Task SwitchTreeAsync(ArtifactTreeKind tree) {
-        State.Tree = tree;
-        State.Reverse = false;
-        ClearDetail();
-        await RebuildGraphAsync();
+    async Task SwitchViewAsync(ArtifactView view) {
+        State.View = view;
+        if (State.NeedsRarity) State.Rarity ??= 0;
+        else State.Rarity = null;
+        if (CurrentFamily() is { } family) await RefreshAsync(family);
         await WriteHashAsync();
     }
 
     async Task PickTierAsync(ArtifactFamily family, ArtifactTier tier) {
         State.Tier = tier.Level;
-        State.Rarity = null;
-        State.Reverse = false;
-        _selectedNodeId = ArtifactTreeBuilder.TierNodeId(family.Name, tier.Level);
-        await RebuildGraphAsync();
-        await UpdateDetailAsync(family);
+        State.Rarity = State.NeedsRarity ? Math.Min(State.Rarity ?? 0, tier.RarityCount - 1) : null;
+        await RefreshAsync(family);
         await WriteHashAsync();
     }
 
-    async Task PickRarityAsync(ArtifactFamily family, ArtifactTier tier, int rarity) {
-        State.Tier = tier.Level;
+    async Task PickRarityAsync(int rarity) {
         State.Rarity = rarity;
-        _selectedNodeId = State.Tree == ArtifactTreeKind.Craft
-            ? ArtifactTreeBuilder.RarityNodeId(family.Name, tier.Level, rarity)
-            : ArtifactTreeBuilder.CellNodeId(family.Name, tier.Name, ArtifactTreeBuilder.RarityName(rarity));
-        await RebuildGraphAsync();
+        if (CurrentFamily() is { } family) await RefreshAsync(family);
+        await WriteHashAsync();
+    }
+
+    async Task RefreshAsync(ArtifactFamily family) {
+        await RebuildGraphAsync(family);
+        _selectedNodeId = RootId(family);
         await UpdateDetailAsync(family);
-        await WriteHashAsync();
     }
 
-    async Task ToggleReverseAsync() {
-        State.Reverse = !State.Reverse;
-        await RebuildGraphAsync();
-        await WriteHashAsync();
+    string? RootId(ArtifactFamily family) {
+        if (CurrentTier(family) is not { } tier) return null;
+        if (State.View == ArtifactView.Crafting) return ArtifactTreeBuilder.TierNodeId(family.Name, tier.Level);
+        return State.Rarity is { } rarity
+            ? ArtifactTreeBuilder.CellNodeId(family.Name, ArtifactTreeBuilder.LevelName(tier.Level), ArtifactTreeBuilder.RarityName(rarity))
+            : null;
     }
 
-    async Task ToggleCoverageAsync() {
-        State.CoverageOverlay = !State.CoverageOverlay;
-        if (State.CoverageOverlay) await LoadCoverageAsync();
-    }
-
-    async Task ToggleRarityOverlayAsync() {
-        State.RarityOverlay = !State.RarityOverlay;
-        if (CurrentFamily() is { } family) ResetCollapsed(family);
-        await Task.CompletedTask;
-    }
-
-    void ResetCollapsed(ArtifactFamily family) {
-        State.Collapsed = State.RarityOverlay
-            ? new HashSet<string>(StringComparer.Ordinal)
-            : new HashSet<string>(ArtifactTreeBuilder.DefaultCollapsed(family), StringComparer.Ordinal);
-    }
-
-    async Task RebuildGraphAsync() {
-        var family = CurrentFamily();
-        if (family is null) {
-            _graph = null;
-            _roots = [];
-            return;
-        }
-
-        if (State.Tree == ArtifactTreeKind.Craft) {
+    async Task RebuildGraphAsync(ArtifactFamily family) {
+        _consumeSummary = null;
+        if (State.View == ArtifactView.Crafting) {
             _graph = ArtifactTreeBuilder.BuildCraftingGraph(ArtifactDefinitions.All, family);
-            _roots = ArtifactTreeBuilder.CraftingRoots(family);
-            _consumeSummary = null;
+            _roots = State.Tier is { } level ? [ArtifactTreeBuilder.TierNodeId(family.Name, level)] : ArtifactTreeBuilder.CraftingRoots(family);
             return;
         }
 
-        if (State.Tier is not { } tierLevel) {
-            _graph = null;
-            _roots = [];
-            return;
-        }
-
-        var tier = family.Tiers.FirstOrDefault(t => t.Level == tierLevel);
-        if (tier is null || State.Rarity is not { } rarity) {
+        if (CurrentTier(family) is not { } tier || State.Rarity is not { } rarity) {
             _graph = null;
             _roots = [];
             return;
@@ -268,66 +248,76 @@
         _loadingGraph = true;
         StateHasChanged();
         try {
+            string levelName = ArtifactTreeBuilder.LevelName(tier.Level);
             string rarityName = ArtifactTreeBuilder.RarityName(rarity);
-            if (State.Reverse) {
+            if (State.View == ArtifactView.ComesFrom) {
                 _graph = await ArtifactTreeBuilder.BuildReverseConsumptionGraphAsync(Stats, ArtifactDefinitions.All,
-                    family.Name, tier.Name, rarityName, CancellationToken.None);
-                _consumeSummary = null;
+                    family.Name, levelName, rarityName, CancellationToken.None);
             } else {
-                _consumeSummary = await Stats.ForCellAsync(family.Name, tier.Name, rarityName, CancellationToken.None);
-                _graph = ArtifactTreeBuilder.BuildConsumptionGraph(_consumeSummary, family.Name, tier.Name, rarityName);
+                _consumeSummary = await Stats.ForCellAsync(family.Name, levelName, rarityName, CancellationToken.None);
+                _graph = ArtifactTreeBuilder.BuildConsumptionGraph(_consumeSummary, family.Name, levelName, rarityName);
             }
 
-            _roots = [ArtifactTreeBuilder.CellNodeId(family.Name, tier.Name, rarityName)];
+            _roots = [ArtifactTreeBuilder.CellNodeId(family.Name, levelName, rarityName)];
+        } catch (Exception ex) when (ex is InvalidOperationException or JsonException) {
+            Logger.LogWarning(ex, "consume drops could not be loaded for the artifacts workbench");
+            _graph = null;
+            _roots = [];
         } finally {
             _loadingGraph = false;
         }
     }
 
+    async Task OnNodeSelectedAsync(string? id) {
+        _selectedNodeId = id;
+        if (CurrentFamily() is { } family) await UpdateDetailAsync(family);
+    }
+
     void ClearDetail() {
         _detailIngredients = null;
+        _detailEffects = null;
         _detailEntry = null;
         _detailRow = null;
     }
 
     async Task UpdateDetailAsync(ArtifactFamily family) {
-        if (State.Tree == ArtifactTreeKind.Craft) {
-            if (State.Tier is not { } tierLevel || family.Tiers.FirstOrDefault(t => t.Level == tierLevel) is not { } tier) {
-                ClearDetail();
-                return;
-            }
+        ClearDetail();
+        if (_selectedNodeId is null) return;
 
-            _detailRow = null;
+        if (ArtifactTreeBuilder.ResolveTierNode(ArtifactDefinitions.All, _selectedNodeId) is { } tierNode) {
+            var tier = tierNode.Tier;
             _detailIngredients = [.. tier.Recipe.Select(i => (IngredientLabel(i), i.Count))];
-            string rarityName = State.Rarity is { } rarity ? ArtifactTreeBuilder.RarityName(rarity) : "COMMON";
+            _detailEffects = [.. tier.Effects.Select(e => $"{ArtifactTreeBuilder.RarityName(e.Rarity)}: {ArtifactTreeBuilder.FormatEffect(e)}")];
             await LoadCatalogAsync();
+            string levelName = ArtifactTreeBuilder.LevelName(tier.Level);
+            string common = ArtifactTreeBuilder.RarityName(0);
             _detailEntry = _catalog?.Artifacts.FirstOrDefault(a =>
-                a.SpecName == family.Name && a.Level == tier.Name && a.Rarity == rarityName);
+                a.SpecName == tierNode.Family.Name && (a.Level == levelName || a.Level == tier.Name) && a.Rarity == common);
             return;
         }
 
-        _detailIngredients = null;
-        _detailEntry = null;
-        if (_consumeSummary is null || State.Tier is not { } level || family.Tiers.FirstOrDefault(t => t.Level == level) is not { } consumeTier
-            || State.Rarity is not { } consumeRarity) {
-            _detailRow = null;
-            return;
+        if (_consumeSummary is not null) {
+            _detailRow = _consumeSummary.Rows.FirstOrDefault(r => _selectedNodeId == ArtifactTreeBuilder.CellNodeId(r.Name, r.Level, r.Rarity));
         }
 
-        string consumeRarityName = ArtifactTreeBuilder.RarityName(consumeRarity);
-        if (_selectedNodeId == ArtifactTreeBuilder.CellNodeId(family.Name, consumeTier.Name, consumeRarityName)) {
-            _detailRow = null;
-            return;
+        if (ArtifactTreeBuilder.ResolveCellNode(_selectedNodeId) is { } cell
+            && CellTier(cell.FamilyName, cell.LevelName) is { } cellTier
+            && cellTier.Tier.Effects.FirstOrDefault(e => ArtifactTreeBuilder.RarityName(e.Rarity) == cell.RarityName) is { } effect) {
+            _detailEffects = [$"{cell.RarityName}: {ArtifactTreeBuilder.FormatEffect(effect)}"];
         }
+    }
 
-        _detailRow = _consumeSummary.Rows.FirstOrDefault(r => _selectedNodeId == ArtifactTreeBuilder.CellNodeId(r.Name, r.Level, r.Rarity));
+    static (ArtifactFamily Family, ArtifactTier Tier)? CellTier(string familyName, string levelName) {
+        var family = FamilyOf(familyName);
+        var tier = family?.Tiers.FirstOrDefault(t => ArtifactTreeBuilder.LevelName(t.Level) == levelName);
+        return family is null || tier is null ? null : (family, tier);
     }
 
     static string IngredientLabel(ArtifactIngredient ingredient) {
         var family = ArtifactDefinitions.All.FirstOrDefault(f => f.AfxId == ingredient.AfxId);
         if (family is null) return $"afx {ingredient.AfxId}";
         var tier = family.Tiers.FirstOrDefault(t => t.Level == ingredient.Level);
-        return $"{ArtifactAssets.ShortPlural(family.PluralName)} ({tier?.Name ?? ingredient.Level.ToString(System.Globalization.CultureInfo.InvariantCulture)})";
+        return tier is null ? ArtifactAssets.ShortPlural(family.PluralName) : ArtifactTreeBuilder.TierShortName(family, tier);
     }
 
     async Task LoadCatalogAsync() {
@@ -355,42 +345,44 @@
         }
     }
 
-    RenderFragment? TierCountTrail(ArtifactFamily family) {
+    static RenderFragment? TierCountTrail(ArtifactFamily family) {
         int count = family.Tiers.Count;
         return b => b.AddContent(0, count == 1 ? "1 tier" : $"{count} tiers");
     }
 
     RenderFragment? CoverageMetaLine(ArtifactFamily family) {
-        if (!State.CoverageOverlay || _coverage is null) return null;
-        var row = _coverage.Families.FirstOrDefault(f => f.SpecName == family.Name);
+        var row = _coverage?.Families.FirstOrDefault(f => f.SpecName == family.Name);
         if (row is null) return null;
-        return b => b.AddContent(0, Pct(row.Validity));
+        string text = FormattableString.Invariant($"{row.Validity * 100:0.#}% coverage");
+        return b => b.AddContent(0, text);
     }
 
-    static string Pct(double v) => FormattableString.Invariant($"{v * 100:0.#}%");
+    string NodeClass(string nodeId) {
+        string css = ArtifactTreeBuilder.ResolveCellNode(nodeId) is { } cell ? "atb-cell " + RarityClass(cell.RarityName) : "atb-tier";
+        return _selectedNodeId == nodeId ? css + " atb-node-current" : css;
+    }
 
-    string? NodeClass(string nodeId) => _selectedNodeId == nodeId ? "atb-node-current" : null;
-
-    string NodeLabel(ArtifactFamily family, string nodeId) {
+    static string? NodeIcon(string nodeId) {
         if (ArtifactTreeBuilder.ResolveTierNode(ArtifactDefinitions.All, nodeId) is { } tierNode) {
-            return $"{ArtifactAssets.ShortPlural(tierNode.Family.PluralName)} {tierNode.Tier.Name}";
+            return ArtifactTreeBuilder.TierIcon(tierNode.Family, tierNode.Tier.Level);
         }
 
-        if (ArtifactTreeBuilder.ResolveRarityNode(nodeId) is { } rarityNode) {
-            var owner = CurrentFamilyOf(rarityNode.FamilyName);
-            var tier = owner?.Tiers.FirstOrDefault(t => t.Level == rarityNode.Level);
-            string rarityName = ArtifactTreeBuilder.RarityName(rarityNode.Rarity);
-            if (State.EffectsOverlay && tier?.Effects.FirstOrDefault(e => e.Rarity == rarityNode.Rarity) is { } effect) {
-                return $"{rarityName}, {ArtifactTreeBuilder.FormatEffect(effect)}";
-            }
-
-            return rarityName;
+        if (ArtifactTreeBuilder.ResolveCellNode(nodeId) is { } cell && CellTier(cell.FamilyName, cell.LevelName) is { } cellTier) {
+            return ArtifactTreeBuilder.TierIcon(cellTier.Family, cellTier.Tier.Level);
         }
 
-        if (ArtifactTreeBuilder.ResolveCellNode(nodeId) is { } cellNode) {
-            var owner = CurrentFamilyOf(cellNode.FamilyName);
-            string plural = owner is null ? cellNode.FamilyName : ArtifactAssets.ShortPlural(owner.PluralName);
-            return $"{plural} {cellNode.LevelName} {cellNode.RarityName}";
+        return null;
+    }
+
+    static string NodeName(string nodeId) {
+        if (ArtifactTreeBuilder.ResolveTierNode(ArtifactDefinitions.All, nodeId) is { } tierNode) {
+            return ArtifactTreeBuilder.TierShortName(tierNode.Family, tierNode.Tier);
+        }
+
+        if (ArtifactTreeBuilder.ResolveCellNode(nodeId) is { } cell) {
+            return CellTier(cell.FamilyName, cell.LevelName) is { } cellTier
+                ? ArtifactTreeBuilder.TierShortName(cellTier.Family, cellTier.Tier)
+                : $"{cell.FamilyName} {cell.LevelName}";
         }
 
         return nodeId;
@@ -415,17 +407,10 @@
         }
 
         _open = true;
+        await LoadCoverageAsync();
         if (CurrentFamily() is { } family) {
-            ResetCollapsed(family);
-            await RebuildGraphAsync();
-            if (State.Tier is { } tierLevel && family.Tiers.FirstOrDefault(t => t.Level == tierLevel) is { } tier) {
-                _selectedNodeId = State.Rarity is { } rarity
-                    ? State.Tree == ArtifactTreeKind.Craft
-                        ? ArtifactTreeBuilder.RarityNodeId(family.Name, tier.Level, rarity)
-                        : ArtifactTreeBuilder.CellNodeId(family.Name, tier.Name, ArtifactTreeBuilder.RarityName(rarity))
-                    : ArtifactTreeBuilder.TierNodeId(family.Name, tier.Level);
-                await UpdateDetailAsync(family);
-            }
+            if (State.NeedsRarity) State.Rarity ??= 0;
+            await RefreshAsync(family);
         }
 
         StateHasChanged();

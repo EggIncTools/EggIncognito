@@ -548,6 +548,15 @@ body:has(.modal-backdrop) { overflow: hidden; }
 .dwb-card .wb-entry-meta { display: flex; flex-direction: column; gap: 0.125rem; min-width: 0; }
 .dwb-card .wb-main, .awb-card .wb-main { display: flex; flex-direction: column; }
 .awb-card { --wb-rail-w: 13.5rem; }
+.wb-card.dtw-card, .wb-card.atb-card { max-height: 96vh; }
+.dtw-card .wb-body, .atb-card .wb-body { min-height: 0; }
+.dtw-card .wb-main, .atb-card .wb-main { display: flex; flex-direction: column; min-height: 0; overflow-y: auto; }
+.dtw-card .wb-rail, .atb-card .wb-rail { --wb-rail-w: 16rem; overflow-y: auto; }
+.dtw-card .wb-entry-head { align-items: flex-start; }
+.dtw-card .wb-entry-meta { display: flex; flex-direction: column; gap: 0.125rem; min-width: 0; }
+@media (min-width: 80rem) {
+  .dtw-card .wb-rail, .atb-card .wb-rail { --wb-rail-w: 31.5rem; }
+}
 
 .account-modal { width: fit-content; min-width: min(28rem, 100%); max-width: 100%; }
 @media (min-width: 40rem) {

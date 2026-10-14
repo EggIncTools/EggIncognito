@@ -2,10 +2,9 @@
 .ds-trail { display: inline-flex; align-items: center; gap: 0.25rem; color: var(--color-muted); }
 .ds-trail > span { display: inline-flex; }
 .ds-children { display: flex; flex-direction: column; gap: inherit; margin-left: 0.75rem; padding-left: 0.75rem; border-left: 1px solid var(--color-border); }
-.dwb-rail-wrap { display: flex; flex-direction: column; height: 100%; min-height: 0; container-type: inline-size; container-name: dwbrail; }
-.dwb-rail-wrap ::deep .wb-rail { flex: 1; min-height: 0; }
-.dwb-rail-grid { display: grid; grid-template-columns: 1fr; gap: 0.75rem; }
+.dwb-rail-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0.75rem; }
 .dwb-rail-col { display: flex; flex-direction: column; gap: 0.75rem; min-width: 0; }
-@container dwbrail (min-width: 30rem) {
+@media (min-width: 80rem) {
   .dwb-rail-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .dwb-rail-col + .dwb-rail-col { padding-left: 0.75rem; border-left: 2px solid var(--color-border-strong); }
 }

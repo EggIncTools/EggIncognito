@@ -12,15 +12,20 @@ public static partial class ArtifactTreeBuilder {
     [GeneratedRegex(@"\{[^}]*\}")]
     private static partial Regex Token();
 
-    public static string TierNodeId(string familyName, int level) => $"t:{familyName}:{level}";
+    public const double TierNodeWidth = 112;
+    public const double TierNodeHeight = 56;
 
-    public static string RarityNodeId(string familyName, int level, int rarity) => $"r:{familyName}:{level}:{rarity}";
+    public static string TierNodeId(string familyName, int level) => $"t:{familyName}:{level}";
 
     public static string CellNodeId(string familyName, string levelName, string rarityName) => $"c:{familyName}:{levelName}:{rarityName}";
 
     public static string RarityName(int rarity) => ProtoEnumNames.RarityName((ArtifactSpec.Types.Rarity)rarity);
 
     public static string LevelName(int level) => ProtoEnumNames.LevelName((ArtifactSpec.Types.Level)level);
+
+    public static string TierIcon(ArtifactFamily family, int level) => ArtifactAssets.IconPath(ArtifactAssets.KeyFor(family.Name), level + 1);
+
+    public static string TierShortName(ArtifactFamily family, ArtifactTier tier) => $"{ArtifactAssets.ShortPlural(family.PluralName)} {tier.Name}";
 
     public static (ArtifactFamily Family, ArtifactTier Tier)? ResolveTierNode(IReadOnlyList<ArtifactFamily> all, string id) {
         if (!id.StartsWith("t:", StringComparison.Ordinal)) return null;
@@ -29,13 +34,6 @@ public static partial class ArtifactTreeBuilder {
         var family = all.FirstOrDefault(f => f.Name == parts[0]);
         var tier = family?.Tiers.FirstOrDefault(t => t.Level == level);
         return family is null || tier is null ? null : (family, tier);
-    }
-
-    public static (string FamilyName, int Level, int Rarity)? ResolveRarityNode(string id) {
-        if (!id.StartsWith("r:", StringComparison.Ordinal)) return null;
-        string[] parts = id[2..].Split(':');
-        if (parts.Length != 3 || !int.TryParse(parts[1], out int level) || !int.TryParse(parts[2], out int rarity)) return null;
-        return (parts[0], level, rarity);
     }
 
     public static (string FamilyName, string LevelName, string RarityName)? ResolveCellNode(string id) {
@@ -56,13 +54,7 @@ public static partial class ArtifactTreeBuilder {
             var current = queue.Dequeue();
             foreach (var tier in current.Tiers) {
                 string tierId = TierNodeId(current.Name, tier.Level);
-                nodes.Add(new DiagramNode(tierId));
-
-                for (int rarity = 0; rarity < tier.RarityCount; rarity++) {
-                    string rarityId = RarityNodeId(current.Name, tier.Level, rarity);
-                    nodes.Add(new DiagramNode(rarityId) { Height = 32 });
-                    edges.Add(new DiagramEdge(tierId, rarityId));
-                }
+                nodes.Add(new DiagramNode(tierId) { Width = TierNodeWidth, Height = TierNodeHeight });
 
                 foreach (var ingredient in tier.Recipe) {
                     if (!byAfxId.TryGetValue(ingredient.AfxId, out var ingredientFamily)) continue;
@@ -82,15 +74,6 @@ public static partial class ArtifactTreeBuilder {
     public static IReadOnlyList<string> CraftingRoots(ArtifactFamily family) =>
         [.. family.Tiers.Select(t => TierNodeId(family.Name, t.Level))];
 
-    public static IReadOnlySet<string> DefaultCollapsed(ArtifactFamily family) {
-        var set = new HashSet<string>(StringComparer.Ordinal);
-        foreach (var tier in family.Tiers) {
-            for (int rarity = 0; rarity < tier.RarityCount; rarity++) set.Add(RarityNodeId(family.Name, tier.Level, rarity));
-        }
-
-        return set;
-    }
-
     public static string FormatEffect(ArtifactEffect effect) {
         var match = Token().Match(effect.Template);
         string value = Math.Abs(effect.Magnitude) < 10
@@ -103,11 +86,11 @@ public static partial class ArtifactTreeBuilder {
 
     public static DiagramGraph BuildConsumptionGraph(DropSummary summary, string familyName, string levelName, string rarityName) {
         string rootId = CellNodeId(familyName, levelName, rarityName);
-        var nodes = new List<DiagramNode> { new(rootId) };
+        var nodes = new List<DiagramNode> { new(rootId) { Width = TierNodeWidth, Height = TierNodeHeight } };
         var edges = new List<DiagramEdge>();
         foreach (var row in summary.Rows) {
             string childId = CellNodeId(row.Name, row.Level, row.Rarity);
-            nodes.Add(new DiagramNode(childId));
+            nodes.Add(new DiagramNode(childId) { Width = TierNodeWidth, Height = TierNodeHeight });
             edges.Add(new DiagramEdge(rootId, childId) { Weight = row.Mean, Label = FormatShare(row.Share) });
         }
 
@@ -117,7 +100,7 @@ public static partial class ArtifactTreeBuilder {
     public static async Task<DiagramGraph> BuildReverseConsumptionGraphAsync(DropStats dropStats,
         IReadOnlyList<ArtifactFamily> all, string targetName, string targetLevel, string targetRarity, CancellationToken ct) {
         string targetId = CellNodeId(targetName, targetLevel, targetRarity);
-        var nodes = new List<DiagramNode> { new(targetId) };
+        var nodes = new List<DiagramNode> { new(targetId) { Width = TierNodeWidth, Height = TierNodeHeight } };
         var edges = new List<DiagramEdge>();
 
         foreach (var family in all) {
@@ -129,7 +112,7 @@ public static partial class ArtifactTreeBuilder {
                     var hit = summary.Rows.FirstOrDefault(r => r.Name == targetName && r.Level == targetLevel && r.Rarity == targetRarity);
                     if (hit is null) continue;
                     string sourceId = CellNodeId(family.Name, levelName, rarityName);
-                    nodes.Add(new DiagramNode(sourceId));
+                    nodes.Add(new DiagramNode(sourceId) { Width = TierNodeWidth, Height = TierNodeHeight });
                     edges.Add(new DiagramEdge(targetId, sourceId) { Weight = hit.Mean, Label = FormatShare(hit.Share) });
                 }
             }
