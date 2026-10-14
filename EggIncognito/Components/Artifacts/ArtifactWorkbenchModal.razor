@@ -61,7 +61,7 @@
                 }
                 <div class="atb-controls">
                     <div class="atb-seg" role="tablist" aria-label="View">
-                        @foreach (var view in Enum.GetValues<ArtifactView>()) {
+                        @foreach (var view in Enum.GetValues<ArtifactView>().Where(v => v != ArtifactView.ComesFrom || IsFragment(family))) {
                             var v = view;
                             <button type="button" role="tab" aria-selected="@(State.View == v ? "true" : "false")"
                                     class="atb-seg-btn @(State.View == v ? "atb-on" : "")"
@@ -71,23 +71,21 @@
                     <div class="atb-tiers">
                         @foreach (var tier in family.Tiers) {
                             var t = tier;
-                            <button type="button" class="atb-tier-btn @(State.Tier == t.Level ? "atb-on" : "")" title="@t.Name"
-                                    aria-label="@t.Name" @onclick="@(() => PickTierAsync(family, t))">
-                                <img class="atb-ico" src="@ArtifactTreeBuilder.TierIcon(family, t.Level)" alt="" loading="lazy"/>
-                            </button>
+                            int rows = State.NeedsRarity ? Math.Max(1, t.RarityCount) : 1;
+                            <div class="atb-tier-col">
+                                @for (int r = 0; r < rows; r++) {
+                                    int rarity = r;
+                                    string rarityName = ArtifactTreeBuilder.RarityName(rarity);
+                                    bool on = State.Tier == t.Level && (!State.NeedsRarity || State.Rarity == rarity);
+                                    string label = State.NeedsRarity ? $"{t.Name} {rarityName}" : t.Name;
+                                    <button type="button" class="atb-tier-btn @(State.NeedsRarity ? RarityClass(rarityName) : "") @(on ? "atb-on" : "")"
+                                            title="@label" aria-label="@label" @onclick="@(() => PickCellAsync(family, t, rarity))">
+                                        <img class="atb-ico" src="@ArtifactTreeBuilder.TierIcon(family, t.Level)" alt="" loading="lazy"/>
+                                    </button>
+                                }
+                            </div>
                         }
                     </div>
-                    @if (State.NeedsRarity && CurrentTier(family) is { } pickedTier) {
-                        <div class="atb-rarities">
-                            @for (int r = 0; r < pickedTier.RarityCount; r++) {
-                                int rarity = r;
-                                string rarityName = ArtifactTreeBuilder.RarityName(rarity);
-                                <button type="button" class="atb-rar-chip @RarityClass(rarityName) @(State.Rarity == rarity ? "atb-on" : "")"
-                                        title="@rarityName" aria-label="@rarityName"
-                                        @onclick="@(() => PickRarityAsync(rarity))">@rarityName[..1]</button>
-                            }
-                        </div>
-                    }
                 </div>
             </div>
 
@@ -204,18 +202,14 @@
         await WriteHashAsync();
     }
 
-    async Task PickTierAsync(ArtifactFamily family, ArtifactTier tier) {
+    async Task PickCellAsync(ArtifactFamily family, ArtifactTier tier, int rarity) {
         State.Tier = tier.Level;
-        State.Rarity = State.NeedsRarity ? Math.Min(State.Rarity ?? 0, tier.RarityCount - 1) : null;
+        State.Rarity = State.NeedsRarity ? rarity : null;
         await RefreshAsync(family);
         await WriteHashAsync();
     }
 
-    async Task PickRarityAsync(int rarity) {
-        State.Rarity = rarity;
-        if (CurrentFamily() is { } family) await RefreshAsync(family);
-        await WriteHashAsync();
-    }
+    static bool IsFragment(ArtifactFamily family) => family.Name.EndsWith("_FRAGMENT", StringComparison.Ordinal);
 
     async Task RefreshAsync(ArtifactFamily family) {
         await RebuildGraphAsync(family);
@@ -409,7 +403,8 @@
         _open = true;
         await LoadCoverageAsync();
         if (CurrentFamily() is { } family) {
-            if (State.NeedsRarity) State.Rarity ??= 0;
+            if (State.View == ArtifactView.ComesFrom && !IsFragment(family)) State.View = ArtifactView.Crafting;
+            State.Rarity = State.NeedsRarity ? State.Rarity ?? 0 : null;
             await RefreshAsync(family);
         }
 

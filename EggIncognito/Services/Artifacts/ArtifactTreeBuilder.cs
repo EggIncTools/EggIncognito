@@ -12,8 +12,8 @@ public static partial class ArtifactTreeBuilder {
     [GeneratedRegex(@"\{[^}]*\}")]
     private static partial Regex Token();
 
-    public const double TierNodeWidth = 112;
-    public const double TierNodeHeight = 56;
+    public const double TierNodeWidth = 144;
+    public const double TierNodeHeight = 72;
 
     public static string TierNodeId(string familyName, int level) => $"t:{familyName}:{level}";
 
