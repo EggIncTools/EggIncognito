@@ -20,6 +20,8 @@ public static partial class ArtifactTreeBuilder {
 
     public static string RarityName(int rarity) => ProtoEnumNames.RarityName((ArtifactSpec.Types.Rarity)rarity);
 
+    public static string LevelName(int level) => ProtoEnumNames.LevelName((ArtifactSpec.Types.Level)level);
+
     public static (ArtifactFamily Family, ArtifactTier Tier)? ResolveTierNode(IReadOnlyList<ArtifactFamily> all, string id) {
         if (!id.StartsWith("t:", StringComparison.Ordinal)) return null;
         string[] parts = id[2..].Split(':');
@@ -122,10 +124,11 @@ public static partial class ArtifactTreeBuilder {
             foreach (var tier in family.Tiers) {
                 for (int rarity = 0; rarity < tier.RarityCount; rarity++) {
                     string rarityName = RarityName(rarity);
-                    var summary = await dropStats.ForCellAsync(family.Name, tier.Name, rarityName, ct);
+                    string levelName = LevelName(tier.Level);
+                    var summary = await dropStats.ForCellAsync(family.Name, levelName, rarityName, ct);
                     var hit = summary.Rows.FirstOrDefault(r => r.Name == targetName && r.Level == targetLevel && r.Rarity == targetRarity);
                     if (hit is null) continue;
-                    string sourceId = CellNodeId(family.Name, tier.Name, rarityName);
+                    string sourceId = CellNodeId(family.Name, levelName, rarityName);
                     nodes.Add(new DiagramNode(sourceId));
                     edges.Add(new DiagramEdge(targetId, sourceId) { Weight = hit.Mean, Label = FormatShare(hit.Share) });
                 }

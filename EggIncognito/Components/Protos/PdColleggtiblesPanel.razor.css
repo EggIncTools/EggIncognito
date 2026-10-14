@@ -1,7 +1,4 @@
 .pd-w-cegg { order: 5; min-width: 0; max-width: 100%; }
-@container pdmod (min-width: 60rem) {
-  .pd-w-cegg { order: 0; }
-}
 .cegg-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem; }
 .cegg-title { margin: 0; font-size: 0.875rem; font-weight: 600; }
 .cegg-scroll { max-width: 100%; overflow-x: auto; scrollbar-width: thin; border: 1px solid var(--color-border); border-radius: 0.375rem; }

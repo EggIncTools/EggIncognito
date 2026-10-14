@@ -190,6 +190,7 @@ public static class DataServices {
 public sealed class ConsumptionReportCapsInitializer(ReportEngineRegistry registry) : IHostedService {
     public Task StartAsync(CancellationToken cancellationToken) {
         registry.SetCaps(ReportTier.Snapshot, new ReportTierCaps(2, 4000, 400));
+        registry.SetCaps(ReportTier.Live, new ReportTierCaps(3, 10000, 1000));
         return Task.CompletedTask;
     }
 

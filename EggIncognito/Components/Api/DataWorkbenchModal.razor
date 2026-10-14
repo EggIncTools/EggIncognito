@@ -16,7 +16,7 @@
                 CardClass="dwb-card" OnClose="CloseAsync">
     <Rail>
         <div class="dwb-rail-wrap">
-            <WorkbenchRail Class="wb-rail-popout">
+            <WorkbenchRail Width="26rem">
                 @if (User.Current.IsAuthenticated) {
                     <div class="awb-tools">
                         <button type="button" class="btn-mini" @onclick="@(() => State.KeysOpen = true)">

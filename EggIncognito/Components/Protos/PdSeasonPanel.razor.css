@@ -1,7 +1,4 @@
 .pd-w-season { order: 3; align-self: flex-start; max-width: 100%; }
-@container pdmod (min-width: 60rem) {
-  .pd-w-season { order: 0; }
-}
 .cegg-title { margin: 0; font-size: 0.875rem; font-weight: 600; }
 .season-ceggs { min-width: 0; }
 .season-top { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 0.75rem; }
