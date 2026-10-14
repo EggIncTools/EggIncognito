@@ -1,8 +1,10 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using EggIncognito.Core.Services;
 using EggIncognito.Services.DataApi;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace EggIncognito.Tests;
 
@@ -13,6 +15,10 @@ public class ConfigSliceCacheTests {
             .Build();
         var services = new ServiceCollection();
         services.AddSingleton<IConfiguration>(config);
+        services.AddSingleton(new EndpointStore(
+            new FileEndpointSource(Path.Combine(contentRoot, "Endpoints")),
+            null,
+            NullLogger<EndpointStore>.Instance));
         return services.BuildServiceProvider();
     }
 
@@ -30,43 +36,48 @@ public class ConfigSliceCacheTests {
     }
 
     [Fact]
-    public void Slice_ReturnsPayloadWithProvenance_AndNullsForUnknownFieldOrMissingFile() {
+    public async Task Slice_ReturnsPayloadWithProvenance_AndNullsForUnknownFieldOrMissingFile() {
         using var tmp = new TempDir();
         string root = tmp.Path;
-        var services = BuildServices(root);
         WriteFixture(root, """{ "dlcCatalog": { "items": [1, 2], "shells": [{"id": "a"}] } }""");
+        var services = BuildServices(root);
+        var store = services.GetRequiredService<EndpointStore>();
 
         var cache = new ConfigSliceCache();
-        var payload = cache.Slice(services, "ei/get_config", "items");
+        var payload = await cache.SliceAsync(store, "ei/get_config", "items", CancellationToken.None);
         Assert.NotNull(payload);
         var doc = ParseObject(payload.Bytes);
         Assert.Equal(2, doc["items"]!.AsArray().Count);
         Assert.Equal("ei/get_config", doc["provenance"]!["source"]!.GetValue<string>());
         Assert.Equal("dlcCatalog.items", doc["provenance"]!["path"]!.GetValue<string>());
 
-        Assert.Null(cache.Slice(services, "ei/get_config", "decorators"));
+        Assert.Null(await cache.SliceAsync(store, "ei/get_config", "decorators", CancellationToken.None));
 
         string missingRoot = tmp.File("missing-root");
         var missingServices = BuildServices(missingRoot);
-        Assert.Null(cache.Slice(missingServices, "ei/get_config", "items"));
+        var missingStore = missingServices.GetRequiredService<EndpointStore>();
+        Assert.Null(await cache.SliceAsync(missingStore, "ei/get_config", "items", CancellationToken.None));
     }
 
     [Fact]
-    public void Slice_ReflectsRewrittenFileAfterStampChanges() {
+    public async Task Slice_ReflectsRewrittenFileAfterStampChanges() {
         using var tmp = new TempDir();
         string root = tmp.Path;
-        var services = BuildServices(root);
         string path = WriteFixture(root, """{ "dlcCatalog": { "items": [1] } }""");
+        var services = BuildServices(root);
+        var store = services.GetRequiredService<EndpointStore>();
 
         var cache = new ConfigSliceCache();
-        var first = cache.Slice(services, "ei/get_config", "items");
+        var first = await cache.SliceAsync(store, "ei/get_config", "items", CancellationToken.None);
         Assert.NotNull(first);
         Assert.Single(ParseObject(first.Bytes)["items"]!.AsArray());
 
         File.WriteAllText(path, """{ "dlcCatalog": { "items": [1, 2, 3] } }""");
         File.SetLastWriteTimeUtc(path, File.GetLastWriteTimeUtc(path).AddSeconds(5));
 
-        var second = cache.Slice(services, "ei/get_config", "items");
+        var rebuiltServices = BuildServices(root);
+        var rebuiltStore = rebuiltServices.GetRequiredService<EndpointStore>();
+        var second = await cache.SliceAsync(rebuiltStore, "ei/get_config", "items", CancellationToken.None);
         Assert.NotNull(second);
         Assert.Equal(3, ParseObject(second.Bytes)["items"]!.AsArray().Count);
     }

@@ -72,7 +72,7 @@ public sealed class DeviceRegistryPublisher(
                 attribution, carve.Result.Proto, "device", true, ct);
             logger.LogInformation(
                 "device publish: {Id} -> registry {Plat} build {Build} ({State}, sha {Sha}, by {Who})",
-                deviceId, device.Platform, build, upsert.Created ? "created" : "updated", sha[..12], attribution);
+                deviceId, device.Platform, build, upsert.Created ? "created" : "updated", Hashes.Short(sha), attribution);
             return new PublishResult(PublishOutcome.Published, appVersion, build, sha, upsert.Created);
         } catch (Exception ex) {
             logger.LogError(ex, "device publish: {Id} registry upsert failed for build {Build}", deviceId, build);

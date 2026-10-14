@@ -79,7 +79,7 @@
                     <span class="cegg-legend-k">Possible dimensions</span>
                     <ul class="cegg-legend-list">
                         @foreach (var dim in ProtoDimensions) {
-                            <li class="cegg-legend-chip @(used.Contains(dim) ? "cegg-legend-on" : "")">@TitleCase(dim)</li>
+                            <li class="cegg-legend-chip @(used.Contains(dim) ? "cegg-legend-on" : "")">@EggIcons.Pretty(dim)</li>
                         }
                     </ul>
                 </div>
@@ -138,7 +138,7 @@
                                             <FallbackImg Class="season-cegg-icon" Src="@egg.Icon" Alt="@egg.Id"/>
                                         }
                                         <div class="season-cegg-body">
-                                            <div class="season-cegg-name">@TitleCase(egg.Id)</div>
+                                            <div class="season-cegg-name">@EggIcons.Pretty(egg.Id)</div>
                                             @if (egg.Contracts is { Count: > 0 } cnames) {
                                                 <div class="season-cegg-contracts">@string.Join(", ", cnames)</div>
                                             }
@@ -294,8 +294,6 @@
 </div>
 
 @code {
-    static readonly JsonSerializerOptions JsonOpts = new(JsonSerializerDefaults.Web);
-
     bool _loaded;
     PeriodicalsSummary? _summary;
     List<Models.Periodicals.Season>? _seasons;
@@ -322,14 +320,14 @@
     protected override async Task OnInitializedAsync() {
         if (Speculative) return;
         try {
-            var fetched = await Client().GetFromJsonAsync<PeriodicalsSummary>("/api/periodicals/summary", JsonOpts);
+            var fetched = await Client().GetFromJsonAsync<PeriodicalsSummary>("/api/periodicals/summary", JsonPresets.Web);
             if (fetched is not null) _summary = fetched;
         } catch (Exception ex) {
             Logger.LogWarning(ex, "the periodicals summary could not be loaded");
         }
 
         try {
-            var seasonsRes = await Client().GetFromJsonAsync<SeasonsResponse>("/api/periodicals/seasons", JsonOpts);
+            var seasonsRes = await Client().GetFromJsonAsync<SeasonsResponse>("/api/periodicals/seasons", JsonPresets.Web);
             if (seasonsRes?.Seasons is { Count: > 0 } ls) {
                 _seasons = ls;
                 var now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
@@ -354,7 +352,7 @@
             var res = await Client().GetAsync(url);
             if ((int)res.StatusCode == 503) return CalendarItemsLoad.Failed<EventCalendarItem>("Event history needs a database. This instance has none.");
             if (!res.IsSuccessStatusCode) return CalendarItemsLoad.Failed<EventCalendarItem>("Events could not be loaded.");
-            var body = await res.Content.ReadFromJsonAsync<GameEventListResponse>(JsonOpts);
+            var body = await res.Content.ReadFromJsonAsync<GameEventListResponse>(JsonPresets.Web);
             return CalendarItemsLoad.Ok<EventCalendarItem>([.. (body?.Events ?? []).Select(EventCalendarItem.Of)]);
         } catch (Exception ex) {
             Logger.LogWarning(ex, "the mini event calendar could not be loaded");
@@ -370,7 +368,7 @@
             var res = await Client().GetAsync(url);
             if ((int)res.StatusCode == 503) return CalendarItemsLoad.Failed<ContractCalendarItem>("Contract history needs a database. This instance has none.");
             if (!res.IsSuccessStatusCode) return CalendarItemsLoad.Failed<ContractCalendarItem>("Contracts could not be loaded.");
-            var body = await res.Content.ReadFromJsonAsync<ContractReleaseListResponse>(JsonOpts);
+            var body = await res.Content.ReadFromJsonAsync<ContractReleaseListResponse>(JsonPresets.Web);
             return CalendarItemsLoad.Ok<ContractCalendarItem>([.. (body?.Releases ?? []).Select(ContractCalendarItem.Of)]);
         } catch (Exception ex) {
             Logger.LogWarning(ex, "the mini contract calendar could not be loaded");
@@ -388,7 +386,7 @@
     }
 
     static string EventLabel(GameEventDto e) {
-        return string.IsNullOrWhiteSpace(e.Message) ? TitleCase(e.Type) : e.Message;
+        return string.IsNullOrWhiteSpace(e.Message) ? EggIcons.Pretty(e.Type) : e.Message;
     }
 
     void MoveSeason(int delta) {
@@ -452,15 +450,15 @@
             "ShellScript" => "Tickets",
             "PiggyMultiplier" => plural ? "Piggy Multipliers" : "Piggy Multiplier",
             "PiggyLevelBump" => plural ? "Piggy Level Bumps" : "Piggy Level Bump",
-            "Boost" => Pretty(subType ?? ""),
-            "EpicResearchItem" => Pretty(subType ?? ""),
+            "Boost" => EggIcons.Pretty(subType ?? ""),
+            "EpicResearchItem" => EggIcons.Pretty(subType ?? ""),
             "BoostToken" => plural ? "Boost Tokens" : "Boost Token",
             "Artifact" => plural ? "Artifacts" : "Artifact",
             "ArtifactCase" => "Artifacts",
             "Chicken" => plural ? "Chicken Boxes" : "Chicken Box",
             "VirtueGem" => plural ? "Virtue Gems" : "Virtue Gem",
             "Cash" => "Cash",
-            _ => Pretty(rewardType)
+            _ => EggIcons.Pretty(rewardType)
         };
     }
 
@@ -499,11 +497,11 @@
                 if (b.TryGetProperty("magnitude", out var mgEl) && mgEl.TryGetDouble(out var mg) && mg > 0) {
                     var tgt = b.TryGetProperty("target", out var tEl) ? tEl.GetString() ?? "" : "";
                     eff = tgt.Length > 0
-                        ? $"{FormatAmount(mg)}x {Pretty(tgt.StartsWith("bd-", StringComparison.Ordinal) ? tgt[3..] : tgt)}"
+                        ? $"{FormatAmount(mg)}x {EggIcons.Pretty(tgt.StartsWith("bd-", StringComparison.Ordinal) ? tgt[3..] : tgt)}"
                         : $"{FormatAmount(mg)}x";
                 }
 
-                _boosts[id] = new BoostMeta(string.IsNullOrEmpty(dn) ? TitleCase(id) : dn, dur, eff);
+                _boosts[id] = new BoostMeta(string.IsNullOrEmpty(dn) ? EggIcons.Pretty(id) : dn, dur, eff);
             }
         } catch (Exception ex) {
             Logger.LogWarning(ex, "the boost catalog could not be loaded");
@@ -517,8 +515,8 @@
             "ShellScript" => "Shell Tickets",
             "PiggyFill" => "Piggy Fill",
             "ArtifactCase" => "Artifacts",
-            "Boost" => TitleCase(BoostInfo(g)?.DisplayName ?? Pretty(g.RewardSubType)),
-            "EpicResearchItem" => Pretty(g.RewardSubType),
+            "Boost" => EggIcons.Pretty(BoostInfo(g)?.DisplayName ?? EggIcons.Pretty(g.RewardSubType)),
+            "EpicResearchItem" => EggIcons.Pretty(g.RewardSubType),
             _ => RewardName(g.RewardType, g.RewardSubType, true)
         };
     }
@@ -541,18 +539,8 @@
         };
     }
 
-    static string TitleCase(string raw) {
-        return string.Join(' ', raw.Split([' ', '_', '-'], StringSplitOptions.RemoveEmptyEntries).Select(TitleWord));
-    }
-
-    static string TitleWord(string word) {
-        return word.Contains('.', StringComparison.Ordinal)
-            ? word
-            : char.ToUpperInvariant(word[0]) + word[1..].ToLowerInvariant();
-    }
-
     static string ShortDimension(string dimension) {
-        var name = TitleCase(dimension);
+        var name = EggIcons.Pretty(dimension);
         return name switch {
             "Shipping Capacity" => "Shipping Cap",
             "Internal Hatchery Rate" => "Hatchery Rate",
@@ -562,7 +550,7 @@
     }
 
     static string EggName(EggRow e) {
-        return TitleCase(string.IsNullOrWhiteSpace(e.Name) ? e.Identifier : e.Name);
+        return EggIcons.Pretty(string.IsNullOrWhiteSpace(e.Name) ? e.Identifier : e.Name);
     }
 
     static string TierMagnitude(double value) {
@@ -581,19 +569,6 @@
 
     static string TierCellClass(int tierIx) {
         return tierIx == 0 ? "cegg-tier cegg-tier-first" : "cegg-tier";
-    }
-
-    static string Pretty(string raw) {
-        var words = raw.Replace('-', '_').Split('_', StringSplitOptions.RemoveEmptyEntries);
-        if (words.Length > 1 || raw.Contains('_')) return string.Join(' ', words.Select(w => w.Length > 0 ? char.ToUpperInvariant(w[0]) + w[1..].ToLowerInvariant() : w));
-
-        var sb = new StringBuilder();
-        foreach (var ch in raw) {
-            if (char.IsUpper(ch) && sb.Length > 0) sb.Append(' ');
-            sb.Append(ch);
-        }
-
-        return sb.ToString();
     }
 
 }

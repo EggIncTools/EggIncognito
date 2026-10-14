@@ -9,6 +9,7 @@
 @using EggIncognito.Models.Data
 @using EggIncognito.Models.Inspector
 @using EggIncognito.Services.Api
+@using EggIncognito.Services.Assets
 @using EggIncognito.Services.Inspector
 @using EggIncognito.Services.Routes
 @inherits SelfCallComponentBase
@@ -169,8 +170,6 @@
 <ApiKeysModal Open="State.KeysOpen" OnClose="@(() => State.KeysOpen = false)"/>
 
 @code {
-    static readonly JsonSerializerOptions JsonOpts = new(JsonSerializerDefaults.Web);
-
     readonly Dictionary<string, SchemaMessage?> _schemaCache = new();
 
     bool _open;
@@ -372,7 +371,7 @@
             "periodical" => "Periodical",
             "gamedata" => "Game data",
             "asset" => "Assets",
-            _ => TitleCase(key)
+            _ => EggIcons.Pretty(key)
         };
     }
 
@@ -408,12 +407,6 @@
                                                      </span>
                                                  </span>;
 
-    static string TitleCase(string raw) {
-        var words = raw.Split([' ', '_', '-'], StringSplitOptions.RemoveEmptyEntries);
-        return words.Length == 0
-            ? raw
-            : string.Join(' ', words.Select(w => char.ToUpperInvariant(w[0]) + w[1..].ToLowerInvariant()));
-    }
 
     async Task<RinfoSeed> ServerSeed() {
         return await Client().OneAsync<RinfoSeed>("/api/inspector/rinfo-seed", Logger) ?? new RinfoSeed();
@@ -499,8 +492,8 @@
                 fields,
                 env = (object?)null,
                 salt = (string?)null
-            }, JsonOpts);
-            var data = await res.Content.ReadFromJsonAsync<BuildResponse>(JsonOpts);
+            }, JsonPresets.Web);
+            var data = await res.Content.ReadFromJsonAsync<BuildResponse>(JsonPresets.Web);
             if (data?.Error is not null) {
                 State.EnvValidated = false;
                 State.EnvError = data.Error;
@@ -546,7 +539,7 @@
             State.RawMode = true;
             if (State.FieldNodes is not null) {
                 State.RawJson = FieldTreeBuilder.Collect(State.FieldNodes)
-                    .ToJsonString(new JsonSerializerOptions { WriteIndented = true });
+                    .ToJsonString(JsonPresets.Indented);
             }
 
             return;
@@ -664,8 +657,8 @@
         };
 
         try {
-            var res = await Client().PostAsJsonAsync("/api/inspector/build", body, JsonOpts);
-            var data = await res.Content.ReadFromJsonAsync<BuildResponse>(JsonOpts);
+            var res = await Client().PostAsJsonAsync("/api/inspector/build", body, JsonPresets.Web);
+            var data = await res.Content.ReadFromJsonAsync<BuildResponse>(JsonPresets.Web);
             if (data?.Error is not null) {
                 State.BuildStages = null;
                 State.Response = new SendResponse(null, null, null, null, data.Error, data.Resolution);
@@ -767,8 +760,8 @@
                     responseType = e.Response,
                     responseWrapped = e.ResponseWrapped,
                     @sealed = State.Target == InspectorTarget.LiveViaServer && State.Sealed
-                }, JsonOpts);
-            State.Response = await res.Content.ReadFromJsonAsync<SendResponse>(JsonOpts);
+                }, JsonPresets.Web);
+            State.Response = await res.Content.ReadFromJsonAsync<SendResponse>(JsonPresets.Web);
             await MaybeDiagnose();
         } catch (Exception ex) when (ex is HttpRequestException or JsonException or TaskCanceledException) {
             State.Response = new SendResponse(null, null, null, null, "send failed: " + ex.Message, null);
@@ -785,8 +778,8 @@
         if (State.Response?.Error is null || string.IsNullOrEmpty(State.Response.RawBase64)) return;
         try {
             var res = await Client().PostAsJsonAsync("/api/tools/diagnose",
-                new { Base64 = State.Response.RawBase64, RootType = State.Selected?.Response }, JsonOpts);
-            State.Diagnosis = await res.Content.ReadFromJsonAsync<DiagnoseDto>(JsonOpts);
+                new { Base64 = State.Response.RawBase64, RootType = State.Selected?.Response }, JsonPresets.Web);
+            State.Diagnosis = await res.Content.ReadFromJsonAsync<DiagnoseDto>(JsonPresets.Web);
         } catch (Exception ex) when (ex is HttpRequestException or JsonException or TaskCanceledException) {
             Logger.LogDebug(ex, "the failed decode could not be diagnosed");
         }
@@ -804,7 +797,7 @@
             }
 
             var res = await Client().PutAsJsonAsync($"/api/admin/routes/{e.Path}",
-                row.Draft() with { ResponseWrapped = true }, JsonOpts);
+                row.Draft() with { ResponseWrapped = true }, JsonPresets.Web);
             if (!res.IsSuccessStatusCode) {
                 State.Response = State.Response with { Error = $"failed to set responseWrapped: HTTP {(int)res.StatusCode}" };
                 return;
@@ -824,8 +817,8 @@
         if (State.Response?.RawBase64 is null) return;
         try {
             var res = await Client().PostAsJsonAsync("/api/inspector/decode-response",
-                new { rawBase64 = State.Response.RawBase64, responseType = e.Response, responseWrapped = (bool?)null }, JsonOpts);
-            var dec = await res.Content.ReadFromJsonAsync<SendResponse>(JsonOpts);
+                new { rawBase64 = State.Response.RawBase64, responseType = e.Response, responseWrapped = (bool?)null }, JsonPresets.Web);
+            var dec = await res.Content.ReadFromJsonAsync<SendResponse>(JsonPresets.Web);
             State.Response = State.Response with {
                 Stages = dec?.Stages,
                 Json = dec?.Json,
@@ -876,8 +869,8 @@
 
         try {
             var res = await Client().PostAsJsonAsync("/api/inspector/decode-response",
-                new { rawBase64 = raw, responseType = e.Response, responseWrapped = e.ResponseWrapped }, JsonOpts);
-            var dec = await res.Content.ReadFromJsonAsync<SendResponse>(JsonOpts);
+                new { rawBase64 = raw, responseType = e.Response, responseWrapped = e.ResponseWrapped }, JsonPresets.Web);
+            var dec = await res.Content.ReadFromJsonAsync<SendResponse>(JsonPresets.Web);
             State.Response = new SendResponse(200, raw, dec?.Stages, dec?.Json, dec?.Error, null, dec?.WrappedMismatch ?? false);
             await MaybeDiagnose();
         } catch (Exception ex) when (ex is HttpRequestException or JsonException or TaskCanceledException) {
@@ -913,7 +906,7 @@
                 eid = string.IsNullOrWhiteSpace(State.PathParam) ? null : State.PathParam,
                 responseJson = doc.RootElement,
                 responseType = e.Response
-            }, JsonOpts);
+            }, JsonPresets.Web);
             if (res.IsSuccessStatusCode) {
                 Toasts.Push(StatusNoteKind.Ok, $"Saved {e.Path}{(string.IsNullOrWhiteSpace(State.PathParam) ? "" : $" ({State.PathParam})")} to the shared DB.");
                 return;

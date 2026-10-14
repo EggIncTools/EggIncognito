@@ -1,11 +1,7 @@
-using System.Text.Json;
-
 namespace EggIncognito.Core.Services.Devices;
 
 public sealed class BridgeDeviceResponseOverrides(IHttpClientFactory httpFactory, DeviceTransportConfig cfg)
     : IDeviceResponseOverrides {
-    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
-
     public async Task<DeviceResult> SetAsync(
         string deviceId, IReadOnlyList<DeviceResponseOverride> entries, CancellationToken ct) {
         var client = new BridgeClient(httpFactory.CreateClient(BridgeClient.HttpClientName), cfg);
@@ -13,7 +9,7 @@ public sealed class BridgeDeviceResponseOverrides(IHttpClientFactory httpFactory
 
         try {
             using var req = client.Build(HttpMethod.Put, BridgeRoutes.OverridesFor(deviceId));
-            req.Content = JsonContent.Create(new DeviceResponseOverrideSet(entries), options: JsonOptions);
+            req.Content = JsonContent.Create(new DeviceResponseOverrideSet(entries), options: JsonPresets.Web);
             using var resp = await client.Http.SendAsync(req, ct);
             if (!resp.IsSuccessStatusCode) {
                 return DeviceResult.Error(

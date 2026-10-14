@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.Net;
 using System.Text.Json;
 using EggIncognito.Capture;
+using EggIncognito.Core.Services;
 using EggIncognito.Core.Services.Devices;
 
 namespace EggIncognito.Services.Devices;
@@ -9,7 +10,6 @@ namespace EggIncognito.Services.Devices;
 public sealed class BridgeCaptureHubs(
     IHttpClientFactory httpFactory, DeviceTransportConfig cfg, ILogger<BridgeCaptureHubs> logger)
     : IDeviceCaptureHubs, IDisposable {
-    private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
     private static readonly TimeSpan Retry = TimeSpan.FromSeconds(5);
     private readonly ConcurrentDictionary<string, Lazy<CaptureHub>> _hubs = new(StringComparer.Ordinal);
     private readonly CancellationTokenSource _cts = new();
@@ -76,7 +76,7 @@ public sealed class BridgeCaptureHubs(
         using var reader = new StreamReader(body);
         while (await reader.ReadLineAsync(ct) is { } line) {
             if (line.Length == 0) continue;
-            if (JsonSerializer.Deserialize<CaptureEnvelope>(line, Json) is { } env) hub.Mirror(env);
+            if (JsonSerializer.Deserialize<CaptureEnvelope>(line, JsonPresets.Web) is { } env) hub.Mirror(env);
         }
 
         return true;

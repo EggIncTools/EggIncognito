@@ -11,9 +11,10 @@ public sealed class AuxbrainSurface {
     public AuxbrainSurface(RouteCatalog routes, IProtoReflection reflection, IConfiguration config) {
         _entries = new Lazy<IReadOnlyList<AuxbrainEntry>>(() => {
             string root = ContentRoot.Resolve(config["ContentRoot"]);
+            string endpointsRoot = config["EndpointsPath"] ?? Path.Combine(AppContext.BaseDirectory, "Endpoints");
             var status = EndpointStatus.Classify(
                 Path.Combine(root, "RouteMap", "routes.yaml"),
-                Path.Combine(root, "Endpoints", "default"));
+                Path.Combine(endpointsRoot, "default"));
             return AuxbrainCatalog.Build(routes.All(), status);
         });
         _namespaces = new Lazy<IReadOnlySet<string>>(() =>

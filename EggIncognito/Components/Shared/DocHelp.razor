@@ -24,8 +24,6 @@
     [Parameter] public string Kind { get; set; } = "";
     [Parameter] public string Key { get; set; } = "";
 
-    static readonly JsonSerializerOptions JsonOpts = new(JsonSerializerDefaults.Web);
-
     static int _nextId;
     readonly string _popId = $"dochelp-{Interlocked.Increment(ref _nextId)}";
 
@@ -41,7 +39,7 @@
         if (_loaded) return;
         _loaded = true;
         try {
-            var doc = await Client().GetFromJsonAsync<Models.Docs.DocResult>($"/api/docs/doc/{Kind}/{Uri.EscapeDataString(Key)}", JsonOpts);
+            var doc = await Client().GetFromJsonAsync<Models.Docs.DocResult>($"/api/docs/doc/{Kind}/{Uri.EscapeDataString(Key)}", JsonPresets.Web);
             _bodyMd = doc?.BodyMd;
         } catch {
             _bodyMd = null;

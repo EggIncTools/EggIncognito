@@ -3,7 +3,6 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using EggIncognito.Core.Services;
 using EggIncognito.Core.Services.Assets;
-using EggIncognito.Data.Services;
 using EggSharp.GameData;
 using EggIncognito.Services.Assets;
 using EggIncognito.Services.Auth;
@@ -20,10 +19,6 @@ public sealed class DataCatalog {
 
     private static readonly JsonSerializerOptions SnakeJson = new() {
         PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
-        WriteIndented = true
-    };
-
-    private static readonly JsonSerializerOptions IndentedJson = new() {
         WriteIndented = true
     };
 
@@ -168,7 +163,10 @@ public sealed class DataCatalog {
         Func<string, byte[]> egressRequest, bool listed = true) =>
         new(id, "periodical", display, desc, DataProvenance.WireFixture, DataAccess.Authenticated,
             route, feed, new DataRefresh(true), false,
-            (ctx, _) => Task.FromResult(FixtureJson(ctx.Services, route)), egressRequest, Listed: listed);
+            async (ctx, ct) => {
+                string? json = await ctx.Services.GetRequiredService<EndpointStore>().CurrentJsonAsync(route, ct);
+                return json is null ? null : DataPayload.Json(json);
+            }, egressRequest, Listed: listed);
 
     private static DataSource Derived(string id, string display, string desc,
         Func<DataProduceContext, CancellationToken, Task<DataPayload?>> produce) =>
@@ -178,45 +176,9 @@ public sealed class DataCatalog {
     private static DataSource DlcSlice(string id, string field, string display, string desc) =>
         new(id, "periodical", display, desc, DataProvenance.DerivedExtract, DataAccess.Public,
             null, null, new DataRefresh(false), false,
-            (ctx, _) => Task.FromResult(ctx.Services.GetRequiredService<ConfigSliceCache>()
-                .Slice(ctx.Services, ConfigRoute, field)),
+            async (ctx, ct) => await ctx.Services.GetRequiredService<ConfigSliceCache>()
+                .SliceAsync(ctx.Services.GetRequiredService<EndpointStore>(), ConfigRoute, field, ct),
             Extends: "config");
-
-    private static string DefaultsDir(IServiceProvider services) {
-        var config = services.GetRequiredService<IConfiguration>();
-        string root = ContentRoot.Resolve(config["ContentRoot"]);
-        return Path.Combine(root, "Endpoints", "default");
-    }
-
-    internal static string FixturePath(IServiceProvider services, string route) {
-        string[] parts = route.Split('/', StringSplitOptions.RemoveEmptyEntries);
-        string file = parts[^1] + ".json";
-        return Path.Combine([DefaultsDir(services), .. parts[..^1], file]);
-    }
-
-    private static DataPayload? FixtureJson(IServiceProvider services, string route) {
-        string? stored = StoredJson(services, route);
-        if (stored is not null) return DataPayload.Json(stored);
-        string path = FixturePath(services, route);
-        return File.Exists(path) ? DataPayload.Json(File.ReadAllText(path)) : null;
-    }
-
-    internal static string? FixtureText(IServiceProvider services, string route) {
-        string? stored = StoredJson(services, route);
-        if (stored is not null) return stored;
-        string path = FixturePath(services, route);
-        return File.Exists(path) ? File.ReadAllText(path) : null;
-    }
-
-    private static string? StoredJson(IServiceProvider services, string route) {
-        if (services.GetService(typeof(EggIncognitoDbContext)) is not EggIncognitoDbContext db) return null;
-        try {
-            return db.StoredEndpoints
-                .FirstOrDefault(e => e.Path == route && e.Eid == null)?.ResponseJson;
-        } catch {
-            return null;
-        }
-    }
 
     private static string? DocText(IServiceProvider services, string id) =>
         services.GetService<GameDataStore>()?.Doc(id);
@@ -289,7 +251,7 @@ public sealed class DataCatalog {
             ["binaryVersion"] = (catalogDoc?["binaryVersion"] ?? boostsDoc?["binaryVersion"])?.DeepClone(),
             ["provenance"] = provenance
         };
-        return DataPayload.Json(output.ToJsonString(IndentedJson));
+        return DataPayload.Json(output.ToJsonString(JsonPresets.Indented));
     }
 
     private static void CopyField(JsonObject target, string key, params JsonObject?[] sources) {
@@ -318,7 +280,7 @@ public sealed class DataCatalog {
             ["binaryVersion"] = doc["binaryVersion"]?.DeepClone(),
             ["provenance"] = doc["provenance"]?.DeepClone()
         };
-        return DataPayload.Json(output.ToJsonString(IndentedJson));
+        return DataPayload.Json(output.ToJsonString(JsonPresets.Indented));
     }
 
     private static Task<DataPayload?> ProduceColleggtibles(DataProduceContext ctx, CancellationToken ct) {
@@ -326,10 +288,11 @@ public sealed class DataCatalog {
         return Task.FromResult(live is null ? null : DataPayload.Json(live.Json));
     }
 
-    private static Task<DataPayload?> ProduceEiAfx(DataProduceContext ctx, CancellationToken ct) {
-        string? afx = FixtureText(ctx.Services, AfxConfigRoute);
-        if (afx is null) return Task.FromResult<DataPayload?>(null);
-        string? configJson = FixtureText(ctx.Services, ConfigRoute);
+    private static async Task<DataPayload?> ProduceEiAfx(DataProduceContext ctx, CancellationToken ct) {
+        var store = ctx.Services.GetRequiredService<EndpointStore>();
+        string? afx = await store.CurrentJsonAsync(AfxConfigRoute, ct);
+        if (afx is null) return null;
+        string? configJson = await store.CurrentJsonAsync(ConfigRoute, ct);
         IReadOnlyDictionary<string, string> icons = new Dictionary<string, string>();
         if (configJson is not null) {
             try {
@@ -340,7 +303,7 @@ public sealed class DataCatalog {
         }
 
         var data = EiAfxDataBuilder.BuildFromJson(afx, icons);
-        return Task.FromResult<DataPayload?>(DataPayload.Json(JsonSerializer.Serialize(data, SnakeJson)));
+        return DataPayload.Json(JsonSerializer.Serialize(data, SnakeJson));
     }
 
     private static async Task<DataPayload?> ProduceIcon(DataProduceContext ctx, CancellationToken ct) {

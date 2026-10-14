@@ -1,4 +1,3 @@
-using System.Globalization;
 using System.Text.RegularExpressions;
 using static EggIncognito.Core.Services.ProtoExtract.Arm64Operands;
 
@@ -57,6 +56,11 @@ public static partial class BoostCatalogExtractor {
     private static bool IsBoostId(string s)
         => s.Length >= 4 && IdPattern().IsMatch(s) && !s.StartsWith("bd", StringComparison.Ordinal);
 
+    private static int RegIndex(string reg) {
+        string digits = reg.Length > 1 && reg[0] is 'x' or 'w' ? reg[1..] : reg;
+        return int.TryParse(digits, out int n) ? n : -1;
+    }
+
     private static Dictionary<int, string>? DecodeMemberDescriptions(byte[] bin,
         IReadOnlyList<MachoSymbols.Symbol> syms,
         IReadOnlyList<MachoSections.Section> sections, IReadOnlyList<StaticInitCatalogReader.Entry> entries) {
@@ -71,8 +75,9 @@ public static partial class BoostCatalogExtractor {
         var lst = Arm64DataTableReader.ListWith(bin, syms, [InitSymbol], 100_000);
         if (!lst.Ok) return null;
 
-        var page = new Dictionary<string, ulong>(StringComparer.Ordinal);
-        var allocRegs = new HashSet<string>(StringComparer.Ordinal);
+        var image = new Arm64Image(bin, BinaryImage.Load(bin)!);
+        var tracker = new Arm64PageTracker { Image = image };
+        var allocRegs = new HashSet<int>();
         ulong? x0Imm = null;
         ulong? activeAlloc = null;
         var storeTargets = new List<ulong>();
@@ -80,32 +85,10 @@ public static partial class BoostCatalogExtractor {
         var sizeText = new Dictionary<ulong, string>();
         bool conflict = false;
 
-        void ClearX0Imm(string reg) {
-            if (reg is "x0" or "w0") x0Imm = null;
-        }
-
-        void SetPage(string reg, ulong va) {
-            page[reg] = va;
-            allocRegs.Remove(reg);
-            ClearX0Imm(reg);
-        }
-
-        void ClobberReg(string reg) {
-            page.Remove(reg);
-            allocRegs.Remove(reg);
-            ClearX0Imm(reg);
-        }
-
-        void SetImm(string reg, ulong value) {
-            page.Remove(reg);
-            allocRegs.Remove(reg);
-            if (reg is "x0" or "w0") x0Imm = value;
-        }
-
         bool RecordStoreTarget(string memToken, out ulong va) {
             va = 0;
             if (!TryMem(memToken, out string baseReg, out ulong off) ||
-                !page.TryGetValue(baseReg, out ulong baseVa)) {
+                !tracker.TryValue(RegIndex(baseReg), out ulong baseVa)) {
                 return false;
             }
 
@@ -115,57 +98,45 @@ public static partial class BoostCatalogExtractor {
         }
 
         foreach (var i in lst.Instructions) {
+            if (image.TryWord(i.Va, out uint word)) tracker.Track(i.Va, word);
             var ops = SplitOps(i.Operands);
-            switch (i.Mnemonic) {
-                case "adrp":
-                    if (ops.Count == 2 && TryImm(ops[1], out ulong pg)) SetPage(ops[0], pg);
-                    else if (ops.Count >= 1) ClobberReg(ops[0]);
-                    break;
+            bool targetsX0 = ops.Count >= 1 && ops[0] is "x0" or "w0";
 
+            switch (i.Mnemonic) {
                 case "add":
-                    if (ops.Count == 3 && page.TryGetValue(ops[1], out ulong addBase) &&
-                        TryImm(ops[2], out ulong addOff)) {
-                        ulong full = addBase + addOff;
-                        SetPage(ops[0], full);
-                        if (activeAlloc is { } sz && TryReadDescription(bin, sections, full, out string text)) {
-                            if (sizeText.TryGetValue(sz, out string? prev) && prev != text) conflict = true;
-                            else sizeText[sz] = text;
-                        }
-                    } else if (ops.Count >= 1 && LooksLikeGpr(ops[0])) {
-                        ClobberReg(ops[0]);
+                    if (targetsX0) x0Imm = null;
+                    if (ops.Count == 3 && tracker.TryValue(RegIndex(ops[0]), out ulong full) &&
+                        activeAlloc is { } sz && TryReadDescription(bin, sections, full, out string text)) {
+                        if (sizeText.TryGetValue(sz, out string? prev) && prev != text) conflict = true;
+                        else sizeText[sz] = text;
                     }
 
                     break;
 
                 case "mov":
-                    if (ops.Count == 2 && LooksLikeGpr(ops[0])) {
-                        if (page.TryGetValue(ops[1], out ulong mv)) {
-                            SetPage(ops[0], mv);
-                        } else if (allocRegs.Contains(ops[1])) {
-                            page.Remove(ops[0]);
-                            ClearX0Imm(ops[0]);
-                            allocRegs.Add(ops[0]);
-                        } else if (TryImm(ops[1], out ulong mc)) {
-                            SetImm(ops[0], mc);
-                        } else {
-                            ClobberReg(ops[0]);
+                    if (targetsX0) x0Imm = null;
+                    if (ops.Count == 2) {
+                        if (TryImm(ops[1], out ulong mc)) {
+                            if (targetsX0) x0Imm = mc;
+                        } else if (LooksLikeGpr(ops[1]) && allocRegs.Contains(RegIndex(ops[1]))) {
+                            allocRegs.Add(RegIndex(ops[0]));
                         }
                     }
 
                     break;
 
                 case "movz":
-                    if (ops.Count >= 2 && LooksLikeGpr(ops[0]) && TryImm(ops[1], out ulong mz))
-                        SetImm(ops[0], mz << ShiftOf(ops));
-                    else if (ops.Count >= 1) ClobberReg(ops[0]);
+                    if (targetsX0) {
+                        x0Imm = ops.Count >= 2 && TryImm(ops[1], out ulong mz) ? mz << ShiftOf(ops) : null;
+                    }
+
                     break;
 
                 case "orr":
-                    if (ops.Count == 3 && LooksLikeGpr(ops[0]) && ops[1] is "wzr" or "xzr" &&
-                        TryImm(ops[2], out ulong oi)) {
-                        SetImm(ops[0], oi);
-                    } else if (ops.Count >= 1) {
-                        ClobberReg(ops[0]);
+                    if (targetsX0) {
+                        x0Imm = ops.Count == 3 && ops[1] is "wzr" or "xzr" && TryImm(ops[2], out ulong oi)
+                            ? oi
+                            : null;
                     }
 
                     break;
@@ -175,24 +146,19 @@ public static partial class BoostCatalogExtractor {
                     if (x0Imm is { } allocSize) {
                         activeAlloc = allocSize;
                         allocRegs.Clear();
-                        allocRegs.Add("x0");
+                        allocRegs.Add(0);
                     } else {
-                        for (int r = 0; r <= 17; r++)
-                            allocRegs.Remove("x" + r.ToString(CultureInfo.InvariantCulture));
+                        allocRegs.Clear();
                     }
 
                     x0Imm = null;
-                    for (int r = 0; r <= 17; r++) {
-                        page.Remove("x" + r.ToString(CultureInfo.InvariantCulture));
-                        page.Remove("w" + r.ToString(CultureInfo.InvariantCulture));
-                    }
-
+                    for (int r = 0; r <= 17; r++) tracker.Invalidate(r);
                     break;
 
                 case "str":
                 case "stur":
                     if (ops.Count >= 2 && RecordStoreTarget(ops[^1], out ulong strVa)
-                                       && activeAlloc is { } strAlloc && allocRegs.Contains(ops[0])) {
+                                       && activeAlloc is { } strAlloc && allocRegs.Contains(RegIndex(ops[0]))) {
                         descStores.Add((strVa, strAlloc));
                     }
 
@@ -209,21 +175,8 @@ public static partial class BoostCatalogExtractor {
                     if (ops.Count >= 3) RecordStoreTarget(ops[^1], out _);
                     break;
 
-                case "ldr":
-                case "ldur":
-                    if (ops.Count >= 1 && LooksLikeGpr(ops[0])) ClobberReg(ops[0]);
-                    break;
-
-                case "ldp":
-                    if (ops.Count >= 2) {
-                        if (LooksLikeGpr(ops[0])) ClobberReg(ops[0]);
-                        if (LooksLikeGpr(ops[1])) ClobberReg(ops[1]);
-                    }
-
-                    break;
-
                 default:
-                    if (!IsNonWriting(i.Mnemonic) && ops.Count >= 1 && LooksLikeGpr(ops[0])) ClobberReg(ops[0]);
+                    if (targetsX0 && !IsNonWriting(i.Mnemonic)) x0Imm = null;
                     break;
             }
         }

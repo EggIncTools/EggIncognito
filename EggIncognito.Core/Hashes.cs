@@ -11,4 +11,7 @@ public static class Hashes {
     public static string Sha256HexShort(string text, int length = 12) => Sha256Hex(text)[..length];
 
     public static string Sha256HexShort(byte[] bytes, int length = 12) => Sha256Hex(bytes)[..length];
+
+    public static string Short(string? sha, int length = 12) =>
+        string.IsNullOrEmpty(sha) ? "" : sha.Length <= length ? sha : sha[..length];
 }

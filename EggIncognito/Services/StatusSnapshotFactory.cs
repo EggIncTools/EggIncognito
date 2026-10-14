@@ -42,7 +42,8 @@ public sealed class StatusSnapshotFactory(
         try {
             string root = ContentRoot.Resolve(config["ContentRoot"]);
             string yaml = Path.Combine(root, "RouteMap", "routes.yaml");
-            string defaults = Path.Combine(root, "Endpoints", "default");
+            string endpointsRoot = config["EndpointsPath"] ?? Path.Combine(AppContext.BaseDirectory, "Endpoints");
+            string defaults = Path.Combine(endpointsRoot, "default");
             var r = EndpointStatus.Classify(yaml, defaults);
             return (r.Ok.Count, r.Empty.Count, r.Missing.Count);
         } catch {

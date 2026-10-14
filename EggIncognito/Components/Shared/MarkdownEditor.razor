@@ -40,8 +40,6 @@
     [Parameter] public EventCallback OnCancel { get; set; }
 
     const long MaxImageBytes = 5 * 1024 * 1024;
-    static readonly JsonSerializerOptions JsonOpts = new(JsonSerializerDefaults.Web);
-
     static readonly (string Label, string Title, string Token)[] Buttons = [
         ("B", "Bold", "**bold**"),
         ("I", "Italic", "*italic*"),
@@ -94,7 +92,7 @@
         _busy = true;
         try {
             var res = await Client().PostAsJsonAsync("/api/docs/doc",
-                new { subjectKind = Kind, subjectKey = Key, bodyMd = _value }, JsonOpts);
+                new { subjectKind = Kind, subjectKey = Key, bodyMd = _value }, JsonPresets.Web);
             if (res.IsSuccessStatusCode) {
                 SetStatus(string.IsNullOrWhiteSpace(_value) ? "Cleared." : "Saved.", StatusNoteKind.Ok);
                 if (OnSaved.HasDelegate) await OnSaved.InvokeAsync(_value);
@@ -125,7 +123,7 @@
             content.Add(part, "file", file.Name);
             var res = await Client().PostAsync("/api/docs/image", content);
             if (res.IsSuccessStatusCode) {
-                var data = await res.Content.ReadFromJsonAsync<Models.Docs.ImageResult>(JsonOpts);
+                var data = await res.Content.ReadFromJsonAsync<Models.Docs.ImageResult>(JsonPresets.Web);
                 _value += $"\n![{file.Name}]({data?.Url})\n";
                 SetStatus("Image inserted.", StatusNoteKind.Ok);
             } else {

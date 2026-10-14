@@ -156,9 +156,7 @@
     }
 
     static string FormatDelta(TimeSpan? gap) {
-        if (gap is not { } g) return "";
-        if (g >= TimeSpan.FromMinutes(1)) return $"+{(int)g.TotalMinutes}m";
-        return g >= TimeSpan.FromSeconds(1) ? $"+{(int)g.TotalSeconds}s" : "+0s";
+        return gap is { } g ? $"+{Durations.Format(g)}" : "";
     }
 
     ElementReference _listRef;

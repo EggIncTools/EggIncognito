@@ -25,10 +25,11 @@ public static class DataServices {
             string path = config["EndpointsPath"] ?? Path.Combine(AppContext.BaseDirectory, "Endpoints");
             return new FileEndpointSource(path, sp.GetRequiredService<ILogger<FileEndpointSource>>());
         });
-        builder.Services.AddSingleton<IEndpointStore>(sp => new EndpointStore(
+        builder.Services.AddSingleton(sp => new EndpointStore(
             sp.GetRequiredService<FileEndpointSource>(),
             boot.DbEnabled ? sp.GetRequiredService<IServiceScopeFactory>() : null,
             sp.GetRequiredService<ILogger<EndpointStore>>()));
+        builder.Services.AddSingleton<IEndpointStore>(sp => sp.GetRequiredService<EndpointStore>());
 
         builder.Services.AddSingleton<RouteCatalog>();
         builder.Services.AddSingleton<AuxbrainSurface>();

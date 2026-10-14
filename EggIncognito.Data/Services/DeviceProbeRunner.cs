@@ -1,6 +1,5 @@
 using EggIncognito.Core.Services.Devices;
 using EggIncognito.Data.Models;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
 namespace EggIncognito.Data.Services;
@@ -16,9 +15,9 @@ public static class DeviceProbeRunner {
         if (string.IsNullOrEmpty(r.InstalledAppVersion)) return "error";
 
         if (Platforms.Matches(platform, Platforms.Ios)) {
-            return extractedLatestAppVersion is null
+            return string.IsNullOrEmpty(extractedLatestAppVersion)
                 ? "new_version"
-                : DeviceParsing.CompareVersions(r.InstalledAppVersion, extractedLatestAppVersion) > 0
+                : VersionCompare.Dotted(r.InstalledAppVersion, extractedLatestAppVersion) > 0
                     ? "new_version"
                     : "no_change";
         }
@@ -27,7 +26,7 @@ public static class DeviceProbeRunner {
             ? "new_version"
             : long.TryParse(r.InstalledBuild, out long inst) && long.TryParse(extractedLatestBuild, out long ext)
                 ? inst > ext ? "new_version" : "no_change"
-                : DeviceParsing.CompareVersions(r.InstalledAppVersion, extractedLatestAppVersion ?? "") > 0
+                : VersionCompare.Dotted(r.InstalledAppVersion, extractedLatestAppVersion) > 0
                     ? "new_version"
                     : "no_change";
     }
@@ -38,22 +37,10 @@ public static class DeviceProbeRunner {
         var result = await platforms.For(d.Platform)
             .ProbeAsync(new DeviceTarget(d.Id, d.Platform, d.Target, d.Package), ct);
 
-        var extracted = await db.ProtoVersions.AsNoTracking()
-            .Where(p => p.Platform == d.Platform && p.DeletedAt == null)
-            .Select(p => new { p.Build, p.AppVersion })
-            .ToListAsync(ct);
-        string? latestBuild = Platforms.Matches(d.Platform, Platforms.Android)
-            ? extracted.Select(e => e.Build).Where(b => long.TryParse(b, out _)).OrderByDescending(long.Parse)
-                .FirstOrDefault()
-            : null;
-        string? latestAppVersion = extracted.Select(e => e.AppVersion)
-            .OrderByDescending(v => v, Comparer<string>.Create((x, y) => DeviceParsing.CompareVersions(x, y)))
-            .FirstOrDefault();
-        string? latestAvailable = await db.KnownVersions.AsNoTracking()
-            .Where(k => k.Platform == d.Platform)
-            .OrderByDescending(k => k.FirstSeen).Select(k => k.AppVersion).FirstOrDefaultAsync(ct);
+        var extracted = await LatestVersions.ExtractedAsync(db, d.Platform, ct);
+        string? latestAvailable = await LatestVersions.StoreAsync(db, d.Platform, ct);
 
-        string resultCode = Classify(d, result, latestBuild, latestAppVersion);
+        string resultCode = Classify(d, result, extracted.Build, extracted.AppVersion);
 
         long id = await jobs.RecordAsync(
             d.Id, DeviceJobKinds.Probe, triggeredBy, resultCode, result.Note,

@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using EggIncognito.Core;
 using EggIncognito.Core.Services;
 
 namespace EggIncognito.Services.DataApi;
@@ -12,25 +13,18 @@ public sealed class ConfigSliceCache {
     private static readonly JsonSerializerOptions IndentedJson = JsonPresets.Indented;
 
     private readonly Lock _lock = new();
-    private string? _cachedPath;
-    private DateTime _cachedStamp;
+    private string? _cachedHash;
     private Dictionary<string, byte[]>? _cachedSlices;
 
-    public DataPayload? Slice(IServiceProvider services, string route, string field) {
-        string path = DataCatalog.FixturePath(services, route);
-        lock (_lock) {
-            if (!File.Exists(path)) {
-                _cachedPath = null;
-                _cachedSlices = null;
-                return null;
-            }
+    public async Task<DataPayload?> SliceAsync(EndpointStore store, string route, string field, CancellationToken ct) {
+        string? text = await store.CurrentJsonAsync(route, ct);
+        if (text is null) return null;
 
-            var stamp = File.GetLastWriteTimeUtc(path);
-            if (_cachedSlices is null || !string.Equals(_cachedPath, path, StringComparison.Ordinal) ||
-                _cachedStamp != stamp) {
-                _cachedSlices = Build(path, route);
-                _cachedPath = path;
-                _cachedStamp = stamp;
+        string hash = Hashes.Sha256Hex(text);
+        lock (_lock) {
+            if (_cachedSlices is null || !string.Equals(_cachedHash, hash, StringComparison.Ordinal)) {
+                _cachedSlices = Build(text, route);
+                _cachedHash = hash;
             }
 
             return _cachedSlices is not null && _cachedSlices.TryGetValue(field, out byte[]? bytes)
@@ -39,10 +33,10 @@ public sealed class ConfigSliceCache {
         }
     }
 
-    private static Dictionary<string, byte[]>? Build(string path, string route) {
+    private static Dictionary<string, byte[]>? Build(string text, string route) {
         JsonNode? root;
         try {
-            root = JsonNode.Parse(File.ReadAllText(path));
+            root = JsonNode.Parse(text);
         } catch {
             return null;
         }

@@ -1,4 +1,3 @@
-using System.Globalization;
 using EggIncognito.Core.Services.Devices;
 
 namespace EggIncognito.Core.Services.ProtoExtract;
@@ -8,7 +7,8 @@ public sealed record VersionKey(
     int? SortOrder, DateTime? DetectedAt, long? ReleaseId = null, string? ProtoSha = null);
 
 public static class ProtoVersionOrdering {
-    private static readonly IComparer<VersionKey> KeyComparer = Comparer<VersionKey>.Create(Compare);
+    public static readonly IComparer<VersionKey> Comparer = Comparer<VersionKey>.Create(Compare);
+    private static IComparer<VersionKey> KeyComparer => Comparer;
     private static readonly IComparer<VersionKey> ReleaseComparer = Comparer<VersionKey>.Create(CompareReleaseThenPlatform);
 
     public static int Compare(VersionKey x, VersionKey y) {
@@ -31,7 +31,7 @@ public static class ProtoVersionOrdering {
         if (cmp != 0) return cmp;
 
         cmp = string.CompareOrdinal(y.Build, x.Build);
-        return cmp != 0 ? cmp : string.CompareOrdinal(x.Platform, y.Platform);
+        return cmp != 0 ? cmp : string.Compare(x.Platform, y.Platform, StringComparison.OrdinalIgnoreCase);
     }
 
     public static int CompareRelease(VersionKey x, VersionKey y) {
@@ -140,33 +140,16 @@ public static class ProtoVersionOrdering {
         string.Equals(x.Platform, y.Platform, StringComparison.OrdinalIgnoreCase) &&
         string.Equals(x.Build, y.Build, StringComparison.OrdinalIgnoreCase);
 
-    private static int CompareDotted(string? x, string? y) {
-        long kx = ProtoVersionQuality.DottedVersionKey(x);
-        long ky = ProtoVersionQuality.DottedVersionKey(y);
-        return kx == long.MinValue || ky == long.MinValue ? 0 : ky.CompareTo(kx);
+    private static int CompareDotted(string? x, string? y) =>
+        string.IsNullOrWhiteSpace(x) || string.IsNullOrWhiteSpace(y) ? 0 : VersionCompare.Dotted(y, x);
+
+    private static int CompareDescending<TValue>(TValue? x, TValue? y) where TValue : struct, IComparable<TValue> {
+        if (x is null && y is null) return 0;
+        if (x is null) return 1;
+        if (y is null) return -1;
+        return y.Value.CompareTo(x.Value);
     }
 
-    private static int CompareDescending<TValue>(TValue? x, TValue? y) where TValue : struct, IComparable<TValue> =>
-        x is { } left && y is { } right ? right.CompareTo(left) : 0;
-
-    private static int CompareBuild(string? x, string? y) {
-        if (string.IsNullOrWhiteSpace(x) || string.IsNullOrWhiteSpace(y)) return 0;
-        if (TryParseCode(x, out long cx) && TryParseCode(y, out long cy)) return cy.CompareTo(cx);
-        if (DottedBuildKey(x) is { } dx && DottedBuildKey(y) is { } dy) return dy.CompareTo(dx);
-        return 0;
-    }
-
-    private static bool TryParseCode(string value, out long code) =>
-        long.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out code);
-
-    private static long? DottedBuildKey(string value) {
-        string[] parts = value.Split('.');
-        if (parts.Length < 2) return null;
-
-        foreach (string part in parts) {
-            if (!TryParseCode(part, out long component) || component < 0) return null;
-        }
-
-        return ProtoVersionQuality.DottedVersionKey(value);
-    }
+    private static int CompareBuild(string? x, string? y) =>
+        string.IsNullOrWhiteSpace(x) || string.IsNullOrWhiteSpace(y) ? 0 : VersionCompare.Build(y, x);
 }

@@ -4,6 +4,7 @@ namespace EggIncognito.Core.Services;
 
 public sealed class FileEndpointSource : IEndpointSource {
     private readonly Dictionary<string, byte[]> _endpoints = [with(StringComparer.OrdinalIgnoreCase)];
+    private readonly Dictionary<string, DateTimeOffset> _stamps = [with(StringComparer.OrdinalIgnoreCase)];
 
     public FileEndpointSource(string endpointsPath, ILogger<FileEndpointSource>? logger = null) {
         if (!Directory.Exists(endpointsPath)) return;
@@ -13,6 +14,7 @@ public sealed class FileEndpointSource : IEndpointSource {
             string relative = Path.GetRelativePath(endpointsPath, file).Replace('\\', '/').Replace(".json", "");
             try {
                 _endpoints[relative] = File.ReadAllBytes(file);
+                _stamps[relative] = File.GetLastWriteTimeUtc(file);
             } catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) {
                 logger?.LogEndpointFileUnreadable(ex, file);
             }
@@ -22,13 +24,20 @@ public sealed class FileEndpointSource : IEndpointSource {
     public int Count => _endpoints.Count;
     public int Priority => 0;
 
-    public byte[]? Lookup(string path, string? eid) {
+    public byte[]? Lookup(string path, string? eid) => TryLookupWithStamp(path, eid).Bytes;
+
+    public (byte[]? Bytes, DateTimeOffset? Stamp) TryLookupWithStamp(string path, string? eid) {
         string cleanPath = path.TrimEnd('/');
         while (true) {
-            if (eid is not null && _endpoints.TryGetValue($"eids/{eid}/{cleanPath}", out byte[]? eidBytes))
-                return eidBytes;
-            if (_endpoints.TryGetValue($"default/{cleanPath}", out byte[]? defaultBytes))
-                return defaultBytes;
+            if (eid is not null && _endpoints.TryGetValue($"eids/{eid}/{cleanPath}", out byte[]? eidBytes)) {
+                _stamps.TryGetValue($"eids/{eid}/{cleanPath}", out var eidStamp);
+                return (eidBytes, eidStamp);
+            }
+
+            if (_endpoints.TryGetValue($"default/{cleanPath}", out byte[]? defaultBytes)) {
+                _stamps.TryGetValue($"default/{cleanPath}", out var defaultStamp);
+                return (defaultBytes, defaultStamp);
+            }
 
             int lastSlash = cleanPath.LastIndexOf('/');
             int firstSlash = cleanPath.IndexOf('/');
@@ -36,7 +45,7 @@ public sealed class FileEndpointSource : IEndpointSource {
             cleanPath = cleanPath[..lastSlash];
         }
 
-        return null;
+        return (null, null);
     }
 }
 

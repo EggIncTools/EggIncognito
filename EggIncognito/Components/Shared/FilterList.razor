@@ -11,13 +11,13 @@
             </label>
             <label class="fl-plat-item">
                 <input type="radio" class="fl-sr" name="@_radioGroup"
-                       checked="@(Query.Platform == "ios")" @onchange="@(() => SetPlatform("ios"))"/>
+                       checked="@(EggIncognito.Core.Services.Devices.Platforms.Matches(Query.Platform, EggIncognito.Core.Services.Devices.Platforms.Ios))" @onchange="@(() => SetPlatform("ios"))"/>
                 <PlatformIcon Platform="ios"/>
                 <span class="fl-sr">ios</span>
             </label>
             <label class="fl-plat-item">
                 <input type="radio" class="fl-sr" name="@_radioGroup"
-                       checked="@(Query.Platform == "android")" @onchange="@(() => SetPlatform("android"))"/>
+                       checked="@(EggIncognito.Core.Services.Devices.Platforms.Matches(Query.Platform, EggIncognito.Core.Services.Devices.Platforms.Android))" @onchange="@(() => SetPlatform("android"))"/>
                 <PlatformIcon Platform="android"/>
                 <span class="fl-sr">android</span>
             </label>

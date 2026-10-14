@@ -480,7 +480,7 @@ public sealed partial class DevicesController(
         var shot = await platform.ScreenshotAsync(target, ct);
         if (!shot.Ok || shot.Value is not { Length: > 0 } png) return UiFailure(shot.Outcome, shot.Note);
 
-        Response.Headers.CacheControl = "no-store";
+        NoStore();
         return File(png, "image/png");
     }
 
@@ -495,7 +495,7 @@ public sealed partial class DevicesController(
         var size = await platform.ScreenSizeAsync(target, ct);
         if (!size.Ok) return UiFailure(size.Outcome, size.Note);
 
-        Response.Headers.CacheControl = "no-store";
+        NoStore();
         return Ok(new UiScreenInfo(size.Value.Width, size.Value.Height));
     }
 
@@ -510,7 +510,7 @@ public sealed partial class DevicesController(
         var state = await platform.ScreenStateAsync(target, ct);
         if (!state.Ok) return UiFailure(state.Outcome, state.Note);
 
-        Response.Headers.CacheControl = "no-store";
+        NoStore();
         return Ok(new UiStateInfo(state.Value.Awake, state.Value.Locked, state.Value.NavMode));
     }
 
@@ -571,7 +571,7 @@ public sealed partial class DevicesController(
         TimeSpan gap, int quality, CancellationToken ct) {
         Response.StatusCode = StatusCodes.Status200OK;
         Response.ContentType = $"multipart/x-mixed-replace; boundary={StreamBoundary}";
-        Response.Headers.CacheControl = "no-store";
+        NoStore();
         Response.Headers.Pragma = "no-cache";
         Response.Headers["X-Accel-Buffering"] = "no";
         HttpContext.Features.Get<IHttpResponseBodyFeature>()?.DisableBuffering();
@@ -633,7 +633,7 @@ public sealed partial class DevicesController(
                 await using var hold = await DeviceStreamHold.AcquireAsync(services, target, live);
                 Response.StatusCode = StatusCodes.Status200OK;
                 Response.ContentType = "application/octet-stream";
-                Response.Headers.CacheControl = "no-store";
+                NoStore();
                 Response.Headers.Pragma = "no-cache";
                 Response.Headers["X-Accel-Buffering"] = "no";
                 HttpContext.Features.Get<IHttpResponseBodyFeature>()?.DisableBuffering();

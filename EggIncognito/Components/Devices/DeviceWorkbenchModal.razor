@@ -55,7 +55,7 @@
                         </button>
                         <button type="button" class="btn-mini" disabled="@Busy" @onclick="@(() => Act($"/api/devices/{Current!.Id}/check-update", "store check started"))">Check store</button>
                         <button type="button" class="btn-mini" disabled="@Busy" @onclick="RestartApp">Restart app</button>
-                        @if (dev.Platform == "android") {
+                        @if (Platforms.Matches(dev.Platform, Platforms.Android)) {
                             <button type="button" class="btn-mini" disabled="@Busy" @onclick="Recert">Recert</button>
                         }
 
@@ -199,7 +199,7 @@
                                         <td>
                                             <VersionLine App="@b.Version"/>
                                         </td>
-                                        <td class="mono">@(b.Sha256.Length >= 12 ? b.Sha256[..12] : b.Sha256)</td>
+                                        <td class="mono">@EggIncognito.Core.Hashes.Short(b.Sha256)</td>
                                         <td class="mono">@ByteFormat.Mb(b.ByteSize, "F1")</td>
                                         <td class="mono">@(b.EffectiveSymbols > 0 ? b.EffectiveSymbols : b.NativeSymbols)</td>
                                         <td>@b.Source</td>
@@ -374,7 +374,7 @@
 
     IEnumerable<DeviceRow> Ordered() {
         return _devices
-            .OrderBy(d => d.Platform == "ios" ? 0 : d.Platform == "android" ? 1 : 2)
+            .OrderBy(d => Platforms.Matches(d.Platform, Platforms.Ios) ? 0 : Platforms.Matches(d.Platform, Platforms.Android) ? 1 : 2)
             .ThenBy(d => d.Label, StringComparer.OrdinalIgnoreCase);
     }
 
@@ -601,7 +601,7 @@
         if (Current is null) return;
         var res = await Client().PostAsync(url, null);
         var good = res.IsSuccessStatusCode || res.StatusCode == HttpStatusCode.Accepted;
-        Note(good ? ok : await ReadError(res), good);
+        Note(good ? ok : await ApiErrors.ReadAsync(res), good);
         await LoadAsync();
         await LoadForDeviceAsync();
         if (OnChanged.HasDelegate) await OnChanged.InvokeAsync();
@@ -614,7 +614,7 @@
             var res = await Client().PostAsJsonAsync("/api/contributions/offer",
                 new ContributionOfferRequest(dev.Id, flow.Id), SelfCallJson.Web);
             if (!res.IsSuccessStatusCode) {
-                Note(await ReadError(res), false);
+                Note(await ApiErrors.ReadAsync(res), false);
                 return;
             }
 
@@ -699,7 +699,7 @@
             foreach (long id in batch) _offered.Remove(id);
             foreach (long id in _autoQueue) _offered.Remove(id);
             _autoQueue.Clear();
-            Note($"automatic offering is off: {await ReadError(res)}", false);
+            Note($"automatic offering is off: {await ApiErrors.ReadAsync(res)}", false);
             return false;
         }
 
@@ -714,7 +714,7 @@
         var before = (await LiveProbeFor(id))?.LastSeen;
         var res = await Client().PostAsync($"/api/devices/{id}/restart-app", null);
         if (!res.IsSuccessStatusCode) {
-            Note(await ReadError(res), false);
+            Note(await ApiErrors.ReadAsync(res), false);
             return;
         }
 
@@ -739,7 +739,7 @@
         _recert = null;
         var res = await Client().PostAsync($"/api/devices/{id}/recert", null);
         if (!res.IsSuccessStatusCode) {
-            Note(await ReadError(res), false);
+            Note(await ApiErrors.ReadAsync(res), false);
             return;
         }
 
@@ -842,17 +842,6 @@
         } catch (Exception ex) when (ex is JsonException or HttpRequestException or NotSupportedException) {
             return default;
         }
-    }
-
-    static async Task<string> ReadError(HttpResponseMessage resp) {
-        try {
-            var body = await resp.Content.ReadFromJsonAsync<JsonElement>();
-            if (body.ValueKind == JsonValueKind.Object && body.TryGetProperty("error", out var e))
-                return e.GetString() ?? $"failed ({(int)resp.StatusCode})";
-        } catch {
-        }
-
-        return $"failed ({(int)resp.StatusCode})";
     }
 
     public void Dispose() {

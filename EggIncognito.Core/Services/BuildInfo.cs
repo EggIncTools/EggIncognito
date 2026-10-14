@@ -11,7 +11,7 @@ public sealed record BuildInfo(string Version, string Sha, string ShortSha, stri
         int plus = informationalVersion.IndexOf('+');
         string version = plus >= 0 ? informationalVersion[..plus] : informationalVersion;
         string sha = plus >= 0 ? informationalVersion[(plus + 1)..] : "unknown";
-        string shortSha = sha == "unknown" ? "unknown" : sha[..Math.Min(7, sha.Length)];
+        string shortSha = sha == "unknown" ? "unknown" : Hashes.Short(sha, 7);
         return new BuildInfo(version, sha, shortSha, buildDate ?? "unknown", repoUrl);
     }
 

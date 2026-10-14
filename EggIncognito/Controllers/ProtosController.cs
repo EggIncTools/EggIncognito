@@ -91,10 +91,14 @@ public sealed class ProtosController : ApiControllerBase {
         if (store is not { } s) return Fail(404, "no database configured");
         var rows = await s.ListAsync(platform, ct);
 
-        var r = rows
-            .OrderByDescending(p => ProtoVersionQuality.LatestSortKey(p.Platform, p.Build, p.AppVersion))
-            .ThenByDescending(p => p.CreatedAt)
-            .FirstOrDefault();
+        var r = ProtoVersionOrdering.LatestFor(platform, rows, p => new VersionKey(
+            Platform: p.Platform,
+            AppVersion: p.AppVersion,
+            Build: p.Build,
+            ClientVersion: p.ClientVersion,
+            SortOrder: null,
+            DetectedAt: p.DetectedAt.UtcDateTime,
+            ProtoSha: p.ProtoSha));
         return r is null
             ? Fail(404, "no versions for this platform")
             : Ok(new { r.Platform, r.AppVersion, r.Build, r.ClientVersion, r.Source, r.ProtoSha, r.DetectedAt });
@@ -122,31 +126,29 @@ public sealed class ProtosController : ApiControllerBase {
 
         bool attach = Truthy(download);
 
+        var bundle = ProtoDiffService.Build(fromText, toText, unifiedOptions: new UnifiedDiffOptions(
+            Math.Clamp(context, 0, 50),
+            LabelA: $"{platform} {from}",
+            LabelB: $"{platform} {to}"));
+        if (bundle.TooLarge) return Fail(413, "diff too large");
+
         if (IsFormat(fmt, FormatText)) {
             if (attach) Attach(from, to, "txt");
-            return Content(ProtoDiff.Diff(fromText, toText), "text/plain");
+            return Content(bundle.Unified, "text/plain");
         }
 
         if (IsFormat(fmt, FormatUnified)) {
-            string patch = UnifiedDiffWriter.Write(fromText, toText, new UnifiedDiffOptions(
-                Math.Clamp(context, 0, 50),
-                LabelA: $"{platform} {from}",
-                LabelB: $"{platform} {to}"));
             if (attach) Attach(from, to, "diff");
-            return Content(patch, "text/plain");
+            return Content(bundle.Unified, "text/plain");
         }
 
         if (IsFormat(fmt, FormatSplit)) {
-            var split = SideBySideDiffBuilder.Build(fromText, toText);
             if (attach) Attach(from, to, "json");
-            return Ok(new { rows = split.Rows, hunkStarts = split.HunkStarts });
+            return Ok(new { rows = bundle.Split.Rows, hunkStarts = bundle.Split.HunkStarts });
         }
 
-        var structural = ProtoDiff.Compute(fromText, toText);
-        var lineOps = MyersDiff.Compute(
-            UnifiedDiffWriter.SplitLines(fromText), UnifiedDiffWriter.SplitLines(toText));
         if (attach) Attach(from, to, "json");
-        return Ok(new { entries = structural.Entries, summary = ProtoDiffSummary.From(structural, lineOps) });
+        return Ok(new { entries = bundle.Structural.Entries, summary = ProtoDiffSummary.From(bundle.Structural, bundle.Ops) });
     }
 
     private void Attach(string from, string to, string extension) =>

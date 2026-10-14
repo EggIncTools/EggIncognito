@@ -150,7 +150,7 @@ public sealed partial class EndpointCatalogExtractor {
         string? prevStr = null;
         ulong prevVa = 0;
         foreach (var r in scan.Addresses) {
-            if (!IsStringSection(r.Section)) continue;
+            if (!BinaryStrings.IsStringSection(r.Section)) continue;
             string str = BinaryStrings.ReadCstr(bin, img, r.Va, 128);
             if (string.IsNullOrEmpty(str) || !IsPrintable(str)) continue;
 
@@ -167,9 +167,6 @@ public sealed partial class EndpointCatalogExtractor {
 
         return null;
     }
-
-    private static bool IsStringSection(string name) =>
-        name is "__cstring" or ".rodata" or ".data.rel.ro" or "__const";
 
     private static bool IsPrintable(string s) {
         if (s.Length < 2) return false;

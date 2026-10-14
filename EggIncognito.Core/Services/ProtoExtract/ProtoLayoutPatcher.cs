@@ -11,8 +11,8 @@ public static partial class ProtoLayoutPatcher {
 
     private sealed class Layout {
         public required List<string> Lines { get; init; }
-        public Dictionary<string, Block> Blocks { get; } = new(StringComparer.Ordinal);
-        public Dictionary<string, Dictionary<int, int>> Members { get; } = new(StringComparer.Ordinal);
+        public Dictionary<string, Block> Blocks { get; } = [];
+        public Dictionary<string, Dictionary<int, int>> Members { get; } = [];
     }
 
     [GeneratedRegex(@"^(message|enum|oneof)\s+(\w+)\s*\{")]
@@ -20,9 +20,6 @@ public static partial class ProtoLayoutPatcher {
 
     [GeneratedRegex(@"=\s*(-?\d+)\s*[;\[]")]
     private static partial Regex NumberRe();
-
-    [GeneratedRegex(@"\b(ei|aux)\.")]
-    private static partial Regex NamespaceRe();
 
     [GeneratedRegex(@"\s+")]
     private static partial Regex SpaceRe();
@@ -80,7 +77,7 @@ public static partial class ProtoLayoutPatcher {
     }
 
     private static Layout Scan(string text) {
-        var layout = new Layout { Lines = Lines(text) };
+        var layout = new Layout { Lines = [.. UnifiedDiffWriter.SplitLines(text)] };
         var stack = new List<(string Kind, string Key, int Start)>();
         for (int i = 0; i < layout.Lines.Count; i++) {
             string t = layout.Lines[i].Trim();
@@ -107,7 +104,8 @@ public static partial class ProtoLayoutPatcher {
             }
 
             if (owner.Length == 0 || t.StartsWith("//", StringComparison.Ordinal)
-                                  || t.StartsWith("option", StringComparison.Ordinal)
+                                  || (t.StartsWith("option", StringComparison.Ordinal)
+                                      && !t.StartsWith("optional", StringComparison.Ordinal))
                                   || t.StartsWith("reserved", StringComparison.Ordinal)) continue;
             var number = NumberRe().Match(t);
             if (number.Success)
@@ -127,7 +125,13 @@ public static partial class ProtoLayoutPatcher {
 
     private static string Join(string scope, string name) => scope.Length == 0 ? name : scope + "." + name;
 
-    private static string Norm(string line) => SpaceRe().Replace(NamespaceRe().Replace(line.Trim(), ""), " ");
+    private static string Norm(string line) => SpaceRe().Replace(StripQualifiers(line.Trim()), " ");
+
+    [GeneratedRegex(@"\.?\b(?:ei|aux)\.[\w.]+")]
+    private static partial Regex QualifiedRe();
+
+    private static string StripQualifiers(string line) =>
+        QualifiedRe().Replace(line, m => ProtoNames.StripQualifier(m.Value));
 
     private static string Indent(string line) => line[..(line.Length - line.TrimStart().Length)];
 
@@ -139,12 +143,6 @@ public static partial class ProtoLayoutPatcher {
     private static string Signature(Layout layout) =>
         string.Join("\n", layout.Members.OrderBy(kv => kv.Key, StringComparer.Ordinal).Select(kv =>
             kv.Key + ":" + string.Join("|", kv.Value.OrderBy(m => m.Key).Select(m => Norm(layout.Lines[m.Value])))));
-
-    private static List<string> Lines(string text) {
-        var lines = text.Replace("\r\n", "\n").Split('\n').ToList();
-        if (lines.Count > 0 && lines[^1].Length == 0) lines.RemoveAt(lines.Count - 1);
-        return lines;
-    }
 
     private static string Render(List<string> lines, Dictionary<int, string?> replace,
         Dictionary<int, List<string>> insert, bool trailingNewline) {

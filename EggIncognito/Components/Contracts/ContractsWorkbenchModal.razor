@@ -58,7 +58,7 @@
                 }
                 <span class="evcal-pop-tag">@(c.CoopAllowed ? FormattableString.Invariant($"coop {c.MaxCoopSize}") : "solo")</span>
                 @if (c.SeasonId is { Length: > 0 } season) {
-                    <span class="evcal-pop-tag">@Pretty(season)</span>
+                    <span class="evcal-pop-tag">@EggIcons.Pretty(season)</span>
                 }
             </div>
         } else if (context.Slot is { } s) {
@@ -79,8 +79,6 @@
 @code {
     const int FetchLimit = 500;
     const int PredictionHorizonSlots = 12;
-
-    static readonly JsonSerializerOptions JsonOpts = new(JsonSerializerDefaults.Web);
 
     readonly Dictionary<string, ContractReleaseDto> _contracts = new(StringComparer.Ordinal);
 
@@ -153,7 +151,7 @@
             var res = await Client().GetAsync(url);
             if ((int)res.StatusCode == 503) return CalendarLoad.Failed("Contract history needs a database. This instance has none.");
             if (!res.IsSuccessStatusCode) return CalendarLoad.Failed("Contracts could not be loaded.");
-            var body = await res.Content.ReadFromJsonAsync<ContractReleaseListResponse>(JsonOpts);
+            var body = await res.Content.ReadFromJsonAsync<ContractReleaseListResponse>(JsonPresets.Web);
             if (body?.Releases is null) return CalendarLoad.Failed("Contracts could not be loaded.");
             foreach (var c in body.Releases) _contracts[ContractCalendarItem.Of(c).Key] = c;
             if (body.Total <= body.Releases.Count) {
@@ -179,7 +177,7 @@
             var res = await Client().GetAsync(
                 FormattableString.Invariant($"/api/v1/contracts/predictions?horizon={PredictionHorizonSlots}"));
             if (!res.IsSuccessStatusCode) return;
-            _predictions = await res.Content.ReadFromJsonAsync<ContractPredictionResponse>(JsonOpts);
+            _predictions = await res.Content.ReadFromJsonAsync<ContractPredictionResponse>(JsonPresets.Web);
         } catch (Exception ex) {
             Logger.LogDebug(ex, "contract predictions could not be loaded");
         }
@@ -231,11 +229,6 @@
 
     static string CandidateLabel(ContractCandidate c) {
         return FormattableString.Invariant($"{c.Name} x{c.Releases}");
-    }
-
-    static string Pretty(string raw) {
-        var words = raw.Replace('-', ' ').Replace('_', ' ').Split(' ', StringSplitOptions.RemoveEmptyEntries);
-        return string.Join(' ', words.Select(w => char.ToUpperInvariant(w[0]) + w[1..].ToLowerInvariant()));
     }
 
 }

@@ -196,18 +196,21 @@ public sealed class ProtoRegistryStore(EggIncognitoDbContext db, TimeProvider ti
     }
 
     private async Task<ProtoVersion?> PreviousBestAsync(string platform, string build, CancellationToken ct) {
-        var candidates = await db.ProtoVersions.AsNoTracking()
-            .Where(p => p.Platform == platform && p.Build != build && p.DeletedAt == null)
+        var rows = await db.ProtoVersions.AsNoTracking()
+            .Where(p => EF.Functions.ILike(p.Platform, platform) && p.DeletedAt == null)
             .Where(p => p.Build != null && p.Build != "" && p.AppVersion != null && p.AppVersion != "")
             .ToListAsync(ct);
 
-        return candidates
-            .Select(p => (Row: p, Key: ProtoVersionQuality.LatestSortKey(p.Platform, p.Build, p.AppVersion)))
-            .Where(x => x.Key != long.MinValue)
-            .OrderByDescending(x => x.Key)
-            .Select(x => x.Row)
-            .FirstOrDefault();
+        var currentRow = rows.FirstOrDefault(p => p.Build == build);
+        if (currentRow is not null)
+            return ProtoVersionOrdering.Previous(currentRow, rows, KeyOf);
+
+        var others = rows.Where(p => p.Build != build).ToList();
+        return ProtoVersionOrdering.LatestFor(platform, others, KeyOf);
     }
+
+    private static VersionKey KeyOf(ProtoVersion p) =>
+        new(p.Platform, p.AppVersion, p.Build, p.ClientVersion, null, p.DetectedAt.UtcDateTime, p.Id, p.ProtoSha);
 
     public async Task<Dictionary<string, int>> SourceCountsAsync(CancellationToken ct = default) =>
         await db.ProtoVersions.GroupBy(p => p.Source)
@@ -215,7 +218,7 @@ public sealed class ProtoRegistryStore(EggIncognitoDbContext db, TimeProvider ti
 
     public Task<List<ProtoVersion>> ListAsync(string? platform, CancellationToken ct = default) =>
         db.ProtoVersions.AsNoTracking()
-            .Where(p => platform == null || p.Platform == platform)
+            .Where(p => platform == null || EF.Functions.ILike(p.Platform, platform))
             .Where(p => p.Build != null && p.Build != "" && p.AppVersion != null && p.AppVersion != "")
             .Where(p => p.DeletedAt == null)
             .OrderByDescending(p => p.CreatedAt).ToListAsync(ct);

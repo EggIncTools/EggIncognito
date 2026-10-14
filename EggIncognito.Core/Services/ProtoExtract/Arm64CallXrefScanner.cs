@@ -85,7 +85,7 @@ public static class Arm64CallXrefScanner {
         if (img is ElfImage elf) {
             foreach (ulong slotVa in elf.RelocSlotsTargeting(funcVa)) {
                 total++;
-                if (sites.Count < max) sites.Add(new CallSite(slotVa, "reloc-ptr", "", 0, SectionNameOf(img, slotVa)));
+                if (sites.Count < max) sites.Add(new CallSite(slotVa, "reloc-ptr", "", 0, img.SectionAt(slotVa)?.Name ?? ""));
             }
         }
 
@@ -97,14 +97,6 @@ public static class Arm64CallXrefScanner {
         long imm = word & 0x03FFFFFF;
         if ((imm & 0x02000000) != 0) imm -= 0x04000000;
         return (ulong)((long)va + imm * 4);
-    }
-
-    private static string SectionNameOf(IBinaryImage img, ulong va) {
-        foreach (var s in img.Sections) {
-            if (s.VmSize != 0 && va >= s.VmAddr && va < s.VmAddr + s.VmSize) return s.Name;
-        }
-
-        return "";
     }
 
     private static bool TryReadPtr(IBinaryImage img, byte[] bin, ulong slotVa, out ulong ptr) {

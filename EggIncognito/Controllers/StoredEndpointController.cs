@@ -19,27 +19,11 @@ public sealed class StoredEndpointController(ICurrentUser currentUser, TimeProvi
     [ApiAccess(ApiAccessLevel.Contributor)]
     [RequiresDb]
     public async Task<IActionResult> UpsertEndpointAsync([FromBody] UpsertEndpoint body,
-        [FromServices] IRouteCatalog routes, [FromServices] EggIncognitoDbContext db) {
+        [FromServices] IRouteCatalog routes, [FromServices] DbEndpointSource store) {
         if (routes.Resolve(body.Path) is null) return Fail(400, $"unknown route {body.Path}");
 
-        var existing = await db.StoredEndpoints
-            .FirstOrDefaultAsync(e => e.Path == body.Path && e.Eid == body.Eid);
-        if (existing is null) {
-            db.StoredEndpoints.Add(new StoredEndpoint {
-                Path = body.Path,
-                Eid = body.Eid,
-                ResponseJson = body.ResponseJson,
-                ResponseType = body.ResponseType,
-                OwnerUserId = currentUser.Current.Id
-            });
-        } else {
-            existing.ResponseJson = body.ResponseJson;
-            existing.ResponseType = body.ResponseType;
-
-            existing.UpdatedAt = time.GetUtcNow();
-        }
-
-        await db.SaveChangesAsync();
+        await store.UpsertAsync(body.Path, body.Eid, body.ResponseJson, body.ResponseType,
+            currentUser.Current.Id, time.GetUtcNow());
         return Ok(new { saved = body.Path, eid = body.Eid });
     }
 

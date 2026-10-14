@@ -47,7 +47,7 @@ public sealed class AndroidStoreUpdateDriver(
         bool storeAhead = false;
         if (latest is not null) {
             await knownVersions.RecordAsync(Platforms.Android, latest, "play-scrape", ct);
-            storeAhead = DeviceParsing.CompareVersions(latest, installed) > 0;
+            storeAhead = StoreAheadCheck.IsAhead(latest, installed);
             await progress.ReportAsync(storeAhead
                 ? $"Play lists {latest} (installed {installed}); opening the Play page…"
                 : $"Play lists {latest}; version name matches, asking the device…");

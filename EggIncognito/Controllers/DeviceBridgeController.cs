@@ -2,6 +2,7 @@ using System.Net.Sockets;
 using System.Text;
 using System.Text.Json;
 using EggIncognito.Capture;
+using EggIncognito.Core.Services;
 using EggIncognito.Core.Services.Devices;
 using EggIncognito.Models.Devices;
 using EggIncognito.Services.Auth;
@@ -22,7 +23,6 @@ public sealed class DeviceBridgeController(
     IProcessRunner runner) : ApiControllerBase {
     private const int StreamChunk = 64 * 1024;
     private static readonly TimeSpan ReachTimeout = TimeSpan.FromSeconds(3);
-    private static readonly JsonSerializerOptions SpecJson = new(JsonSerializerDefaults.Web);
 
     [HttpPost(BridgeRoutes.Exec)]
     [DisableRateLimiting]
@@ -85,7 +85,7 @@ public sealed class DeviceBridgeController(
     private async Task PumpAsync(ProcessHandle handle, CancellationToken ct) {
         Response.StatusCode = StatusCodes.Status200OK;
         Response.ContentType = "application/octet-stream";
-        Response.Headers.CacheControl = "no-store";
+        NoStore();
         Response.Headers["X-Accel-Buffering"] = "no";
         HttpContext.Features.Get<IHttpResponseBodyFeature>()?.DisableBuffering();
 
@@ -230,7 +230,7 @@ public sealed class DeviceBridgeController(
         Note("capture", deviceId);
         Response.StatusCode = StatusCodes.Status200OK;
         Response.ContentType = "application/x-ndjson";
-        Response.Headers.CacheControl = "no-store";
+        NoStore();
         Response.Headers["X-Accel-Buffering"] = "no";
         HttpContext.Features.Get<IHttpResponseBodyFeature>()?.DisableBuffering();
 
@@ -250,7 +250,7 @@ public sealed class DeviceBridgeController(
     }
 
     private async Task WriteEnvelopeAsync(CaptureEnvelope env, CancellationToken ct) {
-        await Response.WriteAsync(JsonSerializer.Serialize(env, SpecJson) + "\n", ct);
+        await Response.WriteAsync(JsonSerializer.Serialize(env, JsonPresets.Web) + "\n", ct);
         await Response.Body.FlushAsync(ct);
     }
 
@@ -279,7 +279,7 @@ public sealed class DeviceBridgeController(
 
         BridgeExecSpec? spec;
         try {
-            spec = JsonSerializer.Deserialize<BridgeExecSpec>(json, SpecJson);
+            spec = JsonSerializer.Deserialize<BridgeExecSpec>(json, JsonPresets.Web);
         } catch (JsonException ex) {
             return (Fail(400, $"malformed {BridgeExecParts.Spec}: {ex.Message}"), null);
         }

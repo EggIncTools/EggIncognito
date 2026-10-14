@@ -1,7 +1,7 @@
 using EggIncognito.Data.Services;
+using EggIncognito.Services.DataApi;
 using EggSharp.GameData;
 using EggSharp.GameData.Artifacts;
-using Microsoft.EntityFrameworkCore;
 
 namespace EggIncognito.Services.EggSharpSender;
 
@@ -24,8 +24,7 @@ public sealed class EggSharpDataSender(
     public async Task<DataPushOutcome> PushAsync(CancellationToken ct) {
         if (github is null) return new DataPushOutcome("disabled", null, [], "EGGSHARP_APP_* not configured");
 
-        var ours = await db.GameDataDocuments.AsNoTracking()
-            .ToDictionaryAsync(d => d.Id, d => d.Json, StringComparer.Ordinal, ct);
+        var ours = await GameDataStore.AllJsonAsync(db, ct);
 
         string mainSha = await github.MainShaAsync(ct);
         var candidate = new Dictionary<string, string>(StringComparer.Ordinal);
@@ -108,7 +107,7 @@ public sealed class EggSharpDataSender(
             .Distinct(StringComparer.Ordinal);
 
     private static string BinaryVersions(IEnumerable<string> ids, Dictionary<string, string> docs) {
-        var versions = ids.Select(id => System.Text.Json.Nodes.JsonNode.Parse(docs[id])?["binaryVersion"]?.GetValue<string>())
+        var versions = ids.Select(id => DocVersions.BinaryVersion(docs[id]))
             .OfType<string>().Distinct(StringComparer.Ordinal).ToList();
         return versions.Count == 0 ? "unknown" : string.Join(", ", versions);
     }

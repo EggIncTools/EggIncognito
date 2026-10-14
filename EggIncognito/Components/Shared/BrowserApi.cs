@@ -1,6 +1,7 @@
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
+using EggIncognito.Core.Services;
 
 namespace EggIncognito.Components.Shared;
 
@@ -12,14 +13,12 @@ public sealed record BrowserResponse(
     bool Binary,
     long ByteSize,
     string? FileName) {
-    private static readonly JsonSerializerOptions Options = new(JsonSerializerDefaults.Web);
-
     public static BrowserResponse Failed(string why) => new(0, false, "", why, false, 0, null);
 
     public T? Json<T>() {
         if (Binary || string.IsNullOrWhiteSpace(Body)) return default;
         try {
-            return JsonSerializer.Deserialize<T>(Body, Options);
+            return JsonSerializer.Deserialize<T>(Body, JsonPresets.Web);
         } catch (JsonException) {
             return default;
         }
@@ -37,8 +36,6 @@ public sealed record BrowserResponse(
 }
 
 public sealed class BrowserApi(Func<HttpClient> client) {
-    private static readonly JsonSerializerOptions Options = new(JsonSerializerDefaults.Web);
-
     public Task<BrowserResponse> GetAsync(string url) => SendAsync("GET", url);
 
     public Task<BrowserResponse> PostAsync(string url, TimeSpan? timeout = null) => SendAsync("POST", url, timeout: timeout);
@@ -46,9 +43,9 @@ public sealed class BrowserApi(Func<HttpClient> client) {
     public Task<BrowserResponse> DeleteAsync(string url) => SendAsync("DELETE", url);
 
     public Task<BrowserResponse> PostJsonAsync<T>(string url, T body, TimeSpan? timeout = null) =>
-        SendAsync("POST", url, JsonSerializer.Serialize(body, Options), timeout: timeout);
+        SendAsync("POST", url, JsonSerializer.Serialize(body, JsonPresets.Web), timeout: timeout);
 
-    public Task<BrowserResponse> PutJsonAsync<T>(string url, T body) => SendAsync("PUT", url, JsonSerializer.Serialize(body, Options));
+    public Task<BrowserResponse> PutJsonAsync<T>(string url, T body) => SendAsync("PUT", url, JsonSerializer.Serialize(body, JsonPresets.Web));
 
     public Task<BrowserResponse> SendAsync(string method, string url, string? body = null,
         string contentType = "application/json", TimeSpan? timeout = null) {

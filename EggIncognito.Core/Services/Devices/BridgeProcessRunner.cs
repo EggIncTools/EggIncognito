@@ -6,7 +6,6 @@ using System.Text.Json;
 namespace EggIncognito.Core.Services.Devices;
 
 public sealed class BridgeProcessRunner(IHttpClientFactory httpFactory, DeviceTransportConfig cfg) : IProcessRunner {
-    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
     public async Task<ProcessResult> RunAsync(string exe, string[] args, CancellationToken ct) {
         (var plan, var body, string? failure) = await SendAsync(exe, args, false, ct);
@@ -71,7 +70,7 @@ public sealed class BridgeProcessRunner(IHttpClientFactory httpFactory, DeviceTr
             if (!resp.IsSuccessStatusCode)
                 return (plan, null, $"bridge exec {(int)resp.StatusCode} {resp.ReasonPhrase}");
 
-            var body = await resp.Content.ReadFromJsonAsync<BridgeExecResult>(JsonOptions, ct);
+            var body = await resp.Content.ReadFromJsonAsync<BridgeExecResult>(JsonPresets.Web, ct);
             return body is null ? (plan, null, "bridge exec empty response") : (plan, body, null);
         } catch (Exception ex) when (ex is not OperationCanceledException) {
             return (plan, null, $"bridge exec error: {BridgeClient.Describe(ex)}");
@@ -105,7 +104,7 @@ public sealed class BridgeProcessRunner(IHttpClientFactory httpFactory, DeviceTr
 
     private static async Task<MultipartFormDataContent> ContentAsync(ExecPlan plan, CancellationToken ct) {
         var content = new MultipartFormDataContent();
-        string json = JsonSerializer.Serialize(plan.Spec, JsonOptions);
+        string json = JsonSerializer.Serialize(plan.Spec, JsonPresets.Web);
         content.Add(new StringContent(json, Encoding.UTF8, "application/json"), BridgeExecParts.Spec);
 
         foreach (var input in plan.Inputs) {

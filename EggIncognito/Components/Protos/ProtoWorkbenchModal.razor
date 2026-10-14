@@ -356,6 +356,8 @@
                 <div class="pwb-note">No stored proto text for @(HasTextFor(viewA) ? "B" : "A").</div>
             } else if (Identical()) {
                 <div class="pwb-note pwb-note-ok">A and B are the same proto (matching sha). Nothing to diff.</div>
+            } else if (_diffTooLarge) {
+                <div class="pwb-note pwb-note-warn">Diff too large to render</div>
             } else if (State.Cached is { } bundle) {
                 @if (_degraded) {
                     <div class="pwb-note pwb-note-warn">These files are too large to diff line by line, so the whole changed region is shown as one block.</div>
@@ -605,6 +607,7 @@
         State.Mode = ModeOrDefault(mode, b);
         State.Cached = null;
         State.CachedKey = null;
+        _diffTooLarge = false;
         _hunk = 0;
         Open();
         _ = ResolvePair();
@@ -1235,6 +1238,7 @@
     async Task AfterSelection() {
         State.Cached = null;
         State.CachedKey = null;
+        _diffTooLarge = false;
         _hunk = 0;
         await ResolvePair();
         await RaiseRefChanged();
@@ -1412,6 +1416,7 @@
         if (State.A is not { } a || State.B is not { } b) {
             State.Cached = null;
             State.CachedKey = null;
+            _diffTooLarge = false;
             AdoptBundle();
             return;
         }
@@ -1428,6 +1433,7 @@
         if (Identical()) {
             State.Cached = null;
             State.CachedKey = key;
+            _diffTooLarge = false;
             AdoptBundle();
             return;
         }
@@ -1435,6 +1441,7 @@
         if (TextOf(a) is not { Length: > 0 } cachedA || TextOf(b) is not { Length: > 0 } cachedB) {
             State.Cached = null;
             State.CachedKey = null;
+            _diffTooLarge = false;
             AdoptBundle();
             return;
         }
@@ -1454,9 +1461,10 @@
         var context = _context;
         var labelA = LabelOf(a);
         var labelB = LabelOf(b);
-        var bundle = await Task.Run(() => BuildBundle(textA, textB, context, labelA, labelB));
+        var (bundle, tooLarge) = await Task.Run(() => BuildBundle(textA, textB, context, labelA, labelB));
         await InvokeAsync(() => {
-            State.Cached = bundle;
+            _diffTooLarge = tooLarge;
+            State.Cached = tooLarge ? null : bundle;
             State.CachedKey = key;
             _hunk = 0;
             AdoptBundle();
@@ -1464,17 +1472,17 @@
         });
     }
 
-    static DiffBundle BuildBundle(string textA, string textB, int context, string labelA, string labelB) {
-        var aLines = UnifiedDiffWriter.SplitLines(textA);
-        var bLines = UnifiedDiffWriter.SplitLines(textB);
-        var ops = MyersDiff.Compute(aLines, bLines);
-        var structural = ProtoDiff.Compute(textA, textB);
-        return new DiffBundle(
-            ops,
-            SideBySideDiffBuilder.Build(aLines, bLines, ops),
-            UnifiedDiffWriter.Write(aLines, bLines, ops, new UnifiedDiffOptions(context, LabelA: labelA, LabelB: labelB)),
-            structural,
-            ProtoDiffSummary.From(structural, ops));
+    bool _diffTooLarge;
+
+    static (DiffBundle? Bundle, bool TooLarge) BuildBundle(string textA, string textB, int context, string labelA, string labelB) {
+        var result = ProtoDiffService.Build(textA, textB, unifiedOptions: new UnifiedDiffOptions(context, LabelA: labelA, LabelB: labelB));
+        if (result.TooLarge) return (null, true);
+        return (new DiffBundle(
+            result.Ops,
+            result.Split,
+            result.Unified,
+            result.Structural,
+            ProtoDiffSummary.From(result.Structural, result.Ops)), false);
     }
 
     void AdoptBundle() {
@@ -1755,8 +1763,7 @@
     }
 
     static string Sha12(string? sha) {
-        if (sha is not { Length: > 0 }) return "";
-        return sha.Length > 12 ? sha[..12] : sha;
+        return Hashes.Short(sha, 7);
     }
 
     static string Dash(string? value) {

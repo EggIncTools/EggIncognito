@@ -1,6 +1,35 @@
+import { formatBytes, postMultipart } from "./http.js";
+
 const EOCD_SIG = 0x06054b50;
 const CEN_SIG = 0x02014b50;
 const LOC_SIG = 0x04034b50;
+
+const ARCHIVE_RULES_URL = "/api/tools/archive-rules";
+
+let archiveRulesPromise = null;
+
+async function fetchArchiveRules() {
+  const res = await fetch(ARCHIVE_RULES_URL, { credentials: "same-origin" });
+  if (!res.ok) throw new Error(`failed to load archive rules: HTTP ${res.status}`);
+  const rules = await res.json();
+  const required = ["nativeLibNames", "preferredAbis", "splitPatterns", "baseModuleName", "iosExecutableHints", "plistNames"];
+  for (const key of required) {
+    if (rules[key] === undefined) throw new Error(`archive rules missing field: ${key}`);
+  }
+  return rules;
+}
+
+function loadArchiveRules() {
+  if (!archiveRulesPromise) {
+    archiveRulesPromise = fetchArchiveRules().catch(e => {
+      archiveRulesPromise = null;
+      throw e;
+    });
+  }
+  return archiveRulesPromise;
+}
+
+loadArchiveRules().catch(() => {});
 
 async function bytes(blob, start, end) {
   return new Uint8Array(await blob.slice(start, end).arrayBuffer());
@@ -65,19 +94,29 @@ function lower(e) {
   return e.name.toLowerCase();
 }
 
-function pickBundle(entries) {
-  return entries.find(e => lower(e).endsWith(".apk") && lower(e).includes("arm64"))
-    || entries.find(e => lower(e).endsWith(".apk")
-      && (lower(e).includes("armeabi") || lower(e).includes("_v7a")))
+function soSuffixOf(nativeLibNames) {
+  const name = nativeLibNames[0] || "";
+  const i = name.lastIndexOf(".");
+  return i >= 0 ? name.slice(i) : "";
+}
+
+function pickBundle(entries, rules) {
+  const apkSuffix = rules.splitPatterns[0].toLowerCase();
+  const [primaryAbi, ...fallbackAbis] = rules.preferredAbis.map(a => a.toLowerCase());
+  return entries.find(e => lower(e).endsWith(apkSuffix) && lower(e).includes(primaryAbi))
+    || entries.find(e => lower(e).endsWith(apkSuffix) && fallbackAbis.some(a => lower(e).includes(a)))
     || null;
 }
 
-function pickAndroid(entries) {
+function pickAndroid(entries, rules) {
+  const libNames = rules.nativeLibNames.map(n => n.toLowerCase());
+  const primaryAbi = rules.preferredAbis[0].toLowerCase();
+  const soSuffix = soSuffixOf(libNames);
   const preds = [
-    e => lower(e).endsWith("/libegginc.so") && lower(e).includes("arm64"),
-    e => lower(e).endsWith("/libegginc.so"),
-    e => lower(e).includes("arm64") && lower(e).endsWith(".so"),
-    e => lower(e).endsWith(".so")
+    ...libNames.map(lib => e => lower(e).endsWith(`/${lib}`) && lower(e).includes(primaryAbi)),
+    ...libNames.map(lib => e => lower(e).endsWith(`/${lib}`)),
+    ...(soSuffix ? [e => lower(e).includes(primaryAbi) && lower(e).endsWith(soSuffix)] : []),
+    ...(soSuffix ? [e => lower(e).endsWith(soSuffix)] : [])
   ];
   for (const p of preds) {
     const m = entries.find(p);
@@ -86,21 +125,22 @@ function pickAndroid(entries) {
   return null;
 }
 
-function pickIos(entries) {
+function pickIos(entries, rules) {
+  const [payloadPrefix, appDirMarker, frameworkDirMarker] = rules.iosExecutableHints.map(h => h.toLowerCase());
   const exec = entries.find(e => {
     const f = e.name;
     const fl = f.toLowerCase();
-    if (!fl.startsWith("payload/")) return false;
-    const i = fl.indexOf(".app/");
+    if (!fl.startsWith(payloadPrefix)) return false;
+    const i = fl.indexOf(appDirMarker);
     if (i < 0) return false;
-    const rest = f.slice(i + 5);
+    const rest = f.slice(i + appDirMarker.length);
     return rest.length > 0 && !rest.includes("/") && !rest.includes(".");
   });
   if (exec) return exec;
   return entries.find(e => {
     const fl = e.name.toLowerCase();
     const base = e.name.split("/").pop();
-    return fl.startsWith("payload/") && fl.includes(".framework/")
+    return fl.startsWith(payloadPrefix) && fl.includes(frameworkDirMarker)
       && !fl.endsWith("/") && !base.includes(".");
   }) || null;
 }
@@ -113,19 +153,23 @@ async function entryByName(blob, name) {
   return e ? await entryBlob(blob, e) : null;
 }
 
-async function extractForUpload(blob) {
+async function extractForUpload(blob, rules) {
   const eocd = await findEocd(blob);
   if (!eocd) return { binary: blob, meta: null, metaName: null };
   const entries = await centralDir(blob, eocd);
   if (entries.length === 0) return { binary: blob, meta: null, metaName: null };
 
-  const bundle = pickBundle(entries);
+  const bundle = pickBundle(entries, rules);
   if (bundle) {
     const inner = await entryBlob(blob, bundle);
     if (!inner) return { binary: blob, meta: null, metaName: null };
-    const picked = await extractForUpload(inner);
-    const baseE = entries.find(e => lower(e) === "base.apk" || lower(e).endsWith("/base.apk"))
-      || entries.filter(e => lower(e).endsWith(".apk") && !lower(e).includes("config."))
+    const picked = await extractForUpload(inner, rules);
+    const baseModuleName = rules.baseModuleName.toLowerCase();
+    const apkSuffix = rules.splitPatterns[0].toLowerCase();
+    const configSplitPrefix = rules.splitPatterns[1]?.toLowerCase();
+    const baseE = entries.find(e => lower(e) === baseModuleName || lower(e).endsWith(`/${baseModuleName}`))
+      || entries.filter(e => lower(e).endsWith(apkSuffix)
+        && !(configSplitPrefix && lower(e).includes(configSplitPrefix)))
         .sort((a, b) => b.compSize - a.compSize)[0]
       || null;
     if (baseE) {
@@ -136,15 +180,19 @@ async function extractForUpload(blob) {
     return picked;
   }
 
-  const ios = pickIos(entries);
+  const ios = pickIos(entries, rules);
   if (ios) {
     const bin = await entryBlob(blob, ios);
-    const plistE = entries.find(e => lower(e).startsWith("payload/") && lower(e).endsWith(".app/info.plist"));
+    const payloadPrefix = rules.iosExecutableHints[0].toLowerCase();
+    const appDirMarker = rules.iosExecutableHints[1].toLowerCase();
+    const plistName = rules.plistNames[0];
+    const plistSuffix = `${appDirMarker}${plistName.toLowerCase()}`;
+    const plistE = entries.find(e => lower(e).startsWith(payloadPrefix) && lower(e).endsWith(plistSuffix));
     const meta = plistE ? await entryBlob(blob, plistE) : null;
-    return { binary: bin || blob, meta, metaName: meta ? "Info.plist" : null };
+    return { binary: bin || blob, meta, metaName: meta ? plistName : null };
   }
 
-  const so = pickAndroid(entries);
+  const so = pickAndroid(entries, rules);
   if (so) {
     const bin = await entryBlob(blob, so);
     const manE = entries.find(e => e.name === "AndroidManifest.xml");
@@ -160,31 +208,10 @@ async function report(dotnetRef, token, msg) {
   try { await dotnetRef.invokeMethodAsync("AnalyzeStep", token, msg); } catch {}
 }
 
-function sizeText(bytes) {
-  if (bytes >= 1048576) return (bytes / 1048576).toFixed(1) + " MB";
-  return (bytes / 1024).toFixed(1) + " KB";
-}
-
 async function postForm(endpoint, form) {
-  let res;
-  try {
-    res = await fetch(endpoint, {
-      method: "POST",
-      body: form,
-      credentials: "same-origin",
-      signal: AbortSignal.timeout(600000)
-    });
-  } catch (e) {
-    return { error: "upload failed or timed out: " + String(e) };
-  }
-  let json = null;
-  try {
-    json = await res.json();
-  } catch {
-    json = null;
-  }
-  if (!res.ok) return { error: json?.error ? json.error : `HTTP ${res.status}` };
-  return json ?? { error: "empty response" };
+  const result = await postMultipart(endpoint, form);
+  if (!result.ok) return { error: typeof result.body === "string" ? result.body : `HTTP ${result.status}` };
+  return result.body ?? { error: "empty response" };
 }
 
 const stash = new Map();
@@ -230,8 +257,9 @@ export async function analyzeStored(token, endpoint, dotnetRef) {
   const file = stash.get(token);
   if (!file) return { ok: false, diagnostics: "file no longer available" };
   try {
+    const rules = await loadArchiveRules();
     await report(dotnetRef, token, "extracting binary from archive");
-    const picked = await extractForUpload(file);
+    const picked = await extractForUpload(file, rules);
     await report(dotnetRef, token, "hashing binary");
     const known = await knownResult(endpoint, await sha256Hex(picked.binary), picked);
     if (known) return { ...known, fileName: file.name };
@@ -240,7 +268,7 @@ export async function analyzeStored(token, endpoint, dotnetRef) {
     form.append("binary", picked.binary, "binary.bin");
     if (picked.meta) form.append("meta", picked.meta, picked.metaName || "meta.bin");
     form.append("fileName", file.name);
-    await report(dotnetRef, token, `uploading (${sizeText(uploadedSize)})`);
+    await report(dotnetRef, token, `uploading (${formatBytes(uploadedSize)})`);
     const r = await postForm(endpoint, form);
     if (r?.error) return { ok: false, diagnostics: r.error };
     return { ...r, fileName: file.name };

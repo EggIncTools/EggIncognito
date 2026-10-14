@@ -41,9 +41,7 @@ public static class EventPalette {
             : ByType.GetValueOrDefault(eventType.Replace('_', '-'), Fallback);
 
     public static string? IconUrl(string? eventType, bool ultra = false) =>
-        string.IsNullOrEmpty(eventType) || !eventType.All(c => char.IsAsciiLetterOrDigit(c) || c is '_' or '-')
-            ? null
-            : $"/api/v1/data/asset/event-icon?name={Uri.EscapeDataString(eventType)}{(ultra ? "&cc=1" : "")}";
+        string.IsNullOrEmpty(eventType) ? null : EggIcons.Asset("event-icon", eventType, ultra ? "&cc=1" : null);
 
     public static string BarStyle(string? eventType, bool ultra) =>
         ultra

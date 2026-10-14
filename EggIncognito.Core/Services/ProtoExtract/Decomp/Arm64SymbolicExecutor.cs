@@ -437,7 +437,7 @@ public static class Arm64SymbolicExecutor {
             return best ?? $"0x{target:x}";
         }
 
-        private static double ReinterpretFloat(long bits) => BitConverter.Int32BitsToSingle((int)(bits & 0xFFFFFFFF));
+        private static double ReinterpretFloat(long bits) => Arm64Bits.F32(unchecked((ulong)bits));
 
         private static bool IsVec(Arm64Operand op) =>
             op.VectorArrangementSpecifier != Arm64VectorArrangementSpecifier.Invalid;

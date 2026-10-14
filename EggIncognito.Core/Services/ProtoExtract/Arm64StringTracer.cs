@@ -27,38 +27,27 @@ public static class Arm64StringTracer {
 
         var template = new StringBuilder();
         var callNames = new List<string>();
-        var page = new Dictionary<string, ulong>(StringComparer.Ordinal);
-        var imm = new Dictionary<int, ulong>();
+        var image = new Arm64Image(bin, img);
+        var tracker = new Arm64PageTracker { Image = image };
         bool scaled = false;
         foreach (var i in list.Instructions) {
+            if (image.TryWord(i.Va, out uint word)) tracker.Track(i.Va, word);
             var ops = SplitOps(i.Operands);
             switch (i.Mnemonic) {
                 case "ret" when stopAtReturn:
                     return new Trace(template.ToString(), callNames, "ok");
-                case "adrp" when ops.Count == 2 && TryImm(ops[1], out ulong pg):
-                    page[ops[0]] = pg;
-                    Forget(ops[0], imm);
-                    break;
-                case "add" when ops.Count == 3 && page.TryGetValue(ops[1], out ulong pb) && TryImm(ops[2], out ulong off):
-                    page[ops[0]] = pb + off;
-                    if (Literal(bin, img, pb + off) is { } s) template.Append(s);
-                    Forget(ops[0], imm);
-                    break;
-                case "movz" when ops.Count == 2 && TryImm(ops[1], out ulong z) && ArgIndex(ops[0]) is { } a:
-                    imm[a] = z;
+                case "add" when ops.Count == 3 && RegIndex(ops[0]) is { } ra && tracker.TryValue(ra, out ulong addr):
+                    if (Literal(bin, img, addr) is { } s) template.Append(s);
                     break;
                 case "movz" when ops.Count == 3 && TryImm(ops[1], out ulong hi) && (hi << ShiftOf(ops)) == Hundred:
                     scaled = true;
                     break;
                 case "bl" when ops.Count == 1 && TryImm(ops[0], out ulong t):
-                    Call(calls.Resolve(t), syms, imm, template, callNames, scaled);
-                    imm.Clear();
+                    Call(calls.Resolve(t), syms, tracker, template, callNames, scaled);
+                    tracker.Invalidate(0);
+                    tracker.Invalidate(1);
+                    tracker.Invalidate(2);
                     scaled = false;
-                    break;
-                default:
-                    if (ops.Count == 0) break;
-                    Forget(ops[0], imm);
-                    page.Remove(ops[0]);
                     break;
             }
         }
@@ -66,7 +55,7 @@ public static class Arm64StringTracer {
         return new Trace(template.ToString(), callNames, "ok");
     }
 
-    private static void Call(ulong target, IReadOnlyList<MachoSymbols.Symbol> syms, Dictionary<int, ulong> imm,
+    private static void Call(ulong target, IReadOnlyList<MachoSymbols.Symbol> syms, Arm64PageTracker tracker,
         StringBuilder template, List<string> callNames, bool scaled) {
         if (!MachoSymbols.TryResolveVa(syms, target, out var fn, out ulong off) || off != 0) return;
         foreach (var (needle, token, argReg) in KnownCalls) {
@@ -74,7 +63,7 @@ public static class Arm64StringTracer {
             callNames.Add(fn.Name);
             if (token.Length == 0) return;
             template.Append('{').Append(token);
-            if (argReg >= 0 && imm.TryGetValue(argReg, out ulong dim))
+            if (argReg >= 0 && tracker.TryValue(argReg, out ulong dim))
                 template.Append(':').Append(dim.ToString(CultureInfo.InvariantCulture));
             template.Append('}');
             return;
@@ -106,16 +95,8 @@ public static class Arm64StringTracer {
         return s;
     }
 
-    private static int? ArgIndex(string reg) => reg switch {
-        "w0" or "x0" => 0,
-        "w1" or "x1" => 1,
-        "w2" or "x2" => 2,
-        _ => null
-    };
-
-    private static void Forget(string reg, Dictionary<int, ulong> imm) {
-        if (ArgIndex(reg) is { } a) imm.Remove(a);
-    }
+    private static int? RegIndex(string reg) =>
+        reg.Length > 1 && reg[0] is 'x' or 'w' && int.TryParse(reg.AsSpan(1), out int n) ? n : null;
 
     public readonly record struct Trace(string Template, IReadOnlyList<string> Calls, string Diagnostics);
 }

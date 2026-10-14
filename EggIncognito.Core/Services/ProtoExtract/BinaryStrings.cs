@@ -15,6 +15,9 @@ public static class BinaryStrings {
         return ReadAt(bin, fo, maxLen);
     }
 
+    public static bool IsStringSection(string? sectionName) =>
+        sectionName is "__cstring" or ".rodata" or ".data.rel.ro" or "__const";
+
     public static string? IsName(string s, string allowedPunctuation, bool allowDigitStart = false) {
         if (s.Length < 2) return null;
         if (!char.IsAsciiLetterUpper(s[0]) && !(allowDigitStart && char.IsAsciiDigit(s[0]))) return null;

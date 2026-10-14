@@ -1,4 +1,5 @@
 using System.Text.Json;
+using EggIncognito.Core.Services;
 using EggIncognito.Data.Services;
 using EggIncognito.Models.Coverage;
 using EggIncognito.Models.Observations;
@@ -29,7 +30,6 @@ public sealed class CoverageMapAccess(IServiceScopeFactory scopes) : ICoverageMa
 
 public sealed class ArtifactObservationQuery(IServiceScopeFactory scopes) : IArtifactObservationQuery {
     private const string ConsumeAction = "consume";
-    private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
 
     public async Task<IReadOnlyDictionary<(string Family, string Level, string Rarity), int>> ConsumedCountsAsync(
         CancellationToken ct) {
@@ -58,7 +58,7 @@ public sealed class ArtifactObservationQuery(IServiceScopeFactory scopes) : IArt
     public static IReadOnlyList<ArtifactByproductRow> ParseByproducts(string json) {
         if (string.IsNullOrWhiteSpace(json)) return [];
         try {
-            return JsonSerializer.Deserialize<List<ArtifactByproductRow>>(json, Json) ?? [];
+            return JsonSerializer.Deserialize<List<ArtifactByproductRow>>(json, JsonPresets.Web) ?? [];
         } catch (JsonException) {
             return [];
         }

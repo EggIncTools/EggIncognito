@@ -118,13 +118,13 @@ public static class HabCatalogExtractor {
 
     private static double ReadFloat64(Dictionary<ulong, byte> bytes, ulong start) {
         if (!TryReadRaw(bytes, start, 8, out ulong raw)) return 0;
-        double v = BitConverter.Int64BitsToDouble((long)raw);
+        double v = Arm64Bits.F64(raw);
         return double.IsFinite(v) ? v : 0;
     }
 
     private static double ReadFloat32(Dictionary<ulong, byte> bytes, ulong start) {
         if (!TryReadRaw(bytes, start, 4, out ulong raw)) return 0;
-        float v = BitConverter.Int32BitsToSingle((int)raw);
+        float v = Arm64Bits.F32(raw);
         return float.IsFinite(v) ? v : 0;
     }
 

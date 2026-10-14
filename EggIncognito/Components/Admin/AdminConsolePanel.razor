@@ -1,5 +1,6 @@
 @rendermode @(RenderModes.InteractiveServer)
 @using System.Text.Json
+@using EggIncognito.Core.Services
 @using EggIncognito.Models.AdminUi
 @inherits AdminPaneBase
 
@@ -176,7 +177,7 @@
     static string Pretty(string json) {
         try {
             using var doc = JsonDocument.Parse(json);
-            return JsonSerializer.Serialize(doc, new JsonSerializerOptions { WriteIndented = true });
+            return JsonSerializer.Serialize(doc, JsonPresets.Indented);
         } catch {
             return json;
         }

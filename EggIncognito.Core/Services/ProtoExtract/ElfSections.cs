@@ -269,7 +269,7 @@ public static class ElfSections {
         return map;
     }
 
-    internal static bool IsElf64Le(byte[]? b) =>
+    public static bool IsElf64Le(byte[]? b) =>
         b is { Length: >= 64 } && b[0] == 0x7F && b[1] == (byte)'E' && b[2] == (byte)'L' && b[3] == (byte)'F'
         && b[4] == 2 && b[5] == 1;
 
@@ -277,10 +277,10 @@ public static class ElfSections {
         b is { Length: >= 52 } && b[0] == 0x7F && b[1] == (byte)'E' && b[2] == (byte)'L' && b[3] == (byte)'F'
         && b[4] == 1 && b[5] == 1;
 
-    private static ushort U16(byte[] b, int p) => (ushort)(b[p] | (b[p + 1] << 8));
-    private static uint U32(byte[] b, int p) => (uint)(b[p] | (b[p + 1] << 8) | (b[p + 2] << 16) | (b[p + 3] << 24));
+    internal static ushort U16(byte[] b, int p) => (ushort)(b[p] | (b[p + 1] << 8));
+    internal static uint U32(byte[] b, int p) => (uint)(b[p] | (b[p + 1] << 8) | (b[p + 2] << 16) | (b[p + 3] << 24));
 
-    private static ulong U64(byte[] b, int p) {
+    internal static ulong U64(byte[] b, int p) {
         ulong v = 0;
         for (int i = 0; i < 8; i++) v |= (ulong)b[p + i] << (8 * i);
         return v;

@@ -115,16 +115,4 @@ public static partial class DeviceParsing {
     }
 
     public static string TrimNote(string s) => s.Trim() is { Length: > 200 } t ? t[..200] : s.Trim();
-
-    public static int CompareVersions(string? a, string? b) {
-        string[] pa = (a ?? "").Split('.');
-        string[] pb = (b ?? "").Split('.');
-        for (int i = 0; i < Math.Max(pa.Length, pb.Length); i++) {
-            int x = i < pa.Length && int.TryParse(pa[i], out int xi) ? xi : 0;
-            int y = i < pb.Length && int.TryParse(pb[i], out int yi) ? yi : 0;
-            if (x != y) return x.CompareTo(y);
-        }
-
-        return 0;
-    }
 }

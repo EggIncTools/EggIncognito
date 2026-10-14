@@ -1,3 +1,4 @@
+using EggIncognito.Core;
 using EggIncognito.Core.Services.ProtoExtract;
 using EggIncognito.Data.Models;
 using EggIncognito.Data.Services;
@@ -45,7 +46,9 @@ public sealed class EggSharpProtoSender(
         var clean = rows
             .Where(r => !string.IsNullOrEmpty(r.ProtoSha) && r.CanonicalId is null)
             .Where(r => ProtoVersionQuality.Flaws(r.Platform, r.Build, r.ClientVersion, r.ProtoSha, true).Count == 0)
-            .Where(r => ProtoVersionQuality.LatestSortKey(r.Platform, r.Build, r.AppVersion) != long.MinValue);
+            .Where(r => !string.IsNullOrEmpty(r.Platform) && !string.IsNullOrEmpty(r.AppVersion)
+                && !ProtoVersionQuality.HasPlatformBuildMismatch(r.Platform, r.Build)
+                && (!string.Equals(r.Platform, "android", StringComparison.OrdinalIgnoreCase) || long.TryParse(r.Build, out _)));
         return ProtoVersionOrdering.Latest(clean,
             r => new VersionKey(r.Platform, r.AppVersion, r.Build, r.ClientVersion, null, r.DetectedAt.UtcDateTime));
     }
@@ -70,7 +73,7 @@ public sealed class EggSharpProtoSender(
             text = patch.Text!;
         }
 
-        string branch = $"egi/proto-{canonical.Sha[..12]}";
+        string branch = $"egi/proto-{Hashes.Short(canonical.Sha, 12)}";
         if (await github.OpenPullExistsAsync(branch, ct))
             return new ProtoSendOutcome("pending", platform, build, canonical.Sha, $"open PR already on {branch}");
 

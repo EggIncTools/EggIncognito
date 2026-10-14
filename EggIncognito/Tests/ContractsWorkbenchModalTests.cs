@@ -1,8 +1,8 @@
 using System.Net;
-using System.Text.Json;
 using Bunit;
 using EggIdentity.Auth;
 using EggIncognito.Components.Contracts;
+using EggIncognito.Core.Services;
 using EggIncognito.Models.Contracts;
 using EggIncognito.Services.Contracts;
 using EggIncognito.Services.Events;
@@ -13,8 +13,6 @@ using Microsoft.Extensions.DependencyInjection;
 namespace EggIncognito.Tests;
 
 public class ContractsWorkbenchModalTests : BunitContext {
-    private static readonly JsonSerializerOptions Web = new(JsonSerializerDefaults.Web);
-
     private void Wire(Func<HttpRequestMessage, HttpResponseMessage> respond) {
         Services.AddLogging();
         Services.AddSingleton<IHttpClientFactory>(
@@ -32,7 +30,7 @@ public class ContractsWorkbenchModalTests : BunitContext {
             (end - start).TotalSeconds, leggacy, ultra, pe, true, 10, "device");
 
     private static HttpResponseMessage Ok(params ContractReleaseDto[] releases) =>
-        StubResponses.Json(HttpStatusCode.OK, new ContractReleaseListResponse(releases.Length, releases), Web);
+        StubResponses.Json(HttpStatusCode.OK, new ContractReleaseListResponse(releases.Length, releases), JsonPresets.Web);
 
     private async Task<IRenderedComponent<ContractsWorkbenchModal>> OpenAsync() {
         var cut = Render<ContractsWorkbenchModal>();

@@ -22,6 +22,9 @@ public static class EggIcons {
         _ => egg.ToString()
     };
 
+    public static string? Asset(string route, string name, string? query = null) =>
+        Safe(name) ? $"/api/v1/data/asset/{route}?name={Uri.EscapeDataString(name)}{query}" : null;
+
     private static string Icon(string name) =>
         $"/api/v1/data/asset/icon?name={Uri.EscapeDataString(name)}";
 
@@ -33,8 +36,9 @@ public static class EggIcons {
             ? pascal
             : string.Concat(pascal.SelectMany<char, char>((ch, i) => i > 0 && char.IsUpper(ch) ? [' ', ch] : [ch]));
 
-    private static string Pretty(string raw) {
-        var words = raw.Replace('-', ' ').Replace('_', ' ').Split(' ', StringSplitOptions.RemoveEmptyEntries);
-        return string.Join(' ', words.Select(w => char.ToUpperInvariant(w[0]) + w[1..].ToLowerInvariant()));
+    public static string Pretty(string? slug, bool pascal = false) {
+        if (string.IsNullOrEmpty(slug)) return "";
+        var words = slug.Split(['_', '-', ' ', '\t', '\r', '\n'], StringSplitOptions.RemoveEmptyEntries);
+        return string.Join(pascal ? "" : " ", words.Select(w => char.ToUpperInvariant(w[0]) + w[1..].ToLowerInvariant()));
     }
 }

@@ -14,5 +14,20 @@
         "secondsRemaining": 7200.0
       }
     ]
+  },
+  "contracts": {
+    "customEggs": [
+      {
+        "identifier": "carbon-fiber",
+        "name": "CARBON FIBER",
+        "value": 500,
+        "buffs": [
+          {
+            "dimension": "SHIPPING_CAPACITY",
+            "value": 1.01
+          }
+        ]
+      }
+    ]
   }
 }

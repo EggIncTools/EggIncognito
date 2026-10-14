@@ -246,7 +246,7 @@
         try {
             var res = await Client().PostAsync($"/api/capture/{verb}", null);
             if (!res.IsSuccessStatusCode) {
-                var detail = await ProblemDetailAsync(res);
+                var detail = await ApiErrors.ReadAsync(res);
                 Logger.LogWarning("capture {Verb} failed: HTTP {Status} {Detail}", verb, (int)res.StatusCode, detail);
                 Toasts.Push(StatusNoteKind.Error, $"Capture {verb} failed (HTTP {(int)res.StatusCode}). {detail}");
             }
@@ -256,20 +256,6 @@
         } finally {
             _toggleBusy = false;
         }
-    }
-
-    static async Task<string> ProblemDetailAsync(HttpResponseMessage res) {
-        var body = (await res.Content.ReadAsStringAsync()).Trim();
-        if (body.Length == 0) return res.ReasonPhrase ?? "";
-        try {
-            using var doc = JsonDocument.Parse(body);
-            if (doc.RootElement.TryGetProperty("detail", out var d) && d.GetString() is { Length: > 0 } detail) return detail;
-            if (doc.RootElement.TryGetProperty("error", out var e) && e.GetString() is { Length: > 0 } error) return error;
-        } catch (JsonException) {
-            return body.Length > 200 ? body[..200] : body;
-        }
-
-        return body.Length > 200 ? body[..200] : body;
     }
 
     async Task Clear() {
@@ -283,7 +269,7 @@
                 return;
             }
 
-            Toasts.Push(StatusNoteKind.Error, $"Clear failed (HTTP {(int)res.StatusCode}). {await ProblemDetailAsync(res)}");
+            Toasts.Push(StatusNoteKind.Error, $"Clear failed (HTTP {(int)res.StatusCode}). {await ApiErrors.ReadAsync(res)}");
         } catch (Exception ex) {
             Logger.LogWarning(ex, "clearing the capture buffer failed");
             Toasts.Push(StatusNoteKind.Error, $"Clear failed: {ex.Message}");

@@ -3,41 +3,19 @@ using System.Text;
 namespace EggIncognito.Core.Services.ProtoExtract;
 
 public static class MachoSymbols {
-    private const uint MhMagic64 = 0xFEEDFACF;
-    private const uint FatMagic = 0xCAFEBABE;
-    private const uint FatMagicLe = 0xBEBAFECA;
-    private const uint CpuArm64 = 0x0100000C;
-    private const uint LcSymtab = 0x02;
-
     public static IReadOnlyList<Symbol> Read(byte[] bin) {
         var outp = new List<Symbol>();
         if (bin is null || bin.Length < 32) return outp;
         try {
-            uint magic = U32(bin, 0);
-            int b = 0;
-            if (magic is FatMagic or FatMagicLe) {
-                if (!TryFatArm64(bin, out b) || b + 32 > bin.Length) return outp;
-                magic = U32(bin, b);
-            }
-
-            if (magic != MhMagic64) return outp;
-
-            uint ncmds = U32(bin, b + 16);
-            int lc = b + 32;
-            for (uint c = 0; c < ncmds; c++) {
-                if (lc + 8 > bin.Length) return outp;
-                uint cmd = U32(bin, lc);
-                uint cmdsize = U32(bin, lc + 4);
-                if (cmdsize < 8 || lc + cmdsize > bin.Length) return outp;
-                if (cmd == LcSymtab) {
-                    uint symoff = U32(bin, lc + 8) + (uint)b;
-                    uint nsyms = U32(bin, lc + 12);
-                    uint stroff = U32(bin, lc + 16) + (uint)b;
-                    uint strsize = U32(bin, lc + 20);
-                    ReadNlist(bin, symoff, nsyms, stroff, strsize, outp);
-                }
-
-                lc += (int)cmdsize;
+            if (!MachoHeader.TryArm64Slice(bin, out int b, out int sliceLen)) return outp;
+            foreach (var lc in MachoHeader.LoadCommands(bin.AsSpan(b, sliceLen))) {
+                if (lc.Cmd != MachoHeader.LcSymtab) continue;
+                int o = b + lc.Offset;
+                uint symoff = U32(bin, o + 8) + (uint)b;
+                uint nsyms = U32(bin, o + 12);
+                uint stroff = U32(bin, o + 16) + (uint)b;
+                uint strsize = U32(bin, o + 20);
+                ReadNlist(bin, symoff, nsyms, stroff, strsize, outp);
             }
         } catch (Exception ex) when (ex is IndexOutOfRangeException or ArgumentOutOfRangeException
                                          or OverflowException) {
@@ -129,26 +107,7 @@ public static class MachoSymbols {
         }
     }
 
-    private static bool TryFatArm64(byte[] b, out int offset) {
-        offset = 0;
-        if (b.Length < 8) return false;
-        uint nfat = U32be(b, 4);
-        int e = 8;
-        for (uint i = 0; i < nfat; i++) {
-            if (e + 20 > b.Length) return false;
-            if (U32be(b, e) == CpuArm64) {
-                offset = (int)U32be(b, e + 8);
-                return true;
-            }
-
-            e += 20;
-        }
-
-        return false;
-    }
-
     private static uint U32(byte[] b, int o) => (uint)(b[o] | (b[o + 1] << 8) | (b[o + 2] << 16) | (b[o + 3] << 24));
-    private static uint U32be(byte[] b, int o) => (uint)((b[o] << 24) | (b[o + 1] << 16) | (b[o + 2] << 8) | b[o + 3]);
 
     private static ulong U64(byte[] b, int o) {
         ulong v = 0;

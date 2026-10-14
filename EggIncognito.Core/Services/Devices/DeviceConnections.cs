@@ -8,12 +8,22 @@ public sealed class AdbDeviceConnection(IProcessRunner runner, string serial) : 
 
     private bool IsNetworkSerial => AdbTcp.IsNetworkSerial(serial);
 
-    private async Task<ProcessResult> RunAsync(string[] args, CancellationToken ct) {
-        var r = await runner.RunAsync("adb", args, ct);
-        if (r.ExitCode == 0 || !IsNetworkSerial || !AdbTcp.LooksDisconnected(r.Stderr)) return r;
-        await AdbTcp.ReviveAsync(runner, serial, ct);
-        return await runner.RunAsync("adb", args, ct);
+    public static async Task<ProcessResult> RunAsync(IProcessRunner runner, string serial, IReadOnlyList<string> args, TimeSpan? timeout, CancellationToken ct) {
+        string[] full = ["-s", serial, .. args];
+        using var cts = timeout is null ? null : CancellationTokenSource.CreateLinkedTokenSource(ct);
+        cts?.CancelAfter(timeout!.Value);
+        var token = cts?.Token ?? ct;
+        var r = await runner.RunAsync("adb", full, token);
+        if (r.ExitCode == 0 || !AdbTcp.IsNetworkSerial(serial) || !AdbTcp.LooksDisconnected(r.Stderr)) return r;
+        await AdbTcp.ReviveAsync(runner, serial, token);
+        return await runner.RunAsync("adb", full, token);
     }
+
+    public Task<ProcessResult> AdbAsync(IReadOnlyList<string> args, TimeSpan? timeout, CancellationToken ct) =>
+        RunAsync(runner, serial, args, timeout, ct);
+
+    private Task<ProcessResult> RunAsync(string[] args, CancellationToken ct) =>
+        RunAsync(runner, serial, args, null, ct);
 
     private async Task<ProcessBytesResult> RunBytesAsync(string[] args, CancellationToken ct) {
         var r = await runner.RunBytesAsync("adb", args, ct);
@@ -23,16 +33,13 @@ public sealed class AdbDeviceConnection(IProcessRunner runner, string serial) : 
     }
 
     public Task<ProcessResult> ShellAsync(string command, CancellationToken ct) =>
-        RunAsync(["-s", serial, "shell", command], ct);
+        RunAsync(["shell", command], ct);
 
     public Task<ProcessBytesResult> ExecOutAsync(string command, CancellationToken ct) =>
         RunBytesAsync(["-s", serial, "exec-out", command], ct);
 
     public async Task<ProcessHandle?> ExecOutStreamAsync(string command, CancellationToken ct) {
-        if (IsNetworkSerial) {
-            var state = await runner.RunAsync("adb", ["-s", serial, "get-state"], ct);
-            if (state.ExitCode != 0) await runner.RunAsync("adb", ["connect", serial], ct);
-        }
+        if (IsNetworkSerial) await AdbTcp.ReviveAsync(runner, serial, ct);
 
         try {
             return await runner.StartAsync("adb", ["-s", serial, "exec-out", command], ct);
@@ -44,7 +51,7 @@ public sealed class AdbDeviceConnection(IProcessRunner runner, string serial) : 
     public async Task<byte[]?> PullBytesAsync(string remotePath, CancellationToken ct) {
         string dest = DeviceShell.NewTempPath(".bin");
         try {
-            var pull = await RunAsync(["-s", serial, "pull", remotePath, dest], ct);
+            var pull = await RunAsync(["pull", remotePath, dest], ct);
             return pull.ExitCode != 0 ? null : DeviceShell.ReadTemp(dest);
         } finally {
             DeviceShell.TryDelete(dest);
@@ -52,7 +59,7 @@ public sealed class AdbDeviceConnection(IProcessRunner runner, string serial) : 
     }
 
     public async Task<bool> PushFileAsync(string localPath, string remotePath, CancellationToken ct) =>
-        (await RunAsync(["-s", serial, "push", localPath, remotePath], ct)).ExitCode == 0;
+        (await RunAsync(["push", localPath, remotePath], ct)).ExitCode == 0;
 }
 
 public sealed class SshDeviceConnection(IProcessRunner runner, SshEndpoint endpoint) : IDeviceConnection {

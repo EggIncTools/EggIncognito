@@ -79,8 +79,6 @@
     [Parameter] public RenderFragment? Aside { get; set; }
     [Parameter] public RenderFragment? Footer { get; set; }
 
-    static readonly JsonSerializerOptions JsonOpts = new(JsonSerializerDefaults.Web);
-
     string? _bodyMd;
     List<TagRow> _tags = [];
     List<TagRow> _allTags = [];
@@ -137,7 +135,7 @@
 
     async Task LoadAllTags() {
         try {
-            _allTags = await Client().GetFromJsonAsync<List<TagRow>>("/api/docs/tags", JsonOpts) ?? [];
+            _allTags = await Client().GetFromJsonAsync<List<TagRow>>("/api/docs/tags", JsonPresets.Web) ?? [];
         } catch (Exception ex) when (ex is HttpRequestException or JsonException or TaskCanceledException) {
             _allTags = [];
         }
@@ -147,7 +145,7 @@
         _busy = true;
         try {
             var res = await Client().PostAsJsonAsync("/api/docs/subject-tags",
-                new { subjectKind = Slug, subjectKey = Key, tagIds }, JsonOpts);
+                new { subjectKind = Slug, subjectKey = Key, tagIds }, JsonPresets.Web);
             if (res.IsSuccessStatusCode) {
                 _tags = _allTags.Where(t => tagIds.Contains(t.Id)).OrderBy(t => t.Label, StringComparer.Ordinal)
                     .ToList();
@@ -166,7 +164,7 @@
 
     async Task LoadDoc(string docUrl) {
         try {
-            var doc = await Client().GetFromJsonAsync<DocResult>(docUrl, JsonOpts);
+            var doc = await Client().GetFromJsonAsync<DocResult>(docUrl, JsonPresets.Web);
             _bodyMd = doc?.BodyMd;
         } catch (Exception ex) when (ex is HttpRequestException or JsonException or TaskCanceledException) {
             _bodyMd = null;
@@ -175,7 +173,7 @@
 
     async Task LoadTags(string tagsUrl) {
         try {
-            _tags = await Client().GetFromJsonAsync<List<TagRow>>(tagsUrl, JsonOpts) ?? [];
+            _tags = await Client().GetFromJsonAsync<List<TagRow>>(tagsUrl, JsonPresets.Web) ?? [];
         } catch (Exception ex) when (ex is HttpRequestException or JsonException or TaskCanceledException) {
             _tags = [];
         }

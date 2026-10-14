@@ -24,15 +24,15 @@ public static class DeviceRoot {
     }
 
     public static async Task<RootAccess> EnsureAsync(
-        IDeviceConnection conn, IProcessRunner runner, string serial, CancellationToken ct) {
+        IDeviceConnection conn, IProcessRunner runner, string serial, CancellationToken ct, int maxAttempts = ProbeAttempts) {
         var probed = await ProbeAsync(conn, ct);
         if (probed.Ok) return probed;
 
-        await runner.RunAsync("adb", ["-s", serial, "root"], ct);
+        await AdbDeviceConnection.RunAsync(runner, serial, ["root"], null, ct);
         await runner.RunAsync("adb", ["connect", serial], ct);
         for (int attempt = 1; ; attempt++) {
             probed = await ProbeAsync(conn, ct);
-            if (probed.Ok || attempt >= ProbeAttempts) return probed;
+            if (probed.Ok || attempt >= maxAttempts) return probed;
             await Task.Delay(ProbeRetryDelay, ct);
         }
     }

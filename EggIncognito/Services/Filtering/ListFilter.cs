@@ -1,6 +1,6 @@
 using System.Globalization;
 using System.Text;
-using EggIncognito.Core.Services.ProtoExtract;
+using EggIncognito.Core.Services.Devices;
 
 namespace EggIncognito.Services.Filtering;
 
@@ -132,7 +132,7 @@ public static class EgiFilterOps {
 
     public static List<EgiFilterOption> ByVersion(IEnumerable<string?> values) => [
         .. Distinct(values)
-            .OrderByDescending(ProtoVersionQuality.DottedVersionKey)
+            .OrderByDescending(VersionCompare.DottedKey)
             .ThenBy(v => v, StringComparer.OrdinalIgnoreCase)
             .Select(v => new EgiFilterOption(v, v))
     ];
@@ -237,10 +237,10 @@ public sealed class EgiFilterSchema<TItem> {
     }
 
     private static bool VersionMatch(string? value, EgiFilterCondition condition) {
-        long left = ProtoVersionQuality.DottedVersionKey(value);
+        long left = VersionCompare.DottedKey(value);
         if (left == long.MinValue) return condition.Op == EgiFilterOp.IsNot;
 
-        long right = ProtoVersionQuality.DottedVersionKey(condition.Value);
+        long right = VersionCompare.DottedKey(condition.Value);
         return right != long.MinValue && CompareMatch(left.CompareTo(right), condition.Op);
     }
 

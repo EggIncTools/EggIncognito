@@ -50,7 +50,7 @@ public sealed class ConfigChangeNotifier(
 
         string fixtureSha = Hashes.Sha256Hex(ProtoJson.StripVolatile(json));
         string dedupSha = ChangeSha(change) ?? fixtureSha;
-        string pageUrl = ConfigChangedKind.PageUrl(config["Feed:PageBaseUrl"], feed);
+        string pageUrl = ConfigChangedKind.PageUrl(config[FeedPages.RootKey], feed);
         _ = Task.Run(async () => {
             IReadOnlyList<NewColleggtible> colleggtibles = [];
             try {
@@ -76,25 +76,9 @@ public sealed class ConfigChangeNotifier(
 
     private async Task UpsertStoredEndpointAsync(IServiceProvider sp, string route, string json) {
         try {
-            if (sp.GetService<EggIncognitoDbContext>() is not { } db) return;
+            if (sp.GetService<DbEndpointSource>() is not { } store) return;
             string responseType = routes.Resolve(route)?.Response ?? "";
-            var existing = await db.StoredEndpoints
-                .FirstOrDefaultAsync(e => e.Path == route && e.Eid == null);
-            if (existing is null) {
-                db.StoredEndpoints.Add(new StoredEndpoint {
-                    Path = route,
-                    Eid = null,
-                    ResponseJson = json,
-                    ResponseType = responseType,
-                    OwnerUserId = null
-                });
-            } else {
-                existing.ResponseJson = json;
-                existing.ResponseType = responseType;
-                existing.UpdatedAt = time.GetUtcNow();
-            }
-
-            await db.SaveChangesAsync();
+            await store.UpsertAsync(route, null, json, responseType, null, time.GetUtcNow());
         } catch (Exception ex) {
             logger.LogWarning(ex, "config-change stored_endpoint upsert for {Route} failed", route);
         }

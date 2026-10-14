@@ -147,8 +147,7 @@ public static class OpenApiBuilder {
         return new JsonObject { ["$ref"] = "#/components/schemas/" + name };
     }
 
-    private static string ComponentName(MessageDescriptor d) =>
-        d.FullName.StartsWith("ei.", StringComparison.Ordinal) ? d.FullName[3..] : d.FullName;
+    private static string ComponentName(MessageDescriptor d) => ProtoNames.StripQualifier(d.FullName);
 
     private static JsonObject FieldSchema(FieldDescriptor f, IDictionary<string, JsonObject> components) {
         if (f.IsMap) {

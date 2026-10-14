@@ -132,7 +132,11 @@
                             }
                         </td>
                         <td class="dlk-mono">@p.Taps</td>
-                        <td class="dlk-last" title="@p.Error">@LastText(p)</td>
+                        <td class="dlk-last" title="@p.Error">
+                            @if (p.LastTapAt is { } at) {
+                                <TimeAgo At="@at" Hover="false" Class="time-ago"/>
+                            }
+                        </td>
                         <td class="tools">
                             <button type="button" class="btn-mini" title="Remove this point" disabled="@_busy"
                                     @onclick="@(() => RemoveAsync(p.Id))">
@@ -213,15 +217,6 @@
         return index < 0 ? g.Id : $"G{index + 1}";
     }
 
-    static string LastText(PixelWatchStatus p) {
-        if (p.LastTapAt is not { } at) return "";
-        var ago = DateTimeOffset.UtcNow - at;
-        if (ago < TimeSpan.FromSeconds(1)) return "now";
-        if (ago < TimeSpan.FromMinutes(1)) return string.Create(CultureInfo.InvariantCulture, $"{ago.TotalSeconds:0}s ago");
-        if (ago < TimeSpan.FromHours(1)) return string.Create(CultureInfo.InvariantCulture, $"{ago.TotalMinutes:0}m ago");
-        return at.ToString("HH:mm:ss", CultureInfo.InvariantCulture);
-    }
-
     static int? ParseInt(object? raw) {
         return int.TryParse(raw?.ToString(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var n) ? n : null;
     }
@@ -268,7 +263,7 @@
         try {
             using var res = await call();
             if (!res.IsSuccessStatusCode) {
-                await OnNotice.InvokeAsync(new DeviceNotice(await ReadError(res), StatusNoteKind.Error));
+                await OnNotice.InvokeAsync(new DeviceNotice(await ApiErrors.ReadAsync(res), StatusNoteKind.Error));
                 return;
             }
 
@@ -287,18 +282,6 @@
         var body = await res.Content.ReadFromJsonAsync<JsonElement>(SelfCallJson.Web);
         if (body.ValueKind != JsonValueKind.Object || !body.TryGetProperty(property, out var inner)) return null;
         return inner.Deserialize<PixelWatchState>(SelfCallJson.Web);
-    }
-
-    static async Task<string> ReadError(HttpResponseMessage resp) {
-        try {
-            var body = await resp.Content.ReadFromJsonAsync<JsonElement>();
-            if (body.ValueKind == JsonValueKind.Object && body.TryGetProperty("error", out var e))
-                return e.GetString() ?? $"failed [{(int)resp.StatusCode}]";
-        } catch (Exception ex) when (ex is JsonException or HttpRequestException or NotSupportedException) {
-            return $"failed [{(int)resp.StatusCode}]";
-        }
-
-        return $"failed [{(int)resp.StatusCode}]";
     }
 
 }

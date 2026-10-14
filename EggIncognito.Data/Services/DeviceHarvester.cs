@@ -39,7 +39,7 @@ public sealed class DeviceHarvester(
         }
 
         var job = await jobs.TryStartAsync(target.Id, DeviceJobKinds.Harvest, "agent",
-            $"harvesting revision {state.Revision[..12]}", ct);
+            $"harvesting revision {Hashes.Short(state.Revision)}", ct);
         if (job is null) {
             return new HarvestOutcome(HarvestStatus.Failed, state.Revision,
                 "another job is already running on this device", 0, 0, 0);
@@ -115,7 +115,7 @@ public sealed class DeviceHarvester(
         await states.FinishAsync(target.Id, status, note, state.Revision, ct);
         await jobs.FinishAsync(job, status, note,
             new DeviceJobFacts(AppVersion: state.AppVersion, Revision: state.Revision), ct);
-        logger.LogInformation("harvest {Device} rev {Revision}: {Note}", target.Id, state.Revision[..12], note);
+        logger.LogInformation("harvest {Device} rev {Revision}: {Note}", target.Id, Hashes.Short(state.Revision), note);
         return new HarvestOutcome(status, state.Revision, note, changed, skipped, failed);
     }
 

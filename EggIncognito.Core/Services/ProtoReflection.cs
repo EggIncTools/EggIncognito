@@ -88,13 +88,7 @@ public sealed class ProtoReflection : IProtoReflection {
             as MessageDescriptor;
     }
 
-    private static string Relative(MessageDescriptor desc) {
-        string package = desc.File.Package;
-        string full = desc.FullName;
-        if (package.Length == 0) return full;
-        string prefix = package + ".";
-        return full.StartsWith(prefix, StringComparison.Ordinal) ? full[prefix.Length..] : full;
-    }
+    private static string Relative(MessageDescriptor desc) => ProtoNames.StripQualifier(desc.FullName);
 
     private static string Short(string typeName) =>
         typeName.StartsWith("Ei.", StringComparison.Ordinal) ? typeName[3..] : typeName;

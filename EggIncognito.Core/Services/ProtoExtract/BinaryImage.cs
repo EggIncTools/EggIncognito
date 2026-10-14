@@ -113,11 +113,6 @@ public sealed class ElfImage : IBinaryImage {
 }
 
 public static class BinaryImage {
-    private const uint MachoMagic64 = 0xFEEDFACF;
-    private const uint MachoCigam64 = 0xCFFAEDFE;
-    private const uint FatMagic = 0xCAFEBABE;
-    private const uint FatCigam = 0xBEBAFECA;
-
 #pragma warning disable IDE0028
     private static readonly ConditionalWeakTable<byte[], IBinaryImage> Cache = new();
 #pragma warning restore IDE0028
@@ -135,9 +130,16 @@ public static class BinaryImage {
         if (bin[0] == 0x7F && bin[1] == (byte)'E' && bin[2] == (byte)'L' && bin[3] == (byte)'F')
             return new ElfImage(bin);
 
-        uint magic = (uint)(bin[0] | (bin[1] << 8) | (bin[2] << 16) | (bin[3] << 24));
-        if (magic is MachoMagic64 or MachoCigam64 or FatMagic or FatCigam)
+        if (MachoHeader.IsMacho(bin))
             return new MachoImage(bin);
+
+        return null;
+    }
+
+    public static MachoSections.Section? SectionAt(this IBinaryImage image, ulong va) {
+        foreach (var s in image.Sections) {
+            if (s.VmSize != 0 && va >= s.VmAddr && va < s.VmAddr + s.VmSize) return s;
+        }
 
         return null;
     }

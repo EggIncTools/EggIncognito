@@ -43,6 +43,13 @@ public sealed class InitArrayLocator {
         return false;
     }
 
+    public (ulong Start, ulong End)? RangeOf(ulong initVa) {
+        int idx = _inits.IndexOf(initVa);
+        if (idx < 0) return null;
+        ulong cap = idx + 1 < _inits.Count ? _inits[idx + 1] : EndOf(initVa);
+        return (initVa, FunctionEnd(initVa, cap));
+    }
+
     public IEnumerable<(ulong Start, ulong End)> LocateAllByString(string needle) {
         foreach (var init in _scanned.Value) {
             if (init.Strings.Any(s => s.Contains(needle, StringComparison.OrdinalIgnoreCase)))
@@ -77,7 +84,7 @@ public sealed class InitArrayLocator {
         if (!scan.Ok) return [];
         var strings = new List<string>();
         foreach (var r in scan.Addresses) {
-            if (!IsStringSection(r.Section)) continue;
+            if (!BinaryStrings.IsStringSection(r.Section)) continue;
             string s = BinaryStrings.ReadCstr(_bin, _img, r.Va, 200);
             if (s.Length > 0) strings.Add(s);
         }
@@ -96,9 +103,6 @@ public sealed class InitArrayLocator {
 
         return lo < _syms.Length ? _syms[lo] : start;
     }
-
-    private static bool IsStringSection(string name) =>
-        name is "__cstring" or ".rodata" or ".data.rel.ro" or "__const";
 
     private sealed record Init(ulong Start, ulong End, string[] Strings);
 }

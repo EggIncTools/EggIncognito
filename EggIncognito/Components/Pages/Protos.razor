@@ -239,8 +239,6 @@
         return _contractsModal?.Open() ?? Task.CompletedTask;
     }
 
-    static readonly JsonSerializerOptions JsonOpts = new(JsonSerializerDefaults.Web);
-
     List<ProtoRegistryRow> _rows = [];
 
     bool _loading = true;
@@ -352,7 +350,7 @@
                 "appVersion" => (a, b) => ByVersion(a, b),
                 "build" => (a, b) => {
                     var p = string.Compare(a.Platform, b.Platform, StringComparison.OrdinalIgnoreCase);
-                    return p != 0 ? p : CompareBuild(a.Build, b.Build);
+                    return p != 0 ? p : EggIncognito.Core.Services.Devices.VersionCompare.Build(a.Build, b.Build);
                 },
                 "client" => (a, b) => CompareNumeric(a.ClientVersion, b.ClientVersion),
                 "sha" => (a, b) => string.Compare(a.ProtoSha, b.ProtoSha, StringComparison.OrdinalIgnoreCase),
@@ -379,7 +377,7 @@
 
         return byKey
             .Select(kv => new Models.Registry.Release(kv.Key, kv.Value.OrderBy(m => m.Platform, StringComparer.OrdinalIgnoreCase)
-                .ThenByDescending(m => m.Build, BuildComparer).ToList()))
+                .ThenByDescending(m => m.Build, EggIncognito.Core.Services.Devices.VersionCompare.BuildComparer).ToList()))
             .ToList();
     }
 
@@ -449,15 +447,6 @@
 
     MarkupString Caret(string col) {
         return new MarkupString(_sortCol == col ? _sortDesc ? " ▾" : " ▴" : "");
-    }
-
-    static readonly IComparer<string> BuildComparer = Comparer<string>.Create((a, b) => CompareBuild(a, b));
-
-    static int CompareBuild(string? a, string? b) {
-        var an = long.TryParse(a, out var al);
-        var bn = long.TryParse(b, out var bl);
-        if (an && bn) return al.CompareTo(bl);
-        return an != bn ? an.CompareTo(bn) : CompareSemver(a, b);
     }
 
     static int CompareNumeric(string? a, string? b) {
@@ -584,7 +573,7 @@
     async Task Load(bool background = false) {
         if (!background) _loading = true;
         try {
-            _rows = await Client().GetFromJsonAsync<List<ProtoRegistryRow>>("/api/protos/versions", JsonOpts) ?? [];
+            _rows = await Client().GetFromJsonAsync<List<ProtoRegistryRow>>("/api/protos/versions", JsonPresets.Web) ?? [];
             State.Registry = _rows;
             State.RegistryLoadedAt = DateTime.UtcNow;
         } catch (Exception ex) {
@@ -609,7 +598,7 @@
     }
 
     static string Short(string? sha) {
-        return string.IsNullOrEmpty(sha) ? "" : sha.Length <= 6 ? sha : sha[..6];
+        return EggIncognito.Core.Hashes.Short(sha, 6);
     }
 
     void OnZoneChanged() => _ = InvokeAsync(StateHasChanged);

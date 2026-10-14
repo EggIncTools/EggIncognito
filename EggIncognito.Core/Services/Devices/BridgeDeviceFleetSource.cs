@@ -1,11 +1,8 @@
-using System.Text.Json;
-
 namespace EggIncognito.Core.Services.Devices;
 
 public sealed class BridgeDeviceFleetSource(
     IHttpClientFactory httpFactory, DeviceTransportConfig cfg, TimeProvider time) {
     public static readonly TimeSpan CacheFor = TimeSpan.FromSeconds(10);
-    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
     private readonly Lock _gate = new();
     private BridgeFleet? _cached;
     private DateTimeOffset _cachedAt;
@@ -26,7 +23,7 @@ public sealed class BridgeDeviceFleetSource(
             if (!resp.IsSuccessStatusCode)
                 return DeviceResult<BridgeFleet>.Unreachable($"bridge fleet {(int)resp.StatusCode} {resp.ReasonPhrase}");
 
-            var fleet = await resp.Content.ReadFromJsonAsync<BridgeFleet>(JsonOptions, ct);
+            var fleet = await resp.Content.ReadFromJsonAsync<BridgeFleet>(JsonPresets.Web, ct);
             if (fleet is null) return DeviceResult<BridgeFleet>.Unreachable("bridge fleet returned an empty response");
 
             lock (_gate) {

@@ -48,7 +48,7 @@ public static partial class MissionCatalogExtractor {
         ulong prevVa = 0;
 
         foreach (var r in refs) {
-            if (!IsStringSection(r.Section)) continue;
+            if (!BinaryStrings.IsStringSection(r.Section)) continue;
             string raw = BinaryStrings.ReadCstr(bin, img, r.Va, 128);
             if (string.IsNullOrEmpty(raw)) continue;
             string str = StripDescPrefix(raw);
@@ -76,9 +76,6 @@ public static partial class MissionCatalogExtractor {
 
         return new Result(true, entries, $"{entries.Count} missions");
     }
-
-    private static bool IsStringSection(string name) =>
-        name is "__cstring" or ".rodata" or ".data.rel.ro" or "__const";
 
     private static bool IsPrintable(string s) {
         if (s.Length < 2) return false;

@@ -23,7 +23,7 @@ public sealed class EndpointCatalogRebuilder(
 
         var attempts = new List<Attempt>();
         foreach (var c in found.Candidates) {
-            var syms = IsElf(c.Bytes) ? ElfSymbols.Read(c.Bytes) : c.Symbols ?? MachoSymbols.Read(c.Bytes);
+            var syms = ElfSections.IsElf64Le(c.Bytes) ? ElfSymbols.Read(c.Bytes) : c.Symbols ?? MachoSymbols.Read(c.Bytes);
             var extracted = EndpointCatalogExtractor.ExtractWith(c.Bytes, syms);
             var filtered = extracted.Ok
                 ? Filter(extracted.Endpoints, yaml.ExcludedPaths)
@@ -154,6 +154,4 @@ public sealed class EndpointCatalogRebuilder(
         return endpoints.Where(e => e.Path is not null && !excluded.Contains(e.Path)).ToList();
     }
 
-    private static bool IsElf(byte[] b) =>
-        b.Length >= 4 && b[0] == 0x7f && b[1] == 0x45 && b[2] == 0x4c && b[3] == 0x46;
 }

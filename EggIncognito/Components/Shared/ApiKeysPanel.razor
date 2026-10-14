@@ -109,8 +109,6 @@
 </div>
 
 @code {
-    static readonly JsonSerializerOptions JsonOpts = new(JsonSerializerDefaults.Web);
-
     string _origin = "https://eggincognito.egginc.tools";
 
     bool _noDb;
@@ -143,7 +141,7 @@
             }
 
             if (res.IsSuccessStatusCode) {
-                var body = await res.Content.ReadFromJsonAsync<KeysResponse>(JsonOpts);
+                var body = await res.Content.ReadFromJsonAsync<KeysResponse>(JsonPresets.Web);
                 _keys = body?.Keys ?? [];
                 _cap = body?.Cap;
             } else {
@@ -158,9 +156,9 @@
         _busy = true;
         _copied = false;
         try {
-            var res = await Client().PostAsJsonAsync("/api/v1/keys", new { name = _name }, JsonOpts);
+            var res = await Client().PostAsJsonAsync("/api/v1/keys", new { name = _name }, JsonPresets.Web);
             if (res.IsSuccessStatusCode) {
-                _minted = await res.Content.ReadFromJsonAsync<Minted>(JsonOpts);
+                _minted = await res.Content.ReadFromJsonAsync<Minted>(JsonPresets.Web);
                 _name = "";
                 await LoadKeys();
             } else if (res.StatusCode == HttpStatusCode.ServiceUnavailable) {
@@ -168,7 +166,7 @@
             } else if (res.StatusCode == HttpStatusCode.Conflict) {
                 string? msg = null;
                 try {
-                    msg = (await res.Content.ReadFromJsonAsync<ApiKeyErrorBody>(JsonOpts))?.Error;
+                    msg = (await res.Content.ReadFromJsonAsync<ApiKeyErrorBody>(JsonPresets.Web))?.Error;
                 } catch (Exception ex) {
                     Logger.LogDebug(ex, "key conflict body unreadable");
                 }
@@ -208,7 +206,7 @@
         _busyRow = true;
         try {
             var res = await Client().PostAsJsonAsync($"/api/v1/keys/{keyId}/features/{feature}",
-                new { note = NoteFor(keyId, feature) }, JsonOpts);
+                new { note = NoteFor(keyId, feature) }, JsonPresets.Web);
             if (res.IsSuccessStatusCode) {
                 _notes.Remove((keyId, feature));
                 _requesting = null;

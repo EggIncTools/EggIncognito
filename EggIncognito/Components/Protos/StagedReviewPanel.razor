@@ -70,7 +70,7 @@
                             <td>
                                 <input class="protos-filter sr-in sr-in-xs" placeholder="-" @bind="r.ClientVersion"/>
                             </td>
-                            <td class="sr-sha">@Short(r.ProtoSha)</td>
+                            <td class="sr-sha">@EggIncognito.Core.Hashes.Short(r.ProtoSha)</td>
                             <td class="sr-origin">
                                 @if (r.OriginRepo is not null) {
                                     <span>@r.OriginRepo</span>
@@ -100,8 +100,6 @@
 }
 
 @code {
-    static readonly JsonSerializerOptions JsonOpts = new(JsonSerializerDefaults.Web);
-
     List<Models.Staging.StagedRow> _rows = [];
     readonly HashSet<int> _selected = [];
     bool _busy;
@@ -117,7 +115,7 @@
 
     public async Task Load() {
         try {
-            _rows = await Client().GetFromJsonAsync<List<Models.Staging.StagedRow>>("/api/protos/staged", JsonOpts) ?? [];
+            _rows = await Client().GetFromJsonAsync<List<Models.Staging.StagedRow>>("/api/protos/staged", JsonPresets.Web) ?? [];
         } catch {
             _rows = [];
         }
@@ -146,10 +144,6 @@
         }
     }
 
-    static string Short(string? sha) {
-        return string.IsNullOrEmpty(sha) ? "" : sha.Length <= 12 ? sha : sha[..12];
-    }
-
     static string ConfClass(string c) {
         return c switch {
             "version-file" => "text-accent",
@@ -165,9 +159,9 @@
     async Task Approve(Models.Staging.StagedRow r) {
         _busy = true;
         try {
-            var resp = await Client().PostAsJsonAsync($"/api/protos/staged/{r.Id}/approve", ApproveBody(r), JsonOpts);
+            var resp = await Client().PostAsJsonAsync($"/api/protos/staged/{r.Id}/approve", ApproveBody(r), JsonPresets.Web);
             if (resp.IsSuccessStatusCode) Ok("approved");
-            else Err(await ErrorText(resp) ?? $"approve failed ({(int)resp.StatusCode})");
+            else Err(await ApiErrors.ReadAsync(resp));
         } catch (Exception ex) {
             Err($"approve error: {ex.Message}");
         } finally {
@@ -181,7 +175,7 @@
     async Task Reject(Models.Staging.StagedRow r) {
         _busy = true;
         try {
-            var resp = await Client().PostAsJsonAsync($"/api/protos/staged/{r.Id}/reject", new { note = (string?)null }, JsonOpts);
+            var resp = await Client().PostAsJsonAsync($"/api/protos/staged/{r.Id}/reject", new { note = (string?)null }, JsonPresets.Web);
             if (resp.IsSuccessStatusCode) Ok("rejected");
             else Err($"reject failed ({(int)resp.StatusCode})");
         } catch (Exception ex) {
@@ -201,9 +195,9 @@
             var items = _rows.Where(r => _selected.Contains(r.Id)).Select(r => new {
                 id = r.Id, platform = r.Platform, appVersion = r.AppVersion, build = r.Build, clientVersion = r.ClientVersion
             }).ToList();
-            var resp = await Client().PostAsJsonAsync("/api/protos/staged/bulk-approve", new { items }, JsonOpts);
+            var resp = await Client().PostAsJsonAsync("/api/protos/staged/bulk-approve", new { items }, JsonPresets.Web);
             if (resp.IsSuccessStatusCode) {
-                var r = await resp.Content.ReadFromJsonAsync<Models.Staging.BulkApproveResp>(JsonOpts);
+                var r = await resp.Content.ReadFromJsonAsync<Models.Staging.BulkApproveResp>(JsonPresets.Web);
                 if (r is null) Ok("approved");
                 else if (r.Failed > 0) Err(BulkSummary(r));
                 else Ok(BulkSummary(r));
@@ -226,9 +220,9 @@
         _busy = true;
         try {
             var resp = await Client().PostAsJsonAsync("/api/protos/staged/bulk-reject",
-                new { ids = _selected.ToList(), note = (string?)null }, JsonOpts);
+                new { ids = _selected.ToList(), note = (string?)null }, JsonPresets.Web);
             if (resp.IsSuccessStatusCode) {
-                var r = await resp.Content.ReadFromJsonAsync<Models.Staging.BulkRejectResp>(JsonOpts);
+                var r = await resp.Content.ReadFromJsonAsync<Models.Staging.BulkRejectResp>(JsonPresets.Web);
                 Ok(r is null ? "rejected" : $"rejected {r.Rejected}");
             } else {
                 Err($"bulk reject failed ({(int)resp.StatusCode})");
@@ -276,8 +270,8 @@
 
         try {
             var resp = await Client().PostAsJsonAsync("/api/protos/staged/bulk-reject",
-                new { ids = rows.Select(r => r.Id).ToList(), note = "set aside: missing version data (copied for audit)" }, JsonOpts);
-            var n = resp.IsSuccessStatusCode ? (await resp.Content.ReadFromJsonAsync<Models.Staging.BulkRejectResp>(JsonOpts))?.Rejected ?? 0 : 0;
+                new { ids = rows.Select(r => r.Id).ToList(), note = "set aside: missing version data (copied for audit)" }, JsonPresets.Web);
+            var n = resp.IsSuccessStatusCode ? (await resp.Content.ReadFromJsonAsync<Models.Staging.BulkRejectResp>(JsonPresets.Web))?.Rejected ?? 0 : 0;
             Ok($"copied {rows.Count} to clipboard, set aside {n} (returns if re-surfaced with more data)");
         } catch (Exception ex) {
             Err($"copied, but clear failed: {ex.Message}");
@@ -289,17 +283,6 @@
         await Load();
         await OnChanged.InvokeAsync();
     }
-
-    static async Task<string?> ErrorText(HttpResponseMessage resp) {
-        try {
-            var body = await resp.Content.ReadFromJsonAsync<ErrorResp>(JsonOpts);
-            return string.IsNullOrWhiteSpace(body?.Error) ? null : body.Error;
-        } catch (Exception ex) when (ex is HttpRequestException or NotSupportedException or JsonException) {
-            return null;
-        }
-    }
-
-    sealed record ErrorResp(string? Error);
 
 
     void Ok(string t) {

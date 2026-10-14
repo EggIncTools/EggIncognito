@@ -1,5 +1,3 @@
-using System.Collections.Frozen;
-using System.Globalization;
 using System.Text;
 using System.Text.Json;
 using EggIncognito.Core.Services;
@@ -26,17 +24,11 @@ namespace EggIncognito.Controllers;
 [ApiAccess(ApiAccessLevel.Public)]
 [EnableRateLimiting("read")]
 public sealed class PeriodicalsController(
-    IConfiguration config,
     DataCatalog catalog,
     IServiceProvider services,
+    EndpointStore endpointStore,
     ILogger<PeriodicalsController> logger) : ApiControllerBase {
     private static readonly JsonSerializerOptions ProvenanceJson = JsonPresets.CamelSkipNull;
-
-    private static readonly FrozenDictionary<int, string> DimNames =
-        ColleggtibleCatalog.DimensionCodes.ToFrozenDictionary(kv => kv.Value, kv => kv.Key);
-
-    private string Root => ContentRoot.Resolve(config["ContentRoot"]);
-    private string DefaultsDir => Path.Combine(Root, "Endpoints", "default");
 
     private IEnumerable<DataSource> WireSources =>
         catalog.ByGroup("periodical").Where(s => s.Provenance == DataProvenance.WireFixture);
@@ -49,7 +41,8 @@ public sealed class PeriodicalsController(
     ];
 
     [HttpGet("summary")]
-    public IActionResult Summary([FromServices] GameDataStore? gdStore, [FromServices] GameConfigStore? store) {
+    public async Task<IActionResult> Summary([FromServices] GameDataStore? gdStore, [FromServices] GameConfigStore? store,
+        CancellationToken ct) {
         var extracted = new List<object>();
         object? colleggtibles = null;
         if (gdStore is not null) {
@@ -81,7 +74,7 @@ public sealed class PeriodicalsController(
                     return new {
                         Identifier = id,
                         name = live.Names.GetValueOrDefault(id),
-                        dimension = buffs is null ? "" : DimensionName(buffs.Dimension),
+                        dimension = buffs is null ? "" : DimensionNames.Of(buffs.Dimension),
                         tierValues = buffs?.TierValues ?? [],
                         icon = live.Icons.ContainsKey(id) ? EggIcons.Url(0, id) : null
                     };
@@ -101,7 +94,7 @@ public sealed class PeriodicalsController(
             extracted,
             colleggtibles,
             config = new { enabled = configEnabled, platforms },
-            feeds = WireSources.Select(FeedInfo).ToArray()
+            feeds = await Task.WhenAll(WireSources.Select(s => FeedInfo(s, ct)))
         });
     }
 
@@ -109,7 +102,7 @@ public sealed class PeriodicalsController(
     public async Task<IActionResult> Seasons([FromServices] EggIncognitoDbContext? db, CancellationToken ct) {
         string? route = catalog.ById("periodical", "season-infos")?.WireRoute;
         if (route is null) return Fail(404, "season source missing");
-        string? seasonJson = await ResolveRouteJson(route, db, ct);
+        string? seasonJson = await endpointStore.CurrentJsonAsync(route, ct);
         if (seasonJson is null) return Fail(404, "no season capture available");
 
         ContractSeasonInfos infos;
@@ -120,25 +113,22 @@ public sealed class PeriodicalsController(
         }
 
         var sightings = new List<EggSighting>();
-        var icons = new Dictionary<string, string?>(StringComparer.Ordinal);
         string? perRoute = catalog.ById("periodical", "get_periodicals")?.WireRoute;
-        (string? perJson, _) = await ResolveCurrentJson(perRoute, db, ct);
+        string? perJson = perRoute is null ? null : await endpointStore.CurrentJsonAsync(perRoute, ct);
         if (perJson is not null) {
             try {
                 var per = PeriodicalsResponse.Parser.ParseJson(perJson);
                 AddSightings(sightings, per.Contracts?.Contracts ?? []);
-                foreach (var egg in per.Contracts?.CustomEggs ?? []) icons[egg.Identifier] = CachedIcon(egg);
             } catch (InvalidProtocolBufferException ex) {
                 logger.LogWarning(ex, "periodicals: colleggtible enrichment skipped, periodicals capture unreadable");
             }
         }
 
-        string? infoJson = await ResolveRouteJson(ContractsInfoRoute, db, ct);
+        string? infoJson = await endpointStore.CurrentJsonAsync(LiveColleggtibleSource.ContractsInfoRoute, ct);
         if (infoJson is not null) {
             try {
                 var info = ContractsInfoResponse.Parser.ParseJson(infoJson);
                 AddSightings(sightings, info.Contracts);
-                foreach (var egg in info.CustomEggs) icons.TryAdd(egg.Identifier, CachedIcon(egg));
             } catch (InvalidProtocolBufferException ex) {
                 logger.LogWarning(ex, "periodicals: contracts info fixture unreadable, colleggtible first-seen limited");
             }
@@ -160,14 +150,10 @@ public sealed class PeriodicalsController(
         }
 
         string[] seasonIds = [.. infos.Infos.Select(s => s.Id)];
-        var seasonEggs = SeasonColleggtibles.Attribute(sightings, seasonIds, id => icons.GetValueOrDefault(id));
+        var seasonEggs = SeasonColleggtibles.Attribute(sightings, seasonIds,
+            id => LiveColleggtibleSource.IconUrl(services, perRoute, id));
         return Ok(new { seasons = SeasonList(infos, seasonEggs) });
     }
-
-    private const string ContractsInfoRoute = LiveColleggtibleSource.ContractsInfoRoute;
-
-    private static string? CachedIcon(CustomEgg egg) =>
-        string.IsNullOrEmpty(egg.Icon?.Url) ? null : EggIcons.Url(0, egg.Identifier);
 
     private static void AddSightings(List<EggSighting> sightings, IEnumerable<Contract> contracts) {
         foreach (var c in contracts) {
@@ -189,21 +175,21 @@ public sealed class PeriodicalsController(
                     : [];
                 return (object)new {
                 id = s.Id,
-                name = string.IsNullOrEmpty(s.Name) ? PrettySeasonId(s.Id) : s.Name,
+                name = string.IsNullOrEmpty(s.Name) ? EggIcons.Pretty(s.Id) : s.Name,
                 startTime = starts[i],
                 nextStartTime = i == 0 ? starts[0] + quarter : starts[i - 1],
                 startDerived = !(s.HasStartTime && s.StartTime > 0),
                 colleggtibles,
                 gradeGoals = s.GradeGoals.Select(g => new {
                     grade = g.Grade.ToString(),
-                    gradeIcon = $"/api/v1/data/asset/icon?name={RewardIconMap.GradeStem(g.Grade.ToString())}",
+                    gradeIcon = EggIcons.Asset("icon", RewardIconMap.GradeStem(g.Grade.ToString())),
                     goals = g.Goals.Select(x => new {
                         cxp = x.Cxp,
                         rewardType = x.RewardType.ToString(),
                         rewardSubType = x.RewardSubType,
                         rewardAmount = x.RewardAmount,
                         icon = RewardIconMap.Stem(x.RewardType, x.RewardSubType) is { } stem
-                            ? $"/api/v1/data/asset/icon?name={stem}"
+                            ? EggIcons.Asset("icon", stem)
                             : null
                     }).ToArray()
                 }).ToArray()
@@ -247,10 +233,6 @@ public sealed class PeriodicalsController(
         return quarter;
     }
 
-    private static string PrettySeasonId(string id) =>
-        string.Join(' ', id.Split('_', StringSplitOptions.RemoveEmptyEntries)
-            .Select(w => w.Length > 0 ? char.ToUpperInvariant(w[0]) + w[1..] : w));
-
     [HttpGet("feed/{name}")]
     [ApiAccess(ApiAccessLevel.Authenticated)]
     public async Task<IActionResult> Feed(string name, CancellationToken ct) {
@@ -286,15 +268,14 @@ public sealed class PeriodicalsController(
     }
 
     [HttpGet("current")]
-    public async Task<IActionResult> Current([FromServices] EggIncognitoDbContext? db,
-        [FromServices] GameAssetProvider? assets, CancellationToken ct) {
+    public async Task<IActionResult> Current([FromServices] GameAssetProvider? assets, CancellationToken ct) {
         string? route = catalog.ById("periodical", "get_periodicals")?.WireRoute;
-        (string? json, DateTimeOffset? capturedAt) = await ResolveCurrentJson(route, db, ct);
-        if (json is null) return Fail(404, "no periodicals capture available");
+        var current = route is null ? null : await endpointStore.CurrentAsync(route, ct);
+        if (current is null) return Fail(404, "no periodicals capture available");
 
         PeriodicalsResponse per;
         try {
-            per = PeriodicalsResponse.Parser.ParseJson(json);
+            per = PeriodicalsResponse.Parser.ParseJson(current.Json);
         } catch (Exception ex) {
             return Fail(500, $"periodicals capture unreadable: {ex.Message}");
         }
@@ -319,50 +300,7 @@ public sealed class PeriodicalsController(
             });
         }
 
-        return Ok(new { capturedAt, serverTime, events });
-    }
-
-    private async Task<string?> ResolveRouteJson(string route, EggIncognitoDbContext? db, CancellationToken ct) {
-        if (db is not null) {
-            try {
-                var stored = await db.StoredEndpoints
-                    .FirstOrDefaultAsync(s => s.Path == route && s.Eid == null, ct);
-                if (stored is not null) return stored.ResponseJson;
-            } catch (Exception ex) {
-                logger.LogWarning(ex, "periodicals: stored endpoint lookup for {Route} failed, falling back to disk",
-                    route);
-            }
-        }
-
-        string path = FixturePath(route);
-        return System.IO.File.Exists(path)
-            ? await System.IO.File.ReadAllTextAsync(path, ct)
-            : null;
-    }
-
-    private async Task<(string? Json, DateTimeOffset? CapturedAt)> ResolveCurrentJson(string? route,
-        EggIncognitoDbContext? db, CancellationToken ct) {
-        if (db is not null) {
-            try {
-                var snap = await db.PeriodicalsSnapshots
-                    .OrderByDescending(s => s.CapturedAt)
-                    .FirstOrDefaultAsync(ct);
-                if (snap is not null) return (snap.ResponseJson, snap.CapturedAt);
-                if (route is not null) {
-                    var stored = await db.StoredEndpoints
-                        .FirstOrDefaultAsync(s => s.Path == route && s.Eid == null, ct);
-                    if (stored is not null) return (stored.ResponseJson, null);
-                }
-            } catch (Exception ex) {
-                logger.LogWarning(ex, "periodicals: snapshot lookup failed, falling back to disk fixture");
-            }
-        }
-
-        if (route is null) return (null, null);
-        string path = FixturePath(route);
-        return System.IO.File.Exists(path)
-            ? (await System.IO.File.ReadAllTextAsync(path, ct), null)
-            : (null, null);
+        return Ok(new { capturedAt = current.CapturedAt, serverTime, events });
     }
 
     private static async Task<string?> ResolveEventIcon(string type, Dictionary<string, string?> cache,
@@ -376,7 +314,7 @@ public sealed class PeriodicalsController(
             foreach (string candidate in candidates) {
                 var result = await assets.GetCachedAsync(new GameAssetKey("icon", null, candidate), ct);
                 if (!result.Ok || result.Asset is null) continue;
-                icon = $"/api/v1/data/asset/icon?name={Uri.EscapeDataString(candidate)}";
+                icon = EggIcons.Asset("icon", candidate);
                 break;
             }
         }
@@ -385,24 +323,15 @@ public sealed class PeriodicalsController(
         return icon;
     }
 
-    private string FixturePath(string route) {
-        string[] parts = route.Split('/', StringSplitOptions.RemoveEmptyEntries);
-        string file = parts[^1] + ".json";
-        return Path.Combine([DefaultsDir, .. parts[..^1], file]);
-    }
-
-    private static string DimensionName(int code) =>
-        DimNames.TryGetValue(code, out string? n) ? n : code.ToString(CultureInfo.InvariantCulture);
-
-    private object FeedInfo(DataSource src) {
+    private async Task<object> FeedInfo(DataSource src, CancellationToken ct) {
         string route = src.WireRoute!;
-        var file = new FileInfo(FixturePath(route));
+        var current = await endpointStore.CurrentAsync(route, ct);
         return new {
             name = src.Feed,
             path = route,
-            present = file.Exists,
-            bytes = file.Exists ? file.Length : 0,
-            updatedAt = file.Exists ? file.LastWriteTimeUtc : (DateTime?)null
+            present = current is not null,
+            bytes = current is null ? 0 : Encoding.UTF8.GetByteCount(current.Json),
+            updatedAt = current?.CapturedAt
         };
     }
 }

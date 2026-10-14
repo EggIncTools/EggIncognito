@@ -33,7 +33,7 @@
                                 @foreach (var type in group) {
                                     <CalendarRailRow @key="type" On="TypeSelected(type)" DimWhenOff="true" Style="@TypeRowStyle(type)"
                                                      IconUrl="@EventPalette.IconUrl(type)" OnClick="@(() => ToggleType(type))">
-                                        <span>@Pretty(type)</span>
+                                        <span>@EggIcons.Pretty(type)</span>
                                     </CalendarRailRow>
                                 }
                             </div>
@@ -77,7 +77,7 @@
                     <FallbackImg Class="evcal-pop-icon" Src="@iconUrl" Alt=""/>
                 }
                 <span class="evcal-pop-big">@EventMagnitude.Describe(e)</span>
-                <span>@Pretty(e.Type)</span>
+                <span>@EggIcons.Pretty(e.Type)</span>
                 @if (e.Ultra) {
                     <span class="evcal-pop-ultra">ULTRA</span>
                 }
@@ -124,8 +124,6 @@
     const double UncertainConfidence = 0.5;
     const int MinPredictionHorizonDays = 7;
     const int MaxPredictionHorizonDays = 90;
-
-    static readonly JsonSerializerOptions JsonOpts = new(JsonSerializerDefaults.Web);
 
     readonly Dictionary<string, GameEventDto> _events = new(StringComparer.Ordinal);
 
@@ -224,7 +222,7 @@
             var res = await Client().GetAsync(url);
             if ((int)res.StatusCode == 503) return CalendarLoad.Failed("Event history needs a database. This instance has none.");
             if (!res.IsSuccessStatusCode) return CalendarLoad.Failed("Events could not be loaded.");
-            var body = await res.Content.ReadFromJsonAsync<GameEventListResponse>(JsonOpts);
+            var body = await res.Content.ReadFromJsonAsync<GameEventListResponse>(JsonPresets.Web);
             if (body is null) return CalendarLoad.Failed("Events could not be loaded.");
             foreach (var e in body.Events) _events[EventCalendarItem.Of(e).Key] = e;
             if (body.Total <= body.Events.Count) {
@@ -250,7 +248,7 @@
         try {
             var res = await Client().GetAsync(FormattableString.Invariant($"/api/v1/events/predictions?horizon={horizon}"));
             if (!res.IsSuccessStatusCode) return;
-            _predictions = await res.Content.ReadFromJsonAsync<EventPredictionSet>(JsonOpts);
+            _predictions = await res.Content.ReadFromJsonAsync<EventPredictionSet>(JsonPresets.Web);
             _horizonEnd = horizonEnd;
         } catch (Exception ex) {
             Logger.LogDebug(ex, "event predictions could not be loaded");
@@ -293,17 +291,17 @@
     static string Label(EventCalendarItem item) {
         if (item.Prediction is { } p) {
             if (p.Type is not { Length: > 0 } type) return p.Ultra ? "Ultra event" : "Standard event";
-            var pretty = WithMagnitude(Pretty(type), p.Magnitudes);
+            var pretty = WithMagnitude(EggIcons.Pretty(type), p.Magnitudes);
             return p.Kind is EventRuleKind.Pool or EventRuleKind.Ultra && p.Confidence < UncertainConfidence ? pretty + "?" : pretty;
         }
 
         if (item.Event is not { } e) return "";
-        return string.IsNullOrWhiteSpace(e.Message) ? Pretty(e.Type) : e.Message;
+        return string.IsNullOrWhiteSpace(e.Message) ? EggIcons.Pretty(e.Type) : e.Message;
     }
 
     static string PopTitle(EventCalendarItem item) {
         if (item.Prediction is { } p) {
-            var type = p.Type is { Length: > 0 } t ? Pretty(t) : p.Ultra ? "Ultra event" : "Standard event";
+            var type = p.Type is { Length: > 0 } t ? EggIcons.Pretty(t) : p.Ultra ? "Ultra event" : "Standard event";
             return type + " (predicted)";
         }
 
@@ -319,16 +317,11 @@
             ? [.. p.Candidates.Where(c => !string.IsNullOrEmpty(c.Type)).OrderByDescending(c => c.Probability)]
             : [];
 
-    static string ChoiceLabel(EventCandidate c) => WithMagnitude(Pretty(c.Type), c.Magnitudes);
+    static string ChoiceLabel(EventCandidate c) => WithMagnitude(EggIcons.Pretty(c.Type), c.Magnitudes);
 
     static string WithMagnitude(string label, IReadOnlyList<EventMagnitudeOdds> odds) =>
         odds.Count > 0 && EventMagnitude.Describe(odds[0].Multiplier) is { Length: > 0 } scalar ? $"{label} {scalar}" : label;
 
     static string PctStyle(double p) => FormattableString.Invariant($"--p:{Math.Clamp(p, 0, 1):0.###};");
-
-    static string Pretty(string raw) {
-        var words = raw.Replace('-', ' ').Replace('_', ' ').Split(' ', StringSplitOptions.RemoveEmptyEntries);
-        return string.Join(' ', words.Select(w => char.ToUpperInvariant(w[0]) + w[1..].ToLowerInvariant()));
-    }
 
 }

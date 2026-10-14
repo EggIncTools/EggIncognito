@@ -42,6 +42,7 @@ public class Elf64Tests {
 
         int s1 = shoff + 1 * shentsize;
         U32(s1 + 0x00, textNameOff);
+        U64(s1 + 0x08, 0x2);
         U64(s1 + 0x10, textVAddr);
         U64(s1 + 0x18, (ulong)textOffset);
         U64(s1 + 0x20, (ulong)textSize);
@@ -56,19 +57,20 @@ public class Elf64Tests {
     [Fact]
     public void FindSection_Text_ReturnsAddrOffsetSize() {
         byte[] elf = MiniElf(0x1000, 0x400, 0x2000);
-        var s = Elf64.FindSection(elf, ".text");
+        var s = MachoSections.Find(ElfSections.Read(elf), "", ".text");
         Assert.NotNull(s);
-        Assert.Equal(0x1000ul, s.VAddr);
-        Assert.Equal(0x400, s.FileOffset);
-        Assert.Equal(0x2000, s.Size);
+        Assert.Equal(0x1000ul, s.Value.VmAddr);
+        Assert.Equal(0x400, s.Value.FileOff);
+        Assert.Equal(0x2000ul, s.Value.VmSize);
     }
 
     [Fact]
     public void FindSection_Missing_ReturnsNull() {
         byte[] elf = MiniElf(0x1000, 0x400, 0x2000);
-        Assert.Null(Elf64.FindSection(elf, ".rodata"));
+        Assert.Null(MachoSections.Find(ElfSections.Read(elf), "", ".rodata"));
     }
 
     [Fact]
-    public void FindSection_NotElf_ReturnsNull() => Assert.Null(Elf64.FindSection([1, 2, 3, 4, 5, 6, 7, 8], ".text"));
+    public void FindSection_NotElf_ReturnsNull() =>
+        Assert.Null(MachoSections.Find(ElfSections.Read([1, 2, 3, 4, 5, 6, 7, 8]), "", ".text"));
 }

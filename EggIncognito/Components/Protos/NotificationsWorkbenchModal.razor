@@ -536,7 +536,7 @@
     static string Pretty(string json) {
         try {
             using var doc = JsonDocument.Parse(json);
-            return JsonSerializer.Serialize(doc.RootElement, new JsonSerializerOptions { WriteIndented = true });
+            return JsonSerializer.Serialize(doc.RootElement, JsonPresets.Indented);
         } catch (JsonException) {
             return json;
         }

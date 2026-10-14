@@ -59,7 +59,7 @@ public static partial class ProtoTextCompiler {
     public static FileDescriptorProto Compile(string protoText) {
         ArgumentNullException.ThrowIfNull(protoText);
 
-        var lines = JoinLogicalLines(SplitLines(StripComments(protoText)));
+        var lines = JoinLogicalLines(UnifiedDiffWriter.SplitLines(StripComments(protoText)));
         var symbols = new Dictionary<string, SymbolKind>(StringComparer.Ordinal);
         List<MessageNode> rootMessages = [];
         List<EnumNode> rootEnums = [];
@@ -387,9 +387,6 @@ public static partial class ProtoTextCompiler {
 
         return sb.ToString();
     }
-
-    private static string[] SplitLines(string text) =>
-        text.Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n').Split('\n');
 
     private enum SymbolKind { Message, Enum, Package }
 

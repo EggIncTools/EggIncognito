@@ -46,7 +46,7 @@ public sealed class IosStoreUpdateDriver(
         if (latest is null)
             return new StoreProbeOutcome(StoreAvailability.Unknown, null, "App Store lookup unavailable");
         await knownVersions.RecordAsync(Platforms.Ios, latest, "itunes-lookup", ct);
-        return DeviceParsing.CompareVersions(latest, installed) > 0
+        return StoreAheadCheck.IsAhead(latest, installed)
             ? new StoreProbeOutcome(StoreAvailability.UpdateOffered, latest, null)
             : new StoreProbeOutcome(StoreAvailability.UpToDate, latest,
                 $"App Store latest {latest}; installed {installed} current");

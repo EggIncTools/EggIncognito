@@ -1,9 +1,6 @@
-using System.Text.Json;
-
 namespace EggIncognito.Core.Services.Devices;
 
 public sealed class BridgeHostFacts(IHttpClientFactory httpFactory, DeviceTransportConfig cfg) : IHostFacts {
-    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
     private HostFacts? _cached;
 
@@ -19,7 +16,7 @@ public sealed class BridgeHostFacts(IHttpClientFactory httpFactory, DeviceTransp
             if (!resp.IsSuccessStatusCode)
                 return DeviceResult<HostFacts>.Unreachable($"bridge host {(int)resp.StatusCode} {resp.ReasonPhrase}");
 
-            var facts = await resp.Content.ReadFromJsonAsync<HostFacts>(JsonOptions, ct);
+            var facts = await resp.Content.ReadFromJsonAsync<HostFacts>(JsonPresets.Web, ct);
             if (facts is null) return DeviceResult<HostFacts>.Unreachable("bridge host returned an empty response");
 
             _cached = facts;

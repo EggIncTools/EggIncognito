@@ -65,7 +65,7 @@ public class ProtoLayoutPatcherTests {
 
     [Fact]
     public void Apply_ReorderingAndQualifiersAlone_LeaveMainUntouched() {
-        string reordered = Canonical.Replace("            optional bool music = 2;\n", "").Replace("            DROID = 2;\n", "");
+        string reordered = Canonical.Replace("        optional bool music = 2;\n", "").Replace("    DROID = 2;\n", "");
         var r = ProtoLayoutPatcher.Apply(Main, reordered);
         Assert.True(r.Ok, r.Error);
         Assert.Equal(Main, r.Text);

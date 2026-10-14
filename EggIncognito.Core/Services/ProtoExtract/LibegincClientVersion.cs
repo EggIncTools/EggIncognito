@@ -9,7 +9,7 @@ public static class LibegincClientVersion {
     public static int? Read(byte[] apkOrSoBytes, int? prevClientVersion = null) {
         _ = prevClientVersion;
         try {
-            byte[]? bin = IsZip(apkOrSoBytes) ? ReadSoFromZip(apkOrSoBytes) : apkOrSoBytes;
+            byte[]? bin = ArchiveProtoExtractor.IsZip(apkOrSoBytes) ? ReadSoFromZip(apkOrSoBytes) : apkOrSoBytes;
             return bin is null ? null : ReadFromBinary(bin);
         } catch {
             return null;
@@ -240,59 +240,34 @@ public static class LibegincClientVersion {
     }
 
     private static int? DecodeConstReturn(byte[] bin, int fo, int len) {
-        long? w0 = null;
+        ulong? w0 = null;
         for (int p = fo; p + 4 <= fo + len; p += 4) {
             uint ins = (uint)(bin[p] | (bin[p + 1] << 8) | (bin[p + 2] << 16) | (bin[p + 3] << 24));
             if (ins == 0xD65F03C0) break;
-            int rd = (int)(ins & 0x1F);
-            int hw = (int)((ins >> 21) & 3);
-            int imm16 = (int)((ins >> 5) & 0xFFFF);
-            if ((ins & 0x7F800000) == 0x52800000) {
-                if (rd == 0) w0 = (long)imm16 << (hw * 16);
-            } else if ((ins & 0x7F800000) == 0x72800000) {
-                if (rd == 0 && w0 is not null) {
-                    long mask = ~((long)0xFFFF << (hw * 16));
-                    w0 = (w0.Value & mask) | ((long)imm16 << (hw * 16));
-                }
-            } else if ((ins & 0x7F800000) == 0x32000000 && rd == 0 && ((ins >> 5) & 0x1F) == 31) {
+
+            if (Arm64Bits.TryMovWide(ins, out int rd, out ulong value, out var kind, out _) && rd == 0) {
+                if (kind == Arm64Bits.MovKind.Movz) w0 = value;
+                else if (kind == Arm64Bits.MovKind.Movk && w0 is not null) w0 = Arm64Bits.Merge(w0.Value, ins);
+            } else if ((ins & 0x7F800000) == 0x32000000 && (ins & 0x1F) == 0 && ((ins >> 5) & 0x1F) == 31) {
                 ulong? bm = DecodeBitMask((int)((ins >> 22) & 1), (int)((ins >> 16) & 0x3F),
                     (int)((ins >> 10) & 0x3F), ((ins >> 31) & 1) != 0 ? 64 : 32);
-                if (bm is not null) w0 = (long)bm.Value;
+                if (bm is not null) w0 = bm.Value;
             }
         }
 
-        return w0 is null or < 0 or > int.MaxValue ? null : (int)w0.Value;
+        return w0 is null or > int.MaxValue ? null : (int)w0.Value;
     }
 
     private static ulong? DecodeBitMask(int n, int immr, int imms, int width) {
-        int combined = (n << 6) | (imms ^ 0x3F);
-        if (combined == 0) return null;
-        int length = 31 - System.Numerics.BitOperations.LeadingZeroCount((uint)combined);
-        int esize = 1 << length;
-        if (esize is < 2 or > 64) return null;
-        int levels = esize - 1;
-        int s = imms & levels;
-        int r = immr & levels;
-        ulong welem = s + 1 >= 64 ? ulong.MaxValue : (1UL << (s + 1)) - 1;
-        ulong elemMask = esize >= 64 ? ulong.MaxValue : (1UL << esize) - 1;
-        ulong val = r == 0 ? welem : ((welem >> r) | (welem << (esize - r))) & elemMask;
-        ulong outp = 0;
-        for (int i = 0; i < width; i += esize) outp |= val << i;
-        return width >= 64 ? outp : outp & ((1UL << width) - 1);
+        uint word = 0x32000000u | ((uint)(n & 1) << 22) | ((uint)(immr & 0x3F) << 16) | ((uint)(imms & 0x3F) << 10) | (0x1Fu << 5) | 0x1Fu;
+        if (width == 64) word |= 1u << 31;
+        return Arm64Bits.TryOrrImm(word, out _, out _, out ulong value, out _) ? value : null;
     }
-
-    private static bool IsZip(byte[] b) =>
-        b is { Length: > 4 } && b[0] == 0x50 && b[1] == 0x4B && b[2] == 0x03 && b[3] == 0x04;
 
     private static byte[]? ReadSoFromZip(byte[] zipBytes) {
         try {
             using var zip = new ZipArchive(new MemoryStream(zipBytes, false), ZipArchiveMode.Read);
-            var entry = zip.GetEntry("lib/arm64-v8a/libegginc.so")
-                        ?? zip.Entries.FirstOrDefault(e =>
-                            e.FullName.Contains("arm64", StringComparison.OrdinalIgnoreCase)
-                            && e.FullName.EndsWith("/libegginc.so", StringComparison.OrdinalIgnoreCase))
-                        ?? zip.Entries.FirstOrDefault(e =>
-                            e.FullName.EndsWith("/libegginc.so", StringComparison.OrdinalIgnoreCase));
+            var entry = ArchiveProtoExtractor.OrderedCandidates(zip).FirstOrDefault(ArchiveProtoExtractor.IsNativeLib);
             if (entry is null || entry.Length is <= 0 or > MaxSoBytes) return null;
             using var es = entry.Open();
             using var buf = new MemoryStream();

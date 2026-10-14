@@ -6,7 +6,6 @@ using EggIncognito.Services.Auth;
 using EggIncognito.Services.DataApi;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
-using Microsoft.Net.Http.Headers;
 
 namespace EggIncognito.Controllers;
 
@@ -125,7 +124,7 @@ public sealed class DataApiController(DataCatalog catalog, ICurrentUser currentU
             bytes = StripMeta(bytes);
 
         var maxAge = src.Provenance == DataProvenance.Asset ? TimeSpan.FromDays(30) : TimeSpan.FromSeconds(30);
-        Response.GetTypedHeaders().CacheControl = new CacheControlHeaderValue { Public = true, MaxAge = maxAge };
+        PublicCache((int)maxAge.TotalSeconds);
         Response.Headers["X-Data-Source"] = src.Id;
         return File(bytes, payload.ContentType);
     }

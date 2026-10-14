@@ -2,9 +2,7 @@ namespace EggIncognito.Core.Services.Devices;
 
 public sealed class AdbDeviceProbe(IProcessRunner runner, string serial, string package) : IDeviceProbe {
     public async Task<DeviceProbeResult> ProbeAsync(CancellationToken ct) {
-        using var timebox = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        timebox.CancelAfter(DeviceProbeTimeout.Value);
-        var r = await runner.RunAsync("adb", ["-s", serial, "shell", "dumpsys", "package", package], timebox.Token);
+        var r = await AdbDeviceConnection.RunAsync(runner, serial, ["shell", "dumpsys", "package", package], DeviceProbeTimeout.Value, ct);
         if (r.ExitCode != 0)
             return new DeviceProbeResult(false, null, null, DeviceParsing.TrimNote(r.Stderr + r.Stdout));
 

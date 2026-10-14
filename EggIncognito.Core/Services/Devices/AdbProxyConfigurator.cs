@@ -5,15 +5,12 @@ public sealed class AdbProxyConfigurator(IProcessRunner runner) : IDeviceProxyCo
 
     public async Task<(bool Ok, string? Note)> SetProxyAsync(DeviceTarget device, string hostIp, int port,
         CancellationToken ct) {
-        var r = await Adb(device.Target, ["shell", "settings", "put", "global", "http_proxy", $"{hostIp}:{port}"], ct);
+        var r = await AdbDeviceConnection.RunAsync(runner, device.Target, ["shell", "settings", "put", "global", "http_proxy", $"{hostIp}:{port}"], null, ct);
         return r.ExitCode == 0 ? (true, null) : (false, DeviceParsing.TrimNote(r.Stderr + r.Stdout));
     }
 
     public async Task<(bool Ok, string? Note)> ClearProxyAsync(DeviceTarget device, CancellationToken ct) {
-        var r = await Adb(device.Target, ["shell", "settings", "put", "global", "http_proxy", ":0"], ct);
+        var r = await AdbDeviceConnection.RunAsync(runner, device.Target, ["shell", "settings", "put", "global", "http_proxy", ":0"], null, ct);
         return r.ExitCode == 0 ? (true, null) : (false, DeviceParsing.TrimNote(r.Stderr + r.Stdout));
     }
-
-    private Task<ProcessResult> Adb(string serial, IEnumerable<string> rest, CancellationToken ct) =>
-        runner.RunAsync("adb", ["-s", serial, .. rest], ct);
 }

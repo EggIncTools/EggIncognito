@@ -108,22 +108,22 @@ public sealed class AdbCaInstaller(IProcessRunner runner, string? installScriptT
         }
 
         try {
-            var pushScript = await Adb(device.Target, ["push", tmpScript, RemoteScript], ct);
+            var pushScript = await AdbDeviceConnection.RunAsync(runner, device.Target, ["push", tmpScript, RemoteScript], null, ct);
             if (pushScript.ExitCode != 0)
                 return (false, "push script failed: " + DeviceParsing.TrimNote(pushScript.Stderr + pushScript.Stdout));
         } finally {
             DeviceShell.TryDelete(tmpScript);
         }
 
-        var idProbe = await Adb(device.Target, ["shell", "id -u"], ct);
+        var idProbe = await AdbDeviceConnection.RunAsync(runner, device.Target, ["shell", "id -u"], null, ct);
         bool alreadyRoot = idProbe.ExitCode == 0 && idProbe.Stdout.Trim() == "0";
 
         string[]? su = await ProbeSuAsync(device.Target, ct);
         if (su is null && !alreadyRoot) return (false, NoSuNote);
 
         var r = su is { } wrapper
-            ? await Adb(device.Target, ["shell", .. wrapper, "-c", $"sh {RemoteScript} 2>&1"], ct)
-            : await Adb(device.Target, ["shell", $"sh {RemoteScript} 2>&1"], ct);
+            ? await AdbDeviceConnection.RunAsync(runner, device.Target, ["shell", .. wrapper, "-c", $"sh {RemoteScript} 2>&1"], null, ct)
+            : await AdbDeviceConnection.RunAsync(runner, device.Target, ["shell", $"sh {RemoteScript} 2>&1"], null, ct);
         string diag = DeviceParsing.TrimNote(r.Stdout + (r.Stderr.Length > 0 ? " | err: " + r.Stderr : ""));
         if (string.IsNullOrWhiteSpace(diag)) {
             diag = su is { } w
@@ -144,7 +144,7 @@ public sealed class AdbCaInstaller(IProcessRunner runner, string? installScriptT
 
     private async Task<string[]?> ProbeSuAsync(string serial, CancellationToken ct) {
         foreach (string[] candidate in SuCandidates) {
-            var probe = await Adb(serial, ["shell", .. candidate, "-c", "id"], ct);
+            var probe = await AdbDeviceConnection.RunAsync(runner, serial, ["shell", .. candidate, "-c", "id"], null, ct);
             if (probe.Stdout.Contains("uid=0", StringComparison.Ordinal)) return candidate;
         }
 
@@ -153,7 +153,4 @@ public sealed class AdbCaInstaller(IProcessRunner runner, string? installScriptT
 
     private static string Failures(string stdout) =>
         string.Join(" | ", stdout.Split('\n').Select(l => l.Trim()).Where(l => l.Contains("FAILED")));
-
-    private Task<ProcessResult> Adb(string serial, IEnumerable<string> rest, CancellationToken ct) =>
-        runner.RunAsync("adb", ["-s", serial, .. rest], ct);
 }

@@ -76,15 +76,13 @@
     [Parameter] public string? RootType { get; set; }
     [Parameter] public Func<HttpClient> ClientFactory { get; set; } = default!;
 
-    static readonly JsonSerializerOptions JsonOpts = new(JsonSerializerDefaults.Web);
-
     string _manualB64 = "";
 
     async Task RunManual() {
         try {
             var res = await ClientFactory().PostAsJsonAsync("/api/tools/diagnose",
-                new { Base64 = _manualB64, RootType }, JsonOpts);
-            Result = await res.Content.ReadFromJsonAsync<DiagnoseDto>(JsonOpts);
+                new { Base64 = _manualB64, RootType }, JsonPresets.Web);
+            Result = await res.Content.ReadFromJsonAsync<DiagnoseDto>(JsonPresets.Web);
         } catch (Exception ex) {
             Result = new DiagnoseDto(false, 0, 0, null, null, null, null, null, ex.Message);
         }

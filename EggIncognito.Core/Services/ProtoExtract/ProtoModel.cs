@@ -37,16 +37,13 @@ public static partial class ProtoModelParser {
     [GeneratedRegex(@"^([\w.]+)\s+(\w+)\s*=\s*(\d+)\s*;")]
     private static partial Regex BareFieldRe();
 
-    [GeneratedRegex(@"^(\w+)\s*=\s*(-?\d+)\s*;")]
+    [GeneratedRegex(@"^(\w+)\s*=\s*(-?\d+)\s*(?:\[[^\]]*\])?\s*;")]
     private static partial Regex EnumValueRe();
-
-    [GeneratedRegex(@"\b(ei|aux)\.")]
-    private static partial Regex NamespaceRe();
 
     [GeneratedRegex(@"^(option|reserved|extensions)\b")]
     private static partial Regex SkippedKeywordRe();
 
-    public static string NormalizeType(string type) => NamespaceRe().Replace(type, "");
+    public static string NormalizeType(string type) => ProtoNames.StripQualifier(type);
 
     private enum ScopeKind { Message, Enum, Oneof }
 
@@ -62,7 +59,7 @@ public static partial class ProtoModelParser {
         var scopes = new List<Scope>();
         int depth = 0;
 
-        foreach (string rawLine in SplitLines(protoText)) {
+        foreach (string rawLine in UnifiedDiffWriter.SplitLines(protoText, keepEnds: true)) {
             string trimmed = rawLine.Trim();
 
             var innermostMessage = InnermostMessage(scopes);
@@ -202,21 +199,6 @@ public static partial class ProtoModelParser {
         }
 
         return n;
-    }
-
-    private static List<string> SplitLines(string text) {
-        string normalized = text.Replace("\r\n", "\n").Replace("\r", "\n");
-        var result = new List<string>();
-        int start = 0;
-        for (int i = 0; i < normalized.Length; i++) {
-            if (normalized[i] == '\n') {
-                result.Add(normalized[start..(i + 1)]);
-                start = i + 1;
-            }
-        }
-
-        if (start < normalized.Length) result.Add(normalized[start..]);
-        return result;
     }
 
     [GeneratedRegex(@"\s+")]

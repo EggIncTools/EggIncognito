@@ -583,7 +583,7 @@ public static partial class ArtifactTableExtractor {
                     continue;
                 }
 
-                outp.Add(new RarityEffect(key.Value, BitConverter.Int64BitsToDouble(bits.Value), template,
+                outp.Add(new RarityEffect(key.Value, Arm64Bits.F64(unchecked((ulong)bits.Value)), template,
                     slots.Value));
             }
 

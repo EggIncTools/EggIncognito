@@ -1,6 +1,7 @@
 using System.Net;
 using System.Text;
 using System.Text.Json;
+using EggIncognito.Core.Services;
 using EggIncognito.Core.Services.Devices;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Net.Http.Headers;
@@ -8,7 +9,6 @@ using Microsoft.Net.Http.Headers;
 namespace EggIncognito.Tests.Devices;
 
 public class BridgeProcessRunnerTests : IDisposable {
-    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
     private readonly List<string> _paths = [];
 
     private static DeviceTransportConfig Transport() => new() {
@@ -58,7 +58,7 @@ public class BridgeProcessRunnerTests : IDisposable {
         byte[] payload = "hello bridge"u8.ToArray();
         string body = JsonSerializer.Serialize(
             new BridgeExecResult(0, "", null, "", [new BridgeExecOutput("2", Convert.ToBase64String(payload))]),
-            JsonOptions);
+            JsonPresets.Web);
         var handler = new BridgeHandler(_ => Ok(body));
         var runner = new BridgeProcessRunner(new StubHttpFactory(handler), Transport());
 
@@ -111,7 +111,7 @@ public class BridgeProcessRunnerTests : IDisposable {
     public async Task RunBytesAsync_DecodesBase64Stdout() {
         byte[] payload = [9, 8, 7];
         string body = JsonSerializer.Serialize(
-            new BridgeExecResult(0, null, Convert.ToBase64String(payload), "", []), JsonOptions);
+            new BridgeExecResult(0, null, Convert.ToBase64String(payload), "", []), JsonPresets.Web);
         var handler = new BridgeHandler(_ => Ok(body));
         var runner = new BridgeProcessRunner(new StubHttpFactory(handler), Transport());
 
@@ -135,7 +135,7 @@ public class BridgeProcessRunnerTests : IDisposable {
         public Dictionary<string, byte[]> Files { get; } = [];
 
         public BridgeExecSpec Spec() =>
-            JsonSerializer.Deserialize<BridgeExecSpec>(SpecJson ?? "", JsonOptions)
+            JsonSerializer.Deserialize<BridgeExecSpec>(SpecJson ?? "", JsonPresets.Web)
             ?? throw new InvalidOperationException("no spec part was sent");
 
         protected override async Task<HttpResponseMessage> SendAsync(

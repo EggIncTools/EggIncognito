@@ -30,7 +30,7 @@
                     <td>
                         <PlatformIcon Platform="@b.Platform"/>
                     </td>
-                    <td class="mono">@ShaShort(b.Sha256)</td>
+                    <td class="mono">@EggIncognito.Core.Hashes.Short(b.Sha256)</td>
                     <td class="mono">@ByteFormat.Mb(b.ByteSize, "F1")</td>
                     <td class="mono">
                         @EffectiveSymbols(b).ToString("N0")
@@ -95,10 +95,6 @@
         await Load();
         _busy = false;
         if (res.Ok) Notifier.Publish(AdminTopics.Binaries);
-    }
-
-    static string ShaShort(string sha) {
-        return sha.Length >= 12 ? sha[..12] : sha;
     }
 
     static int EffectiveSymbols(StoredBinaryRow b) {

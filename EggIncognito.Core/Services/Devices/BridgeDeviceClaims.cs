@@ -1,10 +1,8 @@
 using System.Globalization;
-using System.Text.Json;
 
 namespace EggIncognito.Core.Services.Devices;
 
 public sealed class BridgeDeviceClaims(IHttpClientFactory httpFactory, DeviceTransportConfig cfg) : IDeviceClaims {
-    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
     public bool Active => true;
 
@@ -16,14 +14,14 @@ public sealed class BridgeDeviceClaims(IHttpClientFactory httpFactory, DeviceTra
         int? seconds = ttl is { } span ? Math.Max(1, (int)Math.Round(span.TotalSeconds)) : null;
         try {
             using var req = client.Build(HttpMethod.Post, Verb(BridgeRoutes.Claim, deviceId));
-            req.Content = JsonContent.Create(new BridgeClaimBody(seconds), options: JsonOptions);
+            req.Content = JsonContent.Create(new BridgeClaimBody(seconds), options: JsonPresets.Web);
             using var resp = await client.Http.SendAsync(req, ct);
             if (!resp.IsSuccessStatusCode) {
                 return DeviceResult<DateTimeOffset>.Error(
                     $"the host refused a claim on {deviceId} ({(int)resp.StatusCode} {resp.ReasonPhrase})");
             }
 
-            var outcome = await resp.Content.ReadFromJsonAsync<BridgeClaimOutcome>(JsonOptions, ct);
+            var outcome = await resp.Content.ReadFromJsonAsync<BridgeClaimOutcome>(JsonPresets.Web, ct);
             if (outcome is not { Ok: true })
                 return DeviceResult<DateTimeOffset>.Error($"the host did not grant a claim on {deviceId}");
 

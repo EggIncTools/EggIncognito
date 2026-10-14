@@ -8,7 +8,6 @@ using EggIdentity.Auth;
 using EggIdentity.Contract;
 using EggIncognito.Capture;
 using EggIncognito.Core.Services;
-using EggIncognito.Data.Models;
 using EggIncognito.Data.Services;
 using EggIncognito.Models.Capture;
 using EggIncognito.Services;
@@ -16,7 +15,6 @@ using EggIncognito.Services.Auth;
 using EggIncognito.Services.Feed;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
-using Microsoft.EntityFrameworkCore;
 
 namespace EggIncognito.Controllers;
 
@@ -86,7 +84,7 @@ public sealed class CaptureController(
         }
 
         Response.Headers.ContentType = "text/event-stream";
-        Response.Headers.CacheControl = "no-cache";
+        NoCache();
         Response.Headers["X-Accel-Buffering"] = "no";
         await Response.WriteAsync(":ok\n\n", ct);
         await Response.Body.FlushAsync(ct);
@@ -290,7 +288,7 @@ public sealed class CaptureController(
 
     [HttpPost("save-endpoint")]
     public async Task<IActionResult> SaveEndpoint([FromBody] SaveFlowRequest body,
-        [FromServices] IRouteCatalog routes, [FromServices] EggIncognitoDbContext? db,
+        [FromServices] IRouteCatalog routes, [FromServices] DbEndpointSource? store,
         [FromServices] ConfigChangeNotifier? notifier) {
         if (!TryResolve(out var session, out var error)) return error;
         if (RequireFullTier(session) is { } no) return no;
@@ -308,31 +306,15 @@ public sealed class CaptureController(
 
         if (!currentUser.Current.IsSupporter && !currentUser.Current.IsAtLeast(UserRole.Contributor))
             return Fail(403, "supporter or contributor role required to save endpoints");
-        if (db is null) return Fail(503, "no database configured");
+        if (store is null) return Fail(503, "no database configured");
         if (routes.Resolve(flow.Path) is null) return Fail(400, $"unknown route {flow.Path}");
         var decoded = session.Decode(flow.Path, flow.ResponseB64);
         if (decoded.Json is null || decoded.Type is null)
             return Fail(409, "flow could not be decoded");
 
         string json = PeriodicalsSanitizer.ScrubPlayerScope(decoded.Type, decoded.Json);
-        var existing = await db.StoredEndpoints
-            .FirstOrDefaultAsync(e => e.Path == flow.Path && e.Eid == null);
-        string? previousJson = existing?.ResponseJson;
-        if (existing is null) {
-            db.StoredEndpoints.Add(new StoredEndpoint {
-                Path = flow.Path,
-                Eid = null,
-                ResponseJson = json,
-                ResponseType = decoded.Type,
-                OwnerUserId = currentUser.Current.Id
-            });
-        } else {
-            existing.ResponseJson = json;
-            existing.ResponseType = decoded.Type;
-            existing.UpdatedAt = DateTimeOffset.UtcNow;
-        }
-
-        await db.SaveChangesAsync();
+        string? previousJson = await store.UpsertAsync(flow.Path, null, json, decoded.Type,
+            currentUser.Current.Id, DateTimeOffset.UtcNow);
         notifier?.OnEndpointWritten(flow.Path, json, previousJson);
         session.Hub.MarkSaved(body.Id);
         return Ok(new { saved = flow.Path, store = "db" });

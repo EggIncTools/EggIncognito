@@ -59,7 +59,7 @@
                     @foreach (var s in _suggestions) {
                         <tr>
                             <td class="reg-num">@s.ClientVersion</td>
-                            <td><span class="code-chip">@Short(s.ProtoSha)</span></td>
+                            <td><span class="code-chip">@EggIncognito.Core.Hashes.Short(s.ProtoSha)</span></td>
                             <td>
                                 <span class="pwb-merge-members">
                                     @foreach (var member in s.Members) {
@@ -73,7 +73,7 @@
                             </td>
                             <td class="pwb-admin-row-tools">
                                 <button type="button" class="btn-mini" disabled="@_busy"
-                                        @onclick="@(() => AcceptSuggestions([s], $"merged {s.Members.Count} entries sharing {Short(s.ProtoSha)}"))">
+                                        @onclick="@(() => AcceptSuggestions([s], $"merged {s.Members.Count} entries sharing {EggIncognito.Core.Hashes.Short(s.ProtoSha)}"))">
                                     Merge
                                 </button>
                             </td>
@@ -162,7 +162,7 @@
                             <td class="reg-num">@d.Build</td>
                             <td class="reg-num">@d.ClientVersion</td>
                             <td>
-                                @if (Short(d.ProtoSha) is { Length: > 0 } sha) {
+                                @if (EggIncognito.Core.Hashes.Short(d.ProtoSha) is { Length: > 0 } sha) {
                                     <span class="code-chip">@sha</span>
                                 }
                             </td>
@@ -214,8 +214,6 @@
     const string PlatAndroid = "android";
     const string PlatIos = "ios";
 
-    static readonly JsonSerializerOptions JsonOpts = new(JsonSerializerDefaults.Web);
-
     [Parameter] public IReadOnlyList<ProtoRegistryRow> Rows { get; set; } = [];
 
     [Parameter] public bool CanOrder { get; set; }
@@ -252,10 +250,6 @@
 
     static string RowKey(ProtoRegistryRow r) {
         return $"{r.Platform}/{r.Build}";
-    }
-
-    static string Short(string? sha) {
-        return string.IsNullOrEmpty(sha) ? "" : sha.Length <= 12 ? sha : sha[..12];
     }
 
     void SetPlatform(string platform) {
@@ -295,7 +289,7 @@
 
         try {
             _suggestions = await Client().GetFromJsonAsync<List<MergeSuggestion>>(
-                "/api/protos/versions/merge-suggestions", JsonOpts) ?? [];
+                "/api/protos/versions/merge-suggestions", JsonPresets.Web) ?? [];
         } catch (Exception ex) when (ex is HttpRequestException or NotSupportedException or JsonException) {
             _suggestions = [];
         }
@@ -326,7 +320,7 @@
         _purgeArmed = false;
         try {
             _deleted = await Client().GetFromJsonAsync<List<DeletedVersionRow>>(
-                "/api/protos/versions/deleted", JsonOpts) ?? [];
+                "/api/protos/versions/deleted", JsonPresets.Web) ?? [];
         } catch (Exception ex) when (ex is HttpRequestException or NotSupportedException or JsonException) {
             _deleted = [];
             Toasts.Push(StatusNoteKind.Error, "could not load deleted versions");
@@ -420,7 +414,7 @@
 
     async Task<bool> PostJson(string url, object body) {
         try {
-            return (await Client().PostAsJsonAsync(url, body, JsonOpts)).IsSuccessStatusCode;
+            return (await Client().PostAsJsonAsync(url, body, JsonPresets.Web)).IsSuccessStatusCode;
         } catch (HttpRequestException) {
             return false;
         }
@@ -428,7 +422,7 @@
 
     async Task<bool> PatchJson(string url, object body) {
         try {
-            return (await Client().PatchAsJsonAsync(url, body, JsonOpts)).IsSuccessStatusCode;
+            return (await Client().PatchAsJsonAsync(url, body, JsonPresets.Web)).IsSuccessStatusCode;
         } catch (HttpRequestException) {
             return false;
         }

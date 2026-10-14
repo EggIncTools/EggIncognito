@@ -1,4 +1,5 @@
 using System.Globalization;
+using EggIncognito.Core;
 using EggIncognito.Core.Services.Devices;
 using EggIncognito.Core.Services.ProtoExtract;
 using EggIncognito.Data.Models;
@@ -178,13 +179,13 @@ public sealed class GameBinaryProvider(
         }
 
         candidates.Sort((a, b) => {
-            int rank = PlatformRank(a.Platform).CompareTo(PlatformRank(b.Platform));
-            return rank != 0 ? rank : DeviceParsing.CompareVersions(b.Version, a.Version);
+            int rank = ExtractionPreference(a.Platform).CompareTo(ExtractionPreference(b.Platform));
+            return rank != 0 ? rank : VersionCompare.Dotted(b.Version, a.Version);
         });
         return new ExtractionCandidates(candidates, rejected);
     }
 
-    private static int PlatformRank(string platform) =>
+    private static int ExtractionPreference(string platform) =>
         Platforms.Matches(platform, Platforms.Android) ? 0 : 1;
 
     public async Task<IReadOnlyList<VersionStoreStatus>>
@@ -275,7 +276,7 @@ public sealed class GameBinaryProvider(
             if (row is not null) {
                 byte[] bytes = await store.BytesAsync(row, ct);
                 var resolved = await ResolveSymbolsAsync(bytes, ct);
-                string shaShort = row.Sha256.Length >= 12 ? row.Sha256[..12] : row.Sha256;
+                string shaShort = Hashes.Short(row.Sha256);
                 return new(true, bytes, resolved.Syms, version,
                     $"stored binary {platform} {version} (sha {shaShort}); {resolved.Note}");
             }
@@ -288,9 +289,6 @@ public sealed class GameBinaryProvider(
                 : $"no harvested binary for {platform} {version} and no device agent is configured");
     }
 
-    private static bool IsElf(byte[] b) =>
-        b.Length >= 4 && b[0] == 0x7f && b[1] == 0x45 && b[2] == 0x4c && b[3] == 0x46;
-
     private async Task<(IReadOnlyList<MachoSymbols.Symbol> Syms, bool Grafted, int NativeCount, string Note)>
         ResolveSymbolsAsync(byte[] bytes, CancellationToken ct) {
         var img = BinaryImage.Load(bytes);
@@ -298,7 +296,7 @@ public sealed class GameBinaryProvider(
         int nativeCount = syms.Count;
         if (nativeCount >= 50_000) return (syms, false, nativeCount, $"{nativeCount} native symbols");
 
-        if (IsElf(bytes))
+        if (img is ElfImage)
             return (syms, false, nativeCount,
                 $"{nativeCount} native ELF symbols (Mach-O stash graft not applicable)");
 

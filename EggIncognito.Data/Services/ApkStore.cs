@@ -135,7 +135,7 @@ public sealed class ApkStore(
     public static int NewestFirst(ApkVersionSet a, ApkVersionSet b) {
         if (long.TryParse(a.Build, out long ab) && long.TryParse(b.Build, out long bb) && ab != bb)
             return bb.CompareTo(ab);
-        int byVersion = DeviceParsing.CompareVersions(b.AppVersion, a.AppVersion);
+        int byVersion = VersionCompare.Dotted(b.AppVersion, a.AppVersion);
         return byVersion != 0 ? byVersion : b.CapturedAt.CompareTo(a.CapturedAt);
     }
 }

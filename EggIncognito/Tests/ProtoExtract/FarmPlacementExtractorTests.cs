@@ -15,7 +15,7 @@ public class FarmPlacementExtractorTests {
         Assert.NotNull(img);
         var habs = HabCatalogExtractor.ExtractWith(bin, img.Symbols, img.Sections);
         var eggs = EggCatalogExtractor.ExtractAuto(bin);
-        var vehicles = VehicleCatalogExtractor.ReadWith(bin, img.Symbols, img.Sections);
+        var vehicles = VehicleCatalogExtractor.ReadWith(bin, img.Symbols);
         Assert.True(habs.Ok, habs.Diagnostics);
         Assert.True(eggs.Ok, eggs.Diagnostics);
         Assert.True(vehicles.Ok, vehicles.Diagnostics);

@@ -1,11 +1,6 @@
-using System.Collections.Frozen;
-using System.Globalization;
 using System.Text.Json;
 using EggIncognito.Core.Services;
-using EggIncognito.Data.Services;
-using EggSharp.GameData;
 using Ei;
-using Microsoft.EntityFrameworkCore;
 using ProvenanceSource = EggIncognito.Core.Services.ProvenanceSource;
 
 namespace EggIncognito.Services.DataApi;
@@ -20,14 +15,6 @@ public sealed record LiveColleggtibles(
     string Json);
 
 public static class LiveColleggtibleSource {
-    private static readonly JsonSerializerOptions CamelJson = new() {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        WriteIndented = true
-    };
-
-    private static readonly FrozenDictionary<int, string> DimensionNames =
-        ColleggtibleCatalog.DimensionCodes.ToFrozenDictionary(kv => kv.Value, kv => kv.Key);
-
     public const string ContractsInfoRoute = "ei_ctx/get_contracts_info";
 
     public static string? IconUrl(IServiceProvider services, string? periodicalsRoute, string identifier) {
@@ -116,31 +103,9 @@ public static class LiveColleggtibleSource {
     }
 
     private static IEnumerable<(string? Json, string Origin)> Candidates(IServiceProvider services, string route) {
-        var db = services.GetService(typeof(EggIncognitoDbContext)) as EggIncognitoDbContext;
-        (string? Json, string Origin, DateTimeOffset Updated)[] rows = [DbRow(db, route), FixtureRow(services, route)];
-        return rows.OrderByDescending(r => r.Updated).Select(r => (r.Json, r.Origin));
-    }
-
-    private static (string? Json, string Origin, DateTimeOffset Updated) DbRow(EggIncognitoDbContext? db, string route) {
-        if (db is null) return (null, "db", DateTimeOffset.MinValue);
-        try {
-            var row = db.StoredEndpoints.AsNoTracking()
-                .Where(e => e.Path == route && e.Eid == null)
-                .OrderByDescending(e => e.UpdatedAt)
-                .Select(e => new { e.ResponseJson, e.UpdatedAt })
-                .FirstOrDefault();
-            return row is null ? (null, "db", DateTimeOffset.MinValue) : (row.ResponseJson, "db", row.UpdatedAt);
-        } catch {
-            return (null, "db", DateTimeOffset.MinValue);
-        }
-    }
-
-    private static (string? Json, string Origin, DateTimeOffset Updated) FixtureRow(IServiceProvider services,
-        string route) {
-        string path = DataCatalog.FixturePath(services, route);
-        return File.Exists(path)
-            ? (File.ReadAllText(path), "fixture", File.GetLastWriteTimeUtc(path))
-            : (null, "fixture", DateTimeOffset.MinValue);
+        var store = (EndpointStore)services.GetService(typeof(EndpointStore))!;
+        string? json = store.CurrentJsonAsync(route, CancellationToken.None).GetAwaiter().GetResult();
+        yield return (json, "db");
     }
 
     private static LiveColleggtibles Build(IServiceProvider services, string route, ColleggtibleExtract extract,
@@ -157,7 +122,7 @@ public static class LiveColleggtibleSource {
         var doc = new {
             eggs = extract.Eggs.Select(e => new {
                 identifier = e.Identifier,
-                dimension = DimensionName(e.Dimension),
+                dimension = DimensionNames.Of(e.Dimension),
                 tierValues = e.TierValues
             }).ToArray(),
             contractEggMap = extract.ContractEggMap,
@@ -165,9 +130,6 @@ public static class LiveColleggtibleSource {
             provenance
         };
         return new LiveColleggtibles(extract, icons, names, identifiers, gameVersion, provenance,
-            JsonSerializer.Serialize(doc, CamelJson));
+            JsonSerializer.Serialize(doc, JsonPresets.CamelIndentedRelaxed));
     }
-
-    private static string DimensionName(int code) =>
-        DimensionNames.TryGetValue(code, out string? name) ? name : code.ToString(CultureInfo.InvariantCulture);
 }

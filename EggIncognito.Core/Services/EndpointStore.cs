@@ -20,6 +20,34 @@ public sealed class EndpointStore(
         return bytes is null ? instance : JsonParser.Default.Parse(Encoding.UTF8.GetString(bytes), instance.Descriptor);
     }
 
+    public async Task<string?> CurrentJsonAsync(string route, CancellationToken ct) =>
+        (await CurrentAsync(route, ct))?.Json;
+
+    public Task<CurrentEndpoint?> CurrentAsync(string route, CancellationToken ct) {
+        ct.ThrowIfCancellationRequested();
+        return Task.FromResult(Current(route));
+    }
+
+    private CurrentEndpoint? Current(string route) {
+        if (scopeFactory is not null) {
+            try {
+                using var scope = scopeFactory.CreateScope();
+                var db = scope.ServiceProvider.GetService<DbEndpointSourceMarker>()?.Source;
+                if (db is not null) {
+                    var (dbBytes, dbStamp) = db.TryLookupWithStamp(route, null);
+                    byte[]? stripped = StripBom(dbBytes);
+                    if (stripped is not null) return new CurrentEndpoint(Encoding.UTF8.GetString(stripped), dbStamp, "db");
+                }
+            } catch (Exception ex) {
+                logger.LogDbEndpointLookupFailed(ex, route, null);
+            }
+        }
+
+        var (fileBytes, fileStamp) = fileSource.TryLookupWithStamp(route, null);
+        byte[]? fileStripped = StripBom(fileBytes);
+        return fileStripped is null ? null : new CurrentEndpoint(Encoding.UTF8.GetString(fileStripped), fileStamp, "fixture");
+    }
+
     internal byte[]? LookupBytes(string path, string? eid) {
         if (scopeFactory is not null) {
             try {
@@ -38,6 +66,8 @@ public sealed class EndpointStore(
     private static byte[]? StripBom(byte[]? bytes) =>
         bytes is [0xEF, 0xBB, 0xBF, .. var rest] ? rest : bytes;
 }
+
+public sealed record CurrentEndpoint(string Json, DateTimeOffset? CapturedAt, string Origin);
 
 public sealed class DbEndpointSourceMarker(IEndpointSource source) {
     public IEndpointSource Source => source;

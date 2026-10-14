@@ -1,8 +1,8 @@
 using System.Net;
-using System.Text.Json;
 using Bunit;
 using EggIdentity.Auth;
 using EggIncognito.Components.Events;
+using EggIncognito.Core.Services;
 using EggIncognito.Models.Contracts;
 using EggIncognito.Models.Events;
 using EggIncognito.Services.Assets;
@@ -14,8 +14,6 @@ using Microsoft.Extensions.DependencyInjection;
 namespace EggIncognito.Tests;
 
 public class EventsWorkbenchModalTests : BunitContext {
-    private static readonly JsonSerializerOptions Web = new(JsonSerializerDefaults.Web);
-
     private void Wire(Func<HttpRequestMessage, HttpResponseMessage> respond) {
         Services.AddLogging();
         Services.AddSingleton<IHttpClientFactory>(
@@ -31,10 +29,10 @@ public class EventsWorkbenchModalTests : BunitContext {
         new(id, "earnings-boost", message, 2, ultra, UnixSeconds.FromTime(start), UnixSeconds.FromTime(end), "device");
 
     private static HttpResponseMessage Ok(params GameEventDto[] events) =>
-        StubResponses.Json(HttpStatusCode.OK, new GameEventListResponse(events.Length, events), Web);
+        StubResponses.Json(HttpStatusCode.OK, new GameEventListResponse(events.Length, events), JsonPresets.Web);
 
     private static HttpResponseMessage NoContracts() =>
-        StubResponses.Json(HttpStatusCode.OK, new ContractReleaseListResponse(0, []), Web);
+        StubResponses.Json(HttpStatusCode.OK, new ContractReleaseListResponse(0, []), JsonPresets.Web);
 
     private static HttpResponseMessage Respond(HttpRequestMessage req, params GameEventDto[] events) =>
         req.RequestUri?.AbsolutePath.StartsWith("/api/v1/contracts", StringComparison.Ordinal) == true

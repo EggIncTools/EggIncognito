@@ -3,6 +3,7 @@ using System.Text.Json;
 using EggIdentity.Filters;
 using EggIncognito.Data.Models;
 using EggIncognito.Data.Services;
+using EggIncognito.Services.Filtering;
 
 namespace EggIncognito.Services.Feed;
 
@@ -105,9 +106,7 @@ public static class FeedFilter {
     public static FilterFieldDef Version(string key, string label) => new(key, label, FilterValueKind.Version, FilterOps.Comparison);
 
     public static IReadOnlyList<FilterOption> Versions(IEnumerable<string?> values) => [
-        .. values.OfType<string>().Where(v => v.Length > 0).Distinct(StringComparer.Ordinal)
-            .OrderByDescending(Core.Services.ProtoExtract.ProtoVersionQuality.DottedVersionKey)
-            .Select(v => new FilterOption(v, v))
+        .. EgiFilterOps.ByVersion(values).Select(o => new FilterOption(o.Value, o.Label))
     ];
 
     public static FilterFieldDef Text(string key, string label) => new(key, label, FilterValueKind.Text, FilterOps.Equality);

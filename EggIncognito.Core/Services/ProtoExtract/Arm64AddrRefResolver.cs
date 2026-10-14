@@ -3,10 +3,12 @@ using Gee.External.Capstone.Arm64;
 namespace EggIncognito.Core.Services.ProtoExtract;
 
 public static class Arm64AddrRefResolver {
-    public static IReadOnlyList<Ref> FindReferrers(byte[] bin, ulong targetVa) {
+    public static IReadOnlyList<Ref> FindReferrers(IBinaryImage? image, ulong targetVa) {
         var outp = new List<Ref>();
-        if (bin is null || bin.Length < 64) return outp;
-        if (!MachoText.TryFindText(bin, out int textFileOff, out int textSize, out ulong textVmAddr)) return outp;
+        if (image is null) return outp;
+        byte[] bin = image.Bytes;
+        if (bin.Length < 64) return outp;
+        if (!image.TryFindText(out int textFileOff, out int textSize, out ulong textVmAddr)) return outp;
 
         var starts = MachoFunctionStarts.Read(bin);
         if (starts.Count == 0) return outp;

@@ -345,7 +345,7 @@
         StateHasChanged();
     });
 
-    bool IsAndroid => string.Equals(Platform, "android", StringComparison.OrdinalIgnoreCase);
+    bool IsAndroid => Platforms.Matches(Platform, Platforms.Android);
 
     int TapWidth => _screenW > 0 ? _screenW : _shotW;
 
@@ -724,7 +724,7 @@
         var req = _locks?.NewPoint(x, y) ?? new PixelWatchRequest(x, y);
         var res = await Client().PostAsJsonAsync($"/api/devices/{_deviceId}/ui/watch", req, SelfCallJson.Web);
         if (!res.IsSuccessStatusCode) {
-            await Fail(await ReadError(res));
+            await Fail(await ApiErrors.ReadAsync(res));
             return;
         }
 
@@ -801,7 +801,7 @@
 
         var res = await Client().PostAsJsonAsync($"/api/devices/{_deviceId}/ui/touch",
             new UiTouchRequest("up", end.X, end.Y), SelfCallJson.Web);
-        if (!res.IsSuccessStatusCode) await Fail(await ReadError(res));
+        if (!res.IsSuccessStatusCode) await Fail(await ApiErrors.ReadAsync(res));
     }
 
     [JSInvokable]
@@ -846,7 +846,7 @@
         try {
             var res = await Client().PostAsJsonAsync($"/api/devices/{_deviceId}/ui/swipe",
                 new UiSwipeRequest(x1, y1, x2, y2, durationMs), SelfCallJson.Web);
-            if (!res.IsSuccessStatusCode) await Fail(await ReadError(res));
+            if (!res.IsSuccessStatusCode) await Fail(await ApiErrors.ReadAsync(res));
         } finally {
             _swiping = false;
         }
@@ -855,7 +855,7 @@
     async Task TapAsync(int x, int y) {
         var res = await Client().PostAsJsonAsync($"/api/devices/{_deviceId}/ui/tap",
             new UiTapRequest(x, y), SelfCallJson.Web);
-        if (!res.IsSuccessStatusCode) await Fail(await ReadError(res));
+        if (!res.IsSuccessStatusCode) await Fail(await ApiErrors.ReadAsync(res));
     }
 
     async Task TextKeyAsync(KeyboardEventArgs e) {
@@ -868,7 +868,7 @@
         if (_deviceId is null || ch.Length == 0) return;
         var res = await Client().PostAsJsonAsync($"/api/devices/{_deviceId}/ui/text",
             new UiTextRequest(ch), SelfCallJson.Web);
-        if (!res.IsSuccessStatusCode) await Fail(await ReadError(res));
+        if (!res.IsSuccessStatusCode) await Fail(await ApiErrors.ReadAsync(res));
     }
 
     async Task SendTextAsync() {
@@ -876,7 +876,7 @@
         var res = await Client().PostAsJsonAsync($"/api/devices/{_deviceId}/ui/text",
             new UiTextRequest(_text), SelfCallJson.Web);
         if (!res.IsSuccessStatusCode) {
-            await Fail(await ReadError(res));
+            await Fail(await ApiErrors.ReadAsync(res));
             return;
         }
 
@@ -888,7 +888,7 @@
         if (_deviceId is null) return;
         var res = await Client().PostAsJsonAsync($"/api/devices/{_deviceId}/ui/key",
             new UiKeyRequest(key), SelfCallJson.Web);
-        if (!res.IsSuccessStatusCode) await Fail(await ReadError(res));
+        if (!res.IsSuccessStatusCode) await Fail(await ApiErrors.ReadAsync(res));
     }
 
     async Task LoadScreenAsync() {
@@ -940,7 +940,7 @@
 
         _selectedAndroidUserId = previous;
         StateHasChanged();
-        await Fail(await ReadError(res));
+        await Fail(await ApiErrors.ReadAsync(res));
     }
 
     async Task CreateIslandAsync(string label) {
@@ -950,7 +950,7 @@
             new NewIslandRequest(label), SelfCallJson.Web);
         _islandBusy = false;
         if (!res.IsSuccessStatusCode) {
-            await Fail(await ReadError(res));
+            await Fail(await ApiErrors.ReadAsync(res));
             StateHasChanged();
             return;
         }
@@ -964,7 +964,7 @@
         var res = await Client().DeleteAsync($"/api/devices/{_deviceId}/islands/{androidUserId}");
         _islandBusy = false;
         if (!res.IsSuccessStatusCode) {
-            await Fail(await ReadError(res));
+            await Fail(await ApiErrors.ReadAsync(res));
             StateHasChanged();
             return;
         }
@@ -975,18 +975,6 @@
 
     Task Fail(string text) {
         return OnNotice.InvokeAsync(new DeviceNotice(text, StatusNoteKind.Error));
-    }
-
-    static async Task<string> ReadError(HttpResponseMessage resp) {
-        try {
-            var body = await resp.Content.ReadFromJsonAsync<JsonElement>();
-            if (body.ValueKind == JsonValueKind.Object && body.TryGetProperty("error", out var e))
-                return e.GetString() ?? $"failed [{(int)resp.StatusCode}]";
-        } catch (Exception ex) when (ex is JsonException or HttpRequestException or NotSupportedException) {
-            return $"failed [{(int)resp.StatusCode}]";
-        }
-
-        return $"failed [{(int)resp.StatusCode}]";
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender) {

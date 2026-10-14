@@ -12,29 +12,29 @@ public static class ElfSymbols {
         if (ElfSections.IsElf32Le(bin)) return Read32(bin);
         if (!ElfSections.IsElf64Le(bin)) return outp;
         try {
-            ulong shoff = U64(bin, 0x28);
-            int shentsize = U16(bin, 0x3A);
-            int shnum = U16(bin, 0x3C);
+            ulong shoff = ElfSections.U64(bin, 0x28);
+            int shentsize = ElfSections.U16(bin, 0x3A);
+            int shnum = ElfSections.U16(bin, 0x3C);
             if (shentsize < 64 || shnum <= 0) return outp;
 
             var seen = new HashSet<(string, ulong)>();
             for (int i = 0; i < shnum; i++) {
                 long h = (long)shoff + (long)i * shentsize;
                 if (h < 0 || h + 64 > bin.Length) break;
-                uint type = U32(bin, (int)h + 0x04);
+                uint type = ElfSections.U32(bin, (int)h + 0x04);
                 if (type is not (ShtSymtab or ShtDynsym)) continue;
 
-                ulong tabOff = U64(bin, (int)h + 0x18);
-                ulong tabSize = U64(bin, (int)h + 0x20);
-                uint link = U32(bin, (int)h + 0x28);
-                ulong entsize = U64(bin, (int)h + 0x38);
+                ulong tabOff = ElfSections.U64(bin, (int)h + 0x18);
+                ulong tabSize = ElfSections.U64(bin, (int)h + 0x20);
+                uint link = ElfSections.U32(bin, (int)h + 0x28);
+                ulong entsize = ElfSections.U64(bin, (int)h + 0x38);
                 if (entsize < Elf64SymSize) entsize = Elf64SymSize;
                 if (link >= (uint)shnum) continue;
 
                 long lh = (long)shoff + (long)link * shentsize;
                 if (lh < 0 || lh + 64 > bin.Length) continue;
-                ulong strOff = U64(bin, (int)lh + 0x18);
-                ulong strSize = U64(bin, (int)lh + 0x20);
+                ulong strOff = ElfSections.U64(bin, (int)lh + 0x18);
+                ulong strSize = ElfSections.U64(bin, (int)lh + 0x20);
 
                 ReadSymTab(bin, tabOff, tabSize, entsize, strOff, strSize, seen, outp);
             }
@@ -50,38 +50,38 @@ public static class ElfSymbols {
     private static List<MachoSymbols.Symbol> Read32(byte[] bin) {
         var outp = new List<MachoSymbols.Symbol>();
         try {
-            uint shoff = U32(bin, 0x20);
-            int shentsize = U16(bin, 0x2E);
-            int shnum = U16(bin, 0x30);
+            uint shoff = ElfSections.U32(bin, 0x20);
+            int shentsize = ElfSections.U16(bin, 0x2E);
+            int shnum = ElfSections.U16(bin, 0x30);
             if (shentsize < 40 || shnum <= 0) return outp;
 
             var seen = new HashSet<(string, ulong)>();
             for (int i = 0; i < shnum; i++) {
                 long h = (long)shoff + (long)i * shentsize;
                 if (h < 0 || h + 40 > bin.Length) break;
-                uint type = U32(bin, (int)h + 0x04);
+                uint type = ElfSections.U32(bin, (int)h + 0x04);
                 if (type is not (ShtSymtab or ShtDynsym)) continue;
 
-                uint tabOff = U32(bin, (int)h + 0x10);
-                uint tabSize = U32(bin, (int)h + 0x14);
-                uint link = U32(bin, (int)h + 0x18);
-                uint entsize = U32(bin, (int)h + 0x24);
+                uint tabOff = ElfSections.U32(bin, (int)h + 0x10);
+                uint tabSize = ElfSections.U32(bin, (int)h + 0x14);
+                uint link = ElfSections.U32(bin, (int)h + 0x18);
+                uint entsize = ElfSections.U32(bin, (int)h + 0x24);
                 if (entsize < Elf32SymSize) entsize = Elf32SymSize;
                 if (link >= (uint)shnum) continue;
 
                 long lh = (long)shoff + (long)link * shentsize;
                 if (lh < 0 || lh + 40 > bin.Length) continue;
-                uint strOff = U32(bin, (int)lh + 0x10);
-                uint strSize = U32(bin, (int)lh + 0x14);
+                uint strOff = ElfSections.U32(bin, (int)lh + 0x10);
+                uint strSize = ElfSections.U32(bin, (int)lh + 0x14);
 
                 uint count = entsize == 0 ? 0 : tabSize / entsize;
                 for (uint s = 0; s < count; s++) {
                     long e = (long)tabOff + (long)(s * entsize);
                     if (e < 0 || e + Elf32SymSize > bin.Length) break;
-                    uint nameOff = U32(bin, (int)e + 0x00);
-                    uint value = U32(bin, (int)e + 0x04);
+                    uint nameOff = ElfSections.U32(bin, (int)e + 0x00);
+                    uint value = ElfSections.U32(bin, (int)e + 0x04);
                     byte info = bin[e + 0x0C];
-                    ushort shndx = U16(bin, (int)e + 0x0E);
+                    ushort shndx = ElfSections.U16(bin, (int)e + 0x0E);
                     if (nameOff == 0 || nameOff >= strSize) continue;
                     string name = Cstr(bin, (long)strOff + nameOff);
                     if (name.Length == 0) continue;
@@ -103,25 +103,16 @@ public static class ElfSymbols {
         for (ulong i = 0; i < count; i++) {
             long e = (long)tabOff + (long)(i * entsize);
             if (e < 0 || e + Elf64SymSize > bin.Length) return;
-            uint nameOff = U32(bin, (int)e + 0x00);
+            uint nameOff = ElfSections.U32(bin, (int)e + 0x00);
             byte info = bin[e + 4];
-            ushort shndx = U16(bin, (int)e + 6);
-            ulong value = U64(bin, (int)e + 8);
+            ushort shndx = ElfSections.U16(bin, (int)e + 6);
+            ulong value = ElfSections.U64(bin, (int)e + 8);
             if (nameOff == 0 || nameOff >= strSize) continue;
             string name = Cstr(bin, (long)strOff + nameOff);
             if (name.Length == 0) continue;
             if (!seen.Add((name, value))) continue;
             outp.Add(new MachoSymbols.Symbol(name, value, info, (byte)shndx));
         }
-    }
-
-    private static ushort U16(byte[] b, int p) => (ushort)(b[p] | (b[p + 1] << 8));
-    private static uint U32(byte[] b, int p) => (uint)(b[p] | (b[p + 1] << 8) | (b[p + 2] << 16) | (b[p + 3] << 24));
-
-    private static ulong U64(byte[] b, int p) {
-        ulong v = 0;
-        for (int i = 0; i < 8; i++) v |= (ulong)b[p + i] << (8 * i);
-        return v;
     }
 
     private static string Cstr(byte[] b, long o) {

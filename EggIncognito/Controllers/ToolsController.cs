@@ -2,11 +2,13 @@ using System.Data.Common;
 using System.Globalization;
 using System.Text;
 using EggIncognito.Capture;
+using EggIncognito.Core;
 using EggIncognito.Core.Services;
 using EggIncognito.Core.Services.ProtoExtract;
 using EggIncognito.Data.Services;
 using EggIncognito.Models.Tools;
 using EggIncognito.Services.Auth;
+using EggIncognito.Services.DataApi;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 
@@ -19,11 +21,18 @@ namespace EggIncognito.Controllers;
 public sealed class ToolsController(
     IConfiguration config,
     IProtoReflection reflection,
+    EndpointStore endpoints,
     ILogger<ToolsController> logger) : ApiControllerBase {
     private string Root => ContentRoot.Resolve(config["ContentRoot"]);
     private string YamlPath => Path.Combine(Root, "RouteMap", "routes.yaml");
-    private string DefaultsDir => Path.Combine(Root, "Endpoints", "default");
+    private string EndpointsRoot => config["EndpointsPath"] ?? Path.Combine(AppContext.BaseDirectory, "Endpoints");
     private string CapturePath => config["CapturePath"] ?? Path.Combine(Root, "captures");
+
+    [HttpGet("archive-rules")]
+    public IActionResult ArchiveRules() {
+        PublicCache(3600);
+        return Ok(ArchiveProtoExtractor.Rules());
+    }
 
     [HttpGet("live-version")]
     public IActionResult LiveVersion([FromQuery] string platform = "ios") {
@@ -46,16 +55,15 @@ public sealed class ToolsController(
 
     [HttpGet("endpoint-status")]
     public IActionResult Status() {
-        var r = EndpointStatus.Classify(YamlPath, DefaultsDir);
+        var r = EndpointStatus.Classify(YamlPath, Path.Combine(EndpointsRoot, "default"));
         return Ok(new EndpointStatusResult(r.Ok, r.Empty, r.Missing));
     }
 
     [HttpGet("boost-costs")]
-    public IActionResult BoostCosts() {
-        string path = Path.Combine(DefaultsDir, "ei", "get_config.json");
-        if (!System.IO.File.Exists(path)) return Fail(404, "no get_config capture");
+    public async Task<IActionResult> BoostCosts(CancellationToken ct) {
+        string? json = await endpoints.CurrentJsonAsync(DataCatalog.ConfigRoute, ct);
+        if (json is null) return Fail(404, "no get_config capture");
         try {
-            string json = System.IO.File.ReadAllText(path);
             var costs = BoostCostExtractor.FromConfigJson(json);
             return Ok(new BoostCostsResult(
                 costs.Count,
@@ -66,11 +74,10 @@ public sealed class ToolsController(
     }
 
     [HttpGet("colleggtibles")]
-    public IActionResult Colleggtibles() {
-        string path = Path.Combine(DefaultsDir, "ei", "get_periodicals.json");
-        if (!System.IO.File.Exists(path)) return Fail(404, "no get_periodicals capture");
+    public async Task<IActionResult> Colleggtibles(CancellationToken ct) {
+        string? json = await endpoints.CurrentJsonAsync(DataCatalog.PeriodicalsRoute, ct);
+        if (json is null) return Fail(404, "no get_periodicals capture");
         try {
-            string json = System.IO.File.ReadAllText(path);
             var extract = ColleggtibleExtractor.FromPeriodicalsJson(json);
             return Ok(new ColleggtiblesResult(
                 extract.Eggs.Count,
@@ -110,7 +117,7 @@ public sealed class ToolsController(
             await RecordAnalyzedAsync(store, bin, r, fileName ?? binary.FileName, ct);
         }
 
-        return ExtractResultJson(r, AnalyzedFileStore.Sha256Hex(bin));
+        return ExtractResultJson(r, Hashes.Sha256Hex(bin));
     }
 
     [HttpPost("extract-proto/known/{fileSha}")]
@@ -139,7 +146,7 @@ public sealed class ToolsController(
         if (store is null) return;
         try {
             await store.RecordAsync(new AnalyzedFileStore.Entry(
-                AnalyzedFileStore.Sha256Hex(bytes), "analyze", null, r.ProtoSha, r.AppVersion, r.Build,
+                Hashes.Sha256Hex(bytes), "analyze", null, r.ProtoSha, r.AppVersion, r.Build,
                 r.ClientVersion?.ToString(CultureInfo.InvariantCulture), fileName, r.Proto), ct);
         } catch (DbException ex) {
             logger.LogWarning(ex, "tools: analyzed-file record for {FileName} not persisted", fileName);

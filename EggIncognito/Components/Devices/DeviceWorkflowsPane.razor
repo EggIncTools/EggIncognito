@@ -402,7 +402,7 @@
         var res = await Client().PostAsJsonAsync($"/api/devices/{_deviceId}/cookbooks",
             new DeviceCookbookRequest(book.Id, argument, AndroidUserId), SelfCallJson.Web);
         if (!res.IsSuccessStatusCode) {
-            var failed = await ReadError(res);
+            var failed = await ApiErrors.ReadAsync(res);
             _runBusy = false;
             _runDone = true;
             _runNote = failed;
@@ -470,7 +470,7 @@
         var res = await Client().PostAsync($"/api/devices/{_deviceId}/cookbooks/stop", null);
         _stopBusy = false;
         if ((int)res.StatusCode == 409) await RefreshRunAsync();
-        else if (!res.IsSuccessStatusCode) await Fail(await ReadError(res));
+        else if (!res.IsSuccessStatusCode) await Fail(await ApiErrors.ReadAsync(res));
     }
 
     void OnTopic(string topic) {
@@ -674,17 +674,6 @@
         return null;
     }
 
-    static async Task<string> ReadError(HttpResponseMessage resp) {
-        try {
-            var body = await resp.Content.ReadFromJsonAsync<JsonElement>();
-            if (body.ValueKind == JsonValueKind.Object && body.TryGetProperty("error", out var e))
-                return e.GetString() ?? $"failed [{(int)resp.StatusCode}]";
-        } catch (Exception ex) when (ex is JsonException or HttpRequestException or NotSupportedException) {
-            return $"failed [{(int)resp.StatusCode}]";
-        }
-
-        return $"failed [{(int)resp.StatusCode}]";
-    }
 
     public void Dispose() {
         _disposed = true;

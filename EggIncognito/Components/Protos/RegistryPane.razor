@@ -31,7 +31,7 @@
             <span class="pwb-reg-ver">
                 <VersionLine App="@row.AppVersion" Build="@row.Build" Client="@row.ClientVersion"/>
             </span>
-            <span class="pwb-reg-sha">@Sha12(row.ProtoSha)</span>
+            <span class="pwb-reg-sha">@EggIncognito.Core.Hashes.Short(row.ProtoSha)</span>
             @if (row.DetectedAt is { } seen) {
                 <span class="pwb-reg-when">
                     <TimeAgo At="@ViewerClock.FromUtc(seen)" Hover="false" Class="time-ago"/>
@@ -70,11 +70,6 @@
 
     static IEnumerable<ProtoRegistryRow> SortRows(IEnumerable<ProtoRegistryRow> rows) {
         return ProtoVersionOrdering.SortByRelease(rows, r => r.Key());
-    }
-
-    static string Sha12(string? sha) {
-        if (sha is not { Length: > 0 }) return "";
-        return sha.Length > 12 ? sha[..12] : sha;
     }
 
 }

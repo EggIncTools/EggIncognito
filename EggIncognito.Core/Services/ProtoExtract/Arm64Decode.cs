@@ -21,21 +21,4 @@ public static class Arm64Decode {
         Array.Copy(bin, startFile, code, 0, (int)len);
         return true;
     }
-
-    public static bool ReadPoolFloat(byte[] bin, ulong va, ulong slide, bool f64, out double value) {
-        value = 0;
-        long fileOff = (long)va - (long)slide;
-        if (fileOff < 0) return false;
-        if (f64 && fileOff + 8 <= bin.Length) {
-            value = BitConverter.ToDouble(bin.AsSpan((int)fileOff));
-            return true;
-        }
-
-        if (!f64 && fileOff + 4 <= bin.Length) {
-            value = BitConverter.ToSingle(bin.AsSpan((int)fileOff));
-            return true;
-        }
-
-        return false;
-    }
 }

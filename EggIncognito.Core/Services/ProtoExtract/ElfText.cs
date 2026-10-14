@@ -5,12 +5,12 @@ public static class ElfText {
         fileOff = 0;
         size = 0;
         vmAddr = 0;
-        var s = Elf64.FindSection(bin, ".text");
+        var s = MachoSections.Find(ElfSections.Read(bin), "", ".text");
         if (s is null) return false;
-        if (s.FileOffset < 0 || s.Size <= 0 || s.FileOffset + s.Size > bin.Length) return false;
-        fileOff = (int)s.FileOffset;
-        size = (int)s.Size;
-        vmAddr = s.VAddr;
+        if (s.Value.FileOff < 0 || s.Value.VmSize == 0 || s.Value.FileOff + (long)s.Value.VmSize > bin.Length) return false;
+        fileOff = s.Value.FileOff;
+        size = (int)s.Value.VmSize;
+        vmAddr = s.Value.VmAddr;
         return true;
     }
 }

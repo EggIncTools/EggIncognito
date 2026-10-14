@@ -14,13 +14,17 @@ public abstract class EgiTestFactory : WebApplicationFactory<Program> {
 
     protected override void ConfigureWebHost(IWebHostBuilder builder) {
         builder.UseSetting("NoBrowser", "true");
-        builder.UseSetting("RateLimiting:Enabled", "false");
+        ConfigureRateLimit(builder);
         builder.UseSetting(FakeDeviceGate.EnabledKey, "false");
         builder.UseSetting(LocalIdentityGate.EnabledKey, "false");
         Configure(builder);
         builder.ConfigureTestServices(services =>
             services.AddHttpClient(string.Empty).ConfigurePrimaryHttpMessageHandler(sp =>
                 sp.GetRequiredService<IServer>() is TestServer ts ? ts.CreateHandler() : new HttpClientHandler()));
+    }
+
+    protected virtual void ConfigureRateLimit(IWebHostBuilder builder) {
+        builder.UseSetting("RateLimiting:Enabled", "false");
     }
 }
 

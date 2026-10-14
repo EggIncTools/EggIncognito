@@ -1,10 +1,8 @@
 using System.Text;
-using System.Text.Json.Nodes;
 using EggSharp.GameData.Artifacts;
 using EggIncognito.Core;
 using EggIncognito.Core.Services;
 using EggIncognito.Core.Services.ProtoExtract;
-using EggIncognito.Data.Models;
 using EggIncognito.Data.Services;
 using EggSharp.GameData;
 using EggIncognito.Services.Feed;
@@ -57,17 +55,18 @@ public sealed class GameDataRebuilder(
         bool allCurrent = inputSha.Length > 0 && BinaryDocIds.All(id =>
             string.Equals(stored.GetValueOrDefault(id), inputSha, StringComparison.Ordinal));
         if (!force && allCurrent) {
+            string shortSha = Hashes.Short(inputSha, 12);
             foreach (string id in BinaryDocIds)
-                results.Add(new RebuildDocResult(id, "current", null, null, $"inputs unchanged ({inputSha[..12]})"));
+                results.Add(new RebuildDocResult(id, "current", null, null, $"inputs unchanged ({shortSha})"));
             await LandColleggtiblesAsync(results, ct);
             await LandArtifactCatalogAsync(results, ct);
             await LandMissionShipsAsync(results, ct);
-            return (results, $"inputs unchanged ({inputSha[..12]})");
+            return (results, $"inputs unchanged ({shortSha})");
         }
 
         var found = await binaries.GetExtractionCandidatesAsync(ct);
         var candidates = found.Candidates.Select(c => {
-            bool elf = IsElf(c.Bytes);
+            bool elf = ElfSections.IsElf64Le(c.Bytes);
             var syms = c.Symbols ?? (elf ? [] : MachoSymbols.Read(c.Bytes));
             var sections = elf ? [] : MachoSections.Read(c.Bytes);
             return new Candidate(c.Platform, c.Version, c.Bytes, syms, sections, elf);
@@ -78,8 +77,9 @@ public sealed class GameDataRebuilder(
             logger.LogWarning("gamedata rebuild found no extraction binary: {Why}", why);
             foreach (string id in BinaryDocIds) results.Add(new RebuildDocResult(id, "skipped", null, null, why));
         } else {
+            string configJson = await services.GetRequiredService<EndpointStore>()
+                .CurrentJsonAsync(DataCatalog.ConfigRoute, ct) ?? "{}";
             await LandBestAsync(results, "boost-catalog", candidates, c => {
-                string configJson = DataCatalog.FixtureText(services, DataCatalog.ConfigRoute) ?? "{}";
                 var built = BoostCatalogBuilder.Build(c.Bin, c.Syms, c.Sections, configJson, c.Version);
                 string? note = built.MissingCosts.Count > 0
                     ? $"{built.MissingCosts.Count} ids without costs: {string.Join(", ", built.MissingCosts)}"
@@ -119,7 +119,7 @@ public sealed class GameDataRebuilder(
             }, ct);
 
             await LandBestAsync(results, "vehicles", candidates, c => {
-                var r = VehicleCatalogExtractor.ReadWith(c.Bin, c.Syms, c.Sections);
+                var r = VehicleCatalogExtractor.ReadWith(c.Bin, c.Syms);
                 if (!r.Ok || r.Entries.Count == 0) return null;
                 var doc = GameDataDocBuilders.BuildVehicles(r.Entries, c.Version);
                 return (doc.Json, doc.Count, SkipNote(doc.Skipped, "nameless"));
@@ -155,7 +155,7 @@ public sealed class GameDataRebuilder(
             await LandBestAsync(results, FarmPlacementCatalog.DocumentId, candidates, c => {
                 var habs = HabCatalogExtractor.ExtractWith(c.Bin, c.Syms, c.Sections);
                 var eggs = EggCatalogExtractor.ExtractAuto(c.Bin);
-                var vehicles = VehicleCatalogExtractor.ReadWith(c.Bin, c.Syms, c.Sections);
+                var vehicles = VehicleCatalogExtractor.ReadWith(c.Bin, c.Syms);
                 if (!habs.Ok || !eggs.Ok || !vehicles.Ok) return null;
 
                 var placement = FarmPlacementExtractor.Extract(c.Bin, habs.Entries, eggs.Entries, vehicles.Entries,
@@ -225,15 +225,6 @@ public sealed class GameDataRebuilder(
             _binaryVersion, _prevBinaryVersion, _platform, dedup, [.. _changedDocs], publisher.PageUrl("data")), ct);
     }
 
-    private static string? BinaryVersionOf(string? json) {
-        if (string.IsNullOrEmpty(json)) return null;
-        try {
-            return JsonNode.Parse(json)?["binaryVersion"]?.GetValue<string>();
-        } catch (Exception ex) when (ex is System.Text.Json.JsonException or InvalidOperationException) {
-            return null;
-        }
-    }
-
     private Task LandColleggtiblesAsync(List<RebuildDocResult> results, CancellationToken ct) =>
         LandAsync(results, "colleggtibles", () => {
             var live = LiveColleggtibleSource.Derive(services, DataCatalog.PeriodicalsRoute)
@@ -241,22 +232,26 @@ public sealed class GameDataRebuilder(
             return (live.Json, live.Extract.Eggs.Count, null);
         }, ct);
 
-    private Task LandArtifactCatalogAsync(List<RebuildDocResult> results, CancellationToken ct) =>
-        LandAsync(results, ArtifactCatalog.DocumentId, () => {
-            string afx = DataCatalog.FixtureText(services, DataCatalog.AfxConfigRoute)
-                         ?? throw new InvalidOperationException("no captured ei_afx/config to decode");
+    private async Task LandArtifactCatalogAsync(List<RebuildDocResult> results, CancellationToken ct) {
+        string afx = await services.GetRequiredService<EndpointStore>()
+                         .CurrentJsonAsync(DataCatalog.AfxConfigRoute, ct)
+                     ?? throw new InvalidOperationException("no captured ei_afx/config to decode");
+        await LandAsync(results, ArtifactCatalog.DocumentId, () => {
             var built = ArtifactCatalogBuilder.BuildFromJson(afx, GameVersionForAfx());
             string? note = built.Skipped.Count > 0 ? $"{built.Skipped.Count} rows skipped" : null;
             return (ArtifactCatalogBuilder.Serialize(built.File), built.File.Artifacts.Count, note);
         }, ct);
+    }
 
-    private Task LandMissionShipsAsync(List<RebuildDocResult> results, CancellationToken ct) =>
-        LandAsync(results, MissionShipCatalog.DocumentId, () => {
-            string afx = DataCatalog.FixtureText(services, DataCatalog.AfxConfigRoute)
-                         ?? throw new InvalidOperationException("no captured ei_afx/config to decode");
+    private async Task LandMissionShipsAsync(List<RebuildDocResult> results, CancellationToken ct) {
+        string afx = await services.GetRequiredService<EndpointStore>()
+                         .CurrentJsonAsync(DataCatalog.AfxConfigRoute, ct)
+                     ?? throw new InvalidOperationException("no captured ei_afx/config to decode");
+        await LandAsync(results, MissionShipCatalog.DocumentId, () => {
             var doc = GameDataDocBuilders.BuildMissionShipsFromJson(afx, GameVersionForAfx());
             return (doc.Json, doc.Count, null);
         }, ct);
+    }
 
     private string GameVersionForAfx() =>
         _binaryVersion.Length > 0
@@ -280,10 +275,7 @@ public sealed class GameDataRebuilder(
 
     private async Task<IReadOnlyDictionary<string, string?>> StoredInputShasAsync(CancellationToken ct) {
         try {
-            var rows = await Db().GameDataDocuments.AsNoTracking()
-                .Select(d => new { d.Id, d.InputSha })
-                .ToListAsync(ct);
-            return rows.ToDictionary(r => r.Id, r => r.InputSha, StringComparer.Ordinal);
+            return await GameDataStore.InputShasAsync(Db(), ct);
         } catch {
             return new Dictionary<string, string?>(StringComparer.Ordinal);
         }
@@ -295,9 +287,6 @@ public sealed class GameDataRebuilder(
                 logger.LogWarning("gamedata rebuild {Id} {Status}: {Note}", r.Id, r.Status, r.Note);
         }
     }
-
-    private static bool IsElf(byte[] b) =>
-        b.Length >= 4 && b[0] == 0x7f && b[1] == 0x45 && b[2] == 0x4c && b[3] == 0x46;
 
     private static string? SkipNote(IReadOnlyList<string> skipped, string kind) =>
         skipped.Count == 0 ? null : $"{skipped.Count} {kind} rows dropped: {string.Join(", ", skipped)}";
@@ -368,28 +357,11 @@ public sealed class GameDataRebuilder(
     }
 
     private async Task UpsertAsync(string id, string json, CancellationToken ct) {
-        var db = Db();
-        var now = time.GetUtcNow();
         string? inputSha = BinaryDocIds.Contains(id, StringComparer.Ordinal) ? _inputSha : null;
-        var row = await db.GameDataDocuments.FirstOrDefaultAsync(d => d.Id == id, ct);
-        if (row is null || !string.Equals(row.Json, json, StringComparison.Ordinal)) {
-            _prevBinaryVersion ??= BinaryVersionOf(row?.Json);
+        var (changed, previousJson) = await GameDataStore.UpsertAsync(Db(), id, json, inputSha, time.GetUtcNow(), ct);
+        if (changed) {
+            _prevBinaryVersion ??= DocVersions.BinaryVersion(previousJson);
             _changedDocs.Add(id);
         }
-
-        if (row is null) {
-            db.GameDataDocuments.Add(new GameDataDocument {
-                Id = id,
-                Json = json,
-                InputSha = inputSha,
-                UpdatedAt = now
-            });
-        } else {
-            row.Json = json;
-            row.InputSha = inputSha;
-            row.UpdatedAt = now;
-        }
-
-        await db.SaveChangesAsync(ct);
     }
 }

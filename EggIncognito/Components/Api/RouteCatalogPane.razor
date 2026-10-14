@@ -173,7 +173,6 @@
 @code {
     [Parameter] public EventCallback OnChanged { get; set; }
 
-    static readonly JsonSerializerOptions JsonOpts = new(JsonSerializerDefaults.Web);
     const string ViewAll = "all";
     const string ViewEdited = "edited";
     const string ViewDrift = "drift";
@@ -289,7 +288,7 @@
             if (res.StatusCode == HttpStatusCode.ServiceUnavailable) {
                 Say(false, "refresh unavailable (no database)");
             } else if (res.IsSuccessStatusCode) {
-                var d = await res.Content.ReadFromJsonAsync<EndpointRebuildResult>(JsonOpts);
+                var d = await res.Content.ReadFromJsonAsync<EndpointRebuildResult>(JsonPresets.Web);
                 Say(true, d is null
                     ? "refresh complete"
                     : $"refresh complete: {d.Discovered} discovered, {d.New} new, {d.DriftCount} drift" +
@@ -310,7 +309,7 @@
         var body = new UpsertRouteOverride(_draftRequest, _draftResponse, _draftRequestWrapped, _draftResponseWrapped, _draftPathParam);
         _busy = true;
         try {
-            var res = await Client().PutAsJsonAsync($"/api/admin/routes/{row.Path}", body, JsonOpts);
+            var res = await Client().PutAsJsonAsync($"/api/admin/routes/{row.Path}", body, JsonPresets.Web);
             Say(res.IsSuccessStatusCode, res.IsSuccessStatusCode ? $"saved {row.Path}" : $"save failed: HTTP {(int)res.StatusCode}");
             if (res.IsSuccessStatusCode) _expandedPath = null;
         } catch (Exception ex) when (ex is HttpRequestException or JsonException or TaskCanceledException) {
@@ -345,7 +344,7 @@
             _ => row.Draft()
         };
         try {
-            var res = await Client().PutAsJsonAsync($"/api/admin/routes/{d.Path}", body, JsonOpts);
+            var res = await Client().PutAsJsonAsync($"/api/admin/routes/{d.Path}", body, JsonPresets.Web);
             Say(res.IsSuccessStatusCode, res.IsSuccessStatusCode ? $"applied {d.Field} for {d.Path}" : $"apply failed: HTTP {(int)res.StatusCode}");
         } catch (Exception ex) when (ex is HttpRequestException or JsonException or TaskCanceledException) {
             Say(false, $"apply failed: {ex.Message}");

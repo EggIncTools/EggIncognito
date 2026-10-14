@@ -119,7 +119,8 @@ public sealed class DecompController(GameBinaryProvider binaries) : ApiControlle
 
             var report = SymbolRecovery.Recover(refBytes, tgtBytes, [name]);
             ulong textVm = 0, textOff = 0;
-            if (MachoText.TryFindText(tgtBytes, out int tfo, out _, out ulong tvm)) {
+            var tgtImg = BinaryImage.Load(tgtBytes);
+            if (tgtImg is not null && tgtImg.TryFindText(out int tfo, out _, out ulong tvm)) {
                 textVm = tvm;
                 textOff = (ulong)tfo;
             }
@@ -132,8 +133,10 @@ public sealed class DecompController(GameBinaryProvider binaries) : ApiControlle
             var embedded = report.Symbols
                 .Where(s => s.Name != name && s.Name.Contains(name, StringComparison.Ordinal))
                 .OrderBy(s => s.Name.Length).ToList();
+            if (embedded.Count > 0 && tgtImg is null)
+                return Ok(new { ok = false, diagnostics = "unable to load target binary image" });
             foreach (var lam in embedded) {
-                var referrers = Arm64AddrRefResolver.FindReferrers(tgtBytes, lam.Value);
+                var referrers = Arm64AddrRefResolver.FindReferrers(tgtImg!, lam.Value);
                 if (referrers.Count > 0)
                     return VaResult(tgtBytes, report, name + " (via referrer of " + lam.Name + ")",
                         referrers[0].FunctionVa,
@@ -318,8 +321,9 @@ public sealed class DecompController(GameBinaryProvider binaries) : ApiControlle
                 if (refBytes is null) return Ok(new { ok = false, diagnostics = rdiag ?? diag });
             }
 
-            if (!MachoText.TryFindText(refBytes, out int tfo, out _, out ulong tvm))
-                return Ok(new { ok = false, diagnostics = "reference has no __text" });
+            var refImg = BinaryImage.Load(refBytes);
+            if (refImg is null || !refImg.TryFindText(out int tfo, out _, out ulong tvm))
+                return Ok(new { ok = false, diagnostics = "reference has no text section" });
             var syms = MachoSymbols.Read(refBytes);
             if (!MachoSymbols.TryFindFunc(syms, [name], out var fn))
                 return Ok(new { ok = false, diagnostics = $"symbol not found in reference: {name}" });
@@ -439,7 +443,7 @@ public sealed class DecompController(GameBinaryProvider binaries) : ApiControlle
         if (row is null || row.ByteSize == 0)
             return Fail(404, $"no stored binary {platform} {version}");
 
-        Response.Headers.CacheControl = "private, max-age=3600";
+        PrivateCache(3600);
         Response.Headers.ETag = $"\"{row.Sha256}\"";
         return File(await store.BytesAsync(row, ct), "application/octet-stream",
             StoredBinaryFileName(row.Platform, row.AppVersion));
@@ -534,7 +538,9 @@ public sealed class DecompController(GameBinaryProvider binaries) : ApiControlle
     private OkObjectResult VaResult(
         byte[] tgt, SymbolRecovery.RecoveryReport report, string name, ulong va, ulong textVm, ulong textOff,
         string method, object? detail) {
-        bool snapped = MachoFunctionStarts.TryEnclosingStart(tgt, va, out ulong startVa, out ulong endVa);
+        var tgtImg = BinaryImage.Load(tgt);
+        ulong startVa = 0, endVa = 0;
+        bool snapped = tgtImg is not null && MachoFunctionStarts.TryEnclosingStart(tgtImg, va, out startVa, out endVa);
         ulong hookVa = snapped ? startVa : va;
         bool wasMidFunction = snapped && startVa != va;
         return Ok(new {

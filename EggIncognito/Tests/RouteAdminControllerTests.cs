@@ -10,7 +10,6 @@ using Microsoft.Extensions.DependencyInjection;
 namespace EggIncognito.Tests;
 
 public sealed class RouteAdminControllerTests : IDisposable {
-    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
     private readonly TempDir _tmp = new();
 
     public void Dispose() => _tmp.Dispose();
@@ -40,7 +39,7 @@ public sealed class RouteAdminControllerTests : IDisposable {
         return new RouteAdminController(routes, report, new ProtoReflection(), new FakeUser(Guid.NewGuid(), UserRole.Admin, DiscordId: "tester").Accessor(), TimeProvider.System);
     }
 
-    private static string Json(object? value) => JsonSerializer.Serialize(value, JsonOptions);
+    private static string Json(object? value) => JsonSerializer.Serialize(value, JsonPresets.Web);
 
     [Fact]
     public void List_MergesSourceAndOverrides_IncludingOrphan() {

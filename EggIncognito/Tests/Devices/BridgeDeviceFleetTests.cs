@@ -1,6 +1,7 @@
 using System.Net;
 using System.Text;
 using System.Text.Json;
+using EggIncognito.Core.Services;
 using EggIncognito.Core.Services.Devices;
 using EggIncognito.Services.Devices;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -8,8 +9,6 @@ using Microsoft.Extensions.Logging.Abstractions;
 namespace EggIncognito.Tests.Devices;
 
 public class BridgeDeviceFleetTests {
-    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
-
     private static BridgeDeviceFleet Fleet(HttpMessageHandler handler) {
         var source = new BridgeDeviceFleetSource(
             new StubHttpFactory(handler),
@@ -23,7 +22,7 @@ public class BridgeDeviceFleetTests {
     }
 
     private static HttpResponseMessage Json(BridgeFleet fleet) => new(HttpStatusCode.OK) {
-        Content = new StringContent(JsonSerializer.Serialize(fleet, JsonOptions), Encoding.UTF8, "application/json")
+        Content = new StringContent(JsonSerializer.Serialize(fleet, JsonPresets.Web), Encoding.UTF8, "application/json")
     };
 
     [Fact]

@@ -11,33 +11,35 @@ public static class VehicleCatalogExtractor {
 
     public static Result Read(byte[] bin, string initSymbol = InitSymbol) {
         var img = BinaryImage.Load(bin);
-        return ReadWith(bin, img?.Symbols ?? [], img?.Sections ?? [], initSymbol);
+        return ReadWith(bin, img?.Symbols ?? [], initSymbol);
     }
 
-    public static Result ReadWith(byte[] bin, IReadOnlyList<MachoSymbols.Symbol> syms,
-        IReadOnlyList<MachoSections.Section> sections, string initSymbol = InitSymbol) {
-        if (BinaryImage.Load(bin) is ElfImage) return ReadElf(bin);
+    public static Result ReadWith(byte[] bin, IReadOnlyList<MachoSymbols.Symbol> syms, string initSymbol = InitSymbol) {
+        var img = BinaryImage.Load(bin);
+        if (img is ElfImage) return ReadElf(bin);
+        if (img is null) return new Result(false, [], "binary is neither Mach-O nor ELF");
         var scan = StructInitReader.ReadWith(bin, syms, initSymbol);
-        return !scan.Ok ? new Result(false, [], scan.Diagnostics) : Build(bin, sections, scan, Stride, LengthOff);
+        return !scan.Ok ? new Result(false, [], scan.Diagnostics) : Build(bin, img, scan, Stride, LengthOff);
     }
 
     private static Result ReadElf(byte[] bin) {
         var loc = InitArrayLocator.Create(bin);
         if (loc is null) return new Result(false, [], "no binary image");
-        var sections = BinaryImage.Load(bin)?.Sections ?? [];
+        var img = BinaryImage.Load(bin);
+        if (img is null) return new Result(false, [], "no binary image");
         var best = new Result(false, [], "vehicledata init not located via signature on ELF");
         foreach ((ulong s0, ulong e0) in loc.LocateAllByString(SignatureString)) {
             var scan = StructInitReader.ReadRange(bin, s0, e0);
             if (!scan.Ok) continue;
-            var built = Build(bin, sections, scan, ElfStride, ElfLengthOff);
+            var built = Build(bin, img, scan, ElfStride, ElfLengthOff);
             if (built.Entries.Count > best.Entries.Count) best = built;
         }
 
         return best;
     }
 
-    private static Result Build(byte[] bin, IReadOnlyList<MachoSections.Section> sections,
-        StructInitReader.Result scan, long stride, long lengthOff) {
+    private static Result Build(byte[] bin, IBinaryImage img, StructInitReader.Result scan, long stride,
+        long lengthOff) {
         if (scan.Structs.Count == 0) return new Result(false, [], "no struct bases");
 
         var s = StructInitReader.MergeByAbsoluteVa(scan.Structs);
@@ -45,39 +47,25 @@ public static class VehicleCatalogExtractor {
         for (int i = 0; ; i++) {
             long slot = i * stride;
             if (!s.TryInt(slot + CapacityOff, 8, out long capacity) || !IsPlausibleCapacity(capacity)) break;
-            entries.Add(new VehicleEntry(i, ResolveName(bin, sections, s, slot), capacity,
+            entries.Add(new VehicleEntry(i, ResolveName(bin, img, s, slot), capacity,
                 ReadLength(s, slot + lengthOff)));
         }
 
         return new Result(true, entries, $"{entries.Count} vehicles, {entries.Count(e => e.Name is not null)} named");
     }
 
-    private static string? ResolveName(byte[] bin, IReadOnlyList<MachoSections.Section> sections,
-        StructInitReader.StructInit s, long nameOff)
-        => ResolveAt(bin, sections, s, nameOff) ?? ResolveAt(bin, sections, s, nameOff + 1);
+    private static string? ResolveName(byte[] bin, IBinaryImage img, StructInitReader.StructInit s, long nameOff)
+        => ResolveAt(bin, img, s, nameOff) ?? ResolveAt(bin, img, s, nameOff + 1);
 
-    private static string? ResolveAt(byte[] bin, IReadOnlyList<MachoSections.Section> sections,
-        StructInitReader.StructInit s, long off) {
-        if (s.TryPointer(off, out ulong pva) && IsName(ReadCstr(bin, sections, pva)) is { } fromPtr)
-            return fromPtr;
-        if (s.TryTemplate(off, out ulong tva) && IsName(ReadCstr(bin, sections, tva)) is { } fromTpl)
-            return fromTpl;
-        return s.TryInlineStringComplete(off, out string inline) && IsName(inline) is { } fromInline
-            ? fromInline
-            : IsName(s.TryInlineString(off));
-    }
+    private static string? ResolveAt(byte[] bin, IBinaryImage img, StructInitReader.StructInit s, long off)
+        => StructInitReader.TryLibcxxString(bin, img, s, off, out string name) ? IsName(name) : null;
 
     private static double ReadLength(StructInitReader.StructInit s, long offset)
         => s.TryFloat64(offset, out double v) && double.IsFinite(v) && v is > 0 and < 1000 ? v : 0;
 
     private static bool IsPlausibleCapacity(long c) => c is > 0 and <= 1_000_000_000_000;
 
-    private static readonly string[] NameSections = ["__cstring", "__const", ".rodata", ".data.rel.ro"];
-
     private static string? IsName(string s) => BinaryStrings.IsName(s, " .'", allowDigitStart: true);
-
-    private static string ReadCstr(byte[] bin, IReadOnlyList<MachoSections.Section> sections, ulong va)
-        => BinaryStrings.ReadCstr(bin, sections, va, NameSections, 64);
 
     public readonly record struct VehicleEntry(int Index, string? Name, long Capacity, double Length = 0);
 

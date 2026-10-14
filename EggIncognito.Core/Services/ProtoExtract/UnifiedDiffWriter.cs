@@ -12,7 +12,7 @@ public sealed record UnifiedDiffOptions(
 public static class UnifiedDiffWriter {
     private const string NoNewlineMarker = "\\ No newline at end of file";
 
-    public static string[] SplitLines(string text) {
+    public static string[] SplitLines(string text, bool keepEnds = false) {
         if (string.IsNullOrEmpty(text)) return [];
         string[] raw = text.Split('\n');
         int count = raw.Length;
@@ -20,7 +20,11 @@ public static class UnifiedDiffWriter {
         var lines = new string[count];
         for (int i = 0; i < count; i++) {
             string line = raw[i];
-            lines[i] = line.Length > 0 && line[^1] == '\r' ? line[..^1] : line;
+            if (keepEnds) {
+                lines[i] = i < raw.Length - 1 ? line + "\n" : line;
+            } else {
+                lines[i] = line.Length > 0 && line[^1] == '\r' ? line[..^1] : line;
+            }
         }
 
         return lines;

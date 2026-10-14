@@ -1,6 +1,7 @@
 @using System.Globalization
 @using EggIncognito.Core.Services.ProtoExtract
 @using EggIncognito.Core.Services.Syntax
+@using EggIncognito.Core.Services.Syntax.Tokenizers
 @using EggIncognito.Models.Code
 @using Microsoft.AspNetCore.Components.Web.Virtualization
 @inject IJSRuntime JS
@@ -455,15 +456,19 @@
         };
     }
 
+    static readonly DiffTokenizer DiffLines = new();
+
     static string RowClass(string text) {
-        if (text.Length == 0) return RowClass(DiffRowKind.Context);
-        if (text.StartsWith("@@", StringComparison.Ordinal)) return "head";
-        if (text.StartsWith("---", StringComparison.Ordinal)
-            || text.StartsWith("+++", StringComparison.Ordinal)
-            || text[0] == '\\') return "meta";
-        if (text[0] == '+') return RowClass(DiffRowKind.Added);
-        if (text[0] == '-') return RowClass(DiffRowKind.Removed);
-        return RowClass(DiffRowKind.Context);
+        var tokens = new List<Token>();
+        DiffLines.Scan(text, 0, tokens);
+        if (tokens.Count == 0) return RowClass(DiffRowKind.Context);
+        return tokens[0].Kind switch {
+            TokenKind.Meta => text.StartsWith("@@", StringComparison.Ordinal) ? "head" : "meta",
+            TokenKind.Comment => "meta",
+            TokenKind.Punct when text[0] == '+' => RowClass(DiffRowKind.Added),
+            TokenKind.Punct when text[0] == '-' => RowClass(DiffRowKind.Removed),
+            _ => RowClass(DiffRowKind.Context)
+        };
     }
 
     static string PathClass(MessageDiffKind kind) {

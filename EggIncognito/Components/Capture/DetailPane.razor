@@ -54,8 +54,6 @@
     [Parameter] public RenderFragment? Tools { get; set; }
     [Parameter] public bool Fill { get; set; }
 
-    static readonly JsonSerializerOptions JsonOpts = new(JsonSerializerDefaults.Web);
-
     readonly Dictionary<string, string> _formatChoice = new();
     bool _saving;
 
@@ -78,8 +76,8 @@
         if (Flow is null || _saving) return;
         _saving = true;
         try {
-            var res = await ClientFactory().PostAsJsonAsync("/api/capture/save-endpoint", new { id = Flow.Id }, JsonOpts);
-            var data = await res.Content.ReadFromJsonAsync<Models.Capture.SaveResult>(JsonOpts);
+            var res = await ClientFactory().PostAsJsonAsync("/api/capture/save-endpoint", new { id = Flow.Id }, JsonPresets.Web);
+            var data = await res.Content.ReadFromJsonAsync<Models.Capture.SaveResult>(JsonPresets.Web);
             if (res.IsSuccessStatusCode && data?.Saved is not null) Toasts.Push(StatusNoteKind.Ok, "Saved " + data.Saved);
             else Toasts.Push(StatusNoteKind.Error, data?.Error ?? "Save failed");
         } catch (Exception ex) {

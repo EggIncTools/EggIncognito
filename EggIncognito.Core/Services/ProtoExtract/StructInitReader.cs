@@ -48,6 +48,15 @@ public static class StructInitReader {
             return true;
         }
 
+        ulong GprValue(string reg, ulong pv, int width) {
+            if (!dataLoad.TryGetValue(reg, out ulong dv) || dv != pv) return pv;
+            byte[]? raw = ReadVecFrom(pv, width);
+            if (raw is null) return pv;
+            ulong v = 0;
+            for (int k = 0; k < raw.Length; k++) v |= (ulong)raw[k] << (k * 8);
+            return v;
+        }
+
         byte[]? ReadVecFrom(ulong va, int width) {
             if (img is null || !img.TryVaToFileOffset(va, out int fo, out _)) return null;
             if (fo < 0 || fo + width > bin.Length) return null;
@@ -73,15 +82,6 @@ public static class StructInitReader {
 
                 tpls[off] = sv;
             }
-        }
-
-        ulong GprValue(string reg, ulong pv, int width) {
-            if (!dataLoad.TryGetValue(reg, out ulong dv) || dv != pv) return pv;
-            byte[]? raw = ReadVecFrom(pv, width);
-            if (raw is null) return pv;
-            ulong v = 0;
-            for (int k = 0; k < raw.Length; k++) v |= (ulong)raw[k] << (k * 8);
-            return v;
         }
 
         void Store(ulong baseVa, long off, int width, ulong raw, ulong? ptr) {
@@ -369,6 +369,78 @@ public static class StructInitReader {
         return new StructInit(origin.BaseVa, bytes, pointers, templates);
     }
 
+    public static bool TryLibcxxString(byte[] bin, IBinaryImage image, StructInit record, long offset,
+        out string value, int maxLen = 256, int ssoCapacity = 0x17, int longStringDataDelta = 0x10,
+        bool strict = false) {
+        value = "";
+
+        if (record.TryPointer(offset, out ulong directPtr) &&
+            TryReadHeapString(bin, image, directPtr, maxLen, out string direct)) {
+            value = direct;
+            return true;
+        }
+
+        if (record.TryTemplate(offset + longStringDataDelta, out ulong srcVa) &&
+            TryReadHeapString(bin, image, srcVa, maxLen, out string viaTemplate)) {
+            value = viaTemplate;
+            return true;
+        }
+
+        if (record.TryPointer(offset + longStringDataDelta, out ulong longPtr) &&
+            TryReadHeapString(bin, image, longPtr, maxLen, out string viaLong)) {
+            value = viaLong;
+            return true;
+        }
+
+        string? ssoBody = null;
+        byte size = 0;
+        if (record.TryInt(offset, 1, out long sizeRaw)) {
+            size = (byte)sizeRaw;
+            if ((size & 1) == 0 && size >= 2 && size >> 1 <= ssoCapacity) {
+                int len = size >> 1;
+                string sso = ReadUtf8(record, offset + 1, ssoCapacity + 1);
+                if (sso.Length > len) sso = sso[..len];
+                if (sso.Length == len) {
+                    value = sso;
+                    return true;
+                }
+
+                if (sso.Length > 0) ssoBody = sso;
+            }
+        }
+
+        if (strict) return false;
+
+        string raw = ReadUtf8(record, offset, Math.Min(maxLen, ssoCapacity + 1));
+        if (!string.IsNullOrEmpty(ssoBody) && raw.Length == ssoBody.Length + 1 && raw[0] == (char)size &&
+            raw.EndsWith(ssoBody, StringComparison.Ordinal)) {
+            value = ssoBody;
+            return true;
+        }
+
+        if (raw.Length > 0) {
+            value = raw;
+            return true;
+        }
+
+        return false;
+    }
+
+    private static string ReadUtf8(StructInit record, long start, int maxLen) {
+        var bytes = new List<byte>(maxLen);
+        for (long off = start; off < start + maxLen; off++) {
+            if (!record.Bytes.TryGetValue(off, out byte b) || b == 0) break;
+            bytes.Add(b);
+        }
+
+        return Encoding.UTF8.GetString([.. bytes]);
+    }
+
+    private static bool TryReadHeapString(byte[] bin, IBinaryImage image, ulong va, int maxLen, out string value) {
+        value = va == 0 ? "" : BinaryStrings.ReadCstr(bin, image, va, maxLen);
+        return value.Length > 0;
+    }
+
     public readonly record struct StructInit(
         ulong BaseVa,
         IReadOnlyDictionary<long, byte> Bytes,
@@ -378,7 +450,7 @@ public static class StructInitReader {
 
         public bool TryFloat64(long offset, out double value) {
             if (TryReadBytes(offset, 8, out ulong raw)) {
-                value = BitConverter.Int64BitsToDouble((long)raw);
+                value = Arm64Bits.F64(raw);
                 return true;
             }
 

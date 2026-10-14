@@ -1,3 +1,5 @@
+import { readError } from "./http.js";
+
 const sessions = new Map();
 const FIRST_FRAME_MS = 15000;
 const VIDEO_FIRST_FRAME_MS = 20000;
@@ -45,24 +47,13 @@ function errText(e) {
   return e?.message ?? String(e);
 }
 
-function describeHttp(status, body) {
-  let error = "";
-  try {
-    const parsed = JSON.parse(body);
-    if (parsed && typeof parsed.error === "string") error = parsed.error;
-  } catch {
-  }
-  if (!error && body) error = String(body).slice(0, 160);
-  return error ? "http " + status + ": " + error : "http " + status;
-}
-
 async function explainImageFailure(screenshotUrl, fallback) {
   if (!screenshotUrl) return { status: 0, note: fallback };
   try {
     const response = await fetch(bust(screenshotUrl), { cache: "no-store", credentials: "same-origin" });
     if (response.ok) return { status: response.status, note: fallback + "; the device still answers screenshots" };
-    const body = await response.text();
-    return { status: response.status, note: describeHttp(response.status, body) };
+    const error = await readError(response);
+    return { status: response.status, note: "http " + response.status + ": " + error };
   } catch (e) {
     return { status: 0, note: fallback + "; screenshot fetch failed: " + errText(e) };
   }
@@ -661,13 +652,13 @@ async function open(s) {
   for (let attempt = 0; ; attempt++) {
     const response = await fetch(s.url, { cache: "no-store", credentials: "same-origin", signal: s.ctrl.signal });
     if (response.ok) return response;
-    const body = await response.text();
     if (response.status === 409 && attempt < BUSY_RETRIES && !s.stopped) {
       await sleep(1000, s.ctrl.signal);
       if (s.stopped) throw new DOMException("stopped", "AbortError");
       continue;
     }
-    const err = new Error(describeHttp(response.status, body));
+    const error = await readError(response);
+    const err = new Error("http " + response.status + ": " + error);
     err.status = response.status;
     throw err;
   }

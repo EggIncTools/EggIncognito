@@ -1,4 +1,6 @@
 using System.Globalization;
+using EggIncognito.Core;
+using EggIncognito.Services.Events;
 
 namespace EggIncognito.Services.Feed;
 
@@ -6,7 +8,7 @@ public static class FeedText {
     private const int MaxFieldChars = 900;
     private const int MaxListed = 12;
 
-    public static string Short(string sha) => sha.Length > 12 ? sha[..12] : sha;
+    public static string Short(string sha) => Hashes.Short(sha);
 
     public static string Or(string? value, string fallback) => string.IsNullOrEmpty(value) ? fallback : value;
 
@@ -17,7 +19,7 @@ public static class FeedText {
 
     public static string Stamp(DateTimeOffset at) => at.ToUniversalTime().ToString("yyyy-MM-dd HH:mm 'UTC'", CultureInfo.InvariantCulture);
 
-    public static string Unix(DateTimeOffset at) => at.ToUnixTimeSeconds().ToString(CultureInfo.InvariantCulture);
+    public static string Unix(DateTimeOffset at) => ((long)UnixSeconds.FromTime(at)).ToString(CultureInfo.InvariantCulture);
 
     public static string Number(double value) => value.ToString("0.##", CultureInfo.InvariantCulture);
 

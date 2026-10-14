@@ -11,13 +11,16 @@ public static class VersionDeltaCalc {
     public static VersionDelta Classify(
         string? platform, string? build, string? appVersion,
         string? prevBuild, string? prevAppVersion) {
-        long key = ProtoVersionQuality.LatestSortKey(platform, build, appVersion);
-        if (key == long.MinValue) return VersionDelta.Unknown;
+        if (string.IsNullOrEmpty(build) && string.IsNullOrEmpty(appVersion)) return VersionDelta.Unknown;
+        if (ProtoVersionQuality.HasPlatformBuildMismatch(platform, build)) return VersionDelta.Unknown;
+        if (string.IsNullOrEmpty(prevBuild) && string.IsNullOrEmpty(prevAppVersion)) return VersionDelta.Forward;
 
-        long prev = ProtoVersionQuality.LatestSortKey(platform, prevBuild, prevAppVersion);
-        if (prev == long.MinValue) return VersionDelta.Forward;
+        string p = platform ?? "";
+        VersionKey key = new(p, appVersion, build, null, null, null);
+        VersionKey prev = new(p, prevAppVersion, prevBuild, null, null, null);
+        int cmp = ProtoVersionOrdering.Compare(key, prev);
 
-        return key > prev ? VersionDelta.Forward : key == prev ? VersionDelta.Repeat : VersionDelta.Backfill;
+        return cmp < 0 ? VersionDelta.Forward : cmp == 0 ? VersionDelta.Repeat : VersionDelta.Backfill;
     }
 
     public static string Label(VersionDelta delta) => delta switch {

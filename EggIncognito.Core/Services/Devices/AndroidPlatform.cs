@@ -204,11 +204,7 @@ public sealed class AndroidPlatform(
         }
 
         using (zip) {
-            var arm64 = zip.Entries.FirstOrDefault(e =>
-                e.FullName.EndsWith("/libegginc.so", StringComparison.OrdinalIgnoreCase)
-                && e.FullName.Contains("arm64-v8a", StringComparison.OrdinalIgnoreCase));
-            var chosen = arm64 ?? zip.Entries.FirstOrDefault(e =>
-                e.FullName.EndsWith("/libegginc.so", StringComparison.OrdinalIgnoreCase));
+            var chosen = ArchiveProtoExtractor.OrderedCandidates(zip).FirstOrDefault(ArchiveProtoExtractor.IsNativeLib);
             if (chosen is null) return null;
             using var es = chosen.Open();
             using var buf = new MemoryStream();

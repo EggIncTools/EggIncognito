@@ -17,7 +17,7 @@
             </label>
             @if (CanOrder && !string.IsNullOrEmpty(ProtoSha)) {
                 <label class="ped-field">
-                    Sort order (proto sha @Short(ProtoSha), higher sorts newer)
+                    Sort order (proto sha @EggIncognito.Core.Hashes.Short(ProtoSha), higher sorts newer)
                     <input class="protos-filter" type="number" @bind="_order"/>
                 </label>
             }
@@ -81,10 +81,6 @@
     string _appVersion = "";
     int _order;
     List<MemberField> _fields = [];
-
-    static string Short(string? sha) {
-        return string.IsNullOrEmpty(sha) ? "" : sha.Length <= 12 ? sha : sha[..12];
-    }
 
     protected override void OnParametersSet() {
         if (Targets is not { Count: > 0 }) return;

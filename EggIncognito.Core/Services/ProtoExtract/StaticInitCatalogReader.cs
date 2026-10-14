@@ -24,7 +24,7 @@ public static class StaticInitCatalogReader {
         var img = BinaryImage.Load(bin);
         var refs = new List<(ulong Va, string Str)>();
         foreach (var a in addresses) {
-            if (!IsStringSection(a.Section)) continue;
+            if (!BinaryStrings.IsStringSection(a.Section)) continue;
             refs.Add((a.Va, BinaryStrings.ReadCstr(bin, img, a.Va)));
         }
 
@@ -74,9 +74,6 @@ public static class StaticInitCatalogReader {
 
         return false;
     }
-
-    private static bool IsStringSection(string name) =>
-        name is "__cstring" or ".rodata" or ".data.rel.ro";
 
     private static bool LooksLikeDisplayName(string s)
         => s.Length > 0 && (s.Contains(' ') || char.IsUpper(s[0]) || char.IsDigit(s[0]));

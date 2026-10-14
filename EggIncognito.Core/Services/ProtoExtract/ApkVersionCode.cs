@@ -31,16 +31,16 @@ public static class ApkVersionCode {
     internal static string? ParseAxml(byte[] data) {
         try {
             if (data.Length < 8) return null;
-            ushort fileType = ReadU16(data, 0);
+            ushort fileType = ElfSections.U16(data, 0);
             if (fileType != ResXmlType) return null;
 
             int pos = 8;
             string[]? strings = null;
 
             while (pos + 8 <= data.Length) {
-                ushort type = ReadU16(data, pos);
-                ushort headerSize = ReadU16(data, pos + 2);
-                int size = (int)ReadU32(data, pos + 4);
+                ushort type = ElfSections.U16(data, pos);
+                ushort headerSize = ElfSections.U16(data, pos + 2);
+                int size = (int)ElfSections.U32(data, pos + 4);
                 if (size < 8 || pos + size > data.Length) break;
 
                 if (type == ResStringPoolType) {
@@ -63,13 +63,13 @@ public static class ApkVersionCode {
 
     public static string? ReadStringAttr(byte[] data, string attr) {
         try {
-            if (data is null || data.Length < 8 || ReadU16(data, 0) != ResXmlType) return null;
+            if (data is null || data.Length < 8 || ElfSections.U16(data, 0) != ResXmlType) return null;
             int pos = 8;
             string[]? strings = null;
             while (pos + 8 <= data.Length) {
-                ushort type = ReadU16(data, pos);
-                ushort headerSize = ReadU16(data, pos + 2);
-                int size = (int)ReadU32(data, pos + 4);
+                ushort type = ElfSections.U16(data, pos);
+                ushort headerSize = ElfSections.U16(data, pos + 2);
+                int size = (int)ElfSections.U32(data, pos + 4);
                 if (size < 8 || pos + size > data.Length) break;
                 if (type == ResStringPoolType) {
                     strings = ReadStringPool(data, pos);
@@ -91,21 +91,21 @@ public static class ApkVersionCode {
         string attr) {
         int ext = chunkPos + headerSize;
         if (ext + 20 > data.Length) return null;
-        ushort attrStart = ReadU16(data, ext + 8);
-        ushort attrCount = ReadU16(data, ext + 12);
+        ushort attrStart = ElfSections.U16(data, ext + 8);
+        ushort attrCount = ElfSections.U16(data, ext + 12);
         int baseAttr = ext + attrStart;
         const int attrRecordSize = 20;
         for (int a = 0; a < attrCount; a++) {
             int rec = baseAttr + a * attrRecordSize;
             if (rec + attrRecordSize > data.Length) break;
-            int nameIdx = (int)ReadU32(data, rec + 4);
+            int nameIdx = (int)ElfSections.U32(data, rec + 4);
             string? name = nameIdx >= 0 && nameIdx < strings.Length ? strings[nameIdx] : null;
             if (name != attr) continue;
-            int rawValueIdx = (int)ReadU32(data, rec + 8);
+            int rawValueIdx = (int)ElfSections.U32(data, rec + 8);
             if (rawValueIdx >= 0 && rawValueIdx < strings.Length)
                 return strings[rawValueIdx];
-            byte dataType = (byte)((ReadU32(data, rec + 12) >> 24) & 0xFF);
-            int typedIdx = (int)ReadU32(data, rec + 16);
+            byte dataType = (byte)((ElfSections.U32(data, rec + 12) >> 24) & 0xFF);
+            int typedIdx = (int)ElfSections.U32(data, rec + 16);
             if (dataType == TypeString && typedIdx >= 0 && typedIdx < strings.Length)
                 return strings[typedIdx];
             return null;
@@ -117,18 +117,18 @@ public static class ApkVersionCode {
     private static string? ReadStartElementVersionCode(byte[] data, int chunkPos, int headerSize, string[] strings) {
         int ext = chunkPos + headerSize;
         if (ext + 20 > data.Length) return null;
-        ushort attrStart = ReadU16(data, ext + 8);
-        ushort attrCount = ReadU16(data, ext + 12);
+        ushort attrStart = ElfSections.U16(data, ext + 8);
+        ushort attrCount = ElfSections.U16(data, ext + 12);
 
         int baseAttr = ext + attrStart;
         const int attrRecordSize = 20;
         for (int a = 0; a < attrCount; a++) {
             int rec = baseAttr + a * attrRecordSize;
             if (rec + attrRecordSize > data.Length) break;
-            int nameIdx = (int)ReadU32(data, rec + 4);
-            uint typedValue = ReadU32(data, rec + 12);
+            int nameIdx = (int)ElfSections.U32(data, rec + 4);
+            uint typedValue = ElfSections.U32(data, rec + 12);
             byte dataType = (byte)((typedValue >> 24) & 0xFF);
-            uint dataVal = ReadU32(data, rec + 16);
+            uint dataVal = ElfSections.U32(data, rec + 16);
 
             string? name = nameIdx >= 0 && nameIdx < strings.Length ? strings[nameIdx] : null;
             if (name == "versionCode" && dataType == TypeIntDec)
@@ -140,9 +140,9 @@ public static class ApkVersionCode {
 
     private static string[] ReadStringPool(byte[] data, int chunkPos) {
         if (chunkPos < 0 || chunkPos + 28 > data.Length) return [];
-        int stringCount = (int)ReadU32(data, chunkPos + 8);
-        uint flags = ReadU32(data, chunkPos + 16);
-        int stringsStart = (int)ReadU32(data, chunkPos + 20);
+        int stringCount = (int)ElfSections.U32(data, chunkPos + 8);
+        uint flags = ElfSections.U32(data, chunkPos + 16);
+        int stringsStart = (int)ElfSections.U32(data, chunkPos + 20);
         bool isUtf8 = (flags & 0x100) != 0;
 
         int offsetsBase = chunkPos + 28;
@@ -152,7 +152,7 @@ public static class ApkVersionCode {
         int dataBase = chunkPos + stringsStart;
 
         for (int i = 0; i < stringCount; i++) {
-            int off = (int)ReadU32(data, offsetsBase + i * 4);
+            int off = (int)ElfSections.U32(data, offsetsBase + i * 4);
             long strPos = (long)dataBase + off;
             if (strPos < 0 || strPos >= data.Length) {
                 result[i] = "";
@@ -185,18 +185,14 @@ public static class ApkVersionCode {
     }
 
     private static string ReadUtf16String(byte[] data, int pos) {
-        int len = ReadU16(data, pos);
+        int len = ElfSections.U16(data, pos);
         int p = pos + 2;
         if ((len & 0x8000) != 0) {
-            len = ((len & 0x7FFF) << 16) | ReadU16(data, p);
+            len = ((len & 0x7FFF) << 16) | ElfSections.U16(data, p);
             p += 2;
         }
 
         return Encoding.Unicode.GetString(data, p, len * 2);
     }
 
-    private static ushort ReadU16(byte[] data, int pos) => (ushort)(data[pos] | (data[pos + 1] << 8));
-
-    private static uint ReadU32(byte[] data, int pos) =>
-        (uint)(data[pos] | (data[pos + 1] << 8) | (data[pos + 2] << 16) | (data[pos + 3] << 24));
 }

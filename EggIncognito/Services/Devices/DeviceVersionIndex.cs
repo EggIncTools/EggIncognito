@@ -5,9 +5,6 @@ using Microsoft.EntityFrameworkCore;
 namespace EggIncognito.Services.Devices;
 
 public sealed class DeviceVersionIndex {
-    private static readonly Comparer<string?> VersionOrder =
-        Comparer<string?>.Create((x, y) => DeviceParsing.CompareVersions(x, y));
-
 #pragma warning disable IDE0028
     private readonly Dictionary<string, string?> _latestApp = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, string?> _latestBuild = new(StringComparer.OrdinalIgnoreCase);
@@ -36,21 +33,18 @@ public sealed class DeviceVersionIndex {
 
     private async Task AddPlatformAsync(EggIncognitoDbContext db, string platform, CancellationToken ct) {
         var extracted = await db.ProtoVersions.AsNoTracking()
-            .Where(v => v.Platform == platform && (v.DeletedAt == null || v.CanonicalId != null))
+            .Where(v => EF.Functions.ILike(v.Platform, platform) && (v.DeletedAt == null || v.CanonicalId != null))
             .Select(v => new { v.Build, v.AppVersion, v.ClientVersion })
             .ToListAsync(ct);
 
-        foreach (var e in extracted.OrderBy(v => v.Build, VersionOrder)) {
+        foreach (var e in extracted.OrderBy(v => v.Build, VersionCompare.BuildComparer)) {
             if (!int.TryParse(e.ClientVersion, out int clientVersion)) continue;
             if (!string.IsNullOrEmpty(e.AppVersion)) _byAppVersion[(platform, e.AppVersion)] = clientVersion;
             if (!string.IsNullOrEmpty(e.Build)) _byBuild[(platform, e.Build)] = clientVersion;
         }
 
-        _latestApp[platform] = extracted.Select(e => e.AppVersion).OrderByDescending(v => v, VersionOrder)
-            .FirstOrDefault();
-        _latestBuild[platform] = Platforms.Matches(platform, Platforms.Android)
-            ? extracted.Select(e => e.Build).Where(b => long.TryParse(b, out _)).OrderByDescending(long.Parse)
-                .FirstOrDefault()
-            : null;
+        var latest = await LatestVersions.ExtractedAsync(db, platform, ct);
+        _latestApp[platform] = latest.AppVersion;
+        _latestBuild[platform] = latest.Build;
     }
 }

@@ -1,4 +1,5 @@
 using System.Text;
+using EggIncognito.Data.Models;
 using EggIncognito.Data.Services;
 using EggSharp.GameData;
 using Microsoft.EntityFrameworkCore;
@@ -51,6 +52,44 @@ public sealed class GameDataStore(IServiceScopeFactory scopeFactory, ILogger<Gam
                 .Select(d => new GameDataDocInfo(d.Id, d.UpdatedAt, Encoding.UTF8.GetByteCount(d.Json)))
                 .OrderBy(d => d.Id, StringComparer.Ordinal)
         ]) ?? [];
+
+    public static async Task<IReadOnlyDictionary<string, string?>> InputShasAsync(EggIncognitoDbContext db,
+        CancellationToken ct) {
+        var rows = await db.GameDataDocuments.AsNoTracking()
+            .Select(d => new { d.Id, d.InputSha })
+            .ToListAsync(ct);
+        return rows.ToDictionary(r => r.Id, r => r.InputSha, StringComparer.Ordinal);
+    }
+
+    public static async Task<IReadOnlyDictionary<string, string>> AllJsonAsync(EggIncognitoDbContext db,
+        CancellationToken ct) =>
+        await db.GameDataDocuments.AsNoTracking().ToDictionaryAsync(d => d.Id, d => d.Json, StringComparer.Ordinal, ct);
+
+    public static async Task<IReadOnlyList<(string Id, string? InputSha, DateTimeOffset UpdatedAt, string Json)>>
+        AllWithInputShaAsync(EggIncognitoDbContext db, CancellationToken ct) {
+        var rows = await db.GameDataDocuments.AsNoTracking()
+            .Where(d => d.InputSha != null)
+            .Select(d => new { d.Id, d.InputSha, d.UpdatedAt, d.Json })
+            .ToListAsync(ct);
+        return [.. rows.Select(r => (r.Id, r.InputSha, r.UpdatedAt, r.Json))];
+    }
+
+    public static async Task<(bool Changed, string? PreviousJson)> UpsertAsync(EggIncognitoDbContext db, string id,
+        string json, string? inputSha, DateTimeOffset now, CancellationToken ct) {
+        var row = await db.GameDataDocuments.FirstOrDefaultAsync(d => d.Id == id, ct);
+        string? previousJson = row?.Json;
+        bool changed = row is null || !string.Equals(previousJson, json, StringComparison.Ordinal);
+        if (row is null) {
+            db.GameDataDocuments.Add(new GameDataDocument { Id = id, Json = json, InputSha = inputSha, UpdatedAt = now });
+        } else {
+            row.Json = json;
+            row.InputSha = inputSha;
+            row.UpdatedAt = now;
+        }
+
+        await db.SaveChangesAsync(ct);
+        return (changed, previousJson);
+    }
 
     private (int Count, DateTimeOffset MaxUpdated)? QueryStamp() =>
         WithDb<(int, DateTimeOffset)?>(db => {

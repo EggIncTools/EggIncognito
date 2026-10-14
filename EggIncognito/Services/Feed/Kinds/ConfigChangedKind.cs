@@ -82,10 +82,8 @@ public sealed record ConfigChangedEvent(
 
 public static class ConfigChangedKind {
     public static string PageUrl(string? baseUrl, string feed) {
-        string root = string.IsNullOrEmpty(baseUrl) ? FeedDispatcher.DefaultPageBaseUrl : baseUrl.TrimEnd('/');
-        return string.Equals(feed, ConfigFeeds.Periodicals, StringComparison.Ordinal)
-            ? $"{root}/periodicals"
-            : $"{root}/data";
+        string root = string.IsNullOrEmpty(baseUrl) ? FeedPages.DefaultPageBaseUrl : baseUrl;
+        return FeedPages.Url(root, string.Equals(feed, ConfigFeeds.Periodicals, StringComparison.Ordinal) ? "periodicals" : "data");
     }
 
     public const string Feed = "feed";

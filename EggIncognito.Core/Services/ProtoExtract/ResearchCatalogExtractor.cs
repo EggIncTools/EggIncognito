@@ -71,7 +71,7 @@ public static class ResearchCatalogExtractor {
     internal static bool TryResolveElfBases(byte[] bin, IBinaryImage img,
         IReadOnlyList<Arm64DataTableReader.Insn> insns, int stride, int commonCount, int epicCount,
         out ulong commonBase, out ulong epicBase) =>
-        TryResolveElfBases(FindIdRuns(WalkInit(bin, img, insns), stride), stride, commonCount, epicCount,
+        TryResolveElfBases(FindIdRuns(bin, img, WalkInit(bin, img, insns), stride), stride, commonCount, epicCount,
             out commonBase, out epicBase);
 
     public static Result ExtractWith(byte[] bin, IReadOnlyList<MachoSymbols.Symbol> syms) {
@@ -106,7 +106,7 @@ public static class ResearchCatalogExtractor {
         ulong commonBase;
         ulong epicBase;
         if (img is ElfImage) {
-            var runs = FindIdRuns(walk, stride);
+            var runs = FindIdRuns(bin, img, walk, stride);
             if (!TryResolveElfBases(runs, stride, commonCount, epicCount, out commonBase, out epicBase)) {
                 return new Result(false, [], $"could not match research id-runs (stride 0x{stride:x}, "
                                              + $"want {commonCount}+{epicCount}); runs: {RunSummary(runs)}");
@@ -128,18 +128,18 @@ public static class ResearchCatalogExtractor {
                 ? epicBase + (ulong)((k - commonCount) * stride)
                 : commonBase + (ulong)(k * stride);
 
-            string? id = ReadStringField(walk, recBase + IdOffset);
+            string? id = ReadStringField(bin, img, walk, recBase + IdOffset);
             if (string.IsNullOrEmpty(id)) {
                 missingIds.Add(k);
                 continue;
             }
 
             var fields = img is ElfImage ? NdkFields : AppleFields;
-            string? name = ReadStringField(walk, recBase + NameOffset);
-            string? desc = ReadStringField(walk, recBase + (ulong)fields.Desc);
-            string? help = ReadStringField(walk, recBase + (ulong)fields.Help);
-            if (desc is not null) desc = CleanMarkup(desc);
-            if (help is not null) help = CleanMarkup(help);
+            string? name = ReadStringField(bin, img, walk, recBase + NameOffset);
+            string? desc = ReadStringField(bin, img, walk, recBase + (ulong)fields.Desc);
+            string? help = ReadStringField(bin, img, walk, recBase + (ulong)fields.Help);
+            if (desc is not null) desc = GameText.Clean(desc);
+            if (help is not null) help = GameText.Clean(help);
             int? maxLevel = ReadIntField(walk, recBase + (ulong)fields.MaxLevel);
             int? tier = ReadIntField(walk, recBase + (ulong)fields.Tier);
 
@@ -205,16 +205,15 @@ public static class ResearchCatalogExtractor {
         var lst = Arm64DataTableReader.ListWith(bin, syms, [needle], 256);
         if (!lst.Ok) return false;
 
-        var page = new Dictionary<string, ulong>(StringComparer.Ordinal);
+        var img = BinaryImage.Load(bin);
+        var arm64Img = img is null ? null : new Arm64Image(bin, img);
+        var tracker = new Arm64PageTracker { Image = arm64Img };
         foreach (var i in lst.Instructions) {
             var ops = SplitOps(i.Operands);
             switch (i.Mnemonic) {
-                case "adrp" when ops.Count == 2 && TryImm(ops[1], out long pg):
-                    page[ops[0]] = (ulong)pg;
-                    break;
                 case "ldr" when ops.Count >= 2 && globalVa == 0:
                     if (TryMem(string.Join(", ", ops.Skip(1)), out string baseReg, out long disp) &&
-                        page.TryGetValue(baseReg, out ulong pv)) {
+                        tracker.TryValue(RegNum(baseReg), out ulong pv)) {
                         globalVa = pv + (ulong)disp;
                     }
 
@@ -226,9 +225,19 @@ public static class ResearchCatalogExtractor {
                     if (count == 0) count = (int)cmp;
                     break;
             }
+
+            if (arm64Img is not null && arm64Img.TryWord(i.Va, out uint word)) tracker.Track(i.Va, word);
         }
 
         return globalVa != 0 && count > 0 && stride > 0;
+    }
+
+    private static int RegNum(string reg) {
+        int i = 0;
+        while (i < reg.Length && !char.IsAsciiDigit(reg[i])) i++;
+        return i < reg.Length && int.TryParse(reg[i..], NumberStyles.None, CultureInfo.InvariantCulture, out int n)
+            ? n
+            : 31;
     }
 
     private readonly record struct ByteWrite(int Order, byte[] Bytes);
@@ -569,91 +578,52 @@ public static class ResearchCatalogExtractor {
         return new InitWalk(addrStores, immStores, absBytes, heapAt, tokBytes);
     }
 
-    private static string? ReadStringField(InitWalk walk, ulong fieldVa) {
-        if (walk.HeapAt.TryGetValue(fieldVa, out int tok)) {
-            if (!walk.TokBytes.TryGetValue(tok, out var perOff)) return null;
-            return AssembleString(perOff.Select(kv => (kv.Key, kv.Value)));
-        }
-
-        if (walk.HeapAt.TryGetValue(fieldVa + LongStringDataDelta, out int longTok) &&
-            walk.TokBytes.TryGetValue(longTok, out var longBytes)) {
-            string? heap = AssembleString(longBytes.Select(kv => (kv.Key, kv.Value)));
-            if (!string.IsNullOrEmpty(heap)) return heap;
-        }
-
-        string? ssoBody = null;
-        if (TryByte(walk, fieldVa, out byte size) && (size & 1) == 0 && size >= 2 && size >> 1 <= SsoCapacity) {
-            int len = size >> 1;
-            var chars = new List<(long Off, List<ByteWrite> W)>();
-            for (int o = 0; o <= SsoCapacity; o++) {
-                if (walk.AbsBytes.TryGetValue(fieldVa + 1 + (ulong)o, out var list)) chars.Add((o, list));
-            }
-
-            string? sso = chars.Count == 0 ? null : AssembleString(chars.Select(w => (w.Off, w.W)));
-            if (sso is not null) {
-                if (sso.Length > len) sso = sso[..len];
-                if (sso.Length == len) return sso;
-                ssoBody = sso;
-            }
-        }
-
-        var writes = new List<(long Off, List<ByteWrite> W)>();
-        for (int o = 0; o <= SsoCapacity; o++) {
-            if (walk.AbsBytes.TryGetValue(fieldVa + (ulong)o, out var list)) writes.Add((o, list));
-        }
-
-        string? raw = writes.Count == 0 ? null : AssembleString(writes.Select(w => (w.Off, w.W)));
-        if (raw is not null && !string.IsNullOrEmpty(ssoBody) && raw.Length == ssoBody.Length + 1 &&
-            raw[0] == (char)size && raw.EndsWith(ssoBody, StringComparison.Ordinal)) {
-            return ssoBody;
-        }
-
-        return raw;
+    private static string? ResolveHeapToken(InitWalk walk, ulong va) {
+        if (!walk.HeapAt.TryGetValue(va, out int tok) || !walk.TokBytes.TryGetValue(tok, out var perOff))
+            return null;
+        return AssembleString(perOff.Select(kv => (kv.Key, kv.Value)));
     }
 
-    private static string? ReadStringFieldStrict(InitWalk walk, ulong fieldVa) {
-        if (walk.HeapAt.TryGetValue(fieldVa, out int tok0) && walk.TokBytes.TryGetValue(tok0, out var perOff0)) {
-            return AssembleString(perOff0.Select(kv => (kv.Key, kv.Value)));
-        }
-
-        if (walk.HeapAt.TryGetValue(fieldVa + LongStringDataDelta, out int longTok) &&
-            walk.TokBytes.TryGetValue(longTok, out var longBytes)) {
-            string? heap = AssembleString(longBytes.Select(kv => (kv.Key, kv.Value)));
-            if (!string.IsNullOrEmpty(heap)) return heap;
-        }
-
-        if (TryByte(walk, fieldVa, out byte size) && (size & 1) == 0 && size >= 2 && size >> 1 <= SsoCapacity) {
-            int len = size >> 1;
-            var chars = new List<(long Off, List<ByteWrite> W)>();
-            for (int o = 0; o <= SsoCapacity; o++) {
-                if (walk.AbsBytes.TryGetValue(fieldVa + 1 + (ulong)o, out var list)) chars.Add((o, list));
-            }
-
-            string? sso = chars.Count == 0 ? null : AssembleString(chars.Select(w => (w.Off, w.W)));
-            if (sso is not null && sso.Length >= len) return sso[..len];
-        }
-
-        return null;
-    }
-
-    private static bool TryByte(InitWalk walk, ulong va, out byte value) {
-        value = 0;
-        int bestOrder = int.MinValue;
-        bool found = false;
-        ulong lo = va >= 16 ? va - 16 : 0;
-        for (ulong s = lo; s <= va; s++) {
+    private static StructInitReader.StructInit BuildRecord(InitWalk walk, ulong fieldVa) {
+        const int span = SsoCapacity + 2;
+        var ordered = new List<(long Off, int Order, byte[] Bytes)>();
+        ulong lo = fieldVa >= 512 ? fieldVa - 512 : 0;
+        for (ulong s = lo; s < fieldVa + span; s++) {
             if (!walk.AbsBytes.TryGetValue(s, out var list)) continue;
-            int idx = (int)(va - s);
-            foreach (var bw in list) {
-                if (idx < bw.Bytes.Length && bw.Order > bestOrder) {
-                    bestOrder = bw.Order;
-                    value = bw.Bytes[idx];
-                    found = true;
-                }
+            foreach (var bw in list) ordered.Add((unchecked((long)s - (long)fieldVa), bw.Order, bw.Bytes));
+        }
+
+        var bytes = new Dictionary<long, byte>();
+        foreach ((long off, _, byte[] raw) in ordered.OrderBy(t => t.Order)) {
+            for (int j = 0; j < raw.Length; j++) {
+                long pos = off + j;
+                if (pos is >= 0 and < span) bytes[pos] = raw[j];
             }
         }
 
-        return found;
+        return new StructInitReader.StructInit(fieldVa, bytes, new Dictionary<long, ulong>(),
+            new Dictionary<long, ulong>());
+    }
+
+    private static string? ReadStringField(byte[] bin, IBinaryImage img, InitWalk walk, ulong fieldVa) {
+        string? heap = ResolveHeapToken(walk, fieldVa) ?? ResolveHeapToken(walk, fieldVa + LongStringDataDelta);
+        if (!string.IsNullOrEmpty(heap)) return heap;
+
+        var record = BuildRecord(walk, fieldVa);
+        return StructInitReader.TryLibcxxString(bin, img, record, 0, out string value, 256, SsoCapacity,
+            LongStringDataDelta)
+            ? value
+            : null;
+    }
+
+    private static string? ReadStringFieldStrict(byte[] bin, IBinaryImage img, InitWalk walk, ulong fieldVa) {
+        string? heap = ResolveHeapToken(walk, fieldVa) ?? ResolveHeapToken(walk, fieldVa + LongStringDataDelta);
+        if (!string.IsNullOrEmpty(heap)) return heap;
+
+        var record = BuildRecord(walk, fieldVa);
+        bool ok = StructInitReader.TryLibcxxString(bin, img, record, 0, out string value, 256, SsoCapacity,
+            LongStringDataDelta, strict: true);
+        return ok && value.Length > 0 ? value : null;
     }
 
     private static string? AssembleString(IEnumerable<(long Off, List<ByteWrite> Writes)> writes) {
@@ -681,20 +651,6 @@ public static class ResearchCatalogExtractor {
 
     private static int? ReadIntField(InitWalk walk, ulong fieldVa)
         => walk.ImmStores.TryGetValue(fieldVa, out long v) ? (int)v : null;
-
-    private static string CleanMarkup(string s) {
-        var sb = new StringBuilder(s.Length);
-        for (int i = 0; i < s.Length; i++) {
-            if (s[i] == '\x1b') {
-                i++;
-                continue;
-            }
-
-            sb.Append(s[i]);
-        }
-
-        return sb.ToString();
-    }
 
     private readonly record struct InvokeDecode(IReadOnlyList<EffectPart> Parts, string? Note);
 
@@ -764,8 +720,8 @@ public static class ResearchCatalogExtractor {
             return Fail("no-op effect (bare ret)");
 
         var plt = new PltCallResolver(bin, img);
-        var page = new Dictionary<string, ulong>(StringComparer.Ordinal);
-        var xImm = new Dictionary<string, long>(StringComparer.Ordinal);
+        var arm64Img = new Arm64Image(bin, img);
+        var tracker = new Arm64PageTracker { Image = arm64Img };
         var lvlInt = new Dictionary<string, double>(StringComparer.Ordinal);
         var curInt = new Dictionary<string, int>(StringComparer.Ordinal);
         var intRes = new Dictionary<string, (int D, double Scale)>(StringComparer.Ordinal);
@@ -777,30 +733,10 @@ public static class ResearchCatalogExtractor {
         foreach (var i in lst.Instructions) {
             if (i.Mnemonic == "ret") break;
             var ops = SplitOps(i.Operands);
+            if (arm64Img.TryWord(i.Va, out uint word)) tracker.Track(i.Va, word);
             switch (i.Mnemonic) {
-                case "adrp" when ops.Count == 2 && TryImm(ops[1], out long pg):
-                    page[ops[0]] = (ulong)pg;
-                    break;
-
                 case "mov" when ops.Count == 2:
                     if (ops[0][0] == 'x' && prov.Contains(ops[1])) prov.Add(ops[0]);
-                    else if (xImm.TryGetValue(ops[1], out long xv)) xImm[ops[0]] = xv;
-                    else xImm.Remove(ops[0]);
-                    break;
-
-                case "movz" when ops.Count >= 2 && TryImm(ops[1], out long mz):
-                    xImm[ops[0]] = mz << ShiftOf(ops);
-                    break;
-
-                case "movk" when ops.Count >= 2 && TryImm(ops[1], out long mk) &&
-                                xImm.TryGetValue(ops[0], out long existing): {
-                        int shift = ShiftOf(ops);
-                        xImm[ops[0]] = (existing & ~(0xFFFFL << shift)) | (mk << shift);
-                        break;
-                    }
-
-                case "orr" when ops.Count == 3 && ops[1] is "xzr" or "wzr" && TryImm(ops[2], out long ov):
-                    xImm[ops[0]] = ov;
                     break;
 
                 case "lsl" when ops.Count == 3 && TryImm(ops[2], out long lk):
@@ -836,7 +772,7 @@ public static class ResearchCatalogExtractor {
                         bool aLvl = lvlInt.TryGetValue(ops[1], out double ms);
                         bool bLvl = lvlInt.TryGetValue(ops[2], out double ms2);
                         string other = aLvl ? ops[2] : ops[1];
-                        if ((aLvl || bLvl) && xImm.TryGetValue(other, out long factor))
+                        if ((aLvl || bLvl) && tracker.TryValue(RegNum(other), out ulong factor))
                             lvlInt[ops[0]] = (aLvl ? ms : ms2) * factor;
                         else lvlInt.Remove(ops[0]);
                         break;
@@ -846,7 +782,7 @@ public static class ResearchCatalogExtractor {
                         bool aLvl = lvlInt.TryGetValue(ops[1], out double ds);
                         bool bLvl = lvlInt.TryGetValue(ops[2], out double ds2);
                         string other = aLvl ? ops[2] : ops[1];
-                        if ((aLvl || bLvl) && xImm.TryGetValue(other, out long f) &&
+                        if ((aLvl || bLvl) && tracker.TryValue(RegNum(other), out ulong f) &&
                             curInt.TryGetValue(ops[3], out int cd)) {
                             intRes[ops[0]] = (cd, (aLvl ? ds : ds2) * f);
                         } else {
@@ -869,7 +805,7 @@ public static class ResearchCatalogExtractor {
                             if (rk == 'w') curInt[ops[0]] = (int)disp;
                             else if (rk == 'd' && fn >= 0) fpv[fn] = new SymVal(SymKind.Cur, 0, 0, (int)disp);
                             else if (rk == 'q' && fn >= 0) fpv[fn] = new SymVal(SymKind.CurVec, 0, 0, (int)disp);
-                        } else if (page.TryGetValue(mb, out ulong pv) && fn >= 0) {
+                        } else if (tracker.TryValue(RegNum(mb), out ulong pv) && fn >= 0) {
                             ulong cva = pv + (ulong)disp;
                             if (rk == 'd' && TryReadF64(bin, img, cva, out double dv)) {
                                 fpv[fn] = new SymVal(SymKind.Const, dv);
@@ -886,7 +822,6 @@ public static class ResearchCatalogExtractor {
                         } else if (rk is 'w' or 'x') {
                             lvlInt.Remove(ops[0]);
                             curInt.Remove(ops[0]);
-                            xImm.Remove(ops[0]);
                         }
 
                         break;
@@ -916,8 +851,8 @@ public static class ResearchCatalogExtractor {
                                 : vec ? new SymVal(SymKind.ConstPair, fi, fi)
                                 : Math.Abs(fi - 1.0) < 1e-12 ? new SymVal(SymKind.One)
                                 : new SymVal(SymKind.Const, fi);
-                        } else if (xImm.TryGetValue(ops[1], out long bits)) {
-                            fpv[fd] = new SymVal(SymKind.Const, BitConverter.Int64BitsToDouble(bits));
+                        } else if (tracker.TryValue(RegNum(ops[1]), out ulong bits)) {
+                            fpv[fd] = new SymVal(SymKind.Const, Arm64Bits.F64(bits));
                         } else {
                             fpv.Remove(fd);
                         }
@@ -1030,10 +965,7 @@ public static class ResearchCatalogExtractor {
 
                         fpv.Remove(0);
                         if (powBase is { } pb) fpv[0] = new SymVal(SymKind.CallOnLevel, pb);
-                        for (int r = 0; r <= 17; r++) {
-                            xImm.Remove("x" + r);
-                            xImm.Remove("w" + r);
-                        }
+                        for (int r = 0; r <= 17; r++) tracker.Invalidate(r);
 
                         break;
                     }
@@ -1138,10 +1070,10 @@ public static class ResearchCatalogExtractor {
         return int.TryParse(reg[1..end], NumberStyles.None, CultureInfo.InvariantCulture, out int n) ? n : -1;
     }
 
-    private static List<(ulong Start, int Len)> FindIdRuns(InitWalk walk, int stride) {
+    private static List<(ulong Start, int Len)> FindIdRuns(byte[] bin, IBinaryImage img, InitWalk walk, int stride) {
         var idVas = new SortedSet<ulong>();
         foreach (ulong v in walk.AbsBytes.Keys) {
-            if ((v & 7) == 0 && IsResearchId(ReadStringFieldStrict(walk, v))) idVas.Add(v);
+            if ((v & 7) == 0 && IsResearchId(ReadStringFieldStrict(bin, img, walk, v))) idVas.Add(v);
         }
 
         var runs = new List<(ulong Start, int Len)>();
@@ -1204,19 +1136,11 @@ public static class ResearchCatalogExtractor {
         return true;
     }
 
-    private static bool TryReadF64(byte[] bin, IBinaryImage img, ulong va, out double value) {
-        value = 0;
-        if (!img.TryVaToFileOffset(va, out int fo, out _) || fo + 8 > bin.Length) return false;
-        value = BitConverter.ToDouble(bin.AsSpan(fo));
-        return double.IsFinite(value);
-    }
+    private static bool TryReadF64(byte[] bin, IBinaryImage img, ulong va, out double value) =>
+        new Arm64Image(bin, img).TryF64(va, out value);
 
-    private static bool TryReadF32(byte[] bin, IBinaryImage img, ulong va, out float value) {
-        value = 0;
-        if (!img.TryVaToFileOffset(va, out int fo, out _) || fo + 4 > bin.Length) return false;
-        value = BitConverter.ToSingle(bin.AsSpan(fo));
-        return float.IsFinite(value);
-    }
+    private static bool TryReadF32(byte[] bin, IBinaryImage img, ulong va, out float value) =>
+        new Arm64Image(bin, img).TryF32(va, out value);
 
     private static bool TryMem(string mem, out string baseReg, out long disp) {
         disp = 0;

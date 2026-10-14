@@ -36,13 +36,13 @@ public sealed class InspectorApiController(
 {
     [HttpGet("messages")]
     public IActionResult Messages() {
-        Response.Headers.CacheControl = "private, max-age=300";
+        PrivateCache(300);
         return Ok(reflection.AllMessageTypeNames());
     }
 
     [HttpGet("message-roles")]
     public IActionResult Roles([FromServices] IMessageRoleIndex roles) {
-        Response.Headers.CacheControl = "private, max-age=60";
+        PrivateCache(60);
         return Ok(roles.Snapshot());
     }
 
@@ -53,7 +53,7 @@ public sealed class InspectorApiController(
         [FromServices] IConfiguration configuration,
         CancellationToken ct) {
         var seed = await RegistrySeedAsync(store, ct) ?? CapturedSeed(configuration) ?? EmptySeed;
-        Response.Headers.CacheControl = "private, max-age=60";
+        PrivateCache(60);
         return Ok(seed);
     }
 

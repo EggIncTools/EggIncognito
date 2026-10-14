@@ -23,8 +23,7 @@ public sealed class DocsController(ICurrentUser currentUser, TimeProvider time) 
 
     private static bool TaggableKind(string kind) => kind == DocSubjectKinds.Endpoint;
 
-    private void CacheFor(int seconds) =>
-        Response.Headers.CacheControl = $"private, max-age={seconds}";
+    private void CacheFor(int seconds) => PrivateCache(seconds);
 
     [HttpGet("doc/{kind}/{**key}")]
     public async Task<IActionResult> GetDoc(string kind, string key, [FromServices] EggIncognitoDbContext? db) {
@@ -182,7 +181,7 @@ public sealed class DocsController(ICurrentUser currentUser, TimeProvider time) 
         if (img is null) return NotFound();
 
         Response.Headers.XContentTypeOptions = "nosniff";
-        Response.Headers.CacheControl = "public, max-age=31536000, immutable";
+        Immutable();
         return File(img.Bytes, img.ContentType);
     }
 

@@ -14,7 +14,7 @@ public static class EggCatalogExtractor {
 
     public static Result Read(byte[] bin, string initSymbol = "__GLOBAL__sub_I_eggdata.cpp") {
         var img = BinaryImage.Load(bin);
-        return ReadWith(bin, img?.Symbols ?? [], img?.Sections ?? [], initSymbol);
+        return ReadWith(bin, img?.Symbols ?? [], initSymbol);
     }
 
     public static Result ExtractAuto(byte[] bin) {
@@ -26,7 +26,7 @@ public static class EggCatalogExtractor {
             return ExtractRange(bin, s, e);
         }
 
-        return ReadWith(bin, img?.Symbols ?? [], img?.Sections ?? []);
+        return ReadWith(bin, img?.Symbols ?? []);
     }
 
     public static Result ExtractRange(byte[] bin, ulong startVa, ulong endVa) {
@@ -91,7 +91,7 @@ public static class EggCatalogExtractor {
             raw |= (ulong)b << (k * 8);
         }
 
-        value = BitConverter.Int64BitsToDouble((long)raw);
+        value = Arm64Bits.F64(raw);
         return double.IsFinite(value);
     }
 
@@ -102,14 +102,16 @@ public static class EggCatalogExtractor {
             raw |= (uint)b << (k * 8);
         }
 
-        float v = BitConverter.Int32BitsToSingle((int)raw);
+        float v = Arm64Bits.F32(raw);
         return float.IsFinite(v) && v >= 0 ? v : 0;
     }
 
     public static Result ReadWith(byte[] bin, IReadOnlyList<MachoSymbols.Symbol> syms,
-        IReadOnlyList<MachoSections.Section> sections, string initSymbol = "__GLOBAL__sub_I_eggdata.cpp") {
+        string initSymbol = "__GLOBAL__sub_I_eggdata.cpp") {
         var scan = StructInitReader.ReadWith(bin, syms, initSymbol);
         if (!scan.Ok) return new Result(false, [], scan.Diagnostics);
+        var img = BinaryImage.Load(bin);
+        if (img is null) return new Result(false, [], "binary is neither Mach-O nor ELF");
 
         var flat = new Dictionary<ulong, byte>();
         foreach (var st in scan.Structs) {
@@ -132,28 +134,17 @@ public static class EggCatalogExtractor {
             ulong extentVa = i == 0
                 ? recordBase + (ulong)MachoFirstHatcheryFromBase
                 : recordBase + (ulong)((i * MachoRecordStride) + MachoHatcheryFromRecord);
-            entries.Add(new EggEntry(i, ResolveName(bin, sections, s, nameOff), value,
+            entries.Add(new EggEntry(i, ResolveName(bin, img, s, nameOff), value,
                 ReadFlatFloat32(flat, extentVa)));
         }
 
         return new Result(true, entries, $"{entries.Count} eggs, {entries.Count(e => e.Name is not null)} named");
     }
 
-    private static string? ResolveName(byte[] bin, IReadOnlyList<MachoSections.Section> sections,
-        StructInitReader.StructInit s, long nameOff) {
-        return s.TryPointer(nameOff, out ulong pva) && IsName(ReadCstr(bin, sections, pva)) is { } fromPtr
-            ? fromPtr
-            : s.TryTemplate(nameOff, out ulong tva) && IsName(ReadCstr(bin, sections, tva)) is { } fromTpl
-                ? fromTpl
-                : IsName(s.TryInlineString(nameOff));
-    }
-
-    private static readonly string[] NameSections = ["__cstring", "__const"];
+    private static string? ResolveName(byte[] bin, IBinaryImage img, StructInitReader.StructInit s, long nameOff)
+        => StructInitReader.TryLibcxxString(bin, img, s, nameOff, out string name) ? IsName(name) : null;
 
     private static string? IsName(string s) => BinaryStrings.IsName(s, " .");
-
-    private static string ReadCstr(byte[] bin, IReadOnlyList<MachoSections.Section> sections, ulong va)
-        => BinaryStrings.ReadCstr(bin, sections, va, NameSections, 64);
 
     private static bool IsPlausible(double d) => double.IsFinite(d) && Math.Abs(d) is >= 1e-9 and <= 1e18;
 

@@ -80,7 +80,7 @@ public sealed class RouteCatalogReport(
         if (pairs.Count == 0) return null;
 
         pairs.Sort((a, b) => {
-            int cmp = DeviceParsing.CompareVersions(b.Version, a.Version);
+            int cmp = VersionCompare.Dotted(b.Version, a.Version);
             return cmp != 0 ? cmp : string.CompareOrdinal(a.Platform, b.Platform);
         });
         return string.Join(" + ",

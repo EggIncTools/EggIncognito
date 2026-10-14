@@ -9,7 +9,7 @@ namespace EggIncognito.Controllers;
 [ApiController]
 [EnableRateLimiting("read")]
 [ApiAccess(ApiAccessLevel.Public)]
-public sealed class ApiSurfaceController(AuxbrainSurface surface) : ControllerBase {
+public sealed class ApiSurfaceController(AuxbrainSurface surface) : ApiControllerBase {
     private const string LandingTemplate = """
                                        <!doctype html>
                                        <html lang="en">
@@ -72,7 +72,7 @@ public sealed class ApiSurfaceController(AuxbrainSurface surface) : ControllerBa
 
     [HttpGet("/api/openapi.json")]
     public ContentResult OpenApi() {
-        Response.Headers.CacheControl = "public, max-age=300";
+        PublicCache(300);
         return Content(surface.OpenApiJson, "application/json");
     }
 
@@ -81,14 +81,14 @@ public sealed class ApiSurfaceController(AuxbrainSurface surface) : ControllerBa
 
     [HttpGet("/api/catalog")]
     public IActionResult Catalog() {
-        Response.Headers.CacheControl = "public, max-age=300";
+        PublicCache(300);
         return Ok(surface.Entries.Select(AuxbrainRouteWire.From));
     }
 
     [HttpGet("/{ns:eins}")]
     public IActionResult NamespaceIndex(string ns) {
         if (!surface.Namespaces.Contains(ns)) return NotFound();
-        Response.Headers.CacheControl = "public, max-age=300";
+        PublicCache(300);
         List<AuxbrainRouteWire> routes =
             [.. surface.Entries.Where(e => e.Namespace == ns).Select(AuxbrainRouteWire.From)];
         return Ok(new AuxbrainNamespaceIndex(ns, routes));

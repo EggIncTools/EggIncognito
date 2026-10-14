@@ -4,7 +4,6 @@ using EggIdentity.Auth;
 using EggIdentity.Client;
 using EggIdentity.Contract;
 using EggIncognito.Capture;
-using EggIncognito.Core.Services;
 using EggIncognito.Core.Services.Devices;
 using EggIncognito.Data.Models;
 using EggIncognito.Data.Services;
@@ -145,7 +144,8 @@ public sealed partial class AdminController(
         ];
 
         var fixtures = new List<DataStatusFixtureRow>();
-        string eiDir = Path.Combine(ContentRoot.Resolve(cfg["ContentRoot"]), "Endpoints", "default", "ei");
+        string endpointsRoot = cfg["EndpointsPath"] ?? Path.Combine(AppContext.BaseDirectory, "Endpoints");
+        string eiDir = Path.Combine(endpointsRoot, "default", "ei");
         if (Directory.Exists(eiDir)) {
             foreach (string path in Directory.EnumerateFiles(eiDir, "*.json")
                          .OrderBy(p => p, StringComparer.Ordinal)) {
@@ -223,15 +223,7 @@ public sealed partial class AdminController(
         }
 
         var now = time.GetUtcNow();
-        var row = await db.GameDataDocuments.FirstOrDefaultAsync(d => d.Id == id, ct);
-        if (row is null) {
-            db.GameDataDocuments.Add(new GameDataDocument { Id = id, Json = json, UpdatedAt = now });
-        } else {
-            row.Json = json;
-            row.UpdatedAt = now;
-        }
-
-        await db.SaveChangesAsync(ct);
+        await GameDataStore.UpsertAsync(db, id, json, null, now, ct);
         return Ok(new { id, bytes = Encoding.UTF8.GetByteCount(json), updatedAt = now });
     }
 

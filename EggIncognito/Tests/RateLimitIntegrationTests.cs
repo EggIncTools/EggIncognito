@@ -1,7 +1,5 @@
 using System.Net;
-using Microsoft.AspNetCore.Mvc.Testing;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Hosting;
+using Microsoft.AspNetCore.Hosting;
 
 namespace EggIncognito.Tests;
 
@@ -32,15 +30,12 @@ public class RateLimitIntegrationTests(RateLimitIntegrationTests.TinyLimitFactor
         }
     }
 
-    public sealed class TinyLimitFactory : WebApplicationFactory<Program> {
-        protected override IHost CreateHost(IHostBuilder builder) {
-            builder.ConfigureHostConfiguration(cfg => cfg.AddInMemoryCollection(new Dictionary<string, string?> {
-                ["NoBrowser"] = "true",
-                ["RateLimiting:Policies:Write:PermitLimit"] = "3",
-                ["RateLimiting:Policies:Write:WindowSeconds"] = "60",
-                ["RateLimiting:Tiers:Anon:PermitLimit"] = "3"
-            }));
-            return base.CreateHost(builder);
+    public sealed class TinyLimitFactory : EgiTestFactory {
+        protected override void ConfigureRateLimit(IWebHostBuilder builder) {
+            builder.UseSetting("RateLimiting:Enabled", "true");
+            builder.UseSetting("RateLimiting:Policies:Write:PermitLimit", "3");
+            builder.UseSetting("RateLimiting:Policies:Write:WindowSeconds", "60");
+            builder.UseSetting("RateLimiting:Tiers:Anon:PermitLimit", "3");
         }
     }
 }

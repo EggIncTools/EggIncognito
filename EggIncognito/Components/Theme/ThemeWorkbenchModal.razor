@@ -281,7 +281,7 @@
             SetStatus($"saved {model.Slug}", true);
             await LoadThemesAsync();
         } else {
-            SetStatus(await Describe(resp), false);
+            SetStatus(await ApiErrors.ReadAsync(resp), false);
         }
     }
 
@@ -294,14 +294,14 @@
             Toasts.Push(StatusNoteKind.Ok, "activated; reload to see it everywhere", "Reload", () => Nav.Refresh(true));
             await LoadThemesAsync();
         } else {
-            SetStatus(await Describe(resp), false);
+            SetStatus(await ApiErrors.ReadAsync(resp), false);
         }
     }
 
     async Task DeactivateAsync() {
         using var client = Client();
         var resp = await client.PostAsync("/api/theme/deactivate", null);
-        SetStatus(resp.IsSuccessStatusCode ? "deactivated" : await Describe(resp), resp.IsSuccessStatusCode);
+        SetStatus(resp.IsSuccessStatusCode ? "deactivated" : await ApiErrors.ReadAsync(resp), resp.IsSuccessStatusCode);
         await LoadThemesAsync();
     }
 
@@ -309,7 +309,7 @@
         if (State.SelectedSlug is not { } slug) return;
         using var client = Client();
         var resp = await client.DeleteAsync($"/api/theme/{Uri.EscapeDataString(slug)}");
-        SetStatus(resp.IsSuccessStatusCode ? $"deleted {slug}" : await Describe(resp), resp.IsSuccessStatusCode);
+        SetStatus(resp.IsSuccessStatusCode ? $"deleted {slug}" : await ApiErrors.ReadAsync(resp), resp.IsSuccessStatusCode);
         State.SelectedSlug = null;
         await LoadThemesAsync();
     }
@@ -322,7 +322,7 @@
         var body = JsonSerializer.Serialize(new { slug = State.Draft.Slug, css = State.Draft.Css });
         var resp = await client.PutAsync("/api/theme/css",
             new StringContent(body, Encoding.UTF8, "application/json"));
-        SetStatus(resp.IsSuccessStatusCode ? "custom css saved" : await Describe(resp), resp.IsSuccessStatusCode);
+        SetStatus(resp.IsSuccessStatusCode ? "custom css saved" : await ApiErrors.ReadAsync(resp), resp.IsSuccessStatusCode);
     }
 
     async Task ImportAsync() {
@@ -335,7 +335,7 @@
             _importJson = "";
             await LoadThemesAsync();
         } else {
-            SetStatus(await Describe(resp), false);
+            SetStatus(await ApiErrors.ReadAsync(resp), false);
         }
     }
 
@@ -452,17 +452,6 @@
 
     void SetStatus(string message, bool ok) {
         Toasts.Push(ok ? StatusNoteKind.Ok : StatusNoteKind.Error, message);
-    }
-
-    static async Task<string> Describe(HttpResponseMessage resp) {
-        try {
-            var body = await resp.Content.ReadAsStringAsync();
-            using var doc = JsonDocument.Parse(body);
-            if (doc.RootElement.TryGetProperty("error", out var err)) return err.GetString() ?? $"HTTP {(int)resp.StatusCode}";
-        } catch (JsonException) {
-        }
-
-        return $"HTTP {(int)resp.StatusCode}";
     }
 
 }

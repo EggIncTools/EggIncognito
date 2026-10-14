@@ -21,7 +21,7 @@ public static class DimensionLabelExtractor {
         var head = Arm64DataTableReader.ListWith(bin, syms, [Symbol], 32);
         if (!head.Ok) return Fail(head.Diagnostics);
 
-        if (!TryReadSwitch(head.Instructions, out int count, out ulong tableVa, out ulong baseVa))
+        if (!TryReadSwitch(bin, img, head.Instructions, out int count, out ulong tableVa, out ulong baseVa))
             return Fail("name_str jump table not recognised");
 
         bool shortFirst = img is ElfImage;
@@ -45,27 +45,28 @@ public static class DimensionLabelExtractor {
             : new Result(false, labels, string.Join("; ", misses));
     }
 
-    private static bool TryReadSwitch(IReadOnlyList<Arm64DataTableReader.Insn> insns, out int count,
-        out ulong tableVa, out ulong baseVa) {
+    private static bool TryReadSwitch(byte[] bin, IBinaryImage img, IReadOnlyList<Arm64DataTableReader.Insn> insns,
+        out int count, out ulong tableVa, out ulong baseVa) {
         count = 0;
         tableVa = 0;
         baseVa = 0;
-        var page = new Dictionary<string, ulong>(StringComparer.Ordinal);
+        var tracker = new Arm64PageTracker();
         foreach (var i in insns) {
             var ops = SplitOps(i.Operands);
+            if (img.TryVaToFileOffset(i.Va, out int fo, out _) && fo + 4 <= bin.Length)
+                tracker.Track(i.Va, BitConverter.ToUInt32(bin, fo));
+
             switch (i.Mnemonic) {
                 case "cmp" when count == 0 && ops.Count == 2 && ops[0].StartsWith('w') && TryImm(ops[1], out ulong max):
                     count = (int)max + 1;
                     break;
-                case "adrp" when ops.Count == 2 && TryImm(ops[1], out ulong pg):
-                    page[ops[0]] = pg;
+                case "add" when tableVa == 0 && ops.Count == 3 && int.TryParse(RegNum(ops[0]), out int dreg)
+                                && tracker.TryValue(dreg, out ulong av):
+                    tableVa = av;
                     break;
-                case "add" when tableVa == 0 && ops.Count == 3 && page.TryGetValue(ops[1], out ulong pb)
-                                && TryImm(ops[2], out ulong off):
-                    tableVa = pb + off;
-                    break;
-                case "adr" when ops.Count == 2 && TryImm(ops[1], out ulong a):
-                    baseVa = a;
+                case "adr" when baseVa == 0 && ops.Count == 2 && int.TryParse(RegNum(ops[0]), out int areg)
+                                && tracker.TryValue(areg, out ulong bv):
+                    baseVa = bv;
                     break;
             }
 
@@ -82,8 +83,7 @@ public static class DimensionLabelExtractor {
     }
 
     private static string? ReadCase(byte[] bin, IBinaryImage img, ulong start, bool shortFirst) {
-        var page = new Dictionary<string, ulong>(StringComparer.Ordinal);
-        var imm = new Dictionary<string, ulong>(StringComparer.Ordinal);
+        var tracker = new Arm64PageTracker();
         var inline = new byte?[SsoCapacity + 1];
         ulong pc = start;
         int budget = CaseBudget;
@@ -94,6 +94,9 @@ public static class DimensionLabelExtractor {
             foreach (var i in chunk.Instructions) {
                 budget--;
                 var ops = SplitOps(i.Operands);
+                if (img.TryVaToFileOffset(i.Va, out int fo, out _) && fo + 4 <= bin.Length)
+                    tracker.Track(i.Va, BitConverter.ToUInt32(bin, fo));
+
                 switch (i.Mnemonic) {
                     case "ret":
                     case "b.eq" or "b.ne":
@@ -101,26 +104,13 @@ public static class DimensionLabelExtractor {
                     case "b" when ops.Count == 1 && TryImm(ops[0], out ulong t):
                         jump = t;
                         break;
-                    case "adrp" when ops.Count == 2 && TryImm(ops[1], out ulong pg):
-                        page[ops[0]] = pg;
-                        break;
-                    case "add" when ops.Count == 3 && page.TryGetValue(ops[1], out ulong pb)
-                                    && TryImm(ops[2], out ulong off):
-                        ulong va = pb + off;
-                        if (img.TryVaToFileOffset(va, out _, out var owner) && owner.Name is "__cstring" or ".rodata")
-                            return BinaryStrings.ReadCstr(bin, img, va, 96);
-                        page[ops[0]] = va;
-                        break;
-                    case "movz" when ops.Count >= 2 && TryImm(ops[1], out ulong z):
-                        imm[RegNum(ops[0])] = z << ShiftOf(ops);
-                        break;
-                    case "movk" when ops.Count >= 2 && TryImm(ops[1], out ulong k):
-                        int sh = ShiftOf(ops);
-                        ulong prev = imm.GetValueOrDefault(RegNum(ops[0]));
-                        imm[RegNum(ops[0])] = (prev & ~(0xFFFFUL << sh)) | (k << sh);
-                        break;
+                    case "add" when ops.Count == 3 && int.TryParse(RegNum(ops[0]), out int dreg)
+                                    && tracker.TryValue(dreg, out ulong va)
+                                    && img.TryVaToFileOffset(va, out _, out var owner)
+                                    && owner.Name is "__cstring" or ".rodata":
+                        return BinaryStrings.ReadCstr(bin, img, va, 96);
                     case "str" or "stur" or "strh" or "sturh" or "strb" or "sturb":
-                        StoreInline(i.Mnemonic, ops, imm, inline);
+                        StoreInline(i.Mnemonic, ops, tracker, inline);
                         break;
                 }
 
@@ -134,7 +124,7 @@ public static class DimensionLabelExtractor {
         return null;
     }
 
-    private static void StoreInline(string mnemonic, List<string> ops, Dictionary<string, ulong> imm,
+    private static void StoreInline(string mnemonic, List<string> ops, Arm64PageTracker tracker,
         byte?[] inline) {
         if (ops.Count < 2 || !TryMem(ops[^1], out string reg, out ulong off) || reg != "x8") return;
         int width = mnemonic switch {
@@ -143,7 +133,8 @@ public static class DimensionLabelExtractor {
             _ => ops[0].StartsWith('x') ? 8 : 4
         };
         ulong v = 0;
-        if (!IsZeroReg(ops[0]) && !imm.TryGetValue(RegNum(ops[0]), out v)) return;
+        if (!IsZeroReg(ops[0]) && (!int.TryParse(RegNum(ops[0]), out int sreg) || !tracker.TryValue(sreg, out v)))
+            return;
         for (int k = 0; k < width; k++) {
             long at = (long)off + k;
             if (at >= 0 && at < inline.Length) inline[at] = (byte)(v >> (8 * k));

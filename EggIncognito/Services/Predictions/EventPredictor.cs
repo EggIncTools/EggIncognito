@@ -84,9 +84,7 @@ public sealed class EventPredictor(EggIncognitoDbContext db, EventDataVersion ve
         list.Add(value);
     }
 
-    public static string EventTypeLabel(string type) =>
-        string.Join(' ', type.Split(['-', '_'], StringSplitOptions.RemoveEmptyEntries)
-            .Select(w => char.ToUpperInvariant(w[0]) + w[1..]));
+    public static string EventTypeLabel(string type) => EggIcons.Pretty(type);
 
     public async Task<IReadOnlyList<EventRow>> RowsAsync(CancellationToken ct = default) {
         long v = version.Version;

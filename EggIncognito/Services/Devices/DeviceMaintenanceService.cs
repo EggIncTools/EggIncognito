@@ -331,7 +331,7 @@ public sealed class DeviceMaintenanceService(
         }
 
         string? storeLatest = await StoreAheadCheck.StoreLatestAsync(db, d.Platform, ct,
-            crossPlatformHint: string.Equals(d.Platform, "android", StringComparison.OrdinalIgnoreCase));
+            crossPlatformHint: Platforms.Matches(d.Platform, Platforms.Android));
         bool ahead = StoreAheadCheck.IsAhead(storeLatest, probe.AppVersion);
         if (ahead) {
             if (_lastNoOpCheck.TryGetValue(d.Id, out var noOp)

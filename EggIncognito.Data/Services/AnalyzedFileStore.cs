@@ -1,5 +1,4 @@
 using System.Globalization;
-using EggIncognito.Core;
 using EggIncognito.Core.Services.ProtoExtract;
 using EggIncognito.Data.Models;
 using Microsoft.EntityFrameworkCore;
@@ -7,8 +6,6 @@ using Microsoft.EntityFrameworkCore;
 namespace EggIncognito.Data.Services;
 
 public sealed class AnalyzedFileStore(EggIncognitoDbContext db, TimeProvider time, ProtoRegistryStore registry) {
-    public static string Sha256Hex(byte[] bytes) => Hashes.Sha256Hex(bytes);
-
     public Task<AnalyzedFile?> FindAsync(string fileSha, CancellationToken ct) => db.AnalyzedFiles.AsNoTracking().FirstOrDefaultAsync(f => f.FileSha == fileSha, ct);
 
     public async Task<Known?> FindKnownAsync(string fileSha, CancellationToken ct) {

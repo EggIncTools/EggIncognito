@@ -47,17 +47,7 @@ public static partial class ArtifactEffectValues {
     }
 
     private static string Plain(string template) {
-        var chars = new List<char>(template.Length);
-        for (int i = 0; i < template.Length; i++) {
-            if (template[i] == '\u001b') {
-                i++;
-                continue;
-            }
-
-            chars.Add(template[i]);
-        }
-
-        string s = new([.. chars]);
+        string s = GameText.Clean(template);
         return s.Replace("+g", "+", StringComparison.Ordinal).Replace("%w", "%", StringComparison.Ordinal);
     }
 }

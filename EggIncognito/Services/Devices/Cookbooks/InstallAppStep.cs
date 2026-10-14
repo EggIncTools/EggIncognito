@@ -97,7 +97,7 @@ public sealed class InstallAppStep(
 
             await DisableVerificationAsync(target, add, ct);
             await add($"installing {ordered.Count} split(s): {string.Join(", ", ordered.Select(s => s.Split))}");
-            var install = await Adb(target.Target, ["install-multiple", "-r", .. staged], InstallTimeout, ct);
+            var install = await AdbDeviceConnection.RunAsync(runner, target.Target, ["install-multiple", "-r", .. staged], InstallTimeout, ct);
             if (install.ExitCode != 0) {
                 string output = install.Stderr + "\n" + install.Stdout;
                 foreach (string line in output.Split('\n').Select(l => l.Trim()).Where(l => l.Length > 0)) await add($"adb: {line}");
@@ -135,7 +135,7 @@ public sealed class InstallAppStep(
         foreach (string setting in VerifierSettings) {
             string command = $"settings put global {setting} 0";
             if (conn is not null) await conn.ShellAsync(command, ct);
-            else await Adb(target.Target, ["shell", command], AdbTimeout, ct);
+            else await AdbDeviceConnection.RunAsync(runner, target.Target, ["shell", command], AdbTimeout, ct);
         }
 
         await add("adb install verification disabled");
@@ -214,7 +214,7 @@ public sealed class InstallAppStep(
 
     private async Task<(string? AppVersion, string? Build)> SourceVersionAsync(
         DeviceEntry source, CancellationToken ct) {
-        var dump = await Adb(source.Target, ["shell", $"dumpsys package {source.Package}"], AdbTimeout, ct);
+        var dump = await AdbDeviceConnection.RunAsync(runner, source.Target, ["shell", $"dumpsys package {source.Package}"], AdbTimeout, ct);
         return dump.ExitCode != 0 ? (null, null) : DeviceParsing.AndroidVersion(dump.Stdout);
     }
 
@@ -239,12 +239,6 @@ public sealed class InstallAppStep(
         var reachable = probes.Where(p => p.Reachable == true).Select(p => p.DeviceId)
             .ToHashSet(StringComparer.Ordinal);
         return [.. candidates.Where(d => reachable.Contains(d.Id))];
-    }
-
-    private async Task<ProcessResult> Adb(string serial, string[] rest, TimeSpan timeout, CancellationToken ct) {
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        cts.CancelAfter(timeout);
-        return await runner.RunAsync("adb", ["-s", serial, .. rest], cts.Token);
     }
 
     private static string Trim(string value, string prefix) =>

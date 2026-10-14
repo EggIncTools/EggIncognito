@@ -144,8 +144,8 @@ public static class ConfigAspects {
             [.. prevIds.Except(nextIds, StringComparer.Ordinal).Order(StringComparer.Ordinal)]);
     }
 
-    private static Google.Protobuf.Collections.RepeatedField<CustomEgg> CustomEggs(PeriodicalsResponse r) =>
-        r.Contracts?.CustomEggs ?? [];
+    private static IReadOnlyList<ColleggtibleDef> CustomEggs(PeriodicalsResponse r) =>
+        ColleggtibleExtractor.FromPeriodicals(r).Eggs;
 
     private static IEnumerable<string> EventIds(PeriodicalsResponse r) =>
         (r.Events?.Events ?? []).Select(e => e.Identifier);

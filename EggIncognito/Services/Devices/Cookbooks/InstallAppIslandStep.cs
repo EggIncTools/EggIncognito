@@ -71,8 +71,8 @@ public sealed class InstallAppIslandStep(
             }
 
             await add($"installing {rows.Count} split(s) of {set.Key} into user {IslandScope.User(androidUserId)}");
-            var install = await Adb(target.Target,
-                ["install-multiple", "--user", IslandScope.User(androidUserId), "-r", .. staged], ct);
+            var install = await AdbDeviceConnection.RunAsync(runner, target.Target,
+                ["install-multiple", "--user", IslandScope.User(androidUserId), "-r", .. staged], InstallTimeout, ct);
             if (install.ExitCode != 0) {
                 string output = install.Stderr + "\n" + install.Stdout;
                 return Failed(lines, $"install-multiple --user failed: {DeviceParsing.TrimNote(output)}");
@@ -99,11 +99,5 @@ public sealed class InstallAppIslandStep(
         var splits = new List<CookbookApkSplit>(rows.Count);
         foreach (var row in rows) splits.Add(new CookbookApkSplit(row.Split, await store.BytesAsync(row, ct)));
         return splits;
-    }
-
-    private async Task<ProcessResult> Adb(string serial, string[] rest, CancellationToken ct) {
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        cts.CancelAfter(InstallTimeout);
-        return await runner.RunAsync("adb", ["-s", serial, .. rest], cts.Token);
     }
 }

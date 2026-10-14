@@ -1,4 +1,5 @@
 using System.IO.Compression;
+using EggIncognito.Core.Services.Devices;
 
 namespace EggIncognito.Core.Services.ProtoExtract;
 
@@ -6,7 +7,7 @@ public sealed class SymbolizedBinaryStore(string ipaDir, Func<byte[], bool>? isS
     private readonly Func<byte[], bool> _isSymbolized = isSymbolized ?? (b => MachoSymbols.Read(b).Count > 50_000);
 
     public IReadOnlyList<string> ListVersions()
-        => BuildIndex().Keys.OrderByDescending(ProtoVersionQuality.DottedVersionKey).ToList();
+        => BuildIndex().Keys.OrderByDescending(VersionCompare.DottedKey).ToList();
 
     public Result Get(string? version) {
         var index = BuildIndex();
@@ -18,7 +19,7 @@ public sealed class SymbolizedBinaryStore(string ipaDir, Func<byte[], bool>? isS
         if (!string.IsNullOrEmpty(version) && index.TryGetValue(version, out byte[]? exact))
             return new Result(true, exact, version, true, "ok");
 
-        string newest = index.Keys.MaxBy(ProtoVersionQuality.DottedVersionKey)!;
+        string newest = index.Keys.MaxBy(VersionCompare.DottedKey)!;
         string note = string.IsNullOrEmpty(version)
             ? "no version requested; using newest symbolized build"
             : $"no symbolized build for {version}; using newest ({newest})";

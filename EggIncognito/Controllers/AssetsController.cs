@@ -3,7 +3,6 @@ using EggIncognito.Core.Services.Assets;
 using EggIncognito.Services.Auth;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
-using Microsoft.Net.Http.Headers;
 
 namespace EggIncognito.Controllers;
 
@@ -25,10 +24,7 @@ public sealed class AssetsController(GameAssetProvider assets) : ApiControllerBa
         if (!result.Ok || result.Asset is null)
             return Fail(404, result.Diagnostics ?? "icon not available", new { name });
 
-        Response.GetTypedHeaders().CacheControl = new CacheControlHeaderValue {
-            Public = true,
-            MaxAge = TimeSpan.FromDays(30)
-        };
+        PublicCache((int)TimeSpan.FromDays(30).TotalSeconds);
         return File(result.Asset.Bytes, result.Asset.ContentType);
     }
 }

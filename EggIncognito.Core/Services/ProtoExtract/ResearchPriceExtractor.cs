@@ -116,7 +116,7 @@ public static class ResearchPriceExtractor {
     }
 
     private static double Dbl(WalkResult walk, ulong va) =>
-        walk.Bits.TryGetValue(va, out ulong b) ? BitConverter.UInt64BitsToDouble(b) : 0;
+        walk.Bits.TryGetValue(va, out ulong b) ? Arm64Bits.F64(b) : 0;
 
     private readonly record struct Val(char Kind, ulong Lo, ulong Hi = 0);
 

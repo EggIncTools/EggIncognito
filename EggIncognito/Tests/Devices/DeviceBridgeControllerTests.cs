@@ -2,6 +2,7 @@ using System.Net;
 using System.Text.Json;
 using EggIncognito.Capture;
 using EggIncognito.Controllers;
+using EggIncognito.Core.Services;
 using EggIncognito.Core.Services.Devices;
 using EggIncognito.Data.Models;
 using EggIncognito.Models.Devices;
@@ -16,7 +17,6 @@ namespace EggIncognito.Tests.Devices;
 
 public class DeviceBridgeControllerTests {
     private const string Secret = "s3cret";
-    private static readonly JsonSerializerOptions JsonWeb = new(JsonSerializerDefaults.Web);
 
     private static DeviceBridgeController Make(DeviceTransportConfig cfg, IServiceProvider sp,
         IProcessRunner? runner = null, string? presentedSecret = null,
@@ -215,7 +215,7 @@ public class DeviceBridgeControllerTests {
         http.Request.ContentType = "multipart/form-data; boundary=egitest";
 
         var fields = new Dictionary<string, StringValues> {
-            [BridgeExecParts.Spec] = JsonSerializer.Serialize(spec, JsonWeb)
+            [BridgeExecParts.Spec] = JsonSerializer.Serialize(spec, JsonPresets.Web)
         };
 
         var files = new FormFileCollection();

@@ -1,5 +1,6 @@
 using System.Buffers;
 using EggIdentity.Auth;
+using EggIncognito.Core.Services;
 using EggIncognito.Core.Services.Farm;
 using EggIncognito.Models.Farm;
 using EggIncognito.Services;
@@ -65,8 +66,10 @@ public sealed class FarmController(
 
     [HttpGet("showcase")]
     [EnableRateLimiting("read")]
-    public IActionResult Showcase() {
-        var parsed = FarmShowcase.Parse(DataCatalog.FixtureText(services, DataCatalog.ShowcaseRoute));
+    public async Task<IActionResult> Showcase(CancellationToken ct) {
+        string? showcaseJson = await services.GetRequiredService<EndpointStore>()
+            .CurrentJsonAsync(DataCatalog.ShowcaseRoute, ct);
+        var parsed = FarmShowcase.Parse(showcaseJson);
         return !parsed.Ok
             ? Ok(new { ok = false, diagnostics = parsed.Diagnostics })
             : Ok(new {
@@ -85,7 +88,7 @@ public sealed class FarmController(
         (var data, string? dataDiag) = await placementData.GetAsync(ct);
         if (data is null) return Ok(new { ok = false, diagnostics = dataDiag });
 
-        (var state, string? stateDiag) = BuildState(req);
+        (var state, string? stateDiag) = await BuildState(req, ct);
         if (state is null) return Ok(new { ok = false, diagnostics = stateDiag });
 
         var catalog = FarmAssetCatalog.From(LoadCatalog(platform));
@@ -310,9 +313,12 @@ public sealed class FarmController(
             }
         };
 
-    private (FarmState? State, string? Diagnostics) BuildState(FarmLayoutRequest req) {
+    private async Task<(FarmState? State, string? Diagnostics)> BuildState(FarmLayoutRequest req,
+        CancellationToken ct) {
         if (!string.IsNullOrWhiteSpace(req.ShowcaseId)) {
-            var parsed = FarmShowcase.Parse(DataCatalog.FixtureText(services, DataCatalog.ShowcaseRoute));
+            string? showcaseJson = await services.GetRequiredService<EndpointStore>()
+                .CurrentJsonAsync(DataCatalog.ShowcaseRoute, ct);
+            var parsed = FarmShowcase.Parse(showcaseJson);
             if (!parsed.Ok) return (null, parsed.Diagnostics);
             var preset = parsed.Presets.FirstOrDefault(p =>
                 string.Equals(p.Id, req.ShowcaseId, StringComparison.Ordinal));

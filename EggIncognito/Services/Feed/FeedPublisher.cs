@@ -1,14 +1,10 @@
 namespace EggIncognito.Services.Feed;
 
 public sealed class FeedPublisher(IServiceScopeFactory scopes, IConfiguration config, ILogger<FeedPublisher> logger) {
-    public string PageUrl(string path) {
-        string? configured = config["Feed:PageBaseUrl"];
-        string root = string.IsNullOrEmpty(configured) ? FeedDispatcher.DefaultPageBaseUrl : configured.TrimEnd('/');
-        return $"{root}/{path.TrimStart('/')}";
-    }
+    public string PageUrl(string path) => FeedPages.Url(FeedPages.Root(config), path);
 
     public string ProtoPageUrl(string platform, string build) =>
-        FeedDispatcher.BuildPageUrl(config["Feed:PageBaseUrl"], platform, build);
+        FeedDispatcher.BuildPageUrl(FeedPages.Root(config), platform, build);
 
     public void Publish(INotificationEvent evt) => _ = PublishAsync(evt, CancellationToken.None);
 

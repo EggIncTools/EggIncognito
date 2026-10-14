@@ -1,6 +1,7 @@
 @using System.Text.Json
 @using EggSharp.GameData.Artifacts
 @using EggIncognito.Core.Services.Devices
+@using EggIncognito.Services.Assets
 @using EggSharp.GameData
 @using EggIncognito.Models.Coverage
 @using EggIncognito.Services.Coverage
@@ -165,7 +166,7 @@
 
     static readonly string[] RarityHeads = [
         .. Enum.GetValues<Ei.ArtifactSpec.Types.Rarity>().OrderBy(r => (int)r)
-            .Select(r => char.ToUpperInvariant(r.ToString()[0]) + r.ToString()[1..].ToLowerInvariant())
+            .Select(r => EggIcons.Pretty(r.ToString()))
     ];
 
     ConsumeCoverageMap? _map;

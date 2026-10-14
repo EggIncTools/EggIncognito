@@ -11,9 +11,11 @@ public static class SymbolRecovery {
         if (symbolizedRef is null || strippedTarget is null || symbolizedRef.Length < 64 || strippedTarget.Length < 64)
             return None(interestNeedles, "ref or target binary too short");
 
-        if (!MachoText.TryFindText(symbolizedRef, out int rOff, out int rSize, out ulong rVm))
+        var refImage = new MachoImage(symbolizedRef);
+        var targetImage = new MachoImage(strippedTarget);
+        if (!refImage.TryFindText(out int rOff, out int rSize, out ulong rVm))
             return None(interestNeedles, "reference has no __text");
-        if (!MachoText.TryFindText(strippedTarget, out int tOff, out int tSize, out ulong tVm))
+        if (!targetImage.TryFindText(out int tOff, out int tSize, out ulong tVm))
             return None(interestNeedles, "target has no __text");
 
         var refSyms = MachoSymbols.Read(symbolizedRef);

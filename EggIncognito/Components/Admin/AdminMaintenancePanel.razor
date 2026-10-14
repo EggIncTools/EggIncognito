@@ -136,7 +136,7 @@
                     <td class="small">@icon.Platform</td>
                     <td class="small">@icon.ContentType</td>
                     <td class="mono">@icon.Bytes.ToString("N0")</td>
-                    <td class="mono">@ShaShort(icon.Sha256)</td>
+                    <td class="mono">@EggIncognito.Core.Hashes.Short(icon.Sha256)</td>
                     <td class="muted">@ViewerClock.At(Services, icon.UpdatedAt).ToString("yyyy-MM-dd HH:mm:ss")</td>
                     <td class="tools">
                         <button type="button" class="btn-mini btn-danger" disabled="@_iconBusy" @onclick="() => DeleteIcon(icon.Name)">Delete</button>
@@ -300,10 +300,6 @@
         _iconBusy = false;
         await LoadAsync();
         if (res.Ok) Notifier.Publish(AdminTopics.Maintenance);
-    }
-
-    static string ShaShort(string sha) {
-        return sha.Length >= 12 ? sha[..12] : sha;
     }
 
 }

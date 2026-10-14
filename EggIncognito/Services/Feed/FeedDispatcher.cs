@@ -12,10 +12,8 @@ public sealed class FeedDispatcher(
     AdminNotifier? notifier = null) {
     private const int DeadAfterFailures = 5;
 
-    public const string DefaultPageBaseUrl = "https://eggincognito.egginc.tools";
-
     public static string BuildPageUrl(string? baseUrl, string platform, string build) =>
-        $"{(string.IsNullOrEmpty(baseUrl) ? DefaultPageBaseUrl : baseUrl.TrimEnd('/'))}/protos/{platform}/{build}";
+        FeedPages.Url(string.IsNullOrEmpty(baseUrl) ? FeedPages.DefaultPageBaseUrl : baseUrl, $"protos/{platform}/{build}");
 
     public async Task DispatchAsync(INotificationEvent evt, CancellationToken ct = default) {
         var kind = FeedEventKinds.For(evt);

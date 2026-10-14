@@ -1,5 +1,6 @@
 using EggIdentity.Filters;
 using EggIncognito.Data.Models;
+using EggIncognito.Services.DataApi;
 using Microsoft.EntityFrameworkCore;
 
 namespace EggIncognito.Services.Feed.Kinds;
@@ -68,17 +69,14 @@ public static class GameDataRebuiltKind {
             : Defaults;
 
     public static async Task<IReadOnlyList<FeedSample>> LoadSamples(FeedSampleContext ctx, CancellationToken ct) {
-        var docs = await ctx.Db.GameDataDocuments.AsNoTracking()
-            .Where(d => d.InputSha != null)
-            .Select(d => new { d.Id, d.InputSha, d.UpdatedAt, d.Json })
-            .ToListAsync(ct);
+        var docs = await GameDataStore.AllWithInputShaAsync(ctx.Db, ct);
         string pageUrl = ctx.Pages.PageUrl("data");
         return [.. docs
             .GroupBy(d => d.InputSha!, StringComparer.Ordinal)
             .OrderByDescending(g => g.Max(d => d.UpdatedAt))
             .Take(FeedSampleSource.PerKind)
             .Select(g => {
-                string version = g.Select(d => BinaryVersionOf(d.Json)).FirstOrDefault(v => v is not null) ?? "";
+                string version = g.Select(d => DocVersions.BinaryVersion(d.Json)).FirstOrDefault(v => v is not null) ?? "";
                 var evt = new GameDataRebuiltEvent(version, version, "", g.Key,
                     [.. g.Select(d => d.Id).Order(StringComparer.Ordinal)], pageUrl);
                 return new FeedSample(g.Key, $"{FeedText.Or(version, "unknown binary")}, {g.Count()} docs", evt);
@@ -95,14 +93,6 @@ public static class GameDataRebuiltKind {
         return new Dictionary<string, IReadOnlyList<FilterOption>> {
             [BinaryVersionField] = FeedFilter.Versions(versions)
         };
-    }
-
-    private static string? BinaryVersionOf(string json) {
-        try {
-            return System.Text.Json.Nodes.JsonNode.Parse(json)?["binaryVersion"]?.GetValue<string>();
-        } catch (Exception ex) when (ex is System.Text.Json.JsonException or InvalidOperationException) {
-            return null;
-        }
     }
 
     public static readonly NotificationKind Definition = new(

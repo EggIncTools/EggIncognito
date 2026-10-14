@@ -51,7 +51,7 @@ public static class ResearchPriceCurveExtractor {
                         break;
                     }
                 case "fmov" when ops.Count == 2 && IsFp(ops[0]):
-                    if (ints.TryGetValue(ops[1], out ulong fb)) Set(ops[0], new Fp('c', BitConverter.UInt64BitsToDouble(fb)));
+                    if (ints.TryGetValue(ops[1], out ulong fb)) Set(ops[0], new Fp('c', Arm64Bits.F64(fb)));
                     else if (TryFpImm(ops[1], out double fi) && ops[1].TrimStart().StartsWith('#')) Set(ops[0], new Fp('c', fi));
                     else Set(ops[0], Get(ops[1]));
                     break;
@@ -60,13 +60,13 @@ public static class ResearchPriceCurveExtractor {
                     break;
                 case "ldr" when ops.Count == 2 && IsFp(ops[0]) && TryMem(ops[1], out string lb, out ulong ld):
                     if (lb == "sp") Set(ops[0], frame.TryGetValue((long)ld, out var fv) ? fv : null);
-                    else if (page.TryGetValue(lb, out ulong pv) && img.TryVaToFileOffset(pv + ld, out int fo, out _)
-                             && fo + 8 <= bin.Length) Set(ops[0], new Fp('c', BitConverter.ToDouble(bin, fo)));
+                    else if (page.TryGetValue(lb, out ulong pv) && new Arm64Image(bin, img).TryF64(pv + ld, out double lv))
+                        Set(ops[0], new Fp('c', lv));
                     else Set(ops[0], null);
                     break;
                 case "str" when ops.Count == 2 && TryMem(ops[1], out string sb, out ulong sd) && sb == "sp":
                     if (IsFp(ops[0]) && Get(ops[0]) is { } sv) frame[(long)sd] = sv;
-                    else if (ints.TryGetValue(ops[0], out ulong si)) frame[(long)sd] = new Fp('c', BitConverter.UInt64BitsToDouble(si));
+                    else if (ints.TryGetValue(ops[0], out ulong si)) frame[(long)sd] = new Fp('c', Arm64Bits.F64(si));
                     break;
                 case "bl":
                     if (Get("d0") is { Kind: 'c' } pb && pb.Value != 10 && !bases.Contains(pb.Value)) bases.Add(pb.Value);
