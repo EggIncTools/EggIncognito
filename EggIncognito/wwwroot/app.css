@@ -41,6 +41,8 @@
   --color-rarity-1: #6ab6ff;
   --color-rarity-2: #c03fe2;
   --color-rarity-3: #eeab42;
+  --color-heat-low: var(--color-panel2);
+  --color-heat-high: var(--color-accent);
   --font-mono: "Cascadia Code", "Fira Code", Consolas, monospace;
   --font-sans: var(--font-mono);
   --default-font-family: var(--font-mono);

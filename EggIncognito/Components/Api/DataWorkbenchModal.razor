@@ -58,6 +58,11 @@
                                                 Trail="@CoverageTrail">
                                     <Name>Consume coverage</Name>
                                 </WorkbenchEntry>
+                                <WorkbenchEntry Selected="@(State.Kind == DataPaneKind.ConsumptionExplorer)"
+                                                OnClick="@(_ => SelectSection(DataPaneKind.ConsumptionExplorer))"
+                                                Trail="@CoverageTrail">
+                                    <Name>Consumption explorer</Name>
+                                </WorkbenchEntry>
                             </WorkbenchSection>
                         </div>
                         <div class="dwb-rail-col">
@@ -95,6 +100,9 @@
         @switch (State.Kind) {
             case DataPaneKind.Coverage:
                 <ConsumeCoveragePane/>
+                break;
+            case DataPaneKind.ConsumptionExplorer:
+                <ConsumptionExplorerPane/>
                 break;
             default:
                 <DatasetPane Current="@State.CurrentDataset()"/>

@@ -13,6 +13,7 @@ using EggIncognito.Services.Feed;
 using EggIncognito.Services.Inspector;
 using EggIncognito.Services.Predictions;
 using EggIncognito.Services.Routes;
+using EggIdentity.Reports;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 
@@ -122,6 +123,11 @@ public static class DataServices {
             builder.Services.AddSingleton<ICoverageMap>(none);
             builder.Services.AddSingleton<DropStats>();
             builder.Services.AddSingleton<IContractReleases>(new NoContractReleases());
+            builder.Services.AddSingleton(ConsumptionReportSource.Sources);
+            builder.Services.AddSingleton(sp => new ReportEngineRegistry().Add(
+                ConsumptionReportSource.Source.Id,
+                ConsumptionReportSource.Engine(
+                    _ => ValueTask.FromResult<IReadOnlyList<ConsumptionDropRow>>([]), sp.GetRequiredService<TimeProvider>())));
             return;
         }
 
@@ -133,6 +139,19 @@ public static class DataServices {
         builder.Services.AddSingleton<DropStats>();
         builder.Services.AddSingleton<IContractReleases, ContractReleaseLookup>();
         builder.Services.AddScoped<ConsumeCoverageService>();
+        builder.Services.AddScoped<ConsumptionReportRows>();
+        builder.Services.AddSingleton(ConsumptionReportSource.Sources);
+        builder.Services.AddSingleton<ReportEngineRegistry>(sp => {
+            var scopes = sp.GetRequiredService<IServiceScopeFactory>();
+            async Task<IReadOnlyList<ConsumptionDropRow>> RowsAsync(CancellationToken ct) {
+                using var scope = scopes.CreateScope();
+                return await scope.ServiceProvider.GetRequiredService<ConsumptionReportRows>().ReadAsync(ct);
+            }
+            return new ReportEngineRegistry().Add(
+                ConsumptionReportSource.Source.Id,
+                ConsumptionReportSource.Engine(ct => new ValueTask<IReadOnlyList<ConsumptionDropRow>>(RowsAsync(ct)),
+                    sp.GetRequiredService<TimeProvider>()));
+        });
         builder.Services.AddScoped<CaptureCredentialStore>();
         builder.Services.AddScoped<CaptureAddressStore>();
         builder.Services.AddScoped<ProtoRegistryStore>();
