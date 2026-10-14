@@ -11,6 +11,7 @@
             <button type="button" class="btn-mini" @onclick="@(() => OnOpenNotifications.InvokeAsync())">Notifications</button>
             <button type="button" class="btn-mini" @onclick="@(() => OnOpenApis.InvokeAsync())">APIs</button>
             <button type="button" class="btn-mini" @onclick="@(() => OnOpenData.InvokeAsync())">Data</button>
+            <button type="button" class="btn-mini" @onclick="@(() => OnOpenArtifacts.InvokeAsync())">Artifacts</button>
         </Tools>
     </PanelHead>
     @if (Summary is { } s) {
@@ -64,6 +65,8 @@
     [Parameter] public EventCallback OnOpenApis { get; set; }
 
     [Parameter] public EventCallback OnOpenData { get; set; }
+
+    [Parameter] public EventCallback OnOpenArtifacts { get; set; }
 
     [Parameter] public EventCallback<string> OnOpenFeed { get; set; }
 

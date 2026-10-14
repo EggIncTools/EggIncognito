@@ -1,0 +1,100 @@
+.atb-rail-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.atb-filter {
+    width: 100%;
+    padding: 0.35rem 0.6rem;
+    border-radius: 0.375rem;
+    border: 1px solid var(--color-border);
+    background: var(--color-panel);
+    color: var(--color-fg);
+}
+
+.atb-ico {
+    width: 1.25rem;
+    height: 1.25rem;
+    object-fit: contain;
+}
+
+.atb-ico-lg {
+    width: 2.5rem;
+    height: 2.5rem;
+}
+
+.atb-head {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid var(--color-border);
+}
+
+.atb-head-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.atb-head-title {
+    display: flex;
+    flex-direction: column;
+}
+
+.atb-head-title h2 {
+    margin: 0;
+    font-size: 1.1rem;
+}
+
+.atb-head-kind {
+    font-size: 0.75rem;
+    color: var(--color-muted);
+    text-transform: uppercase;
+}
+
+.atb-desc {
+    margin: 0;
+    color: var(--color-muted);
+}
+
+.atb-label {
+    margin: 0;
+    font-style: italic;
+    color: var(--color-muted);
+}
+
+.atb-modes, .atb-picker, .atb-overlays {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+}
+
+.atb-modes ::deep .btn-mini.active, .atb-picker ::deep .btn-mini.active, .atb-overlays ::deep .btn-mini.active {
+    background: var(--color-accent);
+    color: var(--color-fg-max);
+    border-color: var(--color-accent);
+    transition: background var(--motion-fast) var(--ease-standard), border-color var(--motion-fast) var(--ease-standard);
+}
+
+.atb-canvas {
+    flex: 1;
+    min-height: 20rem;
+    overflow: auto;
+}
+
+.atb-node-label {
+    display: block;
+    padding: 0.2rem 0.4rem;
+    font-size: 0.8rem;
+    text-align: center;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.atb-canvas ::deep .diagram-node.atb-node-current {
+    border-color: var(--color-accent);
+    box-shadow: 0 0 0 2px var(--color-accent);
+}

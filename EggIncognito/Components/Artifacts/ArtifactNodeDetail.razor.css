@@ -1,0 +1,56 @@
+.atb-detail {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.5rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--color-border);
+}
+
+.atb-detail-col {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    min-width: 12rem;
+}
+
+.atb-detail-head {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    color: var(--color-muted);
+}
+
+.atb-detail-value {
+    font-size: 0.9rem;
+}
+
+.atb-detail-raw summary {
+    cursor: pointer;
+    font-size: 0.8rem;
+    color: var(--color-muted);
+}
+
+.atb-ingredients, .atb-buckets {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+}
+
+.atb-buckets li {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.atb-bucket-bar {
+    display: inline-block;
+    width: 4rem;
+    height: 0.5rem;
+    border-radius: 0.25rem;
+    background: var(--color-accent);
+    transform: scaleX(var(--p));
+    transform-origin: left;
+    transition: transform var(--motion-base) var(--ease-standard);
+}

@@ -6,7 +6,10 @@ using EggIdentity.UI;
 using EggIdentity.UI.Suite;
 using EggIncognito.Capture;
 using EggIncognito.Core.Services;
+using EggIncognito.Models.Observations;
 using EggIncognito.Services;
+using EggIncognito.Services.Coverage;
+using EggIncognito.Services.Devices;
 using EggIncognito.Services.Routes;
 using EggIncognito.Services.Workbench;
 using Microsoft.AspNetCore.Hosting;
@@ -68,9 +71,23 @@ public class ProtosPageTests {
             Services.AddSingleton<ISealedProxy>(new FakeSealedProxy());
             Services.AddSingleton<ICaptureContributionKinds>(new CaptureContributionKinds([]));
             Services.AddWorkbenchStates();
+            Services.AddSingleton(new DropStats(new EmptyObservations()));
             Services.AddHttpClient();
 
             JSInterop.Mode = JSRuntimeMode.Loose;
+        }
+
+        private sealed class EmptyObservations : IArtifactObservationQuery {
+            public Task<IReadOnlyDictionary<(string Family, string Level, string Rarity), int>> ConsumedCountsAsync(CancellationToken ct) =>
+                Task.FromResult<IReadOnlyDictionary<(string Family, string Level, string Rarity), int>>(
+                    new Dictionary<(string Family, string Level, string Rarity), int>());
+
+            public Task<IReadOnlyList<IReadOnlyList<ArtifactByproductRow>>> ConsumeByproductsAsync(
+                string family, string level, string rarity, CancellationToken ct) =>
+                Task.FromResult<IReadOnlyList<IReadOnlyList<ArtifactByproductRow>>>([]);
+
+            public Task<IReadOnlyList<double>> ConsumeGoldenEggsAsync(string family, string level, string rarity, CancellationToken ct) =>
+                Task.FromResult<IReadOnlyList<double>>([]);
         }
 
         [Fact]

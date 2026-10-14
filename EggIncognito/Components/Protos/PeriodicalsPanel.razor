@@ -6,7 +6,8 @@
     <div class="pd-wcol">
         <DeviceStatusPanel Class="pd-w-devices" OnManage="OnManageDevices"/>
         <WorkbenchesPanel Summary="_summary" OnOpenNotifications="OnOpenNotifications"
-                          OnOpenApis="OnOpenApis" OnOpenData="OnOpenData" OnOpenFeed="OnOpenFeed" OnOpenCoverage="OnOpenCoverage"/>
+                          OnOpenApis="OnOpenApis" OnOpenData="OnOpenData" OnOpenArtifacts="OnOpenArtifacts"
+                          OnOpenFeed="OnOpenFeed" OnOpenCoverage="OnOpenCoverage"/>
         <PdColleggtiblesPanel Summary="_summary"/>
     </div>
 
@@ -38,6 +39,8 @@
     [Parameter] public EventCallback OnOpenApis { get; set; }
 
     [Parameter] public EventCallback OnOpenData { get; set; }
+
+    [Parameter] public EventCallback OnOpenArtifacts { get; set; }
 
     [Parameter] public EventCallback<string> OnOpenFeed { get; set; }
 

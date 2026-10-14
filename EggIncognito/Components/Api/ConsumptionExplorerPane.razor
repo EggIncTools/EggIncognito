@@ -4,70 +4,11 @@
 @inject ICurrentUser User
 @inject ReportEngineRegistry Engines
 @inject IReadOnlyList<IReportSource> Sources
-@inject ILogger<ConsumptionExplorerPane> Logger
 
-@if (!IsAdmin) {
-    <div class="cep-locked">Admin access required.</div>
-} else {
-    <div class="cep-root">
-        <div class="cep-presets">
-            @foreach (var preset in ConsumptionExplorerPresets.All) {
-                <button type="button" class="cep-chip @(IsActive(preset) ? "cep-chip-active" : "")"
-                        @onclick="@(() => ApplyPresetAsync(preset))">
-                    @preset.Title
-                </button>
-            }
-        </div>
-        <ReportBuilder Sources="Sources" Value="_definition" ValueChanged="OnDefinitionChangedAsync"/>
-        @if (_cube is { } cube) {
-            <ReportChart Context="@(new ChartContext(cube, _definition, Source, ChartStyle.Default, ReportLabels.Default))"/>
-        } else if (_loading) {
-            <div class="cep-loading">Loading...</div>
-        } else if (_error is { } error) {
-            <div class="cep-error">@error</div>
-        }
-    </div>
-}
+<ReportExplorer Sources="Sources" Registry="Engines" @bind-Value="_definition" Presets="ConsumptionReportSource.Presets" Tier="Tier"/>
 
 @code {
-    private ReportDefinition _definition = ConsumptionExplorerPresets.All[0].Definition;
-    private ReportCube? _cube;
-    private bool _loading;
-    private string? _error;
+    private ReportDefinition _definition = ConsumptionReportSource.Presets[0].Definition;
 
-    private bool IsAdmin => User.Current.IsAtLeast(UserRole.Admin);
-
-    private IReportSource? Source => Sources.FirstOrDefault(s => string.Equals(s.Id, _definition.Query.Source, StringComparison.Ordinal));
-
-    protected override async Task OnInitializedAsync() {
-        if (IsAdmin) await RunAsync();
-    }
-
-    private bool IsActive(ConsumptionPreset preset) => string.Equals(preset.Definition.Id, _definition.Id, StringComparison.Ordinal);
-
-    private async Task ApplyPresetAsync(ConsumptionPreset preset) {
-        _definition = preset.Definition;
-        await RunAsync();
-    }
-
-    private async Task OnDefinitionChangedAsync(ReportDefinition next) {
-        _definition = next;
-        await RunAsync();
-    }
-
-    private async Task RunAsync() {
-        _loading = true;
-        _error = null;
-        _cube = null;
-        StateHasChanged();
-        try {
-            _cube = await Engines.RunAsync(_definition.Query, ReportContext.Utc, CancellationToken.None);
-        } catch (Exception ex) when (ex is ArgumentException or KeyNotFoundException) {
-            _error = ex.Message;
-            Logger.LogWarning(ex, "consumption report query failed");
-        } finally {
-            _loading = false;
-            StateHasChanged();
-        }
-    }
+    private ReportTier Tier => User.Current.IsAtLeast(UserRole.Admin) ? ReportTier.Live : ReportTier.Snapshot;
 }

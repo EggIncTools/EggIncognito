@@ -1,0 +1,54 @@
+@using EggIncognito.Services.Coverage
+
+<div class="atb-detail">
+    @if (Ingredients is { Count: > 0 } ingredients) {
+        <div class="atb-detail-col">
+            <span class="atb-detail-head">Recipe</span>
+            <ul class="atb-ingredients">
+                @foreach (var (label, count) in ingredients) {
+                    <li>@count x @label</li>
+                }
+            </ul>
+        </div>
+    }
+    @if (CraftingPrice is { } price) {
+        <div class="atb-detail-col">
+            <span class="atb-detail-head">Crafting price</span>
+            <span class="atb-detail-value mono">@price.ToString("N0")</span>
+            <details class="atb-detail-raw">
+                <summary>Raw curve</summary>
+                <ul>
+                    <li>Low: @CraftingPriceLow?.ToString("N0")</li>
+                    <li>Curve: @CraftingPriceCurve?.ToString("0.###")</li>
+                    <li>Domain: @CraftingPriceDomain</li>
+                    <li>XP: @CraftingXp?.ToString("N0")</li>
+                </ul>
+            </details>
+        </div>
+    }
+    @if (Row is { } row) {
+        <div class="atb-detail-col">
+            <span class="atb-detail-head">@row.Name, @row.Level, @row.Rarity</span>
+            <span class="atb-detail-value mono">mean @row.Mean.ToString("0.###") per consume</span>
+            <span class="atb-detail-value mono">share @((row.Share * 100).ToString("0.#"))%, min @row.Min, max @row.Max</span>
+            <ul class="atb-buckets">
+                @foreach (var bucket in row.Buckets) {
+                    <li>
+                        <span class="atb-bucket-bar" style="--p:@bucket.Share.ToString("0.###")"></span>
+                        <span class="mono">@bucket.Count: @((bucket.Share * 100).ToString("0.#"))%</span>
+                    </li>
+                }
+            </ul>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public IReadOnlyList<(string Label, int Count)>? Ingredients { get; set; }
+    [Parameter] public double? CraftingPrice { get; set; }
+    [Parameter] public double? CraftingPriceLow { get; set; }
+    [Parameter] public double? CraftingPriceCurve { get; set; }
+    [Parameter] public uint? CraftingPriceDomain { get; set; }
+    [Parameter] public ulong? CraftingXp { get; set; }
+    [Parameter] public DropRow? Row { get; set; }
+}

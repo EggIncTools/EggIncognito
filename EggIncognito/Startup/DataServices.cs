@@ -124,10 +124,7 @@ public static class DataServices {
             builder.Services.AddSingleton<DropStats>();
             builder.Services.AddSingleton<IContractReleases>(new NoContractReleases());
             builder.Services.AddSingleton(ConsumptionReportSource.Sources);
-            builder.Services.AddSingleton(sp => new ReportEngineRegistry().Add(
-                ConsumptionReportSource.Source.Id,
-                ConsumptionReportSource.Engine(
-                    _ => ValueTask.FromResult<IReadOnlyList<ConsumptionDropRow>>([]), sp.GetRequiredService<TimeProvider>())));
+            builder.Services.AddReportSource<ConsumptionDropRow, NoConsumptionReportRows>(ConsumptionReportSource.Source);
             return;
         }
 
@@ -139,19 +136,10 @@ public static class DataServices {
         builder.Services.AddSingleton<DropStats>();
         builder.Services.AddSingleton<IContractReleases, ContractReleaseLookup>();
         builder.Services.AddScoped<ConsumeCoverageService>();
-        builder.Services.AddScoped<ConsumptionReportRows>();
         builder.Services.AddSingleton(ConsumptionReportSource.Sources);
-        builder.Services.AddSingleton<ReportEngineRegistry>(sp => {
-            var scopes = sp.GetRequiredService<IServiceScopeFactory>();
-            async Task<IReadOnlyList<ConsumptionDropRow>> RowsAsync(CancellationToken ct) {
-                using var scope = scopes.CreateScope();
-                return await scope.ServiceProvider.GetRequiredService<ConsumptionReportRows>().ReadAsync(ct);
-            }
-            return new ReportEngineRegistry().Add(
-                ConsumptionReportSource.Source.Id,
-                ConsumptionReportSource.Engine(ct => new ValueTask<IReadOnlyList<ConsumptionDropRow>>(RowsAsync(ct)),
-                    sp.GetRequiredService<TimeProvider>()));
-        });
+        builder.Services.AddReportSource<ConsumptionDropRow, ConsumptionReportRows>(
+            ConsumptionReportSource.Source, ConsumptionReportSource.Snapshot);
+        builder.Services.AddHostedService<ConsumptionReportCapsInitializer>();
         builder.Services.AddScoped<CaptureCredentialStore>();
         builder.Services.AddScoped<CaptureAddressStore>();
         builder.Services.AddScoped<ProtoRegistryStore>();
@@ -197,4 +185,13 @@ public static class DataServices {
         builder.Services.AddHostedService<GameDataAutoRebuildService>();
         builder.Services.AddHostedService<EndpointCatalogAutoRefreshService>();
     }
+}
+
+public sealed class ConsumptionReportCapsInitializer(ReportEngineRegistry registry) : IHostedService {
+    public Task StartAsync(CancellationToken cancellationToken) {
+        registry.SetCaps(ReportTier.Snapshot, new ReportTierCaps(2, 4000, 400));
+        return Task.CompletedTask;
+    }
+
+    public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
 }

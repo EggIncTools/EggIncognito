@@ -6,6 +6,7 @@ namespace EggIncognito.Services.Coverage;
 
 public static class ConsumptionReportSource {
     public const string EventKey = "event";
+    private const string SourceId = "consumption";
 
     private static readonly IReadOnlyList<FilterOption> TierOptions =
         [.. Enum.GetNames<Ei.ArtifactSpec.Types.Level>().Select(n => new FilterOption(n, n))];
@@ -89,13 +90,52 @@ public static class ConsumptionReportSource {
         DistinctBy = EventKey,
     };
 
+    public static readonly IReadOnlyList<ReportPreset> Presets = [
+        new("consumption-drops-by-item", "What does each item drop",
+            new ReportDefinition(
+                ReportCodec.CurrentVersion, "consumption-drops-by-item", "What does each item drop",
+                new ReportQuery(SourceId) {
+                    GroupBy = [new GroupKey(InputFamily.Key), new GroupKey(OutputItem.Key)],
+                    Measures = [new MeasureRequest(DropChance.Key, Aggregation.Avg)],
+                },
+                new ReportView(ReportCharts.Heatmap))),
+        new("consumption-source-of-byproduct", "Where does a byproduct come from",
+            new ReportDefinition(
+                ReportCodec.CurrentVersion, "consumption-source-of-byproduct", "Where does a byproduct come from",
+                new ReportQuery(SourceId) {
+                    GroupBy = [new GroupKey(OutputItem.Key), new GroupKey(InputFamily.Key)],
+                    Measures = [new MeasureRequest(DropChance.Key, Aggregation.Avg)],
+                },
+                new ReportView(ReportCharts.Table))),
+        new("consumption-rarity-vs-tier", "Rarity vs tier yield",
+            new ReportDefinition(
+                ReportCodec.CurrentVersion, "consumption-rarity-vs-tier", "Rarity vs tier yield",
+                new ReportQuery(SourceId) {
+                    GroupBy = [new GroupKey(InputRarity.Key), new GroupKey(InputTier.Key)],
+                    Measures = [new MeasureRequest(Count.Key, Aggregation.Avg)],
+                },
+                new ReportView(ReportCharts.Heatmap))),
+    ];
+
     public static readonly ReportSource<ConsumptionDropRow> Source = new(
-        "consumption",
+        SourceId,
         "Consumption",
         [InputFamily, InputTier, InputRarity, OutputItem, OutputTier, OutputRarity, ClientVersion],
         [Observations, DropChance, Count, CountDistribution, GoldenEggs, GoldenEggsDistribution],
         Read) {
         SampleKey = EventKey,
+        Presets = Presets,
+    };
+
+    public static readonly SnapshotSchema Snapshot = new(
+        SourceId,
+        [
+            new GroupKey(InputFamily.Key), new GroupKey(InputTier.Key), new GroupKey(InputRarity.Key),
+            new GroupKey(OutputItem.Key), new GroupKey(OutputTier.Key), new GroupKey(OutputRarity.Key),
+            new GroupKey(ClientVersion.Key),
+        ],
+        [Observations.Key, DropChance.Key, Count.Key, CountDistribution.Key, GoldenEggs.Key, GoldenEggsDistribution.Key]) {
+        FanOut = [OutputItem.Key, OutputTier.Key, OutputRarity.Key],
     };
 
     public static FilterSubjectValue Read(ConsumptionDropRow row, string key) => key switch {
@@ -114,8 +154,4 @@ public static class ConsumptionReportSource {
     };
 
     public static readonly IReadOnlyList<IReportSource> Sources = [Source];
-
-    public static InMemoryReportEngine<ConsumptionDropRow> Engine(
-        Func<CancellationToken, ValueTask<IReadOnlyList<ConsumptionDropRow>>> rows, TimeProvider clock) =>
-        new(Source, rows, clock);
 }

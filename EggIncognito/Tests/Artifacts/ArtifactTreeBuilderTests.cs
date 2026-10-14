@@ -1,0 +1,109 @@
+using EggIncognito.Services.Artifacts;
+using EggIncognito.Services.Coverage;
+using EggSharp.GameData.Artifacts;
+
+namespace EggIncognito.Tests.Artifacts;
+
+public sealed class ArtifactTreeBuilderTests {
+    private static ArtifactFamily Family(string name, int afxId, ArtifactKind kind, params ArtifactTier[] tiers) =>
+        new(name, afxId, name, name + "S", kind, 0, afxId, "", tiers);
+
+    private static ArtifactTier Tier(int level, string name, int rarityCount, IReadOnlyList<ArtifactIngredient>? recipe = null,
+        IReadOnlyList<ArtifactEffect>? effects = null) =>
+        new(level, name, rarityCount, recipe ?? [], effects ?? []);
+
+    [Fact]
+    public void BuildCraftingGraph_AddsTierAndRarityNodes() {
+        var family = Family("LUNAR_TOTEM", 1, ArtifactKind.Artifact, Tier(0, "LESSER", 2));
+        var graph = ArtifactTreeBuilder.BuildCraftingGraph([family], family);
+
+        string tierId = ArtifactTreeBuilder.TierNodeId("LUNAR_TOTEM", 0);
+        Assert.Contains(tierId, graph.Nodes.Select(n => n.Id));
+        Assert.Contains(ArtifactTreeBuilder.RarityNodeId("LUNAR_TOTEM", 0, 0), graph.Nodes.Select(n => n.Id));
+        Assert.Contains(ArtifactTreeBuilder.RarityNodeId("LUNAR_TOTEM", 0, 1), graph.Nodes.Select(n => n.Id));
+        Assert.Equal(2, graph.Edges.Count(e => e.From == tierId));
+    }
+
+    [Fact]
+    public void BuildCraftingGraph_FollowsCrossFamilyIngredients() {
+        var stone = Family("LUNAR_STONE", 2, ArtifactKind.Stone, Tier(0, "INFERIOR", 1));
+        var artifact = Family("LUNAR_TOTEM", 1, ArtifactKind.Artifact,
+            Tier(0, "LESSER", 1, [new ArtifactIngredient(2, 0, 3)]));
+        var all = new List<ArtifactFamily> { artifact, stone };
+
+        var graph = ArtifactTreeBuilder.BuildCraftingGraph(all, artifact);
+
+        string artifactTierId = ArtifactTreeBuilder.TierNodeId("LUNAR_TOTEM", 0);
+        string stoneTierId = ArtifactTreeBuilder.TierNodeId("LUNAR_STONE", 0);
+        Assert.Contains(stoneTierId, graph.Nodes.Select(n => n.Id));
+        var edge = Assert.Single(graph.Edges, e => e.From == artifactTierId && e.To == stoneTierId);
+        Assert.Equal(3, edge.Weight);
+    }
+
+    [Fact]
+    public void BuildCraftingGraph_SkipsUnresolvableIngredient() {
+        var family = Family("LUNAR_TOTEM", 1, ArtifactKind.Artifact,
+            Tier(0, "LESSER", 1, [new ArtifactIngredient(999, 0, 1)]));
+
+        var graph = ArtifactTreeBuilder.BuildCraftingGraph([family], family);
+
+        Assert.DoesNotContain(graph.Edges, e => e.To.Contains("999"));
+    }
+
+    [Fact]
+    public void CraftingRoots_ReturnsEveryTier() {
+        var family = Family("LUNAR_TOTEM", 1, ArtifactKind.Artifact, Tier(0, "LESSER", 1), Tier(1, "GREATER", 1));
+        var roots = ArtifactTreeBuilder.CraftingRoots(family);
+        Assert.Equal([ArtifactTreeBuilder.TierNodeId("LUNAR_TOTEM", 0), ArtifactTreeBuilder.TierNodeId("LUNAR_TOTEM", 1)], roots);
+    }
+
+    [Fact]
+    public void DefaultCollapsed_ContainsEveryRarityNode() {
+        var family = Family("LUNAR_TOTEM", 1, ArtifactKind.Artifact, Tier(0, "LESSER", 3));
+        var collapsed = ArtifactTreeBuilder.DefaultCollapsed(family);
+        Assert.Equal(3, collapsed.Count);
+        for (int r = 0; r < 3; r++) Assert.Contains(ArtifactTreeBuilder.RarityNodeId("LUNAR_TOTEM", 0, r), collapsed);
+    }
+
+    [Fact]
+    public void FormatEffect_SubstitutesFractionalMagnitudeAsPercent() {
+        var effect = new ArtifactEffect(0, 0.25, "Increases shipping capacity by {value}.");
+        Assert.Equal("Increases shipping capacity by 25%.", ArtifactTreeBuilder.FormatEffect(effect));
+    }
+
+    [Fact]
+    public void FormatEffect_SubstitutesLargeMagnitudeAsPlainNumber() {
+        var effect = new ArtifactEffect(0, 40, "Reduces fuel tank refill time by {value} minutes.");
+        Assert.Equal("Reduces fuel tank refill time by 40 minutes.", ArtifactTreeBuilder.FormatEffect(effect));
+    }
+
+    [Fact]
+    public void BuildConsumptionGraph_AddsOneChildPerRow() {
+        var summary = new DropSummary("LUNAR_TOTEM", "GREATER", "COMMON", 3,
+            [new DropRow("LUNAR_STONE_FRAGMENT", "INFERIOR", "COMMON", 2, 2.0 / 3, 1.5, 0, 2, [])]);
+
+        var graph = ArtifactTreeBuilder.BuildConsumptionGraph(summary, "LUNAR_TOTEM", "GREATER", "COMMON");
+
+        string rootId = ArtifactTreeBuilder.CellNodeId("LUNAR_TOTEM", "GREATER", "COMMON");
+        string childId = ArtifactTreeBuilder.CellNodeId("LUNAR_STONE_FRAGMENT", "INFERIOR", "COMMON");
+        Assert.Contains(rootId, graph.Nodes.Select(n => n.Id));
+        Assert.Contains(childId, graph.Nodes.Select(n => n.Id));
+        var edge = Assert.Single(graph.Edges);
+        Assert.Equal(1.5, edge.Weight);
+    }
+
+    [Fact]
+    public void ResolveTierNode_RoundTrips() {
+        var family = Family("LUNAR_TOTEM", 1, ArtifactKind.Artifact, Tier(0, "LESSER", 1));
+        var resolved = ArtifactTreeBuilder.ResolveTierNode([family], ArtifactTreeBuilder.TierNodeId("LUNAR_TOTEM", 0));
+        Assert.NotNull(resolved);
+        Assert.Equal("LUNAR_TOTEM", resolved!.Value.Family.Name);
+        Assert.Equal("LESSER", resolved.Value.Tier.Name);
+    }
+
+    [Fact]
+    public void ResolveCellNode_SplitsThreeParts() {
+        var resolved = ArtifactTreeBuilder.ResolveCellNode(ArtifactTreeBuilder.CellNodeId("LUNAR_TOTEM", "GREATER", "COMMON"));
+        Assert.Equal(("LUNAR_TOTEM", "GREATER", "COMMON"), resolved);
+    }
+}

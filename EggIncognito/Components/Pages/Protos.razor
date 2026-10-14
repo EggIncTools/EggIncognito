@@ -19,6 +19,7 @@
 @using System.Text.Json
 @using EggIncognito.Core.Services.ProtoExtract
 @using EggIncognito.Components.Api
+@using EggIncognito.Components.Artifacts
 @using EggIncognito.Components.Contracts
 @using EggIncognito.Components.Events
 @using EggIncognito.Components.Protos
@@ -59,7 +60,7 @@
         <div class="pd-mod pd-side pd-mobile-order-2">
             <CircuitGuard Name="Side column">
                 <PeriodicalsPanel OnManageDevices="OpenDeviceWorkbench" OnOpenNotifications="OpenNotifications"
-                                  OnOpenApis="OpenApisWorkbench" OnOpenData="OpenDataWorkbench" OnOpenCapture="OpenCaptureModal"
+                                  OnOpenApis="OpenApisWorkbench" OnOpenData="OpenDataWorkbench" OnOpenArtifacts="OpenArtifactsWorkbench" OnOpenCapture="OpenCaptureModal"
                                   OnOpenFeed="@(f => _dataWorkbench?.OpenFeed(f) ?? Task.CompletedTask)"
                                   OnOpenCoverage="@(() => _dataWorkbench?.OpenCoverage() ?? Task.CompletedTask)"
                                   OnOpenEvents="OpenEvents" OnOpenContracts="OpenContracts" OnOpenSupport="OpenSupport"/>
@@ -79,6 +80,7 @@
     <DeviceWorkbenchModal @ref="_deviceWorkbench" OnChanged="OnMutated"/>
     <ApisWorkbenchModal @ref="_apisWorkbench"/>
     <DataWorkbenchModal @ref="_dataWorkbench"/>
+    <ArtifactWorkbenchModal @ref="_artifactsWorkbench" OnOpenConsumptionExplorer="@(() => _dataWorkbench?.OpenConsumption() ?? Task.CompletedTask)"/>
     <EventsWorkbenchModal @ref="_eventsModal"/>
     <ContractsWorkbenchModal @ref="_contractsModal"/>
     <AdminWorkbenchModal @ref="_adminWorkbench"/>
@@ -93,6 +95,7 @@
     DeviceWorkbenchModal? _deviceWorkbench;
     ApisWorkbenchModal? _apisWorkbench;
     DataWorkbenchModal? _dataWorkbench;
+    ArtifactWorkbenchModal? _artifactsWorkbench;
     CaptureModal? _captureModal;
     AdminWorkbenchModal? _adminWorkbench;
     EventsWorkbenchModal? _eventsModal;
@@ -127,6 +130,10 @@
 
     Task OpenDataWorkbench() {
         return _dataWorkbench?.Open() ?? Task.CompletedTask;
+    }
+
+    Task OpenArtifactsWorkbench() {
+        return _artifactsWorkbench?.Open() ?? Task.CompletedTask;
     }
 
     Task OpenCaptureModal() {
