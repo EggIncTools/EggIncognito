@@ -6,22 +6,21 @@ using EggIncognito.Models.Predictions;
 using EggIncognito.Services.Assets;
 using EggIncognito.Services.Events;
 using EggIncognito.Services.Predictions.Contracts;
+using EggIncognito.Services.Predictions.Training;
 using Microsoft.EntityFrameworkCore;
 
 namespace EggIncognito.Services.Predictions;
 
 public sealed class ContractPredictor(
-    EggIncognitoDbContext db, ContractDataVersion version, ContractPredictionCache cache,
+    EggIncognitoDbContext db, ContractDataVersion version, ContractPredictionCache cache, PredictionTrainer trainer,
     ILogger<ContractPredictor> logger, TimeProvider time) {
-    private const int SnapHorizon = 12;
-    private const int NextHorizonSlots = 12;
-    private const double MinGridConformance = 0.9;
-
     public async Task<ContractPredictionResponse> GetSlotsAsync(int horizonSlots, CancellationToken ct = default) {
         var entry = await TunedAsync(ct);
         var now = time.GetUtcNow();
         WarnLowConformance(entry.Tuned.Model);
-        return new ContractPredictionResponse(UnixSeconds.FromTime(now), entry.Tuned.Model.Slots(now, horizonSlots));
+        double nowSeconds = UnixSeconds.FromTime(now);
+        var slots = entry.Slots.Where(s => s.SlotTime >= nowSeconds).Take(horizonSlots).ToList();
+        return new ContractPredictionResponse(nowSeconds, slots);
     }
 
     public async Task<ContractNextEstimate?> GetContractAsync(string contractId, CancellationToken ct = default) {
@@ -51,45 +50,37 @@ public sealed class ContractPredictor(
     public async Task<WatchResponse> GetColleggtibleWatchAsync(CancellationToken ct = default) {
         var entry = await TunedAsync(ct);
         double now = UnixSeconds.FromTime(time.GetUtcNow());
-        return new WatchResponse(now, ColleggtibleWatch(entry.Samples, entry.Colleggtibles.Model, now));
+        if (entry.Colleggtibles is not { } colleggtibles)
+            throw new PredictionsNotReadyException(PredictionDomainKey.Colleggtibles, trainer.Status(PredictionDomainKey.Colleggtibles));
+        return new WatchResponse(now, ColleggtibleWatch(entry.Samples, colleggtibles.Model, now));
     }
 
     public async Task<NextContractsResponse> GetNextAsync(CancellationToken ct = default) {
         var entry = await TunedAsync(ct);
-        var model = entry.Tuned.Model;
-        var colleggtibles = entry.Colleggtibles.Model;
-        var domain = new ContractDomain();
         double now = UnixSeconds.FromTime(time.GetUtcNow());
 
         NextPick? Pick(ContractSlotKind kind) {
-            foreach (var (slotTime, gridSlot) in model.Grid.Next(UnixSeconds.ToTime(now), NextHorizonSlots)) {
-                if (gridSlot.Kind != kind) continue;
-                var top = domain.Odds(model, new PredictionSlot(slotTime, kind.ToString()))
-                    .OrderByDescending(c => c.Probability).FirstOrDefault();
-                if (top is null) return null;
-                var candidate = model.Pools[kind].Candidates.FirstOrDefault(c => c.ContractId == top.Key);
-                var rows = entry.Samples.Where(s => s.ContractId == top.Key).ToList();
-                var latest = rows.Count > 0 ? rows.MaxBy(s => s.Start) : default;
-                string? customEggId = rows.Count > 0 ? latest.CustomEggId : null;
-                string? iconUrl = rows.Count > 0 ? EggIcons.Url(latest.Egg, latest.CustomEggId) : null;
-                return new NextPick(top.Key, candidate?.Name ?? top.Key, slotTime, top.Probability, customEggId, iconUrl);
-            }
-
-            return null;
+            var slot = entry.Slots.Where(s => s.SlotTime >= now && s.Kind == kind).OrderBy(s => s.SlotTime).FirstOrDefault();
+            var top = slot?.Candidates.OrderByDescending(c => c.Probability).FirstOrDefault();
+            if (slot is null || top is null) return null;
+            var rows = entry.Samples.Where(s => s.ContractId == top.ContractId).ToList();
+            var latest = rows.Count > 0 ? rows.MaxBy(s => s.Start) : default;
+            string? customEggId = rows.Count > 0 ? latest.CustomEggId : null;
+            string? iconUrl = rows.Count > 0 ? EggIcons.Url(latest.Egg, latest.CustomEggId) : null;
+            return new NextPick(top.ContractId, top.Name, slot.SlotTime, top.Probability, customEggId, iconUrl);
         }
 
         var colleggtiblePicks = new List<NextPick>();
-        foreach (var kind in ContractDomain.PredictedKinds) {
-            foreach (var (slotTime, gridSlot) in model.Grid.Next(UnixSeconds.ToTime(now), NextHorizonSlots)) {
-                if (gridSlot.Kind != kind) continue;
-                var top = colleggtibles.Odds(new PredictionSlot(slotTime, kind.ToString()))
+        if (entry.Colleggtibles is { } colleggtibles) {
+            foreach (var kind in ContractDomain.PredictedKinds) {
+                var slot = entry.Slots.Where(s => s.SlotTime >= now && s.Kind == kind).OrderBy(s => s.SlotTime).FirstOrDefault();
+                if (slot is null) continue;
+                var top = colleggtibles.Model.Odds(new PredictionSlot(slot.SlotTime, kind.ToString()))
                     .OrderByDescending(c => c.Probability).FirstOrDefault();
                 if (top is not null) {
                     colleggtiblePicks.Add(new NextPick(
-                        top.Key, EggIcons.Label(0, top.Key), slotTime, top.Probability, top.Key, EggIcons.Url(0, top.Key)));
+                        top.Key, EggIcons.Label(0, top.Key), slot.SlotTime, top.Probability, top.Key, EggIcons.Url(0, top.Key)));
                 }
-
-                break;
             }
         }
 
@@ -186,34 +177,27 @@ public sealed class ContractPredictor(
         var pools = ReleaseGrid.AllKinds.Select(k => model.Pools[k]).Select(p => new ContractPoolSummary(
             p.Kind, p.Candidates.Count, p.GapSeconds / 86400d, p.GapSamples, p.LengthSeconds / 86400d,
             p.Evidence.Summary)).ToList();
+        var colleggtibles = entry.Colleggtibles
+            ?? throw new PredictionsNotReadyException(PredictionDomainKey.Colleggtibles, trainer.Status(PredictionDomainKey.Colleggtibles));
         return new ContractModelResponse(
             model.TrainedAt, grid, pools,
             new TunedStrategySummary(
                 entry.Tuned.Strategy.Label, entry.Tuned.Scoreboard, entry.Tuned.Scoreboard[0].Result, entry.Tuned.RunnerUpDelta),
             new TunedStrategySummary(
-                entry.Colleggtibles.Strategy.Label, entry.Colleggtibles.Scoreboard, entry.Colleggtibles.Scoreboard[0].Result,
-                entry.Colleggtibles.RunnerUpDelta));
+                colleggtibles.Strategy.Label, colleggtibles.Scoreboard, colleggtibles.Scoreboard[0].Result, colleggtibles.RunnerUpDelta));
     }
 
-    public async Task<ContractCacheEntry> TunedAsync(CancellationToken ct = default) {
+    public Task<ContractCacheEntry> TunedAsync(CancellationToken ct = default) {
+        ct.ThrowIfCancellationRequested();
         long v = version.Version;
-        if (cache.TryGet(v, out var cached)) return cached;
-
-        var samples = await LoadSamplesAsync(ct);
-        double now = UnixSeconds.FromTime(time.GetUtcNow());
-        return await cache.GetOrAddAsync(v, () => Task.FromResult(Tune(samples, now))).WaitAsync(ct);
-    }
-
-    private static ContractCacheEntry Tune(IReadOnlyList<ContractReleaseSample> samples, double now) {
-        var tuned = StrategyTuner.Fit(new ContractDomain(), samples, now);
-        var colleggtibles = StrategyTuner.Fit(new ColleggtibleDomain(tuned.Strategy), samples, now);
-        return new ContractCacheEntry(samples, tuned, colleggtibles);
+        if (cache.TryGet(v, out var cached)) return Task.FromResult(cached);
+        throw new PredictionsNotReadyException(PredictionDomainKey.Contracts, trainer.Status(PredictionDomainKey.Contracts));
     }
 
     public async Task<IReadOnlyList<ContractReleaseSample>> SamplesAsync(CancellationToken ct = default) =>
         (await TunedAsync(ct)).Samples;
 
-    private async Task<IReadOnlyList<ContractReleaseSample>> LoadSamplesAsync(CancellationToken ct) {
+    public async Task<IReadOnlyList<ContractReleaseSample>> LoadSamplesAsync(CancellationToken ct) {
         var rows = await db.ContractReleases.AsNoTracking()
             .Select(r => new {
                 r.ContractId,
@@ -243,6 +227,9 @@ public sealed class ContractPredictor(
                 slot.Kind, slot.Evidence.Fill, slot.Evidence.Expected, MinGridConformance);
         }
     }
+
+    private const double MinGridConformance = 0.9;
+    private const int SnapHorizon = 12;
 
     internal static double SnapToSlot(double estimate, ContractSlotKind pool, ReleaseGrid grid) {
         if (!UnixSeconds.IsValid(estimate)) return estimate;

@@ -1,11 +1,13 @@
 using EggIncognito.Data.Services;
 using EggIncognito.Models.Contracts;
+using EggIncognito.Services.Admin;
 using EggIncognito.Services.Events;
 using EggIncognito.Services.Predictions;
 using EggIncognito.Services.Predictions.Contracts;
+using EggIncognito.Services.Predictions.Training;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
-using Npgsql;
 
 namespace EggIncognito.Tests.Predictions;
 
@@ -45,11 +47,23 @@ public class ContractPredictorTests {
         var version = new ContractDataVersion();
         var cache = new ContractPredictionCache();
         double trainedAt = asOf ?? AsOf;
-        cache.Set(version.Version, new ContractCacheEntry(
-            samples, SimpleContractTuned(samples, trainedAt), SimpleColleggtibleTuned(samples, trainedAt)));
+        var tuned = SimpleContractTuned(samples, trainedAt);
+        var slots = tuned.Model.Slots(UnixSeconds.ToTime(trainedAt), 26 * ReleaseGrid.AllKinds.Length);
+        cache.Set(version.Version, new ContractCacheEntry(samples, tuned, SimpleColleggtibleTuned(samples, trainedAt), slots));
         var predictor = new ContractPredictor(
-            UnreachableDb(), version, cache, NullLogger<ContractPredictor>.Instance, TimeProvider.System);
+            UnreachableDb(), version, cache, FakeTrainer(new EventDataVersion(), version), NullLogger<ContractPredictor>.Instance,
+            TimeProvider.System);
         return (predictor, version);
+    }
+
+    private static PredictionTrainer FakeTrainer(EventDataVersion eventVersion, ContractDataVersion contractVersion) =>
+        new(
+            NoScopeFactory.Instance, eventVersion, contractVersion, new EventPredictionCache(), new ContractPredictionCache(),
+            new AdminNotifier(), TimeProvider.System, NullLogger<PredictionTrainer>.Instance);
+
+    private sealed class NoScopeFactory : IServiceScopeFactory {
+        public static readonly NoScopeFactory Instance = new();
+        public IServiceScope CreateScope() => throw new NotSupportedException();
     }
 
     private static double AsOf => UnixSeconds.FromTime(ContractTemplate.AsOf);
@@ -220,14 +234,26 @@ public class ContractPredictorTests {
     }
 
     [Fact]
-    public async Task GetSlotsAsync_AfterVersionBump_RecomputesAndReachesDatabase() {
+    public async Task GetSlotsAsync_AfterVersionBump_ThrowsPredictionsNotReady() {
         var (predictor, version) = Primed(ContractTemplate.Build(26));
         version.Bump();
 
         var thrown = await Record.ExceptionAsync(() => predictor.GetSlotsAsync(3));
 
-        Assert.NotNull(thrown);
-        Assert.True(thrown is NpgsqlException or InvalidOperationException, thrown.ToString());
+        Assert.IsType<PredictionsNotReadyException>(thrown);
+    }
+
+    [Fact]
+    public async Task GetSlotsAsync_NoCachedEntry_ThrowsPredictionsNotReady() {
+        var version = new ContractDataVersion();
+        var cache = new ContractPredictionCache();
+        var predictor = new ContractPredictor(
+            UnreachableDb(), version, cache, FakeTrainer(new EventDataVersion(), version), NullLogger<ContractPredictor>.Instance,
+            TimeProvider.System);
+
+        var thrown = await Record.ExceptionAsync(() => predictor.GetSlotsAsync(3));
+
+        Assert.IsType<PredictionsNotReadyException>(thrown);
     }
 
     [Fact]

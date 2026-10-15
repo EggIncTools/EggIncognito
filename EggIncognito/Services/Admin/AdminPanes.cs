@@ -15,6 +15,7 @@ public static class AdminPanes {
     public const string Sessions = "sessions";
     public const string Console = "console";
     public const string Maintenance = "maintenance";
+    public const string Predictions = "predictions";
 
     public static readonly IReadOnlyList<AdminPane> All = [
         new(Traffic, "Overview", "Traffic", "Live request volume and recent calls"),
@@ -28,6 +29,7 @@ public static class AdminPanes {
         new(Contracts, "Data", "Contracts", "Co-op contract catalog"),
         new(Sessions, "Ops", "Sessions", "Active user sessions"),
         new(Console, "Ops", "Console", "Raw endpoint console"),
-        new(Maintenance, "Ops", "Maintenance", "Maintenance tools and jobs")
+        new(Maintenance, "Ops", "Maintenance", "Maintenance tools and jobs"),
+        new(Predictions, "Ops", "Predictions", "Background training runs")
     ];
 }

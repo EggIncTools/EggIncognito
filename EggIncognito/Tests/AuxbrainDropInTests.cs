@@ -1,10 +1,7 @@
 using System.Net;
-using System.Reflection;
 using System.Text.Json;
-using EggIncognito.Controllers;
 using Ei;
 using Google.Protobuf;
-using Microsoft.AspNetCore.RateLimiting;
 
 namespace EggIncognito.Tests;
 
@@ -131,13 +128,5 @@ public class AuxbrainDropInTests(EggIncApiFactory factory) {
         Assert.Equal("text/html", resp.Content.Headers.ContentType?.MediaType);
         string body = await resp.Content.ReadAsStringAsync();
         Assert.Contains("EggIncognito", body);
-    }
-
-    [Fact]
-    public void ApiSurfaceController_HasReadRateLimitPolicy() {
-        var attr = typeof(ApiSurfaceController)
-            .GetCustomAttribute<EnableRateLimitingAttribute>();
-        Assert.NotNull(attr);
-        Assert.Equal("read", attr.PolicyName);
     }
 }

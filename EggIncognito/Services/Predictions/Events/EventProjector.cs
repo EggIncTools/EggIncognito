@@ -4,7 +4,7 @@ namespace EggIncognito.Services.Predictions.Events;
 
 public static class EventProjector {
     public const int MinHorizonDays = 1;
-    public const int MaxHorizonDays = 90;
+    public const int MaxHorizonDays = 183;
     public const int Paths = 1000;
     private const int Seed = 20261011;
 

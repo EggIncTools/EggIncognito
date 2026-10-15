@@ -1,0 +1,15 @@
+.progress-meter {
+    position: relative;
+    width: 100%;
+    min-width: 5rem;
+    height: 0.5rem;
+    border-radius: 0.25rem;
+    overflow: hidden;
+    background-color: var(--color-panel2);
+    border: 1px solid var(--color-border);
+}
+
+.progress-meter-fill {
+    height: 100%;
+    background-color: var(--color-accent);
+}

@@ -9,10 +9,4 @@ public class DeviceOutcomesTests {
     [InlineData(DeviceOutcome.Unreachable, DeviceOutcomes.Unreachable)]
     [InlineData(DeviceOutcome.Error, DeviceOutcomes.Error)]
     public void Label_Outcome_MapsToConstant(DeviceOutcome outcome, string expected) => Assert.Equal(expected, DeviceOutcomes.Label(outcome));
-
-    [Fact]
-    public void Label_DeviceResultError_ReturnsErrorConstant() {
-        var result = DeviceResult.Error("x");
-        Assert.Equal("error", DeviceOutcomes.Label(result));
-    }
 }

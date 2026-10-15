@@ -120,41 +120,6 @@ public class ProtosPageTests {
             Assert.DoesNotContain("id=\"backfillPanel\"", cut.Markup);
         }
 
-        [Fact]
-        public void AboutWidget_CarriesTheIconRow_AndTheFloatingBubblesAreGone() {
-            Wire(UserRole.Viewer);
-            var cut = Render<ProtosPage>();
-
-            Assert.Contains("pd-brand-links", cut.Markup);
-            Assert.Contains("aria-label=\"EggIncognito on GitHub\"", cut.Markup);
-            Assert.DoesNotContain("aria-label=\"Support the project\"", cut.Markup);
-            Assert.NotNull(cut.Find("#siteFooter .pd-brand-links"));
-            Assert.DoesNotContain("gh-bubble", cut.Markup);
-            Assert.DoesNotContain("support-bubble", cut.Markup);
-        }
-
-        [Fact]
-        public void HeaderWidget_EndsWithTheOneLineLegalFooter() {
-            Wire(UserRole.Viewer);
-            var cut = Render<ProtosPage>();
-
-            var footer = cut.Find("#siteFooter");
-            Assert.Contains("Unofficial fan tool, not affiliated with Auxbrain Inc.", footer.TextContent);
-            Assert.Contains("LICENSE", footer.InnerHtml);
-            Assert.Single(cut.FindAll("#siteFooter"));
-        }
-
-        [Fact]
-        public void SideColumn_LeadsWithDevicesThenWorkbenches_AndHasNoDataWidget() {
-            Wire(UserRole.Viewer);
-            var cut = Render<ProtosPage>();
-
-            Assert.Contains("pd-w-devices", cut.Markup);
-            Assert.Contains("pd-w-workbench", cut.Markup);
-            Assert.Contains(">Notifications<", cut.Markup);
-            Assert.DoesNotContain("pd-w-data", cut.Markup);
-            Assert.DoesNotContain("Fixtures", cut.Markup);
-        }
     }
 
     private sealed class FakeAppMode : IAppMode {

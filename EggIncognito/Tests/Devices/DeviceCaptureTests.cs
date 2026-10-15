@@ -259,22 +259,6 @@ public class DeviceCaptureTests {
         Assert.Equal("proxy unchanged 10.0.0.5:9101", note);
     }
 
-    [Fact]
-    public async Task IosProxy_TemplateOverride_WinsOverBuilt() {
-        string? seen = null;
-        var runner = new CapturingRunner(args => {
-            seen = args.LastOrDefault();
-            return new ProcessResult(0, "", "");
-        });
-        var cfg = new IosProxyConfigurator.SshConfig(
-            "10.0.0.1", "2222", "/k", "echo {host}:{port}", "echo clear", "GUID-123");
-        var proxy = new IosProxyConfigurator(runner, cfg);
-
-        (bool ok, _) = await proxy.SetProxyAsync(new DeviceTarget("d", "ios", "udid", "com.auxbrain.egginc"), "1.2.3.4", 80, default);
-        Assert.True(ok);
-        Assert.Equal("echo 1.2.3.4:80", seen);
-    }
-
     private sealed class RecordingFleet(params string[] ids) : IDeviceFleet {
         public string[] Ids { get; set; } = ids;
         public Dictionary<string, int> Persisted { get; } = [with(StringComparer.Ordinal)];

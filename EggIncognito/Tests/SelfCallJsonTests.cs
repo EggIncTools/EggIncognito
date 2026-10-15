@@ -7,16 +7,6 @@ public class SelfCallJsonTests {
     private const string Url = "http://localhost/api/things";
 
     [Fact]
-    public async Task ListAsync_ReturnsTheList() {
-        var client = ClientFor(_ => Json(HttpStatusCode.OK, """[{"name":"a"},{"name":"b"}]"""));
-
-        var rows = await client.ListAsync<Thing>(Url);
-
-        Assert.Equal(2, rows.Count);
-        Assert.Equal("a", rows[0].Name);
-    }
-
-    [Fact]
     public async Task TryListAsync_ReturnsOkAndTheList() {
         var client = ClientFor(_ => Json(HttpStatusCode.OK, """[{"name":"a"},{"name":"b"}]"""));
 

@@ -114,7 +114,7 @@
             $"/api/v1/contracts?after={UnixSeconds.FromTime(start):0}&before={UnixSeconds.FromTime(end):0}&limit={MiniFetchLimit}");
         try {
             var res = await Client().GetAsync(url);
-            if ((int)res.StatusCode == 503) return CalendarItemsLoad.Failed<ContractCalendarItem>("Contract history needs a database. This instance has none.");
+            if ((int)res.StatusCode == 503) return CalendarItemsLoad.Failed<ContractCalendarItem>(await ApiErrors.ReadAsync(res));
             if (!res.IsSuccessStatusCode) return CalendarItemsLoad.Failed<ContractCalendarItem>("Contracts could not be loaded.");
             var body = await res.Content.ReadFromJsonAsync<ContractReleaseListResponse>(JsonPresets.Web);
             return CalendarItemsLoad.Ok<ContractCalendarItem>([.. (body?.Releases ?? []).Select(ContractCalendarItem.Of)]);

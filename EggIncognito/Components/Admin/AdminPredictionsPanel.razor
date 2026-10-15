@@ -1,0 +1,125 @@
+@rendermode @(RenderModes.InteractiveServer)
+@using EggIncognito.Services.Events
+@using EggIncognito.Services.Predictions.Training
+@inherits AdminPaneBase
+
+<AdminPaneHead Title="Predictions" Facts="@Stats"/>
+<PaneNotice @ref="_notice"/>
+<SubSectionHead>Training</SubSectionHead>
+<TableScroll>
+    <table class="data-table">
+        <thead>
+        <tr>
+            <th>Domain</th>
+            <th>State</th>
+            <th>Progress</th>
+            <th>Started</th>
+            <th>Elapsed</th>
+            <th>Version</th>
+            <th>Strategy</th>
+            <th>Runner-up delta</th>
+            <th>Error</th>
+            <th></th>
+        </tr>
+        </thead>
+        <tbody>
+        @foreach (var s in _statuses) {
+            <tr>
+                <td>@s.Domain</td>
+                <td class="@StateClass(s.State)">@s.State</td>
+                <td>
+                    <div class="progress-meter">
+                        <div class="progress-meter-fill" style="@MeterStyle(s)"></div>
+                    </div>
+                </td>
+                <td class="mono">@(s.StartedAt is { } st ? FormatTime(st) : "-")</td>
+                <td class="mono">@Elapsed(s)</td>
+                <td class="mono">@s.Version</td>
+                <td class="mono">@(s.Strategy ?? "-")</td>
+                <td class="mono">@(s.RunnerUpDelta is { } d ? d.ToString("0.000") : "-")</td>
+                <td class="muted">@(s.Error ?? "-")</td>
+                <td>
+                    <FlexRow Gap="true">
+                        <button type="button" class="btn-mini" disabled="@IsBusy(s.Domain)" @onclick="@(() => Retrain(s.Domain))">Retrain</button>
+                        <button type="button" class="btn-mini" disabled="@(IsBusy(s.Domain) || !CanCancel(s))" @onclick="@(() => Cancel(s.Domain))">Cancel</button>
+                    </FlexRow>
+                </td>
+            </tr>
+        }
+        </tbody>
+    </table>
+</TableScroll>
+
+@code {
+    PaneNotice? _notice;
+    TrainingStatus[] _statuses = [];
+    readonly HashSet<PredictionDomainKey> _busy = [];
+
+    IEnumerable<string> Stats => _statuses.Length == 0
+        ? []
+        : [$"{_statuses.Count(s => s.State == TrainingState.Running)} running", $"{_statuses.Count(s => s.State == TrainingState.Failed)} failed"];
+
+    protected override IReadOnlyList<string> Topics => [AdminTopics.Predictions];
+
+    protected override async Task LoadAsync() {
+        if (Api is null) return;
+        var res = await Api.GetAsync("/api/v1/predictions/training");
+        if (!res.Ok) {
+            _notice?.Fail($"load failed: {res.Describe()}");
+            return;
+        }
+
+        _statuses = res.Json<TrainingStatus[]>() ?? [];
+    }
+
+    bool IsBusy(PredictionDomainKey domain) => _busy.Contains(domain);
+
+    static bool CanCancel(TrainingStatus s) => s.State is TrainingState.Queued or TrainingState.Running;
+
+    static string StateClass(TrainingState state) {
+        return state switch {
+            TrainingState.Running => "text-accent",
+            TrainingState.Done => "text-ok",
+            TrainingState.Failed => "text-err",
+            _ => "muted"
+        };
+    }
+
+    static string MeterStyle(TrainingStatus s) {
+        var pct = Math.Clamp(s.Percent, 0, 100);
+        return FormattableString.Invariant($"width: {pct:0}%;");
+    }
+
+    static string Elapsed(TrainingStatus s) {
+        if (s.StartedAt is not { } started) return "-";
+        var end = s.FinishedAt ?? DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        var seconds = Math.Max(0, end - started);
+        return FormattableString.Invariant($"{seconds:0}s");
+    }
+
+    string FormatTime(double startTimestamp) {
+        return ViewerClock.At(Services, UnixSeconds.ToTime(startTimestamp)).ToString("yyyy-MM-dd HH:mm");
+    }
+
+    async Task Retrain(PredictionDomainKey domain) {
+        if (Api is null) return;
+        _busy.Add(domain);
+        _notice?.Clear();
+        var res = await Api.PostAsync($"/api/v1/predictions/training/{domain}/run?force=true", TimeSpan.FromMinutes(10));
+        _notice?.Result(res.Ok, res.Ok ? "queued" : $"retrain failed: {res.Describe()}");
+        _busy.Remove(domain);
+        await LoadAsync();
+        if (res.Ok) Notifier.Publish(AdminTopics.Predictions);
+    }
+
+    async Task Cancel(PredictionDomainKey domain) {
+        if (Api is null) return;
+        _busy.Add(domain);
+        _notice?.Clear();
+        var res = await Api.PostAsync($"/api/v1/predictions/training/{domain}/cancel", TimeSpan.FromMinutes(10));
+        _notice?.Result(res.Ok, res.Ok ? "cancelled" : $"cancel failed: {res.Describe()}");
+        _busy.Remove(domain);
+        await LoadAsync();
+        if (res.Ok) Notifier.Publish(AdminTopics.Predictions);
+    }
+}

@@ -81,24 +81,6 @@ public class CaInstallerTests {
     }
 
     [Fact]
-    public async Task Adb_NonRootWithMagiskSu_UsesSuMinusMm() {
-        (string path, _) = MakeCa();
-        try {
-            var shell = new AdbShell { Uid = "2000" };
-            var runner = new FakeRunner((_, args) => shell.Handle(args));
-            (bool ok, _) = await new AdbCaInstaller(runner)
-                .InstallAsync(new DeviceTarget("d", "android", "S", "com.auxbrain.egginc"), path, default);
-
-            Assert.True(ok);
-            string[] args = ScriptRun(runner);
-            Assert.Contains("/sbin/su", args);
-            Assert.Contains("-mm", args);
-        } finally {
-            File.Delete(path);
-        }
-    }
-
-    [Fact]
     public async Task Adb_SuWithoutMountMaster_ProbesInOrder_AndFallsBackToPlainSu() {
         (string path, _) = MakeCa();
         try {

@@ -1,8 +1,12 @@
 using EggIncognito.Data.Services;
 using EggIncognito.Models.Events;
+using EggIncognito.Services.Admin;
 using EggIncognito.Services.Predictions;
 using EggIncognito.Services.Predictions.Events;
+using EggIncognito.Services.Predictions.Training;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace EggIncognito.Tests.Predictions;
 
@@ -205,7 +209,7 @@ public class EventPredictorTests {
     }
 
     [Fact]
-    public void Predict_HorizonOutOfRange_ClampsToOneAndNinetyDays() {
+    public void Predict_HorizonOutOfRange_ClampsToOneAndMaxHorizonDays() {
         var rows = TemplateRows();
         double asOf = EventTemplate.AsOf;
 
@@ -214,8 +218,8 @@ public class EventPredictorTests {
 
         Assert.NotEmpty(low);
         Assert.All(low, p => Assert.InRange(p.PredictedStart, asOf, asOf + Day));
-        Assert.Equal(EventPredictor.Predict(rows, asOf, 90, Strategy).Count, high.Count);
-        Assert.All(high, p => Assert.InRange(p.PredictedStart, asOf, asOf + 90 * Day));
+        Assert.Equal(EventPredictor.Predict(rows, asOf, EventProjector.MaxHorizonDays, Strategy).Count, high.Count);
+        Assert.All(high, p => Assert.InRange(p.PredictedStart, asOf, asOf + EventProjector.MaxHorizonDays * Day));
     }
 
     [Fact]
@@ -250,14 +254,39 @@ public class EventPredictorTests {
         var cache = new EventPredictionCache();
         var rows = TemplateRows();
         var tuned = StrategyTuner.Fit(new EventDomain(), rows, EventTemplate.AsOf);
-        cache.Set(version.Version, new EventCacheEntry(rows, tuned));
-        var predictor = new EventPredictor(db, version, cache, TimeProvider.System);
+        var projection = EventPredictor.Predict(rows, EventTemplate.AsOf, EventProjector.MaxHorizonDays, tuned.Strategy);
+        cache.Set(version.Version, new EventCacheEntry(rows, tuned, projection));
+        var predictor = new EventPredictor(db, version, cache, FakeTrainer(version, new ContractDataVersion()), TimeProvider.System);
 
         var result = await predictor.GetAsync(28, EventTemplate.AsOf);
 
         Assert.Equal(EventTemplate.AsOf, result.GeneratedAt);
         Assert.NotEmpty(result.Predictions);
         Assert.All(result.Predictions, p => Assert.True(p.PredictedStart >= result.GeneratedAt));
+    }
+
+    [Fact]
+    public async Task GetAsync_NoCachedEntry_ThrowsPredictionsNotReady() {
+        var opts = new DbContextOptionsBuilder<EggIncognitoDbContext>()
+            .UseNpgsql("Host=127.0.0.1;Port=1;Database=x;Username=x;Password=x;Timeout=1").Options;
+        var db = new EggIncognitoDbContext(opts);
+        var version = new EventDataVersion();
+        var cache = new EventPredictionCache();
+        var predictor = new EventPredictor(db, version, cache, FakeTrainer(version, new ContractDataVersion()), TimeProvider.System);
+
+        var thrown = await Record.ExceptionAsync(() => predictor.GetAsync(28, EventTemplate.AsOf));
+
+        Assert.IsType<PredictionsNotReadyException>(thrown);
+    }
+
+    private static PredictionTrainer FakeTrainer(EventDataVersion eventVersion, ContractDataVersion contractVersion) =>
+        new(
+            NoScopeFactory.Instance, eventVersion, contractVersion, new EventPredictionCache(), new ContractPredictionCache(),
+            new AdminNotifier(), TimeProvider.System, NullLogger<PredictionTrainer>.Instance);
+
+    private sealed class NoScopeFactory : IServiceScopeFactory {
+        public static readonly NoScopeFactory Instance = new();
+        public IServiceScope CreateScope() => throw new NotSupportedException();
     }
 
     [Fact]

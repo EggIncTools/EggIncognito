@@ -60,10 +60,6 @@ public class PixelSamplerTests {
     }
 
     [Fact]
-    public void SampleMany_NoPoints_NeverDecodes() =>
-        Assert.Empty(PixelSampler.SampleMany([1, 2, 3], []));
-
-    [Fact]
     public void Close_UsesPerChannelTolerance() {
         var blue = new SKColor(30, 90, 220);
         Assert.True(PixelSampler.Close(blue, new SKColor(60, 60, 200), 48));

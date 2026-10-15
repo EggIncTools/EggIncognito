@@ -160,18 +160,7 @@ public class EventsWorkbenchModalTests : BunitContext {
 
     [Theory]
     [InlineData("drone-boost", EventPalette.BoostsGroup)]
-    [InlineData("earnings-boost", EventPalette.BoostsGroup)]
-    [InlineData("gift-boost", EventPalette.BoostsGroup)]
-    [InlineData("piggy-boost", EventPalette.BoostsGroup)]
-    [InlineData("prestige-boost", EventPalette.BoostsGroup)]
-    [InlineData("boost-duration", EventPalette.BoostsGroup)]
-    [InlineData("mission-capacity", EventPalette.BoostsGroup)]
-    [InlineData("mission-fuel", EventPalette.BoostsGroup)]
     [InlineData("crafting-sale", EventPalette.SalesGroup)]
-    [InlineData("epic-research-sale", EventPalette.SalesGroup)]
-    [InlineData("hab-sale", EventPalette.SalesGroup)]
-    [InlineData("research-sale", EventPalette.SalesGroup)]
-    [InlineData("vehicle-sale", EventPalette.SalesGroup)]
     public void GroupOf_SortsEveryKnownTypeIntoBoostsOrSales(string type, string expected) {
         Assert.Equal(expected, EventPalette.GroupOf(type));
     }

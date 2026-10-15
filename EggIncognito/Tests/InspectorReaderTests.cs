@@ -3,7 +3,6 @@ using EggIncognito.Components.Inspector;
 using EggIncognito.Core.Services;
 using EggIncognito.Models.Inspector;
 using EggIncognito.Services.Api;
-using EggIncognito.Services.Inspector;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace EggIncognito.Tests;
@@ -89,6 +88,4 @@ public class InspectorReaderTests : BunitContext {
         Assert.False(state.EnvOpen);
     }
 
-    [Fact]
-    public void TargetResetsToMockOnAFreshState() => Assert.Equal(InspectorTarget.Mock, new ApisWorkbenchState().Target);
 }

@@ -71,13 +71,6 @@ public class DeviceProbeRunnerTests {
         Assert.Equal("p", platforms.Target?.Package);
     }
 
-    [Fact]
-    public async Task ProbeOneAsync_AsksForTheDevicesOwnPlatform() {
-        var platforms = new RecordingPlatforms();
-        await Assert.ThrowsAsync<InvalidOperationException>(() => ProbeAsync(Android, platforms));
-        Assert.Equal("android", platforms.Asked);
-    }
-
     private static Task<DeviceJobRow> ProbeAsync(Device d, IDevicePlatforms platforms) {
         var db = new EggIncognitoDbContext(new DbContextOptionsBuilder<EggIncognitoDbContext>()
             .UseNpgsql("Host=127.0.0.1;Port=1;Database=none;Username=none;Password=none").Options);

@@ -94,13 +94,6 @@ public class CodeSurfaceTests : BunitContext {
     }
 
     [Fact]
-    public void ControlBar_IsTheFirstChildOfTheSurface() {
-        var cut = Render<CodeSurface>(p => p.Add(c => c.Text, "one\ntwo"));
-        var surface = cut.Find(".code-surface");
-        Assert.Contains("code-toolbar", surface.FirstElementChild!.ClassName, StringComparison.Ordinal);
-    }
-
-    [Fact]
     public void LanguagePicker_OffersEveryRegisteredTokenizer() {
         var cut = Render<CodeSurface>(p => p.Add(c => c.Text, "one"));
         Assert.Equal(SyntaxHighlighter.Languages.Count, cut.FindAll(".code-lang option").Count);

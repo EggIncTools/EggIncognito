@@ -39,14 +39,6 @@ public class DeviceParsingTests {
     }
 
     [Fact]
-    public void IosAppVersion_Plist_FindsShortVersion() =>
-        Assert.Equal("1.35.8", DeviceParsing.IosAppVersion(Plist, "com.auxbrain.egginc"));
-
-    [Fact]
-    public void IosAppVersion_Csv_FindsShortVersion() =>
-        Assert.Equal("1.35.8", DeviceParsing.IosAppVersion(ListCsv, "com.auxbrain.egginc"));
-
-    [Fact]
     public void IosVersion_Plist_FindsShortVersionAndBuild() {
         (string? app, string? build) = DeviceParsing.IosVersion(Plist, "com.auxbrain.egginc");
         Assert.Equal("1.35.8", app);

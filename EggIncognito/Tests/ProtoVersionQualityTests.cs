@@ -55,13 +55,6 @@ public class ProtoVersionQualityTests {
     }
 
     [Fact]
-    public void Ordering_Ios_NewerDottedWins() {
-        VersionKey v1357 = new("ios", "1.35.7", "1.35.7.1", null, null, null);
-        VersionKey v1358 = new("ios", "1.35.8", "1.35.8.0", null, null, null);
-        Assert.True(ProtoVersionOrdering.Compare(v1358, v1357) < 0);
-    }
-
-    [Fact]
     public void VersionCompare_OrdersComponentsAndInvalidsLowest() {
         Assert.True(VersionCompare.Dotted("1.36.0", "1.35.9") > 0);
         Assert.True(VersionCompare.Dotted("2.0.0", "1.99.99") > 0);

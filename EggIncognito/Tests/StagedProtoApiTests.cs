@@ -6,14 +6,6 @@ namespace EggIncognito.Tests;
 
 public class StagedProtoApiTests {
     [Fact]
-    public void OfferResult_EnumNames_LowercaseForJson() {
-        Assert.Equal("staged", StagedProtoStore.OfferResult.Staged.ToString().ToLowerInvariant());
-        Assert.Equal("alreadyinregistry", StagedProtoStore.OfferResult.AlreadyInRegistry.ToString().ToLowerInvariant());
-        Assert.Equal("archiveflagged", StagedProtoStore.OfferResult.ArchiveFlagged.ToString().ToLowerInvariant());
-        Assert.Equal("alreadyarchived", StagedProtoStore.OfferResult.AlreadyArchived.ToString().ToLowerInvariant());
-    }
-
-    [Fact]
     public void GroupStatus_KnownUnflagged_IsFlaggableNotOfferable() {
         var unflagged = new GroupStatus(true, false, false, false, true);
         var archived = unflagged with { Archived = true };

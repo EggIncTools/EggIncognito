@@ -1,3 +1,4 @@
+using EggIncognito.Controllers;
 using EggIncognito.Core.Services;
 using EggIncognito.Data.Services;
 using EggIncognito.Services;
@@ -12,9 +13,11 @@ using EggIncognito.Services.Events;
 using EggIncognito.Services.Feed;
 using EggIncognito.Services.Inspector;
 using EggIncognito.Services.Predictions;
+using EggIncognito.Services.Predictions.Training;
 using EggIncognito.Services.Routes;
 using EggIdentity.Reports;
 using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
 namespace EggIncognito.Startup;
@@ -163,6 +166,9 @@ public static class DataServices {
         builder.Services.AddScoped<ContractBackfill>();
         builder.Services.AddSingleton<EventDataVersion>();
         builder.Services.AddSingleton<ContractDataVersion>();
+        builder.Services.AddSingleton<PredictionTrainer>();
+        builder.Services.AddHostedService(sp => sp.GetRequiredService<PredictionTrainer>());
+        builder.Services.Configure<MvcOptions>(o => o.Filters.Add<PredictionsReadyFilter>());
         builder.Services.AddScoped<IProtoUpsertObserver, ProtoUpsertNotifier>();
         if (EggSharpAppConfig.FromEnvironment() is { } eggSharpApp) {
             builder.Services.AddSingleton(eggSharpApp);

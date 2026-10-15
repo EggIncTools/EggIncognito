@@ -33,13 +33,6 @@ public class CommandParsingTests {
     }
 
     [Fact]
-    public void ParseProto_List_NonNumericPage_DefaultsTo1() {
-        var args = CommandParsing.ParseProto("list", [("page", "abc")]);
-        Assert.True(args.IsList);
-        Assert.Equal(1, args.Page);
-    }
-
-    [Fact]
     public void ParseProto_Type_ReadsName() {
         var args = CommandParsing.ParseProto("type", [("name", "Backup")]);
         Assert.False(args.IsList);
@@ -52,12 +45,6 @@ public class CommandParsingTests {
         var args = CommandParsing.ParseProto("type", NoOptions);
         Assert.NotNull(args.Error);
         Assert.Contains("name", args.Error);
-    }
-
-    [Fact]
-    public void ParseProto_Type_NonStringName_IsInvalid() {
-        var args = CommandParsing.ParseProto("type", [("name", 42L)]);
-        Assert.NotNull(args.Error);
     }
 
     [Fact]

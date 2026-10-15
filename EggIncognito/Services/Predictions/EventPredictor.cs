@@ -5,17 +5,20 @@ using EggIncognito.Models.Predictions;
 using EggIncognito.Services.Assets;
 using EggIncognito.Services.Events;
 using EggIncognito.Services.Predictions.Events;
+using EggIncognito.Services.Predictions.Training;
 using Microsoft.EntityFrameworkCore;
 
 namespace EggIncognito.Services.Predictions;
 
-public sealed class EventPredictor(EggIncognitoDbContext db, EventDataVersion version, EventPredictionCache cache,
+public sealed class EventPredictor(
+    EggIncognitoDbContext db, EventDataVersion version, EventPredictionCache cache, PredictionTrainer trainer,
     TimeProvider time) {
     public async Task<EventPredictionSet> GetAsync(
         int horizonDays = 28, double? asOf = null, CancellationToken ct = default) {
         var entry = await TunedAsync(ct);
         double at = asOf ?? UnixSeconds.FromTime(time.GetUtcNow());
-        return new EventPredictionSet(at, Predict(entry.Rows, at, horizonDays, entry.Tuned.Strategy));
+        double end = at + Math.Clamp(horizonDays, 1, EventProjector.MaxHorizonDays) * EventHistory.Day;
+        return new EventPredictionSet(at, Slice(entry.Projection, at, end));
     }
 
     public async Task<EventModelResponse> GetModelAsync(CancellationToken ct = default) {
@@ -33,10 +36,14 @@ public sealed class EventPredictor(EggIncognitoDbContext db, EventDataVersion ve
     public async Task<WatchResponse> GetWatchAsync(int horizonDays = 28, CancellationToken ct = default) {
         var entry = await TunedAsync(ct);
         double at = UnixSeconds.FromTime(time.GetUtcNow());
-        return new WatchResponse(at, Watch(entry.Rows, Predict(entry.Rows, at, horizonDays, entry.Tuned.Strategy), at));
+        double end = at + Math.Clamp(horizonDays, 1, EventProjector.MaxHorizonDays) * EventHistory.Day;
+        return new WatchResponse(at, Watch(entry.Rows, Slice(entry.Projection, at, end), at));
     }
 
     public const int MagnitudeWindowDays = 365;
+
+    private static IReadOnlyList<EventPrediction> Slice(IReadOnlyList<EventPrediction> projection, double from, double to) =>
+        [.. projection.Where(p => p.PredictedStart >= from && p.PredictedStart < to)];
 
     public static IReadOnlyList<WatchEntry> Watch(
         IReadOnlyList<EventRow> rows, IReadOnlyList<EventPrediction> predictions, double asOf) {
@@ -94,17 +101,14 @@ public sealed class EventPredictor(EggIncognitoDbContext db, EventDataVersion ve
         return entry.Rows;
     }
 
-    public async Task<EventCacheEntry> TunedAsync(CancellationToken ct = default) {
+    public Task<EventCacheEntry> TunedAsync(CancellationToken ct = default) {
+        ct.ThrowIfCancellationRequested();
         long v = version.Version;
-        if (cache.TryGet(v, out var cached)) return cached;
-
-        var rows = await LoadRowsAsync(ct);
-        double asOf = UnixSeconds.FromTime(time.GetUtcNow());
-        return await cache.GetOrAddAsync(v, () => Task.FromResult(new EventCacheEntry(rows, StrategyTuner.Fit(new EventDomain(), rows, asOf))))
-            .WaitAsync(ct);
+        if (cache.TryGet(v, out var cached)) return Task.FromResult(cached);
+        throw new PredictionsNotReadyException(PredictionDomainKey.Events, trainer.Status(PredictionDomainKey.Events));
     }
 
-    private async Task<IReadOnlyList<EventRow>> LoadRowsAsync(CancellationToken ct) {
+    public async Task<IReadOnlyList<EventRow>> LoadRowsAsync(CancellationToken ct) {
         var rows = await db.GameEvents.AsNoTracking()
             .OrderBy(e => e.StartTime)
             .Select(e => new { e.EventType, e.Ultra, e.StartTime, e.EndTime, e.Multiplier })

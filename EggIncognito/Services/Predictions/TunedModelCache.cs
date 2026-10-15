@@ -24,12 +24,11 @@ public abstract class TunedModelCache<T> {
         }
     }
 
-    public Task<T> GetOrAddAsync(long version, Func<Task<T>> build) {
+    public bool Update(long version, Func<T, T> mutate) {
         lock (_gate) {
-            if (_version == version && _value is { IsFaulted: false, IsCanceled: false } pending) return pending;
-            _version = version;
-            _value = Task.Run(build);
-            return _value;
+            if (_version != version || _value is not { IsCompletedSuccessfully: true } done) return false;
+            _value = Task.FromResult(mutate(done.Result));
+            return true;
         }
     }
 }

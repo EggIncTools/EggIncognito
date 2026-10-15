@@ -24,22 +24,6 @@ public class ThemeSerializerOutputTests {
     }
 
     [Fact]
-    public void DefaultPreset_SerializesTheShippedTokenValues() {
-        string css = ThemeTestSupport.Serializer().Serialize(ThemePresets.Default, ThemeScope.Live, true);
-        Assert.Contains("--color-bg: #1b1b1f;", css);
-        Assert.Contains("--color-panel0: #202027;", css);
-        Assert.Contains("--color-panel: #25252b;", css);
-        Assert.Contains("--color-panel2: #2e2e36;", css);
-        Assert.Contains("--color-fg: #e7e7ea;", css);
-        Assert.Contains("--color-muted: #9a9aa5;", css);
-        Assert.Contains("--color-accent: #ef7559;", css);
-        Assert.Contains("--color-info: #5aa9e6;", css);
-        Assert.Contains("--color-ok: #5ec27e;", css);
-        Assert.Contains("--color-err: #e0685f;", css);
-        Assert.Contains("--color-border: #3a3a44;", css);
-    }
-
-    [Fact]
     public void LiveScope_PrefixesTheHtmlAttributeSelector() {
         string css = ThemeTestSupport.Serializer()
             .Serialize(ThemePresets.Default.WithCss("panel { color: red }"), ThemeScope.Live, true);

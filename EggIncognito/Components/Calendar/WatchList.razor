@@ -98,7 +98,7 @@
         try {
             var res = await Client().GetAsync(Source);
             if ((int)res.StatusCode == 503) {
-                _note = "Predictions need a database. This instance has none.";
+                _note = await ApiErrors.ReadAsync(res);
                 return;
             }
 

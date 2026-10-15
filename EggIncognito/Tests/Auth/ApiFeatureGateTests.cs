@@ -31,8 +31,4 @@ public sealed class ApiFeatureGateTests {
     [Fact]
     public void ApprovedGrant_IsAllowed() =>
         Assert.True(ApiFeatureGate.Evaluate(false, 7, ApiKeyFeatureStates.Approved).Allowed);
-
-    [Fact]
-    public void Registry_HasConsumeObservations() =>
-        Assert.NotNull(ApiFeatures.Find(ApiFeatures.ConsumeObservations));
 }

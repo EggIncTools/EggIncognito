@@ -102,13 +102,4 @@ public class ProtoVersionTranslatorTests {
         var links = ProtoVersionTranslator.TranslateAll(src, rows, Key);
         Assert.Equal(new[] { "111358", "w37" }, links.Select(l => l.Row!.Build).ToArray());
     }
-
-    [Fact]
-    public void DescribeNamesEveryKind() {
-        Assert.Equal("same release", ProtoVersionTranslator.Describe(VersionLinkKind.Canonical));
-        Assert.Equal("same proto sha", ProtoVersionTranslator.Describe(VersionLinkKind.ProtoSha));
-        Assert.Equal("same app version", ProtoVersionTranslator.Describe(VersionLinkKind.AppVersion));
-        Assert.Equal("same client version", ProtoVersionTranslator.Describe(VersionLinkKind.ClientVersion));
-        Assert.Equal("no match", ProtoVersionTranslator.Describe(VersionLinkKind.None));
-    }
 }

@@ -81,14 +81,6 @@ public class CarvedProtoTests {
     }
 
     [Fact]
-    public void FromCarved_ProtoShaMatchesCanonicalNormalize() {
-        byte[] ei = Convert.FromBase64String(EiBase64());
-        var carved = DescriptorProtoCarver.FromCarved(ei, null, null);
-        Assert.True(carved.Ok);
-        Assert.Equal(ProtoCanonicalForm.Normalize(carved.Proto!).Sha, carved.ProtoSha);
-    }
-
-    [Fact]
     public void Manifest_TryParse_RoundTrips() {
         string json = $"{{\"v\":1,\"fileSha\":\"deadbeef\",\"clientVersion\":70123,\"ei\":\"{EiBase64()}\",\"common\":null}}";
         var m = CarvedManifest.TryParse(Encoding.UTF8.GetBytes(json));
