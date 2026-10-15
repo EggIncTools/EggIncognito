@@ -16,7 +16,7 @@ public sealed class ConsumeCoverageService(EggIncognitoDbContext db, GameDataSto
             .Select(e => new CoverageCatalogCell(e.SpecName, e.Level, e.AfxLevel, e.Rarity, e.AfxRarity))
             .ToList();
         var families = ArtifactDefinitions.All
-            .Where(f => f.Kind == ArtifactKind.Artifact)
+            .Where(f => ConsumeCoverageKinds.Consumable(f.Kind))
             .ToDictionary(f => f.Name,
                 f => new CoverageFamilyInfo(f.Name, f.PluralName, f.Order,
                     [.. f.Tiers.OrderBy(t => t.Level).Select(t => t.Name)]),

@@ -15,7 +15,7 @@ public static class ConsumptionReportSource {
         [.. Enum.GetNames<Ei.ArtifactSpec.Types.Rarity>().Select(n => new FilterOption(n, n))];
 
     private static readonly IReadOnlyList<FilterOption> InputFamilyOptions =
-        [.. ArtifactDefinitions.All.Where(f => f.Kind == ArtifactKind.Artifact).OrderBy(f => f.Order)
+        [.. ArtifactDefinitions.All.Where(f => ConsumeCoverageKinds.Consumable(f.Kind)).OrderBy(f => f.Order)
             .Select(f => new FilterOption(f.Name, f.PluralName))];
 
     private static readonly IReadOnlyList<FilterOption> OutputItemOptions =

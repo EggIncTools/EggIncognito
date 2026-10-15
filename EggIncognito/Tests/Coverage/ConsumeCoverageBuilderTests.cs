@@ -107,6 +107,18 @@ public class ConsumeCoverageBuilderTests {
     }
 
     [Fact]
+    public void StoneFamilyWithInfo_IsEmitted() {
+        var families = new Dictionary<string, CoverageFamilyInfo>(Families, StringComparer.Ordinal) {
+            ["SOUL_STONE"] = new("SOUL_STONE", "SOUL STONES", 30, ["SOUL STONE FRAGMENT"])
+        };
+        var map = ConsumeCoverageBuilder.Build(Catalog, families,
+            [new CoverageSample("SOUL_STONE", "INFERIOR", "COMMON", 40)], [Global]);
+        var stone = map.Families.Single(f => f.SpecName == "SOUL_STONE");
+        Assert.Equal(40, stone.Items);
+        Assert.Equal(4, map.CellsInScope);
+    }
+
+    [Fact]
     public void Families_AreOrderedAndTiersNamed() {
         var map = Build([]);
         Assert.Equal(["LUNAR_TOTEM", "TUNGSTEN_ANKH"], map.Families.Select(f => f.SpecName));
