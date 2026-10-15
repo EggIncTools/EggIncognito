@@ -43,6 +43,10 @@ public class SettingsRegistryTests {
             SettingKeys.DeviceSyncRetryBackoffMinutes,
             SettingKeys.DeviceSyncStoreProbeIntervalMinutes,
             SettingKeys.FeedPageBaseUrl,
+            SettingKeys.PredictionsContractsMaxHorizonWeeks,
+            SettingKeys.PredictionsEventsMaxHorizonDays,
+            SettingKeys.PredictionsHorizonStepDays,
+            SettingKeys.PredictionsRefreshHours,
             SettingKeys.ThemeCustomCss
         ];
         var actual = Registry.WithTier(ApplyTier.Live).Select(d => d.Key).Order(StringComparer.Ordinal);

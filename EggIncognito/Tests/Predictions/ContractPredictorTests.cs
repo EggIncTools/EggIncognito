@@ -1,4 +1,5 @@
 using EggIncognito.Data.Services;
+using EggIncognito.Models.Calendar;
 using EggIncognito.Models.Contracts;
 using EggIncognito.Services.Admin;
 using EggIncognito.Services.Events;
@@ -6,6 +7,7 @@ using EggIncognito.Services.Predictions;
 using EggIncognito.Services.Predictions.Contracts;
 using EggIncognito.Services.Predictions.Training;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -48,8 +50,15 @@ public class ContractPredictorTests {
         var cache = new ContractPredictionCache();
         double trainedAt = asOf ?? AsOf;
         var tuned = SimpleContractTuned(samples, trainedAt);
+        var colleggtibles = SimpleColleggtibleTuned(samples, trainedAt);
         var slots = tuned.Model.Slots(UnixSeconds.ToTime(trainedAt), 26 * ReleaseGrid.AllKinds.Length);
-        cache.Set(version.Version, new ContractCacheEntry(samples, tuned, SimpleColleggtibleTuned(samples, trainedAt), slots));
+        var horizons = new PredictionHorizons(183, 26, 30, 24);
+        var watches = new Dictionary<int, IReadOnlyList<WatchEntry>> {
+            [26] = ContractPredictor.Watch(samples, tuned.Model, trainedAt, 26)
+        };
+        var next = ContractPredictor.BuildNext(samples, slots, colleggtibles, trainedAt);
+        cache.Set(version.Version, new ContractCacheEntry(
+            samples, tuned, colleggtibles, slots, horizons, trainedAt, watches, null, next));
         var predictor = new ContractPredictor(
             UnreachableDb(), version, cache, FakeTrainer(new EventDataVersion(), version), NullLogger<ContractPredictor>.Instance,
             TimeProvider.System);
@@ -59,7 +68,8 @@ public class ContractPredictorTests {
     private static PredictionTrainer FakeTrainer(EventDataVersion eventVersion, ContractDataVersion contractVersion) =>
         new(
             NoScopeFactory.Instance, eventVersion, contractVersion, new EventPredictionCache(), new ContractPredictionCache(),
-            new AdminNotifier(), TimeProvider.System, NullLogger<PredictionTrainer>.Instance);
+            new PredictionSettings(new ConfigurationBuilder().Build()), new AdminNotifier(), TimeProvider.System,
+            NullLogger<PredictionTrainer>.Instance);
 
     private sealed class NoScopeFactory : IServiceScopeFactory {
         public static readonly NoScopeFactory Instance = new();
@@ -261,7 +271,7 @@ public class ContractPredictorTests {
         var samples = ContractTemplate.Build(26);
         var model = ContractModel.Train(samples, AsOf, ContractStrategy.Default);
 
-        var watch = ContractPredictor.Watch(samples, model, AsOf);
+        var watch = ContractPredictor.Watch(samples, model, AsOf, 52);
 
         var candidates = ReleaseGrid.AllKinds.SelectMany(k => model.Pools[k].Candidates).DistinctBy(c => c.ContractId).ToList();
         Assert.Equal(candidates.Count, watch.Count);

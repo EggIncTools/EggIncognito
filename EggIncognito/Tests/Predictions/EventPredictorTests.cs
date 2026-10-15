@@ -1,10 +1,12 @@
 using EggIncognito.Data.Services;
+using EggIncognito.Models.Calendar;
 using EggIncognito.Models.Events;
 using EggIncognito.Services.Admin;
 using EggIncognito.Services.Predictions;
 using EggIncognito.Services.Predictions.Events;
 using EggIncognito.Services.Predictions.Training;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -255,7 +257,11 @@ public class EventPredictorTests {
         var rows = TemplateRows();
         var tuned = StrategyTuner.Fit(new EventDomain(), rows, EventTemplate.AsOf);
         var projection = EventPredictor.Predict(rows, EventTemplate.AsOf, EventProjector.MaxHorizonDays, tuned.Strategy);
-        cache.Set(version.Version, new EventCacheEntry(rows, tuned, projection));
+        var horizons = new PredictionHorizons(EventProjector.MaxHorizonDays, 26, 30, 24);
+        var watches = new Dictionary<int, IReadOnlyList<WatchEntry>> {
+            [EventProjector.MaxHorizonDays] = EventPredictor.Watch(rows, projection, EventTemplate.AsOf)
+        };
+        cache.Set(version.Version, new EventCacheEntry(rows, tuned, projection, horizons, EventTemplate.AsOf, watches));
         var predictor = new EventPredictor(db, version, cache, FakeTrainer(version, new ContractDataVersion()), TimeProvider.System);
 
         var result = await predictor.GetAsync(28, EventTemplate.AsOf);
@@ -282,7 +288,8 @@ public class EventPredictorTests {
     private static PredictionTrainer FakeTrainer(EventDataVersion eventVersion, ContractDataVersion contractVersion) =>
         new(
             NoScopeFactory.Instance, eventVersion, contractVersion, new EventPredictionCache(), new ContractPredictionCache(),
-            new AdminNotifier(), TimeProvider.System, NullLogger<PredictionTrainer>.Instance);
+            new PredictionSettings(new ConfigurationBuilder().Build()), new AdminNotifier(), TimeProvider.System,
+            NullLogger<PredictionTrainer>.Instance);
 
     private sealed class NoScopeFactory : IServiceScopeFactory {
         public static readonly NoScopeFactory Instance = new();

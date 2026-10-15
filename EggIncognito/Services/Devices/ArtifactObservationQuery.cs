@@ -9,11 +9,8 @@ using Microsoft.EntityFrameworkCore;
 
 namespace EggIncognito.Services.Devices;
 
-public sealed class CoverageMapAccess(IServiceScopeFactory scopes) : ICoverageMap {
-    public async Task<ConsumeCoverageMap?> MapAsync(CancellationToken ct) {
-        using var scope = scopes.CreateScope();
-        return await scope.ServiceProvider.GetRequiredService<ConsumeCoverageService>().MapAsync(ct);
-    }
+public sealed class CoverageMapAccess(IServiceScopeFactory scopes, ConsumeCoverageCache cache) : ICoverageMap {
+    public Task<ConsumeCoverageMap?> MapAsync(CancellationToken ct) => cache.GetAsync(ct);
 
     public async Task<string?> UpsertTargetAsync(CoverageTargetRequest request, string by, CancellationToken ct) {
         if (request.Error() is { } err) return err;

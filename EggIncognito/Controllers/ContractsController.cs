@@ -1,11 +1,11 @@
 using EggIncognito.Data.Models;
 using EggIncognito.Data.Services;
 using EggIncognito.Models.Contracts;
-using EggIncognito.Models.Predictions;
 using EggIncognito.Services.Auth;
 using EggIncognito.Services.Events;
 using EggIncognito.Services.Predictions;
 using EggIncognito.Services.Predictions.Contracts;
+using EggIncognito.Services.Predictions.Training;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
@@ -65,14 +65,16 @@ public sealed class ContractsController : ApiControllerBase {
     [HttpGet("predictions/watch")]
     [EnableRateLimiting("read")]
     [Requires<ContractPredictor>("no database configured")]
-    public async Task<IActionResult> Watch([FromServices] ContractPredictor predictor, CancellationToken ct = default) =>
-        Ok(await predictor.GetWatchAsync(ct));
+    public async Task<IActionResult> Watch(
+        [FromServices] ContractPredictor predictor, [FromQuery] int? horizon = null, CancellationToken ct = default) =>
+        Ok(await predictor.GetWatchAsync(horizon, ct));
 
     [HttpGet("predictions/watch/colleggtibles")]
     [EnableRateLimiting("read")]
     [Requires<ContractPredictor>("no database configured")]
-    public async Task<IActionResult> ColleggtibleWatch([FromServices] ContractPredictor predictor, CancellationToken ct = default) =>
-        Ok(await predictor.GetColleggtibleWatchAsync(ct));
+    public async Task<IActionResult> ColleggtibleWatch(
+        [FromServices] ContractPredictor predictor, [FromQuery] int? horizon = null, CancellationToken ct = default) =>
+        Ok(await predictor.GetColleggtibleWatchAsync(horizon, ct));
 
     [HttpGet("predictions/next")]
     [EnableRateLimiting("read")]
@@ -92,7 +94,8 @@ public sealed class ContractsController : ApiControllerBase {
     [ApiAccess(ApiAccessLevel.Admin)]
     [RequestSizeLimit(100_000_000)]
     [RequestFormLimits(MultipartBodyLengthLimit = 100_000_000)]
-    public IActionResult Tune(IFormFile? file) {
+    [Requires<PredictionTrainer>("no database configured")]
+    public IActionResult Tune(IFormFile? file, [FromServices] PredictionTrainer trainer, [FromServices] TimeProvider time) {
         if (file is null || file.Length == 0) return Fail(400, "no csv uploaded");
 
         List<ContractReleaseSample> samples;
@@ -102,14 +105,14 @@ public sealed class ContractsController : ApiControllerBase {
 
         if (samples.Count == 0) return Fail(400, "csv had no usable rows");
 
-        double asOf = UnixSeconds.FromTime(DateTimeOffset.UtcNow);
-        var tuned = StrategyTuner.Fit(new ContractDomain(), samples, asOf);
-        var colleggtibles = StrategyTuner.Fit(new ColleggtibleDomain(tuned.Strategy), samples, asOf);
-        return Ok(new {
-            Contracts = new TunedStrategySummary(tuned.Strategy.Label, tuned.Scoreboard, tuned.Scoreboard[0].Result, tuned.RunnerUpDelta),
-            Colleggtibles = new TunedStrategySummary(
-                colleggtibles.Strategy.Label, colleggtibles.Scoreboard, colleggtibles.Scoreboard[0].Result, colleggtibles.RunnerUpDelta)
+        bool queued = trainer.RequestCsvTune(PredictionDomainKey.Contracts, ct => {
+            double asOf = UnixSeconds.FromTime(time.GetUtcNow());
+            var tuned = StrategyTuner.Fit(new ContractDomain(), samples, asOf, ct: ct);
+            var colleggtibles = StrategyTuner.Fit(new ColleggtibleDomain(tuned.Strategy), samples, asOf, ct: ct);
+            return new CsvTuneResult(PredictionDomainKey.Contracts, asOf, samples.Count, tuned.Scoreboard, colleggtibles.Scoreboard);
         });
+        if (!queued) return Fail(409, "a training run is already queued for contracts");
+        return Accepted(trainer.Status(PredictionDomainKey.Contracts));
     }
 
     internal static ContractReleaseDto ToDto(ContractRelease r) => new(

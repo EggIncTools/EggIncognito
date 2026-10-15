@@ -33,16 +33,15 @@ public sealed class EventPredictor(
         return new EventModelResponse(model.TrainedAt, model.WindowDays, rules, strategy);
     }
 
-    public async Task<WatchResponse> GetWatchAsync(int horizonDays = 28, CancellationToken ct = default) {
+    public async Task<WatchResponse> GetWatchAsync(int? horizonDays = null, CancellationToken ct = default) {
         var entry = await TunedAsync(ct);
-        double at = UnixSeconds.FromTime(time.GetUtcNow());
-        double end = at + Math.Clamp(horizonDays, 1, EventProjector.MaxHorizonDays) * EventHistory.Day;
-        return new WatchResponse(at, Watch(entry.Rows, Slice(entry.Projection, at, end), at));
+        int step = PredictionStepPicker.Pick(entry.Watches.Keys, horizonDays);
+        return new WatchResponse(entry.ComputedAt, entry.Watches[step]);
     }
 
     public const int MagnitudeWindowDays = 365;
 
-    private static IReadOnlyList<EventPrediction> Slice(IReadOnlyList<EventPrediction> projection, double from, double to) =>
+    internal static IReadOnlyList<EventPrediction> Slice(IReadOnlyList<EventPrediction> projection, double from, double to) =>
         [.. projection.Where(p => p.PredictedStart >= from && p.PredictedStart < to)];
 
     public static IReadOnlyList<WatchEntry> Watch(

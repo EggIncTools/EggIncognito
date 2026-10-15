@@ -416,9 +416,9 @@
     async Task LoadCoverageAsync() {
         if (_coverage is not null) return;
         using var scope = Scopes.CreateScope();
-        if (scope.ServiceProvider.GetService<ConsumeCoverageService>() is not { } svc) return;
+        if (scope.ServiceProvider.GetService<ConsumeCoverageCache>() is not { } cache) return;
         try {
-            _coverage = await svc.MapAsync(CancellationToken.None);
+            _coverage = await cache.GetAsync(CancellationToken.None);
         } catch (Exception ex) when (ex is JsonException or InvalidOperationException or GameDataSchemaException) {
             Logger.LogDebug(ex, "consume coverage could not be loaded for the artifacts workbench");
         }

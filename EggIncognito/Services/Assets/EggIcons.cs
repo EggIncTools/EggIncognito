@@ -26,7 +26,7 @@ public static class EggIcons {
         foreach (var row in rows.EnumerateArray()) {
             string? name = row.TryGetProperty("eggName", out var n) ? n.GetString() : null;
             string? stem = row.TryGetProperty("iconStem", out var st) ? st.GetString() : null;
-            if (!string.IsNullOrEmpty(name) && !string.IsNullOrEmpty(stem)) map[name] = stem;
+            if (!string.IsNullOrEmpty(name) && !string.IsNullOrEmpty(stem)) map[Key(name)] = stem;
         }
     }
 
@@ -34,8 +34,11 @@ public static class EggIcons {
         if (customEggId is { Length: > 0 } custom) return Safe(custom) ? Icon(custom + "_ce_icon") : null;
         if (!Enum.IsDefined((Egg)egg) || (Egg)egg is Egg.CustomEgg or Egg.Unknown) return null;
         string name = Name((Egg)egg);
-        return Icon(_iconStems.TryGetValue(name, out string? stem) ? stem : "egg_" + name.ToLowerInvariant());
+        return Icon(_iconStems.TryGetValue(Key(name), out string? stem) ? stem : "egg_" + name.ToLowerInvariant());
     }
+
+    private static string Key(string name) =>
+        string.Concat(name.Where(char.IsAsciiLetterOrDigit).Select(char.ToUpperInvariant));
 
     public static string Label(int egg, string? customEggId) {
         if (customEggId is { Length: > 0 } custom) return Pretty(custom);

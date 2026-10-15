@@ -1,10 +1,39 @@
 @rendermode @(RenderModes.InteractiveServer)
+@using EggIncognito.Services.Config
 @using EggIncognito.Services.Events
 @using EggIncognito.Services.Predictions.Training
 @inherits AdminPaneBase
 
 <AdminPaneHead Title="Predictions" Facts="@Stats"/>
 <PaneNotice @ref="_notice"/>
+<SubSectionHead>Horizons</SubSectionHead>
+<FlexRow Gap="true">
+    <label>Event days
+        <input type="number" class="horizons-field" min="30" max="365" @bind="_eventDays" @bind:event="oninput"/>
+    </label>
+    <label>Contract weeks
+        <input type="number" class="horizons-field" min="4" max="104" @bind="_contractWeeks" @bind:event="oninput"/>
+    </label>
+    <label>Step days
+        <input type="number" class="horizons-field" min="1" @bind="_stepDays" @bind:event="oninput"/>
+    </label>
+    <label>Refresh hours
+        <input type="number" class="horizons-field" min="1" @bind="_refreshHours" @bind:event="oninput"/>
+    </label>
+    <button type="button" class="btn-mini" disabled="@_savingHorizons" @onclick="SaveAndRetrain">Save and retrain</button>
+</FlexRow>
+<p class="muted horizons-steps">
+    Events steps (days): @StepsLine(PredictionDomainKey.Events) &middot;
+    Contracts steps (weeks): @StepsLine(PredictionDomainKey.Contracts)
+</p>
+@foreach (var csv in _statuses.Select(s => s.LastCsvTune).OfType<CsvTuneResult>()) {
+    <p class="muted horizons-steps">
+        Last CSV tune (@csv.Domain, @csv.Samples rows): @csv.Scoreboard[0].Strategy
+        @if (csv.Colleggtibles is { Count: > 0 } c) {
+            <text>, colleggtibles @c[0].Strategy</text>
+        }
+    </p>
+}
 <SubSectionHead>Training</SubSectionHead>
 <TableScroll>
     <table class="data-table">
@@ -16,6 +45,7 @@
             <th>Started</th>
             <th>Elapsed</th>
             <th>Version</th>
+            <th>Horizons</th>
             <th>Strategy</th>
             <th>Runner-up delta</th>
             <th>Error</th>
@@ -35,6 +65,7 @@
                 <td class="mono">@(s.StartedAt is { } st ? FormatTime(st) : "-")</td>
                 <td class="mono">@Elapsed(s)</td>
                 <td class="mono">@s.Version</td>
+                <td class="mono">@HorizonsText(s)</td>
                 <td class="mono">@(s.Strategy ?? "-")</td>
                 <td class="mono">@(s.RunnerUpDelta is { } d ? d.ToString("0.000") : "-")</td>
                 <td class="muted">@(s.Error ?? "-")</td>
@@ -55,6 +86,13 @@
     TrainingStatus[] _statuses = [];
     readonly HashSet<PredictionDomainKey> _busy = [];
 
+    int _eventDays = 183;
+    int _contractWeeks = 52;
+    int _stepDays = 30;
+    int _refreshHours = 24;
+    bool _horizonsLoaded;
+    bool _savingHorizons;
+
     IEnumerable<string> Stats => _statuses.Length == 0
         ? []
         : [$"{_statuses.Count(s => s.State == TrainingState.Running)} running", $"{_statuses.Count(s => s.State == TrainingState.Failed)} failed"];
@@ -70,6 +108,36 @@
         }
 
         _statuses = res.Json<TrainingStatus[]>() ?? [];
+        if (!_horizonsLoaded && _statuses.Select(s => s.Horizons).FirstOrDefault(h => h is not null) is { } horizons) {
+            _eventDays = horizons.EventDays;
+            _contractWeeks = horizons.ContractWeeks;
+            _stepDays = horizons.StepDays;
+            _refreshHours = horizons.RefreshHours;
+            _horizonsLoaded = true;
+        }
+    }
+
+    string StepsLine(PredictionDomainKey domain) {
+        var steps = _statuses.FirstOrDefault(s => s.Domain == domain)?.Steps;
+        return steps is { Length: > 0 } ? string.Join(", ", steps) : "-";
+    }
+
+    static string HorizonsText(TrainingStatus s) =>
+        s.Horizons is { } h ? $"{h.EventDays}d / {h.ContractWeeks}w / {h.StepDays}d step / {h.RefreshHours}h" : "-";
+
+    async Task SaveAndRetrain() {
+        if (Api is null) return;
+        _savingHorizons = true;
+        _notice?.Clear();
+
+        var res = await Api.PutJsonAsync("/api/v1/predictions/horizons", new {
+            eventDays = _eventDays, contractWeeks = _contractWeeks, stepDays = _stepDays, refreshHours = _refreshHours
+        });
+        bool ok = res.Ok;
+        _notice?.Result(ok, ok ? "saved, retraining" : $"save failed: {res.Describe()}");
+        _savingHorizons = false;
+        await LoadAsync();
+        if (ok) Notifier.Publish(AdminTopics.Predictions);
     }
 
     bool IsBusy(PredictionDomainKey domain) => _busy.Contains(domain);

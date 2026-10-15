@@ -5,6 +5,7 @@ using EggIncognito.Services.Auth;
 using EggIncognito.Services.Events;
 using EggIncognito.Services.Predictions;
 using EggIncognito.Services.Predictions.Events;
+using EggIncognito.Services.Predictions.Training;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
@@ -74,8 +75,10 @@ public sealed class EventsController : ApiControllerBase {
     [EnableRateLimiting("read")]
     [Requires<EventPredictor>("no database configured")]
     public async Task<IActionResult> Watch(
-        [FromServices] EventPredictor predictor, [FromQuery] int horizon = 28, CancellationToken ct = default) =>
-        Ok(await predictor.GetWatchAsync(Math.Clamp(horizon, 1, 90), ct));
+        [FromServices] EventPredictor predictor, [FromServices] PredictionSettings settings,
+        [FromQuery] int? horizon = null, CancellationToken ct = default) =>
+        Ok(await predictor.GetWatchAsync(
+            horizon is { } h ? Math.Clamp(h, 1, settings.Snapshot().EventDays) : null, ct));
 
     [HttpGet("model")]
     [EnableRateLimiting("read")]
@@ -89,16 +92,24 @@ public sealed class EventsController : ApiControllerBase {
     [ApiAccess(ApiAccessLevel.Admin)]
     [RequestSizeLimit(50_000_000)]
     [RequestFormLimits(MultipartBodyLengthLimit = 50_000_000)]
-    public async Task<IActionResult> TuneModel(IFormFile file, [FromServices] TimeProvider time) {
+    [Requires<PredictionTrainer>("no database configured")]
+    public async Task<IActionResult> TuneModel(
+        IFormFile file, [FromServices] PredictionTrainer trainer, [FromServices] TimeProvider time) {
         if (file is null || file.Length == 0) return Fail(400, "no csv uploaded");
-        IReadOnlyList<EventRow> rows;
+        List<EventRow> rows;
         await using (var stream = file.OpenReadStream()) {
             rows = HistoryCsv.GameEvents(stream);
         }
 
-        double asOf = UnixSeconds.FromTime(time.GetUtcNow());
-        var tuned = StrategyTuner.Fit(new EventDomain(), rows, asOf);
-        return Ok(tuned.Scoreboard);
+        if (rows.Count == 0) return Fail(400, "csv had no usable rows");
+
+        bool queued = trainer.RequestCsvTune(PredictionDomainKey.Events, ct => {
+            double asOf = UnixSeconds.FromTime(time.GetUtcNow());
+            var tuned = StrategyTuner.Fit(new EventDomain(), rows, asOf, ct: ct);
+            return new CsvTuneResult(PredictionDomainKey.Events, asOf, rows.Count, tuned.Scoreboard, null);
+        });
+        if (!queued) return Fail(409, "a training run is already queued for events");
+        return Accepted(trainer.Status(PredictionDomainKey.Events));
     }
 
     internal static GameEventDto ToDto(GameEvent e) => new(

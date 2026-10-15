@@ -16,6 +16,20 @@ public class EggIconsTests {
     }
 
     [Fact]
+    public void ExtractedStem_OverridesTheConventionAcrossNameForms() {
+        EggIcons.LoadFromJson("""
+            {"eggIcons":[{"eggName":"MEDICAL","iconStem":"egg_medical2"},{"eggName":"NEBULA","iconStem":"egg_vision"},{"eggName":"ROCKET FUEL","iconStem":"egg_rocketfuel"}]}
+            """);
+        try {
+            Assert.Equal("/api/v1/data/asset/icon?name=egg_medical2", EggIcons.Url(3, null));
+            Assert.Equal("/api/v1/data/asset/icon?name=egg_vision", EggIcons.Url(17, null));
+            Assert.Equal("/api/v1/data/asset/icon?name=egg_rocketfuel", EggIcons.Url(4, null));
+        } finally {
+            EggIcons.LoadFromJson(null);
+        }
+    }
+
+    [Fact]
     public void CustomEgg_UsesTheColleggtibleIconStem() {
         Assert.Equal("/api/v1/data/asset/icon?name=pegg_ce_icon", EggIcons.Url(200, "pegg"));
         Assert.Equal("Pegg", EggIcons.Label(200, "pegg"));

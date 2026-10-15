@@ -139,6 +139,7 @@ public static class DataServices {
         builder.Services.AddSingleton<DropStats>();
         builder.Services.AddSingleton<IContractReleases, ContractReleaseLookup>();
         builder.Services.AddScoped<ConsumeCoverageService>();
+        builder.Services.AddSingleton<ConsumeCoverageCache>();
         builder.Services.AddSingleton(ConsumptionReportSource.Sources);
         builder.Services.AddReportSource<ConsumptionDropRow, ConsumptionReportRows>(
             ConsumptionReportSource.Source, ConsumptionReportSource.Snapshot);
@@ -166,6 +167,7 @@ public static class DataServices {
         builder.Services.AddScoped<ContractBackfill>();
         builder.Services.AddSingleton<EventDataVersion>();
         builder.Services.AddSingleton<ContractDataVersion>();
+        builder.Services.AddSingleton<PredictionSettings>();
         builder.Services.AddSingleton<PredictionTrainer>();
         builder.Services.AddHostedService(sp => sp.GetRequiredService<PredictionTrainer>());
         builder.Services.Configure<MvcOptions>(o => o.Filters.Add<PredictionsReadyFilter>());

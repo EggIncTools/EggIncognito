@@ -6,6 +6,7 @@ public sealed class PlatformSettingsProvider : ISettingsProvider {
     private const string Data = "Data";
     private const string Web = "Web";
     private const string Assets = "Assets and decomp";
+    private const string Predictions = "Predictions";
 
     private static readonly IReadOnlyList<SettingDescriptor> Descriptors = [
         new("gamedata.auto_rebuild.enabled", "GameData__AutoRebuild__Enabled", "Game data auto rebuild", Data,
@@ -59,7 +60,28 @@ public sealed class PlatformSettingsProvider : ISettingsProvider {
             Description = "Optional override. Extraction prefers the device-harvested binary for the version."
         },
         new("decomp.stripped_target_path", "Decomp__StrippedTargetPath", "Stripped target path", Assets,
-            SettingKind.Path, ApplyTier.RestartRequired, Sensitivity.Plain)
+            SettingKind.Path, ApplyTier.RestartRequired, Sensitivity.Plain),
+
+        new(SettingKeys.PredictionsEventsMaxHorizonDays, "Predictions__Events__MaxHorizonDays",
+            "Event projection horizon (days)", Predictions,
+            SettingKind.Number, ApplyTier.Live, Sensitivity.Plain) {
+            Default = "183", Description = "Read per watch request. Clamped 30..365."
+        },
+        new(SettingKeys.PredictionsContractsMaxHorizonWeeks, "Predictions__Contracts__MaxHorizonWeeks",
+            "Contract slot projection horizon (weeks)", Predictions,
+            SettingKind.Number, ApplyTier.Live, Sensitivity.Plain) {
+            Default = "52", Description = "Read per watch request. Clamped 4..104."
+        },
+        new(SettingKeys.PredictionsHorizonStepDays, "Predictions__HorizonStepDays",
+            "Precomputed watch step size (days)", Predictions,
+            SettingKind.Number, ApplyTier.Live, Sensitivity.Plain) {
+            Default = "30", Description = "Read at training job start."
+        },
+        new(SettingKeys.PredictionsRefreshHours, "Predictions__RefreshHours",
+            "Prediction retrain interval (hours)", Predictions,
+            SettingKind.Number, ApplyTier.Live, Sensitivity.Plain) {
+            Default = "24", Description = "Read at training job start."
+        }
     ];
 
     public IReadOnlyList<SettingDescriptor> Describe() => Descriptors;

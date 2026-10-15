@@ -41,29 +41,34 @@ public sealed class ContractPredictor(
         return null;
     }
 
-    public async Task<WatchResponse> GetWatchAsync(CancellationToken ct = default) {
+    public async Task<WatchResponse> GetWatchAsync(int? horizonWeeks = null, CancellationToken ct = default) {
         var entry = await TunedAsync(ct);
-        double now = UnixSeconds.FromTime(time.GetUtcNow());
-        return new WatchResponse(now, Watch(entry.Samples, entry.Tuned.Model, now));
+        int step = PredictionStepPicker.Pick(entry.Watches.Keys, horizonWeeks);
+        return new WatchResponse(entry.ComputedAt, entry.Watches[step]);
     }
 
-    public async Task<WatchResponse> GetColleggtibleWatchAsync(CancellationToken ct = default) {
+    public async Task<WatchResponse> GetColleggtibleWatchAsync(int? horizonWeeks = null, CancellationToken ct = default) {
         var entry = await TunedAsync(ct);
-        double now = UnixSeconds.FromTime(time.GetUtcNow());
-        if (entry.Colleggtibles is not { } colleggtibles)
+        if (entry.ColleggtibleWatches is not { } watches)
             throw new PredictionsNotReadyException(PredictionDomainKey.Colleggtibles, trainer.Status(PredictionDomainKey.Colleggtibles));
-        return new WatchResponse(now, ColleggtibleWatch(entry.Samples, colleggtibles.Model, now));
+        int step = PredictionStepPicker.Pick(watches.Keys, horizonWeeks);
+        return new WatchResponse(entry.ComputedAt, watches[step]);
     }
 
     public async Task<NextContractsResponse> GetNextAsync(CancellationToken ct = default) {
         var entry = await TunedAsync(ct);
-        double now = UnixSeconds.FromTime(time.GetUtcNow());
+        return entry.Next
+               ?? throw new PredictionsNotReadyException(PredictionDomainKey.Contracts, trainer.Status(PredictionDomainKey.Contracts));
+    }
 
+    internal static NextContractsResponse BuildNext(
+        IReadOnlyList<ContractReleaseSample> samples, IReadOnlyList<ContractSlotPrediction> slots,
+        TunedModel<ColleggtibleStrategy, ColleggtibleModel>? colleggtibles, double now) {
         NextPick? Pick(ContractSlotKind kind) {
-            var slot = entry.Slots.Where(s => s.SlotTime >= now && s.Kind == kind).OrderBy(s => s.SlotTime).FirstOrDefault();
+            var slot = slots.Where(s => s.SlotTime >= now && s.Kind == kind).OrderBy(s => s.SlotTime).FirstOrDefault();
             var top = slot?.Candidates.OrderByDescending(c => c.Probability).FirstOrDefault();
             if (slot is null || top is null) return null;
-            var rows = entry.Samples.Where(s => s.ContractId == top.ContractId).ToList();
+            var rows = samples.Where(s => s.ContractId == top.ContractId).ToList();
             var latest = rows.Count > 0 ? rows.MaxBy(s => s.Start) : default;
             string? customEggId = rows.Count > 0 ? latest.CustomEggId : null;
             string? iconUrl = rows.Count > 0 ? EggIcons.Url(latest.Egg, latest.CustomEggId) : null;
@@ -71,11 +76,11 @@ public sealed class ContractPredictor(
         }
 
         var colleggtiblePicks = new List<NextPick>();
-        if (entry.Colleggtibles is { } colleggtibles) {
+        if (colleggtibles is { } tunedColleggtibles) {
             foreach (var kind in ContractDomain.PredictedKinds) {
-                var slot = entry.Slots.Where(s => s.SlotTime >= now && s.Kind == kind).OrderBy(s => s.SlotTime).FirstOrDefault();
+                var slot = slots.Where(s => s.SlotTime >= now && s.Kind == kind).OrderBy(s => s.SlotTime).FirstOrDefault();
                 if (slot is null) continue;
-                var top = colleggtibles.Model.Odds(new PredictionSlot(slot.SlotTime, kind.ToString()))
+                var top = tunedColleggtibles.Model.Odds(new PredictionSlot(slot.SlotTime, kind.ToString()))
                     .OrderByDescending(c => c.Probability).FirstOrDefault();
                 if (top is not null) {
                     colleggtiblePicks.Add(new NextPick(
@@ -89,11 +94,9 @@ public sealed class ContractPredictor(
             colleggtiblePicks);
     }
 
-    internal const int WatchWeeks = 52;
-
-    private static Dictionary<string, List<WatchForecast>> Forecasts(ContractModel model, double now) {
+    private static Dictionary<string, List<WatchForecast>> Forecasts(ContractModel model, double now, int horizonWeeks) {
         var forecasts = new Dictionary<string, List<WatchForecast>>(StringComparer.Ordinal);
-        foreach (var slot in model.Slots(UnixSeconds.ToTime(now), WatchWeeks * ReleaseGrid.AllKinds.Length)) {
+        foreach (var slot in model.Slots(UnixSeconds.ToTime(now), horizonWeeks * ReleaseGrid.AllKinds.Length)) {
             foreach (var c in slot.Candidates) {
                 if (!forecasts.TryGetValue(c.ContractId, out var list)) forecasts[c.ContractId] = list = [];
                 list.Add(new WatchForecast(slot.SlotTime, slot.SlotTime + slot.LengthSeconds, c.Probability, Label(slot.Kind)));
@@ -104,10 +107,10 @@ public sealed class ContractPredictor(
     }
 
     internal static IReadOnlyList<WatchEntry> ColleggtibleWatch(
-        IReadOnlyList<ContractReleaseSample> samples, ColleggtibleModel model, double now) {
+        IReadOnlyList<ContractReleaseSample> samples, ColleggtibleModel model, double now, int horizonWeeks) {
         var grid = ReleaseGrid.Fit(samples, now);
         var forecasts = new Dictionary<string, List<WatchForecast>>(StringComparer.Ordinal);
-        foreach (var (time, gridSlot) in grid.Next(UnixSeconds.ToTime(now), WatchWeeks * ContractDomain.PredictedKinds.Length)) {
+        foreach (var (time, gridSlot) in grid.Next(UnixSeconds.ToTime(now), horizonWeeks * ContractDomain.PredictedKinds.Length)) {
             if (!ContractDomain.PredictedKinds.Contains(gridSlot.Kind)) continue;
             var slot = new PredictionSlot(time, gridSlot.Kind.ToString());
             double length = model.Contracts?.Pools[gridSlot.Kind].LengthSeconds ?? 7 * 86400d;
@@ -143,10 +146,10 @@ public sealed class ContractPredictor(
     }
 
     internal static IReadOnlyList<WatchEntry> Watch(
-        IReadOnlyList<ContractReleaseSample> samples, ContractModel model, double now) {
+        IReadOnlyList<ContractReleaseSample> samples, ContractModel model, double now, int horizonWeeks) {
         var last = samples.Where(s => s.Start < now).GroupBy(s => s.ContractId)
             .ToDictionary(g => g.Key, g => g.MaxBy(s => s.Start), StringComparer.Ordinal);
-        var forecasts = Forecasts(model, now);
+        var forecasts = Forecasts(model, now, horizonWeeks);
         var entries = new List<WatchEntry>();
         foreach (var c in model.Pools.Values.SelectMany(p => p.Candidates).DistinctBy(c => c.ContractId)) {
             if (!last.TryGetValue(c.ContractId, out var row)) continue;

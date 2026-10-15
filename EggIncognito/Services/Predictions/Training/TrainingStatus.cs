@@ -9,4 +9,7 @@ public sealed record TrainingStatus(
     double Percent,
     string? Strategy,
     double? RunnerUpDelta,
-    string? Error);
+    string? Error,
+    PredictionHorizons? Horizons,
+    int[]? Steps,
+    CsvTuneResult? LastCsvTune = null);

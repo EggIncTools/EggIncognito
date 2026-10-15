@@ -15,4 +15,9 @@ public static class SettingKeys {
     public const string RateLimitingEnabled = "rate_limiting.enabled";
     public const string RateLimitingTiers = "rate_limiting.tiers";
     public const string RateLimitingPolicies = "rate_limiting.policies";
+
+    public const string PredictionsEventsMaxHorizonDays = "predictions.events.max_horizon_days";
+    public const string PredictionsContractsMaxHorizonWeeks = "predictions.contracts.max_horizon_weeks";
+    public const string PredictionsHorizonStepDays = "predictions.horizon_step_days";
+    public const string PredictionsRefreshHours = "predictions.refresh_hours";
 }

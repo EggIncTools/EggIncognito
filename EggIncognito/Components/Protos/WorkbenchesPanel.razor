@@ -76,9 +76,9 @@
 
     protected override async Task OnInitializedAsync() {
         using var scope = Scopes.CreateScope();
-        if (scope.ServiceProvider.GetService<ConsumeCoverageService>() is not { } svc) return;
+        if (scope.ServiceProvider.GetService<ConsumeCoverageCache>() is not { } cache) return;
         try {
-            _coverage = await svc.MapAsync(CancellationToken.None);
+            _coverage = await cache.GetAsync(CancellationToken.None);
         } catch (Exception ex) when (ex is JsonException or InvalidOperationException or GameDataSchemaException) {
             Logger.LogDebug(ex, "consume coverage summary could not be built");
         }

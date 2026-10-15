@@ -13,3 +13,12 @@
     height: 100%;
     background-color: var(--color-accent);
 }
+
+.horizons-field {
+    width: 5rem;
+    margin-left: 0.35rem;
+}
+
+.horizons-steps {
+    margin: 0.25rem 0 0.75rem;
+}

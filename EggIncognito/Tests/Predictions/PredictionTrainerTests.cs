@@ -3,6 +3,7 @@ using EggIncognito.Services.Admin;
 using EggIncognito.Services.Predictions;
 using EggIncognito.Services.Predictions.Training;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -18,8 +19,8 @@ public class PredictionTrainerTests {
     private static PredictionTrainer NewTrainer(EventDataVersion? eventVersion = null, ContractDataVersion? contractVersion = null) =>
         new(
             NoScopeFactory.Instance, eventVersion ?? new EventDataVersion(), contractVersion ?? new ContractDataVersion(),
-            new EventPredictionCache(), new ContractPredictionCache(), new AdminNotifier(), TimeProvider.System,
-            NullLogger<PredictionTrainer>.Instance);
+            new EventPredictionCache(), new ContractPredictionCache(), new PredictionSettings(new ConfigurationBuilder().Build()),
+            new AdminNotifier(), TimeProvider.System, NullLogger<PredictionTrainer>.Instance);
 
     private static (PredictionTrainer Trainer, EventDataVersion EventVersion, ContractDataVersion ContractVersion) NewIntegrationTrainer() {
         var eventVersion = new EventDataVersion();
@@ -42,8 +43,9 @@ public class PredictionTrainerTests {
         services.AddScoped<EventPredictor>();
         services.AddScoped<ContractPredictor>();
         services.AddSingleton(sp => new PredictionTrainer(
-            sp.GetRequiredService<IServiceScopeFactory>(), eventVersion, contractVersion, eventCache, contractCache, notifier,
-            TimeProvider.System, NullLogger<PredictionTrainer>.Instance));
+            sp.GetRequiredService<IServiceScopeFactory>(), eventVersion, contractVersion, eventCache, contractCache,
+            new PredictionSettings(new ConfigurationBuilder().Build()), notifier, TimeProvider.System,
+            NullLogger<PredictionTrainer>.Instance));
 
         var provider = services.BuildServiceProvider();
         return (provider.GetRequiredService<PredictionTrainer>(), eventVersion, contractVersion);

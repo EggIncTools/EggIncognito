@@ -15,8 +15,8 @@ public sealed class ConsumeCoverageController(ICurrentUser currentUser) : ApiCon
     [HttpGet]
     [EnableRateLimiting("read")]
     [RequiresDb]
-    public async Task<IActionResult> Get([FromServices] ConsumeCoverageService svc, CancellationToken ct) =>
-        await svc.MapAsync(ct) is { } map ? Ok(map) : Fail(503, "artifact-catalog document missing");
+    public async Task<IActionResult> Get([FromServices] ConsumeCoverageCache cache, CancellationToken ct) =>
+        await cache.GetAsync(ct) is { } map ? Ok(map) : Fail(503, "artifact-catalog document missing");
 
     [HttpPut("targets")]
     [RequiresDb]

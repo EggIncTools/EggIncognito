@@ -132,15 +132,15 @@
 
     async Task LoadAsync() {
         using var scope = Scopes.CreateScope();
-        var svc = scope.ServiceProvider.GetService<ConsumeCoverageService>();
-        if (svc is null) {
+        var cache = scope.ServiceProvider.GetService<ConsumeCoverageCache>();
+        if (cache is null) {
             _noDb = true;
             _loaded = true;
             return;
         }
 
         try {
-            _map = await svc.MapAsync(CancellationToken.None);
+            _map = await cache.GetAsync(CancellationToken.None);
         } catch (Exception ex) when (ex is JsonException or InvalidOperationException or GameDataSchemaException) {
             Logger.LogWarning(ex, "consume coverage could not be built");
             _map = null;
