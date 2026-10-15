@@ -29,12 +29,6 @@
             <span class="pd-next-label">Next ultra PE</span>
             @NextRowContent(next.UltraPe)
         </div>
-        @foreach (var c in next.Colleggtibles) {
-            <div class="pd-next-row">
-                <span class="pd-next-label">Next colleggtible</span>
-                @NextRowContent(c)
-            </div>
-        }
     </div>
 }
 <MiniCalendar TItem="ContractCalendarItem" Load="LoadMiniContracts" EmptyNote="No contracts in the last week.">
