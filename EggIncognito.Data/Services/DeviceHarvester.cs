@@ -33,7 +33,8 @@ public sealed class DeviceHarvester(
             return new HarvestOutcome(HarvestStatus.Unreachable, state.Revision, probe.Note, 0, 0, 0);
         }
 
-        if (!force && string.Equals(state.HarvestedRevision, state.Revision, StringComparison.Ordinal)) {
+        bool emptyStore = (await assets.ShaManifestAsync(target.Platform, DeviceAssetKinds.Icon, ct)).Count == 0;
+        if (!force && !emptyStore && string.Equals(state.HarvestedRevision, state.Revision, StringComparison.Ordinal)) {
             await states.FinishAsync(target.Id, HarvestStatus.Ok, "revision unchanged", state.Revision, ct);
             return new HarvestOutcome(HarvestStatus.Ok, state.Revision, "revision unchanged", 0, 0, 0);
         }
@@ -56,7 +57,8 @@ public sealed class DeviceHarvester(
 
             var fp = await platform.FingerprintAsync(target, entry, ct);
             string fpName = FingerprintPrefix + entry.Name;
-            if (fp is { Ok: true, Value: { Length: > 0 } value } && !force) {
+            var known = await assets.ShaManifestAsync(target.Platform, entry.Kind, ct);
+            if (fp is { Ok: true, Value: { Length: > 0 } value } && !force && known.Count > 0) {
                 var stored = await assets.GetAsync(DeviceAssetKinds.Manifest, fpName, target.Platform, ct);
                 if (stored is not null
                     && string.Equals(Encoding.UTF8.GetString(await assets.BytesAsync(stored, ct)), value, StringComparison.Ordinal)) {
@@ -66,7 +68,6 @@ public sealed class DeviceHarvester(
                 }
             }
 
-            var known = await assets.ShaManifestAsync(target.Platform, entry.Kind, ct);
             var batch = await platform.HarvestAsync(target, entry, known, ct);
             if (batch is not { Ok: true, Value: { } pulled }) {
                 await jobs.LineAsync(job, entry.Name, "failed", batch.Note, 0, null, ct);

@@ -116,11 +116,13 @@ public sealed class BlobOffloadService(
         var db = scope.ServiceProvider.GetRequiredService<EggIncognitoDbContext>();
 
         int missing = 0;
-        missing += await MissingAsync<DeviceAsset>(db, BlobTables.DeviceAssets, ct);
-        missing += await MissingAsync<StoredBinary>(db, BlobTables.StoredBinaries, ct);
-        missing += await MissingAsync<StoredApk>(db, BlobTables.StoredApks, ct);
+        var dropped = new List<string>();
+        missing += await MissingAsync<DeviceAsset>(db, BlobTables.DeviceAssets, dropped, ct);
+        missing += await MissingAsync<StoredBinary>(db, BlobTables.StoredBinaries, dropped, ct);
+        missing += await MissingAsync<StoredApk>(db, BlobTables.StoredApks, dropped, ct);
 
         if (missing > 0) {
+            await ForceReharvestAsync(db, dropped, ct);
             await db.SaveChangesAsync(ct);
             logger.LogWarning(
                 "blob audit: {Missing} row(s) had no bytes in Postgres and no file on disk under {Root}; " +
@@ -128,7 +130,7 @@ public sealed class BlobOffloadService(
         }
     }
 
-    private async Task<int> MissingAsync<T>(EggIncognitoDbContext db, string table, CancellationToken ct)
+    private async Task<int> MissingAsync<T>(EggIncognitoDbContext db, string table, List<string> platforms, CancellationToken ct)
         where T : class, IBlobRow {
         var offloaded = await db.Set<T>()
             .Where(r => r.Bytes == null)
@@ -139,9 +141,29 @@ public sealed class BlobOffloadService(
             if (files.Exists(table, row.Sha256)) continue;
             logger.LogWarning("blob audit {Table} id {Id}: file missing for sha {Sha}, dropping row", table, row.Id, row.Sha256);
             db.Set<T>().Remove(row);
+            if (row is DeviceAsset asset) platforms.Add(asset.Platform);
+            if (row is StoredBinary binary) platforms.Add(binary.Platform);
+            if (row is StoredApk apk) platforms.Add(apk.Platform);
             missing++;
         }
 
         return missing;
+    }
+
+    private async Task ForceReharvestAsync(EggIncognitoDbContext db, List<string> platforms, CancellationToken ct) {
+        var affected = platforms.Distinct(StringComparer.Ordinal).ToList();
+        if (affected.Count == 0) return;
+
+        var fingerprints = await db.DeviceAssets
+            .Where(a => affected.Contains(a.Platform) && a.Name.StartsWith(DeviceAssetStore.FingerprintPrefix))
+            .ToListAsync(ct);
+        db.DeviceAssets.RemoveRange(fingerprints);
+
+        var states = await db.DeviceStates.Where(s => affected.Contains(s.Platform)).ToListAsync(ct);
+        foreach (var state in states) state.HarvestedRevision = null;
+
+        logger.LogWarning(
+            "blob audit: cleared {Fingerprints} harvest fingerprint(s) and {Devices} harvested revision(s) for {Platforms} so the next harvest re-pulls the dropped rows",
+            fingerprints.Count, states.Count, string.Join(", ", affected));
     }
 }
