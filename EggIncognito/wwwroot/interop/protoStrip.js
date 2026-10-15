@@ -302,3 +302,83 @@ export function wireDrop(containerId, inputId) {
   });
   return true;
 }
+
+export function wireRegistryClip(clipId, sideSelector, narrowRows) {
+  const clip = document.getElementById(clipId);
+  const more = clip?.querySelector(".reg-more");
+  if (!clip || !more || clip.dataset.wired) return false;
+  clip.dataset.wired = "1";
+  const side = clip.closest(".pd-grid")?.querySelector(sideSelector);
+  const wide = matchMedia("(min-width: 90rem)");
+
+  const fadePx = () => {
+    const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+    return (parseFloat(getComputedStyle(clip).getPropertyValue("--reg-fade")) || 0) * rem;
+  };
+  const tables = () => [...clip.querySelectorAll(".reg-table")].filter(t => t.offsetParent !== null);
+  const bandsOf = t => t.querySelectorAll("tbody.reg-band");
+  const reset = () => {
+    clip.style.removeProperty("max-height");
+    delete clip.dataset.more;
+    more.textContent = "";
+  };
+
+  const limitOf = (top, fade) => {
+    if (wide.matches) return side ? side.getBoundingClientRect().bottom - top - 1 : null;
+    let bottom = 0;
+    for (const t of tables()) {
+      const bands = bandsOf(t);
+      const last = bands[Math.min(bands.length, narrowRows) - 1];
+      if (last) bottom = Math.max(bottom, last.getBoundingClientRect().bottom - top + fade);
+    }
+    return bottom || null;
+  };
+
+  const update = () => {
+    if (clip.dataset.open) return reset();
+    const top = clip.getBoundingClientRect().top;
+    const fade = fadePx();
+    const raw = limitOf(top, fade);
+    if (raw === null) return reset();
+    const limit = Math.max(raw, fade * 2);
+    const content = Math.max(0, ...[...clip.children].filter(c => c !== more).map(c => c.getBoundingClientRect().bottom - top));
+    if (content <= limit + 1) return reset();
+    const cutoff = top + limit - fade - 1;
+    let hidden = 0;
+    for (const t of tables()) {
+      for (const b of bandsOf(t)) if (b.getBoundingClientRect().top >= cutoff) hidden++;
+    }
+    if (hidden === 0) return reset();
+    clip.style.maxHeight = `${limit}px`;
+    clip.dataset.more = "1";
+    more.textContent = `+ ${hidden} more`;
+  };
+
+  let queued = false;
+  const schedule = () => {
+    if (queued) return;
+    queued = true;
+    requestAnimationFrame(() => {
+      queued = false;
+      update();
+    });
+  };
+
+  const sizes = new ResizeObserver(schedule);
+  const observeChildren = () => {
+    for (const c of clip.children) if (c !== more) sizes.observe(c);
+  };
+  if (side) sizes.observe(side);
+  observeChildren();
+  new MutationObserver(() => {
+    observeChildren();
+    schedule();
+  }).observe(clip, { childList: true, subtree: true });
+  wide.addEventListener("change", schedule);
+  more.addEventListener("click", () => {
+    clip.dataset.open = "1";
+    update();
+  });
+  schedule();
+  return true;
+}

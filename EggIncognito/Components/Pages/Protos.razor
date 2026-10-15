@@ -41,6 +41,7 @@
         <div class="pd-main pd-stack pd-mobile-order-3">
             <section class="reg-wrap">
                 <ProtosRegistryToolbar Rows="_rows" OnOpenVersion="OpenVersion" OnOpenWorkbench="@(() => _workbench?.Open())"/>
+                <div class="reg-clip" id="regClip">
                 @if (_loading && _rows.Count == 0) {
                     <div class="reg-loading">Loading...</div>
                 } else if (_rows.Count == 0) {
@@ -55,6 +56,8 @@
                         }
                     </div>
                 }
+                    <button type="button" class="reg-more"></button>
+                </div>
             </section>
         </div>
         <div class="pd-mod pd-side pd-mobile-order-2">
@@ -72,6 +75,8 @@
 
 @code {
     static readonly string[] SplitPlatforms = ["ios", "android"];
+
+    const int NarrowRegistryRows = 8;
 }
 
 <CircuitGuard Name="Workbench">
@@ -271,6 +276,7 @@
         try {
             _protoDrop ??= await JS.InvokeAsync<IJSObjectReference>("import", InteropAsset.Url(Env, "./interop/protoStrip.js"));
             await _protoDrop.InvokeAsync<bool>("wireDrop", "protoPageDrop", "wbFile");
+            await _protoDrop.InvokeAsync<bool>("wireRegistryClip", "regClip", ".pd-side", NarrowRegistryRows);
         } catch (JSDisconnectedException ex) {
             Logger.LogDebug(ex, "proto drop zone not wired, the circuit is already gone");
         }
