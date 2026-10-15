@@ -18,9 +18,7 @@ public sealed class ConsumeCoverageCache(IServiceScopeFactory scopes, GameDataSt
         var db = scope.ServiceProvider.GetRequiredService<EggIncognitoDbContext>();
         long latestObservationId = await db.ArtifactConsumeObservations.AsNoTracking()
             .CountedConsumes()
-            .Select(o => o.Id)
-            .DefaultIfEmpty(0L)
-            .MaxAsync(ct);
+            .MaxAsync(o => (long?)o.Id, ct) ?? 0;
         var key = (gameDataVersion, latestObservationId);
 
         lock (_gate) {
