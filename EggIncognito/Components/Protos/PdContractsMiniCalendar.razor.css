@@ -40,10 +40,11 @@
   min-width: 6.5rem;
   color: var(--color-muted);
 }
-.pd-next-egg {
+.pd-next-row ::deep .pd-next-egg {
+  flex: none;
   width: 1.125rem;
   height: 1.125rem;
-  border-radius: 0.25rem;
+  object-fit: contain;
 }
 .pd-next-name {
   flex: 1 1 auto;
