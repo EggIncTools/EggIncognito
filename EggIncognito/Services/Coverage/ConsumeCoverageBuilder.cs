@@ -78,7 +78,7 @@ public static class ConsumeCoverageBuilder {
         int itemsShort = Math.Max(0, resolved.ItemTarget - t.Items);
         int obsShort = Math.Max(0, resolved.ObservationTarget - t.Observations);
         int batch = obsShort == 0 ? itemsShort : Math.Max(1, (int)Math.Ceiling(itemsShort / (double)obsShort));
-        return new CoverageCell(c.Rarity, c.AfxRarity, t.Items, t.Observations,
+        return new CoverageCell(c.SpecName, c.Rarity, c.AfxRarity, t.Items, t.Observations,
             resolved.ItemTarget, resolved.ObservationTarget, resolved.Enabled,
             Validity(t.Items, t.Observations, resolved.ItemTarget, resolved.ObservationTarget),
             itemsShort, obsShort, batch, resolved.Id, cellTarget);

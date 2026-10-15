@@ -1,6 +1,7 @@
 namespace EggIncognito.Models.Coverage;
 
 public sealed record CoverageCell(
+    string SpecName,
     string Rarity,
     int AfxRarity,
     int Items,

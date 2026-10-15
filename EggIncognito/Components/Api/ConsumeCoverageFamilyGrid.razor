@@ -64,7 +64,7 @@
     }
     @if (Selection is { } ds && ds.Family == Family.SpecName) {
         <div class="cov-drops" @onclick:stopPropagation="true">
-            <CoverageDrops Family="@ds.Family" Level="@ds.Level" Rarity="@ds.Rarity" Version="Version"/>
+            <CoverageDrops Family="@ds.SpecName" Level="@ds.Level" Rarity="@ds.Rarity" Version="Version"/>
         </div>
     }
 
@@ -85,7 +85,7 @@
     ];
 
     bool Selected(CoverageTier t, CoverageCell c) =>
-        Selection is { } s && s.Family == Family.SpecName && s.Level == t.Level && s.Rarity == c.Rarity;
+        Selection is { } s && s.Family == Family.SpecName && s.Level == t.Level && s.AfxLevel == t.AfxLevel && s.Rarity == c.Rarity;
 
     void Select(CoverageTier t, CoverageCell c) =>
         OnSelect.InvokeAsync((t, c));

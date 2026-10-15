@@ -60,7 +60,7 @@
                                 <span class="cov-fam">
                                     <Caret Open="Open(f)"/>
                                     <img class="cov-fam-ico" src="@ArtifactAssets.TargetIconFor(f.SpecName)" alt="" loading="lazy"/>
-                                    <Tooltip Text="@f.DisplayName"><span>@ArtifactAssets.ShortPlural(f.DisplayName)</span></Tooltip>
+                                    <Tooltip Text="@f.DisplayName"><span>@(f.Kind == ArtifactKind.Stone ? f.DisplayName : ArtifactAssets.ShortPlural(f.DisplayName))</span></Tooltip>
                                 </span>
                             </td>
                             <td><span class="cov-pct mono" style="@PctStyle(f.Validity)">@Pct(f.Validity)</span></td>
@@ -153,7 +153,7 @@
 
     void Reselect(CoverageSelection s) {
         var cell = _map?.Families.FirstOrDefault(f => f.SpecName == s.Family)?.Tiers
-            .FirstOrDefault(t => t.Level == s.Level)?.Cells.FirstOrDefault(c => c.Rarity == s.Rarity);
+            .FirstOrDefault(t => t.Level == s.Level && t.AfxLevel == s.AfxLevel)?.Cells.FirstOrDefault(c => c.Rarity == s.Rarity);
         _sel = cell is null ? null : s with { Cell = cell };
     }
 
@@ -164,7 +164,7 @@
     }
 
     void Select(CoverageFamily f, CoverageTier t, CoverageCell c) =>
-        _sel = new CoverageSelection(f.SpecName, t.Level, c.Rarity, c);
+        _sel = new CoverageSelection(f.SpecName, c.SpecName, t.Level, t.AfxLevel, c.Rarity, c);
 
     static string Pct(double v) => FormattableString.Invariant($"{v * 100:0.#}%");
 
@@ -179,7 +179,7 @@
     DevicePanelContext DeviceContext => new(DeviceId, AndroidUserId);
 
     CoverageCellContext CellContext(CoverageSelection sel) =>
-        new(DeviceContext, sel.Family, sel.Level, sel.Rarity, sel.Cell.SuggestedBatch);
+        new(DeviceContext, sel.SpecName, sel.Level, sel.Rarity, sel.Cell.SuggestedBatch);
 
     string? Annotation(CoverageFamily f, int rarity) {
         if (!_admin || f.Tiers.Count == 0) return null;
