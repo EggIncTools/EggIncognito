@@ -121,23 +121,24 @@ public sealed class BlobOffloadService(
         missing += await MissingAsync<StoredApk>(db, BlobTables.StoredApks, ct);
 
         if (missing > 0) {
-            logger.LogError(
-                "blob audit: {Missing} row(s) have no bytes in Postgres and no file on disk under {Root}. " +
-                "Reads of those rows will throw. Restore the files or re-harvest.", missing, files.Root);
+            await db.SaveChangesAsync(ct);
+            logger.LogWarning(
+                "blob audit: {Missing} row(s) had no bytes in Postgres and no file on disk under {Root}; " +
+                "the rows were dropped so the next harvest re-pulls them.", missing, files.Root);
         }
     }
 
     private async Task<int> MissingAsync<T>(EggIncognitoDbContext db, string table, CancellationToken ct)
         where T : class, IBlobRow {
-        var offloaded = await db.Set<T>().AsNoTracking()
+        var offloaded = await db.Set<T>()
             .Where(r => r.Bytes == null)
-            .Select(r => new { r.Id, r.Sha256 })
             .ToListAsync(ct);
 
         int missing = 0;
         foreach (var row in offloaded) {
             if (files.Exists(table, row.Sha256)) continue;
-            logger.LogError("blob audit {Table} id {Id}: file missing for sha {Sha}", table, row.Id, row.Sha256);
+            logger.LogWarning("blob audit {Table} id {Id}: file missing for sha {Sha}, dropping row", table, row.Id, row.Sha256);
+            db.Set<T>().Remove(row);
             missing++;
         }
 

@@ -67,7 +67,8 @@ public sealed class ApkStore(
         var existing = await db.StoredApks.FirstOrDefaultAsync(
             a => a.Platform == platform && a.Package == package && a.AppVersion == appVersion
                  && a.Build == build && a.Split == split, ct);
-        if (existing is not null && string.Equals(existing.Sha256, sha, StringComparison.Ordinal)) return false;
+        if (existing is not null && string.Equals(existing.Sha256, sha, StringComparison.Ordinal)
+            && blobs.Present(BlobTables.StoredApks, existing.Bytes, sha)) return false;
 
         var stored = await blobs.StoreAsync(BlobTables.StoredApks, sha, bytes, ct);
 

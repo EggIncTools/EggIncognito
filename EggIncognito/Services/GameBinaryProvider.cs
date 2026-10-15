@@ -274,11 +274,19 @@ public sealed class GameBinaryProvider(
             }
 
             if (row is not null) {
-                byte[] bytes = await store.BytesAsync(row, ct);
-                var resolved = await ResolveSymbolsAsync(bytes, ct);
-                string shaShort = Hashes.Short(row.Sha256);
-                return new(true, bytes, resolved.Syms, version,
-                    $"stored binary {platform} {version} (sha {shaShort}); {resolved.Note}");
+                byte[]? bytes = null;
+                try {
+                    bytes = await store.BytesAsync(row, ct);
+                } catch (BlobFileMissingException ex) {
+                    logger.LogWarning(ex, "stored binary {Platform} {Version} has no bytes; re-harvest needed", platform, version);
+                }
+
+                if (bytes is not null) {
+                    var resolved = await ResolveSymbolsAsync(bytes, ct);
+                    string shaShort = Hashes.Short(row.Sha256);
+                    return new(true, bytes, resolved.Syms, version,
+                        $"stored binary {platform} {version} (sha {shaShort}); {resolved.Note}");
+                }
             }
         }
 

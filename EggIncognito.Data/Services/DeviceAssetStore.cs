@@ -36,9 +36,11 @@ public sealed class DeviceAssetStore(EggIncognitoDbContext db, TimeProvider time
         CancellationToken ct) {
         var rows = await db.DeviceAssets.AsNoTracking()
             .Where(a => a.Platform == platform && a.Kind == kind)
-            .Select(a => new { a.Name, a.Sha256 })
+            .Select(a => new { a.Name, a.Sha256, Inline = a.Bytes != null })
             .ToListAsync(ct);
-        return rows.ToDictionary(r => r.Name, r => r.Sha256, StringComparer.Ordinal);
+        return rows
+            .Where(r => r.Inline || blobs.Present(BlobTables.DeviceAssets, null, r.Sha256))
+            .ToDictionary(r => r.Name, r => r.Sha256, StringComparer.Ordinal);
     }
 
     public async Task<bool> PutAsync(string platform, string kind, string name, byte[] bytes, string contentType,
@@ -46,7 +48,8 @@ public sealed class DeviceAssetStore(EggIncognitoDbContext db, TimeProvider time
         string sha = Hashes.Sha256Hex(bytes);
         var existing = await db.DeviceAssets
             .FirstOrDefaultAsync(a => a.Platform == platform && a.Kind == kind && a.Name == name, ct);
-        if (existing is not null && string.Equals(existing.Sha256, sha, StringComparison.Ordinal)) return false;
+        if (existing is not null && string.Equals(existing.Sha256, sha, StringComparison.Ordinal)
+            && blobs.Present(BlobTables.DeviceAssets, existing.Bytes, sha)) return false;
 
         var stored = await blobs.StoreAsync(BlobTables.DeviceAssets, sha, bytes, ct);
 

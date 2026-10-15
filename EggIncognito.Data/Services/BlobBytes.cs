@@ -19,6 +19,12 @@ public sealed class BlobBytes(BlobFileStore? files = null) {
         return null;
     }
 
+    public bool Present(string table, byte[]? inline, string sha256) {
+        if (inline is not null) return true;
+        if (files is null || string.IsNullOrWhiteSpace(sha256)) return false;
+        return File.Exists(files.PathFor(table, sha256));
+    }
+
     public async Task<byte[]> ResolveAsync(string table, byte[]? inline, string sha256, CancellationToken ct) {
         if (inline is not null) return inline;
         if (files is null || string.IsNullOrWhiteSpace(sha256))
