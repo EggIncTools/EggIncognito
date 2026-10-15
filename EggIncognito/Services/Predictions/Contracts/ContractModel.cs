@@ -4,14 +4,19 @@ namespace EggIncognito.Services.Predictions.Contracts;
 
 public sealed record ContractModel(
     double TrainedAt,
+    ContractStrategy Strategy,
     ReleaseGrid Grid,
     IReadOnlyDictionary<ContractSlotKind, ContractPool> Pools,
-    IReadOnlyDictionary<ContractSlotKind, IReadOnlyList<double>> Ranks) {
+    QueueRankFit RankFit) {
     public const int Paths = 1000;
     private const int Seed = 20261011;
 
-    public static ContractModel Train(IReadOnlyList<ContractReleaseSample> samples, double asOf) =>
-        new(asOf, ReleaseGrid.Fit(samples, asOf), OldestFirstPools.Fit(samples), QueueRanks.Fit(samples, asOf));
+    public static ContractModel Train(IReadOnlyList<ContractReleaseSample> samples, double asOf, ContractStrategy strategy) {
+        var past = samples.Where(s => s.Start < asOf).ToList();
+        return new ContractModel(
+            asOf, strategy, ReleaseGrid.Fit(samples, asOf), OldestFirstPools.Fit(past, strategy),
+            QueueRanks.Fit(samples, asOf, strategy));
+    }
 
     public IReadOnlyList<ContractSlotPrediction> Slots(DateTimeOffset from, int horizonSlots) {
         var grid = Grid.Next(from, horizonSlots).ToList();
@@ -24,14 +29,22 @@ public sealed record ContractModel(
             for (int i = 0; i < grid.Count; i++) {
                 var (time, slot) = grid[i];
                 if (slot.Kind == ContractSlotKind.NewContract) continue;
-                var eligible = OldestFirstPools.Eligible(Pools[slot.Kind] with { Candidates = queues[slot.Kind] }, time);
+                var eligible = OldestFirstPools.Eligible(
+                    Pools[slot.Kind] with { Candidates = queues[slot.Kind] }, time, Strategy, RankFit.NeverRerun);
                 if (eligible.Count == 0) continue;
-                var pick = eligible[SampleRank(Ranks[slot.Kind], eligible.Count, random.NextDouble())];
+                var pick = eligible[SampleRank(RankFit.Ranks[slot.Kind], eligible.Count, random.NextDouble())];
                 tallies[i][pick.ContractId] = tallies[i].GetValueOrDefault(pick.ContractId) + 1;
                 var released = pick with { LastReleased = time, Releases = pick.Releases + 1 };
-                foreach (var kind in SharedPools(slot.Kind)) {
-                    queues[kind].RemoveAll(c => c.ContractId == pick.ContractId);
-                    queues[kind].Add(released);
+                if (Strategy.PeMembership == PeMembership.Alternating && IsPe(slot.Kind)) {
+                    queues[slot.Kind].RemoveAll(c => c.ContractId == pick.ContractId);
+                    var next = slot.Kind == ContractSlotKind.PeLeggacy ? ContractSlotKind.PeLeggacyUltra : ContractSlotKind.PeLeggacy;
+                    queues[next].RemoveAll(c => c.ContractId == pick.ContractId);
+                    queues[next].Add(released);
+                } else {
+                    foreach (var kind in SharedPools(slot.Kind)) {
+                        queues[kind].RemoveAll(c => c.ContractId == pick.ContractId);
+                        queues[kind].Add(released);
+                    }
                 }
             }
         }
@@ -55,8 +68,10 @@ public sealed record ContractModel(
         return slots;
     }
 
+    private static bool IsPe(ContractSlotKind kind) => kind is ContractSlotKind.PeLeggacy or ContractSlotKind.PeLeggacyUltra;
+
     private static ContractSlotKind[] SharedPools(ContractSlotKind kind) =>
-        kind is ContractSlotKind.PeLeggacy or ContractSlotKind.PeLeggacyUltra ? OldestFirstPools.PeKinds : [kind];
+        IsPe(kind) ? OldestFirstPools.PeKinds : [kind];
 
     private static int SampleRank(IReadOnlyList<double> ranks, int count, double u) {
         int width = Math.Min(ranks.Count, count);

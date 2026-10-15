@@ -10,7 +10,7 @@
                 <WorkbenchSection Label="@group.Key">
                     @foreach (var pane in group) {
                         var key = pane.Key;
-                        <WorkbenchEntry Selected="@(State.SelectedPane == key)" OnClick="@(() => Select(key))">
+                        <WorkbenchEntry Selected="@(State.SelectedPane == key)" OnClick="@(() => Select(key))" MetaLine="@RowMeta(pane)">
                             <Name>@pane.Label</Name>
                         </WorkbenchEntry>
                     }
@@ -94,6 +94,11 @@
 
     void Select(string key) {
         State.Select(key);
+    }
+
+    static RenderFragment? RowMeta(AdminPane pane) {
+        if (pane.Meta is not { Length: > 0 } meta) return null;
+        return b => b.AddContent(0, meta);
     }
 
 }

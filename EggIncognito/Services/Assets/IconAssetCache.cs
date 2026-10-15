@@ -27,6 +27,20 @@ public sealed class IconAssetCache(IConfiguration config) {
         await File.WriteAllBytesAsync(path, bytes, ct);
     }
 
+    public int ClearAll() {
+        string? root = CacheRoot;
+        if (root is null || !Directory.Exists(root)) return 0;
+        string[] files = Directory.GetFiles(root, "*.png");
+        foreach (string file in files) {
+            try {
+                File.Delete(file);
+            } catch {
+            }
+        }
+
+        return files.Length;
+    }
+
     private string? PathFor(string name) {
         string? root = CacheRoot;
         return root is null || string.IsNullOrEmpty(name) ? null : Path.Combine(root, Safe(name) + ".png");

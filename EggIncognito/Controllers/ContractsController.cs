@@ -1,9 +1,11 @@
 using EggIncognito.Data.Models;
 using EggIncognito.Data.Services;
 using EggIncognito.Models.Contracts;
+using EggIncognito.Models.Predictions;
 using EggIncognito.Services.Auth;
 using EggIncognito.Services.Events;
 using EggIncognito.Services.Predictions;
+using EggIncognito.Services.Predictions.Contracts;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
@@ -72,17 +74,11 @@ public sealed class ContractsController : ApiControllerBase {
     public async Task<IActionResult> ColleggtibleWatch([FromServices] ContractPredictor predictor, CancellationToken ct = default) =>
         Ok(await predictor.GetColleggtibleWatchAsync(ct));
 
-    [HttpGet("predictions/backtest")]
+    [HttpGet("predictions/next")]
     [EnableRateLimiting("read")]
-    [ApiAccess(ApiAccessLevel.Admin)]
     [Requires<ContractPredictor>("no database configured")]
-    public async Task<IActionResult> PredictionsBacktest(
-        [FromServices] ContractPredictor predictor,
-        [FromQuery] double? asOf, [FromQuery] int horizon = 9, CancellationToken ct = default) {
-        if (asOf is not { } at) return Fail(400, "asOf is required");
-        if (!UnixSeconds.IsValid(at)) return Fail(400, "asOf is out of range");
-        return Ok(ContractBacktest.Run(await predictor.SamplesAsync(ct), at, horizon));
-    }
+    public async Task<IActionResult> Next([FromServices] ContractPredictor predictor, CancellationToken ct = default) =>
+        Ok(await predictor.GetNextAsync(ct));
 
     [HttpGet("model")]
     [EnableRateLimiting("read")]
@@ -90,6 +86,31 @@ public sealed class ContractsController : ApiControllerBase {
     [Requires<ContractPredictor>("no database configured")]
     public async Task<IActionResult> Model([FromServices] ContractPredictor predictor, CancellationToken ct = default) =>
         Ok(await predictor.GetModelAsync(ct));
+
+    [HttpPost("model/tune")]
+    [EnableRateLimiting("read")]
+    [ApiAccess(ApiAccessLevel.Admin)]
+    [RequestSizeLimit(100_000_000)]
+    [RequestFormLimits(MultipartBodyLengthLimit = 100_000_000)]
+    public IActionResult Tune(IFormFile? file) {
+        if (file is null || file.Length == 0) return Fail(400, "no csv uploaded");
+
+        List<ContractReleaseSample> samples;
+        using (var stream = file.OpenReadStream()) {
+            samples = HistoryCsv.Contracts(stream);
+        }
+
+        if (samples.Count == 0) return Fail(400, "csv had no usable rows");
+
+        double asOf = UnixSeconds.FromTime(DateTimeOffset.UtcNow);
+        var tuned = StrategyTuner.Fit(new ContractDomain(), samples, asOf);
+        var colleggtibles = StrategyTuner.Fit(new ColleggtibleDomain(tuned.Strategy), samples, asOf);
+        return Ok(new {
+            Contracts = new TunedStrategySummary(tuned.Strategy.Label, tuned.Scoreboard, tuned.Scoreboard[0].Result, tuned.RunnerUpDelta),
+            Colleggtibles = new TunedStrategySummary(
+                colleggtibles.Strategy.Label, colleggtibles.Scoreboard, colleggtibles.Scoreboard[0].Result, colleggtibles.RunnerUpDelta)
+        });
+    }
 
     internal static ContractReleaseDto ToDto(ContractRelease r) => new(
         r.Id, r.ContractId, r.Name, r.Egg, r.CustomEggId, r.SeasonId,

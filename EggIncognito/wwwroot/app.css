@@ -520,7 +520,7 @@ body:has(.modal-backdrop) { overflow: hidden; }
 }
 .wb-rail-filter:focus { outline: none; }
 
-.admin-wb-card { --wb-rail-w: 13rem; }
+.admin-wb-card { --wb-rail-w: 15rem; }
 #adminWorkbench h2 { margin-top: 0; margin-bottom: 0.75rem; font-size: 1rem; line-height: 1.5rem; font-weight: 600; color: var(--color-fg); }
 #adminWorkbench .mono { font-family: var(--font-mono); font-size: 0.75rem; line-height: 1rem; }
 #adminWorkbench select, #adminWorkbench button {
@@ -535,18 +535,19 @@ body:has(.modal-backdrop) { overflow: hidden; }
 #adminWorkbench select:hover, #adminWorkbench button:hover { border-color: var(--color-accent); }
 
 .modal-card.wb-card { --wb-card-w: fit-content; --wb-card-max: 97vw; min-width: min(92vw, 60rem); }
-.wb-card.calwb-card { --wb-card-w: 97vw; --wb-card-max: none; }
+.wb-card.calwb-card, .wb-card.admin-wb-card { --wb-card-w: 97vw; --wb-card-max: none; }
 .wb-card.nwb-card { min-width: min(92vw, 48rem); max-height: 96vh; }
-.wb-card.awb-card, .wb-card.pwb-card { max-height: 96vh; }
-.nwb-card .wb-body, .awb-card .wb-body, .pwb-card .wb-body { min-height: 0; }
-.nwb-card .wb-main, .awb-card .wb-main, .pwb-card .wb-main { min-height: 0; overflow-y: auto; }
+.wb-card.awb-card, .wb-card.pwb-card, .wb-card.admin-wb-card { max-height: 96vh; }
+.nwb-card .wb-body, .awb-card .wb-body, .pwb-card .wb-body, .admin-wb-card .wb-body { min-height: 0; }
+.nwb-card .wb-main, .awb-card .wb-main, .pwb-card .wb-main, .admin-wb-card .wb-main { min-height: 0; overflow-y: auto; }
 .nwb-card .wb-rail { --wb-rail-w: 16rem; scrollbar-gutter: auto; }
-.nwb-card .wb-entry-meta { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nwb-card .wb-entry-meta, .admin-wb-card .wb-entry-meta { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .dwb-card { --wb-rail-w: 15rem; }
 .dwb-card .wb-entry-head { align-items: flex-start; }
 .dwb-card .wb-entry-meta { display: flex; flex-direction: column; gap: 0.125rem; min-width: 0; }
-.dwb-card .wb-main, .awb-card .wb-main { display: flex; flex-direction: column; }
+.dwb-card .wb-main, .awb-card .wb-main, .admin-wb-card .wb-main { display: flex; flex-direction: column; }
+.admin-wb-card .wb-rail { overflow-y: auto; }
 .awb-card { --wb-rail-w: 13.5rem; }
 .wb-card.dtw-card, .wb-card.atb-card { max-height: 96vh; }
 .dtw-card .wb-body, .atb-card .wb-body { min-height: 0; }

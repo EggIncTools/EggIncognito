@@ -14,6 +14,8 @@ using EggIncognito.Services.Theme;
 namespace EggIncognito.Startup;
 
 public static class IdentityServices {
+    private static readonly string[] WatchPrefs = ["watch.events", "watch.contracts", "watch.colleggtibles"];
+
     public static void AddIdentityServices(this WebApplicationBuilder builder, BootFlags boot) {
         if (boot.IdentityApiEnabled) {
             builder.Services.AddHttpClient<IdentityApiClient>(c => {
@@ -46,7 +48,7 @@ public static class IdentityServices {
         builder.Services.AddEggIdentityDownloads();
         builder.Services.AddEggIdentityViewerCookies(o => {
             o.Allow("capture.prefs", TimeSpan.FromDays(365));
-            foreach (string watch in new[] { "watch.events", "watch.contracts", "watch.colleggtibles" }) {
+            foreach (string watch in WatchPrefs) {
                 o.Allow(watch, TimeSpan.FromDays(365));
                 o.Allow(watch + ".min", TimeSpan.FromDays(365));
             }

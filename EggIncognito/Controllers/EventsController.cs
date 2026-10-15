@@ -4,6 +4,7 @@ using EggIncognito.Models.Events;
 using EggIncognito.Services.Auth;
 using EggIncognito.Services.Events;
 using EggIncognito.Services.Predictions;
+using EggIncognito.Services.Predictions.Events;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
@@ -83,16 +84,21 @@ public sealed class EventsController : ApiControllerBase {
     public async Task<IActionResult> Model([FromServices] EventPredictor predictor, CancellationToken ct = default) =>
         Ok(await predictor.GetModelAsync(ct));
 
-    [HttpGet("predictions/backtest")]
-    [EnableRateLimiting("read")]
+    [HttpPost("model/tune")]
+    [EnableRateLimiting("write")]
     [ApiAccess(ApiAccessLevel.Admin)]
-    [Requires<EventPredictor>("no database configured")]
-    public async Task<IActionResult> PredictionsBacktest(
-        [FromServices] EventPredictor predictor,
-        [FromQuery] double? asOf, [FromQuery] int horizon = 28, CancellationToken ct = default) {
-        if (asOf is not { } at) return Fail(400, "asOf is required");
-        if (!UnixSeconds.IsValid(at)) return Fail(400, "asOf is out of range");
-        return Ok(EventBacktest.Run(await predictor.RowsAsync(ct), at, horizon));
+    [RequestSizeLimit(50_000_000)]
+    [RequestFormLimits(MultipartBodyLengthLimit = 50_000_000)]
+    public async Task<IActionResult> TuneModel(IFormFile file, [FromServices] TimeProvider time) {
+        if (file is null || file.Length == 0) return Fail(400, "no csv uploaded");
+        IReadOnlyList<EventRow> rows;
+        await using (var stream = file.OpenReadStream()) {
+            rows = HistoryCsv.GameEvents(stream);
+        }
+
+        double asOf = UnixSeconds.FromTime(time.GetUtcNow());
+        var tuned = StrategyTuner.Fit(new EventDomain(), rows, asOf);
+        return Ok(tuned.Scoreboard);
     }
 
     internal static GameEventDto ToDto(GameEvent e) => new(

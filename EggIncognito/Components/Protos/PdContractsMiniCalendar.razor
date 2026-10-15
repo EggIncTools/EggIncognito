@@ -6,10 +6,33 @@
 @using EggIncognito.Services.Events
 @inherits SelfCallComponentBase
 @inject ILogger<PdContractsMiniCalendar> Logger
+@inject IServiceProvider Services
 
 <button type="button" class="pd-cal-title pd-cal-title-gap" @onclick="@(() => OnOpenContracts.InvokeAsync())">
     Contracts<Icon Name="chevron-right" Class="icon-sm"/>
 </button>
+@if (_next is { } next) {
+    <div class="pd-next-contracts">
+        <div class="pd-next-row">
+            <span class="pd-next-label">Next non-PE</span>
+            @NextRowContent(next.NonPe)
+        </div>
+        <div class="pd-next-row">
+            <span class="pd-next-label">Next PE</span>
+            @NextRowContent(next.Pe)
+        </div>
+        <div class="pd-next-row">
+            <span class="pd-next-label">Next ultra PE</span>
+            @NextRowContent(next.UltraPe)
+        </div>
+        @foreach (var c in next.Colleggtibles) {
+            <div class="pd-next-row">
+                <span class="pd-next-label">Next colleggtible</span>
+                @NextRowContent(c)
+            </div>
+        }
+    </div>
+}
 <MiniCalendar TItem="ContractCalendarItem" Load="LoadMiniContracts" EmptyNote="No contracts in the last week.">
     <Bar>
         @{ var c = context.Item.Release!; }
@@ -44,6 +67,38 @@
     const int MiniFetchLimit = 500;
 
     [Parameter] public EventCallback OnOpenContracts { get; set; }
+
+    NextContractsResponse? _next;
+
+    protected override async Task OnInitializedAsync() {
+        if (Speculative) return;
+        try {
+            _next = await Client().GetFromJsonAsync<NextContractsResponse>("/api/v1/contracts/predictions/next", JsonPresets.Web);
+        } catch (Exception ex) {
+            Logger.LogWarning(ex, "the next contracts block could not be loaded");
+        }
+    }
+
+    RenderFragment NextRowContent(NextPick? pick) {
+        if (pick is null) {
+            return @<span class="pd-next-empty muted">none predicted</span>;
+        }
+
+        return
+            @<text>
+                @if (pick.IconUrl is { } iconUrl) {
+                    <FallbackImg Class="pd-next-egg" Src="@iconUrl" Alt=""/>
+                }
+                <span class="pd-next-name">@pick.Name</span>
+                <span class="pd-next-date muted">@FormatSlotTime(pick.SlotTime)</span>
+                <span class="pd-next-prob mono">@((pick.Probability * 100).ToString("0"))%</span>
+            </text>;
+    }
+
+    string FormatSlotTime(double slotTime) {
+        return ViewerClock.At(Services, UnixSeconds.ToTime(slotTime))
+            .ToString("ddd d MMM", System.Globalization.CultureInfo.InvariantCulture);
+    }
 
     async Task<CalendarItemsLoad<ContractCalendarItem>> LoadMiniContracts(DateTimeOffset start, DateTimeOffset end) {
         if (Speculative) return CalendarItemsLoad.Ok<ContractCalendarItem>([]);

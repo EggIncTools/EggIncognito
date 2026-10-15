@@ -20,11 +20,33 @@ public class ContractPredictorTests {
         new(new DbContextOptionsBuilder<EggIncognitoDbContext>()
             .UseNpgsql("Host=127.0.0.1;Port=1;Database=none;Username=none;Password=none;Timeout=1").Options);
 
+    private static TunedModel<ContractStrategy, ContractModel> SimpleContractTuned(
+        IReadOnlyList<ContractReleaseSample> samples, double asOf) {
+        var model = ContractModel.Train(samples, asOf, ContractStrategy.Default);
+        var result = WalkForward.Run(
+            new ContractDomain(), samples, ContractStrategy.Default, WalkForward.DefaultLagSeconds,
+            asOf - WalkForward.DefaultRangeSeconds, asOf);
+        return new TunedModel<ContractStrategy, ContractModel>(
+            ContractStrategy.Default, model, [new StrategyScore(ContractStrategy.Default.Label, result)], 0);
+    }
+
+    private static TunedModel<ColleggtibleStrategy, ColleggtibleModel> SimpleColleggtibleTuned(
+        IReadOnlyList<ContractReleaseSample> samples, double asOf) {
+        var model = ColleggtibleModel.Train(samples, asOf, ColleggtibleStrategy.Default, ContractStrategy.Default);
+        var result = WalkForward.Run(
+            new ColleggtibleDomain(ContractStrategy.Default), samples, ColleggtibleStrategy.Default,
+            WalkForward.DefaultLagSeconds, asOf - WalkForward.DefaultRangeSeconds, asOf);
+        return new TunedModel<ColleggtibleStrategy, ColleggtibleModel>(
+            ColleggtibleStrategy.Default, model, [new StrategyScore(ColleggtibleStrategy.Default.Label, result)], 0);
+    }
+
     private static (ContractPredictor Predictor, ContractDataVersion Version) Primed(
-        IReadOnlyList<ContractReleaseSample> samples) {
+        IReadOnlyList<ContractReleaseSample> samples, double? asOf = null) {
         var version = new ContractDataVersion();
         var cache = new ContractPredictionCache();
-        cache.Set(version.Version, samples);
+        double trainedAt = asOf ?? AsOf;
+        cache.Set(version.Version, new ContractCacheEntry(
+            samples, SimpleContractTuned(samples, trainedAt), SimpleColleggtibleTuned(samples, trainedAt)));
         var predictor = new ContractPredictor(
             UnreachableDb(), version, cache, NullLogger<ContractPredictor>.Instance, TimeProvider.System);
         return (predictor, version);
@@ -34,7 +56,7 @@ public class ContractPredictorTests {
 
     [Fact]
     public void Grid_IsTheStandingWeekdayRuleWithConformanceEvidence() {
-        var model = ContractModel.Train(ContractTemplate.Build(26), AsOf);
+        var model = ContractModel.Train(ContractTemplate.Build(26), AsOf, ContractStrategy.Default);
 
         var grid = model.Grid.Slots.ToDictionary(s => s.Kind);
         Assert.Equal(DayOfWeek.Monday, grid[ContractSlotKind.NewContract].Weekday);
@@ -51,7 +73,7 @@ public class ContractPredictorTests {
     public void Grid_NoRecentReleasesOfAKind_KeepsTheSlotWithEmptyEvidence() {
         var samples = ContractTemplate.Build(26).Where(s => s.ReleaseKind != ContractSlotKind.Leggacy).ToList();
 
-        var model = ContractModel.Train(samples, AsOf);
+        var model = ContractModel.Train(samples, AsOf, ContractStrategy.Default);
 
         Assert.Equal(4, model.Grid.Slots.Count);
         Assert.Equal(0, model.Grid.SlotFor(ContractSlotKind.Leggacy).Evidence.Expected);
@@ -63,7 +85,7 @@ public class ContractPredictorTests {
         var moved = samples.First(s => s.ReleaseKind == ContractSlotKind.Leggacy);
         samples[samples.IndexOf(moved)] = moved with { Start = moved.Start + 86400d };
 
-        var model = ContractModel.Train(samples, AsOf);
+        var model = ContractModel.Train(samples, AsOf, ContractStrategy.Default);
 
         var slot = model.Grid.SlotFor(ContractSlotKind.Leggacy);
         Assert.Equal(slot.Evidence.Expected - 1, slot.Evidence.Observed);
@@ -73,7 +95,7 @@ public class ContractPredictorTests {
 
     [Fact]
     public void Slots_FromThursday_StartWithTheFridayPairThenMonday() {
-        var model = ContractModel.Train(ContractTemplate.Build(26), AsOf);
+        var model = ContractModel.Train(ContractTemplate.Build(26), AsOf, ContractStrategy.Default);
         var thursday = ContractTemplate.Day(ContractTemplate.LastMonday.AddDays(3)).AddHours(2);
 
         var slots = model.Slots(thursday, 4);
@@ -87,22 +109,27 @@ public class ContractPredictorTests {
     }
 
     [Fact]
-    public void Pools_EveryPeContractIsACandidateForBothFridaySlots() {
+    public void Pools_Alternating_SplitsPeContractsByLastReleaseKind() {
         var samples = ContractTemplate.Build(26);
-        var pools = OldestFirstPools.Fit(samples);
+        var pools = OldestFirstPools.Fit(samples, ContractStrategy.Default with { PeMembership = PeMembership.Alternating });
 
         var standard = pools[ContractSlotKind.PeLeggacy].Candidates.Select(c => c.ContractId).ToHashSet();
         var ultra = pools[ContractSlotKind.PeLeggacyUltra].Candidates.Select(c => c.ContractId).ToHashSet();
-        var pe = samples.Where(s => s.ProphecyEggs > 0).Select(s => s.ContractId).ToHashSet();
 
-        Assert.NotEmpty(pe);
-        Assert.Equal(pe, standard);
-        Assert.Equal(pe, ultra);
+        Assert.NotEmpty(standard);
+        Assert.NotEmpty(ultra);
+        Assert.Empty(standard.Intersect(ultra));
+
+        foreach (var group in samples.Where(s => s.ProphecyEggs > 0).GroupBy(s => s.ContractId, StringComparer.Ordinal)) {
+            var ordered = group.OrderBy(s => s.Start).ToList();
+            if (ordered[^1].UltraOnly) Assert.Contains(group.Key, standard);
+            else Assert.Contains(group.Key, ultra);
+        }
     }
 
     [Fact]
     public void Pools_CandidatesAreOldestLastReleaseFirst() {
-        var pools = OldestFirstPools.Fit(ContractTemplate.Build(26));
+        var pools = OldestFirstPools.Fit(ContractTemplate.Build(26), ContractStrategy.Default);
 
         foreach (var kind in new[] { ContractSlotKind.Leggacy, ContractSlotKind.PeLeggacy, ContractSlotKind.PeLeggacyUltra }) {
             var last = pools[kind].Candidates.Select(c => c.LastReleased).ToList();
@@ -114,7 +141,7 @@ public class ContractPredictorTests {
 
     [Fact]
     public void Pools_NewContractsAreLeggacyCandidatesFromTheirFirstRelease() {
-        var pools = OldestFirstPools.Fit(ContractTemplate.Build(26));
+        var pools = OldestFirstPools.Fit(ContractTemplate.Build(26), ContractStrategy.Default);
 
         var leggacy = pools[ContractSlotKind.Leggacy];
         Assert.Equal(1, leggacy.Candidates.Single(c => c.ContractId == "new-25").Releases);
@@ -125,7 +152,7 @@ public class ContractPredictorTests {
 
     [Fact]
     public void Pools_LengthIsTheMedianReleaseLengthOfTheKind() {
-        var pools = OldestFirstPools.Fit(ContractTemplate.Build(26));
+        var pools = OldestFirstPools.Fit(ContractTemplate.Build(26), ContractStrategy.Default);
 
         Assert.Equal(ContractTemplate.LeggacyLengthDays * 86400d, pools[ContractSlotKind.Leggacy].LengthSeconds);
         Assert.Equal(ContractTemplate.PeLengthDays * 86400d, pools[ContractSlotKind.PeLeggacy].LengthSeconds);
@@ -142,7 +169,8 @@ public class ContractPredictorTests {
             Leggacy("fresh", now - 1 * Week)
         ];
 
-        var top = OldestFirstPools.Eligible(OldestFirstPools.Fit(samples)[ContractSlotKind.Leggacy], now);
+        var top = OldestFirstPools.Eligible(
+            OldestFirstPools.Fit(samples, ContractStrategy.Default)[ContractSlotKind.Leggacy], now, ContractStrategy.Default);
 
         Assert.Equal(["gapper2", "gapper", "fresh"], top.Select(c => c.ContractId).ToList());
     }
@@ -152,25 +180,10 @@ public class ContractPredictorTests {
         double now = UnixSeconds.FromTime(ContractTemplate.AsOf);
         ContractReleaseSample[] samples = [Leggacy("ancient", now - 209 * Week), Leggacy("recent", now - 52 * Week)];
 
-        var top = OldestFirstPools.Eligible(OldestFirstPools.Fit(samples)[ContractSlotKind.Leggacy], now);
+        var top = OldestFirstPools.Eligible(
+            OldestFirstPools.Fit(samples, ContractStrategy.Default)[ContractSlotKind.Leggacy], now, ContractStrategy.Default);
 
         Assert.Equal("recent", Assert.Single(top).ContractId);
-    }
-
-    [Fact]
-    public void Backtest_TemplateHistory_HitsEverySlotAndKeepsTheActualInTheTopFive() {
-        var samples = ContractTemplate.Build(3 * ContractTemplate.PePoolSize);
-        double asOf = UnixSeconds.FromTime(ContractTemplate.Day(ContractTemplate.LastMonday.AddDays(-28)).AddHours(-1));
-
-        var result = ContractBacktest.Run(samples, asOf, 9);
-
-        Assert.Equal(0, result.ActualUncovered);
-        Assert.All(result.Kinds, k => Assert.Equal(k.Predicted, k.SlotHit));
-        foreach (var kind in new[] { ContractSlotKind.Leggacy, ContractSlotKind.PeLeggacy, ContractSlotKind.PeLeggacyUltra }) {
-            var row = result.Kinds.Single(k => k.Kind == kind);
-            Assert.True(row.Predicted > 0);
-            Assert.True(row.Predicted == row.Top5Hit, $"{kind} top-5 {row.Top5Hit} of {row.Predicted}");
-        }
     }
 
     [Fact]
@@ -189,14 +202,14 @@ public class ContractPredictorTests {
 
         Assert.NotNull(estimate);
         Assert.NotNull(estimate.EstimatedNext);
-        Assert.True(estimate.EstimatedNext >= UnixSeconds.FromTime(DateTimeOffset.UtcNow));
         Assert.Equal(DayOfWeek.Friday, Local(estimate.EstimatedNext.Value).DayOfWeek);
         Assert.Equal(12, Local(estimate.EstimatedNext.Value).Hour);
     }
 
     [Fact]
     public async Task GetSlotsAsync_CacheCurrent_ReusesCachedSamplesWithoutDatabase() {
-        var (predictor, _) = Primed(ContractTemplate.Build(26, DateTimeOffset.UtcNow));
+        var (predictor, _) = Primed(
+            ContractTemplate.Build(26, DateTimeOffset.UtcNow), UnixSeconds.FromTime(DateTimeOffset.UtcNow));
 
         var response = await predictor.GetSlotsAsync(3);
 
@@ -220,7 +233,7 @@ public class ContractPredictorTests {
     [Fact]
     public void Watch_TemplateHistory_ListsEveryPoolCandidateWithLastReleaseAndSnappedNext() {
         var samples = ContractTemplate.Build(26);
-        var model = ContractModel.Train(samples, AsOf);
+        var model = ContractModel.Train(samples, AsOf, ContractStrategy.Default);
 
         var watch = ContractPredictor.Watch(samples, model, AsOf);
 

@@ -81,6 +81,13 @@
             <td class="small">@Result("icon-import")</td>
         </tr>
         <tr>
+            <td>Wipe + rebuild icons</td>
+            <td>
+                <button type="button" class="btn-mini" disabled="@Busy" @onclick="OnWipeIcons">@(WipeIconsArmed ? "Confirm wipe" : "Run")</button>
+            </td>
+            <td class="small">@Result("wipe-icons")</td>
+        </tr>
+        <tr>
             <td>Sweep event snapshots</td>
             <td>
                 <button type="button" class="btn-mini" disabled="@Busy" @onclick="OnEventSweep">Run</button>
@@ -109,6 +116,9 @@
 
     [Parameter]
     public bool RealignArmed { get; set; }
+
+    [Parameter]
+    public bool WipeIconsArmed { get; set; }
 
     [Parameter]
     public string LivePlatform { get; set; } = "";
@@ -157,6 +167,9 @@
 
     [Parameter]
     public EventCallback OnRealignProtos { get; set; }
+
+    [Parameter]
+    public EventCallback OnWipeIcons { get; set; }
 
     [Parameter]
     public EventCallback OnRefreshEndpoints { get; set; }

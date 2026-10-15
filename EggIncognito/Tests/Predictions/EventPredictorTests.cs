@@ -1,18 +1,20 @@
 using EggIncognito.Data.Services;
 using EggIncognito.Models.Events;
 using EggIncognito.Services.Predictions;
+using EggIncognito.Services.Predictions.Events;
 using Microsoft.EntityFrameworkCore;
 
 namespace EggIncognito.Tests.Predictions;
 
 public class EventPredictorTests {
     private const double Day = 86400d;
+    private static readonly EventStrategy Strategy = EventStrategy.Default;
 
     private static List<EventRow> TemplateRows(string? stopped = null, DateOnly? stoppedFrom = null) =>
         EventTemplate.Build(EventTemplate.End.AddDays(-364), EventTemplate.End.AddDays(120), stopped, stoppedFrom);
 
     private static IReadOnlyList<EventPrediction> Predictions(int horizon) =>
-        EventPredictor.Predict(TemplateRows(), EventTemplate.AsOf, horizon);
+        EventPredictor.Predict(TemplateRows(), EventTemplate.AsOf, horizon, Strategy);
 
     private static DayOfWeek Weekday(EventPrediction prediction) =>
         NoonEastern.LocalDate(prediction.PredictedStart).DayOfWeek;
@@ -117,7 +119,7 @@ public class EventPredictorTests {
     public void Predict_TemplateHistory_UltraRunsEveryTwoDaysWithoutRepeatingLastActual() {
         var rows = TemplateRows();
         double asOf = EventTemplate.AsOf;
-        var ultra = EventPredictor.Predict(rows, asOf, 28)
+        var ultra = EventPredictor.Predict(rows, asOf, 28, Strategy)
             .Where(p => p.Kind == EventRuleKind.Ultra)
             .OrderBy(p => p.PredictedStart)
             .ToList();
@@ -154,7 +156,7 @@ public class EventPredictorTests {
     public void Predict_LaneStoppedTenWeeksAgo_DropsLaneAndScoresTypeLow() {
         var rows = TemplateRows("research-sale", EventTemplate.End.AddDays(-70));
 
-        var predictions = EventPredictor.Predict(rows, EventTemplate.AsOf, 28);
+        var predictions = EventPredictor.Predict(rows, EventTemplate.AsOf, 28, Strategy);
 
         Assert.DoesNotContain(predictions, p => p.Type == "research-sale");
         Assert.DoesNotContain(predictions, p => !p.Ultra && Weekday(p) == DayOfWeek.Friday);
@@ -169,7 +171,7 @@ public class EventPredictorTests {
         var rows = TemplateRows().Where(r => r.Type != "mission-capacity").ToList();
         foreach (int back in new[] { 0, 28, 56, 84, 126, 168 }) rows.Add(TwoDayRow("mission-capacity", anchor.AddDays(-back)));
 
-        var lane = EventPredictor.Predict(rows, EventTemplate.AsOf, 56)
+        var lane = EventPredictor.Predict(rows, EventTemplate.AsOf, 56, Strategy)
             .Where(p => p.Kind == EventRuleKind.Periodic && p.Type == "mission-capacity")
             .ToList();
 
@@ -184,7 +186,7 @@ public class EventPredictorTests {
         var rows = TemplateRows();
         foreach (int back in new[] { 0, 7, 14, 21 }) rows.Add(TwoDayRow("hab-sale", monday.AddDays(-back)));
 
-        var predictions = EventPredictor.Predict(rows, EventTemplate.AsOf, 28);
+        var predictions = EventPredictor.Predict(rows, EventTemplate.AsOf, 28, Strategy);
 
         Assert.DoesNotContain(
             predictions, p => p.Kind == EventRuleKind.WeekdayLane && p.Type == "hab-sale" && Weekday(p) == DayOfWeek.Monday);
@@ -199,7 +201,7 @@ public class EventPredictorTests {
     public void Predict_NoRowsInWindow_ReturnsNothing() {
         var rows = EventTemplate.Build(EventTemplate.End.AddDays(-500), EventTemplate.End.AddDays(-200));
 
-        Assert.Empty(EventPredictor.Predict(rows, EventTemplate.AsOf, 28));
+        Assert.Empty(EventPredictor.Predict(rows, EventTemplate.AsOf, 28, Strategy));
     }
 
     [Fact]
@@ -207,12 +209,12 @@ public class EventPredictorTests {
         var rows = TemplateRows();
         double asOf = EventTemplate.AsOf;
 
-        var low = EventPredictor.Predict(rows, asOf, 0);
-        var high = EventPredictor.Predict(rows, asOf, 500);
+        var low = EventPredictor.Predict(rows, asOf, 0, Strategy);
+        var high = EventPredictor.Predict(rows, asOf, 500, Strategy);
 
         Assert.NotEmpty(low);
         Assert.All(low, p => Assert.InRange(p.PredictedStart, asOf, asOf + Day));
-        Assert.Equal(EventPredictor.Predict(rows, asOf, 90).Count, high.Count);
+        Assert.Equal(EventPredictor.Predict(rows, asOf, 90, Strategy).Count, high.Count);
         Assert.All(high, p => Assert.InRange(p.PredictedStart, asOf, asOf + 90 * Day));
     }
 
@@ -231,7 +233,7 @@ public class EventPredictorTests {
 
     [Fact]
     public void Train_TemplateHistory_ReportsEveryRuleKindWithEvidence() {
-        var model = EventPredictor.Train(TemplateRows(), EventTemplate.AsOf);
+        var model = EventPredictor.Train(TemplateRows(), EventTemplate.AsOf, Strategy);
 
         var kinds = model.Rules.Select(r => r.Kind).Distinct().Order().ToList();
         Assert.Equal([.. Enum.GetValues<EventRuleKind>().Order()], kinds);
@@ -246,7 +248,9 @@ public class EventPredictorTests {
         var db = new EggIncognitoDbContext(opts);
         var version = new EventDataVersion();
         var cache = new EventPredictionCache();
-        cache.Set(version.Version, TemplateRows());
+        var rows = TemplateRows();
+        var tuned = StrategyTuner.Fit(new EventDomain(), rows, EventTemplate.AsOf);
+        cache.Set(version.Version, new EventCacheEntry(rows, tuned));
         var predictor = new EventPredictor(db, version, cache, TimeProvider.System);
 
         var result = await predictor.GetAsync(28, EventTemplate.AsOf);
@@ -281,7 +285,7 @@ public class EventPredictorTests {
             ? r with { Multiplier = ThreeXWeek(r.Start) ? 3 : 2 }
             : r).ToList();
 
-        var watch = EventPredictor.Watch(rows, EventPredictor.Predict(rows, EventTemplate.AsOf, 28), EventTemplate.AsOf);
+        var watch = EventPredictor.Watch(rows, EventPredictor.Predict(rows, EventTemplate.AsOf, 28, Strategy), EventTemplate.AsOf);
 
         var twoX = Assert.Single(watch, e => e.Key == "prestige-boost:std:2");
         var threeX = Assert.Single(watch, e => e.Key == "prestige-boost:std:3");

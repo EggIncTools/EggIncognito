@@ -6,17 +6,20 @@ public sealed class RotatingPoolRule : IEventRule {
     public const int MinSamples = 4;
     public const double MinFill = 0.8;
     public const int RepeatBlockDays = 1;
-    private const double SameWeekPenalty = 0.05;
 
     private readonly IReadOnlyDictionary<string, IReadOnlyList<double>> _gaps;
+    private readonly IReadOnlyDictionary<string, int> _counts;
+    private readonly EventStrategy _strategy;
     private readonly double _duration;
 
     private RotatingPoolRule(
         DayOfWeek weekday, IReadOnlyList<string> types, IReadOnlyDictionary<string, IReadOnlyList<double>> gaps,
-        double duration, RuleEvidence evidence) {
+        IReadOnlyDictionary<string, int> counts, EventStrategy strategy, double duration, RuleEvidence evidence) {
         Weekday = weekday;
         Types = types;
         _gaps = gaps;
+        _counts = counts;
+        _strategy = strategy;
         _duration = duration;
         Evidence = evidence;
         Key = $"pool:{(int)weekday}";
@@ -40,7 +43,8 @@ public sealed class RotatingPoolRule : IEventRule {
 
     public RuleEvidence Evidence { get; }
 
-    public static List<RotatingPoolRule> Fit(EventHistory history, HashSet<(string Type, DayOfWeek Weekday)> claimed) {
+    public static List<RotatingPoolRule> Fit(
+        EventHistory history, HashSet<(string Type, DayOfWeek Weekday)> claimed, EventStrategy strategy) {
         var unclaimed = history.Standard.Where(o => !claimed.Contains((o.Type, o.Date.DayOfWeek))).ToList();
         var types = unclaimed.Select(o => o.Type).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToList();
         var gaps = PoolHazard.GapsByType(unclaimed);
@@ -53,12 +57,13 @@ public sealed class RotatingPoolRule : IEventRule {
             if (observed < MinFill * expected) continue;
             int seen = mine.Select(o => o.Type).Distinct(StringComparer.Ordinal).Count();
             var filled = mine.Select(o => o.Date).ToHashSet();
+            var counts = PoolHazard.CountsByType(mine);
             var evidence = new RuleEvidence(
                 observed, expected, mine.Max(o => o.Start),
                 $"{RuleDates.Weekday(weekday)} slot, {observed} of {expected} days, {seen} types seen, each type's odds from its own gap history",
                 WeekdayLaneRule.HeldRecently(filled.Max(), filled, history.Last));
             rules.Add(new RotatingPoolRule(
-                weekday, types, gaps, RobustStats.Median(mine.Select(o => o.Duration).ToList()), evidence));
+                weekday, types, gaps, counts, strategy, RobustStats.Median(mine.Select(o => o.Duration).ToList()), evidence));
         }
 
         return rules;
@@ -75,8 +80,8 @@ public sealed class RotatingPoolRule : IEventRule {
         double sum = 0;
         foreach (string type in Types) {
             if (ledger.Repeats(type, false, date, RepeatBlockDays) || !_gaps.TryGetValue(type, out var gaps)) continue;
-            double score = PoolHazard.Hazard(gaps, ledger.DaysSince(type, false, at))
-                           * ledger.WeekWeight(date, type, false, SameWeekPenalty);
+            double score = ScoreOf(type, gaps, ledger.DaysSince(type, false, at))
+                           * ledger.WeekWeight(date, type, false, _strategy.SameWeekPenalty);
             scores.Add((type, score));
             sum += score;
         }
@@ -84,4 +89,10 @@ public sealed class RotatingPoolRule : IEventRule {
         double fill = Evidence.Confidence;
         return sum <= 0 ? [] : [.. scores.Where(s => s.Score > 0).Select(s => new EventCandidate(s.Type, fill * s.Score / sum))];
     }
+
+    private double ScoreOf(string type, IReadOnlyList<double> gaps, double daysSince) => _strategy.PoolScorer switch {
+        PoolScorer.WeekdayPrior => PoolHazard.WeekdayPrior(_counts, type, _strategy.Smoothing),
+        PoolScorer.DistanceHistogram => PoolHazard.DistanceHistogram(gaps, daysSince, _strategy.Smoothing),
+        _ => PoolHazard.Hazard(gaps, daysSince, _strategy.Smoothing)
+    };
 }

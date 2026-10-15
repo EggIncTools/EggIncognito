@@ -2,6 +2,7 @@ using System.Globalization;
 using EggIncognito.Data.Services;
 using EggIncognito.Models.Calendar;
 using EggIncognito.Models.Contracts;
+using EggIncognito.Models.Predictions;
 using EggIncognito.Services.Assets;
 using EggIncognito.Services.Events;
 using EggIncognito.Services.Predictions.Contracts;
@@ -13,21 +14,19 @@ public sealed class ContractPredictor(
     EggIncognitoDbContext db, ContractDataVersion version, ContractPredictionCache cache,
     ILogger<ContractPredictor> logger, TimeProvider time) {
     private const int SnapHorizon = 12;
+    private const int NextHorizonSlots = 12;
     private const double MinGridConformance = 0.9;
 
     public async Task<ContractPredictionResponse> GetSlotsAsync(int horizonSlots, CancellationToken ct = default) {
-        var samples = await SamplesAsync(ct);
+        var entry = await TunedAsync(ct);
         var now = time.GetUtcNow();
-        double nowSeconds = UnixSeconds.FromTime(now);
-        var model = ContractModel.Train(samples, nowSeconds);
-        WarnLowConformance(model);
-        return new ContractPredictionResponse(nowSeconds, model.Slots(now, horizonSlots));
+        WarnLowConformance(entry.Tuned.Model);
+        return new ContractPredictionResponse(UnixSeconds.FromTime(now), entry.Tuned.Model.Slots(now, horizonSlots));
     }
 
     public async Task<ContractNextEstimate?> GetContractAsync(string contractId, CancellationToken ct = default) {
-        var samples = await SamplesAsync(ct);
+        var model = (await TunedAsync(ct)).Tuned.Model;
         double now = UnixSeconds.FromTime(time.GetUtcNow());
-        var model = ContractModel.Train(samples, now);
         foreach (var kind in ReleaseGrid.AllKinds) {
             var pool = model.Pools[kind];
             var candidate = pool.Candidates.FirstOrDefault(c => c.ContractId == contractId);
@@ -44,15 +43,59 @@ public sealed class ContractPredictor(
     }
 
     public async Task<WatchResponse> GetWatchAsync(CancellationToken ct = default) {
-        var samples = await SamplesAsync(ct);
+        var entry = await TunedAsync(ct);
         double now = UnixSeconds.FromTime(time.GetUtcNow());
-        return new WatchResponse(now, Watch(samples, ContractModel.Train(samples, now), now));
+        return new WatchResponse(now, Watch(entry.Samples, entry.Tuned.Model, now));
     }
 
     public async Task<WatchResponse> GetColleggtibleWatchAsync(CancellationToken ct = default) {
-        var samples = await SamplesAsync(ct);
+        var entry = await TunedAsync(ct);
         double now = UnixSeconds.FromTime(time.GetUtcNow());
-        return new WatchResponse(now, ColleggtibleWatch(samples, ContractModel.Train(samples, now), now));
+        return new WatchResponse(now, ColleggtibleWatch(entry.Samples, entry.Colleggtibles.Model, now));
+    }
+
+    public async Task<NextContractsResponse> GetNextAsync(CancellationToken ct = default) {
+        var entry = await TunedAsync(ct);
+        var model = entry.Tuned.Model;
+        var colleggtibles = entry.Colleggtibles.Model;
+        var domain = new ContractDomain();
+        double now = UnixSeconds.FromTime(time.GetUtcNow());
+
+        NextPick? Pick(ContractSlotKind kind) {
+            foreach (var (slotTime, gridSlot) in model.Grid.Next(UnixSeconds.ToTime(now), NextHorizonSlots)) {
+                if (gridSlot.Kind != kind) continue;
+                var top = domain.Odds(model, new PredictionSlot(slotTime, kind.ToString()))
+                    .OrderByDescending(c => c.Probability).FirstOrDefault();
+                if (top is null) return null;
+                var candidate = model.Pools[kind].Candidates.FirstOrDefault(c => c.ContractId == top.Key);
+                var rows = entry.Samples.Where(s => s.ContractId == top.Key).ToList();
+                var latest = rows.Count > 0 ? rows.MaxBy(s => s.Start) : default;
+                string? customEggId = rows.Count > 0 ? latest.CustomEggId : null;
+                string? iconUrl = rows.Count > 0 ? EggIcons.Url(latest.Egg, latest.CustomEggId) : null;
+                return new NextPick(top.Key, candidate?.Name ?? top.Key, slotTime, top.Probability, customEggId, iconUrl);
+            }
+
+            return null;
+        }
+
+        var colleggtiblePicks = new List<NextPick>();
+        foreach (var kind in ContractDomain.PredictedKinds) {
+            foreach (var (slotTime, gridSlot) in model.Grid.Next(UnixSeconds.ToTime(now), NextHorizonSlots)) {
+                if (gridSlot.Kind != kind) continue;
+                var top = colleggtibles.Odds(new PredictionSlot(slotTime, kind.ToString()))
+                    .OrderByDescending(c => c.Probability).FirstOrDefault();
+                if (top is not null) {
+                    colleggtiblePicks.Add(new NextPick(
+                        top.Key, EggIcons.Label(0, top.Key), slotTime, top.Probability, top.Key, EggIcons.Url(0, top.Key)));
+                }
+
+                break;
+            }
+        }
+
+        return new NextContractsResponse(
+            now, Pick(ContractSlotKind.Leggacy), Pick(ContractSlotKind.PeLeggacy), Pick(ContractSlotKind.PeLeggacyUltra),
+            colleggtiblePicks);
     }
 
     internal const int WatchWeeks = 52;
@@ -70,28 +113,30 @@ public sealed class ContractPredictor(
     }
 
     internal static IReadOnlyList<WatchEntry> ColleggtibleWatch(
-        IReadOnlyList<ContractReleaseSample> samples, ContractModel model, double now) {
-        var forecasts = Forecasts(model, now);
+        IReadOnlyList<ContractReleaseSample> samples, ColleggtibleModel model, double now) {
+        var grid = ReleaseGrid.Fit(samples, now);
+        var forecasts = new Dictionary<string, List<WatchForecast>>(StringComparer.Ordinal);
+        foreach (var (time, gridSlot) in grid.Next(UnixSeconds.ToTime(now), WatchWeeks * ContractDomain.PredictedKinds.Length)) {
+            if (!ContractDomain.PredictedKinds.Contains(gridSlot.Kind)) continue;
+            var slot = new PredictionSlot(time, gridSlot.Kind.ToString());
+            double length = model.Contracts?.Pools[gridSlot.Kind].LengthSeconds ?? 7 * 86400d;
+            foreach (var candidate in model.Odds(slot)) {
+                if (!forecasts.TryGetValue(candidate.Key, out var list)) forecasts[candidate.Key] = list = [];
+                list.Add(new WatchForecast(time, time + length, candidate.Probability, Label(gridSlot.Kind)));
+            }
+        }
+
         var entries = new List<WatchEntry>();
         foreach (var egg in samples.Where(s => s.CustomEggId is not null).GroupBy(s => s.CustomEggId!, StringComparer.Ordinal)) {
             var past = egg.Where(s => s.Start < now).ToList();
             if (past.Count == 0) continue;
             var last = past.MaxBy(s => s.Start);
-            var names = egg.GroupBy(s => s.ContractId, StringComparer.Ordinal)
-                .ToDictionary(g => g.Key, g => g.MaxBy(s => s.Start).Name, StringComparer.Ordinal);
-            var next = names.Keys
-                .SelectMany(id => (forecasts.GetValueOrDefault(id) ?? []).Select(f => (Id: id, Forecast: f)))
-                .GroupBy(x => (x.Forecast.Start, x.Forecast.Rule))
-                .Select(g => new WatchForecast(
-                    g.Key.Start, g.Max(x => x.Forecast.End), Math.Min(1, g.Sum(x => x.Forecast.Confidence)), g.Key.Rule,
-                    string.Join(", ", g.OrderByDescending(x => x.Forecast.Confidence).Select(x => names[x.Id]))))
-                .OrderBy(f => f.Start)
-                .ToList();
+            var next = forecasts.GetValueOrDefault(egg.Key) ?? [];
             entries.Add(new WatchEntry(
                 egg.Key, EggIcons.Label(last.Egg, egg.Key), false, EggIcons.Url(last.Egg, egg.Key),
                 ContractPalette.BarStyle(false, last.Leggacy, last.ProphecyEggs),
                 last.Start, last.Start + last.LengthSeconds, next, last.Name,
-                next.Count == 0 ? NoNextReason(model, names.Keys, now) : null));
+                next.Count == 0 ? "Not due within the current watch horizon." : null));
         }
 
         return [.. entries.OrderBy(e => e.Label, StringComparer.OrdinalIgnoreCase)];
@@ -99,7 +144,8 @@ public sealed class ContractPredictor(
 
     private static string NoNextReason(ContractModel model, IEnumerable<string> contractIds, double now) {
         var ids = contractIds.ToHashSet(StringComparer.Ordinal);
-        bool eligible = model.Pools.Values.Any(p => OldestFirstPools.Eligible(p, now).Any(c => ids.Contains(c.ContractId)));
+        bool eligible = model.Pools.Values.Any(p =>
+            OldestFirstPools.Eligible(p, now, model.Strategy, model.RankFit.NeverRerun).Any(c => ids.Contains(c.ContractId)));
         return eligible
             ? "Ran too recently. Leggacies rerun oldest first, so it is not due within a year."
             : "No rerun in far longer than usual. It looks retired.";
@@ -132,22 +178,40 @@ public sealed class ContractPredictor(
     };
 
     public async Task<ContractModelResponse> GetModelAsync(CancellationToken ct = default) {
-        var samples = await SamplesAsync(ct);
-        double now = UnixSeconds.FromTime(time.GetUtcNow());
-        var model = ContractModel.Train(samples, now);
+        var entry = await TunedAsync(ct);
+        var model = entry.Tuned.Model;
         var grid = model.Grid.Slots.Select(s => new ContractGridSummary(
             s.Kind, s.Weekday, s.Time.ToString("HH:mm", CultureInfo.InvariantCulture),
             s.Evidence.Observed, s.Evidence.Expected, s.Evidence.Summary)).ToList();
         var pools = ReleaseGrid.AllKinds.Select(k => model.Pools[k]).Select(p => new ContractPoolSummary(
             p.Kind, p.Candidates.Count, p.GapSeconds / 86400d, p.GapSamples, p.LengthSeconds / 86400d,
             p.Evidence.Summary)).ToList();
-        return new ContractModelResponse(model.TrainedAt, grid, pools, ContractBacktest.Sweep(samples, now));
+        return new ContractModelResponse(
+            model.TrainedAt, grid, pools,
+            new TunedStrategySummary(
+                entry.Tuned.Strategy.Label, entry.Tuned.Scoreboard, entry.Tuned.Scoreboard[0].Result, entry.Tuned.RunnerUpDelta),
+            new TunedStrategySummary(
+                entry.Colleggtibles.Strategy.Label, entry.Colleggtibles.Scoreboard, entry.Colleggtibles.Scoreboard[0].Result,
+                entry.Colleggtibles.RunnerUpDelta));
     }
 
-    public async Task<IReadOnlyList<ContractReleaseSample>> SamplesAsync(CancellationToken ct = default) {
+    public async Task<ContractCacheEntry> TunedAsync(CancellationToken ct = default) {
         long v = version.Version;
         if (cache.TryGet(v, out var cached)) return cached;
 
+        var samples = await LoadSamplesAsync(ct);
+        double now = UnixSeconds.FromTime(time.GetUtcNow());
+        var tuned = StrategyTuner.Fit(new ContractDomain(), samples, now);
+        var colleggtibles = StrategyTuner.Fit(new ColleggtibleDomain(tuned.Strategy), samples, now);
+        var entry = new ContractCacheEntry(samples, tuned, colleggtibles);
+        cache.Set(v, entry);
+        return entry;
+    }
+
+    public async Task<IReadOnlyList<ContractReleaseSample>> SamplesAsync(CancellationToken ct = default) =>
+        (await TunedAsync(ct)).Samples;
+
+    private async Task<IReadOnlyList<ContractReleaseSample>> LoadSamplesAsync(CancellationToken ct) {
         var rows = await db.ContractReleases.AsNoTracking()
             .Select(r => new {
                 r.ContractId,
@@ -161,14 +225,12 @@ public sealed class ContractPredictor(
                 r.CustomEggId
             })
             .ToListAsync(ct);
-        var samples = rows
+        return rows
             .Select(r => new ContractReleaseSample(
                 r.ContractId, r.Name, UnixSeconds.FromTime(r.StartTime), r.LengthSeconds, r.Leggacy, r.ProphecyEggs,
                 r.UltraOnly, r.Egg, r.CustomEggId))
             .OrderBy(s => s.Start)
             .ToList();
-        cache.Set(v, samples);
-        return samples;
     }
 
     private void WarnLowConformance(ContractModel model) {

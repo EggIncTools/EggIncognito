@@ -1,6 +1,6 @@
 namespace EggIncognito.Services.Admin;
 
-public sealed record AdminPane(string Key, string Group, string Label);
+public sealed record AdminPane(string Key, string Group, string Label, string? Meta = null);
 
 public static class AdminPanes {
     public const string Traffic = "traffic";
@@ -17,17 +17,17 @@ public static class AdminPanes {
     public const string Maintenance = "maintenance";
 
     public static readonly IReadOnlyList<AdminPane> All = [
-        new(Traffic, "Overview", "Traffic"),
-        new(Users, "Access", "Users"),
-        new(ApiKeys, "Access", "API keys"),
-        new(Notifications, "Access", "Notifications"),
-        new(GameData, "Data", "Game data"),
-        new(Binaries, "Data", "Binaries"),
-        new(Tags, "Data", "Tags"),
-        new(Events, "Data", "Events"),
-        new(Contracts, "Data", "Contracts"),
-        new(Sessions, "Ops", "Sessions"),
-        new(Console, "Ops", "Console"),
-        new(Maintenance, "Ops", "Maintenance")
+        new(Traffic, "Overview", "Traffic", "Live request volume and recent calls"),
+        new(Users, "Access", "Users", "Accounts, roles and bans"),
+        new(ApiKeys, "Access", "API keys", "Issued keys and grants"),
+        new(Notifications, "Access", "Notifications", "Webhook feed subscriptions"),
+        new(GameData, "Data", "Game data", "Extracted game_data_documents"),
+        new(Binaries, "Data", "Binaries", "Stored app binaries"),
+        new(Tags, "Data", "Tags", "Content tagging rules"),
+        new(Events, "Data", "Events", "Scheduled and live events"),
+        new(Contracts, "Data", "Contracts", "Co-op contract catalog"),
+        new(Sessions, "Ops", "Sessions", "Active user sessions"),
+        new(Console, "Ops", "Console", "Raw endpoint console"),
+        new(Maintenance, "Ops", "Maintenance", "Maintenance tools and jobs")
     ];
 }

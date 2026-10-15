@@ -8,24 +8,23 @@ public sealed class UltraCadenceRule : IEventRule {
     public const double MinFill = 0.8;
     public const int MinGapSamples = 2;
     public const int MinTrailingRun = 13;
-    private const double Smoothing = 0.5;
-    private const double MinDue = 0.1;
-    private const double MaxDue = 3d;
 
     private readonly DateOnly _anchor;
     private readonly double _duration;
     private readonly IReadOnlyDictionary<string, double> _prior;
     private readonly double _total;
+    private readonly EventStrategy _strategy;
 
     private UltraCadenceRule(
         DateOnly anchor, int period, double duration, IReadOnlyList<string> types,
-        IReadOnlyDictionary<string, double> prior, double total, RuleEvidence evidence) {
+        IReadOnlyDictionary<string, double> prior, double total, EventStrategy strategy, RuleEvidence evidence) {
         _anchor = anchor;
         PeriodDays = period;
         _duration = duration;
         Types = types;
         _prior = prior;
         _total = total;
+        _strategy = strategy;
         Evidence = evidence;
     }
 
@@ -45,7 +44,7 @@ public sealed class UltraCadenceRule : IEventRule {
 
     public RuleEvidence Evidence { get; }
 
-    public static UltraCadenceRule? Fit(EventHistory history) {
+    public static UltraCadenceRule? Fit(EventHistory history, EventStrategy strategy) {
         var ordered = history.Ultra.OrderBy(o => o.Start).ToList();
         var dates = ordered.Select(o => o.Date).Distinct().Order().ToList();
         if (dates.Count < MinSamples) return null;
@@ -71,7 +70,7 @@ public sealed class UltraCadenceRule : IEventRule {
             holding);
         return new UltraCadenceRule(
             dates[^1], period, RobustStats.Median(ordered.Select(o => o.Duration).ToList()),
-            types, prior, ordered.Count, evidence);
+            types, prior, ordered.Count, strategy, evidence);
     }
 
     public IEnumerable<DateOnly> Dates(double asOf, double horizonEnd) =>
@@ -85,8 +84,8 @@ public sealed class UltraCadenceRule : IEventRule {
         double sum = 0;
         foreach (string type in Types) {
             if (ledger.Repeats(type, true, date, PeriodDays)) continue;
-            double prior = (_prior.GetValueOrDefault(type) + Smoothing) / (_total + Smoothing * Types.Count);
-            double score = prior * ledger.Due(type, true, at, MinDue, MaxDue, MinGapSamples);
+            double prior = (_prior.GetValueOrDefault(type) + _strategy.Smoothing) / (_total + _strategy.Smoothing * Types.Count);
+            double score = prior * ledger.Due(type, true, at, _strategy.UltraMinDue, _strategy.UltraMaxDue, MinGapSamples);
             scores.Add((type, score));
             sum += score;
         }

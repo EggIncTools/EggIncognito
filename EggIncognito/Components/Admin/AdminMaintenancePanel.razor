@@ -7,15 +7,16 @@
 
 <AdminPaneHead Title="Maintenance" Facts="[Stat]"/>
 <PaneNotice @ref="_notice"/>
-<AdminMaintenanceToolsTable Busy="_busy" RealignArmed="_realignArmed" @bind-LivePlatform="_livePlatform" @bind-IngestPlatform="_ingestPlatform" @bind-IngestJson="_ingestJson" @bind-CarpetUrl="_carpetUrl" @bind-IconName="_iconName" Result="Result" CarpetPlaceholder="@CarpetPlaceholder" OnIconFile="OnIconFile" OnBackfillCapture="@(() => Run("backfill-capture", () => Api!.PostAsync("/api/admin/backfill-capture-user-ids", TimeSpan.FromMinutes(5))))" OnBackfillOwner="@(() => Run("backfill-owner", () => Api!.PostAsync("/api/admin/backfill-owner-author-user-ids", TimeSpan.FromMinutes(5))))" OnRealignProtos="RealignProtos" OnRefreshEndpoints="RefreshEndpoints" OnCheckIpaToolVersions="CheckIpaToolVersions" OnConfigRefreshLive="@(() => RunConfig("refresh-live", () => Api!.PostAsync($"/api/config/{_livePlatform}/refresh-live", TimeSpan.FromMinutes(2))))" OnIngestJson="IngestJson" OnImportIcon="ImportIcon" OnEventSweep="@(() => RunEvents("event-sweep", () => Api!.PostAsync("/api/admin/events/sweep-snapshots", TimeSpan.FromMinutes(10))))" OnImportCarpetEvents="ImportCarpetEvents"/>
+<AdminMaintenanceToolsTable Busy="_busy" RealignArmed="_realignArmed" WipeIconsArmed="_wipeIconsArmed" @bind-LivePlatform="_livePlatform" @bind-IngestPlatform="_ingestPlatform" @bind-IngestJson="_ingestJson" @bind-CarpetUrl="_carpetUrl" @bind-IconName="_iconName" Result="Result" CarpetPlaceholder="@CarpetPlaceholder" OnIconFile="OnIconFile" OnBackfillCapture="@(() => Run("backfill-capture", () => Api!.PostAsync("/api/admin/backfill-capture-user-ids", TimeSpan.FromMinutes(5))))" OnBackfillOwner="@(() => Run("backfill-owner", () => Api!.PostAsync("/api/admin/backfill-owner-author-user-ids", TimeSpan.FromMinutes(5))))" OnRealignProtos="RealignProtos" OnRefreshEndpoints="RefreshEndpoints" OnCheckIpaToolVersions="CheckIpaToolVersions" OnConfigRefreshLive="@(() => RunConfig("refresh-live", () => Api!.PostAsync($"/api/config/{_livePlatform}/refresh-live", TimeSpan.FromMinutes(2))))" OnIngestJson="IngestJson" OnImportIcon="ImportIcon" OnWipeIcons="WipeIcons" OnEventSweep="@(() => RunEvents("event-sweep", () => Api!.PostAsync("/api/admin/events/sweep-snapshots", TimeSpan.FromMinutes(10))))" OnImportCarpetEvents="ImportCarpetEvents"/>
 
 <AdminStoredIconsPanel Icons="_icons" IconBusy="_iconBusy" OnRefresh="LoadAsync" OnDelete="DeleteIcon"/>
 
 @code {
-    const int ToolCount = 9;
+    const int ToolCount = 10;
 
     bool _busy;
     bool _realignArmed;
+    bool _wipeIconsArmed;
     string _livePlatform = "ios";
     string _ingestPlatform = "ios";
     string _ingestJson = "";
@@ -39,6 +40,7 @@
     async Task<bool> Run(string key, Func<Task<BrowserResponse>> call) {
         if (Api is null) return false;
         _realignArmed = false;
+        _wipeIconsArmed = false;
         _busy = true;
         var res = await call();
         _results[key] = res.Ok ? "ok" : res.Describe();
@@ -65,12 +67,27 @@
 
     async Task RealignProtos() {
         if (!_realignArmed) {
+            _wipeIconsArmed = false;
             _realignArmed = true;
             return;
         }
 
         await Run("realign", () => Api!.PostAsync("/api/admin/protos/realign?confirm=true", TimeSpan.FromMinutes(5)));
         _realignArmed = false;
+    }
+
+    async Task WipeIcons() {
+        if (!_wipeIconsArmed) {
+            _realignArmed = false;
+            _wipeIconsArmed = true;
+            return;
+        }
+
+        var ok = await Run("wipe-icons", () => Api!.PostAsync("/api/admin/icons/wipe", TimeSpan.FromMinutes(5)));
+        _wipeIconsArmed = false;
+        if (!ok) return;
+        await LoadAsync();
+        Notifier.Publish(AdminTopics.Maintenance);
     }
 
     async Task RefreshEndpoints() {

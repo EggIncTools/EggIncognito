@@ -9,59 +9,81 @@
 @if (_endpoints.Count == 0) {
     <Note>No endpoints available.</Note>
 } else {
-    <select class="reg-filter-input console-pick" @onchange="OnSelect">
-        <option value="">Pick an endpoint…</option>
-        @foreach (var group in Grouped()) {
-            <optgroup label="@group.Key">
-                @foreach (var e in group) {
-                    <option value="@Key(e)" selected="@(_selected == e)">@e.Method @ShortRoute(e.Route)</option>
+    <div class="console-layout">
+        <div class="console-left">
+            <input class="reg-filter-input console-search" placeholder="Search method, route, namespace…" @bind="_search" @bind:event="oninput" @onkeydown="OnSearchKeyDown"/>
+            <div class="console-chips">
+                @foreach (var m in Methods) {
+                    <button type="button" class="@($"console-chip console-{m.ToLower()}{(_activeMethods.Contains(m) ? " console-chip-active" : "")}")" @onclick="() => ToggleMethod(m)">@m</button>
                 }
-            </optgroup>
-        }
-    </select>
-
-    @if (_selected is not null) {
-        <div class="console-line">
-            <span class="console-method console-@(_selected.Method.ToLower())">@_selected.Method</span>
-            <span class="console-route">@_selected.Route</span>
+            </div>
+            <div class="console-list">
+                @{ var groups = Grouped().ToList(); }
+                @if (groups.Count == 0) {
+                    <div class="console-empty">No matches.</div>
+                }
+                @foreach (var group in groups) {
+                    <div class="console-group-header">@group.Key <span class="console-group-count">@group.Count()</span></div>
+                    @foreach (var e in group) {
+                        <div class="console-row@(_selected == e ? " console-row-selected" : "")" @onclick="() => Select(e)">
+                            <span class="console-method console-@(e.Method.ToLower())">@e.Method</span>
+                            <span class="console-route">@e.Route</span>
+                        </div>
+                    }
+                }
+            </div>
         </div>
-
-        @foreach (var p in _selected.Query) {
-            <label class="console-param">
-                @p.Name <span class="console-param-meta">(@p.Source, @p.Type)</span>
-                <input class="reg-filter-input" @bind="_paramValues[p.Name]"/>
-            </label>
-        }
-
-        @if (_selected.HasFile) {
-            <div class="console-k">File</div>
-            <InputFile OnChange="OnFile" class="console-file"/>
-            @if (_fileName is not null) {
-                <div class="console-note">@_fileName (@(_fileBytes?.Length ?? 0) bytes)</div>
-            }
-        }
-
-        @if (_selected.HasBody) {
-            <div class="console-k">JSON body @(_selected.BodyType is not null ? $"({_selected.BodyType})" : "")</div>
-            <textarea class="reg-filter-input console-body" rows="4" @bind="_body" placeholder="{ }"></textarea>
-        }
-
-        <button class="btn-primary console-send" @onclick="Send" disabled="@_busy">@(_busy ? "Sending…" : "Send")</button>
-
-        @if (_status is not null) {
-            @if (_isBinary) {
-                <div class="console-note">Binary response (@_respBytes bytes). <a href="@_blobUrl" download="@_downloadName">Download</a></div>
+        <div class="console-right">
+            @if (_selected is null) {
+                <Note>Select an endpoint to build a request.</Note>
             } else {
-                <pre class="result-pre console-out">@_response</pre>
+                <div class="console-line">
+                    <span class="console-method console-@(_selected.Method.ToLower())">@_selected.Method</span>
+                    <span class="console-route">@_selected.Route</span>
+                </div>
+
+                @foreach (var p in _selected.Query) {
+                    <label class="console-param">
+                        @p.Name <span class="console-param-meta">(@p.Source, @p.Type)</span>
+                        <input class="reg-filter-input" @bind="_paramValues[p.Name]"/>
+                    </label>
+                }
+
+                @if (_selected.HasFile) {
+                    <div class="console-k">File</div>
+                    <InputFile OnChange="OnFile" class="console-file"/>
+                    @if (_fileName is not null) {
+                        <div class="console-note">@_fileName (@(_fileBytes?.Length ?? 0) bytes)</div>
+                    }
+                }
+
+                @if (_selected.HasBody) {
+                    <div class="console-k">JSON body @(_selected.BodyType is not null ? $"({_selected.BodyType})" : "")</div>
+                    <textarea class="reg-filter-input console-body" rows="4" @bind="_body" placeholder="{ }"></textarea>
+                }
+
+                <button class="btn-primary console-send" @onclick="Send" disabled="@_busy">@(_busy ? "Sending…" : "Send")</button>
+
+                @if (_status is not null) {
+                    @if (_isBinary) {
+                        <div class="console-note">Binary response (@_respBytes bytes). <a href="@_blobUrl" download="@_downloadName">Download</a></div>
+                    } else {
+                        <pre class="result-pre console-out">@_response</pre>
+                    }
+                }
             }
-        }
-    }
+        </div>
+    </div>
 }
 
 @code {
+    static readonly string[] Methods = ["GET", "POST", "PUT", "PATCH", "DELETE"];
+
     PaneNotice? _notice;
     List<ConsoleEndpoint> _endpoints = [];
     ConsoleEndpoint? _selected;
+    string _search = "";
+    readonly HashSet<string> _activeMethods = new(StringComparer.OrdinalIgnoreCase);
 
     string Stat => $"{_endpoints.Count} endpoints";
 
@@ -88,8 +110,17 @@
         _selected = _endpoints.FirstOrDefault(x => Key(x) == key);
     }
 
+    IEnumerable<ConsoleEndpoint> Filtered() {
+        var terms = _search.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        return _endpoints.Where(e =>
+            (_activeMethods.Count == 0 || _activeMethods.Contains(e.Method)) &&
+            terms.All(t => e.Method.Contains(t, StringComparison.OrdinalIgnoreCase) ||
+                            e.Route.Contains(t, StringComparison.OrdinalIgnoreCase) ||
+                            Namespace(e).Contains(t, StringComparison.OrdinalIgnoreCase)));
+    }
+
     IEnumerable<IGrouping<string, ConsoleEndpoint>> Grouped() {
-        return _endpoints.GroupBy(Namespace).OrderBy(g => g.Key, StringComparer.Ordinal);
+        return Filtered().GroupBy(Namespace).OrderBy(g => g.Key, StringComparer.Ordinal);
     }
 
     static string Namespace(ConsoleEndpoint e) {
@@ -97,18 +128,18 @@
         return parts.Length >= 2 && parts[0] == "api" ? parts[1] : parts[0];
     }
 
-    static string ShortRoute(string route) {
-        var parts = route.TrimStart('/').Split('/');
-        return parts.Length > 2 && parts[0] == "api" ? "/" + string.Join('/', parts.Skip(2)) : route;
-    }
-
     static string Key(ConsoleEndpoint e) {
         return $"{e.Method} {e.Route}";
     }
 
-    void OnSelect(ChangeEventArgs e) {
-        var key = (string?)e.Value ?? "";
-        Select(_endpoints.FirstOrDefault(x => Key(x) == key));
+    void ToggleMethod(string m) {
+        if (!_activeMethods.Add(m)) _activeMethods.Remove(m);
+    }
+
+    void OnSearchKeyDown(KeyboardEventArgs e) {
+        if (e.Key != "Enter") return;
+        var first = Filtered().FirstOrDefault();
+        if (first is not null) Select(first);
     }
 
     void Select(ConsoleEndpoint? e) {

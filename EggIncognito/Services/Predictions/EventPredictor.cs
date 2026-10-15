@@ -1,6 +1,7 @@
 using EggIncognito.Data.Services;
 using EggIncognito.Models.Calendar;
 using EggIncognito.Models.Events;
+using EggIncognito.Models.Predictions;
 using EggIncognito.Services.Assets;
 using EggIncognito.Services.Events;
 using EggIncognito.Services.Predictions.Events;
@@ -12,25 +13,27 @@ public sealed class EventPredictor(EggIncognitoDbContext db, EventDataVersion ve
     TimeProvider time) {
     public async Task<EventPredictionSet> GetAsync(
         int horizonDays = 28, double? asOf = null, CancellationToken ct = default) {
-        var rows = await RowsAsync(ct);
+        var entry = await TunedAsync(ct);
         double at = asOf ?? UnixSeconds.FromTime(time.GetUtcNow());
-        return new EventPredictionSet(at, Predict(rows, at, horizonDays));
+        return new EventPredictionSet(at, Predict(entry.Rows, at, horizonDays, entry.Tuned.Strategy));
     }
 
     public async Task<EventModelResponse> GetModelAsync(CancellationToken ct = default) {
-        var rows = await RowsAsync(ct);
+        var entry = await TunedAsync(ct);
         double asOf = UnixSeconds.FromTime(time.GetUtcNow());
-        var model = Train(rows, asOf);
+        var model = Train(entry.Rows, asOf, entry.Tuned.Strategy);
         var rules = model.Rules.Select(r => new EventRuleSummary(
             r.Kind, r.Key, r.Type, r.Ultra, r.Evidence.Observed, r.Evidence.Expected, r.Evidence.Fill,
             r.PeriodDays, r.Evidence.LastStart, r.Evidence.Summary)).ToList();
-        return new EventModelResponse(model.TrainedAt, model.WindowDays, rules, EventBacktest.Sweep(rows, asOf));
+        var strategy = new TunedStrategySummary(
+            entry.Tuned.Strategy.Label, entry.Tuned.Scoreboard, entry.Tuned.Scoreboard[0].Result, entry.Tuned.RunnerUpDelta);
+        return new EventModelResponse(model.TrainedAt, model.WindowDays, rules, strategy);
     }
 
     public async Task<WatchResponse> GetWatchAsync(int horizonDays = 28, CancellationToken ct = default) {
-        var rows = await RowsAsync(ct);
+        var entry = await TunedAsync(ct);
         double at = UnixSeconds.FromTime(time.GetUtcNow());
-        return new WatchResponse(at, Watch(rows, Predict(rows, at, horizonDays), at));
+        return new WatchResponse(at, Watch(entry.Rows, Predict(entry.Rows, at, horizonDays, entry.Tuned.Strategy), at));
     }
 
     public const int MagnitudeWindowDays = 365;
@@ -87,28 +90,41 @@ public sealed class EventPredictor(EggIncognitoDbContext db, EventDataVersion ve
     public static string EventTypeLabel(string type) => EggIcons.Pretty(type);
 
     public async Task<IReadOnlyList<EventRow>> RowsAsync(CancellationToken ct = default) {
+        var entry = await TunedAsync(ct);
+        return entry.Rows;
+    }
+
+    public async Task<EventCacheEntry> TunedAsync(CancellationToken ct = default) {
         long v = version.Version;
         if (cache.TryGet(v, out var cached)) return cached;
 
+        var rows = await LoadRowsAsync(ct);
+        double asOf = UnixSeconds.FromTime(time.GetUtcNow());
+        var tuned = StrategyTuner.Fit(new EventDomain(), rows, asOf);
+        var entry = new EventCacheEntry(rows, tuned);
+        cache.Set(v, entry);
+        return entry;
+    }
+
+    private async Task<IReadOnlyList<EventRow>> LoadRowsAsync(CancellationToken ct) {
         var rows = await db.GameEvents.AsNoTracking()
             .OrderBy(e => e.StartTime)
             .Select(e => new { e.EventType, e.Ultra, e.StartTime, e.EndTime, e.Multiplier })
             .ToListAsync(ct);
-        var value = rows
+        return rows
             .Select(r => new EventRow(
                 r.EventType, r.Ultra, UnixSeconds.FromTime(r.StartTime), UnixSeconds.FromTime(r.EndTime), r.Multiplier))
             .Where(r => !EggDay.Contains(r.Start))
             .ToList();
-        cache.Set(v, value);
-        return value;
     }
 
-    public static EventModel Train(IReadOnlyList<EventRow> rows, double asOf) =>
-        EventModelTrainer.Train(EventHistory.Build(rows, asOf), asOf);
+    public static EventModel Train(IReadOnlyList<EventRow> rows, double asOf, EventStrategy strategy) =>
+        EventModelTrainer.Train(EventHistory.Build(rows, asOf), asOf, strategy);
 
-    public static IReadOnlyList<EventPrediction> Predict(IReadOnlyList<EventRow> rows, double asOf, int horizonDays) {
+    public static IReadOnlyList<EventPrediction> Predict(
+        IReadOnlyList<EventRow> rows, double asOf, int horizonDays, EventStrategy strategy) {
         var history = EventHistory.Build(rows, asOf);
-        var projected = EventProjector.Project(EventModelTrainer.Train(history, asOf), history, asOf, horizonDays);
+        var projected = EventProjector.Project(EventModelTrainer.Train(history, asOf, strategy), history, asOf, horizonDays);
         var models = new Dictionary<(string, bool), MagnitudeModel>();
         MagnitudeModel ModelOf(string type, bool ultra) {
             if (!models.TryGetValue((type, ultra), out var m)) {

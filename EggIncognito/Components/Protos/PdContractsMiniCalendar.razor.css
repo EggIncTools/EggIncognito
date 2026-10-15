@@ -19,3 +19,47 @@
 .pd-cal-title:hover { color: var(--color-accent); }
 .pd-cal-title:hover ::deep .icon { color: var(--color-accent); }
 .pd-cal-title-gap { margin-top: 1rem; }
+.pd-next-contracts {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  margin: 0 0 0.75rem;
+  padding: 0.5rem 0.625rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.5rem;
+  background: var(--color-panel);
+}
+.pd-next-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8125rem;
+}
+.pd-next-label {
+  flex: 0 0 auto;
+  min-width: 6.5rem;
+  color: var(--color-muted);
+}
+.pd-next-egg {
+  width: 1.125rem;
+  height: 1.125rem;
+  border-radius: 0.25rem;
+}
+.pd-next-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--color-fg);
+}
+.pd-next-date {
+  flex: 0 0 auto;
+}
+.pd-next-prob {
+  flex: 0 0 auto;
+  color: var(--color-accent);
+}
+.pd-next-empty {
+  flex: 1 1 auto;
+}

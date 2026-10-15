@@ -1,6 +1,7 @@
 @rendermode @(RenderModes.InteractiveServer)
 @using EggIncognito.Models.Contracts
 @using EggIncognito.Services.Events
+@using EggIncognito.Services.Predictions
 @inherits AdminPaneBase
 
 <AdminPaneHead Title="Contracts" Facts="@Stats"/>
@@ -55,31 +56,36 @@
             </tbody>
         </table>
     </TableScroll>
-    <SubSectionHead>Backtest, last @model.Sweep.Windows.Count windows of @EggIncognito.Services.Predictions.ContractBacktest.SweepHorizonSlots slots</SubSectionHead>
+    <SubSectionHead>Strategy</SubSectionHead>
     <TableScroll>
         <table class="data-table">
-            <thead>
-            <tr>
-                <th>Slot</th>
-                <th>Predicted</th>
-                <th>Slot hit</th>
-                <th>Top 1 hit</th>
-                <th>Top 5 hit</th>
-            </tr>
-            </thead>
             <tbody>
-            @foreach (var k in model.Sweep.Totals.Where(t => t.Predicted > 0)) {
-                <tr>
-                    <td>@KindLabel(k.Kind)</td>
-                    <td class="mono">@k.Predicted</td>
-                    <td class="mono">@Rate(k.SlotHit, k.Predicted)</td>
-                    <td class="mono">@Rate(k.Top1Hit, k.Predicted)</td>
-                    <td class="mono">@Rate(k.Top5Hit, k.Predicted)</td>
-                </tr>
-            }
+            <tr>
+                <td>winner</td><td class="mono">@model.Strategy.Label</td>
+            </tr>
+            <tr>
+                <td>runner-up delta</td><td class="mono">@model.Strategy.RunnerUpDelta.ToString("0.000")</td>
+            </tr>
             </tbody>
         </table>
     </TableScroll>
+    <SubSectionHead>Walk-forward, 30 day lag, last 365 days</SubSectionHead>
+    @RenderWalkForward(model.Strategy.WalkForward)
+    <SubSectionHead>Colleggtibles strategy</SubSectionHead>
+    <TableScroll>
+        <table class="data-table">
+            <tbody>
+            <tr>
+                <td>winner</td><td class="mono">@model.Colleggtibles.Label</td>
+            </tr>
+            <tr>
+                <td>runner-up delta</td><td class="mono">@model.Colleggtibles.RunnerUpDelta.ToString("0.000")</td>
+            </tr>
+            </tbody>
+        </table>
+    </TableScroll>
+    <SubSectionHead>Walk-forward, 30 day lag, last 365 days</SubSectionHead>
+    @RenderWalkForward(model.Colleggtibles.WalkForward)
 }
 <Note Small="true" Gap="true">Historical data courtesy of carpetsage/egg.</Note>
 
@@ -101,6 +107,43 @@
     static string Rate(int hit, int total) {
         return total == 0 ? "-" : $"{hit}/{total} ({hit * 100 / total}%)";
     }
+
+    static RenderFragment RenderWalkForward(WalkForwardResult result) =>
+        @<TableScroll>
+            <table class="data-table">
+                <thead>
+                <tr>
+                    <th>Kind</th>
+                    <th>Slots</th>
+                    <th>Top 1</th>
+                    <th>Top 3</th>
+                    <th>Top 5</th>
+                    <th>Log-loss</th>
+                </tr>
+                </thead>
+                <tbody>
+                @foreach (var k in result.Kinds) {
+                    <tr>
+                        <td>@k.Kind</td>
+                        <td class="mono">@k.Slots</td>
+                        <td class="mono">@Rate(k.Top1, k.Slots)</td>
+                        <td class="mono">@Rate(k.Top3, k.Slots)</td>
+                        <td class="mono">@Rate(k.Top5, k.Slots)</td>
+                        <td class="mono">@k.LogLoss.ToString("0.000")</td>
+                    </tr>
+                }
+                <tr>
+                    <td>total</td>
+                    <td class="mono">@result.Total.Slots</td>
+                    <td class="mono">@Rate(result.Total.Top1, result.Total.Slots)</td>
+                    <td class="mono">@Rate(result.Total.Top3, result.Total.Slots)</td>
+                    <td class="mono">@Rate(result.Total.Top5, result.Total.Slots)</td>
+                    <td class="mono">@result.Total.LogLoss.ToString("0.000")</td>
+                </tr>
+                </tbody>
+            </table>
+        </TableScroll>;
+
     bool _busy;
     string _carpetUrl = "";
 

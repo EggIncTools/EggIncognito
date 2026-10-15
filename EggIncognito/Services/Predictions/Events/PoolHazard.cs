@@ -2,7 +2,6 @@ namespace EggIncognito.Services.Predictions.Events;
 
 public static class PoolHazard {
     public const double NearDays = 1;
-    private const double Smoothing = 0.5;
 
     public static IReadOnlyDictionary<string, IReadOnlyList<double>> GapsByType(IEnumerable<EventOccurrence> occurrences) {
         var result = new Dictionary<string, IReadOnlyList<double>>(StringComparer.Ordinal);
@@ -16,11 +15,25 @@ public static class PoolHazard {
         return result;
     }
 
-    public static double Hazard(IReadOnlyList<double> gaps, double daysSince) {
+    public static IReadOnlyDictionary<string, int> CountsByType(IEnumerable<EventOccurrence> occurrences) =>
+        occurrences.GroupBy(o => o.Type, StringComparer.Ordinal).ToDictionary(g => g.Key, g => g.Count(), StringComparer.Ordinal);
+
+    public static double Hazard(IReadOnlyList<double> gaps, double daysSince, double smoothing) {
         if (gaps.Count == 0) return 0;
-        if (daysSince > gaps.Max() + NearDays) return Smoothing / (gaps.Count + 1);
+        if (daysSince > gaps.Max() + NearDays) return smoothing / (gaps.Count + 1);
         int atOrAfter = gaps.Count(g => g >= daysSince - NearDays);
         int near = gaps.Count(g => Math.Abs(g - daysSince) <= NearDays);
-        return (near + Smoothing) / (atOrAfter + 1);
+        return (near + smoothing) / (atOrAfter + 1);
+    }
+
+    public static double WeekdayPrior(IReadOnlyDictionary<string, int> counts, string type, double smoothing) {
+        double total = counts.Values.Sum();
+        return (counts.GetValueOrDefault(type) + smoothing) / (total + smoothing * Math.Max(counts.Count, 1));
+    }
+
+    public static double DistanceHistogram(IReadOnlyList<double> gaps, double daysSince, double smoothing) {
+        if (gaps.Count == 0) return 0;
+        double near = gaps.Count(g => Math.Abs(g - daysSince) <= NearDays);
+        return (near + smoothing) / (gaps.Count + smoothing);
     }
 }

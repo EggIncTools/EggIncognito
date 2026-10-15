@@ -57,28 +57,51 @@
             </tbody>
         </table>
     </TableScroll>
-    <SubSectionHead>Backtest, last @model.Sweep.Windows.Count windows of @EggIncognito.Services.Predictions.EventBacktest.SweepHorizonDays days</SubSectionHead>
+    <SubSectionHead>Strategy</SubSectionHead>
+    <TableScroll>
+        <table class="data-table">
+            <tbody>
+            <tr>
+                <td>winner</td><td class="mono">@model.Strategy.Label</td>
+            </tr>
+            <tr>
+                <td>runner-up delta</td><td class="mono">@model.Strategy.RunnerUpDelta.ToString("0.0000")</td>
+            </tr>
+            </tbody>
+        </table>
+    </TableScroll>
+    <SubSectionHead>Walk-forward, 30 day lag, last 365 days</SubSectionHead>
     <TableScroll>
         <table class="data-table">
             <thead>
             <tr>
-                <th>Rule</th>
-                <th>Predicted</th>
-                <th>Slot hit</th>
-                <th>Type hit</th>
-                <th>Top 3 hit</th>
+                <th>Kind</th>
+                <th>Slots</th>
+                <th>Top 1</th>
+                <th>Top 3</th>
+                <th>Top 5</th>
+                <th>Log loss</th>
             </tr>
             </thead>
             <tbody>
-            @foreach (var k in model.Sweep.Totals.Where(t => t.Predicted > 0)) {
+            @foreach (var k in model.Strategy.WalkForward.Kinds) {
                 <tr>
-                    <td>@KindLabel(k.Kind)</td>
-                    <td class="mono">@k.Predicted</td>
-                    <td class="mono">@Rate(k.SlotHit, k.Predicted)</td>
-                    <td class="mono">@Rate(k.TypeHit, k.Predicted)</td>
-                    <td class="mono">@Rate(k.Top3Hit, k.Predicted)</td>
+                    <td>@k.Kind</td>
+                    <td class="mono">@k.Slots</td>
+                    <td class="mono">@Rate(k.Top1, k.Slots)</td>
+                    <td class="mono">@Rate(k.Top3, k.Slots)</td>
+                    <td class="mono">@Rate(k.Top5, k.Slots)</td>
+                    <td class="mono">@k.LogLoss.ToString("0.000")</td>
                 </tr>
             }
+            <tr>
+                <td>total</td>
+                <td class="mono">@model.Strategy.WalkForward.Total.Slots</td>
+                <td class="mono">@Rate(model.Strategy.WalkForward.Total.Top1, model.Strategy.WalkForward.Total.Slots)</td>
+                <td class="mono">@Rate(model.Strategy.WalkForward.Total.Top3, model.Strategy.WalkForward.Total.Slots)</td>
+                <td class="mono">@Rate(model.Strategy.WalkForward.Total.Top5, model.Strategy.WalkForward.Total.Slots)</td>
+                <td class="mono">@model.Strategy.WalkForward.Total.LogLoss.ToString("0.000")</td>
+            </tr>
             </tbody>
         </table>
     </TableScroll>

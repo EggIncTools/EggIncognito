@@ -12,6 +12,7 @@ using EggIncognito.Models.Admin;
 using EggIncognito.Models.AdminUi;
 using EggIncognito.Services;
 using EggIncognito.Services.Auth;
+using EggIncognito.Services.Assets;
 using EggIncognito.Services.DataApi;
 using EggIncognito.Services.Devices;
 using EggIncognito.Services.EggSharpSender;
@@ -280,6 +281,26 @@ public sealed partial class AdminController(
             .ExecuteDeleteAsync(ct);
         if (removed == 0) return Fail(404, "icon not found");
         return Ok(new { deleted = name, rows = removed });
+    }
+
+    [HttpPost("icons/wipe")]
+    [RequiresDb]
+    public async Task<IActionResult> WipeIcons([FromServices] EggIncognitoDbContext db,
+        [FromServices] IconAssetCache diskCache, [FromServices] IDeviceAgentClient agent, CancellationToken ct) {
+        int rows = await db.DeviceAssets
+            .Where(a => a.Kind == DeviceAssetKinds.Icon)
+            .ExecuteDeleteAsync(ct);
+        int fingerprints = await db.DeviceAssets
+            .Where(a => a.Kind == DeviceAssetKinds.Manifest
+                        && a.Name == DeviceAssetStore.FingerprintPrefix + HarvestEntries.Textures)
+            .ExecuteDeleteAsync(ct);
+        int files = diskCache.ClearAll();
+
+        bool harvestStarted = agent.Enabled && await agent.PokeAsync(null, true, ct);
+        string harvest = !agent.Enabled ? "device agent disabled"
+            : harvestStarted ? "queued" : "no enabled devices";
+
+        return Ok(new { rows, fingerprints, files, harvest });
     }
 
     [HttpDelete("sessions/{key}")]
