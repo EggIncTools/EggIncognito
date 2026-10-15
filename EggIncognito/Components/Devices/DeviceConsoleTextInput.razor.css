@@ -1,3 +1,5 @@
+.dcon-input { display: flex; align-items: center; gap: 0.5rem; min-width: 0; }
+.dcon-input .btn-mini { flex: none; white-space: nowrap; }
 .dcon-on { border-color: var(--color-accent); color: var(--color-accent); }
 .dcon-text { flex: 1 1 0; min-width: 0; height: 100%; font-family: var(--font-mono); }
 .dcon-keys-note { flex: 1 1 0; min-width: 0; font-size: 0.75rem; color: var(--color-muted); }

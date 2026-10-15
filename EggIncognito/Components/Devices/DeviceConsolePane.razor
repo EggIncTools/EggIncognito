@@ -17,7 +17,7 @@
     <div class="wb-note">Pick a device.</div>
 } else {
     <div class="dcon">
-        <div class="dcon-body @(IsAndroid ? "dcon-body-ear" : "")" @ref="_body">
+        <div class="dcon-body @(IsAndroid ? "dcon-body-ear" : "")">
             <div class="dcon-stage-col">
                 @if (IsAndroid) {
                     <div class="dcon-ear">
@@ -215,8 +215,6 @@
     ElementReference _img;
     ElementReference _canvas;
     ElementReference _stage;
-    ElementReference _body;
-    string _bodyKey = "";
     IJSObjectReference? _module;
     DotNetObjectReference<DeviceConsolePane>? _self;
     Timer? _uiPoll;
@@ -874,7 +872,6 @@
             }
         }
 
-        await SyncBodyAsync(module);
         await SyncStreamAsync(module);
         await SyncStageAsync(module);
         await SyncKeysAsync(module);
@@ -898,7 +895,7 @@
             _streamOnVideo = _useVideo;
             _videoKey = _useVideo ? video : "";
             var started = _useVideo
-                ? await SafeValueAsync<bool>(module, "startVideo", _canvas, VideoUrl(), Ref(), new { maxQueue = 4, key = video, token = desired })
+                ? await SafeValueAsync<bool>(module, "startVideo", _canvas, VideoUrl(), Ref(), new { key = video, token = desired })
                 : await SafeValueAsync<bool>(module, "start", _img, StreamUrl(), ScreenshotUrl(), Ref());
             if (!started && _streamKey == desired) {
                 await StreamEndedAsync(_useVideo
@@ -908,14 +905,6 @@
         } finally {
             _syncing = false;
         }
-    }
-
-    async Task SyncBodyAsync(IJSObjectReference module) {
-        var desired = _body.Id ?? "";
-        if (desired == _bodyKey) return;
-        if (_bodyKey.Length > 0) await SafeAsync(module, "unobserveBody", _body);
-        _bodyKey = desired;
-        if (desired.Length > 0) await SafeAsync(module, "observeBody", _body);
     }
 
     async Task SyncStageAsync(IJSObjectReference module) {
@@ -1158,7 +1147,6 @@
         if (_module is { } module) {
             await SafeAsync(module, "clearWatchPoints", _canvas);
             if (_stageKey.Length > 0) await SafeAsync(module, "unbindStage", _stage);
-            if (_bodyKey.Length > 0) await SafeAsync(module, "unobserveBody", _body);
             await HaltAsync(module);
         }
 

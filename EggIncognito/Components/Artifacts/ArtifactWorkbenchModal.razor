@@ -76,9 +76,9 @@
                     <div class="atb-tiers">
                         @foreach (var tier in family.Tiers) {
                             var t = tier;
-                            int rows = State.NeedsRarity ? Math.Max(1, t.RarityCount) : 1;
+                            IReadOnlyList<int> rarities = State.NeedsRarity ? Rarities(family, t) : [0];
                             <div class="atb-tier-col">
-                                @for (int r = 0; r < rows; r++) {
+                                @foreach (var r in rarities) {
                                     int rarity = r;
                                     string rarityName = ArtifactTreeBuilder.RarityName(rarity);
                                     bool on = State.Tier == t.Level && (!State.NeedsRarity || State.Rarity == rarity);
@@ -224,15 +224,22 @@
     async Task SelectFamilyAsync(ArtifactFamily family) {
         State.SelectFamily(family.Name, TopTier(family));
         State.Collapsed = new HashSet<string>(StringComparer.Ordinal);
+        await LoadCatalogAsync();
         await RefreshAsync(family);
         await WriteHashAsync();
     }
 
     async Task SwitchViewAsync(ArtifactView view) {
         State.View = view;
-        if (State.NeedsRarity) State.Rarity ??= 0;
-        else State.Rarity = null;
-        if (CurrentFamily() is { } family) await RefreshAsync(family);
+        var family = CurrentFamily();
+        if (State.NeedsRarity && family is { } f) {
+            await LoadCatalogAsync();
+            SnapRarity(f);
+        } else {
+            State.Rarity = null;
+        }
+
+        if (family is not null) await RefreshAsync(family);
         await WriteHashAsync();
     }
 
@@ -287,7 +294,7 @@
             }
 
             _roots = [ArtifactTreeBuilder.CellNodeId(family.Name, levelName, rarityName)];
-        } catch (Exception ex) when (ex is InvalidOperationException or JsonException) {
+        } catch (Exception ex) when (ex is not OperationCanceledException) {
             Logger.LogWarning(ex, "consume drops could not be loaded for the artifacts workbench");
             _graph = null;
             _roots = [];
@@ -366,6 +373,31 @@
         return null;
     }
 
+
+    IReadOnlyList<int> Rarities(ArtifactFamily family, ArtifactTier tier) {
+        if (_catalog is { } catalog) {
+            var rarities = catalog.Artifacts
+                .Where(a => a.SpecName == family.Name && a.AfxLevel == tier.Level)
+                .Select(a => a.AfxRarity)
+                .Distinct()
+                .OrderBy(r => r)
+                .ToList();
+            if (rarities.Count > 0) return rarities;
+        }
+
+        return [.. Enumerable.Range(0, Math.Max(1, tier.RarityCount))];
+    }
+
+    void SnapRarity(ArtifactFamily family) {
+        if (CurrentTier(family) is not { } tier) {
+            State.Rarity ??= 0;
+            return;
+        }
+
+        var rarities = Rarities(family, tier);
+        if (State.Rarity is { } rarity && rarities.Contains(rarity)) return;
+        State.Rarity = rarities.Count > 0 ? rarities[0] : 0;
+    }
 
     async Task LoadCatalogAsync() {
         if (_catalog is not null) return;
@@ -451,7 +483,9 @@
         await LoadCoverageAsync();
         if (CurrentFamily() is { } family) {
             if (State.View == ArtifactView.ComesFrom && !CanComeFromConsume(family)) State.View = ArtifactView.Crafting;
-            State.Rarity = State.NeedsRarity ? State.Rarity ?? 0 : null;
+            await LoadCatalogAsync();
+            if (State.NeedsRarity) SnapRarity(family);
+            else State.Rarity = null;
             await RefreshAsync(family);
         }
 

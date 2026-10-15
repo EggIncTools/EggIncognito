@@ -93,7 +93,7 @@ public sealed class ArtifactObservationQuery(IServiceScopeFactory scopes) : IArt
         var db = scope.ServiceProvider.GetRequiredService<EggIncognitoDbContext>();
         var rows = await db.ArtifactConsumeObservations.AsNoTracking()
             .CountedConsumes()
-            .Where(o => o.Byproducts.Contains(name))
+            .Where(o => EF.Functions.JsonContains(o.Byproducts, JsonSerializer.Serialize(new[] { new { name } })))
             .Select(o => new { o.SpecName, o.SpecLevel, o.SpecRarity, o.Byproducts })
             .ToListAsync(ct);
         return [.. rows.Select(r => (r.SpecName, r.SpecLevel, r.SpecRarity, ParseByproducts(r.Byproducts)))];

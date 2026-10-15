@@ -79,7 +79,7 @@ public sealed class ArtifactWorkbenchState : WorkbenchStateBase {
         if (tier is null) return true;
         Tier = tier.Level;
 
-        if (parts.Length < 4 || !int.TryParse(parts[3], out int rarity) || rarity < 0 || rarity >= tier.RarityCount) return true;
+        if (parts.Length < 4 || !int.TryParse(parts[3], out int rarity) || rarity < 0 || rarity > 3) return true;
         Rarity = rarity;
         return true;
     }

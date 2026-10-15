@@ -44,33 +44,7 @@
             </div>
         </div>
         <PdSeasonRewardTable Season="season"/>
-        @if (season.Colleggtibles is { Count: > 0 } ceggs) {
-            <table class="data-table season-table season-ceggs" @key="@(season.Id + "|ceggs")">
-                <thead>
-                <tr>
-                    <th>@(ceggs.Count == 1 ? "Colleggtible" : "Colleggtibles")</th>
-                    <th>Contracts</th>
-                </tr>
-                </thead>
-                <tbody>
-                @foreach (var egg in ceggs) {
-                    <tr>
-                        <td>
-                            <span class="season-cegg">
-                                @if (egg.Icon is not null) {
-                                    <FallbackImg Class="season-cegg-icon" Src="@egg.Icon" Alt="@egg.Id"/>
-                                }
-                                <span class="season-cegg-name">@EggIcons.Pretty(egg.Id)</span>
-                            </span>
-                        </td>
-                        <td class="season-cegg-contracts">
-                            @(egg.Contracts is { Count: > 0 } cnames ? string.Join(", ", cnames) : "")
-                        </td>
-                    </tr>
-                }
-                </tbody>
-            </table>
-        }
+        <PdSeasonColleggtiblesTable Season="season"/>
     </section>
 }
 

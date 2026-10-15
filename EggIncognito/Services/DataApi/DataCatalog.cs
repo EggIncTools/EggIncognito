@@ -325,9 +325,12 @@ public sealed class DataCatalog {
         if (!name.All(c => char.IsAsciiLetterOrDigit(c) || c is '_' or '-')) return null;
         string stem = name.ToLowerInvariant().Replace('-', '_');
         var assets = ctx.Services.GetRequiredService<GameAssetProvider>();
-        var glyph = await assets.GetCachedAsync(new GameAssetKey("icon", null, $"event_{stem}"), ct);
-        if (!glyph.Ok || glyph.Asset is null) return null;
         bool ccOnly = ctx.Http.Request.Query["cc"] == "1";
-        return DataPayload.Png(EventIconRenderer.Render(glyph.Asset.Bytes, name, ccOnly));
+        foreach (string candidate in new[] { $"event_{stem}", stem }) {
+            var glyph = await assets.GetCachedAsync(new GameAssetKey("icon", null, candidate), ct);
+            if (glyph.Ok) return DataPayload.Png(EventIconRenderer.Render(glyph.Asset.Bytes, name, ccOnly));
+        }
+
+        return null;
     }
 }

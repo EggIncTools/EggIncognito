@@ -571,7 +571,6 @@ function decoderFailed(s, message) {
   closeDecoder(s);
   s.codec = null;
   s.needKey = true;
-  s.backlog = false;
   s.pending.clear();
   if (s.sps) configure(s);
 }
@@ -609,11 +608,6 @@ function submit(s, nal, isKey, now) {
     s.needKey = false;
   } else if (s.needKey) {
     return;
-  } else if (s.backlog ? d.decodeQueueSize > 1 : d.decodeQueueSize > s.opts.maxQueue) {
-    s.backlog = true;
-    return;
-  } else {
-    s.backlog = false;
   }
   const data = isKey ? annexB([s.sps, s.pps, nal]) : annexB([nal]);
   const timestamp = s.ts;
@@ -691,7 +685,7 @@ async function pump(s) {
 
 export function startVideo(canvas, url, dotnet, opts) {
   if (!canvas || !supportsVideo()) return false;
-  const o = Object.assign({ maxQueue: 4, key: "", token: "" }, opts || {});
+  const o = Object.assign({ key: "", token: "" }, opts || {});
   const key = o.key || url;
   const onCanvas = videoSessions.get(canvas);
   if (onCanvas) finish(onCanvas, "stopped", 0, false);
@@ -721,7 +715,6 @@ export function startVideo(canvas, url, dotnet, opts) {
     width: 0,
     height: 0,
     needKey: true,
-    backlog: false,
     ts: 0,
     pending: new Map(),
     frameW: 0,
@@ -982,22 +975,6 @@ function onStageWheel(s, ev) {
   const y1 = clamp01(p.fy - dir * span / 2);
   const y2 = clamp01(p.fy + dir * span / 2);
   safeStage(s, "OnStageSwipe", p.fx, y1, p.fx, y2, 150);
-}
-
-const bodyObservers = new WeakMap();
-
-export function observeBody(body) {
-  if (!body || bodyObservers.has(body) || typeof ResizeObserver !== "function") return;
-  const observer = new ResizeObserver(() => body.style.setProperty("--dcon-body-h", body.clientHeight + "px"));
-  observer.observe(body);
-  bodyObservers.set(body, observer);
-}
-
-export function unobserveBody(body) {
-  const observer = body && bodyObservers.get(body);
-  if (!observer) return;
-  observer.disconnect();
-  bodyObservers.delete(body);
 }
 
 export function bindStage(stage, media, dotnet, opts) {
