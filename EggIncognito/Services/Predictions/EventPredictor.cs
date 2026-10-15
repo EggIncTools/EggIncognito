@@ -100,10 +100,8 @@ public sealed class EventPredictor(EggIncognitoDbContext db, EventDataVersion ve
 
         var rows = await LoadRowsAsync(ct);
         double asOf = UnixSeconds.FromTime(time.GetUtcNow());
-        var tuned = StrategyTuner.Fit(new EventDomain(), rows, asOf);
-        var entry = new EventCacheEntry(rows, tuned);
-        cache.Set(v, entry);
-        return entry;
+        return await cache.GetOrAddAsync(v, () => Task.FromResult(new EventCacheEntry(rows, StrategyTuner.Fit(new EventDomain(), rows, asOf))))
+            .WaitAsync(ct);
     }
 
     private async Task<IReadOnlyList<EventRow>> LoadRowsAsync(CancellationToken ct) {

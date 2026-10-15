@@ -11,7 +11,11 @@
 <button type="button" class="pd-cal-title pd-cal-title-gap" @onclick="@(() => OnOpenContracts.InvokeAsync())">
     Contracts<Icon Name="chevron-right" Class="icon-sm"/>
 </button>
-@if (_next is { } next) {
+@if (_nextLoading) {
+    <div class="pd-next-contracts">
+        <div class="pd-next-row muted"><Icon Name="loader" Class="icon-sm text-muted"/> Training predictions...</div>
+    </div>
+} else if (_next is { } next) {
     <div class="pd-next-contracts">
         <div class="pd-next-row">
             <span class="pd-next-label">Next non-PE</span>
@@ -69,13 +73,17 @@
     [Parameter] public EventCallback OnOpenContracts { get; set; }
 
     NextContractsResponse? _next;
+    bool _nextLoading;
 
     protected override async Task OnInitializedAsync() {
         if (Speculative) return;
+        _nextLoading = true;
         try {
             _next = await Client().GetFromJsonAsync<NextContractsResponse>("/api/v1/contracts/predictions/next", JsonPresets.Web);
         } catch (Exception ex) {
             Logger.LogWarning(ex, "the next contracts block could not be loaded");
+        } finally {
+            _nextLoading = false;
         }
     }
 

@@ -53,6 +53,8 @@
     }
     @if (_note.Length > 0) {
         <div class="watch-note">@_note</div>
+    } else if (_entries is null) {
+        <div class="watch-note"><Icon Name="loader" Class="icon-sm text-muted"/> Training predictions...</div>
     } else if (Pinned.Count == 0) {
         <div class="watch-note">@EmptyNote</div>
     } else {

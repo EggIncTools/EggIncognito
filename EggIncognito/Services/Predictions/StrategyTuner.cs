@@ -7,11 +7,10 @@ public static class StrategyTuner {
         double asOf,
         double lagSeconds = WalkForward.DefaultLagSeconds) where TStrategy : notnull, IStrategy {
         double from = asOf - WalkForward.DefaultRangeSeconds;
+        var results = new WalkForwardResult[domain.Strategies.Count];
+        Parallel.For(0, results.Length, i => results[i] = WalkForward.Run(domain, samples, domain.Strategies[i], lagSeconds, from, asOf));
         var scored = domain.Strategies
-            .Select((strategy, index) => (
-                Strategy: strategy,
-                Index: index,
-                Result: WalkForward.Run(domain, samples, strategy, lagSeconds, from, asOf)))
+            .Select((strategy, index) => (Strategy: strategy, Index: index, Result: results[index]))
             .OrderBy(x => x.Result.Total.LogLoss)
             .ThenByDescending(x => x.Result.Total.Top1)
             .ThenBy(x => x.Index)

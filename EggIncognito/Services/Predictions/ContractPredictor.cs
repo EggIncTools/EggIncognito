@@ -201,11 +201,13 @@ public sealed class ContractPredictor(
 
         var samples = await LoadSamplesAsync(ct);
         double now = UnixSeconds.FromTime(time.GetUtcNow());
+        return await cache.GetOrAddAsync(v, () => Task.FromResult(Tune(samples, now))).WaitAsync(ct);
+    }
+
+    private static ContractCacheEntry Tune(IReadOnlyList<ContractReleaseSample> samples, double now) {
         var tuned = StrategyTuner.Fit(new ContractDomain(), samples, now);
         var colleggtibles = StrategyTuner.Fit(new ColleggtibleDomain(tuned.Strategy), samples, now);
-        var entry = new ContractCacheEntry(samples, tuned, colleggtibles);
-        cache.Set(v, entry);
-        return entry;
+        return new ContractCacheEntry(samples, tuned, colleggtibles);
     }
 
     public async Task<IReadOnlyList<ContractReleaseSample>> SamplesAsync(CancellationToken ct = default) =>

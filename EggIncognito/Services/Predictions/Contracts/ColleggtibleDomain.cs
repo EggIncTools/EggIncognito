@@ -21,8 +21,24 @@ public sealed class ColleggtibleDomain(ContractStrategy contractStrategy)
         return [.. slots.OrderBy(s => s.Time)];
     }
 
-    public ColleggtibleModel Train(IReadOnlyList<ContractReleaseSample> samples, double asOf, ColleggtibleStrategy strategy) =>
-        ColleggtibleModel.Train(samples, asOf, strategy, contractStrategy);
+    private QueueRankTrace? _trace;
+    private IReadOnlyList<ContractReleaseSample>? _traced;
+
+    private readonly Lock _gate = new();
+
+    public ColleggtibleModel Train(IReadOnlyList<ContractReleaseSample> samples, double asOf, ColleggtibleStrategy strategy) {
+        QueueRankTrace trace;
+        lock (_gate) {
+            if (_trace is null || !ReferenceEquals(samples, _traced)) {
+                _trace = QueueRanks.Trace(samples, contractStrategy);
+                _traced = samples;
+            }
+
+            trace = _trace;
+        }
+
+        return ColleggtibleModel.Train(samples, asOf, strategy, trace);
+    }
 
     public IReadOnlyList<PredictionCandidate> Odds(ColleggtibleModel model, PredictionSlot slot) => model.Odds(slot);
 

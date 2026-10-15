@@ -11,11 +11,14 @@ public sealed record ContractModel(
     public const int Paths = 1000;
     private const int Seed = 20261011;
 
-    public static ContractModel Train(IReadOnlyList<ContractReleaseSample> samples, double asOf, ContractStrategy strategy) {
+    public static ContractModel Train(IReadOnlyList<ContractReleaseSample> samples, double asOf, ContractStrategy strategy) =>
+        Train(samples, asOf, QueueRanks.Trace(samples, strategy));
+
+    public static ContractModel Train(IReadOnlyList<ContractReleaseSample> samples, double asOf, QueueRankTrace trace) {
         var past = samples.Where(s => s.Start < asOf).ToList();
         return new ContractModel(
-            asOf, strategy, ReleaseGrid.Fit(samples, asOf), OldestFirstPools.Fit(past, strategy),
-            QueueRanks.Fit(samples, asOf, strategy));
+            asOf, trace.Strategy, ReleaseGrid.Fit(samples, asOf), OldestFirstPools.Fit(past, trace.Strategy),
+            QueueRanks.Fit(trace, asOf));
     }
 
     public IReadOnlyList<ContractSlotPrediction> Slots(DateTimeOffset from, int horizonSlots) {

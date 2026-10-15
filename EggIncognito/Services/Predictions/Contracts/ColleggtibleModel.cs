@@ -15,7 +15,11 @@ public sealed record ColleggtibleModel(
     private const double Smoothing = 0.5;
 
     public static ColleggtibleModel Train(
-        IReadOnlyList<ContractReleaseSample> samples, double asOf, ColleggtibleStrategy strategy, ContractStrategy contractStrategy) {
+        IReadOnlyList<ContractReleaseSample> samples, double asOf, ColleggtibleStrategy strategy, ContractStrategy contractStrategy) =>
+        Train(samples, asOf, strategy, QueueRanks.Trace(samples, contractStrategy));
+
+    public static ColleggtibleModel Train(
+        IReadOnlyList<ContractReleaseSample> samples, double asOf, ColleggtibleStrategy strategy, QueueRankTrace contractTrace) {
         var eggByContract = samples
             .Where(s => s.CustomEggId is not null)
             .GroupBy(s => s.ContractId, StringComparer.Ordinal)
@@ -23,7 +27,7 @@ public sealed record ColleggtibleModel(
 
         if (strategy.Grouping == ColleggtibleGrouping.PerContract) {
             return new ColleggtibleModel(
-                asOf, strategy, ContractModel.Train(samples, asOf, contractStrategy), eggByContract, [], []);
+                asOf, strategy, ContractModel.Train(samples, asOf, contractTrace), eggByContract, [], []);
         }
 
         var past = samples.Where(s => s.Start < asOf && s.CustomEggId is not null).ToList();
@@ -74,19 +78,20 @@ public sealed record ColleggtibleModel(
 
     private static IReadOnlyList<double> FitEggRanks(IReadOnlyList<ContractReleaseSample> eggs, double asOf) {
         var counts = new List<int>();
-        var releases = eggs
-            .Where(s => s.Start >= asOf - WindowSeconds)
-            .GroupBy(s => s.Start)
-            .OrderBy(g => g.Key);
-        foreach (var batch in releases) {
-            var queue = BuildEggQueue([.. eggs.Where(s => s.Start < batch.Key)]);
-            var taken = new HashSet<string>(StringComparer.Ordinal);
-            foreach (var release in batch) {
-                var ordered = queue.Where(e => !taken.Contains(e.EggId)).ToList();
-                int rank = ordered.FindIndex(e => e.EggId == release.CustomEggId);
-                if (rank >= 0) counts.Add(rank);
-                taken.Add(release.CustomEggId ?? "");
+        var last = new Dictionary<string, double>(StringComparer.Ordinal);
+        foreach (var batch in eggs.OrderBy(s => s.Start).GroupBy(s => s.Start)) {
+            if (batch.Key >= asOf - WindowSeconds) {
+                var queue = last.OrderBy(kv => kv.Value).ThenBy(kv => kv.Key, StringComparer.Ordinal).Select(kv => kv.Key).ToList();
+                var taken = new HashSet<string>(StringComparer.Ordinal);
+                foreach (var release in batch) {
+                    string egg = release.CustomEggId ?? "";
+                    int rank = queue.Where(e => !taken.Contains(e)).ToList().IndexOf(egg);
+                    if (rank >= 0) counts.Add(rank);
+                    taken.Add(egg);
+                }
             }
+
+            foreach (var release in batch) last[release.CustomEggId ?? ""] = release.Start;
         }
 
         if (counts.Count == 0) return [1];

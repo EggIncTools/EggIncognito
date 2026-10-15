@@ -29,8 +29,29 @@ public sealed class ContractDomain : IPredictionDomain<ContractReleaseSample, Co
         return [.. slots.OrderBy(s => s.Time)];
     }
 
+    private readonly Dictionary<ContractStrategy, QueueRankTrace> _traces = [];
+    private IReadOnlyList<ContractReleaseSample>? _traced;
+
     public ContractModel Train(IReadOnlyList<ContractReleaseSample> samples, double asOf, ContractStrategy strategy) =>
-        ContractModel.Train(samples, asOf, strategy);
+        ContractModel.Train(samples, asOf, TraceFor(samples, strategy));
+
+    private QueueRankTrace TraceFor(IReadOnlyList<ContractReleaseSample> samples, ContractStrategy strategy) {
+        lock (_traces) {
+            if (!ReferenceEquals(samples, _traced)) {
+                _traces.Clear();
+                _traced = samples;
+            }
+
+            if (_traces.TryGetValue(strategy, out var cached)) return cached;
+        }
+
+        var trace = QueueRanks.Trace(samples, strategy);
+        lock (_traces) {
+            if (ReferenceEquals(samples, _traced)) _traces[strategy] = trace;
+        }
+
+        return trace;
+    }
 
     public IReadOnlyList<PredictionCandidate> Odds(ContractModel model, PredictionSlot slot) {
         var kind = Enum.Parse<ContractSlotKind>(slot.Kind);
