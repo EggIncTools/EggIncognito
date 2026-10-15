@@ -6,6 +6,77 @@ public static class ElfSymbols {
     private const uint ShtSymtab = 2;
     private const uint ShtDynsym = 11;
     private const int Elf64SymSize = 24;
+    private const int Elf32SymSize = 16;
+
+    public readonly record struct SymbolTable(string Section, int Count);
+
+    public static IReadOnlyList<SymbolTable> Tables(byte[] bin) {
+        var outp = new List<SymbolTable>();
+        if (ElfSections.IsElf32Le(bin)) return Tables32(bin);
+        if (!ElfSections.IsElf64Le(bin)) return outp;
+        try {
+            ulong shoff = ElfSections.U64(bin, 0x28);
+            int shentsize = ElfSections.U16(bin, 0x3A);
+            int shnum = ElfSections.U16(bin, 0x3C);
+            int shstrndx = ElfSections.U16(bin, 0x3E);
+            if (shentsize < 64 || shnum <= 0 || shstrndx >= shnum) return outp;
+
+            long strHdr = (long)shoff + (long)shstrndx * shentsize;
+            if (strHdr < 0 || strHdr + 64 > bin.Length) return outp;
+            long strTab = (long)ElfSections.U64(bin, (int)strHdr + 0x18);
+
+            for (int i = 0; i < shnum; i++) {
+                long h = (long)shoff + (long)i * shentsize;
+                if (h < 0 || h + 64 > bin.Length) break;
+                uint type = ElfSections.U32(bin, (int)h + 0x04);
+                if (type is not (ShtSymtab or ShtDynsym)) continue;
+
+                uint nameOff = ElfSections.U32(bin, (int)h + 0x00);
+                ulong tabSize = ElfSections.U64(bin, (int)h + 0x20);
+                ulong entsize = ElfSections.U64(bin, (int)h + 0x38);
+                if (entsize < Elf64SymSize) entsize = Elf64SymSize;
+                string name = Cstr(bin, strTab + nameOff);
+                outp.Add(new SymbolTable(name, (int)(tabSize / entsize)));
+            }
+        } catch {
+            return outp;
+        }
+
+        return outp;
+    }
+
+    private static List<SymbolTable> Tables32(byte[] bin) {
+        var outp = new List<SymbolTable>();
+        try {
+            uint shoff = ElfSections.U32(bin, 0x20);
+            int shentsize = ElfSections.U16(bin, 0x2E);
+            int shnum = ElfSections.U16(bin, 0x30);
+            int shstrndx = ElfSections.U16(bin, 0x32);
+            if (shentsize < 40 || shnum <= 0 || shstrndx >= shnum) return outp;
+
+            long strHdr = (long)shoff + (long)shstrndx * shentsize;
+            if (strHdr < 0 || strHdr + 40 > bin.Length) return outp;
+            long strTab = ElfSections.U32(bin, (int)strHdr + 0x10);
+
+            for (int i = 0; i < shnum; i++) {
+                long h = (long)shoff + (long)i * shentsize;
+                if (h < 0 || h + 40 > bin.Length) break;
+                uint type = ElfSections.U32(bin, (int)h + 0x04);
+                if (type is not (ShtSymtab or ShtDynsym)) continue;
+
+                uint nameOff = ElfSections.U32(bin, (int)h + 0x00);
+                uint tabSize = ElfSections.U32(bin, (int)h + 0x14);
+                uint entsize = ElfSections.U32(bin, (int)h + 0x24);
+                if (entsize < Elf32SymSize) entsize = Elf32SymSize;
+                string name = Cstr(bin, strTab + nameOff);
+                outp.Add(new SymbolTable(name, (int)(tabSize / entsize)));
+            }
+        } catch {
+            return outp;
+        }
+
+        return outp;
+    }
 
     public static IReadOnlyList<MachoSymbols.Symbol> Read(byte[] bin) {
         var outp = new List<MachoSymbols.Symbol>();
@@ -45,8 +116,6 @@ public static class ElfSymbols {
         return outp;
     }
 
-    private const int Elf32SymSize = 16;
-
     private static List<MachoSymbols.Symbol> Read32(byte[] bin) {
         var outp = new List<MachoSymbols.Symbol>();
         try {
@@ -80,13 +149,14 @@ public static class ElfSymbols {
                     if (e < 0 || e + Elf32SymSize > bin.Length) break;
                     uint nameOff = ElfSections.U32(bin, (int)e + 0x00);
                     uint value = ElfSections.U32(bin, (int)e + 0x04);
+                    uint size = ElfSections.U32(bin, (int)e + 0x08);
                     byte info = bin[e + 0x0C];
                     ushort shndx = ElfSections.U16(bin, (int)e + 0x0E);
                     if (nameOff == 0 || nameOff >= strSize) continue;
                     string name = Cstr(bin, (long)strOff + nameOff);
                     if (name.Length == 0) continue;
                     if (!seen.Add((name, value))) continue;
-                    outp.Add(new MachoSymbols.Symbol(name, value, info, (byte)shndx));
+                    outp.Add(new MachoSymbols.Symbol(name, value, info, (byte)shndx, size, KindOf(info)));
                 }
             }
         } catch {
@@ -107,13 +177,22 @@ public static class ElfSymbols {
             byte info = bin[e + 4];
             ushort shndx = ElfSections.U16(bin, (int)e + 6);
             ulong value = ElfSections.U64(bin, (int)e + 8);
+            ulong size = ElfSections.U64(bin, (int)e + 0x10);
             if (nameOff == 0 || nameOff >= strSize) continue;
             string name = Cstr(bin, (long)strOff + nameOff);
             if (name.Length == 0) continue;
             if (!seen.Add((name, value))) continue;
-            outp.Add(new MachoSymbols.Symbol(name, value, info, (byte)shndx));
+            outp.Add(new MachoSymbols.Symbol(name, value, info, (byte)shndx, size, KindOf(info)));
         }
     }
+
+    private static SymbolKind KindOf(byte info) => (info & 0xF) switch {
+        1 => SymbolKind.Object,
+        2 => SymbolKind.Function,
+        3 => SymbolKind.Section,
+        4 => SymbolKind.File,
+        _ => SymbolKind.Unknown
+    };
 
     private static string Cstr(byte[] b, long o) {
         if (o < 0 || o >= b.Length) return "";

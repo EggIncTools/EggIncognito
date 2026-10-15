@@ -7,14 +7,12 @@ public sealed class InitArrayLocator {
 
     private readonly byte[] _bin;
     private readonly IBinaryImage _img;
-    private readonly ulong[] _syms;
     private readonly List<ulong> _inits;
     private readonly Lazy<IReadOnlyList<Init>> _scanned;
 
     private InitArrayLocator(byte[] bin, IBinaryImage img) {
         _bin = bin;
         _img = img;
-        _syms = [.. img.Symbols.Where(s => s.Value != 0).Select(s => s.Value).Distinct().Order()];
         _inits = [.. img.GetInitArrayTargets().Where(t => t != 0).Distinct()];
         _inits.Sort();
         _scanned = new Lazy<IReadOnlyList<Init>>(ScanAll);
@@ -93,15 +91,8 @@ public sealed class InitArrayLocator {
     }
 
     private ulong EndOf(ulong start) {
-        int lo = 0;
-        int hi = _syms.Length;
-        while (lo < hi) {
-            int mid = (lo + hi) / 2;
-            if (_syms[mid] <= start) lo = mid + 1;
-            else hi = mid;
-        }
-
-        return lo < _syms.Length ? _syms[lo] : start;
+        var index = CodeIndex.Build(_img);
+        return index.TryResolve(start, out var range, out _) ? range.End : start;
     }
 
     private sealed record Init(ulong Start, ulong End, string[] Strings);

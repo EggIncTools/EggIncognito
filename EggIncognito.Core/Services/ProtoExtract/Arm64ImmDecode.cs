@@ -15,6 +15,14 @@ public sealed class Arm64Image(byte[] bin, IBinaryImage img) {
         return true;
     }
 
+    public bool TryPointer(ulong va, out ulong value) {
+        value = 0;
+        if (!img.TryVaToFileOffset(va, out int off, out _) || off < 0 || off + 8 > bin.Length) return false;
+        value = BitConverter.ToUInt64(bin.AsSpan(off));
+        if (value == 0 && img is ElfImage elf && elf.TryResolveSlot(va, out ulong target, out _)) value = target;
+        return true;
+    }
+
     public bool TryF32(ulong va, out float value) {
         value = 0f;
         if (!img.TryVaToFileOffset(va, out int off, out _) || off < 0 || off + 4 > bin.Length) return false;
@@ -61,6 +69,26 @@ public sealed class Arm64Image(byte[] bin, IBinaryImage img) {
 
             if (Arm64Bits.TryAddImm(next, out _, out int addRn, out ulong imm) && addRn == rd) {
                 target = page + imm;
+                return true;
+            }
+
+            if (Arm64Bits.TryAdrp(adrpVa + (ulong)(4 * i), next, out _, out int otherRd) && otherRd == rd)
+                return false;
+        }
+
+        return false;
+    }
+
+    public bool TryGotRef(ulong adrpVa, out ulong slotVa, out int rd) {
+        slotVa = 0;
+        rd = 0;
+        if (!TryWord(adrpVa, out uint adrp) || !Arm64Bits.TryAdrp(adrpVa, adrp, out ulong page, out int reg))
+            return false;
+        rd = reg;
+        for (int i = 1; i <= PageRefWindow; i++) {
+            if (!TryWord(adrpVa + (ulong)(4 * i), out uint next)) return false;
+            if (Arm64Bits.TryLoadGpr(next, out var load) && load.Rn == rd && load.Rt == rd && load.Bytes == 8) {
+                slotVa = page + (ulong)load.Offset;
                 return true;
             }
 
@@ -265,6 +293,18 @@ public static class Arm64Bits {
             return false;
         }
 
+        load = new LoadInfo((int)(w & 0x1F), (int)((w >> 5) & 0x1F), (int)(((w >> 10) & 0xFFF) << scale),
+            1 << scale);
+        return true;
+    }
+
+    public static bool TryLoadGpr(uint w, out LoadInfo load) {
+        load = default;
+        if ((w & 0x3B000000) != 0x39000000 || ((w >> 26) & 1) != 0) return false;
+        uint size = (w >> 30) & 3;
+        uint opc = (w >> 22) & 3;
+        if (opc != 1) return false;
+        int scale = (int)size;
         load = new LoadInfo((int)(w & 0x1F), (int)((w >> 5) & 0x1F), (int)(((w >> 10) & 0xFFF) << scale),
             1 << scale);
         return true;

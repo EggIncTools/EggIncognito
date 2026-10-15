@@ -282,8 +282,8 @@ public sealed class Arm64PageTracker {
 
                 break;
             case 3:
-                if (Image.TryWord(addr, out uint lo) && Image.TryWord(addr + 4, out uint hi)) {
-                    _gpr[rt] = lo | ((ulong)hi << 32);
+                if (Image.TryPointer(addr, out ulong ptr)) {
+                    _gpr[rt] = ptr;
                     return true;
                 }
 

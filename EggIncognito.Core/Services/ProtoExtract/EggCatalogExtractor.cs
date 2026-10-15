@@ -3,6 +3,7 @@ using System.Text;
 namespace EggIncognito.Core.Services.ProtoExtract;
 
 public static class EggCatalogExtractor {
+    public const string InitSymbol = "__GLOBAL__sub_I_eggdata.cpp";
     public const string SignatureString = "A regular egg. Edible and incredible.";
     private const long ValueFromNameDelta = 0x30;
     private const long ElfHatcheryFromRecord = 0xf0;
@@ -12,7 +13,7 @@ public static class EggCatalogExtractor {
     private const long MachoSecondNameFromBase = 0x98;
     private const long MachoChainedNameFromBase = -0x40;
 
-    public static Result Read(byte[] bin, string initSymbol = "__GLOBAL__sub_I_eggdata.cpp") {
+    public static Result Read(byte[] bin, string initSymbol = InitSymbol) {
         var img = BinaryImage.Load(bin);
         return ReadWith(bin, img?.Symbols ?? [], initSymbol);
     }
@@ -20,10 +21,17 @@ public static class EggCatalogExtractor {
     public static Result ExtractAuto(byte[] bin) {
         var img = BinaryImage.Load(bin);
         if (img is ElfImage) {
+            var index = CodeIndex.Build(img);
+            if (index.TryFindFunc([InitSymbol], out var range)) {
+                var viaSymbol = ExtractRange(bin, range.Start, range.End);
+                return viaSymbol with { Diagnostics = $"{viaSymbol.Diagnostics} (symbol)" };
+            }
+
             var loc = InitArrayLocator.Create(bin);
             if (loc is null || !loc.TryLocateByString(SignatureString, out ulong s, out ulong e))
-                return new Result(false, [], "eggdata init not located via signature on ELF");
-            return ExtractRange(bin, s, e);
+                return new Result(false, [], "eggdata init not located via symbol or signature on ELF");
+            var viaSignature = ExtractRange(bin, s, e);
+            return viaSignature with { Diagnostics = $"{viaSignature.Diagnostics} (signature)" };
         }
 
         return ReadWith(bin, img?.Symbols ?? []);
@@ -107,7 +115,7 @@ public static class EggCatalogExtractor {
     }
 
     public static Result ReadWith(byte[] bin, IReadOnlyList<MachoSymbols.Symbol> syms,
-        string initSymbol = "__GLOBAL__sub_I_eggdata.cpp") {
+        string initSymbol = InitSymbol) {
         var scan = StructInitReader.ReadWith(bin, syms, initSymbol);
         if (!scan.Ok) return new Result(false, [], scan.Diagnostics);
         var img = BinaryImage.Load(bin);

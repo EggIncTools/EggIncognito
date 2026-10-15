@@ -6,10 +6,14 @@ public static class ElfSections {
     private const uint PtLoad = 1;
     private const uint ShtInitArray = 14;
     private const uint ShtRela = 4;
-    private const uint RAarch64Relative = 1027;
+    private const uint RAarch64Abs64 = 257;
+    private const uint RAarch64GlobDat = 1025;
     private const uint RAarch64JumpSlot = 1026;
+    private const uint RAarch64Relative = 1027;
     private const int Elf64SymSize = 24;
     private const ulong ShfAlloc = 0x2;
+
+    public readonly record struct ElfReloc(ulong SlotVa, uint Type, ulong Target, string? SymbolName);
 
     public static IReadOnlyList<MachoSections.Section> Read(byte[] bin) {
         var result = new List<MachoSections.Section>();
@@ -157,11 +161,8 @@ public static class ElfSections {
         return outp;
     }
 
-    public static Dictionary<ulong, ulong> ReadRelativeRelocs(byte[] bin)
-        => ReadRelativeRelocs(bin, 0, ulong.MaxValue);
-
-    private static Dictionary<ulong, ulong> ReadRelativeRelocs(byte[] bin, ulong lo, ulong hi) {
-        var map = new Dictionary<ulong, ulong>();
+    public static IReadOnlyDictionary<ulong, ElfReloc> ReadDynamicRelocs(byte[] bin) {
+        var map = new Dictionary<ulong, ElfReloc>();
         if (!IsElf64Le(bin)) return map;
         try {
             ulong shoff = U64(bin, 0x28);
@@ -173,17 +174,80 @@ public static class ElfSections {
                 long h = (long)shoff + (long)i * shentsize;
                 if (h < 0 || h + 64 > bin.Length) break;
                 if (U32(bin, (int)h + 0x04) != ShtRela) continue;
+
+                uint link = U32(bin, (int)h + 0x28);
+                long lh = (long)shoff + (long)link * shentsize;
+                bool haveSymtab = link < (uint)shnum && lh >= 0 && lh + 64 <= bin.Length;
+                long symOff = 0;
+                long strOff = 0;
+                long symEnt = Elf64SymSize;
+                if (haveSymtab) {
+                    symOff = (long)U64(bin, (int)lh + 0x18);
+                    symEnt = Math.Max(Elf64SymSize, (long)U64(bin, (int)lh + 0x38));
+                    uint strLink = U32(bin, (int)lh + 0x28);
+                    long sh = (long)shoff + (long)strLink * shentsize;
+                    if (strLink < (uint)shnum && sh >= 0 && sh + 64 <= bin.Length) {
+                        strOff = (long)U64(bin, (int)sh + 0x18);
+                    } else {
+                        haveSymtab = false;
+                    }
+                }
+
                 long off = (long)U64(bin, (int)h + 0x18);
                 long sz = (long)U64(bin, (int)h + 0x20);
                 for (long r = off; r + 24 <= off + sz && r + 24 <= bin.Length; r += 24) {
-                    ulong roff = U64(bin, (int)r);
-                    if (roff < lo || roff >= hi) continue;
-                    if ((uint)(U64(bin, (int)r + 8) & 0xFFFFFFFF) != RAarch64Relative) continue;
-                    map[roff] = U64(bin, (int)r + 16);
+                    ulong slotVa = U64(bin, (int)r);
+                    ulong info = U64(bin, (int)r + 8);
+                    uint type = (uint)(info & 0xFFFFFFFF);
+                    ulong addend = U64(bin, (int)r + 16);
+                    long symIdx = (long)(info >> 32);
+
+                    ulong target;
+                    string? symName = null;
+                    switch (type) {
+                        case RAarch64Relative:
+                            target = addend;
+                            break;
+                        case RAarch64GlobDat:
+                        case RAarch64JumpSlot: {
+                                if (!haveSymtab) continue;
+                                long e = symOff + symIdx * symEnt;
+                                if (e < 0 || e + Elf64SymSize > bin.Length) continue;
+                                target = U64(bin, (int)e + 8);
+                                symName = SymName(bin, strOff, U32(bin, (int)e));
+                                break;
+                            }
+                        case RAarch64Abs64: {
+                                if (!haveSymtab) continue;
+                                long e = symOff + symIdx * symEnt;
+                                if (e < 0 || e + Elf64SymSize > bin.Length) continue;
+                                target = U64(bin, (int)e + 8) + addend;
+                                symName = SymName(bin, strOff, U32(bin, (int)e));
+                                break;
+                            }
+                        default:
+                            continue;
+                    }
+
+                    map[slotVa] = new ElfReloc(slotVa, type, target, symName);
                 }
             }
         } catch {
             return map;
+        }
+
+        return map;
+    }
+
+    public static Dictionary<ulong, ulong> ReadRelativeRelocs(byte[] bin)
+        => ReadRelativeRelocs(bin, 0, ulong.MaxValue);
+
+    private static Dictionary<ulong, ulong> ReadRelativeRelocs(byte[] bin, ulong lo, ulong hi) {
+        var map = new Dictionary<ulong, ulong>();
+        foreach (var kv in ReadDynamicRelocs(bin)) {
+            if (kv.Value.Type != RAarch64Relative) continue;
+            if (kv.Key < lo || kv.Key >= hi) continue;
+            map[kv.Key] = kv.Value.Target;
         }
 
         return map;
@@ -191,42 +255,8 @@ public static class ElfSections {
 
     public static Dictionary<ulong, string> ReadJumpSlotNames(byte[] bin) {
         var map = new Dictionary<ulong, string>();
-        if (!IsElf64Le(bin)) return map;
-        try {
-            ulong shoff = U64(bin, 0x28);
-            int shentsize = U16(bin, 0x3A);
-            int shnum = U16(bin, 0x3C);
-            if (shentsize < 64 || shnum <= 0) return map;
-
-            for (int i = 0; i < shnum; i++) {
-                long h = (long)shoff + (long)i * shentsize;
-                if (h < 0 || h + 64 > bin.Length) break;
-                if (U32(bin, (int)h + 0x04) != ShtRela) continue;
-                uint link = U32(bin, (int)h + 0x28);
-                long lh = (long)shoff + (long)link * shentsize;
-                if (link >= (uint)shnum || lh < 0 || lh + 64 > bin.Length) continue;
-                uint strLink = U32(bin, (int)lh + 0x28);
-                long sh = (long)shoff + (long)strLink * shentsize;
-                if (strLink >= (uint)shnum || sh < 0 || sh + 64 > bin.Length) continue;
-
-                long strOff = (long)U64(bin, (int)sh + 0x18);
-                long symOff = (long)U64(bin, (int)lh + 0x18);
-                long symEnt = Math.Max(Elf64SymSize, (long)U64(bin, (int)lh + 0x38));
-                long off = (long)U64(bin, (int)h + 0x18);
-                long sz = (long)U64(bin, (int)h + 0x20);
-                for (long r = off; r + 24 <= off + sz && r + 24 <= bin.Length; r += 24) {
-                    ulong info = U64(bin, (int)r + 8);
-                    if ((uint)(info & 0xFFFFFFFF) != RAarch64JumpSlot) continue;
-                    long e = symOff + (long)(info >> 32) * symEnt;
-                    if (e < 0 || e + Elf64SymSize > bin.Length) continue;
-                    long n = strOff + U32(bin, (int)e);
-                    if (n < 0 || n >= bin.Length) continue;
-                    int end = Array.IndexOf(bin, (byte)0, (int)n);
-                    if (end > n) map[U64(bin, (int)r)] = System.Text.Encoding.ASCII.GetString(bin, (int)n, end - (int)n);
-                }
-            }
-        } catch {
-            return map;
+        foreach (var kv in ReadDynamicRelocs(bin)) {
+            if (kv.Value.Type == RAarch64JumpSlot && kv.Value.SymbolName is { } name) map[kv.Key] = name;
         }
 
         return map;
@@ -234,39 +264,19 @@ public static class ElfSections {
 
     public static Dictionary<ulong, ulong> ReadJumpSlots(byte[] bin) {
         var map = new Dictionary<ulong, ulong>();
-        if (!IsElf64Le(bin)) return map;
-        try {
-            ulong shoff = U64(bin, 0x28);
-            int shentsize = U16(bin, 0x3A);
-            int shnum = U16(bin, 0x3C);
-            if (shentsize < 64 || shnum <= 0) return map;
-
-            for (int i = 0; i < shnum; i++) {
-                long h = (long)shoff + (long)i * shentsize;
-                if (h < 0 || h + 64 > bin.Length) break;
-                if (U32(bin, (int)h + 0x04) != ShtRela) continue;
-                uint link = U32(bin, (int)h + 0x28);
-                long lh = (long)shoff + (long)link * shentsize;
-                if (link >= (uint)shnum || lh < 0 || lh + 64 > bin.Length) continue;
-
-                long symOff = (long)U64(bin, (int)lh + 0x18);
-                long symEnt = Math.Max(Elf64SymSize, (long)U64(bin, (int)lh + 0x38));
-                long off = (long)U64(bin, (int)h + 0x18);
-                long sz = (long)U64(bin, (int)h + 0x20);
-                for (long r = off; r + 24 <= off + sz && r + 24 <= bin.Length; r += 24) {
-                    ulong info = U64(bin, (int)r + 8);
-                    if ((uint)(info & 0xFFFFFFFF) != RAarch64JumpSlot) continue;
-                    long e = symOff + (long)(info >> 32) * symEnt;
-                    if (e < 0 || e + Elf64SymSize > bin.Length) continue;
-                    ulong value = U64(bin, (int)e + 8);
-                    if (value != 0) map[U64(bin, (int)r)] = value;
-                }
-            }
-        } catch {
-            return map;
+        foreach (var kv in ReadDynamicRelocs(bin)) {
+            if (kv.Value.Type == RAarch64JumpSlot && kv.Value.Target != 0) map[kv.Key] = kv.Value.Target;
         }
 
         return map;
+    }
+
+    private static string? SymName(byte[] bin, long strOff, uint nameOff) {
+        if (nameOff == 0) return null;
+        long n = strOff + nameOff;
+        if (n < 0 || n >= bin.Length) return null;
+        int end = Array.IndexOf(bin, (byte)0, (int)n);
+        return end > n ? Encoding.ASCII.GetString(bin, (int)n, end - (int)n) : null;
     }
 
     public static bool IsElf64Le(byte[]? b) =>

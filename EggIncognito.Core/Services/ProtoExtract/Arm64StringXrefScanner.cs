@@ -16,7 +16,7 @@ public static class Arm64StringXrefScanner {
         if (fo < 0 || size <= 0 || (long)fo + size > bin.Length)
             return new XrefScan(0, 0, "text section out of bounds", []);
 
-        var index = MachoSymbols.Index.Build(img.Symbols);
+        var index = CodeIndex.Build(img);
         var arm = new Arm64Image(bin, img);
         var sites = new List<XrefSite>(Math.Min(max, 1024));
         int total = 0;
@@ -33,6 +33,12 @@ public static class Arm64StringXrefScanner {
                            && (ptr & PtrMask) == (targetVa & PtrMask)) {
                     via = "adrp+ldr->ptr";
                 }
+            }
+
+            if (via is null && img is ElfImage gotElf && arm.TryGotRef(va, out ulong gotSlot, out _)
+                && gotElf.TryResolveSlot(gotSlot, out ulong slotTarget, out _)
+                && (slotTarget & PtrMask) == (targetVa & PtrMask)) {
+                via = "adrp+ldr->got";
             }
 
             if (via is null && Arm64Bits.TryAdr(arm, va, out ulong adrTarget, out _) && adrTarget == targetVa)

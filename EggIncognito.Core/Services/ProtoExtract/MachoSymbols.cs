@@ -2,12 +2,21 @@ using System.Text;
 
 namespace EggIncognito.Core.Services.ProtoExtract;
 
+public enum SymbolKind {
+    Unknown,
+    Function,
+    Object,
+    Section,
+    File
+}
+
 public static class MachoSymbols {
     public static IReadOnlyList<Symbol> Read(byte[] bin) {
         var outp = new List<Symbol>();
         if (bin is null || bin.Length < 32) return outp;
         try {
             if (!MachoHeader.TryArm64Slice(bin, out int b, out int sliceLen)) return outp;
+            var sections = MachoSections.Read(bin);
             foreach (var lc in MachoHeader.LoadCommands(bin.AsSpan(b, sliceLen))) {
                 if (lc.Cmd != MachoHeader.LcSymtab) continue;
                 int o = b + lc.Offset;
@@ -15,7 +24,7 @@ public static class MachoSymbols {
                 uint nsyms = U32(bin, o + 12);
                 uint stroff = U32(bin, o + 16) + (uint)b;
                 uint strsize = U32(bin, o + 20);
-                ReadNlist(bin, symoff, nsyms, stroff, strsize, outp);
+                ReadNlist(bin, symoff, nsyms, stroff, strsize, sections, outp);
             }
         } catch (Exception ex) when (ex is IndexOutOfRangeException or ArgumentOutOfRangeException
                                          or OverflowException) {
@@ -45,7 +54,8 @@ public static class MachoSymbols {
         }
 
         if (hit is null) return false;
-        range = new FuncRange(hit.Value.Name, hit.Value.Value, EndOf(syms, hit.Value.Value));
+        ulong end = hit.Value.Size != 0 ? hit.Value.Value + hit.Value.Size : EndOf(syms, hit.Value.Value);
+        range = new FuncRange(hit.Value.Name, hit.Value.Value, end);
         return true;
     }
 
@@ -92,7 +102,8 @@ public static class MachoSymbols {
         return end == ulong.MaxValue ? start + 0x4000 : end;
     }
 
-    private static void ReadNlist(byte[] bin, uint symoff, uint nsyms, uint stroff, uint strsize, List<Symbol> outp) {
+    private static void ReadNlist(byte[] bin, uint symoff, uint nsyms, uint stroff, uint strsize,
+        IReadOnlyList<MachoSections.Section> sections, List<Symbol> outp) {
         for (uint i = 0; i < nsyms; i++) {
             long e = symoff + (long)i * 16;
             if (e + 16 > bin.Length) return;
@@ -103,8 +114,18 @@ public static class MachoSymbols {
             if (nStrx == 0 || nStrx >= strsize) continue;
             string name = Cstr(bin, (int)(stroff + nStrx));
             if (name.Length == 0) continue;
-            outp.Add(new Symbol(name, nValue, nType, nSect));
+            outp.Add(new Symbol(name, nValue, nType, nSect, 0, KindOf(nSect, sections)));
         }
+    }
+
+    private static SymbolKind KindOf(byte nSect, IReadOnlyList<MachoSections.Section> sections) {
+        if (nSect == 0) return SymbolKind.Unknown;
+        int idx = nSect - 1;
+        if (idx < 0 || idx >= sections.Count) return SymbolKind.Unknown;
+        var s = sections[idx];
+        if (s.Segment == "__TEXT" && s.Name == "__text") return SymbolKind.Function;
+        if (s.Segment is "__DATA" or "__DATA_CONST" or "__DATA_DIRTY") return SymbolKind.Object;
+        return SymbolKind.Unknown;
     }
 
     private static uint U32(byte[] b, int o) => (uint)(b[o] | (b[o + 1] << 8) | (b[o + 2] << 16) | (b[o + 3] << 24));
@@ -122,7 +143,7 @@ public static class MachoSymbols {
         return Encoding.UTF8.GetString(b, o, end - o);
     }
 
-    public readonly record struct Symbol(string Name, ulong Value, byte Type, byte Sect);
+    public readonly record struct Symbol(string Name, ulong Value, byte Type, byte Sect, ulong Size = 0, SymbolKind Kind = SymbolKind.Unknown);
 
     public readonly record struct FuncRange(string Name, ulong Start, ulong End);
 

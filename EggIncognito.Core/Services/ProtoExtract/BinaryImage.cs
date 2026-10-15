@@ -72,6 +72,7 @@ public sealed class ElfImage : IBinaryImage {
     private readonly Lazy<IReadOnlyList<ElfSections.LoadSegment>> _segments;
     private readonly Lazy<IReadOnlyList<MachoSymbols.Symbol>> _symbols;
     private readonly Lazy<Dictionary<ulong, ulong>> _relocs;
+    private readonly Lazy<IReadOnlyDictionary<ulong, ElfSections.ElfReloc>> _dynRelocs;
 
     public byte[] Bytes { get; }
     public IReadOnlyList<MachoSymbols.Symbol> Symbols => _symbols.Value;
@@ -83,13 +84,26 @@ public sealed class ElfImage : IBinaryImage {
         _segments = new Lazy<IReadOnlyList<ElfSections.LoadSegment>>(() => ElfSections.ReadSegments(Bytes));
         _symbols = new Lazy<IReadOnlyList<MachoSymbols.Symbol>>(() => ElfSymbols.Read(Bytes));
         _relocs = new Lazy<Dictionary<ulong, ulong>>(() => ElfSections.ReadRelativeRelocs(Bytes));
+        _dynRelocs = new Lazy<IReadOnlyDictionary<ulong, ElfSections.ElfReloc>>(() => ElfSections.ReadDynamicRelocs(Bytes));
     }
 
     public bool TryResolveRelative(ulong va, out ulong target) => _relocs.Value.TryGetValue(va, out target);
 
+    public bool TryResolveSlot(ulong slotVa, out ulong target, out string? symbolName) {
+        if (_dynRelocs.Value.TryGetValue(slotVa, out var reloc)) {
+            target = reloc.Target;
+            symbolName = reloc.SymbolName;
+            return true;
+        }
+
+        target = 0;
+        symbolName = null;
+        return false;
+    }
+
     public IEnumerable<ulong> RelocSlotsTargeting(ulong target) {
-        foreach (var kv in _relocs.Value) {
-            if (kv.Value == target) yield return kv.Key;
+        foreach (var kv in _dynRelocs.Value) {
+            if (kv.Value.Target == target) yield return kv.Key;
         }
     }
 

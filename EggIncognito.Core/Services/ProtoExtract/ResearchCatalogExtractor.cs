@@ -53,9 +53,16 @@ public static class ResearchCatalogExtractor {
     public static Result ExtractAuto(byte[] bin) {
         var img = BinaryImage.Load(bin);
         if (img is ElfImage) {
+            var index = CodeIndex.Build(img);
+            if (index.TryFindFunc([InitSymbol], out var range)) {
+                var viaSymbol = ExtractCore(bin, img.Symbols, img, range.Start, range.End);
+                return viaSymbol with { Diagnostics = $"{viaSymbol.Diagnostics} (symbol)" };
+            }
+
             if (!TryLocateElfInit(bin, out ulong s, out ulong e))
-                return new Result(false, [], "researchdata init not located via signature on ELF");
-            return ExtractCore(bin, img.Symbols, img, s, e);
+                return new Result(false, [], "researchdata init not located via symbol or signature on ELF");
+            var viaSignature = ExtractCore(bin, img.Symbols, img, s, e);
+            return viaSignature with { Diagnostics = $"{viaSignature.Diagnostics} (signature)" };
         }
 
         return ExtractWith(bin, img?.Symbols ?? []);

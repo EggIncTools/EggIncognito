@@ -19,7 +19,7 @@ public static class Arm64CallXrefScanner {
         if (fo < 0 || size <= 0 || (long)fo + size > bin.Length)
             return new CallXrefScan(funcVa, funcVa, false, 0, 0, "text section out of bounds", []);
 
-        var index = MachoSymbols.Index.Build(img.Symbols);
+        var index = CodeIndex.Build(img);
         ulong funcStart = funcVa;
         ulong funcEnd = funcVa;
         if (index.TryResolve(funcVa, out var fr, out _)) {
@@ -52,6 +52,11 @@ public static class Arm64CallXrefScanner {
                            && TryReadPtr(img, bin, target, out ulong ptr) && ptr == funcVa) {
                     via = "adrp+ldr->got";
                 }
+            }
+
+            if (via is null && img is ElfImage gotElf && arm.TryGotRef(va, out ulong gotSlot, out _)
+                && gotElf.TryResolveSlot(gotSlot, out ulong slotTarget, out _) && slotTarget == funcVa) {
+                via = "adrp+ldr->got";
             }
 
             if (via is null && Arm64Bits.TryAdr(arm, va, out ulong adrTarget, out _) && adrTarget == funcVa)

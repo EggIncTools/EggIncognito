@@ -25,10 +25,17 @@ public static partial class MissionCatalogExtractor {
     public static Result ExtractAuto(byte[] bin) {
         var img = BinaryImage.Load(bin);
         if (img is ElfImage) {
+            var index = CodeIndex.Build(img);
+            if (index.TryFindFunc([InitSymbol], out var range)) {
+                var viaSymbol = ExtractRange(bin, range.Start, range.End);
+                return viaSymbol with { Diagnostics = $"{viaSymbol.Diagnostics} (symbol)" };
+            }
+
             var loc = InitArrayLocator.Create(bin);
             if (loc is null || !loc.TryLocateByString(SignatureString, out var s, out var e))
-                return new Result(false, [], "missiondata init not located via signature on ELF");
-            return ExtractRange(bin, s, e);
+                return new Result(false, [], "missiondata init not located via symbol or signature on ELF");
+            var viaSignature = ExtractRange(bin, s, e);
+            return viaSignature with { Diagnostics = $"{viaSignature.Diagnostics} (signature)" };
         }
 
         return ExtractWith(bin, img?.Symbols ?? []);
