@@ -3,6 +3,7 @@ using EggIncognito.Data.Models;
 using EggIncognito.Data.Services;
 using EggSharp.GameData;
 using EggIncognito.Models.Coverage;
+using EggIncognito.Services.Artifacts;
 using EggIncognito.Services.DataApi;
 using Microsoft.EntityFrameworkCore;
 
@@ -13,14 +14,20 @@ public sealed class ConsumeCoverageService(EggIncognitoDbContext db, GameDataSto
         if (gameData.Doc(ArtifactCatalog.DocumentId) is not { } json) return null;
 
         var catalog = ArtifactCatalog.Parse(json).Artifacts
-            .Select(e => new CoverageCatalogCell(e.SpecName, e.Level, e.AfxLevel, e.Rarity, e.AfxRarity))
+            .Select(e => new CoverageCatalogCell(e.SpecName, e.Level,
+                ArtifactTreeBuilder.IsFragment(e.SpecName) ? -1 : e.AfxLevel, e.Rarity, e.AfxRarity))
             .ToList();
-        var families = ArtifactDefinitions.All
-            .Where(f => ConsumeCoverageKinds.Consumable(f.Kind))
-            .ToDictionary(f => f.Name,
-                f => new CoverageFamilyInfo(f.Name, f.PluralName, f.Order,
-                    [.. f.Tiers.OrderBy(t => t.Level).Select(t => t.Name)]),
-                StringComparer.Ordinal);
+
+        var byName = ArtifactDefinitions.All.ToDictionary(f => f.Name, StringComparer.Ordinal);
+        var families = new Dictionary<string, CoverageFamilyInfo>(StringComparer.Ordinal);
+        foreach (var f in ArtifactDefinitions.All.Where(f => ConsumeCoverageKinds.Consumable(f.Kind))) {
+            var info = new CoverageFamilyInfo(f.Name, ConsumeCoverageKinds.DisplayName(f.Kind, f.Name, f.PluralName),
+                f.Kind, f.Order, [.. f.Tiers.OrderBy(t => t.Level).Select(t => t.Name)]);
+            families[f.Name] = info;
+            if (f.Kind == ArtifactKind.Stone && byName.TryGetValue(f.Name + "_FRAGMENT", out var fragment)) {
+                families[fragment.Name] = info;
+            }
+        }
 
         var device = await db.ArtifactConsumeObservations.AsNoTracking()
             .CountedConsumes()

@@ -21,7 +21,7 @@ public static class ConsumeCoverageBuilder {
 
         var built = catalog
             .Where(c => families.ContainsKey(c.SpecName))
-            .GroupBy(c => c.SpecName, StringComparer.Ordinal)
+            .GroupBy(c => families[c.SpecName].SpecName, StringComparer.Ordinal)
             .Select(g => BuildFamily(families[g.Key], g, tallies, targets))
             .OrderBy(f => f.Order)
             .Select(f => f.Family)
@@ -59,7 +59,8 @@ public static class ConsumeCoverageBuilder {
         var scoped = tiers.SelectMany(t => t.Cells).Where(c => c.InScope).ToList();
         return (info.Order, new CoverageFamily(
             info.SpecName,
-            info.PluralName,
+            info.DisplayName,
+            info.Kind,
             scoped.Count == 0 ? 0 : scoped.Average(c => c.Validity),
             scoped.Count,
             scoped.Count(IsComplete),

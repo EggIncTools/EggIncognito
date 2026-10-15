@@ -21,7 +21,7 @@
             </thead>
             <tbody>
             @foreach (var icon in Icons) {
-                <tr @key="icon.Name">
+                <tr @key="@(icon.Platform + "|" + icon.Name)">
                     <td class="mono">@icon.Name</td>
                     <td class="small">@icon.Platform</td>
                     <td class="small">@icon.ContentType</td>

@@ -1,3 +1,4 @@
+using EggSharp.GameData.Artifacts;
 using EggIncognito.Models.Coverage;
 using EggIncognito.Services.Coverage;
 
@@ -15,8 +16,9 @@ public class ConsumeCoverageBuilderTests {
 
     private static readonly IReadOnlyDictionary<string, CoverageFamilyInfo> Families =
         new Dictionary<string, CoverageFamilyInfo>(StringComparer.Ordinal) {
-            ["TUNGSTEN_ANKH"] = new("TUNGSTEN_ANKH", "TUNGSTEN ANKHS", 11, ["CRUDE TUNGSTEN ANKH", "TUNGSTEN ANKH"]),
-            ["LUNAR_TOTEM"] = new("LUNAR_TOTEM", "LUNAR TOTEMS", 0, ["BASIC LUNAR TOTEM"])
+            ["TUNGSTEN_ANKH"] = new("TUNGSTEN_ANKH", "TUNGSTEN ANKHS", ArtifactKind.Artifact, 11,
+                ["CRUDE TUNGSTEN ANKH", "TUNGSTEN ANKH"]),
+            ["LUNAR_TOTEM"] = new("LUNAR_TOTEM", "LUNAR TOTEMS", ArtifactKind.Artifact, 0, ["BASIC LUNAR TOTEM"])
         };
 
     private static CoverageSample Ankh(int quantity) =>
@@ -109,7 +111,7 @@ public class ConsumeCoverageBuilderTests {
     [Fact]
     public void StoneFamilyWithInfo_IsEmitted() {
         var families = new Dictionary<string, CoverageFamilyInfo>(Families, StringComparer.Ordinal) {
-            ["SOUL_STONE"] = new("SOUL_STONE", "SOUL STONES", 30, ["SOUL STONE FRAGMENT"])
+            ["SOUL_STONE"] = new("SOUL_STONE", "SOUL STONES", ArtifactKind.Stone, 30, ["SOUL STONE FRAGMENT"])
         };
         var map = ConsumeCoverageBuilder.Build(Catalog, families,
             [new CoverageSample("SOUL_STONE", "INFERIOR", "COMMON", 40)], [Global]);
@@ -117,6 +119,34 @@ public class ConsumeCoverageBuilderTests {
         Assert.Equal(40, stone.Items);
         Assert.Equal(4, map.CellsInScope);
     }
+
+    [Fact]
+    public void FragmentCells_FoldIntoTheStoneFamilyAsTierZero() {
+        var stoneInfo = new CoverageFamilyInfo("SOUL_STONE", "SOUL STONES", ArtifactKind.Stone, 30, ["SOUL STONE"]);
+        var families = new Dictionary<string, CoverageFamilyInfo>(Families, StringComparer.Ordinal) {
+            ["SOUL_STONE"] = stoneInfo,
+            ["SOUL_STONE_FRAGMENT"] = stoneInfo
+        };
+        var catalog = new List<CoverageCatalogCell>(Catalog) {
+            new("SOUL_STONE_FRAGMENT", "FRAGMENT", -1, "COMMON", 0)
+        };
+        var map = ConsumeCoverageBuilder.Build(catalog, families,
+            [new CoverageSample("SOUL_STONE_FRAGMENT", "FRAGMENT", "COMMON", 40)], [Global]);
+
+        var stone = map.Families.Single(f => f.SpecName == "SOUL_STONE");
+        Assert.Equal(2, stone.Tiers.Count);
+        Assert.Equal(-1, stone.Tiers[0].AfxLevel);
+        Assert.Equal(40, stone.Tiers[0].Cells.Single().Items);
+        Assert.DoesNotContain(map.Families, f => f.SpecName == "SOUL_STONE_FRAGMENT");
+    }
+
+    [Theory]
+    [InlineData(ArtifactKind.Stone, "TACHYON_STONE", "STONES", "TACHYON STONES")]
+    [InlineData(ArtifactKind.Artifact, "TUNGSTEN_ANKH", "TUNGSTEN ANKHS", "TUNGSTEN ANKHS")]
+    [InlineData(ArtifactKind.Ingredient, "QUANTUM_METRONOME", "QUANTUM METRONOMES", "QUANTUM METRONOMES")]
+    public void DisplayName_DerivesStoneLabelsFromTheSpecName(ArtifactKind kind, string specName, string pluralName,
+        string expected) =>
+        Assert.Equal(expected, ConsumeCoverageKinds.DisplayName(kind, specName, pluralName));
 
     [Fact]
     public void Families_AreOrderedAndTiersNamed() {

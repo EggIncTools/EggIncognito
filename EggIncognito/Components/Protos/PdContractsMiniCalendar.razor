@@ -5,6 +5,7 @@
 @using EggIncognito.Services.Calendar
 @using EggIncognito.Services.Events
 @inherits SelfCallComponentBase
+@implements IAsyncDisposable
 @inject ILogger<PdContractsMiniCalendar> Logger
 @inject IServiceProvider Services
 
@@ -63,22 +64,81 @@
 
 @code {
     const int MiniFetchLimit = 500;
+    const int RetryDelayMs = 3000;
+    const int MaxRetryAttempts = 60;
+    const string NextUrl = "/api/v1/contracts/predictions/next";
 
     [Parameter] public EventCallback OnOpenContracts { get; set; }
 
     NextContractsResponse? _next;
     bool _nextLoading;
+    CancellationTokenSource? _retryCts;
 
     protected override async Task OnInitializedAsync() {
         if (Speculative) return;
         _nextLoading = true;
+        await LoadNextAsync();
+    }
+
+    async Task LoadNextAsync() {
         try {
-            _next = await Client().GetFromJsonAsync<NextContractsResponse>("/api/v1/contracts/predictions/next", JsonPresets.Web);
+            var res = await Client().GetAsync(NextUrl);
+            if ((int)res.StatusCode == 503) {
+                StartRetry();
+                return;
+            }
+
+            if (res.IsSuccessStatusCode) {
+                _next = await res.Content.ReadFromJsonAsync<NextContractsResponse>(JsonPresets.Web);
+            }
+
+            _nextLoading = false;
         } catch (Exception ex) {
             Logger.LogWarning(ex, "the next contracts block could not be loaded");
-        } finally {
             _nextLoading = false;
         }
+    }
+
+    void StartRetry() {
+        _retryCts ??= new CancellationTokenSource();
+        _ = RetryLoopAsync(_retryCts.Token);
+    }
+
+    async Task RetryLoopAsync(CancellationToken ct) {
+        for (var attempt = 0; attempt < MaxRetryAttempts; attempt++) {
+            try {
+                await Task.Delay(RetryDelayMs, ct);
+            } catch (OperationCanceledException) {
+                return;
+            }
+
+            try {
+                var res = await Client().GetAsync(NextUrl);
+                if ((int)res.StatusCode == 503) continue;
+
+                if (res.IsSuccessStatusCode) {
+                    _next = await res.Content.ReadFromJsonAsync<NextContractsResponse>(JsonPresets.Web);
+                }
+
+                _nextLoading = false;
+                await InvokeAsync(StateHasChanged);
+                return;
+            } catch (Exception ex) {
+                Logger.LogWarning(ex, "the next contracts block could not be loaded");
+                _nextLoading = false;
+                await InvokeAsync(StateHasChanged);
+                return;
+            }
+        }
+
+        _nextLoading = false;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    public ValueTask DisposeAsync() {
+        _retryCts?.Cancel();
+        _retryCts?.Dispose();
+        return ValueTask.CompletedTask;
     }
 
     RenderFragment NextRowContent(NextPick? pick) {

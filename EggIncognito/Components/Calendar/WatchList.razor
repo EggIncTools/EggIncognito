@@ -2,6 +2,7 @@
 @using EggIncognito.Models.Calendar
 @using EggIncognito.Services.Events
 @inherits SelfCallComponentBase
+@implements IAsyncDisposable
 @inject ViewerCookies Viewer
 @inject ILogger<WatchList> Logger
 
@@ -67,6 +68,9 @@
 </div>
 
 @code {
+    const int RetryDelayMs = 3000;
+    const int MaxRetryAttempts = 60;
+
     [Parameter, EditorRequired] public string Source { get; set; } = "";
 
     [Parameter, EditorRequired] public string PrefKey { get; set; } = "";
@@ -87,6 +91,7 @@
     string _query = "";
     int _active = -1;
     List<WatchEntry> _shown = [];
+    CancellationTokenSource? _retryCts;
 
     bool HasUltra => _entries?.Any(e => e.Ultra) == true && _entries.Any(e => !e.Ultra);
 
@@ -95,10 +100,14 @@
 
     protected override async Task OnInitializedAsync() {
         if (Speculative) return;
+        await LoadAsync();
+    }
+
+    async Task LoadAsync() {
         try {
             var res = await Client().GetAsync(Source);
             if ((int)res.StatusCode == 503) {
-                _note = await ApiErrors.ReadAsync(res);
+                StartRetry();
                 return;
             }
 
@@ -112,6 +121,47 @@
             Logger.LogWarning(ex, "the watch list {Source} could not be loaded", Source);
             _note = "Predictions could not be loaded.";
         }
+    }
+
+    void StartRetry() {
+        _retryCts ??= new CancellationTokenSource();
+        _ = RetryLoopAsync(_retryCts.Token);
+    }
+
+    async Task RetryLoopAsync(CancellationToken ct) {
+        for (var attempt = 0; attempt < MaxRetryAttempts; attempt++) {
+            try {
+                await Task.Delay(RetryDelayMs, ct);
+            } catch (OperationCanceledException) {
+                return;
+            }
+
+            try {
+                var res = await Client().GetAsync(Source);
+                if ((int)res.StatusCode == 503) continue;
+
+                if (!res.IsSuccessStatusCode) {
+                    _note = "Predictions could not be loaded.";
+                    await InvokeAsync(StateHasChanged);
+                    return;
+                }
+
+                _entries = (await res.Content.ReadFromJsonAsync<WatchResponse>(JsonPresets.Web))?.Entries.ToList() ?? [];
+                await InvokeAsync(StateHasChanged);
+                return;
+            } catch (Exception ex) {
+                Logger.LogWarning(ex, "the watch list {Source} could not be loaded", Source);
+                _note = "Predictions could not be loaded.";
+                await InvokeAsync(StateHasChanged);
+                return;
+            }
+        }
+    }
+
+    public ValueTask DisposeAsync() {
+        _retryCts?.Cancel();
+        _retryCts?.Dispose();
+        return ValueTask.CompletedTask;
     }
 
     protected override void OnAfterRender(bool firstRender) {

@@ -1,8 +1,11 @@
+using EggSharp.GameData.Artifacts;
+
 namespace EggIncognito.Models.Coverage;
 
 public sealed record CoverageFamily(
     string SpecName,
-    string PluralName,
+    string DisplayName,
+    ArtifactKind Kind,
     double Validity,
     int CellsInScope,
     int CellsComplete,

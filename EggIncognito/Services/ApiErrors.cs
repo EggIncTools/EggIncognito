@@ -17,20 +17,20 @@ public static class ApiErrors {
         if (string.IsNullOrWhiteSpace(body)) return fallback;
         var trimmed = body.Trim();
 
-        if (trimmed.StartsWith('{')) {
-            try {
-                using var doc = JsonDocument.Parse(trimmed);
-                var root = doc.RootElement;
-                if (root.ValueKind == JsonValueKind.Object) {
-                    foreach (var key in new[] { "error", "message" }) {
-                        if (root.TryGetProperty(key, out var prop) && prop.ValueKind == JsonValueKind.String) {
-                            var text = prop.GetString();
-                            if (!string.IsNullOrWhiteSpace(text)) return Clamp(text.Trim());
-                        }
+        if (!trimmed.StartsWith('{')) return fallback;
+
+        try {
+            using var doc = JsonDocument.Parse(trimmed);
+            var root = doc.RootElement;
+            if (root.ValueKind == JsonValueKind.Object) {
+                foreach (var key in new[] { "error", "message" }) {
+                    if (root.TryGetProperty(key, out var prop) && prop.ValueKind == JsonValueKind.String) {
+                        var text = prop.GetString();
+                        if (!string.IsNullOrWhiteSpace(text)) return Clamp(text.Trim());
                     }
                 }
-            } catch (JsonException) {
             }
+        } catch (JsonException) {
         }
 
         return Clamp(trimmed);
