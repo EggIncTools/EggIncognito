@@ -30,7 +30,7 @@ public sealed class GameDataRebuilder(
     private string? _prevBinaryVersion;
 
     private static readonly string[] BinaryDocIds = [
-        "boost-catalog", "boosts", "missions", "eggs", "vehicles", "dimensions", "research", "habs", "artifacts",
+        "boost-catalog", "boosts", "missions", "eggs", "egg_icons", "vehicles", "dimensions", "research", "habs", "artifacts",
         FarmPlacementCatalog.DocumentId, ArtifactDefinitionsId
     ];
 
@@ -115,6 +115,14 @@ public sealed class GameDataRebuilder(
                 var r = EggCatalogExtractor.ExtractAuto(c.Bin);
                 if (!r.Ok || r.Entries.Count == 0) return null;
                 var doc = GameDataDocBuilders.BuildEggs(r.Entries, c.Version);
+                return (doc.Json, doc.Count, null);
+            }, ct);
+
+            await LandBestAsync(results, "egg_icons", candidates, c => {
+                if (!c.IsElf) return null;
+                var r = EggIconExtractor.ExtractAuto(c.Bin);
+                if (!r.Ok || r.Entries.Count == 0) return null;
+                var doc = GameDataDocBuilders.BuildEggIcons(r.Entries, c.Version);
                 return (doc.Json, doc.Count, null);
             }, ct);
 

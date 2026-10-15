@@ -40,6 +40,19 @@ public static class GameDataDocBuilders {
         return new DocResult(JsonSerializer.Serialize(doc, CamelJson), rows.Length, []);
     }
 
+    public static DocResult BuildEggIcons(IReadOnlyList<EggIconExtractor.IconEntry> entries, string binaryVersion) {
+        var rows = entries.Select(e => new { index = e.Index, eggName = e.EggName, iconStem = e.IconStem }).ToArray();
+        var doc = new {
+            eggIcons = rows,
+            binaryVersion,
+            provenance = new Dictionary<string, BoostCatalogBuilder.ProvenanceSource>(StringComparer.Ordinal) {
+                ["identity"] = new("binary", "eggdata"),
+                ["iconStem"] = new("binary", "A::IMG::egg_*", "decoded")
+            }
+        };
+        return new DocResult(JsonSerializer.Serialize(doc, CamelJson), rows.Length, []);
+    }
+
     public static DocResult BuildVehicles(IReadOnlyList<VehicleCatalogExtractor.VehicleEntry> entries,
         string binaryVersion) {
         var skipped = entries.Where(e => string.IsNullOrEmpty(e.Name))

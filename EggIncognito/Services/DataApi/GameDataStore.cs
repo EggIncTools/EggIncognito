@@ -1,6 +1,7 @@
 using System.Text;
 using EggIncognito.Data.Models;
 using EggIncognito.Data.Services;
+using EggIncognito.Services.Assets;
 using EggSharp.GameData;
 using Microsoft.EntityFrameworkCore;
 
@@ -105,6 +106,7 @@ public sealed class GameDataStore(IServiceScopeFactory scopeFactory, ILogger<Gam
             .Where(d => d.Id != GameDataRebuilder.ArtifactDefinitionsId)
             .ToDictionary(d => d.Id, d => d.Json, StringComparer.Ordinal));
         if (docs is null) return null;
+        if (docs.TryGetValue("egg_icons", out string? eggIconsJson)) EggIcons.LoadFromJson(eggIconsJson);
         var missing = GameDataProvider.RequiredDocumentIds.Where(id => !docs.ContainsKey(id)).ToList();
         if (missing.Count > 0) {
             logger.LogWarning("game data provider unavailable, missing documents {Missing}",

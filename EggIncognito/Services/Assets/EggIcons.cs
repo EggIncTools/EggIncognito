@@ -1,13 +1,40 @@
 using System.Globalization;
+using System.Text.Json;
 using Ei;
 
 namespace EggIncognito.Services.Assets;
 
 public static class EggIcons {
+    private static Dictionary<string, string> _iconStems = [with(StringComparer.Ordinal)];
+
+    public static void LoadFromJson(string? docJson) {
+        var map = new Dictionary<string, string>(StringComparer.Ordinal);
+        if (!string.IsNullOrWhiteSpace(docJson)) {
+            try {
+                Fill(map, docJson);
+            } catch (JsonException) {
+                map.Clear();
+            }
+        }
+
+        _iconStems = map;
+    }
+
+    private static void Fill(Dictionary<string, string> map, string docJson) {
+        using var doc = JsonDocument.Parse(docJson);
+        if (!doc.RootElement.TryGetProperty("eggIcons", out var rows) || rows.ValueKind != JsonValueKind.Array) return;
+        foreach (var row in rows.EnumerateArray()) {
+            string? name = row.TryGetProperty("eggName", out var n) ? n.GetString() : null;
+            string? stem = row.TryGetProperty("iconStem", out var st) ? st.GetString() : null;
+            if (!string.IsNullOrEmpty(name) && !string.IsNullOrEmpty(stem)) map[name] = stem;
+        }
+    }
+
     public static string? Url(int egg, string? customEggId) {
         if (customEggId is { Length: > 0 } custom) return Safe(custom) ? Icon(custom + "_ce_icon") : null;
         if (!Enum.IsDefined((Egg)egg) || (Egg)egg is Egg.CustomEgg or Egg.Unknown) return null;
-        return Icon("egg_" + Name((Egg)egg).ToLowerInvariant());
+        string name = Name((Egg)egg);
+        return Icon(_iconStems.TryGetValue(name, out string? stem) ? stem : "egg_" + name.ToLowerInvariant());
     }
 
     public static string Label(int egg, string? customEggId) {
