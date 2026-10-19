@@ -5,13 +5,15 @@ namespace EggIncognito.Core.Services.ProtoExtract;
 
 public static partial class EventIconExtractor {
     public const string SignatureString = "earnings-boost";
-    private const long RecordStride = 0x80;
-    private const long IconFunctionOffset = 0x50;
+    private const long IconFunctionFromType = 0x50;
     private const long InvokeSlotOffset = 0x30;
     private const int MaxEvents = 64;
 
     [GeneratedRegex(@"^_ZN1A3IMG\d+([a-z0-9_]+)E$")]
     private static partial Regex IconGlobalRegex();
+
+    [GeneratedRegex("^[a-z]+(-[a-z]+)+$")]
+    private static partial Regex EventTypeRegex();
 
     public readonly record struct IconEntry(int Index, string EventType, string IconStem);
 
@@ -26,28 +28,8 @@ public static partial class EventIconExtractor {
         if (loc is null || !loc.TryLocateByString(SignatureString, out ulong start, out ulong end))
             return new Result(false, [], "live events init not located by signature on ELF");
 
-        var scan = StructInitReader.ReadRange(bin, start, end, writeback: true);
+        var scan = StructInitReader.ReadRange(bin, start, end, writeback: true, trackHeap: true);
         if (!scan.Ok) return new Result(false, [], scan.Diagnostics);
-
-        var bytes = new Dictionary<long, byte>();
-        var pointers = new Dictionary<long, ulong>();
-        foreach (var s in scan.Structs) {
-            foreach (var kv in s.Bytes) bytes[(long)s.BaseVa + kv.Key] = kv.Value;
-            foreach (var kv in s.Pointers) pointers[(long)s.BaseVa + kv.Key] = kv.Value;
-        }
-
-        ulong table = 0;
-        long count = 0;
-        foreach (var s in scan.Structs) {
-            if (s.TryPointer(0, out ulong p) && s.TryInt(8, 4, out long n) && n is > 0 and <= MaxEvents
-                && bytes.ContainsKey((long)p)) {
-                table = p;
-                count = n;
-                break;
-            }
-        }
-
-        if (table == 0) return new Result(false, [], "live events table pointer and count not found in init");
 
         var stems = new Dictionary<ulong, string>();
         foreach (var sym in elf.Symbols) {
@@ -56,12 +38,15 @@ public static partial class EventIconExtractor {
             if (m.Success) stems[sym.Value] = m.Groups[1].Value;
         }
 
-        var flat = new StructInitReader.StructInit(0, bytes, pointers, new Dictionary<long, ulong>());
+        var flat = StructInitReader.Flatten(scan.Structs);
         var entries = new List<IconEntry>();
-        for (int k = 0; k < count; k++) {
-            long rec = (long)table + k * RecordStride;
-            if (!StructInitReader.TryLibcxxString(bin, img, flat, rec, out string id) || id.Length == 0) continue;
-            if (!pointers.TryGetValue(rec + IconFunctionOffset, out ulong vtable)) continue;
+        int records = 0;
+        foreach (long at in flat.Bytes.Keys.Order()) {
+            ulong rec = unchecked((ulong)at);
+            if (StructInitReader.IsSynthetic(rec)) continue;
+            if (!StructInitReader.TryLibcxxAt(flat, rec, out string id) || !EventTypeRegex().IsMatch(id)) continue;
+            if (!flat.TryPointer(at + IconFunctionFromType, out ulong vtable)) continue;
+            if (entries.Any(e => e.EventType == id) || ++records > MaxEvents) continue;
             ulong slot = vtable + InvokeSlotOffset;
             if (!elf.TryResolveRelative(slot, out ulong invoke) && !elf.TryResolveSlot(slot, out invoke, out _)) continue;
             string? stem = StemAt(bin, img, elf, invoke, stems);
@@ -69,8 +54,8 @@ public static partial class EventIconExtractor {
         }
 
         return entries.Count == 0
-            ? new Result(false, [], $"no event icon lambdas resolved across {count} records")
-            : new Result(true, entries, $"{entries.Count} event icons from {count} records");
+            ? new Result(false, [], $"no event icon lambdas resolved across {records} records")
+            : new Result(true, entries, $"{entries.Count} event icons from {records} records");
     }
 
     private const uint LdrUnsignedMask = 0xFFC00000;

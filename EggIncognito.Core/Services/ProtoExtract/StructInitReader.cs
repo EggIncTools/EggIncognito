@@ -14,23 +14,36 @@ public static class StructInitReader {
         new[] { "cmp", "cmn", "tst", "fcmp", "str", "stur", "strb", "sturb", "strh", "sturh", "stp" }
             .ToFrozenSet(StringComparer.Ordinal);
 
+    private const ulong SyntheticFloor = 0xE000_0000_0000_0000;
+    private const ulong StackTop = 0xE000_0000_0010_0000;
+    private const ulong HeapBase = 0xF000_0000_0000_0000;
+    private const ulong HeapStride = 0x1_0000;
+    private const int LibcxxShortCapacity = 22;
+    private const long LibcxxLongSize = 8;
+    private const long LibcxxLongData = 0x10;
+
+    public static bool IsSynthetic(ulong va) => va >= SyntheticFloor;
+
     public static Result Read(byte[] bin, string initSymbol, int maxInstructions = 100_000)
         => ReadWith(bin, BinaryImage.Load(bin)?.Symbols ?? [], initSymbol, maxInstructions);
 
     public static Result ReadWith(byte[] bin, IReadOnlyList<MachoSymbols.Symbol> syms, string initSymbol,
         int maxInstructions = 100_000) {
         var lst = Arm64DataTableReader.ListWith(bin, syms, [initSymbol], maxInstructions);
-        return !lst.Ok ? new Result(false, [], lst.Diagnostics) : Walk(bin, lst.Instructions, false);
+        return !lst.Ok ? new Result(false, [], lst.Diagnostics) : Walk(bin, lst.Instructions, false, false);
     }
 
     public static Result ReadRange(byte[] bin, ulong startVa, ulong endVa, int maxInstructions = 100_000,
-        bool writeback = false) {
+        bool writeback = false, bool trackHeap = false) {
         var lst = Arm64DataTableReader.ListRange(bin, startVa, endVa, maxInstructions);
-        return !lst.Ok ? new Result(false, [], lst.Diagnostics) : Walk(bin, lst.Instructions, writeback);
+        return !lst.Ok ? new Result(false, [], lst.Diagnostics) : Walk(bin, lst.Instructions, writeback, trackHeap);
     }
 
-    private static Result Walk(byte[] bin, IReadOnlyList<Arm64DataTableReader.Insn> insns, bool writeback) {
+    private static Result Walk(byte[] bin, IReadOnlyList<Arm64DataTableReader.Insn> insns, bool writeback,
+        bool trackHeap) {
         var img = BinaryImage.Load(bin);
+        var synth = new Dictionary<ulong, byte>();
+        int heapCount = 0;
         var page = new Dictionary<string, ulong>(StringComparer.Ordinal);
         var imm = new Dictionary<string, (ulong Val, bool Wide)>(StringComparer.Ordinal);
         var vec = new Dictionary<string, byte[]>(StringComparer.Ordinal);
@@ -39,6 +52,7 @@ public static class StructInitReader {
         var byteWrites = new Dictionary<ulong, Dictionary<long, byte>>();
         var ptrWrites = new Dictionary<ulong, Dictionary<long, ulong>>();
         var tplWrites = new Dictionary<ulong, Dictionary<long, ulong>>();
+        if (trackHeap) page["sp"] = StackTop;
 
         bool TryResolveMem(string token, out string reg, out ulong off) {
             if (!TryMem(token, out reg, out off, out string? idx, out int sh)) return false;
@@ -58,6 +72,14 @@ public static class StructInitReader {
         }
 
         byte[]? ReadVecFrom(ulong va, int width) {
+            if (trackHeap) {
+                byte[] held = new byte[width];
+                bool all = true;
+                for (int k = 0; k < width && all; k++) all = synth.TryGetValue(va + (ulong)k, out held[k]);
+                if (all) return held;
+                if (IsSynthetic(va)) return null;
+            }
+
             if (img is null || !img.TryVaToFileOffset(va, out int fo, out _)) return null;
             if (fo < 0 || fo + width > bin.Length) return null;
             byte[] buf = new byte[width];
@@ -71,8 +93,10 @@ public static class StructInitReader {
                 byteWrites[baseVa] = bytes;
             }
 
-            for (int k = 0; k < raw.Length; k++)
+            for (int k = 0; k < raw.Length; k++) {
                 bytes[off + k] = raw[k];
+                if (trackHeap) synth[baseVa + (ulong)(off + k)] = raw[k];
+            }
 
             if (srcVa is { } sv) {
                 if (!tplWrites.TryGetValue(baseVa, out var tpls)) {
@@ -90,8 +114,10 @@ public static class StructInitReader {
                 byteWrites[baseVa] = bytes;
             }
 
-            for (int k = 0; k < width; k++)
+            for (int k = 0; k < width; k++) {
                 bytes[off + k] = (byte)(raw >> (k * 8));
+                if (trackHeap) synth[baseVa + (ulong)(off + k)] = (byte)(raw >> (k * 8));
+            }
 
             if (ptr is { } p) {
                 if (!ptrWrites.TryGetValue(baseVa, out var ptrs)) {
@@ -107,6 +133,7 @@ public static class StructInitReader {
             var ops = SplitOps(i.Operands);
 
             if (!TrackedProducers.Contains(i.Mnemonic) && !NonWritingMnemonics.Contains(i.Mnemonic)
+                                                       && !(trackHeap && i.Mnemonic == "sub")
                                                        && ops.Count >= 1 && LooksLikeGpr(ops[0])) {
                 page.Remove(ops[0]);
                 dataLoad.Remove(ops[0]);
@@ -122,6 +149,7 @@ public static class StructInitReader {
             switch (i.Mnemonic) {
                 case "bl":
                 case "blr":
+                    bool allocates = trackHeap && imm.ContainsKey("0");
                     for (int r = 0; r <= 17; r++) {
                         page.Remove("x" + r);
                         page.Remove("w" + r);
@@ -130,6 +158,17 @@ public static class StructInitReader {
                         imm.Remove(r.ToString(CultureInfo.InvariantCulture));
                     }
 
+                    if (allocates) page["x0"] = HeapBase + (ulong)heapCount++ * HeapStride;
+                    break;
+
+                case "sub":
+                    if (!trackHeap || ops.Count < 1) break;
+                    dataLoad.Remove(ops[0]);
+                    imm.Remove(RegNum(ops[0]));
+                    if (ops.Count == 3 && page.TryGetValue(ops[1], out ulong subBase) && TryImm(ops[2], out ulong subOff))
+                        page[ops[0]] = subBase - subOff;
+                    else
+                        page.Remove(ops[0]);
                     break;
 
                 case "adrp":
@@ -352,6 +391,49 @@ public static class StructInitReader {
                 tplWrites.GetValueOrDefault(kv.Key, emptyPtrs)))
             .ToList();
         return new Result(true, structs, $"{structs.Count} struct bases, {structs.Sum(s => s.Bytes.Count)} bytes");
+    }
+
+    public static StructInit Flatten(IReadOnlyList<StructInit> structs) {
+        var bytes = new Dictionary<long, byte>();
+        var pointers = new Dictionary<long, ulong>();
+        var templates = new Dictionary<long, ulong>();
+        foreach (var s in structs) {
+            long at = unchecked((long)s.BaseVa);
+            foreach ((long off, byte b) in s.Bytes) bytes[at + off] = b;
+            foreach ((long off, ulong p) in s.Pointers) pointers[at + off] = p;
+            foreach ((long off, ulong t) in s.Templates) templates[at + off] = t;
+        }
+
+        return new StructInit(0, bytes, pointers, templates);
+    }
+
+    public static bool TryLibcxxAt(StructInit flat, ulong va, out string value, int maxLen = 4096) {
+        value = "";
+        long at = unchecked((long)va);
+        if (!flat.TryInt(at, 1, out long head)) return false;
+        byte size = (byte)head;
+        if ((size & 1) == 0) {
+            int len = size >> 1;
+            return len <= LibcxxShortCapacity && TryReadExact(flat, at + 1, len, out value);
+        }
+
+        if (!flat.TryInt(at + LibcxxLongSize, 8, out long longLen) || longLen < 0 || longLen > maxLen) return false;
+        ulong data = flat.TryPointer(at + LibcxxLongData, out ulong p) ? p
+            : flat.TryInt(at + LibcxxLongData, 8, out long raw) ? unchecked((ulong)raw) : 0;
+        return data != 0 && TryReadExact(flat, unchecked((long)data), (int)longLen, out value);
+    }
+
+    private static bool TryReadExact(StructInit flat, long start, int len, out string value) {
+        byte[] buf = new byte[len];
+        for (int k = 0; k < len; k++) {
+            if (!flat.Bytes.TryGetValue(start + k, out buf[k])) {
+                value = "";
+                return false;
+            }
+        }
+
+        value = Encoding.UTF8.GetString(buf);
+        return true;
     }
 
     public static StructInit MergeByAbsoluteVa(IReadOnlyList<StructInit> structs) {

@@ -9,7 +9,7 @@ public static partial class MissionCatalogExtractor {
     [GeneratedRegex("^[a-z][a-z0-9_]{3,}$")]
     private static partial Regex IdPattern();
 
-    [GeneratedRegex("^[A-Z][A-Z0-9 .!']+$")]
+    [GeneratedRegex("^[A-Z0-9][A-Z0-9 .!']+$")]
     private static partial Regex DisplayPattern();
 
     public static Result Extract(byte[] bin) {
@@ -41,9 +41,38 @@ public static partial class MissionCatalogExtractor {
         return ExtractWith(bin, img?.Symbols ?? []);
     }
 
+    private const long ElfNameOffset = 0x0;
+    private const long ElfIdOffset = 0x18;
+    private const long ElfGoalOffset = 0x30;
+    private const long ElfTargetOffset = 0x50;
+
     public static Result ExtractRange(byte[] bin, ulong startVa, ulong endVa) {
-        var scan = Arm64DataTableReader.ScanRange(bin, startVa, endVa);
-        return !scan.Ok ? new Result(false, [], scan.Diagnostics) : Classify(bin, scan.Addresses);
+        var scan = StructInitReader.ReadRange(bin, startVa, endVa, writeback: true, trackHeap: true);
+        if (!scan.Ok) return new Result(false, [], scan.Diagnostics);
+
+        var flat = StructInitReader.Flatten(scan.Structs);
+        var entries = new List<MissionEntry>();
+        foreach (long at in flat.Bytes.Keys.Order()) {
+            ulong rec = unchecked((ulong)at);
+            if (StructInitReader.IsSynthetic(rec)) continue;
+            if (!StructInitReader.TryLibcxxAt(flat, rec + ElfIdOffset, out string id) || !IdPattern().IsMatch(id))
+                continue;
+            if (!flat.TryFloat64(at + ElfTargetOffset, out double target) || !double.IsFinite(target)) continue;
+            if (entries.Any(x => x.Id == id)) continue;
+            string? name = StructInitReader.TryLibcxxAt(flat, rec + ElfNameOffset, out string n)
+                           && DisplayPattern().IsMatch(n)
+                ? n
+                : null;
+            string? goal = StructInitReader.TryLibcxxAt(flat, rec + ElfGoalOffset, out string g)
+                           && IsPrintable(StripDescPrefix(g))
+                ? StripDescPrefix(g)
+                : null;
+            entries.Add(new MissionEntry(id, name, goal));
+        }
+
+        return entries.Count == 0
+            ? new Result(false, [], "no mission records decoded from init stores")
+            : new Result(true, entries, $"{entries.Count} missions");
     }
 
     private static Result Classify(byte[] bin, IReadOnlyList<Arm64DataTableReader.AddressRef> refs) {

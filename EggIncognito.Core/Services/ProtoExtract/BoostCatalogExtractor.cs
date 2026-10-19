@@ -9,6 +9,10 @@ public static partial class BoostCatalogExtractor {
 
     private const int StructStride = 0x88;
     private const int DescFieldOffset = 0x30;
+    private const long ElfNameOffset = 0x18;
+    private const long ElfDimensionOffset = 0x48;
+    private const long ElfDurationOffset = 0x70;
+    private const long ElfMagnitudeOffset = 0x80;
 
     [GeneratedRegex("^[a-z][a-z0-9_]+$")]
     private static partial Regex IdPattern();
@@ -44,13 +48,40 @@ public static partial class BoostCatalogExtractor {
         if (loc is null || !loc.TryLocateByString(SignatureString, out ulong s, out ulong e))
             return new Result(false, [], $"boostmanager init not located via '{SignatureString}' on ELF");
 
-        var read = StaticInitCatalogReader.ReadRange(bin, s, e, IsBoostId);
-        if (!read.Ok) return new Result(false, [], read.Diagnostics);
+        var scan = StructInitReader.ReadRange(bin, s, e, writeback: true, trackHeap: true);
+        if (!scan.Ok) return new Result(false, [], scan.Diagnostics);
 
-        var outp = read.Entries.Select(x => new BoostEntry(x.Id, x.DisplayName, x.Description)).ToList();
-        int desc = outp.Count(x => x.Description is not null);
-        return new Result(true, outp,
-            $"{outp.Count} boosts, {desc} with description (ELF catalog; member-store decode is Mach-O only)");
+        var flat = StructInitReader.Flatten(scan.Structs);
+        var outp = new List<BoostEntry>();
+        foreach (long at in flat.Bytes.Keys.Order()) {
+            ulong rec = unchecked((ulong)at);
+            if (StructInitReader.IsSynthetic(rec)) continue;
+            if (!StructInitReader.TryLibcxxAt(flat, rec, out string id) || !IsBoostId(id)) continue;
+            if (!flat.TryInt(at + ElfDimensionOffset, 4, out _)
+                || !flat.TryFloat64(at + ElfDurationOffset, out double duration) || !double.IsFinite(duration)
+                || !flat.TryFloat64(at + ElfMagnitudeOffset, out double magnitude) || !double.IsFinite(magnitude)) {
+                continue;
+            }
+
+            if (outp.Any(x => x.Id == id)) continue;
+            string? name = StructInitReader.TryLibcxxAt(flat, rec + ElfNameOffset, out string n) && n.Length > 0
+                ? n
+                : null;
+            string? desc = StructInitReader.TryLibcxxAt(flat, rec + DescFieldOffset, out string d)
+                ? ElfDescription(d)
+                : null;
+            outp.Add(new BoostEntry(id, name, desc));
+        }
+
+        if (outp.Count == 0) return new Result(false, [], "no boost records decoded from boostmanager init stores");
+        int described = outp.Count(x => x.Description is not null);
+        return new Result(true, outp, $"{outp.Count} boosts, {described} with description (ELF record decode)");
+    }
+
+    private static string? ElfDescription(string raw) {
+        string body = raw.Length > 0 && raw[0] == '\x1b' ? raw[1..] : raw;
+        if (raw.Length > 0 && raw[0] == '\x1b' && body.StartsWith('z')) body = body[1..];
+        return body.Length == 0 ? null : body;
     }
 
     private static bool IsBoostId(string s)
