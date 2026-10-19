@@ -5,6 +5,7 @@ using EggIdentity.Db;
 using EggIdentity.DbClone;
 using EggIdentity.Fallback;
 using EggIdentity.Metrics;
+using EggIdentity.Reports.Browser;
 using EggIdentity.Settings.Api;
 using EggIdentity.UI;
 using EggIdentity.UI.Suite;
@@ -136,6 +137,7 @@ public static class AppPipeline {
 
         app.MapRazorComponents<App>().AddInteractiveServerRenderMode();
         app.MapAppVersion();
+        app.MapEggIdentityBrowserReports().RequireRateLimiting("read");
         app.MapGet("/health", () => Results.Ok());
         app.MapGet("/api/app/mode", (IAppMode m, AuthState auth, ICurrentUser currentUser) => {
             var user = currentUser.Current;

@@ -30,7 +30,7 @@ public sealed record RawConsumptionEvent(
     string? ClientVersion);
 
 public sealed class ConsumptionReportRows(EggIncognitoDbContext db) : IReportRowProvider<ConsumptionDropRow> {
-    public async ValueTask<IReadOnlyList<ConsumptionDropRow>> ReadAsync(CancellationToken ct) {
+    public async ValueTask<IReadOnlyList<ConsumptionDropRow>> ReadAsync(string? partition, CancellationToken ct) {
         var events = await db.ArtifactConsumeObservations.AsNoTracking()
             .CountedConsumes()
             .Select(o => new RawConsumptionEvent(o.Id, o.SpecName, o.SpecLevel, o.SpecRarity, o.Byproducts, o.GoldenEggs, o.PiggyFill, o.ClientVersion))
@@ -38,7 +38,7 @@ public sealed class ConsumptionReportRows(EggIncognitoDbContext db) : IReportRow
         return Materialize(events);
     }
 
-    public async ValueTask<string> VersionAsync(CancellationToken ct) {
+    public async ValueTask<string> VersionAsync(string? partition, CancellationToken ct) {
         var maxId = await db.ArtifactConsumeObservations.AsNoTracking()
             .OrderByDescending(o => o.Id)
             .Select(o => o.Id)
@@ -71,8 +71,8 @@ public sealed class ConsumptionReportRows(EggIncognitoDbContext db) : IReportRow
 }
 
 public sealed class NoConsumptionReportRows : IReportRowProvider<ConsumptionDropRow> {
-    public ValueTask<IReadOnlyList<ConsumptionDropRow>> ReadAsync(CancellationToken ct) =>
+    public ValueTask<IReadOnlyList<ConsumptionDropRow>> ReadAsync(string? partition, CancellationToken ct) =>
         new(Array.Empty<ConsumptionDropRow>());
 
-    public ValueTask<string> VersionAsync(CancellationToken ct) => new("0");
+    public ValueTask<string> VersionAsync(string? partition, CancellationToken ct) => new("0");
 }

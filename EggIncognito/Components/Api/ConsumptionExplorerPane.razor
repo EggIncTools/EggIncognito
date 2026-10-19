@@ -1,14 +1,21 @@
 @using EggIdentity.Reports
+@using EggIdentity.Reports.Browser
 @using EggIdentity.UI.Reports
 @using EggIncognito.Services.Coverage
-@inject ICurrentUser User
-@inject ReportEngineRegistry Engines
+@inject BrowserReportRegistry Reports
 @inject IReadOnlyList<IReportSource> Sources
 
-<ReportExplorer Sources="Sources" Registry="Engines" @bind-Value="_definition" Presets="ConsumptionReportSource.Presets" Tier="Tier"/>
+@if (_tier is { } tier) {
+    <ReportExplorer Sources="Sources" Registry="Reports.Registry" @bind-Value="_definition" Presets="ConsumptionReportSource.Presets" Tier="tier"/>
+}
 
 @code {
     private ReportDefinition _definition = ConsumptionReportSource.Presets[0].Definition;
+    private ReportTier? _tier;
 
-    private ReportTier Tier => User.Current.IsAtLeast(UserRole.Admin) ? ReportTier.Live : ReportTier.Snapshot;
+    protected override async Task OnAfterRenderAsync(bool firstRender) {
+        if (!firstRender) return;
+        _tier = await Reports.ReadyAsync();
+        StateHasChanged();
+    }
 }

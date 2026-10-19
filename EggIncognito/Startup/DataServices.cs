@@ -15,7 +15,10 @@ using EggIncognito.Services.Inspector;
 using EggIncognito.Services.Predictions;
 using EggIncognito.Services.Predictions.Training;
 using EggIncognito.Services.Routes;
+using EggIdentity.Auth;
+using EggIdentity.Contract;
 using EggIdentity.Reports;
+using EggIdentity.Reports.Browser;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -119,6 +122,12 @@ public static class DataServices {
     }
 
     public static void AddDatabaseStores(this WebApplicationBuilder builder, BootFlags boot) {
+        builder.Services.AddEggIdentityBrowserReports(o => {
+            o.Tier = (services, _) => services.GetRequiredService<ICurrentUser>().Current.IsAtLeast(UserRole.Admin)
+                ? ReportTier.Live
+                : ReportTier.Snapshot;
+            o.SharedSources.Add(ConsumptionReportSource.Source.Id);
+        });
         if (!boot.DbEnabled) {
             var none = new NoArtifactObservations();
             builder.Services.AddSingleton<IArtifactObservationSink>(none);
