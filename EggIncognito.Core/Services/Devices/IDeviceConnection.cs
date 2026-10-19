@@ -32,7 +32,11 @@ public sealed record SshEndpoint(string Host, string Port, string KeyPath) {
 public static class DeviceShell {
     public static string Quote(string s) => "'" + s.Replace("'", "'\\''") + "'";
 
+    public const string IosToolPath =
+        "PATH=/var/jb/usr/bin:/var/jb/bin:/var/jb/usr/sbin:/var/jb/sbin:/cores/binpack/usr/bin:/cores/binpack/bin:$PATH; export PATH; ";
+
     public static string LocateIosApp(string bundleId) =>
+        IosToolPath +
         $"app=$(for a in /private/var/containers/Bundle/Application/*/*.app; do " +
         $"""grep -qa {Quote(bundleId)} "$a/Info.plist" 2>/dev/null && echo "$a" && break; done); """ +
         """[ -z "$app" ] && exit 3;""";

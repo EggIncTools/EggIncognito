@@ -86,9 +86,9 @@ public sealed class IosPlatform(
         if (!entry.Supported) return DeviceResult<string>.Unsupported(entry.UnsupportedNote);
         if (connections.Ios(target.Target) is not { } conn)
             return DeviceResult<string>.Unreachable("ios ssh not configured");
-        var listing = await ListingAsync(conn, target.Package, entry, ct);
+        (var listing, string failure) = await ListingAsync(conn, target.Package, entry, ct);
         return listing.Count == 0
-            ? DeviceResult<string>.Unreachable($"no files listed for '{entry.Name}'")
+            ? DeviceResult<string>.Unreachable(failure)
             : DeviceResult<string>.Success(Hashes.Sha256Hex(Canonical(listing)));
     }
 
@@ -97,8 +97,8 @@ public sealed class IosPlatform(
         if (!entry.Supported) return DeviceResult<HarvestBatch>.Unsupported(entry.UnsupportedNote);
         if (connections.Ios(target.Target) is not { } conn)
             return DeviceResult<HarvestBatch>.Unreachable("ios ssh not configured");
-        var listing = await ListingAsync(conn, target.Package, entry, ct);
-        if (listing.Count == 0) return DeviceResult<HarvestBatch>.Unreachable($"no files listed for '{entry.Name}'");
+        (var listing, string failure) = await ListingAsync(conn, target.Package, entry, ct);
+        if (listing.Count == 0) return DeviceResult<HarvestBatch>.Unreachable(failure);
 
         var items = new List<HarvestItem>();
         string contentType = entry.Name switch {
@@ -156,8 +156,10 @@ public sealed class IosPlatform(
     private static string Canonical(IReadOnlyDictionary<string, RemoteFile> listing) =>
         string.Join('\n', listing.OrderBy(kv => kv.Key, StringComparer.Ordinal).Select(kv => $"{kv.Key}:{kv.Value.Sha}"));
 
-    private async Task<IReadOnlyDictionary<string, RemoteFile>> ListingAsync(SshDeviceConnection conn, string bundleId,
-        HarvestEntry entry, CancellationToken ct) {
+    private const int AppNotFound = 3;
+
+    private async Task<(IReadOnlyDictionary<string, RemoteFile> Files, string Failure)> ListingAsync(
+        SshDeviceConnection conn, string bundleId, HarvestEntry entry, CancellationToken ct) {
         string find = entry.Name switch {
             HarvestEntries.AppBinary => "exe=\"$app/$(basename \"$app\" .app)\"; [ -f \"$exe\" ] && printf '%s\\n' \"$exe\"",
             HarvestEntries.Meshes => """find "$app" \( -iname '*.rpo' -o -iname '*.rpoz' \) 2>/dev/null""",
@@ -165,26 +167,32 @@ public sealed class IosPlatform(
             HarvestEntries.PackageManifest => "[ -f \"$app/Info.plist\" ] && printf '%s\\n' \"$app/Info.plist\"",
             _ => ""
         };
-        if (find.Length == 0) return new Dictionary<string, RemoteFile>(StringComparer.Ordinal);
-
         var listing = new Dictionary<string, RemoteFile>(StringComparer.Ordinal);
+        if (find.Length == 0) return (listing, $"no listing defined for '{entry.Name}'");
+
+        ProcessResult? last = null;
         foreach (string hasher in HashCommands) {
-            var r = await conn.ShellAsync(
-                DeviceShell.LocateIosApp(bundleId) + $"""{find} | tr '\n' '\0' | xargs -0 {hasher} 2>/dev/null""", ct);
-            listing = Parse(r.Stdout);
-            if (listing.Count > 0) return listing;
+            last = await conn.ShellAsync(
+                DeviceShell.LocateIosApp(bundleId) + $"""{find} | while IFS= read -r f; do {hasher} "$f"; done""", ct);
+            listing = Parse(last.Stdout);
+            if (listing.Count > 0) return (listing, "");
+            if (last.ExitCode == AppNotFound) return (listing, $"{bundleId} not found under /private/var/containers/Bundle/Application");
         }
 
-        logger.LogWarning("ios harvest: no content hasher for '{Entry}', falling back to size+mtime", entry.Name);
+        logger.LogWarning("ios harvest: no content hasher for '{Entry}' ({Note}), falling back to size+mtime",
+            entry.Name, Describe(last));
         foreach (string fmt in StatFormats) {
-            var r = await conn.ShellAsync(
-                DeviceShell.LocateIosApp(bundleId) + $"""{find} | tr '\n' '\0' | xargs -0 stat {fmt} 2>/dev/null""", ct);
-            listing = Parse(r.Stdout);
-            if (listing.Count > 0) return listing;
+            last = await conn.ShellAsync(
+                DeviceShell.LocateIosApp(bundleId) + $"""{find} | while IFS= read -r f; do stat {fmt} "$f"; done""", ct);
+            listing = Parse(last.Stdout);
+            if (listing.Count > 0) return (listing, "");
         }
 
-        return listing;
+        return (listing, $"no files listed for '{entry.Name}': {Describe(last)}");
     }
+
+    private static string Describe(ProcessResult? r) =>
+        r is null ? "no command ran" : DeviceParsing.TrimNote($"exit {r.ExitCode} {r.Stderr} {r.Stdout}".Trim());
 
     private static readonly string[] HashCommands = ["sha256sum", "shasum -a 256"];
     private static readonly string[] StatFormats = ["-c '%s-%Y %n'", "-f '%z-%m %N'"];
