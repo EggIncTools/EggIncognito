@@ -247,7 +247,7 @@ public static class DeviceServices {
 
         builder.Services.AddSingleton<IDeviceUiDriver, AndroidUiDriver>();
         string iosUiNavTweakPath = config["DeviceCapture:Ios:UiNavTweakPath"]
-                                   ?? "/Library/MobileSubstrate/DynamicLibraries/egiuinav.dylib";
+                                   ?? "/var/jb/Library/MobileSubstrate/DynamicLibraries/egiuinav.dylib";
         builder.Services.AddSingleton<IDeviceUiDriver>(sp => new IosUiDriver(
             sp.GetRequiredService<IDeviceConnectionFactory>(), new IosUiDriver.Options(iosUiNavTweakPath),
             sp.GetRequiredService<TimeProvider>()));
@@ -318,7 +318,7 @@ public static class DeviceServices {
                 new IosStoreUpdateDriver.Options(
                     ios["SshHost"], ios["SshPort"] ?? "2222", ios["SshKeyPath"],
                     ios["TriggerPath"] ?? "/var/mobile/eggupdate.trigger",
-                    ios["TweakPath"] ?? "/Library/MobileSubstrate/DynamicLibraries/eggupdate.dylib",
+                    ios["TweakPath"] ?? "/var/jb/Library/MobileSubstrate/DynamicLibraries/eggupdate.dylib",
                     ios["AppId"] ?? "993492744", ios["LookupCountry"]),
                 sp.GetRequiredService<IosStoreCatalog>(),
                 sp.GetRequiredService<KnownVersionRecorder>(),

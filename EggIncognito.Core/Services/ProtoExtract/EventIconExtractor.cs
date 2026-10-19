@@ -62,7 +62,8 @@ public static partial class EventIconExtractor {
             long rec = (long)table + k * RecordStride;
             if (!StructInitReader.TryLibcxxString(bin, img, flat, rec, out string id) || id.Length == 0) continue;
             if (!pointers.TryGetValue(rec + IconFunctionOffset, out ulong vtable)) continue;
-            if (!elf.TryResolveSlot(vtable + InvokeSlotOffset, out ulong invoke, out _)) continue;
+            ulong slot = vtable + InvokeSlotOffset;
+            if (!elf.TryResolveRelative(slot, out ulong invoke) && !elf.TryResolveSlot(slot, out invoke, out _)) continue;
             string? stem = StemAt(bin, img, elf, invoke, stems);
             if (stem is not null) entries.Add(new IconEntry(entries.Count, id, stem));
         }

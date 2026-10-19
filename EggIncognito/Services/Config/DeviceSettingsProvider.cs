@@ -98,7 +98,7 @@ public sealed class DeviceSettingsProvider : ISettingsProvider {
         new("device_capture.ios.ui_nav_tweak_path", "DeviceCapture__Ios__UiNavTweakPath",
             "iOS UI nav tweak path", Capture,
             SettingKind.Path, ApplyTier.RestartRequired, Sensitivity.Plain) {
-            Default = "/Library/MobileSubstrate/DynamicLibraries/egiuinav.dylib"
+            Default = "/var/jb/Library/MobileSubstrate/DynamicLibraries/egiuinav.dylib"
         },
 
         new("device_update.android.drive_command", "DeviceUpdate__Android__DriveCommand",
@@ -136,7 +136,7 @@ public sealed class DeviceSettingsProvider : ISettingsProvider {
         },
         new("device_update.ios.tweak_path", "DeviceUpdate__Ios__TweakPath", "iOS tweak path", Update,
             SettingKind.Path, ApplyTier.RestartRequired, Sensitivity.Plain) {
-            Default = "/Library/MobileSubstrate/DynamicLibraries/eggupdate.dylib"
+            Default = "/var/jb/Library/MobileSubstrate/DynamicLibraries/eggupdate.dylib"
         },
         new("device_update.ios.app_id", "DeviceUpdate__Ios__AppId", "iOS App Store id", Update,
             SettingKind.Snowflake, ApplyTier.RestartRequired, Sensitivity.Plain) { Default = "993492744" },

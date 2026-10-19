@@ -129,7 +129,7 @@ public sealed class GameDataRebuilder(
             await LandBestAsync(results, "event_icons", candidates, c => {
                 if (!c.IsElf) return null;
                 var r = EventIconExtractor.ExtractAuto(c.Bin);
-                if (!r.Ok || r.Entries.Count == 0) return null;
+                if (!r.Ok || r.Entries.Count == 0) throw new InvalidOperationException(r.Diagnostics);
                 var doc = GameDataDocBuilders.BuildEventIcons(r.Entries, c.Version);
                 return (doc.Json, doc.Count, null);
             }, ct);
@@ -309,7 +309,7 @@ public sealed class GameDataRebuilder(
 
     private async Task LandBestAsync(List<RebuildDocResult> results, string id, IReadOnlyList<Candidate> candidates,
         Func<Candidate, (string Json, int Count, string? Note)?> build, CancellationToken ct) {
-        string? lastNote = null;
+        var misses = new List<string>();
         foreach (var c in candidates) {
             string json;
             int count;
@@ -317,14 +317,14 @@ public sealed class GameDataRebuilder(
             try {
                 var built = build(c);
                 if (built is null) {
-                    lastNote = $"no extraction from {c.Platform} {c.Version}";
+                    misses.Add($"no extraction from {c.Platform} {c.Version}");
                     continue;
                 }
 
                 (json, count, note) = built.Value;
                 GameDataProvider.Validate(id, json);
             } catch (Exception ex) {
-                lastNote = $"{c.Platform} {c.Version}: {ex.Message}";
+                misses.Add($"{c.Platform} {c.Version}: {ex.Message}");
                 continue;
             }
 
@@ -346,7 +346,8 @@ public sealed class GameDataRebuilder(
             return;
         }
 
-        results.Add(new RebuildDocResult(id, "skipped", null, null, lastNote ?? "no candidate binary"));
+        results.Add(new RebuildDocResult(id, "skipped", null, null,
+            misses.Count == 0 ? "no candidate binary" : string.Join("; ", misses)));
     }
 
     private async Task LandAsync(List<RebuildDocResult> results, string id,
