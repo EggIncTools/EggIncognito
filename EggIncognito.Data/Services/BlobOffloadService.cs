@@ -116,37 +116,45 @@ public sealed class BlobOffloadService(
         var db = scope.ServiceProvider.GetRequiredService<EggIncognitoDbContext>();
 
         int missing = 0;
-        var dropped = new List<string>();
-        missing += await MissingAsync<DeviceAsset>(db, BlobTables.DeviceAssets, dropped, ct);
-        missing += await MissingAsync<StoredBinary>(db, BlobTables.StoredBinaries, dropped, ct);
-        missing += await MissingAsync<StoredApk>(db, BlobTables.StoredApks, dropped, ct);
+        var affected = new List<string>();
+        missing += await MissingAsync<DeviceAsset>(db, BlobTables.DeviceAssets, affected, ct);
+        missing += await MissingAsync<StoredBinary>(db, BlobTables.StoredBinaries, affected, ct);
+        missing += await MissingAsync<StoredApk>(db, BlobTables.StoredApks, affected, ct);
+        if (missing == 0) return;
 
-        if (missing > 0) {
-            await ForceReharvestAsync(db, dropped, ct);
-            await db.SaveChangesAsync(ct);
-            logger.LogWarning(
-                "blob audit: {Missing} row(s) had no bytes in Postgres and no file on disk under {Root}; " +
-                "the rows were dropped so the next harvest re-pulls them.", missing, files.Root);
+        if (!Directory.Exists(files.Root)) {
+            logger.LogError(
+                "blob audit: {Missing} offloaded row(s) but the blob root {Root} does not exist; the content root " +
+                "is probably resolving to a different folder than the one that holds the blobs. Nothing was changed.",
+                missing, files.Root);
+            return;
         }
+
+        await ForceReharvestAsync(db, affected, ct);
+        await db.SaveChangesAsync(ct);
+        logger.LogWarning(
+            "blob audit: {Missing} row(s) had no bytes in Postgres and no file on disk under {Root}; " +
+            "the rows were kept and the next harvest re-pulls them.", missing, files.Root);
     }
 
     private async Task<int> MissingAsync<T>(EggIncognitoDbContext db, string table, List<string> platforms, CancellationToken ct)
         where T : class, IBlobRow {
-        var offloaded = await db.Set<T>()
+        var offloaded = await db.Set<T>().AsNoTracking()
             .Where(r => r.Bytes == null)
             .ToListAsync(ct);
 
         int missing = 0;
         foreach (var row in offloaded) {
             if (files.Exists(table, row.Sha256)) continue;
-            logger.LogWarning("blob audit {Table} id {Id}: file missing for sha {Sha}, dropping row", table, row.Id, row.Sha256);
-            db.Set<T>().Remove(row);
             if (row is DeviceAsset asset) platforms.Add(asset.Platform);
             if (row is StoredBinary binary) platforms.Add(binary.Platform);
             if (row is StoredApk apk) platforms.Add(apk.Platform);
             missing++;
         }
 
+        if (missing > 0)
+            logger.LogWarning("blob audit {Table}: {Missing} of {Offloaded} offloaded row(s) have no file under {Root}",
+                table, missing, offloaded.Count, files.Root);
         return missing;
     }
 

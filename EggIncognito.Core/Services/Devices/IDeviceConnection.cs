@@ -1,4 +1,7 @@
+using System.Collections.Concurrent;
 using System.Security;
+using System.Security.AccessControl;
+using System.Security.Principal;
 
 namespace EggIncognito.Core.Services.Devices;
 
@@ -20,13 +23,45 @@ public interface IDeviceConnection {
 public sealed record SshEndpoint(string Host, string Port, string KeyPath) {
     private static readonly string[] Opts = ["-o", "StrictHostKeyChecking=no", "-o", "BatchMode=yes"];
 
-    public string[] SshArgs(string command) => ["-p", Port, "-i", KeyPath, .. Opts, $"root@{Host}", command];
+    private string Key => SshKeyFile.Usable(KeyPath);
+
+    public string[] SshArgs(string command) => ["-p", Port, "-i", Key, .. Opts, $"root@{Host}", command];
 
     public string[] ScpDownArgs(string remotePath, string localDest) =>
-        ["-P", Port, "-i", KeyPath, .. Opts, $"root@{Host}:{remotePath}", localDest];
+        ["-P", Port, "-i", Key, .. Opts, $"root@{Host}:{remotePath}", localDest];
 
     public string[] ScpUpArgs(string localPath, string remotePath) =>
-        ["-P", Port, "-i", KeyPath, .. Opts, localPath, $"root@{Host}:{remotePath}"];
+        ["-P", Port, "-i", Key, .. Opts, localPath, $"root@{Host}:{remotePath}"];
+}
+
+public static class SshKeyFile {
+    private static readonly ConcurrentDictionary<string, string> Copies = new(StringComparer.OrdinalIgnoreCase);
+
+    public static string Usable(string keyPath) {
+        if (!File.Exists(keyPath)) return keyPath;
+        if (Copies.TryGetValue(keyPath, out string? copy) && File.Exists(copy)) return copy;
+        return Copies[keyPath] = PrivateCopy(keyPath);
+    }
+
+    private static string PrivateCopy(string keyPath) {
+        string dest = DeviceShell.NewTempPath(".key");
+        byte[] key = File.ReadAllBytes(keyPath);
+        if (OperatingSystem.IsWindows()) {
+            var security = new FileSecurity();
+            security.SetAccessRuleProtection(true, false);
+            security.AddAccessRule(new FileSystemAccessRule(WindowsIdentity.GetCurrent().User!,
+                FileSystemRights.FullControl, AccessControlType.Allow));
+            using var stream = new FileInfo(dest).Create(FileMode.CreateNew, FileSystemRights.FullControl,
+                FileShare.None, 4096, FileOptions.None, security);
+            stream.Write(key);
+        } else {
+            File.WriteAllBytes(dest, []);
+            File.SetUnixFileMode(dest, UnixFileMode.UserRead | UnixFileMode.UserWrite);
+            File.WriteAllBytes(dest, key);
+        }
+
+        return dest;
+    }
 }
 
 public static class DeviceShell {
