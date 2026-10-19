@@ -127,19 +127,29 @@ public class IosUiDriverTests {
     }
 
     [Theory]
-    [InlineData(DeviceKey.Back)]
-    [InlineData(DeviceKey.Enter)]
-    [InlineData(DeviceKey.Wake)]
-    [InlineData(DeviceKey.Sleep)]
-    [InlineData(DeviceKey.DismissKeyguard)]
-    public async Task KeyAsync_UnsupportedKeys_ReturnUnsupported(DeviceKey key) {
-        var runner = new FakeRunner((_, _) => new ProcessResult(0, "", ""));
+    [InlineData(DeviceKey.Enter, "key enter")]
+    [InlineData(DeviceKey.Wake, "key wake")]
+    [InlineData(DeviceKey.Sleep, "key sleep")]
+    [InlineData(DeviceKey.Back, "swipe 2 400 220 400 250")]
+    public async Task KeyAsync_SendsTweakCommand(DeviceKey key, string verbLine) {
+        var runner = HappyRunner("ok done");
         var driver = new IosUiDriver(new FakeConnections(runner), DefaultOptions, TimeProvider.System);
 
         var result = await driver.KeyAsync(IosTarget, key, default);
 
+        Assert.True(result.Ok);
+        Assert.Contains(runner.Calls,
+            c => c.exe == "ssh" && c.args[^1].Contains($"printf %s '{verbLine}'", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task KeyAsync_DismissKeyguard_ReturnsUnsupported() {
+        var runner = new FakeRunner((_, _) => new ProcessResult(0, "", ""));
+        var driver = new IosUiDriver(new FakeConnections(runner), DefaultOptions, TimeProvider.System);
+
+        var result = await driver.KeyAsync(IosTarget, DeviceKey.DismissKeyguard, default);
+
         Assert.Equal(DeviceOutcome.Unsupported, result.Outcome);
-        Assert.Contains(key.ToString(), result.Note);
         Assert.Empty(runner.Calls);
     }
 

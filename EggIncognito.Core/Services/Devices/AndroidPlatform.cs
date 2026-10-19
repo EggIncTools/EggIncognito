@@ -122,9 +122,23 @@ public sealed class AndroidPlatform(
                 Collect(RpoAssetLister.ListStems(bas), s => RpoAssetLister.ReadStem(bas, s),
                     "application/octet-stream")),
             HarvestEntries.Textures => DeviceResult<HarvestBatch>.Success(
-                Collect(ApkTextureLister.ListStems(bas), s => ApkTextureLister.ReadStem(bas, s), "image/png")),
+                WithSprites(Collect(ApkTextureLister.ListStems(bas), s => ApkTextureLister.ReadStem(bas, s), "image/png"),
+                    ApkTextureLister.SpriteSlices(bas))),
             _ => DeviceResult<HarvestBatch>.Unsupported($"unknown harvest entry '{entry.Name}'")
         };
+    }
+
+    private static HarvestBatch WithSprites(HarvestBatch textures, IReadOnlyList<(string Name, byte[] Png)> slices) {
+        if (slices.Count == 0) return textures;
+        var items = new List<HarvestItem>(textures.Items);
+        var present = new List<string>(textures.Present);
+        foreach ((string name, byte[] png) in slices) {
+            if (present.Contains(name, StringComparer.Ordinal)) continue;
+            items.Add(new HarvestItem(name, png, "image/png"));
+            present.Add(name);
+        }
+
+        return textures with { Items = items, Present = present };
     }
 
     private static HarvestBatch Collect(IReadOnlyList<string> stems, Func<string, byte[]?> read, string contentType) {

@@ -107,6 +107,7 @@ public sealed class GameDataStore(IServiceScopeFactory scopeFactory, ILogger<Gam
             .ToDictionary(d => d.Id, d => d.Json, StringComparer.Ordinal));
         if (docs is null) return null;
         if (docs.TryGetValue("egg_icons", out string? eggIconsJson)) EggIcons.LoadFromJson(eggIconsJson);
+        if (docs.TryGetValue("event_icons", out string? eventIconsJson)) EventPalette.LoadFromJson(eventIconsJson);
         var missing = GameDataProvider.RequiredDocumentIds.Where(id => !docs.ContainsKey(id)).ToList();
         if (missing.Count > 0) {
             logger.LogWarning("game data provider unavailable, missing documents {Missing}",

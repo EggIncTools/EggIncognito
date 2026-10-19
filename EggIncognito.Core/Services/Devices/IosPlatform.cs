@@ -1,3 +1,4 @@
+using EggIncognito.Core.Services.ProtoExtract;
 using Microsoft.Extensions.Logging;
 
 namespace EggIncognito.Core.Services.Devices;
@@ -119,7 +120,35 @@ public sealed class IosPlatform(
             }
         }
 
-        return DeviceResult<HarvestBatch>.Success(new HarvestBatch(items, [.. listing.Keys], true, failedPulls));
+        var present = new List<string>(listing.Keys);
+        if (entry.Name == HarvestEntries.Textures)
+            await AddSpriteSlicesAsync(conn, target.Package, listing, known, items, present, ct);
+
+        return DeviceResult<HarvestBatch>.Success(new HarvestBatch(items, present, true, failedPulls));
+    }
+
+    private async Task AddSpriteSlicesAsync(SshDeviceConnection conn, string bundleId,
+        IReadOnlyDictionary<string, RemoteFile> listing, IReadOnlyDictionary<string, string> known,
+        List<HarvestItem> items, List<string> present, CancellationToken ct) {
+        if (!listing.TryGetValue(SpriteAtlas.IndexName, out var atlasFile)) return;
+        var find = await conn.ShellAsync(
+            DeviceShell.LocateIosApp(bundleId) +
+            $"""find "$app" -name {DeviceShell.Quote(SpriteAtlas.IndexName + ".rpa")} 2>/dev/null | head -1""", ct);
+        string? rpaPath = find.ExitCode == 0
+            ? find.Stdout.Split('\n', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault()?.Trim()
+            : null;
+        if (string.IsNullOrEmpty(rpaPath)) return;
+        byte[]? rpa = await conn.PullBytesAsync(rpaPath, ct);
+        byte[]? atlas = items.FirstOrDefault(i => i.Name == SpriteAtlas.IndexName)?.Bytes
+                        ?? await conn.PullBytesAsync(atlasFile.Path, ct);
+        if (rpa is null || atlas is null) return;
+        foreach ((string name, byte[] png) in SpriteAtlas.Slice(rpa, atlas)) {
+            if (present.Contains(name, StringComparer.Ordinal)) continue;
+            present.Add(name);
+            string sha = Hashes.Sha256Hex(png);
+            if (known.TryGetValue(name, out string? have) && string.Equals(have, sha, StringComparison.Ordinal)) continue;
+            items.Add(new HarvestItem(name, png, "image/png"));
+        }
     }
 
     private readonly record struct RemoteFile(string Sha, string Path);

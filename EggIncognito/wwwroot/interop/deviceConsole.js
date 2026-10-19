@@ -571,6 +571,8 @@ function decoderFailed(s, message) {
   closeDecoder(s);
   s.codec = null;
   s.needKey = true;
+  s.au = [];
+  s.auKey = false;
   s.pending.clear();
   if (s.sps) configure(s);
 }
@@ -600,7 +602,16 @@ function configure(s) {
   }
 }
 
-function submit(s, nal, isKey, now) {
+function flushAu(s, now) {
+  if (s.au.length === 0) return;
+  const nals = s.au;
+  const isKey = s.auKey;
+  s.au = [];
+  s.auKey = false;
+  submit(s, nals, isKey, now);
+}
+
+function submit(s, nals, isKey, now) {
   const d = s.decoder;
   if (!d || d.state !== "configured") return;
   if (isKey) {
@@ -609,7 +620,7 @@ function submit(s, nal, isKey, now) {
   } else if (s.needKey) {
     return;
   }
-  const data = isKey ? annexB([s.sps, s.pps, nal]) : annexB([nal]);
+  const data = isKey ? annexB([s.sps, s.pps, ...nals]) : annexB(nals);
   const timestamp = s.ts;
   s.ts += CHUNK_US;
   s.pending.set(timestamp, now);
@@ -625,13 +636,18 @@ function submit(s, nal, isKey, now) {
 function handleNal(s, nal, now) {
   if (s.ended || nal.length === 0) return;
   const type = nal[0] & 0x1f;
+  if (type === 5 || type === 1) {
+    if (nal.length > 1 && (nal[1] & 0x80) !== 0) flushAu(s, now);
+    s.au.push(nal);
+    if (type === 5) s.auKey = true;
+    return;
+  }
+  flushAu(s, now);
   if (type === 7) {
     s.sps = nal;
     configure(s);
   } else if (type === 8) {
     s.pps = nal;
-  } else if (type === 5 || type === 1) {
-    submit(s, nal, type === 5, now);
   }
 }
 
@@ -715,6 +731,8 @@ export function startVideo(canvas, url, dotnet, opts) {
     width: 0,
     height: 0,
     needKey: true,
+    au: [],
+    auKey: false,
     ts: 0,
     pending: new Map(),
     frameW: 0,
@@ -965,16 +983,43 @@ function onStageCancel(s) {
   endHold(s, null);
 }
 
-function onStageWheel(s, ev) {
-  if (Math.abs(ev.deltaY) < 1) return;
-  ev.preventDefault();
-  const p = normPoint(s, ev);
-  if (!p) return;
-  const dir = ev.deltaY > 0 ? -1 : 1;
-  const span = 0.35;
+const WHEEL_IDLE_MS = 160;
+const WHEEL_PX_PER_SCREEN = 1200;
+
+function wheelPixels(ev) {
+  if (ev.deltaMode === 1) return ev.deltaY * 40;
+  if (ev.deltaMode === 2) return ev.deltaY * WHEEL_PX_PER_SCREEN;
+  return ev.deltaY;
+}
+
+function flushWheel(s) {
+  s.wheelTimer = 0;
+  const p = s.wheelAt;
+  const total = s.wheelSum;
+  s.wheelSum = 0;
+  s.wheelAt = null;
+  if (!p || Math.abs(total) < 4) return;
+  const span = Math.min(0.7, Math.max(0.12, Math.abs(total) / WHEEL_PX_PER_SCREEN));
+  const dir = total > 0 ? -1 : 1;
   const y1 = clamp01(p.fy - dir * span / 2);
   const y2 = clamp01(p.fy + dir * span / 2);
-  safeStage(s, "OnStageSwipe", p.fx, y1, p.fx, y2, 150);
+  safeStage(s, "OnStageSwipe", p.fx, y1, p.fx, y2, 250);
+}
+
+function onStageWheel(s, ev) {
+  ev.preventDefault();
+  if (s.active || Date.now() < s.blockedUntil) return;
+  const p = normPoint(s, ev);
+  if (!p) return;
+  const px = wheelPixels(ev);
+  if (s.wheelSum !== 0 && Math.sign(px) !== Math.sign(s.wheelSum)) {
+    s.wheelSum = 0;
+    s.wheelAt = null;
+  }
+  s.wheelSum += px;
+  s.wheelAt = s.wheelAt || p;
+  if (s.wheelTimer) clearTimeout(s.wheelTimer);
+  s.wheelTimer = setTimeout(() => flushWheel(s), WHEEL_IDLE_MS);
 }
 
 export function bindStage(stage, media, dotnet, opts) {
@@ -985,7 +1030,8 @@ export function bindStage(stage, media, dotnet, opts) {
     stage, media, dotnet, o,
     active: false, moved: false, handled: false, holding: false, blockedUntil: 0, pid: -1,
     startX: 0, startY: 0, startNorm: null, lastEv: null,
-    timer: 0, raf: 0, line: null
+    timer: 0, raf: 0, line: null,
+    wheelSum: 0, wheelAt: null, wheelTimer: 0
   };
   s.onDown = (ev) => onStageDown(s, ev);
   s.onMove = (ev) => onStageMove(s, ev);
@@ -1102,4 +1148,7 @@ export function unbindStage(stage) {
   stage.style.touchAction = "";
   clearTimers(s);
   clearLine(s);
+  if (s.wheelTimer) clearTimeout(s.wheelTimer);
+  s.wheelTimer = 0;
+  endHold(s, null);
 }

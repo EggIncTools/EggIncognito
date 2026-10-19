@@ -1,8 +1,34 @@
 using System.Collections.Frozen;
+using System.Text.Json;
 
 namespace EggIncognito.Services.Assets;
 
 public static class EventPalette {
+    private static Dictionary<string, string> _iconStems = [with(StringComparer.Ordinal)];
+
+    public static void LoadFromJson(string? docJson) {
+        var map = new Dictionary<string, string>(StringComparer.Ordinal);
+        if (!string.IsNullOrWhiteSpace(docJson)) {
+            try {
+                using var doc = JsonDocument.Parse(docJson);
+                if (doc.RootElement.TryGetProperty("eventIcons", out var rows) && rows.ValueKind == JsonValueKind.Array) {
+                    foreach (var row in rows.EnumerateArray()) {
+                        string? type = row.TryGetProperty("eventType", out var t) ? t.GetString() : null;
+                        string? stem = row.TryGetProperty("iconStem", out var st) ? st.GetString() : null;
+                        if (!string.IsNullOrEmpty(type) && !string.IsNullOrEmpty(stem)) map[type] = stem;
+                    }
+                }
+            } catch (JsonException) {
+                map.Clear();
+            }
+        }
+
+        _iconStems = map;
+    }
+
+    public static string? IconStem(string? eventType) =>
+        string.IsNullOrEmpty(eventType) ? null : _iconStems.GetValueOrDefault(eventType.Replace('_', '-'));
+
     public const string Fallback = "#9ca3af";
     public const string CcGradientFrom = "#f5a709";
     public const string CcGradientTo = "#900fb1";

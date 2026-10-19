@@ -29,6 +29,8 @@ IOHIDEventRef IOHIDEventCreateDigitizerFingerEvent(CFAllocatorRef allocator, uin
     uint32_t index, uint32_t identity, uint32_t eventMask,
     IOHIDFloat x, IOHIDFloat y, IOHIDFloat z, IOHIDFloat tipPressure, IOHIDFloat twist,
     boolean_t range, boolean_t touch, IOOptionBits options);
+IOHIDEventRef IOHIDEventCreateKeyboardEvent(CFAllocatorRef allocator, uint64_t timeStamp,
+    uint32_t usagePage, uint32_t usage, boolean_t down, IOOptionBits flags);
 void IOHIDEventAppendEvent(IOHIDEventRef parent, IOHIDEventRef child, IOOptionBits options);
 IOHIDEventSystemClientRef IOHIDEventSystemClientCreate(CFAllocatorRef allocator);
 void IOHIDEventSystemClientDispatchEvent(IOHIDEventSystemClientRef client, IOHIDEventRef event);
@@ -39,10 +41,21 @@ UIImage *_UICreateScreenUIImage(void);
 #define kEgiHIDDigitizerEventRange 0x00000001
 #define kEgiHIDDigitizerEventTouch 0x00000002
 #define kEgiHIDDigitizerEventPosition 0x00000004
+#define kEgiHIDPageKeyboard 0x07
+#define kEgiHIDPageConsumer 0x0C
+#define kEgiHIDUsagePower 0x30
+#define kEgiHIDUsageMenu 0x40
+
+static const uint32_t kEgiTouchDown = kEgiHIDDigitizerEventRange | kEgiHIDDigitizerEventTouch | kEgiHIDDigitizerEventPosition;
+static const uint32_t kEgiTouchMove = kEgiHIDDigitizerEventPosition;
+static const double kMaxSwipeMs = 10000.0;
 
 static volatile int32_t gBusy = 0;
 static dispatch_source_t gTimer;
 static BOOL gIsSpringBoard = NO;
+static BOOL gTouchDown = NO;
+static IOHIDFloat gTouchX = 0;
+static IOHIDFloat gTouchY = 0;
 
 static const NSTimeInterval kSpringBoardDeferSeconds = 0.5;
 
@@ -175,8 +188,14 @@ static void doDump(void) {
     writeDone([NSString stringWithFormat:@"ok dump nodes=%d", count]);
 }
 
-static void postDigitizerTouch(IOHIDFloat nx, IOHIDFloat ny, boolean_t touch) {
-    uint32_t mask = kEgiHIDDigitizerEventRange | kEgiHIDDigitizerEventTouch | kEgiHIDDigitizerEventPosition;
+static void dispatchHID(IOHIDEventRef event) {
+    IOHIDEventSystemClientRef client = IOHIDEventSystemClientCreate(kCFAllocatorDefault);
+    if (!client) return;
+    IOHIDEventSystemClientDispatchEvent(client, event);
+    CFRelease((CFTypeRef)client);
+}
+
+static void postDigitizer(IOHIDFloat nx, IOHIDFloat ny, uint32_t mask, boolean_t touch) {
     uint64_t ts = mach_absolute_time();
     IOHIDEventRef parent = IOHIDEventCreateDigitizerEvent(kCFAllocatorDefault, ts,
         kEgiHIDTransducerTypeHand, 0, 0, mask, 0,
@@ -188,12 +207,119 @@ static void postDigitizerTouch(IOHIDFloat nx, IOHIDFloat ny, boolean_t touch) {
         IOHIDEventAppendEvent(parent, finger, 0);
         CFRelease(finger);
     }
-    IOHIDEventSystemClientRef client = IOHIDEventSystemClientCreate(kCFAllocatorDefault);
-    if (client) {
-        IOHIDEventSystemClientDispatchEvent(client, parent);
-        CFRelease((CFTypeRef)client);
-    }
+    dispatchHID(parent);
     CFRelease(parent);
+}
+
+static void postDigitizerTouch(IOHIDFloat nx, IOHIDFloat ny, boolean_t touch) {
+    postDigitizer(nx, ny, kEgiTouchDown, touch);
+}
+
+static void postKey(uint32_t page, uint32_t usage) {
+    IOHIDEventRef down = IOHIDEventCreateKeyboardEvent(kCFAllocatorDefault, mach_absolute_time(), page, usage, 1, 0);
+    if (down) {
+        dispatchHID(down);
+        CFRelease(down);
+    }
+    IOHIDEventRef up = IOHIDEventCreateKeyboardEvent(kCFAllocatorDefault, mach_absolute_time(), page, usage, 0, 0);
+    if (up) {
+        dispatchHID(up);
+        CFRelease(up);
+    }
+}
+
+static BOOL normalizePoint(double x, double y, IOHIDFloat *nx, IOHIDFloat *ny) {
+    CGRect screen = [UIScreen mainScreen].bounds;
+    if (screen.size.width <= 0 || screen.size.height <= 0) return NO;
+    *nx = fmin(1.0, fmax(0.0, x / screen.size.width));
+    *ny = fmin(1.0, fmax(0.0, y / screen.size.height));
+    return YES;
+}
+
+static void doTouch(NSString *phase, double x, double y) {
+    @try {
+        IOHIDFloat nx = 0;
+        IOHIDFloat ny = 0;
+        if (!normalizePoint(x, y, &nx, &ny)) { writeDone(@"err no-screen"); return; }
+        if ([phase isEqualToString:@"down"]) {
+            if (gTouchDown) postDigitizer(gTouchX, gTouchY, kEgiTouchDown, 0);
+            postDigitizer(nx, ny, kEgiTouchDown, 1);
+            gTouchDown = YES;
+        } else if ([phase isEqualToString:@"move"]) {
+            if (!gTouchDown) { writeDone(@"err touch-not-down"); return; }
+            postDigitizer(nx, ny, kEgiTouchMove, 1);
+        } else if ([phase isEqualToString:@"up"]) {
+            postDigitizer(nx, ny, kEgiTouchDown, 0);
+            gTouchDown = NO;
+        } else if ([phase isEqualToString:@"cancel"]) {
+            if (gTouchDown) postDigitizer(gTouchX, gTouchY, kEgiTouchDown, 0);
+            gTouchDown = NO;
+        } else {
+            writeDone([NSString stringWithFormat:@"err touch-phase %@", phase]);
+            return;
+        }
+        gTouchX = nx;
+        gTouchY = ny;
+        writeDone([NSString stringWithFormat:@"ok touch %@", phase]);
+    } @catch (NSException *e) {
+        writeDone([NSString stringWithFormat:@"err touch %@", e.reason ?: @"?"]);
+    }
+}
+
+static void swipeStep(IOHIDFloat x1, IOHIDFloat y1, IOHIDFloat x2, IOHIDFloat y2, int step, int steps, double interval) {
+    @try {
+        double t = (double)step / steps;
+        IOHIDFloat x = x1 + (x2 - x1) * t;
+        IOHIDFloat y = y1 + (y2 - y1) * t;
+        postDigitizer(x, y, kEgiTouchMove, 1);
+        if (step >= steps) {
+            postDigitizer(x2, y2, kEgiTouchDown, 0);
+            gTouchDown = NO;
+            writeDone(@"ok swipe");
+            return;
+        }
+    } @catch (NSException *e) {
+        postDigitizer(x2, y2, kEgiTouchDown, 0);
+        gTouchDown = NO;
+        writeDone([NSString stringWithFormat:@"err swipe %@", e.reason ?: @"?"]);
+        return;
+    }
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(interval * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        swipeStep(x1, y1, x2, y2, step + 1, steps, interval);
+    });
+}
+
+static void doSwipe(double x1, double y1, double x2, double y2, double ms) {
+    @try {
+        IOHIDFloat ax = 0;
+        IOHIDFloat ay = 0;
+        IOHIDFloat bx = 0;
+        IOHIDFloat by = 0;
+        if (!normalizePoint(x1, y1, &ax, &ay) || !normalizePoint(x2, y2, &bx, &by)) {
+            writeDone(@"err no-screen");
+            return;
+        }
+        ms = fmin(kMaxSwipeMs, fmax(50.0, ms));
+        int steps = (int)fmax(2.0, fmin(600.0, ms / 16.0));
+        double interval = ms / 1000.0 / steps;
+        if (gTouchDown) postDigitizer(gTouchX, gTouchY, kEgiTouchDown, 0);
+        postDigitizer(ax, ay, kEgiTouchDown, 1);
+        gTouchDown = YES;
+        gTouchX = ax;
+        gTouchY = ay;
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(interval * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+            swipeStep(ax, ay, bx, by, 1, steps, interval);
+        });
+    } @catch (NSException *e) {
+        writeDone([NSString stringWithFormat:@"err swipe %@", e.reason ?: @"?"]);
+    }
+}
+
+static void doSize(void) {
+    CGRect screen = [UIScreen mainScreen].bounds;
+    if (screen.size.width <= 0 || screen.size.height <= 0) { writeDone(@"err no-screen"); return; }
+    writeDone([NSString stringWithFormat:@"ok size w=%ld h=%ld",
+        lround(screen.size.width), lround(screen.size.height)]);
 }
 
 static void doTap(double x, double y) {
@@ -319,6 +445,77 @@ static void doKeyHome(void) {
     }
 }
 
+static bool readNotifyState(const char *key, uint64_t *out);
+
+static BOOL displayAwake(void) {
+    uint64_t v = 0;
+    if (readNotifyState("com.apple.iokit.hid.displayStatus", &v)) return v != 0;
+    if (readNotifyState("com.apple.springboard.hasBlankedScreen", &v)) return v == 0;
+    return YES;
+}
+
+static NSDictionary<NSString *, NSNumber *> *keyboardUsages(void) {
+    return @{
+        @"enter": @0x28,
+        @"del": @0x2A,
+        @"tab": @0x2B,
+        @"page-up": @0x4B,
+        @"forward-del": @0x4C,
+        @"page-down": @0x4E,
+        @"right": @0x4F,
+        @"left": @0x50,
+        @"down": @0x51,
+        @"up": @0x52
+    };
+}
+
+static void doKey(NSString *name) {
+    @try {
+        if ([name isEqualToString:@"home"]) {
+            doKeyHome();
+            return;
+        }
+        if ([name isEqualToString:@"recents"]) {
+            postKey(kEgiHIDPageConsumer, kEgiHIDUsageMenu);
+            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.12 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+                postKey(kEgiHIDPageConsumer, kEgiHIDUsageMenu);
+                writeDone(@"ok key recents");
+            });
+            return;
+        }
+        if ([name isEqualToString:@"sleep"]) {
+            if (displayAwake()) postKey(kEgiHIDPageConsumer, kEgiHIDUsagePower);
+            writeDone(@"ok key sleep");
+            return;
+        }
+        if ([name isEqualToString:@"wake"]) {
+            if (!displayAwake()) postKey(kEgiHIDPageConsumer, kEgiHIDUsagePower);
+            writeDone(@"ok key wake");
+            return;
+        }
+        if ([name isEqualToString:@"close"]) {
+            if (gIsSpringBoard) {
+                writeDone(@"err no-foreground-app");
+                return;
+            }
+            writeDone(@"ok key close");
+            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.1 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+                exit(0);
+            });
+            return;
+        }
+        NSNumber *usage = keyboardUsages()[name];
+        if (!usage) {
+            writeDone([NSString stringWithFormat:@"err key-unknown %@", name]);
+            return;
+        }
+        postKey(kEgiHIDPageKeyboard, usage.unsignedIntValue);
+        writeDone([NSString stringWithFormat:@"ok key %@", name]);
+    } @catch (NSException *e) {
+        writeDone([NSString stringWithFormat:@"err key %@", e.reason ?: @"?"]);
+    }
+}
+
 static bool readNotifyState(const char *key, uint64_t *out) {
     int token = 0;
     if (notify_register_check(key, &token) != NOTIFY_STATUS_OK) return false;
@@ -375,10 +572,19 @@ static void dispatchCommand(NSString *line) {
     } else if ([verb isEqualToString:@"tap"]) {
         if (tok.count >= 3) doTap([tok[1] doubleValue], [tok[2] doubleValue]);
         else writeDone(@"err tap-args");
+    } else if ([verb isEqualToString:@"touch"]) {
+        if (tok.count >= 4) doTouch(tok[1], [tok[2] doubleValue], [tok[3] doubleValue]);
+        else writeDone(@"err touch-args");
+    } else if ([verb isEqualToString:@"swipe"]) {
+        if (tok.count >= 6) doSwipe([tok[1] doubleValue], [tok[2] doubleValue], [tok[3] doubleValue],
+            [tok[4] doubleValue], [tok[5] doubleValue]);
+        else writeDone(@"err swipe-args");
+    } else if ([verb isEqualToString:@"size"]) {
+        doSize();
     } else if ([verb isEqualToString:@"screenshot"]) {
         doScreenshot();
     } else if ([verb isEqualToString:@"key"]) {
-        if (tok.count >= 2 && [tok[1] isEqualToString:@"home"]) doKeyHome();
+        if (tok.count >= 2) doKey(tok[1]);
         else writeDone(@"err key-args");
     } else if ([verb isEqualToString:@"text"]) {
         writeDone(@"err empty-text");
@@ -389,7 +595,7 @@ static void dispatchCommand(NSString *line) {
 
 static void handleOnMain(void) {
     UIApplication *app = [UIApplication sharedApplication];
-    if (!app || app.applicationState != UIApplicationStateActive) return;
+    if (!app || (app.applicationState != UIApplicationStateActive && !gIsSpringBoard)) return;
     NSFileManager *fm = [NSFileManager defaultManager];
     NSString *content = [NSString stringWithContentsOfFile:kCmdPath encoding:NSUTF8StringEncoding error:nil];
     if (!content) return;

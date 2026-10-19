@@ -135,6 +135,9 @@ public sealed class DataCatalog {
         Derived("egg-icons", "Egg icons",
             "Egg icon asset stems from the game binary, keyed by egg name.",
             (ctx, _) => Task.FromResult(DocJson(ctx.Services, "egg_icons"))),
+        Derived("event-icons", "Event icons",
+            "Event icon asset stems from the game binary, keyed by event type.",
+            (ctx, _) => Task.FromResult(DocJson(ctx.Services, "event_icons"))),
         Derived("research-common", "Common research",
             "Common research lines from the game binary.",
             (ctx, _) => Task.FromResult(ResearchPayload(ctx.Services, epic: false))),
@@ -326,7 +329,8 @@ public sealed class DataCatalog {
         string stem = name.ToLowerInvariant().Replace('-', '_');
         var assets = ctx.Services.GetRequiredService<GameAssetProvider>();
         bool ccOnly = ctx.Http.Request.Query["cc"] == "1";
-        foreach (string candidate in new[] { $"event_{stem}", stem }) {
+        string[] candidates = EventPalette.IconStem(name) is { } known ? [known] : [$"event_{stem}", stem];
+        foreach (string candidate in candidates) {
             var glyph = await assets.GetCachedAsync(new GameAssetKey("icon", null, candidate), ct);
             if (glyph.Ok) return DataPayload.Png(EventIconRenderer.Render(glyph.Asset.Bytes, name, ccOnly));
         }

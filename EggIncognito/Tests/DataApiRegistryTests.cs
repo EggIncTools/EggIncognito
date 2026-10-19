@@ -34,7 +34,7 @@ public class DataApiRegistryTests {
         var c = new DataCatalog();
         string[] ids = [.. c.ByGroup("gamedata").Select(s => s.Id).OrderBy(x => x, StringComparer.Ordinal)];
         string[] expected =
-            ["artifact-catalog", "boost-catalog", "egg-icons", "mission", "mission-ships", "research-common", "research-epic"];
+            ["artifact-catalog", "boost-catalog", "egg-icons", "event-icons", "mission", "mission-ships", "research-common", "research-epic"];
         Assert.Equal(expected, ids);
         Assert.Equal("Common research", c.ById("gamedata", "research-common")?.DisplayName);
         Assert.Equal("Epic research", c.ById("gamedata", "research-epic")?.DisplayName);

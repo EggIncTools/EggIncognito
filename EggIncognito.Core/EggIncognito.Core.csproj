@@ -15,5 +15,6 @@
     <PackageReference Include="Microsoft.Extensions.Http" />
     <PackageReference Include="SharpGLTF.Toolkit" />
     <PackageReference Include="Gee.External.Capstone" />
+    <PackageReference Include="SkiaSharp" />
   </ItemGroup>
 </Project>

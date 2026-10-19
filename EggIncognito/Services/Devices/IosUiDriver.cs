@@ -93,12 +93,58 @@ public sealed class IosUiDriver(IDeviceConnectionFactory connections, IosUiDrive
     public async Task<DeviceResult> TapPointAsync(DeviceTarget target, int x, int y, CancellationToken ct) =>
         ToResult(await RunAsync(target, $"tap {x} {y}", ct));
 
+    public async Task<DeviceResult> TouchAsync(DeviceTarget target, TouchPhase phase, int x, int y, CancellationToken ct) =>
+        ToResult(await RunAsync(target, $"touch {phase.ToString().ToLowerInvariant()} {x} {y}", ct));
+
+    public async Task<DeviceResult> SwipeAsync(DeviceTarget target, int x1, int y1, int x2, int y2, int durationMs,
+        CancellationToken ct) {
+        int ms = Math.Clamp(durationMs, 50, AndroidUiDriver.MaxSwipeMs);
+        return ToResult(await RunAsync(target, $"swipe {x1} {y1} {x2} {y2} {ms}", ct, ms));
+    }
+
+    public async Task<DeviceResult<UiScreenSize>> ScreenSizeAsync(DeviceTarget target, CancellationToken ct) {
+        var reply = await RunAsync(target, "size", ct);
+        if (reply.Outcome != DeviceOutcome.Ok) return new DeviceResult<UiScreenSize>(reply.Outcome, default, reply.Note);
+        return ParseSize(reply.Value!) is { } size
+            ? DeviceResult<UiScreenSize>.Success(size)
+            : DeviceResult<UiScreenSize>.Error("egi-uinav size gave no w/h");
+    }
+
+    public static UiScreenSize? ParseSize(string doneLine) =>
+        int.TryParse(Token(doneLine, "w="), out int w) && int.TryParse(Token(doneLine, "h="), out int h) && w > 0 && h > 0
+            ? new UiScreenSize(w, h)
+            : null;
+
     public async Task<DeviceResult> InputTextAsync(DeviceTarget target, string text, CancellationToken ct) =>
         ToResult(await RunAsync(target, $"text {text}", ct));
 
-    public Task<DeviceResult> KeyAsync(DeviceTarget target, DeviceKey key, CancellationToken ct) => key switch {
-        DeviceKey.Home => KeyHomeAsync(target, ct),
-        _ => Task.FromResult(DeviceResult.Unsupported($"ios ui driver: {key} not supported"))
+    public async Task<DeviceResult> KeyAsync(DeviceTarget target, DeviceKey key, CancellationToken ct) {
+        if (key == DeviceKey.DismissKeyguard) return DeviceResult.Unsupported("ios ui driver: keyguard dismissal needs the passcode");
+        if (key == DeviceKey.Back) return await SwipeAsync(target, 2, BackSwipeY, BackSwipeX, BackSwipeY, BackSwipeMs, ct);
+        return ToResult(await RunAsync(target, $"key {KeyName(key)}", ct));
+    }
+
+    private const int BackSwipeX = 220;
+    private const int BackSwipeY = 400;
+    private const int BackSwipeMs = 250;
+
+    public static string KeyName(DeviceKey key) => key switch {
+        DeviceKey.Home => "home",
+        DeviceKey.Wake => "wake",
+        DeviceKey.Sleep => "sleep",
+        DeviceKey.Enter => "enter",
+        DeviceKey.Recents => "recents",
+        DeviceKey.CloseApp => "close",
+        DeviceKey.Delete => "del",
+        DeviceKey.ForwardDelete => "forward-del",
+        DeviceKey.Tab => "tab",
+        DeviceKey.Up => "up",
+        DeviceKey.Down => "down",
+        DeviceKey.Left => "left",
+        DeviceKey.Right => "right",
+        DeviceKey.PageUp => "page-up",
+        DeviceKey.PageDown => "page-down",
+        _ => throw new ArgumentOutOfRangeException(nameof(key), key, "unhandled DeviceKey")
     };
 
     public async Task<DeviceResult> LaunchAppAsync(DeviceTarget target, string appRef, CancellationToken ct) {
@@ -109,13 +155,11 @@ public sealed class IosUiDriver(IDeviceConnectionFactory connections, IosUiDrive
             : DeviceResult.Error(DeviceParsing.TrimNote(r.Stderr + r.Stdout));
     }
 
-    private async Task<DeviceResult> KeyHomeAsync(DeviceTarget target, CancellationToken ct) =>
-        ToResult(await RunAsync(target, "key home", ct));
-
     private static DeviceResult ToResult(DeviceResult<string> reply) =>
         reply.Outcome == DeviceOutcome.Ok ? DeviceResult.Success() : new DeviceResult(reply.Outcome, reply.Note);
 
-    private async Task<DeviceResult<string>> RunAsync(DeviceTarget target, string verbLine, CancellationToken ct) {
+    private async Task<DeviceResult<string>> RunAsync(DeviceTarget target, string verbLine, CancellationToken ct,
+        int extraMs = 0) {
         if (connections.For(target) is not { } conn)
             return DeviceResult<string>.Unreachable(NoSshNote);
 
@@ -127,7 +171,7 @@ public sealed class IosUiDriver(IDeviceConnectionFactory connections, IosUiDrive
         if (send.ExitCode != 0)
             return DeviceResult<string>.Unreachable(DeviceParsing.TrimNote(send.Stderr + send.Stdout));
 
-        var deadline = time.GetUtcNow().AddMilliseconds(opts.TimeoutMs);
+        var deadline = time.GetUtcNow().AddMilliseconds(opts.TimeoutMs + extraMs);
         while (true) {
             var poll = await conn.ShellAsync($"[ -f {DonePath} ] && cat {DonePath}", ct);
             if (poll.ExitCode == 0) {

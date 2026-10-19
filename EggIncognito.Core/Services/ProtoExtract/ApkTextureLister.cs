@@ -27,6 +27,29 @@ public static class ApkTextureLister {
         return found;
     }
 
+    public const string SpriteIndexEntry = "assets/misc/" + SpriteAtlas.IndexName + ".rpa";
+
+    public static byte[]? ReadEntry(byte[] apkZipBytes, string fullName) {
+        if (apkZipBytes is null || apkZipBytes.Length == 0) return null;
+        try {
+            using var zip = new ZipArchive(new MemoryStream(apkZipBytes, false), ZipArchiveMode.Read);
+            var entry = zip.GetEntry(fullName);
+            if (entry is null || entry.Length is <= 0 or > MaxEntryBytes) return null;
+            using var es = entry.Open();
+            using var buf = new MemoryStream();
+            es.CopyTo(buf);
+            return buf.ToArray();
+        } catch {
+            return null;
+        }
+    }
+
+    public static IReadOnlyList<(string Name, byte[] Png)> SpriteSlices(byte[] apkZipBytes) {
+        byte[]? index = ReadEntry(apkZipBytes, SpriteIndexEntry);
+        byte[]? atlas = index is null ? null : ReadStem(apkZipBytes, SpriteAtlas.IndexName);
+        return index is null || atlas is null ? [] : SpriteAtlas.Slice(index, atlas);
+    }
+
     private static void ForEachPng(byte[] zipBytes, Func<string, Func<byte[]>, bool> visit) {
         if (zipBytes is null || zipBytes.Length == 0) return;
         ZipArchive zip;

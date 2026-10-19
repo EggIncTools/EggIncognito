@@ -53,6 +53,19 @@ public static class GameDataDocBuilders {
         return new DocResult(JsonSerializer.Serialize(doc, CamelJson), rows.Length, []);
     }
 
+    public static DocResult BuildEventIcons(IReadOnlyList<EventIconExtractor.IconEntry> entries, string binaryVersion) {
+        var rows = entries.Select(e => new { index = e.Index, eventType = e.EventType, iconStem = e.IconStem }).ToArray();
+        var doc = new {
+            eventIcons = rows,
+            binaryVersion,
+            provenance = new Dictionary<string, BoostCatalogBuilder.ProvenanceSource>(StringComparer.Ordinal) {
+                ["identity"] = new("binary", "LIVE_EVENTS"),
+                ["iconStem"] = new("binary", "A::IMG::*", "decoded")
+            }
+        };
+        return new DocResult(JsonSerializer.Serialize(doc, CamelJson), rows.Length, []);
+    }
+
     public static DocResult BuildVehicles(IReadOnlyList<VehicleCatalogExtractor.VehicleEntry> entries,
         string binaryVersion) {
         var skipped = entries.Where(e => string.IsNullOrEmpty(e.Name))

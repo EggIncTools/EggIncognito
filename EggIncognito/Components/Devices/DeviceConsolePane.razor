@@ -650,36 +650,41 @@
     const int MaxHoldMs = 10_000;
 
     bool _holding;
-    bool _holdReplay;
+    Task<bool>? _holdDown;
     DateTimeOffset _holdStartedAt;
     (int X, int Y) _holdPoint;
 
     [JSInvokable]
     public async Task OnStageHoldStart(double fx, double fy) {
-        if (_deviceId is null || DevicePoint(fx, fy) is not { } p) return;
+        if (_deviceId is null || _holding || DevicePoint(fx, fy) is not { } p) return;
         _holding = true;
-        _holdReplay = false;
         _holdStartedAt = DateTimeOffset.UtcNow;
         _holdPoint = p;
+        _holdDown = TouchDownAsync(p);
+        await _holdDown;
+    }
+
+    async Task<bool> TouchDownAsync((int X, int Y) p) {
         var res = await Client().PostAsJsonAsync($"/api/devices/{_deviceId}/ui/touch",
             new UiTouchRequest("down", p.X, p.Y), SelfCallJson.Web);
-        if (!res.IsSuccessStatusCode) _holdReplay = true;
+        return res.IsSuccessStatusCode;
     }
 
     [JSInvokable]
     public async Task OnStageHoldEnd(double fx, double fy) {
         if (_deviceId is null || !_holding) return;
         _holding = false;
-        var end = DevicePoint(fx, fy) ?? _holdPoint;
+        var down = _holdDown;
+        _holdDown = null;
         var held = Math.Clamp((int)(DateTimeOffset.UtcNow - _holdStartedAt).TotalMilliseconds + LongPressMs, LongPressMs, MaxHoldMs);
         Record(RecordedGesture.Hold(_holdPoint.X, _holdPoint.Y, held));
-        if (_holdReplay) {
+        if (down is null || !await down) {
             await SwipeAsync(_holdPoint.X, _holdPoint.Y, _holdPoint.X, _holdPoint.Y, held);
             return;
         }
 
         var res = await Client().PostAsJsonAsync($"/api/devices/{_deviceId}/ui/touch",
-            new UiTouchRequest("up", end.X, end.Y), SelfCallJson.Web);
+            new UiTouchRequest("up", _holdPoint.X, _holdPoint.Y), SelfCallJson.Web);
         if (!res.IsSuccessStatusCode) await Fail(await ApiErrors.ReadAsync(res));
     }
 
@@ -1142,6 +1147,15 @@
 
     public async ValueTask DisposeAsync() {
         _disposed = true;
+        if (_holding && _deviceId is { } holdDevice) {
+            _holding = false;
+            try {
+                await Client().PostAsJsonAsync($"/api/devices/{holdDevice}/ui/touch",
+                    new UiTouchRequest("cancel", _holdPoint.X, _holdPoint.Y), SelfCallJson.Web);
+            } catch (HttpRequestException) {
+            }
+        }
+
         if (_watchSubscribed && Watches is { } watches) watches.Changed -= OnWatchChanged;
         StopUiPoll();
         if (_module is { } module) {

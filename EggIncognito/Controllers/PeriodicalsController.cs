@@ -310,7 +310,7 @@ public sealed class PeriodicalsController(
         string? icon = null;
         if (assets is not null) {
             string stem = type.Replace('-', '_');
-            string[] candidates = [$"event_{stem}", stem];
+            string[] candidates = EventPalette.IconStem(type) is { } known ? [known] : [$"event_{stem}", stem];
             foreach (string candidate in candidates) {
                 var result = await assets.GetCachedAsync(new GameAssetKey("icon", null, candidate), ct);
                 if (!result.Ok || result.Asset is null) continue;
