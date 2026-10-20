@@ -14,13 +14,7 @@
         </label>
     </div>
     <svg class="acp-plot" width="@PlotW" height="@PlotH" viewBox="0 0 @PlotW @PlotH" role="img" aria-label="@Readout">
-        @for (int row = 0; row < MaxLevel; row++) {
-            int level = MaxLevel - row;
-            for (int col = 0; col < Cols; col++) {
-                <rect class="acp-cell" x="@F(PadL + col * CellW)" y="@F(PadT + row * CellH)" width="@F(CellW + 0.5)" height="@F(CellH + 0.5)"
-                      style="@CellStyle(level, col)"/>
-            }
-        }
+        @_cells
         <line class="acp-axis" x1="@PadL" y1="@(PadT + GridH)" x2="@(PadL + GridW)" y2="@(PadT + GridH)"/>
         <line class="acp-axis" x1="@PadL" y1="@PadT" x2="@PadL" y2="@(PadT + GridH)"/>
         <text class="acp-tick" x="@(PadL - 4)" y="@(PadT + 8)" text-anchor="end">@MaxLevel</text>
@@ -34,14 +28,20 @@
         <rect class="acp-hit" x="0" y="0" width="@PlotW" height="@PlotH"
               @onpointerdown="OnDown" @onpointermove="OnMove" @onpointerup="OnUp" @onpointerleave="OnUp"/>
     </svg>
-    <dl class="acp-readout">
-        <dt class="muted">Cost</dt>
-        <dd class="mono">@Cost(_count)</dd>
+    <span class="acp-cost mono">
+        <img class="acp-ge" src="@GoldIcon" alt="Golden eggs"/>@PriceAt(_count).ToString("N0", CultureInfo.InvariantCulture)
+    </span>
+    <div class="acp-odds" role="img" aria-label="@OddsLabel">
         @foreach (int rarity in Rarities) {
-            <dt class="acp-r@(rarity)">@RarityLabel(rarity)</dt>
-            <dd class="mono">@Pct(Odds(rarity, _level, _count))</dd>
+            double p = Odds(rarity, _level, _count);
+            <span class="acp-seg acp-bg@(rarity)" style="@SegStyle(p)"></span>
         }
-    </dl>
+    </div>
+    <div class="acp-legend">
+        @foreach (int rarity in Rarities) {
+            <span class="acp-key"><span class="acp-dot acp-bg@(rarity)"></span><span class="acp-r@(rarity)">@RarityLabel(rarity)</span> <span class="mono">@Pct(Odds(rarity, _level, _count))</span></span>
+        }
+    </div>
 </div>
 
 @code {
@@ -66,11 +66,15 @@
     uint _count;
     bool _dragging;
     IReadOnlyList<int> _rarities = [0];
+    double[] _constants = [0, 0, 0, 0];
+    double[] _multipliers = [1];
     double _topMax;
+    RenderFragment? _cells;
+    (IArtifactCatalog, int, int, PriceCurve)? _built;
 
     IReadOnlyList<int> Rarities => _rarities;
     int Top => _rarities[^1];
-    int MaxLevel => CraftOdds.MaxLevel(Catalog);
+    int MaxLevel => Math.Max(1, _multipliers.Length);
     double CellW => GridW / Cols;
     double CellH => GridH / MaxLevel;
 
@@ -84,16 +88,49 @@
     string Readout => string.Create(CultureInfo.InvariantCulture, $"Lv {_level}, {_count:N0} crafted");
 
     protected override void OnParametersSet() {
-        _rarities = [0, .. Enumerable.Range(1, 3).Where(r => CraftOdds.Constant(Catalog, AfxId, AfxLevel, r) > 0)];
+        var key = (Catalog, AfxId, AfxLevel, Price);
+        if (_built == key) return;
+        _built = key;
+        _constants = CraftOdds.Constants(Catalog, AfxId, AfxLevel);
+        _multipliers = CraftOdds.Multipliers(Catalog);
+        _rarities = [0, .. Enumerable.Range(1, 3).Where(r => _constants[r] > 0)];
         _topMax = Top == 0 ? 0 : Odds(Top, MaxLevel, Price.Domain);
         _level = Math.Clamp(_level, 1, MaxLevel);
         _count = Math.Min(_count, Price.Domain);
+        _cells = BuildCells();
     }
 
+    RenderFragment BuildCells() {
+        var cells = new List<(string X, string Y, string Style)>(MaxLevel * Cols);
+        for (int row = 0; row < MaxLevel; row++) {
+            int level = MaxLevel - row;
+            for (int col = 0; col < Cols; col++) cells.Add((F(PadL + col * CellW), F(PadT + row * CellH), CellStyle(level, col)));
+        }
+
+        string w = F(CellW + 0.5);
+        string h = F(CellH + 0.5);
+        return b => {
+            int seq = 0;
+            foreach (var (x, y, style) in cells) {
+                b.OpenElement(seq, "rect");
+                b.AddAttribute(seq + 1, "class", "acp-cell");
+                b.AddAttribute(seq + 2, "x", x);
+                b.AddAttribute(seq + 3, "y", y);
+                b.AddAttribute(seq + 4, "width", w);
+                b.AddAttribute(seq + 5, "height", h);
+                b.AddAttribute(seq + 6, "style", style);
+                b.CloseElement();
+            }
+        };
+    }
+
+    double Multiplier(int level) => _multipliers.Length == 0 ? 1 : _multipliers[Math.Clamp(level, 1, _multipliers.Length) - 1];
+
     double Odds(int rarity, int level, uint count) {
-        if (rarity > 0) return CraftOdds.ChanceAtLevel(Catalog, AfxId, AfxLevel, rarity, level, count);
+        double multiplier = Multiplier(level);
+        if (rarity > 0) return CraftOdds.Chance(_constants, rarity, multiplier, count);
         double shiny = 0;
-        for (int r = 1; r <= 3; r++) shiny += CraftOdds.ChanceAtLevel(Catalog, AfxId, AfxLevel, r, level, count);
+        for (int r = 1; r <= 3; r++) shiny += CraftOdds.Chance(_constants, r, multiplier, count);
         return Math.Max(0, 1 - shiny);
     }
 
@@ -108,11 +145,22 @@
         return string.Create(CultureInfo.InvariantCulture, $"--p:{p:0.###}");
     }
 
+    bool _changed = true;
+
+    protected override bool ShouldRender() {
+        bool render = _changed;
+        _changed = true;
+        return render;
+    }
+
     void SetFromPointer(PointerEventArgs e) {
         double tx = Math.Clamp((e.OffsetX - PadL) / GridW, 0, 1);
         double ty = Math.Clamp((e.OffsetY - PadT) / GridH, 0, 0.9999);
-        _count = (uint)Math.Round(tx * Price.Domain);
-        _level = Math.Clamp(MaxLevel - (int)(ty * MaxLevel), 1, MaxLevel);
+        uint count = (uint)Math.Round(tx * Price.Domain);
+        int level = Math.Clamp(MaxLevel - (int)(ty * MaxLevel), 1, MaxLevel);
+        _changed = count != _count || level != _level;
+        _count = count;
+        _level = level;
     }
 
     void OnDown(PointerEventArgs e) {
@@ -122,9 +170,13 @@
 
     void OnMove(PointerEventArgs e) {
         if (_dragging && e.Buttons != 0) SetFromPointer(e);
+        else _changed = false;
     }
 
-    void OnUp() => _dragging = false;
+    void OnUp() {
+        _changed = _dragging;
+        _dragging = false;
+    }
 
     void OnLevelInput(ChangeEventArgs e) {
         if (int.TryParse(e.Value?.ToString(), NumberStyles.Integer, CultureInfo.InvariantCulture, out int level)) _level = Math.Clamp(level, 1, MaxLevel);
@@ -136,7 +188,12 @@
 
     static string RarityLabel(int rarity) => EggIncognito.Services.Assets.EggIcons.Pretty(EggIncognito.Services.Artifacts.ArtifactTreeBuilder.RarityName(rarity));
 
-    string Cost(double count) => PriceAt(count).ToString("N0", CultureInfo.InvariantCulture) + " GE";
+    static readonly string? GoldIcon = EggIncognito.Services.Assets.EggIcons.Asset("icon",
+        EggIncognito.Services.Assets.RewardIconMap.Stem(Ei.RewardType.Gold, null)!);
+
+    string OddsLabel => string.Join(", ", Rarities.Select(r => $"{RarityLabel(r)} {Pct(Odds(r, _level, _count))}"));
+
+    static string SegStyle(double p) => string.Create(CultureInfo.InvariantCulture, $"flex-grow:{Math.Max(p, 0):0.######}");
 
     static string Pct(double p) => p >= 0.001 || p == 0
         ? (p * 100).ToString("0.##", CultureInfo.InvariantCulture) + "%"

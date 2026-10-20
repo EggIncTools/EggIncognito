@@ -123,7 +123,7 @@
                     <EmptyState Title="No recorded drops" Hint="No consume observations cover this tier and rarity yet."/>
                 } else {
                     <TreeDiagram Graph="@_graph" Roots="@_roots" Direction="@_direction"
-                                 ShowTools="false" Style="SplitStyle"
+                                 ShowTools="false" Style="@(ShareEdges ? SplitStyle : null)"
                                  AriaLabel="@(n => NodeName(n.Id))"
                                  NodeClass="@(n => NodeClass(n.Node.Id))"
                                  EdgeClass="@(e => ShareEdges ? "atb-share" : null)"
@@ -148,8 +148,8 @@
 
         }
         @if (_admin && PanelShelf.Any(Panels, DevicePanelShelves.Artifacts)) {
-            <DragPanel @bind-Placement="_adminPlacement" Label="Admin" Class="atb-admin">
-                <Handle><span class="atb-admin-title">Admin</span></Handle>
+            <DragPanel @bind-Placement="_adminPlacement" Label="Crafting" Class="atb-admin">
+                <Handle><span class="atb-admin-head"><Icon Name="grip-vertical" Class="icon-sm"/>Crafting</span></Handle>
                 <ChildContent>
                     <div class="atb-admin-body">
                         <PanelShelf Shelf="@DevicePanelShelves.Artifacts" Context="ArtifactContext"/>
@@ -165,7 +165,7 @@
     bool _open;
     PathRouteSync? _hash;
     bool _loadingGraph;
-    DiagramDirection _direction = DiagramDirection.Right;
+    DiagramDirection _direction = DiagramDirection.Down;
     DiagramGraph? _graph;
     IReadOnlyList<string> _roots = [];
     string? _selectedNodeId;
@@ -176,7 +176,7 @@
     ArtifactCraftPlot.PriceCurve? _detailPrice;
     DropRow? _detailRow;
     bool _admin;
-    PanelPlacement _adminPlacement = new(24, 96, 560, 420);
+    PanelPlacement _adminPlacement = new(24, 96, 160, 80);
     int _coverageReloadPending;
     int _dropsVersion;
 
@@ -204,21 +204,28 @@
         }
     }
 
+    static readonly TimeSpan CoverageReloadEvery = TimeSpan.FromSeconds(15);
+
     void OnInventoryChanged() {
-        if (Interlocked.Exchange(ref _coverageReloadPending, 1) == 1) return;
-        _ = InvokeAsync(async () => {
-            try {
-                await Task.Delay(750);
+        if (!_open || Interlocked.Exchange(ref _coverageReloadPending, 1) == 1) return;
+        _ = ReloadCoverageLaterAsync();
+    }
+
+    async Task ReloadCoverageLaterAsync() {
+        try {
+            await Task.Delay(CoverageReloadEvery);
+            await InvokeAsync(async () => {
                 _coverage = null;
                 await LoadCoverageAsync();
-                _dropsVersion++;
-                if (CurrentFamily() is { } family) await RefreshAsync(family);
-            } finally {
-                Interlocked.Exchange(ref _coverageReloadPending, 0);
-            }
-
-            StateHasChanged();
-        });
+                if (State.View == ArtifactView.ConsumesInto) _dropsVersion++;
+                StateHasChanged();
+            });
+        } catch (Exception ex) when (ex is ObjectDisposedException or OperationCanceledException or InvalidOperationException) {
+        } catch (Exception ex) {
+            Logger.LogWarning(ex, "artifact workbench coverage reload failed");
+        } finally {
+            Interlocked.Exchange(ref _coverageReloadPending, 0);
+        }
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender) {
@@ -355,8 +362,14 @@
     async Task RebuildGraphAsync(ArtifactFamily family) {
         _consumeSummary = null;
         if (State.View == ArtifactView.Crafting) {
-            _graph = ArtifactTreeBuilder.BuildCraftingGraph(ArtifactDefinitions.All, family);
-            _roots = State.Tier is { } level ? [ArtifactTreeBuilder.TierNodeId(family.Name, level)] : ArtifactTreeBuilder.CraftingRoots(family);
+            if (CurrentTier(family) is { } root) {
+                _graph = ArtifactTreeBuilder.BuildRecipeGraph(ArtifactDefinitions.All, family, root);
+                _roots = [ArtifactTreeBuilder.TierNodeId(family.Name, root.Level)];
+            } else {
+                _graph = ArtifactTreeBuilder.BuildCraftingGraph(ArtifactDefinitions.All, family);
+                _roots = ArtifactTreeBuilder.CraftingRoots(family);
+            }
+
             return;
         }
 

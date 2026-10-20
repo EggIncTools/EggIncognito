@@ -59,6 +59,34 @@ public static class ArtifactTreeBuilder {
         return parts.Length != 3 ? null : (parts[0], parts[1], parts[2]);
     }
 
+    public static DiagramGraph BuildRecipeGraph(IReadOnlyList<ArtifactFamily> all, ArtifactFamily family, ArtifactTier root) {
+        var byAfxId = all.ToDictionary(f => f.AfxId);
+        var nodes = new List<DiagramNode>();
+        var edges = new List<DiagramEdge>();
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        var queue = new Queue<(ArtifactFamily Family, ArtifactTier Tier)>();
+        queue.Enqueue((family, root));
+        seen.Add(TierNodeId(family.Name, root.Level));
+
+        while (queue.Count > 0) {
+            var (current, tier) = queue.Dequeue();
+            string tierId = TierNodeId(current.Name, tier.Level);
+            nodes.Add(new DiagramNode(tierId) { Width = TierNodeWidth, Height = TierNodeHeight });
+            foreach (var ingredient in tier.Recipe.OrderByDescending(i => i.Count)) {
+                if (!byAfxId.TryGetValue(ingredient.AfxId, out var ingredientFamily)) continue;
+                if (ingredientFamily.Tiers.FirstOrDefault(t => t.Level == ingredient.Level) is not { } ingredientTier) continue;
+                string ingredientId = TierNodeId(ingredientFamily.Name, ingredient.Level);
+                edges.Add(new DiagramEdge(tierId, ingredientId) {
+                    Weight = ingredient.Count,
+                    Label = ingredient.Count.ToString(CultureInfo.InvariantCulture)
+                });
+                if (seen.Add(ingredientId)) queue.Enqueue((ingredientFamily, ingredientTier));
+            }
+        }
+
+        return new DiagramGraph(nodes, edges);
+    }
+
     public static DiagramGraph BuildCraftingGraph(IReadOnlyList<ArtifactFamily> all, ArtifactFamily family) {
         var byAfxId = all.ToDictionary(f => f.AfxId);
         var nodes = new List<DiagramNode>();

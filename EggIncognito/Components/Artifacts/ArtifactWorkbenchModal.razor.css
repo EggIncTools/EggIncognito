@@ -2,8 +2,11 @@
 .atb-rail-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0.75rem; align-items: start; }
 .atb-rail-col { display: flex; flex-direction: column; gap: 0.75rem; min-width: 0; }
 
-.atb-body { display: flex; flex-direction: column; gap: 0.75rem; flex: 1 1 auto; min-height: 0; }
-.atb-side { display: flex; flex-direction: column; min-width: 0; }
+.atb-body { display: grid; grid-template-columns: minmax(20rem, 26rem) minmax(0, 1fr); gap: 1rem; flex: 1 1 auto; min-height: 0; }
+.atb-side { display: flex; flex-direction: column; gap: 0.75rem; min-width: 0; min-height: 0; overflow-y: auto; }
+@media (max-width: 64rem) {
+  .atb-body { grid-template-columns: minmax(0, 1fr); }
+}
 @media (min-width: 80rem) {
   .atb-rail-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
@@ -35,8 +38,9 @@
 .atb-r2, .atb-canvas ::deep .diagram-node.atb-r2 { --atb-rc: var(--color-rarity-2); }
 .atb-r3, .atb-canvas ::deep .diagram-node.atb-r3 { --atb-rc: var(--color-rarity-3); }
 
-.atb-canvas { display: flex; flex-direction: column; flex: 1; min-height: 20rem; width: 100%; min-width: 0; }
-.atb-canvas ::deep .diagram { width: 100%; }
+.atb-canvas { display: flex; flex-direction: column; min-height: 20rem; min-width: 0; overflow: auto; border: 1px solid var(--color-border); border-radius: 0.5rem; background: var(--color-bg); }
+.atb-canvas ::deep .diagram { margin: auto; overflow: visible; }
+.atb-canvas ::deep .diagram-stage { --diagram-scale: 1; }
 .atb-node { display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 0.25rem; width: 100%; height: 100%; padding: 0.375rem 0.375rem 1rem; }
 .atb-node-ico { flex: none; width: 2rem; height: 2rem; object-fit: contain; }
 .atb-node-name { max-width: 100%; font-size: 0.6875rem; line-height: 1.2; text-align: center; text-transform: none; white-space: normal; overflow-wrap: anywhere; }
@@ -45,5 +49,7 @@
 .atb-canvas ::deep .diagram-node { --atb-rc: var(--color-border-strong); border: 2px solid var(--atb-rc); }
 .atb-canvas ::deep .diagram-node.atb-on { background: color-mix(in oklab, var(--atb-rc) 50%, transparent); box-shadow: none; }
 
-.atb-admin-title { font-size: 0.75rem; font-weight: 600; color: var(--color-muted); text-transform: uppercase; letter-spacing: 0.02em; }
-.atb-admin-body { flex: 1 1 auto; display: flex; flex-direction: column; gap: 0.75rem; padding: 0.75rem; overflow: auto; }
+.atb-wrap ::deep .atb-admin { min-width: max-content; min-height: max-content; overflow: hidden; background-color: var(--color-panel); box-shadow: 0 0.75rem 2rem rgb(0 0 0 / 0.35); }
+.atb-admin-head { display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--color-border); background-color: var(--color-panel2); font-size: 0.875rem; font-weight: 600; color: var(--color-fg); }
+.atb-admin-head ::deep .icon-sm { color: var(--color-muted); }
+.atb-admin-body { display: flex; flex-direction: column; gap: 0.5rem; padding: 0.5rem; min-height: 0; overflow: auto; }
