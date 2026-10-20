@@ -85,8 +85,8 @@
                 }
                 <ViewTabs TKey="ArtifactView" Tabs="@Views(family)" Active="@State.View" ActiveChanged="SwitchViewAsync" AriaLabel="View"/>
                 @if (State.NeedsRarity && CurrentTier(family) is { } rarityTier && Rarities(family, rarityTier).Count > 1) {
-                    <Segmented T="int" Options="@RarityOptions(family, rarityTier)" Selected="@(State.Rarity ?? 0)"
-                               SelectedChanged="@(r => PickCellAsync(family, rarityTier, r))" AriaLabel="Rarity"/>
+                    <ArtifactRarityPicker Icon="@ArtifactTreeBuilder.Icon(family.Name, rarityTier.Level)" Rarities="@Rarities(family, rarityTier)"
+                                          Selected="@(State.Rarity ?? 0)" SelectedChanged="@(r => PickCellAsync(family, rarityTier, r))" AriaLabel="Rarity"/>
                 }
             </div>
 
@@ -346,9 +346,6 @@
             .Where(v => ViewAvailable(family, v) && (tier is null || TierAvailable(family, tier, v)))
             .Select(v => new ViewTab<ArtifactView>(v, ViewLabel(v)))];
     }
-
-    IReadOnlyList<SegmentedOption<int>> RarityOptions(ArtifactFamily family, ArtifactTier tier) =>
-        [.. Rarities(family, tier).Select(r => new SegmentedOption<int>(r, EggIcons.Pretty(ArtifactTreeBuilder.RarityName(r))))];
 
 
     enum RailGroup {

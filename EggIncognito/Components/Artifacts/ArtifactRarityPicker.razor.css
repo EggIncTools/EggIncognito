@@ -1,0 +1,10 @@
+.arp { display: inline-flex; flex-wrap: wrap; gap: 0.375rem; }
+.arp-opt { --arp-rc: var(--color-border-strong); display: grid; place-items: center; width: 2.5rem; height: 2.5rem; padding: 0; border: 2px solid color-mix(in oklab, var(--arp-rc) 55%, transparent); border-radius: 0.375rem; background: var(--color-panel2); cursor: pointer; transition: background-color var(--motion-fast) var(--ease-standard), border-color var(--motion-fast) var(--ease-standard); }
+.arp-opt:hover { border-color: var(--arp-rc); }
+.arp-opt:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--color-accent); }
+.arp-r0.arp-on { --arp-rc: var(--color-accent); }
+.arp-r1 { --arp-rc: var(--color-rarity-1); }
+.arp-r2 { --arp-rc: var(--color-rarity-2); }
+.arp-r3 { --arp-rc: var(--color-rarity-3); }
+.arp-on { border-color: var(--arp-rc); background: color-mix(in oklab, var(--arp-rc) 35%, transparent); }
+.arp-ico { width: 1.75rem; height: 1.75rem; object-fit: contain; }

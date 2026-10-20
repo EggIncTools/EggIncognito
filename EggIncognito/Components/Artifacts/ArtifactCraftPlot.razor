@@ -20,6 +20,8 @@
             <span class="acp-field-key">Crafts</span>
             <input type="number" class="acp-input mono" aria-label="Crafted count" min="0" max="@Domain" value="@_count" @onchange="OnCountInput"/>
         </label>
+    </div>
+    <div class="acp-bar">
         @if (Shiny) {
             <label class="acp-field form-check">
                 <input type="checkbox" checked="@_detail" @onchange="e => _detail = e.Value is true"/>
@@ -28,7 +30,11 @@
         }
         <label class="acp-field form-check">
             <input type="checkbox" checked="@_log" @onchange="OnLogInput"/>
-            <span class="acp-field-key">Log</span>
+            <span class="acp-field-key">Log scale</span>
+        </label>
+        <label class="acp-field form-check">
+            <input type="checkbox" checked="@_outside" @onchange="e => _outside = e.Value is true"/>
+            <span class="acp-field-key">Label off plot</span>
         </label>
     </div>
     @if (_loading) {
@@ -107,7 +113,7 @@
                 <path class="acp-bound" d="@_bound"/>
             }
             @if (Blocked) {
-                <g class="acp-void acp-none" @onpointerdown="OnDown">
+                <g class="acp-void" @onpointerdown="OnDown">
                     <path class="acp-void-base" d="@_none"/>
                     <path d="@_none" fill="url(#@_hatchId)"/>
                 </g>
@@ -115,20 +121,7 @@
             }
             <circle class="acp-point" cx="@F(PointX)" cy="@F(PointY)" r="5"/>
         </svg>
-        @if (Bounded) {
-            <span class="acp-void-tip acp-void-tip-low" style="@VoidTipStyle">
-                <span class="acp-void-tip-title">Unreachable</span>
-                <span>Each craft grants @NumberFormat.Full(_xp) crafting XP, so these levels are already passed.</span>
-            </span>
-        }
-        @if (Blocked) {
-            <span class="acp-void-tip acp-void-tip-high" style="@NoneTipStyle">
-                <span class="acp-void-tip-title">No @RarityLabel(_target) odds</span>
-                <span>Higher rarities claim the whole @RarityLabel(_target) chance at these levels and counts.</span>
-            </span>
-        }
-        <button type="button" class="acp-grip" aria-label="Resize plot" @onpointerdown="OnResizeDown"></button>
-        <span class="acp-label @LabelPlacement" style="@LabelStyle">
+        <span class="@(_outside ? "acp-readout" : "acp-label " + LabelPlacement)" style="@(_outside ? null : LabelStyle)">
             <span class="acp-label-row">
                 @if (Shiny) {
                     <span class="mono">Lv @_level</span>
@@ -139,17 +132,20 @@
         </span>
         </div>
         @if (Shiny) {
-            <div class="acp-scale">
+            <div class="acp-heat">
+                <span class="acp-heat-key">Heatmap</span>
                 @if (Shinies.Count > 1) {
-                    <Segmented T="int" Class="@TargetClass" Options="@TargetOptions" Selected="@_target" SelectedChanged="PickTarget" AriaLabel="Heatmap rarity"/>
-                } else {
-                    <span class="acp-r@(_target)">@RarityLabel(_target)</span>
+                    <ArtifactRarityPicker Icon="@TierIcon" Rarities="@Shinies" Selected="@_target" SelectedChanged="PickTarget" AriaLabel="Heatmap rarity"/>
                 }
-                <span class="mono">0%</span>
-                <span class="acp-scale-bar"></span>
-                <span class="mono">@NumberFormat.Odds(_maxOdds[_target])</span>
+                <span class="acp-scale" style="@ScaleStyle">
+                    <span class="acp-r@(_target)">@RarityLabel(_target)</span>
+                    <span class="mono">0%</span>
+                    <span class="acp-scale-bar"></span>
+                    <span class="mono">@NumberFormat.Odds(_maxOdds[_target])</span>
+                </span>
             </div>
         }
+        <button type="button" class="acp-grip" aria-label="Resize plot" title="Drag to resize" @onpointerdown="OnResizeDown"></button>
     </div>
     @if (Shiny && _detail) {
         <div class="acp-math">
@@ -224,6 +220,7 @@
     bool _dragging;
     bool _resizing;
     bool _log;
+    bool _outside;
     double _resizeW;
     double _resizeH;
     int _target;
@@ -253,8 +250,10 @@
     double CellH => (GridH - AxisGap) / MaxLevel;
     double CapX => XOf(Price.Domain);
     IReadOnlyList<int> Shinies => [.. _rarities.Where(r => r > 0)];
-    string TargetClass => "acp-targets " + string.Join(' ', Shinies.Select((r, i) => $"acp-t{i + 1}-r{r}"));
-    IReadOnlyList<SegmentedOption<int>> TargetOptions =>[.. Shinies.Select(r => new SegmentedOption<int>(r, RarityLabel(r)))];
+    string TierIcon => EggSharp.GameData.Artifacts.ArtifactDefinitions.All.FirstOrDefault(f => f.AfxId == AfxId) is { } family
+        ? EggIncognito.Services.Artifacts.ArtifactTreeBuilder.Icon(family.Name, AfxLevel)
+        : "";
+    string ScaleStyle => string.Create(CultureInfo.InvariantCulture, $"width:{F(PlotW)}px");
     string YTitleTransform =>string.Create(CultureInfo.InvariantCulture, $"translate(12 {PadT + GridH / 2}) rotate(-90)");
 
     double RowY(int level) => PadT + (MaxLevel - level + 0.5) * CellH;
@@ -348,9 +347,6 @@
         return (string.Join(' ', area), string.Join(' ', edge));
     }
 
-    string NoneTipStyle => string.Create(CultureInfo.InvariantCulture,
-        $"right:{(PlotW - GridRight) / PlotW * 100:0.##}%;top:{PadT / PlotH * 100:0.##}%");
-
     (uint Count, int Level) Avoid(uint count, int level, double x, double y) {
         if (_noneFrom.Length <= level || _noneFrom[level] is not { } from || count < from) return (count, level);
         int lower = level - 1;
@@ -416,9 +412,6 @@
         string line = $"M{F(PadL)},{F(HeatBottom)} {string.Join(' ', steps)} H{F(GridRight)}";
         return ($"{line} V{F(HeatBottom)} Z", line);
     }
-
-    string VoidTipStyle => string.Create(CultureInfo.InvariantCulture,
-        $"right:{(PlotW - GridRight) / PlotW * 100:0.##}%;bottom:{(PlotH - HeatBottom) / PlotH * 100:0.##}%");
 
     (uint Count, int Level) Bound(uint count, int level, double x, double y) {
         int min = MinLevel(count);
@@ -617,6 +610,7 @@
         _resizeW = PlotW;
         _resizeH = GridH;
         _resizing = true;
+        _changed = true;
     }
 
     void OnUp() {

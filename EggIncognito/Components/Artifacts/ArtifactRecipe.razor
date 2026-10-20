@@ -11,7 +11,10 @@
     }
     @if (Cost is { } cost) {
         <span class="arc-price">
-            <CompactNumber Value="@cost" IconSrc="@GoldIcon" Class="arc-cost mono"/>
+            <span class="arc-cost mono">
+                <img class="arc-cost-ico" src="@GoldIcon" alt="" loading="lazy"/>
+                @NumberFormat.Full(cost)
+            </span>
             <span class="arc-base">(base)</span>
         </span>
     }
