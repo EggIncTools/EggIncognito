@@ -2,8 +2,8 @@
 .atb-rail-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0.75rem; align-items: start; }
 .atb-rail-col { display: flex; flex-direction: column; gap: 0.75rem; min-width: 0; }
 
-.atb-body { display: grid; grid-template-columns: minmax(20rem, 26rem) minmax(28rem, 1fr); gap: 1rem; flex: 1 1 auto; min-height: 0; }
-.atb-side { display: flex; flex-direction: column; gap: 0.75rem; min-width: 0; min-height: 0; padding-right: 0.75rem; overflow-y: auto; scrollbar-gutter: stable; }
+.atb-body { display: grid; grid-template-columns: minmax(24rem, max-content) minmax(28rem, 1fr); gap: 1rem; flex: 1 1 auto; min-height: 0; }
+.atb-side { display: flex; flex-direction: column; gap: 0.75rem; min-width: 0; padding-right: 0.75rem; }
 @media (max-width: 64rem) {
   .atb-body { grid-template-columns: minmax(0, 1fr); }
 }
