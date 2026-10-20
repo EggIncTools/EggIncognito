@@ -26,6 +26,10 @@
                 <span class="acp-field-key">Detail</span>
             </label>
         }
+        <label class="acp-field form-check">
+            <input type="checkbox" checked="@_log" @onchange="OnLogInput"/>
+            <span class="acp-field-key">Log</span>
+        </label>
     </div>
     @if (_loading) {
         <span class="acp-note">Loading...</span>
@@ -33,17 +37,9 @@
         <DependencyNotice Dependency="SuiteDependency.EggIncApi" Feature="Backup loading" OnRetry="() => LoadFromAsync(failed)"/>
     }
     <div class="acp-frame">
-        @if (Shiny) {
-            <div class="acp-scale">
-                <span class="acp-r@(Top)">@RarityLabel(Top)</span>
-                <span class="mono">0%</span>
-                <span class="acp-scale-bar"></span>
-                <span class="mono">@NumberFormat.Odds(_topMax)</span>
-            </div>
-        }
         <div class="acp-stage">
-        <svg class="acp-plot" width="@PlotW" height="@F(PlotH)" viewBox="0 0 @PlotW @F(PlotH)" role="img" aria-label="@PointText">
-            @if (Bounded) {
+        <svg class="acp-plot" width="@F(PlotW)" height="@F(PlotH)" viewBox="0 0 @F(PlotW) @F(PlotH)" role="img" aria-label="@PointText">
+            @if (Bounded || Blocked) {
                 <defs>
                     <pattern id="@_hatchId" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
                         <line class="acp-hatch-line" x1="0" y1="0" x2="0" y2="6"/>
@@ -55,8 +51,8 @@
             } else {
                 <path class="acp-curve" d="@_curve"/>
             }
-            <line class="acp-axis" x1="@AxisX" y1="@GridBottom" x2="@(GridRight)" y2="@GridBottom"/>
-            <line class="acp-axis" x1="@AxisX" y1="@PadT" x2="@AxisX" y2="@GridBottom"/>
+            <line class="acp-axis" x1="@AxisX" y1="@F(GridBottom)" x2="@F(GridRight)" y2="@F(GridBottom)"/>
+            <line class="acp-axis" x1="@AxisX" y1="@PadT" x2="@AxisX" y2="@F(GridBottom)"/>
             @if (Shiny) {
                 <g>
                     <text class="acp-tick" x="@(AxisX - 4)" y="@F(RowY(MaxLevel) + 4)" text-anchor="end">@MaxLevel</text>
@@ -69,53 +65,69 @@
                 </g>
             }
             <text class="acp-axis-title" transform="@YTitleTransform" text-anchor="middle">@(Shiny ? "Crafting level" : "Cost")</text>
-            <text class="acp-tick" x="@PadL" y="@(GridBottom + 14)" text-anchor="start">0</text>
-            <text class="acp-tick" x="@GridRight" y="@(GridBottom + 14)" text-anchor="end">@Domain.ToString("N0", CultureInfo.InvariantCulture)</text>
+            <text class="acp-tick" x="@PadL" y="@F(GridBottom + 14)" text-anchor="start">0</text>
+            <text class="acp-tick" x="@F(GridRight)" y="@F(GridBottom + 14)" text-anchor="end">@Domain.ToString("N0", CultureInfo.InvariantCulture)</text>
+            <g>
+                @foreach (uint tick in LogTicks()) {
+                    <g><text class="acp-tick" x="@F(XOf(tick))" y="@F(GridBottom + 14)" text-anchor="middle">@tick.ToString("N0", CultureInfo.InvariantCulture)</text></g>
+                }
+            </g>
             @if (Shiny && Price.Domain > 0 && Price.Domain < Domain) {
                 <g>
-                    <line class="acp-cap" x1="@F(CapX)" y1="@PadT" x2="@F(CapX)" y2="@GridBottom"/>
-                    <text class="acp-tick" x="@F(CapX)" y="@(GridBottom + 14)" text-anchor="middle">@Price.Domain.ToString("N0", CultureInfo.InvariantCulture)</text>
+                    <line class="acp-cap" x1="@F(CapX)" y1="@PadT" x2="@F(CapX)" y2="@F(GridBottom)"/>
+                    <text class="acp-tick" x="@F(CapX)" y="@F(GridBottom + 14)" text-anchor="middle">@Price.Domain.ToString("N0", CultureInfo.InvariantCulture)</text>
                     <text class="acp-cap-label" x="@F(CapX - 4)" y="@(PadT + 10)" text-anchor="end">Min cost</text>
                 </g>
             }
-            <text class="acp-axis-title" x="@F(PadL + GridW / 2)" y="@(GridBottom + 28)" text-anchor="middle">Crafted</text>
-            <line class="acp-guide" x1="@F(PointX)" y1="@PadT" x2="@F(PointX)" y2="@GridBottom"/>
+            <text class="acp-axis-title" x="@F(PadL + GridW / 2)" y="@F(GridBottom + 28)" text-anchor="middle">Crafted</text>
+            <line class="acp-guide" x1="@F(PointX)" y1="@PadT" x2="@F(PointX)" y2="@F(GridBottom)"/>
             @if (Shiny) {
-                <line class="acp-guide" x1="@PadL" y1="@F(PointY)" x2="@GridRight" y2="@F(PointY)"/>
-            }
-            @if (!Bounded) {
-                <circle class="acp-point" cx="@F(PointX)" cy="@F(PointY)" r="5"/>
+                <line class="acp-guide" x1="@PadL" y1="@F(PointY)" x2="@F(GridRight)" y2="@F(PointY)"/>
             }
             @if (Shiny) {
                 <g>
-                    <text class="acp-common" x="@PadL" y="@(BarY - 5)" text-anchor="start">@RarityLabel(0) <tspan class="acp-common-pct">@NumberFormat.Odds(Odds(0, _level, _count))</tspan></text>
+                    <text class="acp-common" x="@PadL" y="@F(BarY - 5)" text-anchor="start">@RarityLabel(0) <tspan class="acp-common-pct">@NumberFormat.Odds(Odds(0, _level, _count))</tspan></text>
                     @foreach (var seg in Segments()) {
-                        <rect class="acp-bg@(seg.Rarity)" x="@F(seg.X)" y="@BarY" width="@F(seg.W)" height="@BarH"/>
+                        <rect class="acp-bg@(seg.Rarity)" x="@F(seg.X)" y="@F(BarY)" width="@F(seg.W)" height="@BarH"/>
                     }
                     @foreach (var key in Keys()) {
                         <g class="acp-r@(key.Rarity)">
                             <path class="acp-leader" d="@key.Leader"/>
-                            <text class="acp-key" x="@F(key.X)" y="@KeyY" text-anchor="middle">@key.Name <tspan class="acp-key-pct" style="@ChanceStyle(key.Rarity)">@key.Pct</tspan></text>
+                            <text class="acp-key" x="@F(key.X)" y="@F(KeyY)" text-anchor="middle">@key.Name <tspan class="acp-key-pct" style="@ChanceStyle(key.Rarity)">@key.Pct</tspan></text>
                         </g>
                     }
                 </g>
             }
-            <rect class="acp-hit" x="0" y="0" width="@PlotW" height="@GridBottom" @onpointerdown="OnDown"/>
+            <rect class="acp-hit" x="0" y="0" width="@F(PlotW)" height="@F(GridBottom)" @onpointerdown="OnDown"/>
             @if (Bounded) {
                 <g class="acp-void" @onpointerdown="OnDown">
                     <path class="acp-void-base" d="@_void"/>
                     <path d="@_void" fill="url(#@_hatchId)"/>
                 </g>
                 <path class="acp-bound" d="@_bound"/>
-                <circle class="acp-point" cx="@F(PointX)" cy="@F(PointY)" r="5"/>
             }
+            @if (Blocked) {
+                <g class="acp-void acp-none" @onpointerdown="OnDown">
+                    <path class="acp-void-base" d="@_none"/>
+                    <path d="@_none" fill="url(#@_hatchId)"/>
+                </g>
+                <path class="acp-bound" d="@_noneEdge"/>
+            }
+            <circle class="acp-point" cx="@F(PointX)" cy="@F(PointY)" r="5"/>
         </svg>
         @if (Bounded) {
-            <span class="acp-void-tip" style="@VoidTipStyle">
+            <span class="acp-void-tip acp-void-tip-low" style="@VoidTipStyle">
                 <span class="acp-void-tip-title">Unreachable</span>
                 <span>Each craft grants @NumberFormat.Full(_xp) crafting XP, so these levels are already passed.</span>
             </span>
         }
+        @if (Blocked) {
+            <span class="acp-void-tip acp-void-tip-high" style="@NoneTipStyle">
+                <span class="acp-void-tip-title">No @RarityLabel(_target) odds</span>
+                <span>Higher rarities claim the whole @RarityLabel(_target) chance at these levels and counts.</span>
+            </span>
+        }
+        <button type="button" class="acp-grip" aria-label="Resize plot" @onpointerdown="OnResizeDown"></button>
         <span class="acp-label @LabelPlacement" style="@LabelStyle">
             <span class="acp-label-row">
                 @if (Shiny) {
@@ -126,6 +138,18 @@
             <span class="acp-label-row mono">@NumberFormat.Full(_count) Crafts</span>
         </span>
         </div>
+        @if (Shiny) {
+            <div class="acp-scale">
+                @if (Shinies.Count > 1) {
+                    <Segmented T="int" Options="@TargetOptions" Selected="@_target" SelectedChanged="PickTarget" AriaLabel="Heatmap rarity"/>
+                } else {
+                    <span class="acp-r@(_target)">@RarityLabel(_target)</span>
+                }
+                <span class="mono">0%</span>
+                <span class="acp-scale-bar"></span>
+                <span class="mono">@NumberFormat.Odds(_maxOdds[_target])</span>
+            </div>
+        }
     </div>
     @if (Shiny && _detail) {
         <div class="acp-math">
@@ -157,8 +181,8 @@
             </table>
         </div>
     }
-    @if (_dragging) {
-        <div class="acp-capture" @onpointermove="OnMove" @onpointerup="OnUp" @onpointercancel="OnUp"></div>
+    @if (_dragging || _resizing) {
+        <div class="acp-capture @(_resizing ? "acp-capture-resize" : null)" @onpointermove="OnMove" @onpointerup="OnUp" @onpointercancel="OnUp"></div>
     }
 </div>
 
@@ -172,34 +196,48 @@
     [Parameter, EditorRequired] public int AfxId { get; set; }
     [Parameter, EditorRequired] public int AfxLevel { get; set; }
 
-    const double PlotW = 384;
     const double PadL = 48;
     const double PadT = 10;
     const double PadR = 24;
     const double AxisGap = 16;
-    const double GridH = 180;
-    const double GridW = PlotW - PadL - PadR;
-    const double GridBottom = PadT + GridH;
-    const double GridRight = PadL + GridW;
     const double AxisX = PadL - AxisGap;
-    const double BarY = GridBottom + 48;
     const double BarH = 8;
-    const double KeyY = BarY + BarH + 30;
     const double CharW = 7.4;
     const double KeyGap = 10;
     const int Cols = 32;
+    const double MinPlotW = 300;
+    const double MaxPlotW = 960;
+    const double MinGridH = 120;
+    const double MaxGridH = 640;
+    static readonly uint[] LogMarks = [10, 100, 1000, 10000];
+
+    double PlotW { get; set; } = 384;
+    double GridH { get; set; } = 180;
+    double GridW => PlotW - PadL - PadR;
+    double GridBottom => PadT + GridH;
+    double GridRight => PadL + GridW;
+    double BarY => GridBottom + 48;
+    double KeyY => BarY + BarH + 30;
 
     int _level = 1;
     uint _count;
     bool _dragging;
+    bool _resizing;
+    bool _log;
+    double _resizeW;
+    double _resizeH;
+    int _target;
     IReadOnlyList<int> _rarities = [0];
     double[] _constants = [0, 0, 0, 0];
     double[] _multipliers = [1];
-    double _topMax;
+    double[] _maxOdds = new double[4];
+    uint?[] _noneFrom = [];
     RenderFragment? _cells;
     string _curve = "";
     string _void = "";
     string _bound = "";
+    string _none = "";
+    string _noneEdge = "";
     double _xp;
     double[] _starts = [0];
     readonly string _hatchId = "acp-hatch-" + Guid.NewGuid().ToString("N")[..8];
@@ -213,8 +251,10 @@
     int MaxLevel => Math.Max(1, _multipliers.Length);
     double CellW => GridW / Cols;
     double CellH => (GridH - AxisGap) / MaxLevel;
-    double CapX => PadL + (double)Price.Domain / Domain * GridW;
-    static string YTitleTransform => string.Create(CultureInfo.InvariantCulture, $"translate(12 {PadT + GridH / 2}) rotate(-90)");
+    double CapX => XOf(Price.Domain);
+    IReadOnlyList<int> Shinies => [.. _rarities.Where(r => r > 0)];
+    IReadOnlyList<SegmentedOption<int>> TargetOptions => [.. Shinies.Select(r => new SegmentedOption<int>(r, RarityLabel(r)))];
+    string YTitleTransform =>string.Create(CultureInfo.InvariantCulture, $"translate(12 {PadT + GridH / 2}) rotate(-90)");
 
     double RowY(int level) => PadT + (MaxLevel - level + 0.5) * CellH;
     double CostY(double cost) {
@@ -223,7 +263,7 @@
         return GridBottom - AxisGap - t * (GridH - AxisGap * 2);
     }
 
-    double PointX => PadL + PointInset + (double)_count / Domain * (GridW - PointInset * 2);
+    double PointX => XOf(_count);
     const double PointInset = 6;
     double PointY => Shiny ? RowY(_level) : CostY(PriceAt(_count));
     bool LabelLeft => PointX > PadL + GridW / 2;
@@ -241,18 +281,101 @@
         _constants = CraftOdds.Constants(Catalog, AfxId, AfxLevel);
         _multipliers = CraftOdds.Multipliers(Catalog);
         _rarities = [0, .. Enumerable.Range(1, 3).Where(r => _constants[r] > 0)];
-        _topMax = Top == 0 ? 0 : Odds(Top, MaxLevel, Domain);
+        if (!Shinies.Contains(_target)) _target = Top;
         _xp = Catalog.Artifacts.FirstOrDefault(a => a.AfxId == AfxId && a.AfxLevel == AfxLevel && a.AfxRarity == 0)?.CraftingXp ?? 0;
         _starts = [.. Enumerable.Range(1, MaxLevel).Select(l => CraftOdds.LevelStart(Catalog, l))];
         _count = Math.Min(_count, Domain);
         _level = Math.Clamp(_level, MinLevel(_count), MaxLevel);
+        _maxOdds = [.. Enumerable.Range(0, 4).Select(MaxOdds)];
+        _noneFrom = NoneFrom();
+        Layout();
+    }
+
+    void Layout() {
         _cells = Shiny ? BuildCells() : null;
         _curve = Shiny ? "" : BuildCurve();
         (_void, _bound) = Shiny ? BuildBound() : ("", "");
+        (_none, _noneEdge) = Shiny ? BuildNone() : ("", "");
     }
 
     bool Bounded => _void.Length > 0;
 
+    bool Blocked => _none.Length > 0;
+
+    double MaxOdds(int rarity) {
+        if (rarity == 0 || _constants[rarity] <= 0) return 0;
+        double max = 0;
+        for (int level = 1; level <= MaxLevel; level++) {
+            for (uint count = 0; count <= Domain; count++) max = Math.Max(max, Odds(rarity, level, count));
+        }
+
+        return max;
+    }
+
+    uint?[] NoneFrom() {
+        var from = new uint?[MaxLevel + 1];
+        if (_target == 0) return from;
+        for (int level = 1; level <= MaxLevel; level++) {
+            for (uint count = 0; count <= Domain; count++) {
+                if (Odds(_target, level, count) > 0) continue;
+                from[level] = count;
+                break;
+            }
+        }
+
+        return from;
+    }
+
+    double RowTop(int level) => PadT + (MaxLevel - level) * CellH;
+
+    double NoneX(uint from) => Math.Max(PadL, XOf(from - 0.5));
+
+    (string Area, string Edge) BuildNone() {
+        var area = new List<string>();
+        var edge = new List<string>();
+        for (int level = MaxLevel; level >= 1; level--) {
+            if (_noneFrom[level] is not { } from) continue;
+            double top = RowTop(level);
+            double bottom = top + CellH;
+            double x = NoneX(from);
+            area.Add($"M{F(x)},{F(top)} H{F(GridRight)} V{F(bottom)} H{F(x)} Z");
+            edge.Add(edge.Count == 0 ? $"M{F(GridRight)},{F(top)} H{F(x)} V{F(bottom)}" : $"H{F(x)} V{F(bottom)}");
+        }
+
+        if (area.Count == 0) return ("", "");
+        edge.Add($"H{F(GridRight)}");
+        return (string.Join(' ', area), string.Join(' ', edge));
+    }
+
+    string NoneTipStyle => string.Create(CultureInfo.InvariantCulture,
+        $"right:{(PlotW - GridRight) / PlotW * 100:0.##}%;top:{PadT / PlotH * 100:0.##}%");
+
+    (uint Count, int Level) Avoid(uint count, int level, double x, double y) {
+        if (_noneFrom.Length <= level || _noneFrom[level] is not { } from || count < from) return (count, level);
+        int lower = level - 1;
+        while (lower >= 1 && _noneFrom[lower] is { } f && count >= f) lower--;
+        double pull = from == 0 ? double.MaxValue : Math.Abs(XOf(from - 1) - x);
+        double drop = lower < 1 ? double.MaxValue : Math.Abs(RowY(lower) - y);
+        if (pull == double.MaxValue && drop == double.MaxValue) return (count, level);
+        return pull <= drop ? (from - 1, level) : (count, lower);
+    }
+
+    void PickTarget(int rarity) {
+        _target = rarity;
+        _noneFrom = NoneFrom();
+        Layout();
+    }
+
+    void OnLogInput(ChangeEventArgs e) {
+        _log = e.Value is true;
+        Layout();
+    }
+
+    double Frac(double count) => _log ? Math.Log(1 + Math.Max(0, count)) / Math.Log(1 + Domain) : count / Domain;
+
+    double CountAt(double frac) => _log ? Math.Exp(frac * Math.Log(1 + Domain)) - 1 : frac * Domain;
+
+    IEnumerable<uint> LogTicks() => _log ? LogMarks.Where(t => t < Domain * 0.8 && (Price.Domain == 0 || Math.Abs(XOf(t) - CapX) > 24)) : [];
     bool _detail;
 
     double Exponent => 1 - Math.Min(1, _count / CraftOdds.CountDomain) * CraftOdds.CountExponentDrop;
@@ -265,7 +388,7 @@
 
     double HeatBottom => PadT + MaxLevel * CellH;
 
-    double XOf(double count) => PadL + PointInset + count / Domain * (GridW - PointInset * 2);
+    double XOf(double count) => PadL + PointInset + Frac(count) * (GridW - PointInset * 2);
 
     int MinLevel(uint count) {
         if (_xp <= 0) return 1;
@@ -332,7 +455,7 @@
         const int steps = 64;
         var parts = new List<string>(steps + 1);
         for (int i = 0; i <= steps; i++) {
-            double count = (double)i / steps * Domain;
+            double count = CountAt((double)i / steps);
             parts.Add($"{(i == 0 ? "M" : "L")}{F(PadL + (double)i / steps * GridW)},{F(CostY(PriceAt(count)))}");
         }
 
@@ -355,8 +478,9 @@
     }
 
     string CellStyle(int level, int col) {
-        uint count = (uint)Math.Round((col + 0.5) / Cols * Domain);
-        double p = _topMax <= 0 ? 0 : Math.Clamp(Odds(Top, level, count) / _topMax, 0, 1);
+        uint count = (uint)Math.Round(CountAt((col + 0.5) / Cols));
+        double max = _maxOdds[_target];
+        double p = max <= 0 ? 0 : Math.Clamp(Odds(_target, level, count) / max, 0, 1);
         return string.Create(CultureInfo.InvariantCulture, $"fill:color-mix(in oklab, var(--color-ok) {p * 100:0.#}%, var(--color-err))");
     }
 
@@ -372,7 +496,7 @@
     }
 
     string ChanceStyle(int rarity) {
-        double max = Odds(rarity, MaxLevel, Domain);
+        double max = _maxOdds[rarity];
         return RatioStyle.Var(max <= 0 ? 0 : Odds(rarity, _level, _count) / max);
     }
 
@@ -447,12 +571,13 @@
 
     void SetFrom(double x, double y) {
         double tx = Math.Clamp((x - PadL - PointInset) / (GridW - PointInset * 2), 0, 1);
-        uint count = (uint)Math.Round(tx * Domain);
+        uint count = (uint)Math.Clamp(Math.Round(CountAt(tx)), 0, Domain);
         int level = _level;
         if (Shiny) {
             double ty = Math.Clamp((y - PadT) / (GridH - AxisGap), 0, 0.9999);
             level = Math.Clamp(MaxLevel - (int)(ty * MaxLevel), 1, MaxLevel);
             (count, level) = Bound(count, level, x, y);
+            (count, level) = Avoid(count, level, x, y);
         }
 
         _changed = count != _count || level != _level;
@@ -474,12 +599,29 @@
             return;
         }
 
+        if (_resizing) {
+            PlotW = Math.Clamp(_resizeW + e.ClientX - _originX, MinPlotW, MaxPlotW);
+            GridH = Math.Clamp(_resizeH + e.ClientY - _originY, MinGridH, MaxGridH);
+            Layout();
+            _changed = true;
+            return;
+        }
+
         SetFrom(e.ClientX - _originX, e.ClientY - _originY);
     }
 
+    void OnResizeDown(PointerEventArgs e) {
+        _originX = e.ClientX;
+        _originY = e.ClientY;
+        _resizeW = PlotW;
+        _resizeH = GridH;
+        _resizing = true;
+    }
+
     void OnUp() {
-        _changed = _dragging;
+        _changed = _dragging || _resizing;
         _dragging = false;
+        _resizing = false;
     }
 
     void OnLevelInput(ChangeEventArgs e) {

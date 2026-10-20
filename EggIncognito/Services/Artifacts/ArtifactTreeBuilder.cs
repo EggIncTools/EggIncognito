@@ -10,7 +10,7 @@ namespace EggIncognito.Services.Artifacts;
 
 public static class ArtifactTreeBuilder {
     public const double TierNodeWidth = 160;
-    public const double TierNodeHeight = 88;
+    public const double TierNodeHeight = 104;
 
     private const string FragmentSuffix = "_FRAGMENT";
     private const string StoneSuffix = "_STONE";
