@@ -78,7 +78,7 @@ public sealed class ArtifactTreeBuilderTests {
         Assert.Contains(childId, graph.Nodes.Select(n => n.Id));
         var edge = Assert.Single(graph.Edges);
         Assert.Equal(2.0 / 3, edge.Weight);
-        Assert.Equal("66.7%", edge.Label);
+        Assert.Equal("67%", edge.Label);
     }
 
     [Fact]

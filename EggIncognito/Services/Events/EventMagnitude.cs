@@ -11,7 +11,7 @@ public static class EventMagnitude {
 
     public static string Describe(double multiplier) {
         if (multiplier <= 0) return "";
-        if (multiplier < 1) return NumberFormat.Percent(1 - multiplier, 0) + " off";
+        if (multiplier < 1) return NumberFormat.Percent(1 - multiplier) + " off";
         return multiplier.ToString("0.###", CultureInfo.InvariantCulture) + "x";
     }
 

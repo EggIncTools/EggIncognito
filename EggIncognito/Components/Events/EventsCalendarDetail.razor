@@ -21,7 +21,7 @@
         @if (EventPalette.IconUrl(p.Type, p.Ultra) is { } iconUrl) {
             <FallbackImg Class="evcal-pop-icon" Src="@iconUrl" Alt=""/>
         }
-        <span class="evcal-pop-big">@NumberFormat.Percent(p.Confidence, 0)</span>
+        <span class="evcal-pop-big">@NumberFormat.Percent(p.Confidence)</span>
     </div>
     <span class="evcal-pop-when">@Absolute(p.PredictedStart) to @Absolute(p.PredictedEnd)</span>
     @if (p.Magnitudes.Count > 1) {
@@ -29,7 +29,7 @@
             @foreach (var odds in p.Magnitudes) {
                 <span class="evcal-pop-choice" @key="odds.Multiplier">
                     <span>@EventMagnitude.Describe(odds.Multiplier)</span>
-                    <span class="evcal-choice-pct" style="@RatioStyle.Var(odds.Probability)">@NumberFormat.Percent(odds.Probability, 0)</span>
+                    <span class="evcal-choice-pct" style="@RatioStyle.Var(odds.Probability)">@NumberFormat.Percent(odds.Probability)</span>
                 </span>
             }
         </div>
@@ -39,7 +39,7 @@
             @foreach (var candidate in popChoices) {
                 <span class="evcal-pop-choice" @key="candidate.Type">
                     <span>@ChoiceLabel(candidate)</span>
-                    <span class="evcal-choice-pct" style="@RatioStyle.Var(candidate.Probability)">@NumberFormat.Percent(candidate.Probability, 0)</span>
+                    <span class="evcal-choice-pct" style="@RatioStyle.Var(candidate.Probability)">@NumberFormat.Percent(candidate.Probability)</span>
                 </span>
             }
         </div>

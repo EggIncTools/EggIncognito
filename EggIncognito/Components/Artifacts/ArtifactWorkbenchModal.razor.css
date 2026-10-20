@@ -14,6 +14,8 @@
 .atb-ico { width: 1.25rem; height: 1.25rem; object-fit: contain; }
 
 .atb-head { display: flex; flex-direction: column; align-items: flex-start; gap: 0.5rem; padding-bottom: 0.75rem; border-bottom: 1px solid var(--color-border); }
+.atb-head-row { display: flex; align-items: center; gap: 0.75rem; }
+.atb-head-ico { flex: none; width: 2.5rem; height: 2.5rem; object-fit: contain; }
 .atb-head-title { margin: 0; font-size: 1.1rem; }
 .atb-desc { margin: 0; font-size: 0.8125rem; color: var(--color-muted); }
 .atb-head ::deep .view-tabs { align-self: stretch; flex-wrap: wrap; }

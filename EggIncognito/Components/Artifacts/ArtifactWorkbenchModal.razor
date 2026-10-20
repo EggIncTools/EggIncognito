@@ -77,7 +77,10 @@
             <div class="atb-body">
             <div class="atb-side">
             <div class="atb-head">
-                <h2 class="atb-head-title">@HeadName(family)</h2>
+                <div class="atb-head-row">
+                    <img class="atb-head-ico" src="@HeadIcon(family)" alt="" loading="lazy"/>
+                    <h2 class="atb-head-title">@HeadName(family)</h2>
+                </div>
                 <ArtifactRecipe Ingredients="@_detailIngredients" Cost="@_detailPrice?.High"/>
                 @if (family.Description.Length > 0) {
                     <p class="atb-desc">@family.Description</p>
@@ -334,6 +337,9 @@
         new(DiagramDirection.Right, "Side branches")
     ];
 
+    string? HeadIcon(ArtifactFamily family) =>
+        CurrentTier(family) is { } tier ? ArtifactTreeBuilder.Icon(family.Name, tier.Level) : ArtifactAssets.TargetIconFor(family.Name);
+
     string HeadName(ArtifactFamily family) =>
         CurrentTier(family) is { } tier ? ArtifactTreeBuilder.DisplayName(family.Name, tier.Level) : EggIcons.Pretty(family.PluralName);
 
@@ -447,10 +453,39 @@
         State.Tier = family.Tiers.Where(t => TierShown(family, t)).Select(t => (int?)t.Level).DefaultIfEmpty(null).Max();
     }
 
+    const int AutoExpandDepth = 2;
+
     async Task RefreshAsync(ArtifactFamily family) {
         await RebuildGraphAsync(family);
+        State.Collapsed = DefaultCollapsed();
         _selectedNodeId = RootId(family);
         await UpdateDetailAsync(family);
+    }
+
+    HashSet<string> DefaultCollapsed() {
+        var collapsed = new HashSet<string>(StringComparer.Ordinal);
+        if (_graph is not { } graph) return collapsed;
+        var children = graph.Edges.ToLookup(e => e.From, e => e.To, StringComparer.Ordinal);
+        var depth = new Dictionary<string, int>(StringComparer.Ordinal);
+        var queue = new Queue<string>();
+        foreach (var root in _roots) {
+            if (depth.TryAdd(root, 0)) queue.Enqueue(root);
+        }
+
+        while (queue.Count > 0) {
+            var id = queue.Dequeue();
+            int d = depth[id];
+            if (d >= AutoExpandDepth) {
+                if (children[id].Any()) collapsed.Add(id);
+                continue;
+            }
+
+            foreach (var child in children[id]) {
+                if (depth.TryAdd(child, d + 1)) queue.Enqueue(child);
+            }
+        }
+
+        return collapsed;
     }
 
     string? RootId(ArtifactFamily family) {

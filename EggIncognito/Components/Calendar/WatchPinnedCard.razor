@@ -58,7 +58,7 @@
                                 </Content>
                             </Tooltip>
                             <span class="watch-date">@Short(f.Start)</span>
-                            <span class="watch-conf" style="@RatioStyle.Var(f.Confidence)">@NumberFormat.Percent(f.Confidence, 0)</span>
+                            <span class="watch-conf" style="@RatioStyle.Var(f.Confidence)">@NumberFormat.Percent(f.Confidence)</span>
                             @if (f.Note is { } note) {
                                 <span class="watch-note-inline">@note</span>
                             }
