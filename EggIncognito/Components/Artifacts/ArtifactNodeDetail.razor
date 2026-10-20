@@ -18,7 +18,7 @@
             <div class="atb-buckets">
                 @foreach (var bucket in row.Buckets) {
                     <Tooltip Text="@BucketHover(bucket.Count, bucket.Share)">
-                        <span class="atb-bucket" style="--p:@bucket.Share.ToString("0.###", CultureInfo.InvariantCulture)"></span>
+                        <span class="atb-bucket" style="@RatioStyle.Var(bucket.Share)"></span>
                     </Tooltip>
                 }
             </div>

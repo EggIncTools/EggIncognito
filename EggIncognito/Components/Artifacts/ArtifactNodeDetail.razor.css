@@ -6,4 +6,4 @@
 
 .atb-fixed { display: grid; place-items: center; min-width: 2rem; height: 2rem; padding: 0 0.5rem; border: 1px solid var(--color-border); border-radius: 1rem; background: var(--color-panel2); font-size: 0.875rem; color: var(--color-fg); }
 .atb-buckets { display: flex; align-items: flex-end; gap: 0.25rem; height: 4rem; }
-.atb-bucket { display: block; width: 0.75rem; height: 4rem; border-radius: 0.125rem; background: var(--color-accent); transform: scaleY(var(--p)); transform-origin: bottom; transition: transform var(--motion-base) var(--ease-standard); }
+.atb-bucket { display: block; width: 0.75rem; height: 4rem; border-radius: 0.125rem; background: var(--color-accent); transform: scaleY(var(--ratio)); transform-origin: bottom; transition: transform var(--motion-base) var(--ease-standard); }
