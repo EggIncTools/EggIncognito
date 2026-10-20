@@ -39,6 +39,9 @@
 .atb-r3, .atb-canvas ::deep .diagram-node.atb-r3 { --atb-rc: var(--color-rarity-3); }
 
 .atb-tree { display: flex; flex-direction: column; gap: 0.5rem; min-width: 0; min-height: 0; }
+.atb-tree-bar { display: flex; align-items: center; gap: 0.5rem; }
+.atb-dock { display: inline-flex; align-items: center; gap: 0.375rem; margin-left: auto; padding: 0.3rem 0.75rem; border: 1px solid var(--color-border); border-radius: 0.375rem; background: var(--color-panel2); color: var(--color-fg); font-size: 0.8125rem; cursor: pointer; transition: background-color var(--motion-fast) var(--ease-standard); }
+.atb-dock:hover { background: var(--color-panel); }
 .atb-tree > .atb-canvas { flex: 1 1 auto; }
 .atb-canvas { display: flex; flex-direction: column; min-height: 20rem; min-width: 0; overflow: auto; border: 1px solid var(--color-border); border-radius: 0.5rem; background: var(--color-bg); }
 .atb-canvas ::deep .diagram { margin: auto; overflow: visible; }
@@ -54,4 +57,5 @@
 .atb-wrap ::deep .atb-admin { min-width: 28rem; min-height: 16rem; resize: both; overflow: hidden; background-color: var(--color-panel); box-shadow: 0 0.75rem 2rem rgb(0 0 0 / 0.35); }
 .atb-admin-head { display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--color-border); background-color: var(--color-panel2); font-size: 0.875rem; font-weight: 600; color: var(--color-fg); }
 .atb-admin-head ::deep .icon-sm { color: var(--color-muted); }
+.atb-admin-hide { margin-left: auto; cursor: pointer; }
 .atb-admin-body { display: flex; flex: 1 1 auto; flex-direction: column; gap: 0.5rem; padding: 0.5rem; min-height: 0; overflow: auto; }

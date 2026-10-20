@@ -1,0 +1,29 @@
+@using System.Globalization
+
+<div class="arc">
+    @if (Ingredients is { Count: > 0 } ingredients) {
+        <div class="arc-items">
+            @foreach (var ingredient in ingredients) {
+                <ArtifactTip Name="@ingredient.Name" Count="@ingredient.Count">
+                    <span class="arc-item">
+                        <img class="arc-ico" src="@ingredient.Icon" alt="@ingredient.Name" loading="lazy"/>
+                        <span class="arc-count mono">@ingredient.Count</span>
+                    </span>
+                </ArtifactTip>
+            }
+        </div>
+    }
+    @if (Cost is { } cost) {
+        <span class="arc-cost mono"><img class="arc-ge" src="@GoldIcon" alt="Golden eggs"/>@cost.ToString("N0", CultureInfo.InvariantCulture)</span>
+    }
+</div>
+
+@code {
+    public sealed record Ingredient(string Icon, string Name, int Count);
+
+    [Parameter] public IReadOnlyList<Ingredient>? Ingredients { get; set; }
+    [Parameter] public double? Cost { get; set; }
+
+    static readonly string? GoldIcon = EggIncognito.Services.Assets.EggIcons.Asset("icon",
+        EggIncognito.Services.Assets.RewardIconMap.Stem(Ei.RewardType.Gold, null)!);
+}

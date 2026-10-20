@@ -1,0 +1,7 @@
+.arc { display: flex; flex-direction: column; align-items: flex-end; gap: 0.5rem; }
+.arc-items { display: flex; gap: 0.75rem; }
+.arc-item { position: relative; display: grid; place-items: center; width: 2.75rem; height: 2.75rem; border: 1px solid var(--color-border); border-radius: 0.375rem; background: var(--color-panel2); }
+.arc-ico { width: 2rem; height: 2rem; object-fit: contain; }
+.arc-count { position: absolute; right: -0.375rem; bottom: -0.375rem; min-width: 1.125rem; padding: 0 0.25rem; border: 1px solid var(--color-border); border-radius: 0.5rem; background: var(--color-panel); font-size: 0.6875rem; text-align: center; }
+.arc-cost { display: inline-flex; align-items: center; gap: 0.375rem; font-size: 1rem; font-weight: 600; color: var(--color-warn); }
+.arc-ge { width: 1.125rem; height: 1.125rem; object-fit: contain; }

@@ -87,6 +87,35 @@ public static class ArtifactTreeBuilder {
         return new DiagramGraph(nodes, edges);
     }
 
+    public static DiagramGraph BuildUsageGraph(IReadOnlyList<ArtifactFamily> all, ArtifactFamily family, ArtifactTier root) {
+        var nodes = new List<DiagramNode>();
+        var edges = new List<DiagramEdge>();
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        var queue = new Queue<(ArtifactFamily Family, ArtifactTier Tier)>();
+        queue.Enqueue((family, root));
+        seen.Add(TierNodeId(family.Name, root.Level));
+
+        while (queue.Count > 0) {
+            var (current, tier) = queue.Dequeue();
+            string tierId = TierNodeId(current.Name, tier.Level);
+            nodes.Add(new DiagramNode(tierId) { Width = TierNodeWidth, Height = TierNodeHeight });
+            var users = all.SelectMany(f => f.Tiers.Select(t => (Family: f, Tier: t,
+                    Count: t.Recipe.Where(i => i.AfxId == current.AfxId && i.Level == tier.Level).Sum(i => i.Count))))
+                .Where(u => u.Count > 0)
+                .OrderByDescending(u => u.Count);
+            foreach (var (userFamily, userTier, count) in users) {
+                string userId = TierNodeId(userFamily.Name, userTier.Level);
+                edges.Add(new DiagramEdge(tierId, userId) {
+                    Weight = count,
+                    Label = count.ToString(CultureInfo.InvariantCulture)
+                });
+                if (seen.Add(userId)) queue.Enqueue((userFamily, userTier));
+            }
+        }
+
+        return new DiagramGraph(nodes, edges);
+    }
+
     public static DiagramGraph BuildCraftingGraph(IReadOnlyList<ArtifactFamily> all, ArtifactFamily family) {
         var byAfxId = all.ToDictionary(f => f.AfxId);
         var nodes = new List<DiagramNode>();

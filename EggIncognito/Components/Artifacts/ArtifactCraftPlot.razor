@@ -6,56 +6,71 @@
 @inject CraftProgressLoader Progress
 
 <div class="acp">
-    @if (Suite.Eids.Count > 0) {
-        <div class="acp-account">
-            <span class="acp-account-label">Load from</span>
-            <EggIdentity.UI.Suite.SuiteEidPicker SetsActive="false" Selected="@_account" SelectedChanged="LoadFromAsync" EmptyLabel="Choose account"/>
-            @if (_loading) {
-                <span class="acp-note">Loading...</span>
-            } else if (_loadNote is { } note) {
-                <span class="acp-note">@note</span>
-            }
-        </div>
-    }
-    <div class="acp-inputs">
+    <div class="acp-bar">
+        @if (Suite.Eids.Count > 0) {
+            <EggIdentity.UI.Suite.SuiteEidPicker Class="acp-picker" SetsActive="false" Selected="@_account" SelectedChanged="LoadFromAsync" EmptyLabel="Load account"/>
+        }
         <label class="acp-field">
-            <span>Crafting level</span>
-            <input type="number" class="form-input mono" min="1" max="@MaxLevel" value="@_level" @onchange="OnLevelInput"/>
+            <span class="acp-field-key">Lv</span>
+            <input type="number" class="acp-input mono" aria-label="Crafting level" min="1" max="@MaxLevel" value="@_level" @onchange="OnLevelInput"/>
         </label>
         <label class="acp-field">
-            <span>Crafted count</span>
-            <input type="number" class="form-input mono" min="0" max="@Price.Domain" value="@_count" @onchange="OnCountInput"/>
+            <span class="acp-field-key">Crafted</span>
+            <input type="number" class="acp-input mono" aria-label="Crafted count" min="0" max="@Domain" value="@_count" @onchange="OnCountInput"/>
         </label>
+        <span class="acp-field">
+            <span class="acp-field-key">Cost</span>
+            <span class="acp-cost mono"><img class="acp-ge" src="@GoldIcon" alt="Golden eggs"/>@PriceAt(_count).ToString("N0", CultureInfo.InvariantCulture)</span>
+        </span>
+        @if (_loading) {
+            <span class="acp-note">Loading...</span>
+        } else if (_loadNote is { } note) {
+            <span class="acp-note">@note</span>
+        }
     </div>
-    <svg class="acp-plot" width="@PlotW" height="@PlotH" viewBox="0 0 @PlotW @PlotH" role="img" aria-label="@Readout">
-        @_cells
-        <line class="acp-axis" x1="@PadL" y1="@(PadT + GridH)" x2="@(PadL + GridW)" y2="@(PadT + GridH)"/>
-        <line class="acp-axis" x1="@PadL" y1="@PadT" x2="@PadL" y2="@(PadT + GridH)"/>
-        <text class="acp-tick" x="@(PadL - 4)" y="@(PadT + 8)" text-anchor="end">@MaxLevel</text>
-        <text class="acp-tick" x="@(PadL - 4)" y="@(PadT + GridH)" text-anchor="end">1</text>
-        <text class="acp-tick" x="@PadL" y="@(PadT + GridH + 12)" text-anchor="start">0</text>
-        <text class="acp-tick" x="@(PadL + GridW)" y="@(PadT + GridH + 12)" text-anchor="end">@Price.Domain.ToString("N0", CultureInfo.InvariantCulture)</text>
-        <line class="acp-guide" x1="@F(PointX)" y1="@PadT" x2="@F(PointX)" y2="@(PadT + GridH)"/>
-        <line class="acp-guide" x1="@PadL" y1="@F(PointY)" x2="@(PadL + GridW)" y2="@F(PointY)"/>
-        <circle class="acp-point" cx="@F(PointX)" cy="@F(PointY)" r="5"/>
-        <text class="acp-label mono" x="@F(LabelX)" y="@F(LabelY)" text-anchor="@LabelAnchor">@Readout</text>
-        <rect class="acp-hit" x="0" y="0" width="@PlotW" height="@PlotH" @onpointerdown="OnDown"/>
-    </svg>
+    <div class="acp-frame">
+        <svg class="acp-plot" width="@PlotW" height="@PlotH" viewBox="0 0 @PlotW @PlotH" role="img" aria-label="@Readout">
+            @_cells
+            <line class="acp-axis" x1="@PadL" y1="@(PadT + GridH)" x2="@(PadL + GridW)" y2="@(PadT + GridH)"/>
+            <line class="acp-axis" x1="@PadL" y1="@PadT" x2="@PadL" y2="@(PadT + GridH)"/>
+            <text class="acp-tick" x="@(PadL - 4)" y="@(PadT + 8)" text-anchor="end">@MaxLevel</text>
+            <text class="acp-tick" x="@(PadL - 4)" y="@(PadT + GridH)" text-anchor="end">1</text>
+            <text class="acp-tick" x="@PadL" y="@(PadT + GridH + 12)" text-anchor="start">0</text>
+            <text class="acp-tick" x="@(PadL + GridW)" y="@(PadT + GridH + 12)" text-anchor="end">@Domain.ToString("N0", CultureInfo.InvariantCulture)</text>
+            @if (Price.Domain > 0 && Price.Domain < Domain) {
+                <g>
+                    <line class="acp-cap" x1="@F(CapX)" y1="@PadT" x2="@F(CapX)" y2="@(PadT + GridH)"/>
+                    <text class="acp-tick" x="@F(CapX)" y="@(PadT + GridH + 12)" text-anchor="middle">@Price.Domain.ToString("N0", CultureInfo.InvariantCulture)</text>
+                    <text class="acp-cap-label" x="@F(CapX - 4)" y="@(PadT + 10)" text-anchor="end">min cost</text>
+                </g>
+            }
+            <line class="acp-guide" x1="@F(PointX)" y1="@PadT" x2="@F(PointX)" y2="@(PadT + GridH)"/>
+            <line class="acp-guide" x1="@PadL" y1="@F(PointY)" x2="@(PadL + GridW)" y2="@F(PointY)"/>
+            <circle class="acp-point" cx="@F(PointX)" cy="@F(PointY)" r="5"/>
+            <text class="acp-label mono" x="@F(LabelX)" y="@F(LabelY)" text-anchor="@LabelAnchor">@Readout</text>
+            <rect class="acp-hit" x="0" y="0" width="@PlotW" height="@PlotH" @onpointerdown="OnDown"/>
+        </svg>
+        @if (Shiny) {
+            <div class="acp-odds-wrap" style="@InsetStyle">
+                <div class="acp-odds" role="img" aria-label="@OddsLabel">
+                    @foreach (int rarity in Rarities) {
+                        <span class="acp-seg acp-bg@(rarity)" style="@SegStyle(Odds(rarity, _level, _count))"></span>
+                    }
+                </div>
+                <div class="acp-keys" style="--n:@Rarities.Count">
+                    @foreach (var (rarity, center, row) in KeyCenters()) {
+                        <span class="acp-key acp-r@(rarity) @(center > 0.5 ? "acp-key-end" : "")" style="@KeyStyle(center, row)">
+                            <span>@RarityLabel(rarity)</span>
+                            <span class="mono">@Pct(Odds(rarity, _level, _count))</span>
+                        </span>
+                    }
+                </div>
+            </div>
+        }
+    </div>
     @if (_dragging) {
         <div class="acp-capture" @onpointermove="OnMove" @onpointerup="OnUp" @onpointercancel="OnUp"></div>
     }
-    <div class="acp-odds" role="img" aria-label="@OddsLabel">
-        @foreach (int rarity in Rarities) {
-            double p = Odds(rarity, _level, _count);
-            <span class="acp-seg acp-bg@(rarity)" style="@SegStyle(p)"></span>
-        }
-    </div>
-    <div class="acp-legend">
-        <span class="acp-key acp-cost"><img class="acp-ge" src="@GoldIcon" alt="Golden eggs"/><span class="mono">@PriceAt(_count).ToString("N0", CultureInfo.InvariantCulture)</span></span>
-        @foreach (int rarity in Rarities) {
-            <span class="acp-key"><span class="acp-dot acp-bg@(rarity)"></span><span class="acp-r@(rarity)">@RarityLabel(rarity)</span> <span class="mono">@Pct(Odds(rarity, _level, _count))</span></span>
-        }
-    </div>
 </div>
 
 @code {
@@ -72,7 +87,7 @@
     const double PadT = 8;
     const double PadR = 8;
     const double PadB = 18;
-    const int Cols = 24;
+    const int Cols = 32;
     const double GridW = PlotW - PadL - PadR;
     const double GridH = PlotH - PadT - PadB;
 
@@ -88,11 +103,14 @@
 
     IReadOnlyList<int> Rarities => _rarities;
     int Top => _rarities[^1];
+    bool Shiny => Top > 0;
+    uint Domain => Math.Max((uint)CraftOdds.CountDomain, Price.Domain);
     int MaxLevel => Math.Max(1, _multipliers.Length);
     double CellW => GridW / Cols;
     double CellH => GridH / MaxLevel;
+    double CapX => PadL + (double)Price.Domain / Domain * GridW;
 
-    double PointX => PadL + (Price.Domain == 0 ? 0 : (double)_count / Price.Domain) * GridW;
+    double PointX => PadL + (double)_count / Domain * GridW;
     double PointY => PadT + (MaxLevel - _level + 0.5) * CellH;
     bool LabelLeft => PointX > PadL + GridW / 2;
     double LabelX => LabelLeft ? PointX - 8 : PointX + 8;
@@ -101,6 +119,9 @@
 
     string Readout => string.Create(CultureInfo.InvariantCulture, $"Lv {_level}, {_count:N0} crafted");
 
+    static string InsetStyle => string.Create(CultureInfo.InvariantCulture,
+        $"margin-left:{PadL / PlotW * 100:0.###}%;margin-right:{PadR / PlotW * 100:0.###}%");
+
     protected override void OnParametersSet() {
         var key = (Catalog, AfxId, AfxLevel, Price);
         if (_built == key) return;
@@ -108,9 +129,9 @@
         _constants = CraftOdds.Constants(Catalog, AfxId, AfxLevel);
         _multipliers = CraftOdds.Multipliers(Catalog);
         _rarities = [0, .. Enumerable.Range(1, 3).Where(r => _constants[r] > 0)];
-        _topMax = Top == 0 ? 0 : Odds(Top, MaxLevel, Price.Domain);
+        _topMax = Top == 0 ? 0 : Odds(Top, MaxLevel, Domain);
         _level = Math.Clamp(_level, 1, MaxLevel);
-        _count = Math.Min(_count, Price.Domain);
+        _count = Math.Min(_count, Domain);
         _cells = BuildCells();
     }
 
@@ -154,10 +175,26 @@
     }
 
     string CellStyle(int level, int col) {
-        uint count = (uint)Math.Round((col + 0.5) / Cols * Price.Domain);
-        double p = _topMax <= 0 ? 0 : Math.Clamp(Odds(Top, level, count) / _topMax, 0, 1);
+        uint count = (uint)Math.Round((col + 0.5) / Cols * Domain);
+        double span = Price.High - Price.Low;
+        double p = Shiny
+            ? _topMax <= 0 ? 0 : Math.Clamp(Odds(Top, level, count) / _topMax, 0, 1)
+            : span <= 0 ? 1 : Math.Clamp((Price.High - PriceAt(count)) / span, 0, 1);
         return string.Create(CultureInfo.InvariantCulture, $"fill:color-mix(in oklab, var(--color-ok) {p * 100:0.#}%, var(--color-err))");
     }
+
+    IEnumerable<(int Rarity, double Center, int Row)> KeyCenters() {
+        double start = 0;
+        int row = 0;
+        foreach (int rarity in Rarities) {
+            double p = Math.Max(0, Odds(rarity, _level, _count));
+            yield return (rarity, start + p / 2, row++);
+            start += p;
+        }
+    }
+
+    static string KeyStyle(double center, int row) =>
+        string.Create(CultureInfo.InvariantCulture, $"--c:{Math.Clamp(center, 0, 1):0.####};--i:{row}");
 
     bool _changed = true;
 
@@ -190,7 +227,7 @@
             }
 
             _level = Math.Clamp(CraftOdds.Level(Catalog, progress.CraftingXp), 1, MaxLevel);
-            _count = Math.Min(progress.Counts.GetValueOrDefault((AfxId, AfxLevel)), Price.Domain);
+            _count = Math.Min(progress.Counts.GetValueOrDefault((AfxId, AfxLevel)), Domain);
             await Suite.UpdateEidSnapshotAsync(account.Eid, progress.Snapshot);
         } finally {
             _loading = false;
@@ -201,7 +238,7 @@
     void SetFrom(double x, double y) {
         double tx = Math.Clamp((x - PadL) / GridW, 0, 1);
         double ty = Math.Clamp((y - PadT) / GridH, 0, 0.9999);
-        uint count = (uint)Math.Round(tx * Price.Domain);
+        uint count = (uint)Math.Round(tx * Domain);
         int level = Math.Clamp(MaxLevel - (int)(ty * MaxLevel), 1, MaxLevel);
         _changed = count != _count || level != _level;
         _count = count;
@@ -235,7 +272,7 @@
     }
 
     void OnCountInput(ChangeEventArgs e) {
-        if (long.TryParse(e.Value?.ToString(), NumberStyles.Integer, CultureInfo.InvariantCulture, out long count)) _count = (uint)Math.Clamp(count, 0, Price.Domain);
+        if (long.TryParse(e.Value?.ToString(), NumberStyles.Integer, CultureInfo.InvariantCulture, out long count)) _count = (uint)Math.Clamp(count, 0, Domain);
     }
 
     static string RarityLabel(int rarity) => EggIncognito.Services.Assets.EggIcons.Pretty(EggIncognito.Services.Artifacts.ArtifactTreeBuilder.RarityName(rarity));

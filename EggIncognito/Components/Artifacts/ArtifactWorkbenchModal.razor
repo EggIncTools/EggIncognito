@@ -39,9 +39,9 @@
                                 <WorkbenchSection Label="@GroupLabel(group)">
                                     @foreach (var family in families) {
                                         <WorkbenchEntry @key="family.Name" Selected="@(State.Family == family.Name)"
-                                                        OnClick="@(_ => SelectFamilyAsync(family))" MetaLine="@CoverageMetaLine(family)">
+                                                        OnClick="@(_ => SelectFamilyAsync(family))" Style="@CoverageStyle(family)">
                                             <Lead><img class="atb-ico" src="@ArtifactTreeBuilder.Icon(family.Name, family.Tiers.Count == 0 ? 0 : family.Tiers.Max(t => t.Level))" alt="" loading="lazy"/></Lead>
-                                            <Name>@EggIcons.Pretty(family.PluralName)</Name>
+                                            <Name>@RailName(family)</Name>
                                         </WorkbenchEntry>
                                     }
                                 </WorkbenchSection>
@@ -66,6 +66,7 @@
                         <h2>@EggIcons.Pretty(family.PluralName)</h2>
                         <span class="atb-head-kind">@family.Kind</span>
                     </div>
+                    <ArtifactRecipe Ingredients="@_detailIngredients" Cost="@_detailPrice?.High"/>
                 </div>
                 @if (family.Description.Length > 0) {
                     <p class="atb-desc">@family.Description</p>
@@ -79,7 +80,7 @@
                         }
                     </div>
                     <div class="atb-tiers">
-                        @foreach (var tier in family.Tiers.Where(t => State.View != ArtifactView.Crafting || ArtifactWorkbenchState.HasRecipe(t))) {
+                        @foreach (var tier in family.Tiers.Where(t => TierShown(family, t))) {
                             var t = tier;
                             IReadOnlyList<int> rarities = State.NeedsRarity ? Rarities(family, t) : [0];
                             <div class="atb-tier-col">
@@ -99,7 +100,7 @@
                     </div>
             </div>
 
-            <ArtifactNodeDetail Ingredients="@_detailIngredients" Price="@_detailPrice" Catalog="@_catalog" Tier="@_detailTier" Row="@_detailRow"/>
+            <ArtifactNodeDetail Price="@_detailPrice" Catalog="@_catalog" Tier="@_detailTier" Row="@_detailRow"/>
             @if (State.View == ArtifactView.ConsumesInto && State.Rarity is { } selRarity && CurrentTier(family) is { } selTier) {
                 <CoverageDrops Family="@family.Name" Level="@ArtifactTreeBuilder.LevelName(selTier.Level)"
                                Rarity="@ArtifactTreeBuilder.RarityName(selRarity)" Version="@_dropsVersion"/>
@@ -107,20 +108,27 @@
             </div>
 
             <div class="atb-tree">
-            <div class="atb-seg" role="radiogroup" aria-label="Layout">
-                <button type="button" role="radio" aria-checked="@(_direction == DiagramDirection.Down ? "true" : "false")"
-                        class="atb-seg-btn @(_direction == DiagramDirection.Down ? "atb-on" : "")"
-                        @onclick="@(() => _direction = DiagramDirection.Down)">Top down</button>
-                <button type="button" role="radio" aria-checked="@(_direction == DiagramDirection.Right ? "true" : "false")"
-                        class="atb-seg-btn @(_direction == DiagramDirection.Right ? "atb-on" : "")"
-                        @onclick="@(() => _direction = DiagramDirection.Right)">Side branches</button>
+            <div class="atb-tree-bar">
+                <div class="atb-seg" role="radiogroup" aria-label="Layout">
+                    <button type="button" role="radio" aria-checked="@(_direction == DiagramDirection.Down ? "true" : "false")"
+                            class="atb-seg-btn @(_direction == DiagramDirection.Down ? "atb-on" : "")"
+                            @onclick="@(() => _direction = DiagramDirection.Down)">Top down</button>
+                    <button type="button" role="radio" aria-checked="@(_direction == DiagramDirection.Right ? "true" : "false")"
+                            class="atb-seg-btn @(_direction == DiagramDirection.Right ? "atb-on" : "")"
+                            @onclick="@(() => _direction = DiagramDirection.Right)">Side branches</button>
+                </div>
+                @if (AdminPanels && _adminDocked) {
+                    <button type="button" class="atb-dock" aria-label="Show crafting panel" @onclick="() => _adminDocked = false">
+                        <Icon Name="panel-top-open" Class="icon-sm"/>Crafting
+                    </button>
+                }
             </div>
             <div class="atb-canvas">
                 @if (_loadingGraph) {
                     <div class="wb-note">Loading...</div>
                 } else if (_graph is null || _graph.Nodes.Count == 0) {
                     <EmptyState Title="Nothing to show" Hint="Pick a tier above."/>
-                } else if (State.View != ArtifactView.Crafting && _graph.Nodes.Count == 1) {
+                } else if (State.NeedsRarity && _graph.Nodes.Count == 1) {
                     <EmptyState Title="No recorded drops" Hint="No consume observations cover this tier and rarity yet."/>
                 } else {
                     <TreeDiagram Graph="@_graph" Roots="@_roots" Direction="@_direction"
@@ -149,9 +157,17 @@
             </div>
 
         }
-        @if (_admin && PanelShelf.Any(Panels, DevicePanelShelves.Artifacts)) {
+        @if (AdminPanels && !_adminDocked) {
             <DragPanel @bind-Placement="_adminPlacement" Label="Crafting" Class="atb-admin">
-                <Handle><span class="atb-admin-head"><Icon Name="grip-vertical" Class="icon-sm"/>Crafting</span></Handle>
+                <Handle>
+                    <span class="atb-admin-head">
+                        <Icon Name="grip-vertical" Class="icon-sm"/>Crafting
+                        <button type="button" class="btn-mini atb-admin-hide" aria-label="Dock crafting panel"
+                                @onpointerdown:stopPropagation="true" @onclick="() => _adminDocked = true">
+                            <Icon Name="minus" Class="icon-sm"/>
+                        </button>
+                    </span>
+                </Handle>
                 <ChildContent>
                     <div class="atb-admin-body">
                         <PanelShelf Shelf="@DevicePanelShelves.Artifacts" Context="ArtifactContext"/>
@@ -174,11 +190,14 @@
     DropSummary? _consumeSummary;
     ConsumeCoverageMap? _coverage;
     ArtifactCatalog? _catalog;
-    IReadOnlyList<ArtifactNodeDetail.Ingredient>? _detailIngredients;
+    IReadOnlyList<ArtifactRecipe.Ingredient>? _detailIngredients;
     ArtifactCraftPlot.PriceCurve? _detailPrice;
     DropRow? _detailRow;
     bool _admin;
     PanelPlacement _adminPlacement = new(24, 96, 640, 560);
+    bool _adminDocked;
+
+    bool AdminPanels => _admin && PanelShelf.Any(Panels, DevicePanelShelves.Artifacts);
     int _coverageReloadPending;
     int _dropsVersion;
 
@@ -264,6 +283,7 @@
     static int? TopTier(ArtifactFamily family) => family.Tiers.Count == 0 ? null : family.Tiers.Max(t => t.Level);
 
     static string ViewLabel(ArtifactView view) => view switch {
+        ArtifactView.CraftsInto => "Crafts into",
         ArtifactView.ConsumesInto => "Consumes into",
         ArtifactView.ComesFrom => "Comes from",
         _ => "Crafting"
@@ -286,9 +306,12 @@
         : RailGroup.Stones;
 
     static string GroupLabel(RailGroup group) => group switch {
-        RailGroup.Fragments => "Stone fragments",
+        RailGroup.Fragments => "Frags",
         _ => group.ToString()
     };
+
+    static string RailName(ArtifactFamily family) =>
+        EggIcons.Pretty(family.PluralName).Replace("Stone Fragments", "Frags", StringComparison.OrdinalIgnoreCase);
 
     List<ArtifactFamily> FilteredFamilies(RailGroup group) {
         var filter = State.RailFilter.Trim();
@@ -338,13 +361,20 @@
 
     static bool ViewAvailable(ArtifactFamily family, ArtifactView view) => view switch {
         ArtifactView.Crafting => ArtifactWorkbenchState.CanCraft(family),
+        ArtifactView.CraftsInto => ArtifactWorkbenchState.IsUsedInCrafts(family),
         ArtifactView.ComesFrom => CanComeFromConsume(family),
         _ => true
     };
 
+    bool TierShown(ArtifactFamily family, ArtifactTier tier) => State.View switch {
+        ArtifactView.Crafting => ArtifactWorkbenchState.HasRecipe(tier),
+        ArtifactView.CraftsInto => ArtifactWorkbenchState.IsUsed(family, tier),
+        _ => true
+    };
+
     void SnapCraftTier(ArtifactFamily family) {
-        if (State.View != ArtifactView.Crafting || CurrentTier(family) is { } tier && ArtifactWorkbenchState.HasRecipe(tier)) return;
-        State.Tier = family.Tiers.Where(ArtifactWorkbenchState.HasRecipe).Select(t => (int?)t.Level).DefaultIfEmpty(null).Max();
+        if (!State.IsRecipeView || CurrentTier(family) is { } tier && TierShown(family, tier)) return;
+        State.Tier = family.Tiers.Where(t => TierShown(family, t)).Select(t => (int?)t.Level).DefaultIfEmpty(null).Max();
     }
 
     async Task RefreshAsync(ArtifactFamily family) {
@@ -355,7 +385,7 @@
 
     string? RootId(ArtifactFamily family) {
         if (CurrentTier(family) is not { } tier) return null;
-        if (State.View == ArtifactView.Crafting) return ArtifactTreeBuilder.TierNodeId(family.Name, tier.Level);
+        if (State.IsRecipeView) return ArtifactTreeBuilder.TierNodeId(family.Name, tier.Level);
         return State.Rarity is { } rarity
             ? ArtifactTreeBuilder.CellNodeId(family.Name, ArtifactTreeBuilder.LevelName(tier.Level), ArtifactTreeBuilder.RarityName(rarity))
             : null;
@@ -363,6 +393,18 @@
 
     async Task RebuildGraphAsync(ArtifactFamily family) {
         _consumeSummary = null;
+        if (State.View == ArtifactView.CraftsInto) {
+            if (CurrentTier(family) is { } used) {
+                _graph = ArtifactTreeBuilder.BuildUsageGraph(ArtifactDefinitions.All, family, used);
+                _roots = [ArtifactTreeBuilder.TierNodeId(family.Name, used.Level)];
+            } else {
+                _graph = null;
+                _roots = [];
+            }
+
+            return;
+        }
+
         if (State.View == ArtifactView.Crafting) {
             if (CurrentTier(family) is { } root) {
                 _graph = ArtifactTreeBuilder.BuildRecipeGraph(ArtifactDefinitions.All, family, root);
@@ -422,7 +464,7 @@
 
         if (ArtifactTreeBuilder.ResolveTierNode(ArtifactDefinitions.All, _selectedNodeId) is { } tierNode) {
             var tier = tierNode.Tier;
-            _detailIngredients = [.. tier.Recipe.Select(ToIngredient).OfType<ArtifactNodeDetail.Ingredient>()];
+            _detailIngredients = [.. tier.Recipe.Select(ToIngredient).OfType<ArtifactRecipe.Ingredient>()];
             await LoadCatalogAsync();
             string levelName = ArtifactTreeBuilder.LevelName(tier.Level);
             string common = ArtifactTreeBuilder.RarityName(0);
@@ -442,16 +484,16 @@
         }
     }
 
-    static ArtifactNodeDetail.Ingredient? ToIngredient(ArtifactIngredient ingredient) {
+    static ArtifactRecipe.Ingredient? ToIngredient(ArtifactIngredient ingredient) {
         var family = ArtifactDefinitions.All.FirstOrDefault(f => f.AfxId == ingredient.AfxId);
         if (family is null) return null;
-        return new ArtifactNodeDetail.Ingredient(ArtifactTreeBuilder.Icon(family.Name, ingredient.Level),
+        return new ArtifactRecipe.Ingredient(ArtifactTreeBuilder.Icon(family.Name, ingredient.Level),
             ArtifactTreeBuilder.DisplayName(family.Name, ingredient.Level), ingredient.Count);
     }
 
     static readonly DiagramStyle SplitStyle = DiagramStyle.Default with { SplitRoot = true };
 
-    bool ShareEdges => State.View != ArtifactView.Crafting && _graph is { } g && ArtifactTreeBuilder.IsShareGraph(g);
+    bool ShareEdges => State.NeedsRarity && _graph is { } g && ArtifactTreeBuilder.IsShareGraph(g);
 
     double MaxShare => _graph is { Edges.Count: > 0 } g ? g.Edges.Max(e => e.Weight ?? 0) : 0;
 
@@ -516,11 +558,9 @@
         }
     }
 
-    RenderFragment? CoverageMetaLine(ArtifactFamily family) {
+    string? CoverageStyle(ArtifactFamily family) {
         var row = _coverage?.Families.FirstOrDefault(f => f.SpecName == family.Name);
-        if (row is null) return null;
-        string text = FormattableString.Invariant($"{row.Validity * 100:0.#}% coverage");
-        return b => b.AddContent(0, text);
+        return row is null ? null : FormattableString.Invariant($"--p:{Math.Clamp(row.Validity, 0, 1):0.###}");
     }
 
     string NodeClass(string nodeId) {

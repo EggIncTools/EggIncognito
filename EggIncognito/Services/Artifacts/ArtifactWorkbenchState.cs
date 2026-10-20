@@ -5,6 +5,7 @@ namespace EggIncognito.Services.Artifacts;
 
 public enum ArtifactView {
     Crafting,
+    CraftsInto,
     ConsumesInto,
     ComesFrom
 }
@@ -22,11 +23,17 @@ public sealed class ArtifactWorkbenchState : WorkbenchStateBase {
     public IReadOnlySet<string> Collapsed { get; set; } = new HashSet<string>(StringComparer.Ordinal);
 
     public bool HasFamily => Family.Length > 0;
-    public bool NeedsRarity => View != ArtifactView.Crafting;
+    public bool NeedsRarity => View is ArtifactView.ConsumesInto or ArtifactView.ComesFrom;
+    public bool IsRecipeView => View is ArtifactView.Crafting or ArtifactView.CraftsInto;
 
     public static bool HasRecipe(ArtifactTier tier) => tier.Recipe.Count > 0;
 
     public static bool CanCraft(ArtifactFamily family) => family.Tiers.Any(HasRecipe);
+
+    public static bool IsUsed(ArtifactFamily family, ArtifactTier tier) =>
+        ArtifactDefinitions.All.Any(f => f.Tiers.Any(t => t.Recipe.Any(i => i.AfxId == family.AfxId && i.Level == tier.Level)));
+
+    public static bool IsUsedInCrafts(ArtifactFamily family) => family.Tiers.Any(t => IsUsed(family, t));
 
     public void SelectFamily(string family, int? tierLevel) {
         Family = family;
@@ -38,12 +45,14 @@ public sealed class ArtifactWorkbenchState : WorkbenchStateBase {
     }
 
     private static string ViewKey(ArtifactView view) => view switch {
+        ArtifactView.CraftsInto => "uses",
         ArtifactView.ConsumesInto => "into",
         ArtifactView.ComesFrom => "from",
         _ => "craft"
     };
 
     private static ArtifactView ParseView(string key) => key switch {
+        "uses" => ArtifactView.CraftsInto,
         "into" => ArtifactView.ConsumesInto,
         "from" => ArtifactView.ComesFrom,
         _ => ArtifactView.Crafting
@@ -81,6 +90,8 @@ public sealed class ArtifactWorkbenchState : WorkbenchStateBase {
 
         View = ParseView(parts[1]);
         if (View == ArtifactView.Crafting && !CanCraft(family)) View = ArtifactView.ConsumesInto;
+        if (View == ArtifactView.CraftsInto && !IsUsedInCrafts(family)) View = ArtifactView.ConsumesInto;
+        if (!NeedsRarity) Rarity = null;
         if (parts.Length < 3 || !int.TryParse(parts[2], out int tierLevel)) return true;
         var tier = family.Tiers.FirstOrDefault(t => t.Level == tierLevel);
         if (tier is null) return true;

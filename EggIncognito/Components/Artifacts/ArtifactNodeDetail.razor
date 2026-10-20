@@ -2,30 +2,8 @@
 @using EggIncognito.Services.Coverage
 
 <div class="atb-detail">
-    @if (Ingredients is { Count: > 0 } ingredients) {
-        <section class="atb-detail-col">
-            <span class="atb-detail-head">Recipe</span>
-            <div class="atb-recipe">
-                @foreach (var ingredient in ingredients) {
-                    <ArtifactTip Name="@ingredient.Name" Count="@ingredient.Count">
-                        <span class="atb-recipe-item">
-                            <img class="atb-recipe-ico" src="@ingredient.Icon" alt="@ingredient.Name" loading="lazy"/>
-                            <span class="atb-recipe-count mono">@ingredient.Count</span>
-                        </span>
-                    </ArtifactTip>
-                }
-            </div>
-        </section>
-    }
-    @if (Price is { } basePrice) {
-        <section class="atb-detail-col">
-            <span class="atb-detail-head">Base cost</span>
-            <span class="atb-base-cost mono"><img class="atb-ge" src="@GoldIcon" alt="Golden eggs"/>@basePrice.High.ToString("N0", CultureInfo.InvariantCulture)</span>
-        </section>
-    }
     @if (Price is { } price && Catalog is { } catalog && Tier is { } tier) {
         <section class="atb-detail-col atb-detail-wide">
-            <span class="atb-detail-head">Craft</span>
             <ArtifactCraftPlot Price="price" Catalog="catalog" AfxId="tier.AfxId" AfxLevel="tier.AfxLevel"/>
         </section>
     }
@@ -49,16 +27,10 @@
 </div>
 
 @code {
-    public sealed record Ingredient(string Icon, string Name, int Count);
-
-    [Parameter] public IReadOnlyList<Ingredient>? Ingredients { get; set; }
     [Parameter] public ArtifactCraftPlot.PriceCurve? Price { get; set; }
     [Parameter] public EggSharp.GameData.IArtifactCatalog? Catalog { get; set; }
     [Parameter] public (int AfxId, int AfxLevel)? Tier { get; set; }
     [Parameter] public DropRow? Row { get; set; }
-
-    static readonly string? GoldIcon = EggIncognito.Services.Assets.EggIcons.Asset("icon",
-        EggIncognito.Services.Assets.RewardIconMap.Stem(Ei.RewardType.Gold, null)!);
 
     static string BucketHover(int count, double share) =>
         string.Create(CultureInfo.InvariantCulture, $"{count} dropped: {share * 100:0.#}% of consumes");
