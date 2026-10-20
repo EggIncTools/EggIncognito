@@ -149,6 +149,7 @@ public static class DataServices {
         builder.Services.AddSingleton<IContractReleases, ContractReleaseLookup>();
         builder.Services.AddScoped<ConsumeCoverageService>();
         builder.Services.AddSingleton<ConsumeCoverageCache>();
+        builder.Services.AddSingleton<EggIncognito.Services.Artifacts.CraftProgressLoader>();
         builder.Services.AddSingleton(ConsumptionReportSource.Sources);
         builder.Services.AddReportSource<ConsumptionDropRow, ConsumptionReportRows>(
             ConsumptionReportSource.Source, ConsumptionReportSource.Snapshot);

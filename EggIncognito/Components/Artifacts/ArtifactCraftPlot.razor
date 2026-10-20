@@ -1,8 +1,22 @@
 @using System.Globalization
 @using EggIncognito.Core.Services.Artifacts
 @using EggSharp.GameData
+@using EggIncognito.Services.Artifacts
+@inject EggIdentity.UI.Suite.SuiteContext Suite
+@inject CraftProgressLoader Progress
 
 <div class="acp">
+    @if (Suite.Eids.Count > 0) {
+        <div class="acp-account">
+            <span class="acp-account-label">Load from</span>
+            <EggIdentity.UI.Suite.SuiteEidPicker SetsActive="false" Selected="@_account" SelectedChanged="LoadFromAsync" EmptyLabel="Choose account"/>
+            @if (_loading) {
+                <span class="acp-note">Loading...</span>
+            } else if (_loadNote is { } note) {
+                <span class="acp-note">@note</span>
+            }
+        </div>
+    }
     <div class="acp-inputs">
         <label class="acp-field">
             <span>Crafting level</span>
@@ -25,12 +39,11 @@
         <line class="acp-guide" x1="@PadL" y1="@F(PointY)" x2="@(PadL + GridW)" y2="@F(PointY)"/>
         <circle class="acp-point" cx="@F(PointX)" cy="@F(PointY)" r="5"/>
         <text class="acp-label mono" x="@F(LabelX)" y="@F(LabelY)" text-anchor="@LabelAnchor">@Readout</text>
-        <rect class="acp-hit" x="0" y="0" width="@PlotW" height="@PlotH"
-              @onpointerdown="OnDown" @onpointermove="OnMove" @onpointerup="OnUp" @onpointerleave="OnUp"/>
+        <rect class="acp-hit" x="0" y="0" width="@PlotW" height="@PlotH" @onpointerdown="OnDown"/>
     </svg>
-    <span class="acp-cost mono">
-        <img class="acp-ge" src="@GoldIcon" alt="Golden eggs"/>@PriceAt(_count).ToString("N0", CultureInfo.InvariantCulture)
-    </span>
+    @if (_dragging) {
+        <div class="acp-capture" @onpointermove="OnMove" @onpointerup="OnUp" @onpointercancel="OnUp"></div>
+    }
     <div class="acp-odds" role="img" aria-label="@OddsLabel">
         @foreach (int rarity in Rarities) {
             double p = Odds(rarity, _level, _count);
@@ -38,6 +51,7 @@
         }
     </div>
     <div class="acp-legend">
+        <span class="acp-key acp-cost"><img class="acp-ge" src="@GoldIcon" alt="Golden eggs"/><span class="mono">@PriceAt(_count).ToString("N0", CultureInfo.InvariantCulture)</span></span>
         @foreach (int rarity in Rarities) {
             <span class="acp-key"><span class="acp-dot acp-bg@(rarity)"></span><span class="acp-r@(rarity)">@RarityLabel(rarity)</span> <span class="mono">@Pct(Odds(rarity, _level, _count))</span></span>
         }
@@ -113,7 +127,7 @@
             int seq = 0;
             foreach (var (x, y, style) in cells) {
                 b.OpenElement(seq, "rect");
-                b.AddAttribute(seq + 1, "class", "acp-cell");
+                b.AddAttribute(seq + 1, "fill-opacity", "0.45");
                 b.AddAttribute(seq + 2, "x", x);
                 b.AddAttribute(seq + 3, "y", y);
                 b.AddAttribute(seq + 4, "width", w);
@@ -142,7 +156,7 @@
     string CellStyle(int level, int col) {
         uint count = (uint)Math.Round((col + 0.5) / Cols * Price.Domain);
         double p = _topMax <= 0 ? 0 : Math.Clamp(Odds(Top, level, count) / _topMax, 0, 1);
-        return string.Create(CultureInfo.InvariantCulture, $"--p:{p:0.###}");
+        return string.Create(CultureInfo.InvariantCulture, $"fill:color-mix(in oklab, var(--color-ok) {p * 100:0.#}%, var(--color-err))");
     }
 
     bool _changed = true;
@@ -153,9 +167,40 @@
         return render;
     }
 
-    void SetFromPointer(PointerEventArgs e) {
-        double tx = Math.Clamp((e.OffsetX - PadL) / GridW, 0, 1);
-        double ty = Math.Clamp((e.OffsetY - PadT) / GridH, 0, 0.9999);
+    double _originX;
+    double _originY;
+    bool _loading;
+    string? _loadNote;
+    ProfileEid? _account;
+
+    protected override async Task OnInitializedAsync() {
+        if (Suite.Eids.Count == 0 && Suite.CanEditEids) await Suite.LoadAsync();
+        _account = Suite.ActiveAccount;
+    }
+
+    async Task LoadFromAsync(ProfileEid account) {
+        _account = account;
+        _loading = true;
+        _loadNote = null;
+        _changed = true;
+        try {
+            if (await Progress.LoadAsync(account.Eid, CancellationToken.None) is not { } progress) {
+                _loadNote = "Backup could not be loaded";
+                return;
+            }
+
+            _level = Math.Clamp(CraftOdds.Level(Catalog, progress.CraftingXp), 1, MaxLevel);
+            _count = Math.Min(progress.Counts.GetValueOrDefault((AfxId, AfxLevel)), Price.Domain);
+            await Suite.UpdateEidSnapshotAsync(account.Eid, progress.Snapshot);
+        } finally {
+            _loading = false;
+            _changed = true;
+        }
+    }
+
+    void SetFrom(double x, double y) {
+        double tx = Math.Clamp((x - PadL) / GridW, 0, 1);
+        double ty = Math.Clamp((y - PadT) / GridH, 0, 0.9999);
         uint count = (uint)Math.Round(tx * Price.Domain);
         int level = Math.Clamp(MaxLevel - (int)(ty * MaxLevel), 1, MaxLevel);
         _changed = count != _count || level != _level;
@@ -164,13 +209,20 @@
     }
 
     void OnDown(PointerEventArgs e) {
+        _originX = e.ClientX - e.OffsetX;
+        _originY = e.ClientY - e.OffsetY;
         _dragging = true;
-        SetFromPointer(e);
+        SetFrom(e.OffsetX, e.OffsetY);
+        _changed = true;
     }
 
     void OnMove(PointerEventArgs e) {
-        if (_dragging && e.Buttons != 0) SetFromPointer(e);
-        else _changed = false;
+        if (e.Buttons == 0) {
+            OnUp();
+            return;
+        }
+
+        SetFrom(e.ClientX - _originX, e.ClientY - _originY);
     }
 
     void OnUp() {

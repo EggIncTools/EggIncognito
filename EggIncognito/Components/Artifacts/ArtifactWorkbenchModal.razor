@@ -97,14 +97,6 @@
                             </div>
                         }
                     </div>
-                    <div class="atb-seg" role="radiogroup" aria-label="Layout">
-                        <button type="button" role="radio" aria-checked="@(_direction == DiagramDirection.Down ? "true" : "false")"
-                                class="atb-seg-btn @(_direction == DiagramDirection.Down ? "atb-on" : "")"
-                                @onclick="@(() => _direction = DiagramDirection.Down)">Top down</button>
-                        <button type="button" role="radio" aria-checked="@(_direction == DiagramDirection.Right ? "true" : "false")"
-                                class="atb-seg-btn @(_direction == DiagramDirection.Right ? "atb-on" : "")"
-                                @onclick="@(() => _direction = DiagramDirection.Right)">Side branches</button>
-                    </div>
             </div>
 
             <ArtifactNodeDetail Ingredients="@_detailIngredients" Price="@_detailPrice" Catalog="@_catalog" Tier="@_detailTier" Row="@_detailRow"/>
@@ -114,6 +106,15 @@
             }
             </div>
 
+            <div class="atb-tree">
+            <div class="atb-seg" role="radiogroup" aria-label="Layout">
+                <button type="button" role="radio" aria-checked="@(_direction == DiagramDirection.Down ? "true" : "false")"
+                        class="atb-seg-btn @(_direction == DiagramDirection.Down ? "atb-on" : "")"
+                        @onclick="@(() => _direction = DiagramDirection.Down)">Top down</button>
+                <button type="button" role="radio" aria-checked="@(_direction == DiagramDirection.Right ? "true" : "false")"
+                        class="atb-seg-btn @(_direction == DiagramDirection.Right ? "atb-on" : "")"
+                        @onclick="@(() => _direction = DiagramDirection.Right)">Side branches</button>
+            </div>
             <div class="atb-canvas">
                 @if (_loadingGraph) {
                     <div class="wb-note">Loading...</div>
@@ -143,6 +144,7 @@
                         </NodeTemplate>
                     </TreeDiagram>
                 }
+            </div>
             </div>
             </div>
 
@@ -176,7 +178,7 @@
     ArtifactCraftPlot.PriceCurve? _detailPrice;
     DropRow? _detailRow;
     bool _admin;
-    PanelPlacement _adminPlacement = new(24, 96, 160, 80);
+    PanelPlacement _adminPlacement = new(24, 96, 640, 560);
     int _coverageReloadPending;
     int _dropsVersion;
 
