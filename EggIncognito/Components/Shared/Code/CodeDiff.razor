@@ -38,10 +38,15 @@
         }
         <div class="code-view cdiff-view">
             @if (Marks() is { Count: > 0 } marks) {
-                <div class="cdiff-map" aria-hidden="true">
-                    <span class="scroll-marker cdiff-viewport" style="@ThumbStyle"></span>
+                <div class="cdiff-map" aria-hidden="true" style="@MapStyle">
+                    @for (var b = 0; b < MapBands; b++) {
+                        var band = b;
+                        <span class="cdiff-band" style="@BandStyle(band)" @onclick="@(() => JumpToBand(band))"></span>
+                    }
+                    <span class="scroll-marker cdiff-viewport"></span>
                     @foreach (var mark in marks) {
-                        <span class="cdiff-mark cdiff-mark-@mark.Kind" style="@($"top:{mark.At}%")"></span>
+                        <span class="cdiff-mark cdiff-mark-@mark.Kind" style="@($"top:{mark.At}%")"
+                              @onclick="@(() => JumpTo(mark.Row))"></span>
                     }
                 </div>
             }
@@ -145,16 +150,38 @@
 
     string? ScrollStyle => string.IsNullOrEmpty(MaxHeight) ? null : $"max-height:{MaxHeight}";
 
-    string ThumbStyle {
+    string MapStyle {
         get {
-            var rows = Mode == CodeDiffMode.Split ? _split.Count : _unified.Count;
-            if (string.IsNullOrEmpty(MaxHeight) || rows == 0) return "--scroll-marker-h:100%";
-            var content = rows * CodeMetrics.RowHeightPx;
-            return FormattableString.Invariant($"--scroll-marker-h:min(100%, calc(100% * ({MaxHeight}) / {content}px))");
+            var content = FormattableString.Invariant($"--cdiff-content:{Math.Max(1, _shown) * CodeMetrics.RowHeightPx}px");
+            return string.IsNullOrEmpty(MaxHeight) ? content : $"{content};--cdiff-view:{MaxHeight}";
         }
     }
 
+    static string BandStyle(int band) => FormattableString.Invariant($"top:{band * 100.0 / MapBands:0.###}%;height:{100.0 / MapBands:0.###}%");
+
+    (CodeDiffMode, object?, string?, object?, string, string?, bool, string, bool, int) _renderKey;
+    bool _dirty = true;
+
+    protected override bool ShouldRender() {
+        if (Tools is not null || Actions is not null || CopyText is not null) return true;
+        if (!_dirty) return false;
+        _dirty = false;
+        return true;
+    }
+
+    void MarkDirty() {
+        var key = (Mode, (object?)Split, Unified, (object?)Structural, LanguageNow, Filter ?? _filter, _wrap, MaxHeight, ShowToolbar, _shown);
+        if (key == _renderKey) return;
+        _renderKey = key;
+        _dirty = true;
+    }
+
     protected override void OnParametersSet() {
+        Prepare();
+        MarkDirty();
+    }
+
+    void Prepare() {
         if (!_wrapSeeded || Wrap != _wrapParam) {
             _wrap = Wrap;
             _wrapParam = Wrap;
@@ -198,6 +225,7 @@
         if (string.IsNullOrEmpty(picked)) return Task.CompletedTask;
         _languageOverride = picked;
         Rebuild();
+        MarkDirty();
         return LanguageChanged.HasDelegate ? LanguageChanged.InvokeAsync(LanguageNow) : Task.CompletedTask;
     }
 
@@ -320,12 +348,14 @@
     Task OnFilterChanged(string value) {
         _filter = value;
         ApplyFilter();
+        MarkDirty();
         return Task.CompletedTask;
     }
 
     Task ToggleWrap() {
         if (WrapLocked) return Task.CompletedTask;
         _wrap = !_wrap;
+        MarkDirty();
         return Task.CompletedTask;
     }
 
@@ -336,6 +366,8 @@
 
     const int MapBuckets = 240;
 
+    const int MapBands = 48;
+
     List<DiffMark> _marks = [];
     int _marksFor = -1;
     ElementReference _scroller;
@@ -345,6 +377,13 @@
         _dom ??= new Dom(JS);
         return _dom.ScrollToAsync(_scroller, row * CodeMetrics.RowHeightPx);
     }
+
+    async Task JumpTo(int row) {
+        await ScrollToRowAsync(Math.Max(0, row - CodeMetrics.JumpLead));
+        if (Mode == CodeDiffMode.Split && row < _split.Count) await RaiseHunk(_split[row]);
+    }
+
+    Task JumpToBand(int band) => ScrollToRowAsync(band * _shown / MapBands);
 
     public ValueTask DisposeAsync() => _dom?.DisposeAsync() ?? ValueTask.CompletedTask;
 
@@ -369,7 +408,8 @@
         for (var i = 0; i < buckets.Length; i++) {
             if (buckets[i] is not { } kind) continue;
             marks.Add(new DiffMark(kind,
-                (i * 100.0 / buckets.Length).ToString("0.###", CultureInfo.InvariantCulture)));
+                (i * 100.0 / buckets.Length).ToString("0.###", CultureInfo.InvariantCulture),
+                (int)((long)i * shown / buckets.Length)));
         }
 
         return marks;
@@ -450,20 +490,14 @@
     RenderFragment SplitRow(SplitLine line) => @<div class="cdiff-row cdiff-@RowClass(line.Row.Kind)" @onclick="@(() => RaiseHunk(line))">
                                                    <span class="cdiff-gutter">@line.Row.LeftNo</span>
                                                    <span class="cdiff-sign">@Glyph(line.Row, true)</span>
-                                                   <span class="cdiff-text">
-                                                       <SpanText Text="@line.Row.Left" Spans="@SideSpans(_left, line.LeftIndex, line.Row.Left, line.Row.LeftInk, "cdiff-ink-rem")"/>
-                                                   </span>
+                                                   <span class="cdiff-text">@SpanText.Plain(line.Row.Left, SideSpans(_left, line.LeftIndex, line.Row.Left, line.Row.LeftInk, "cdiff-ink-rem"))</span>
                                                    <span class="cdiff-gutter">@line.Row.RightNo</span>
                                                    <span class="cdiff-sign">@Glyph(line.Row, false)</span>
-                                                   <span class="cdiff-text">
-                                                       <SpanText Text="@line.Row.Right" Spans="@SideSpans(_right, line.RightIndex, line.Row.Right, line.Row.RightInk, "cdiff-ink-add")"/>
-                                                   </span>
+                                                   <span class="cdiff-text">@SpanText.Plain(line.Row.Right, SideSpans(_right, line.RightIndex, line.Row.Right, line.Row.RightInk, "cdiff-ink-add"))</span>
                                                </div>;
 
     RenderFragment UnifiedRow(UnifiedLine line) => @<div class="cdiff-row cdiff-@line.Kind">
-                                                       <span class="cdiff-text">
-                                                           <SpanText Text="@line.Text" Spans="@UnifiedSpans(line)"/>
-                                                       </span>
+                                                       <span class="cdiff-text">@SpanText.Plain(line.Text, UnifiedSpans(line))</span>
                                                    </div>;
 
 }

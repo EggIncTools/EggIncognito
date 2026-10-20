@@ -4,7 +4,8 @@
 @media (max-width: 48rem) {
   .pwb-rail-reg { flex: none; }
   .pwb-head { position: static; }
-  .pwb-view > ::deep .code-surface, .pwb-view ::deep .code-scroll { max-height: 60vh; }
+  .pwb-gap { display: none; }
+  .pwb-view ::deep .code-scroll { max-height: 60vh; }
 }
 
 .pwb-group { display: flex; flex-direction: column; border: 1px solid var(--color-border); border-radius: 0.375rem; }
@@ -22,27 +23,34 @@
 
 .wb-drawer-tab.pwb-drawer-tab-hot { color: var(--color-accent); border-color: var(--color-accent); }
 
-.pwb-dim-note { font-size: 0.75rem; color: var(--color-muted); }
 .pwb-note-inline { font-size: 0.75rem; color: var(--color-muted); }
 .pwb-ok { color: var(--color-ok); }
 .pwb-warn { color: var(--color-warn); }
 .pwb-err { color: var(--color-err); }
 
 .pwb-head { position: sticky; top: 0; z-index: 20; display: flex; flex-wrap: wrap; align-items: center; gap: 0.375rem; padding: 0.375rem; border: 1px solid var(--color-border); border-radius: 0.25rem 0.25rem 0 0; background-color: var(--color-panel2); }
+.pwb-status + .pwb-head { border-radius: 0; }
+.pwb-gap { flex: 1 1 auto; min-width: 0; }
+.pwb-head ::deep .pwb-filter { width: 9rem; height: 1.75rem; box-sizing: border-box; padding: 0 0.5rem; border: 1px solid var(--color-border); border-radius: 0.25rem; background-color: var(--code-bg); color: var(--color-fg); font-size: 0.75rem; }
+.pwb-head ::deep .pwb-filter:focus { outline: none; border-color: var(--color-accent); }
 .pwb-menu-item { display: flex; align-items: center; gap: 0.375rem; width: 100%; padding: 0.375rem 0.5rem; border: 0; border-radius: 0.25rem; background-color: transparent; font-size: 0.75rem; color: var(--color-fg); text-align: left; text-decoration: none; cursor: pointer; }
 .pwb-menu-item:hover:not(:disabled) { background-color: var(--color-panel); }
 .pwb-menu-item:disabled { opacity: 0.4; cursor: not-allowed; }
-.pwb-hunk { display: inline-flex; align-items: center; gap: 0.25rem; }
-.pwb-hunk-at { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 0.7rem; color: var(--color-muted); }
-.pwb-sum { margin-left: auto; display: inline-flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; font-family: var(--font-mono); font-size: 0.75rem; }
-.pwb-sum-add { color: var(--color-ok); }
-.pwb-sum-rem { color: var(--color-err); }
+
+.pwb-tool { display: inline-flex; align-items: center; justify-content: center; height: 1.75rem; min-width: 1.75rem; box-sizing: border-box; padding: 0 0.5rem; border: 1px solid var(--color-border); border-radius: 0.25rem; background-color: transparent; font-family: var(--font-mono); font-size: 0.6875rem; color: var(--color-muted); cursor: pointer; }
+.pwb-tool:hover { color: var(--color-fg); border-color: var(--color-accent); }
+.pwb-tool.pwb-on { color: var(--color-accent); border-color: var(--color-accent); }
+.pwb-nav { display: inline-flex; align-items: stretch; height: 1.75rem; border: 1px solid var(--color-border); border-radius: 0.25rem; overflow: hidden; }
+.pwb-nav .pwb-tool { height: 100%; border: 0; border-radius: 0; }
+.pwb-nav > * + * { border-left: 1px solid var(--color-border); }
+.pwb-nav .pwb-ctx { min-width: 2.75rem; }
+.pwb-nav .pwb-icon { padding: 0; width: 1.625rem; }
+.pwb-hunk-at { display: inline-flex; align-items: center; padding: 0 0.375rem; font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 0.6875rem; color: var(--color-muted); }
+.pwb-sum { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; font-family: var(--font-mono); font-size: 0.6875rem; }
 .pwb-sum-k { color: var(--color-muted); }
+.pwb-sum-k.pwb-warn { color: var(--color-warn); }
 
 .pwb-view { min-width: 0; }
 .pwb-view > ::deep .code-surface { margin-top: -1px; border-top-left-radius: 0; border-top-right-radius: 0; }
 .pwb-view > ::deep .data-table { margin-top: -1px; }
-.pwb-view > .pwb-note { margin-top: -1px; border-top-left-radius: 0; border-top-right-radius: 0; }
-.pwb-note { padding: 0.5rem 0.75rem; border: 1px solid var(--color-border); border-radius: 0.375rem; background-color: var(--color-panel2); font-size: 0.75rem; color: var(--color-muted); }
-.pwb-note.pwb-note-ok { color: var(--color-ok); border-color: var(--color-ok); }
-.pwb-note.pwb-note-warn { color: var(--color-warn); border-color: color-mix(in oklab, var(--color-warn) 50%, transparent); }
+.pwb-frame { display: grid; place-items: center; min-height: 22.5rem; margin-top: -1px; border: 1px solid var(--color-border); border-radius: 0 0 0.25rem 0.25rem; background-color: var(--code-bg); }

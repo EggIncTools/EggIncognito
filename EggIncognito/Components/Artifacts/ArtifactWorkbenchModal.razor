@@ -49,13 +49,11 @@
                                                     @foreach (var tier in f.Tiers) {
                                                         var t = tier;
                                                         bool on = State.Family == f.Name && State.Tier == t.Level;
-                                                        <ArtifactTip Name="@ArtifactTreeBuilder.DisplayName(f.Name, t.Level)" Rarity="0">
-                                                            <button type="button" class="atb-tier-btn @(on ? "atb-on" : null)"
-                                                                    aria-label="@ArtifactTreeBuilder.DisplayName(f.Name, t.Level)"
-                                                                    @onclick="@(() => PickCellAsync(f, t, State.Rarity ?? 0))">
-                                                                <img class="atb-ico" src="@ArtifactTreeBuilder.Icon(f.Name, t.Level)" alt="" loading="lazy"/>
-                                                            </button>
-                                                        </ArtifactTip>
+                                                        <button type="button" class="atb-tier-btn @(on ? "atb-on" : null)"
+                                                                aria-label="@ArtifactTreeBuilder.DisplayName(f.Name, t.Level)"
+                                                                @onclick="@(() => PickCellAsync(f, t, State.Rarity ?? 0))">
+                                                            <img class="atb-ico" src="@ArtifactTreeBuilder.Icon(f.Name, t.Level)" alt="" loading="lazy"/>
+                                                        </button>
                                                     }
                                                 }
                                             </div>
@@ -119,14 +117,12 @@
                                 </div>
                                 <div class="atb-src-cells">
                                     @foreach (var cell in source.Cells) {
-                                        <ArtifactTip Name="@NodeName(cell.Id)" Rarity="@NodeRarity(cell.Id)">
-                                            <span class="atb-src-cell atb-r@(NodeRarity(cell.Id))">
-                                                @if (NodeIcon(cell.Id) is { } cellIcon) {
-                                                    <img class="atb-ico" src="@cellIcon" alt="" loading="lazy"/>
-                                                }
-                                                <span class="atb-share-label mono" style="@RatioStyle.Var(cell.Ratio)">@cell.Label</span>
-                                            </span>
-                                        </ArtifactTip>
+                                        <span class="atb-src-cell atb-r@(NodeRarity(cell.Id))">
+                                            @if (NodeIcon(cell.Id) is { } cellIcon) {
+                                                <img class="atb-ico" src="@cellIcon" alt="@NodeName(cell.Id)" loading="lazy"/>
+                                            }
+                                            <span class="atb-share-label mono" style="@RatioStyle.Var(cell.Ratio)">@cell.Label</span>
+                                        </span>
                                     }
                                 </div>
                             </div>
@@ -149,14 +145,15 @@
                                  SelectedId="@_selectedNodeId" SelectedIdChanged="OnNodeSelectedAsync"
                                  @bind-Collapsed="State.Collapsed">
                         <NodeTemplate Context="node">
-                            <ArtifactTip Name="@NodeName(node.Node.Id)" Rarity="@NodeRarity(node.Node.Id)">
-                                <span class="atb-node">
-                                    @if (NodeIcon(node.Node.Id) is { } icon) {
-                                        <img class="atb-node-ico" src="@icon" alt="" loading="lazy"/>
-                                    }
-                                    <span class="atb-node-name">@NodeName(node.Node.Id)</span>
-                                </span>
-                            </ArtifactTip>
+                            <span class="atb-node">
+                                @if (NodeIcon(node.Node.Id) is { } icon) {
+                                    <img class="atb-node-ico" src="@icon" alt="" loading="lazy"/>
+                                }
+                                <span class="atb-node-name">@NodeName(node.Node.Id)</span>
+                                @if (NodeCount(node.Node.Id) is { } count) {
+                                    <CompactNumber Value="@count" Class="atb-node-count mono"/>
+                                }
+                            </span>
                         </NodeTemplate>
                     </TreeDiagram>
                 }
@@ -698,6 +695,12 @@
 
         return null;
     }
+
+    double? NodeCount(string nodeId) => nodeId switch {
+        ArtifactTreeBuilder.GoldNodeId => _consumeSummary?.Gold?.Mean,
+        ArtifactTreeBuilder.PiggyNodeId => _consumeSummary?.Piggy?.Mean,
+        _ => null
+    };
 
     static string NodeName(string nodeId) {
         if (nodeId == ArtifactTreeBuilder.GoldNodeId) return "Golden eggs";

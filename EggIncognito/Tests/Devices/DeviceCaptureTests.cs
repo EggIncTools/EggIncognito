@@ -198,7 +198,7 @@ public class DeviceCaptureTests {
         var proxy = new IosProxyConfigurator(new CapturingRunner(_ => new ProcessResult(0, "", "")), cfg);
 
         string set = proxy.BuildSet("192.168.1.5", 9100);
-        Assert.StartsWith("/bin/sh -c '", set);
+        Assert.StartsWith(DeviceShell.IosSh + "'", set);
         Assert.EndsWith("'", set);
         Assert.Equal(2, set.Count(c => c == '\''));
         Assert.Contains("CUR=$(/cores/binpack/usr/bin/plutil -key NetworkServices -key GUID-123 -key Proxies " +
@@ -226,7 +226,7 @@ public class DeviceCaptureTests {
         Assert.True(guardAt < firstWriteAt && lastWriteAt < reloadAt);
 
         string clear = proxy.BuildClear();
-        Assert.StartsWith("/bin/sh -c '", clear);
+        Assert.StartsWith(DeviceShell.IosSh + "'", clear);
         Assert.Contains("grep -qF \"HTTPEnable = 0;\"", clear);
         Assert.Contains("grep -qF \"HTTPSEnable = 0;\"", clear);
         Assert.Contains("echo \"proxy already clear\"; exit 0; fi", clear);

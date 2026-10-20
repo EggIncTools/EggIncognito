@@ -12,7 +12,8 @@
 
 <CalendarWorkbench TItem="ContractCalendarItem" @ref="_cal" Title="Contracts" TitleId="contractsWorkbenchTitle" State="State"
                    Load="LoadRange" Items="Items" DetailTitle="PopTitle" Filtering="Filtering"
-                   AnchorStyle="AnchorStyle" OnWindowChanged="OnWindowChanged">
+                   AnchorStyle="AnchorStyle" OnWindowChanged="OnWindowChanged"
+                   ShowPredictions="_showPredictions" OnTogglePredictions="TogglePredictions">
     <Rail>
         <WorkbenchRail HasFilter="true" Filter="@_search" FilterChanged="SetSearch" FilterLabel="Filter contracts">
             <WorkbenchSection Label="Kinds">
@@ -24,9 +25,6 @@
                                  OnClick="@(() => Toggle(ref _showPe))">PE leggacy</CalendarRailRow>
                 <CalendarRailRow On="_showUltra" DimWhenOff="true" Ultra="true" Style="@UltraRowStyle"
                                  OnClick="@(() => Toggle(ref _showUltra))">Ultra only</CalendarRailRow>
-            </WorkbenchSection>
-            <WorkbenchSection Label="Predictions">
-                <CalendarRailRow On="_showPredictions" OnClick="TogglePredictions">Show predictions</CalendarRailRow>
             </WorkbenchSection>
         </WorkbenchRail>
     </Rail>

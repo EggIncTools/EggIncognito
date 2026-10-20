@@ -82,9 +82,6 @@
                 }
             </aside>
         }
-        <ProtoVersionSlots A="State.A" B="State.B" AItems="ComboItems(null)" BItems="ComboItems(State.A)" OnPickA="OnPickA"
-                           OnPickB="OnPickB" OnSwap="SwapRefs" IsLegacySha="IsLegacySha" SlotClass="SlotClass"
-                           Tier="@TierOf(counterparts, State.B)"/>
         @{
             var selGroup = Selected is { } current
                 ? groups.FirstOrDefault(x => x.Members.Any(m => m.Id == current.Id))
@@ -98,14 +95,6 @@
         }
         <div class="pwb-head">
             <WorkbenchModes Modes="State.Modes" Current="@State.Mode" CurrentChanged="SetMode" Disabled="ModeDisabled"/>
-            <button type="button" class="btn-mini" aria-label="Older version"
-                    disabled="@(StepRef(1) is null)" @onclick="@(() => SetA(StepRef(1)))">
-                <Icon Name="chevron-left" Class="icon-sm"/>
-            </button>
-            <button type="button" class="btn-mini" aria-label="Newer version"
-                    disabled="@(StepRef(-1) is null)" @onclick="@(() => SetA(StepRef(-1)))">
-                <Icon Name="chevron-right" Class="icon-sm"/>
-            </button>
             <ProtoFileMenu Open="@(_menu == "file")" Disabled="@(State.A is null)" OnToggle="@(() => ToggleMenu("file"))"
                            OnClose="CloseMenu" RefA="State.A" RefB="State.B" Bundle="State.Cached" ApiPair="@ApiPair()"
                            DownloadItemTemplate="DownloadItem" OnSaveUnified="@(() => Save(PairName("diff"), State.Cached!.Unified))"
@@ -117,64 +106,81 @@
                               OnVsPrevious="@(() => MenuDo(() => SetB(StepRef(1))))" OnVsLatest="@(() => MenuDo(() => SetB(LatestRef())))"
                               OnVsCounterpart="@(target => MenuDo(() => SetCounterpart(counterparts.FirstOrDefault(l => l.Platform == target))))"
                               OnSwap="@(() => MenuDo(SwapRefs))" OnClearB="@(() => MenuDo(() => SetB(null)))"/>
+            @if (State.A is not null && State.Mode is "text" or "split" or "unified") {
+                <FilterInput Class="pwb-filter" Placeholder="Filter" AriaLabel="Filter lines"
+                             Value="@ViewFilter" ValueChanged="OnLineFilterChanged"/>
+            }
+            <span class="pwb-gap"></span>
             @if (IsDiffMode() && State.Cached is { } sumBundle) {
                 <span class="pwb-sum">
-                    <span class="pwb-sum-add">+@sumBundle.Summary.LinesAdded</span>
-                    <span class="pwb-sum-rem">-@sumBundle.Summary.LinesRemoved</span>
+                    <span class="pwb-ok" title="Lines added">+@sumBundle.Summary.LinesAdded</span>
+                    <span class="pwb-err" title="Lines removed">-@sumBundle.Summary.LinesRemoved</span>
                     @foreach (var part in SummaryParts(sumBundle.Summary)) {
-                        <span class="pwb-sum-k">@part</span>
+                        <span class="pwb-sum-k" title="@part.Title">@part.Text</span>
+                    }
+                    @if (_degraded) {
+                        <span class="pwb-sum-k pwb-warn" title="Too large to diff line by line, each changed region is one block">block</span>
                     }
                 </span>
             }
+            @if (State.Mode is "split" or "unified" && State.Cached is not null) {
+                @LineTools()
+            }
+            @if (State.A is not null && State.Mode is "text" or "split" or "unified") {
+                <button type="button" class="pwb-tool @(_wrap ? "pwb-on" : "")" aria-pressed="@(_wrap ? "true" : "false")"
+                        title="Wrap long lines" @onclick="@(() => _wrap = !_wrap)">
+                    Wrap
+                </button>
+            }
         </div>
+        <ProtoVersionSlots A="State.A" B="State.B" AItems="ComboItems(null)" BItems="ComboItems(State.A)" OnPickA="OnPickA"
+                           OnPickB="OnPickB" OnSwap="SwapRefs" IsLegacySha="IsLegacySha" SlotClass="SlotClass"
+                           CanOlder="@(StepRef(1) is not null)" CanNewer="@(StepRef(-1) is not null)"
+                           OnOlder="@(() => SetA(StepRef(1)))" OnNewer="@(() => SetA(StepRef(-1)))"
+                           Tier="@TierOf(counterparts, State.B)"/>
         <div class="pwb-view" id="pwbView">
             @if (State.A is not { } viewA) {
-                <CodeSurface Text="" AllowEmpty="true" Language="proto" Gutter="CodeGutter.None"
-                             MinHeight="22.5rem" MaxHeight="48vh" ShowToolbar="false"/>
+                <div class="pwb-frame">
+                    <EmptyState Title="No version selected" Hint="Pick A in the rail or the A slot. Shift-click a row to set B."/>
+                </div>
             } else if (State.Mode == "meta") {
                 <ProtoMetaTable LabelA="@RefLabel(State.A)" LabelB="@RefLabel(State.B)" Rows="MetaRows()"/>
-            } else if (State.Mode == "text") {
+            } else if (State.Mode == "text" || State.B is not { } viewB) {
                 @if (!HasTextFor(viewA)) {
-                    <div class="pwb-note">No stored proto text for this version.</div>
+                    <div class="pwb-frame">
+                        <EmptyState Title="No stored proto text" Hint="This version has no proto text in the registry."/>
+                    </div>
                 } else if (TextOf(viewA) is { Length: > 0 } textA) {
-                    <CodeSurface Text="@textA" Language="proto" Gutter="CodeGutter.Numbers" MaxHeight="48vh"
-                                 ShowLanguagePicker="false" Filter="@ViewFilter">
-                        <Tools>@LineFilter()</Tools>
-                    </CodeSurface>
+                    <CodeSurface Text="@textA" Language="proto" Gutter="CodeGutter.Numbers" MaxHeight="@ViewHeight"
+                                 ShowToolbar="false" Wrap="_wrap" Filter="@ViewFilter"/>
                 } else {
-                    <div class="pwb-dim-note">loading...</div>
+                    <div class="pwb-frame" aria-busy="true"></div>
                 }
-            } else if (State.B is not { } viewB) {
-                <div class="pwb-note">Pick a B side in the rail to diff against.</div>
             } else if (!HasTextFor(viewA) || !HasTextFor(viewB)) {
-                <div class="pwb-note">No stored proto text for @(HasTextFor(viewA) ? "B" : "A").</div>
+                <div class="pwb-frame">
+                    <EmptyState Title="No stored proto text" Hint="@($"{(HasTextFor(viewA) ? "B" : "A")} has no proto text in the registry.")"/>
+                </div>
             } else if (Identical()) {
-                <div class="pwb-note pwb-note-ok">A and B are the same proto (matching sha). Nothing to diff.</div>
+                <div class="pwb-frame">
+                    <EmptyState Title="Identical protos" Hint="A and B share a proto sha."/>
+                </div>
             } else if (_diffTooLarge) {
-                <div class="pwb-note pwb-note-warn">Diff too large to render</div>
+                <div class="pwb-frame">
+                    <EmptyState Title="Diff too large to render" Hint="Save the unified diff from the File menu."/>
+                </div>
             } else if (State.Cached is { } bundle) {
-                @if (_degraded) {
-                    <div class="pwb-note pwb-note-warn">These files are too large to diff line by line, so the whole changed region is shown as one block.</div>
-                }
-
                 @if (State.Mode == "split") {
                     <CodeDiff @ref="_splitDiff" Mode="CodeDiffMode.Split" Split="bundle.Split" Language="proto" Filter="@ViewFilter"
-                              MaxHeight="48vh" ShowLanguagePicker="false" OnHunk="OnHunkPicked">
-                        <Tools>@LineFilter()</Tools>
-                        <Actions>@LineTools()</Actions>
-                    </CodeDiff>
+                              MaxHeight="@ViewHeight" ShowToolbar="false" Wrap="_wrap" OnHunk="OnHunkPicked"/>
                 } else if (State.Mode == "unified") {
                     <CodeDiff @ref="_unifiedDiff" Mode="CodeDiffMode.Unified" Unified="@bundle.Unified" Language="proto"
-                              Filter="@ViewFilter" MaxHeight="48vh" ShowLanguagePicker="false">
-                        <Tools>@LineFilter()</Tools>
-                        <Actions>@LineTools()</Actions>
-                    </CodeDiff>
+                              Filter="@ViewFilter" MaxHeight="@ViewHeight" ShowToolbar="false" Wrap="_wrap"/>
                 } else {
                     <CodeDiff Mode="CodeDiffMode.Structured" Structural="bundle.Structural" Language="proto"
-                              EmptyText="No structural differences."/>
+                              MaxHeight="@ViewHeight" EmptyText="No structural differences."/>
                 }
             } else {
-                <div class="pwb-dim-note">comparing...</div>
+                <div class="pwb-frame" aria-busy="true"></div>
             }
         </div>
     </ChildContent>
@@ -209,7 +215,9 @@
     readonly SemaphoreSlim _gate = new(AnalyzeSlots, AnalyzeSlots);
     readonly HashSet<string> _checking = [];
     readonly Dictionary<string, bool> _legacy = [];
+    const string ViewHeight = "62vh";
     bool _degraded;
+    bool _wrap;
     int _context = DefaultContext;
     int _hunk;
     List<int> _unifiedHunks = [];
@@ -301,28 +309,25 @@
         }
     };
 
-    RenderFragment LineFilter() => @<FilterInput Class="code-filter" AriaLabel="Filter lines"
-                                                 Value="@ViewFilter" ValueChanged="OnLineFilterChanged"/>;
-
-    RenderFragment LineTools() => @<text>
-                                       <button type="button" class="btn-mini @(_context == FullContext ? "code-toggle-on" : "")"
+    RenderFragment LineTools() => @<span class="pwb-nav">
+                                       <button type="button" class="pwb-tool pwb-ctx @(_context == FullContext ? "pwb-on" : "")"
+                                               aria-pressed="@(_context == FullContext ? "true" : "false")"
+                                               title="@(_context == FullContext ? "Showing full file, click for 3 lines of context" : "Showing 3 lines of context, click for full file")"
                                                @onclick="ToggleContext">
-                                           @(_context == FullContext ? "all" : "3") ctx
+                                           @(_context == FullContext ? "full" : "±3")
                                        </button>
                                        @if (HunkCount() > 0) {
-                                           <span class="pwb-hunk">
-                                               <button type="button" class="btn-mini" aria-label="Previous hunk"
-                                                       @onclick="@(() => StepHunk(-1))">
-                                                   &uarr;
-                                               </button>
-                                               <span class="pwb-hunk-at">@(_hunk + 1)/@HunkCount()</span>
-                                               <button type="button" class="btn-mini" aria-label="Next hunk"
-                                                       @onclick="@(() => StepHunk(1))">
-                                                   &darr;
-                                               </button>
-                                           </span>
+                                           <button type="button" class="pwb-tool pwb-icon" aria-label="Previous change" title="Previous change"
+                                                   @onclick="@(() => StepHunk(-1))">
+                                               <Icon Name="chevron-up" Class="icon-sm"/>
+                                           </button>
+                                           <span class="pwb-hunk-at" title="Change">@(_hunk + 1)/@HunkCount()</span>
+                                           <button type="button" class="pwb-tool pwb-icon" aria-label="Next change" title="Next change"
+                                                   @onclick="@(() => StepHunk(1))">
+                                               <Icon Name="chevron-down" Class="icon-sm"/>
+                                           </button>
                                        }
-                                   </text>;
+                                   </span>;
 
     RenderFragment DownloadItem(ProtoRef value, string side) => @<text>
                                                                      @if (value.Source == ProtoRefSource.Registry) {
@@ -416,12 +421,9 @@
     }
 
     static string ModeOrDefault(string? mode, ProtoRef? b) {
-        if (mode is { Length: > 0 }
-            && ProtoRefParser.Modes.FirstOrDefault(m => m.Equals(mode, StringComparison.OrdinalIgnoreCase)) is { } known) {
-            return known;
-        }
-
-        return b is null ? "text" : "split";
+        if (b is null) return "text";
+        var known = ProtoRefParser.Modes.FirstOrDefault(m => m.Equals(mode, StringComparison.OrdinalIgnoreCase));
+        return known is null or "text" ? "split" : known;
     }
 
     public void Close() {
@@ -998,7 +1000,7 @@
     async Task SetB(ProtoRef? value) {
         if (SameRef(State.B, value)) return;
         State.B = value;
-        if (value is null) State.Mode = "text";
+        State.Mode = ModeOrDefault(State.Mode, value);
         await AfterSelection();
     }
 
@@ -1152,8 +1154,8 @@
 
     bool ModeDisabled(string mode) {
         if (State.A is not { } a) return true;
-        if (mode == "text") return false;
-        if (State.B is not { } b) return true;
+        if (State.B is not { } b) return mode != "text";
+        if (mode == "text") return true;
         return mode != "meta" && (!HasTextFor(a) || !HasTextFor(b));
     }
 
@@ -1423,17 +1425,33 @@
         return Task.CompletedTask;
     }
 
-    static IReadOnlyList<string> SummaryParts(ProtoDiffSummary s) {
-        var parts = new List<string>();
-        if (s.MessagesAdded > 0) parts.Add($"{s.MessagesAdded} msg added");
-        if (s.MessagesRemoved > 0) parts.Add($"{s.MessagesRemoved} msg removed");
-        if (s.MessagesRenamed > 0) parts.Add($"{s.MessagesRenamed} msg renamed");
-        if (s.MessagesModified > 0) parts.Add($"{s.MessagesModified} msg modified");
-        if (s.FieldsAdded > 0) parts.Add($"{s.FieldsAdded} field added");
-        if (s.FieldsRemoved > 0) parts.Add($"{s.FieldsRemoved} field removed");
-        if (s.FieldsChanged > 0) parts.Add($"{s.FieldsChanged} field changed");
-        if (s.EnumValuesChanged > 0) parts.Add($"{s.EnumValuesChanged} enum value changed");
+    sealed record SummaryPart(string Text, string Title);
+
+    static IReadOnlyList<SummaryPart> SummaryParts(ProtoDiffSummary s) {
+        var parts = new List<SummaryPart>();
+        var msg = Tally(s.MessagesAdded, s.MessagesRemoved, s.MessagesModified + s.MessagesRenamed);
+        if (msg.Length > 0) parts.Add(new SummaryPart($"msg {msg}", Spell("message", s.MessagesAdded, s.MessagesRemoved, s.MessagesModified, s.MessagesRenamed)));
+        var field = Tally(s.FieldsAdded, s.FieldsRemoved, s.FieldsChanged);
+        if (field.Length > 0) parts.Add(new SummaryPart($"fld {field}", Spell("field", s.FieldsAdded, s.FieldsRemoved, s.FieldsChanged, 0)));
+        if (s.EnumValuesChanged > 0) parts.Add(new SummaryPart($"enum ~{s.EnumValuesChanged}", $"{s.EnumValuesChanged} enum values changed"));
         return parts;
+    }
+
+    static string Tally(int added, int removed, int changed) {
+        var bits = new List<string>(3);
+        if (added > 0) bits.Add($"+{added}");
+        if (removed > 0) bits.Add($"-{removed}");
+        if (changed > 0) bits.Add($"~{changed}");
+        return string.Join(' ', bits);
+    }
+
+    static string Spell(string noun, int added, int removed, int changed, int renamed) {
+        var bits = new List<string>(4);
+        if (added > 0) bits.Add($"{added} added");
+        if (removed > 0) bits.Add($"{removed} removed");
+        if (changed > 0) bits.Add($"{changed} modified");
+        if (renamed > 0) bits.Add($"{renamed} renamed");
+        return $"{noun}s: {string.Join(", ", bits)}";
     }
 
     RefMeta MetaOf(ProtoRef? value) {

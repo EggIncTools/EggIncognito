@@ -25,11 +25,9 @@
     <div class="pd-id-row">
         @if (Auth.Enabled || Auth.LocalIdentityActive) {
             <span class="auth-nav">
-                @if (User.Current.IsAuthenticated) {
-                    <AccountModal @ref="_account" ShowTrigger="@(!Auth.Enabled)" OnProfileChanged="LoadProfile"/>
-                    @if (User.Current.IsAtLeast(UserRole.Admin)) {
-                        <button type="button" class="auth-btn" @onclick="@(() => OnOpenAdmin.InvokeAsync())">Admin</button>
-                    }
+                <AccountModal @ref="_account" ShowTrigger="@(!Auth.Enabled && User.Current.IsAuthenticated)" OnProfileChanged="LoadProfile"/>
+                @if (User.Current.IsAtLeast(UserRole.Admin)) {
+                    <button type="button" class="auth-btn" @onclick="@(() => OnOpenAdmin.InvokeAsync())">Admin</button>
                 }
                 @if (Auth.Enabled) {
                     <SuiteAccount Placement="SuitePlacement.Inline" OnOpenProfile="OpenProfile"/>

@@ -9,8 +9,16 @@
 @inject ICurrentUser User
 @inject IServiceProvider Services
 
-<WorkbenchModal Open="_open" Title="@Title" TitleId="@TitleId" Size="WorkbenchSize.Wide" CardClass="@($"calwb-card {CardClass}")" OnClose="Close">
+<WorkbenchModal Open="_open" Title="@Title" TitleId="@TitleId" Size="WorkbenchSize.Wide" CardClass="@CardCss" OnClose="Close">
     <HeadTools>
+        <button type="button" class="icon-btn icon-btn-sm calwb-rail-toggle" aria-label="@(_railOpen ? "Hide filters" : "Show filters")"
+                aria-pressed="@(_railOpen ? "true" : "false")" @onclick="@(() => _railOpen = !_railOpen)">
+            <Icon Name="filter"/>
+        </button>
+        @if (OnTogglePredictions.HasDelegate) {
+            <button type="button" class="@(ShowPredictions ? "calwb-pred calwb-pred-on" : "calwb-pred")"
+                    aria-pressed="@(ShowPredictions ? "true" : "false")" @onclick="@(() => OnTogglePredictions.InvokeAsync())">Predictions</button>
+        }
         <CalendarRangePicker TZoom="CalendarZoom" AvailableZooms="Zooms" Zoom="_zoom" ZoomLabel="ZoomLabel" RangeLabel="@RangeLabel"
                              DateValue="@CenterDate" ZoomChanged="SetZoom" OnPan="Pan" OnToday="Today" DateChanged="JumpToDate"/>
         <span class="evwb-zone">@_zone.Id</span>
@@ -88,7 +96,12 @@
 
     [Parameter] public bool Filtering { get; set; }
 
+    [Parameter] public bool ShowPredictions { get; set; }
+
+    [Parameter] public EventCallback OnTogglePredictions { get; set; }
+
     bool _open;
+    bool _railOpen = true;
     bool _loading;
     string _note = "";
     CalendarZoom _zoom = CalendarZoom.Month;
@@ -247,6 +260,8 @@
         var css = IsPinned(bar) ? "evcal-anchor evcal-anchor-open" : "evcal-anchor";
         return ReferenceEquals(Shown, bar) ? css + " evcal-anchor-shown" : css;
     }
+
+    string CardCss => _railOpen ? $"calwb-card {CardClass}" : $"calwb-card calwb-rail-off {CardClass}";
 
     string PaneCss => _zoom == CalendarZoom.Month ? "evcal-pane evcal-month" : "evcal-pane evcal-week";
 

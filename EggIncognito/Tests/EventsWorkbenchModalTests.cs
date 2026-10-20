@@ -149,10 +149,10 @@ public class EventsWorkbenchModalTests : BunitContext {
 
         var cut = await OpenAsync();
 
-        var groups = cut.FindAll(".evwb-group");
+        var groups = cut.FindAll(".wb-sec").Skip(1).ToList();
         Assert.Equal(2, groups.Count);
-        Assert.Equal(EventPalette.BoostsGroup, groups[0].QuerySelector(".evwb-group-label")?.TextContent);
-        Assert.Equal(EventPalette.SalesGroup, groups[1].QuerySelector(".evwb-group-label")?.TextContent);
+        Assert.Contains(EventPalette.BoostsGroup, groups[0].QuerySelector(".wb-sec-head")?.TextContent);
+        Assert.Contains(EventPalette.SalesGroup, groups[1].QuerySelector(".wb-sec-head")?.TextContent);
         Assert.Contains("Earnings Boost", groups[0].TextContent);
         Assert.Contains("Hab Sale", groups[1].TextContent);
         Assert.DoesNotContain("Hab Sale", groups[0].TextContent);

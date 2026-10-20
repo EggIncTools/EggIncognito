@@ -26,6 +26,8 @@ public static class EventPalette {
         _iconStems = map;
     }
 
+    public static IEnumerable<string> KnownTypes => _iconStems.Keys;
+
     public static string? IconStem(string? eventType) =>
         string.IsNullOrEmpty(eventType) ? null : _iconStems.GetValueOrDefault(eventType.Replace('_', '-'));
 

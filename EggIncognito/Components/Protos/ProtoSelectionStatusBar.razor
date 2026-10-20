@@ -4,34 +4,30 @@
 @inject ICurrentUser User
 
 <div class="pwb-status">
-    <span class="pwb-file">@Sel.FileName</span>
+    <span class="pwb-file" title="@Sel.FileName">@Sel.FileName</span>
     @if (Sel.Status == "error") {
-        <span class="pwb-note-inline pwb-err">@(Sel.Error ?? "failed")</span>
+        <span class="pwb-tag pwb-err" title="@Sel.Error">failed</span>
     } else if (!Sel.IsDone) {
-        <span class="pwb-dim-note">@Sel.Status@(Sel.Step is { Length: > 0 } ? $": {Sel.Step}" : "")...</span>
+        <span class="pwb-tag" aria-busy="true" title="@Sel.Step">@Sel.Status</span>
     } else if (Sel.Result is { } r) {
-        <span class="pwb-mono-note">@(r.Messages.Count) - @Sha12(r.ProtoSha)</span>
+        <span class="pwb-mono-note" title="Messages, proto sha">@(r.Messages.Count) msg @Sha12(r.ProtoSha)</span>
         @if (SelGroup is { Conflict: true }) {
-            <span class="pwb-note-inline pwb-err">conflict</span>
-            <span class="pwb-dim-note">Pick the file to offer in the rail.</span>
+            <span class="pwb-tag pwb-err" title="Pick the file to offer in the rail.">conflict</span>
         } else if (SelGroup?.Status is { Rejected: true }) {
-            <span class="pwb-note-inline pwb-warn">rejected before</span>
-            <span class="pwb-dim-note">A reviewer rejected this proto. Resubmit with more version data to reopen it.</span>
+            <span class="pwb-tag pwb-warn" title="A reviewer rejected this proto. Resubmit with more version data to reopen it.">rejected</span>
         } else if (SelGroup?.Status is { Known: true, ShaDiffers: true }) {
-            <span class="pwb-note-inline pwb-warn">in registry, proto differs</span>
-            <span class="pwb-dim-note">This build is registered with another proto. The archive text replaces it.</span>
+            <span class="pwb-tag pwb-warn" title="This build is registered with another proto. The archive text replaces it.">proto differs</span>
         } else if (SelGroup?.Status is { Known: true, MetaDiffers: true }) {
-            <span class="pwb-note-inline pwb-warn">in registry, version data differs</span>
-            <span class="pwb-dim-note">This build is registered with a different app or client version. The extracted values replace them.</span>
+            <span class="pwb-tag pwb-warn" title="This build is registered with a different app or client version. The extracted values replace them.">version differs</span>
         } else if (SelGroup?.Status is { Archived: true }) {
-            <span class="pwb-note-inline pwb-ok">archive flagged</span>
+            <span class="pwb-tag pwb-ok">archive flagged</span>
         } else if (SelGroup?.Status is { Known: true }) {
-            <span class="pwb-note-inline pwb-ok">in registry</span>
+            <span class="pwb-tag pwb-ok">in registry</span>
         } else if (SelGroup?.Status is { Failed: true }) {
-            <span class="pwb-note-inline pwb-err">check failed</span>
-            <button type="button" class="btn-mini" aria-label="Retry check"
+            <span class="pwb-tag pwb-err">check failed</span>
+            <button type="button" class="btn-mini" aria-label="Retry check" title="Retry check"
                     @onclick="@(() => OnRetryCheck.InvokeAsync())">
-                <Icon Name="refresh-cw" Class="icon-sm"/> Retry
+                <Icon Name="refresh-cw" Class="icon-sm"/>
             </button>
         } else if (SelGroup?.Status is { Pending: true } or { Offered: true }) {
             @if (User.Current.IsAtLeast(UserRole.Contributor)) {
@@ -40,24 +36,19 @@
                     pending review
                 </button>
             } else {
-                <span class="pwb-note-inline pwb-warn">pending review</span>
+                <span class="pwb-tag pwb-warn">pending review</span>
             }
-        } else if (SelGroup?.Status is { Offerable: true }) {
-            @if (SelGroup.Status.InRegistry) {
-                <span class="pwb-note-inline">new build of a known sha</span>
-            }
-            @if (User.Current.IsAuthenticated) {
-                <span class="pwb-note-inline">offerable</span>
-            } else {
-                <span class="pwb-dim-note">Log in to offer this version to the registry.</span>
-            }
+        } else if (SelGroup?.Status is { Offerable: true } offerable) {
+            <span class="pwb-tag" title="@(User.Current.IsAuthenticated ? null : "Log in to offer this version to the registry.")">
+                @(offerable.InRegistry ? "known sha, new build" : "offerable")
+            </span>
         }
 
         @if (SelGroup is { } sg && CanOffer(sg)) {
             <button type="button" class="btn-mini" disabled="@OfferBusy"
                     @onclick="@(() => OnOfferOne.InvokeAsync())">
                 @if (CanFlag(sg)) {
-                    <Icon Name="shield-check" Class="icon-sm"/> <text>@(sg.Status is { ShaDiffers: true } ? "Replace with archive" : sg.Status is { MetaDiffers: true } ? "Correct from archive" : "Flag archive")</text>
+                    <Icon Name="shield-check" Class="icon-sm"/> <text>@(sg.Status is { ShaDiffers: true } ? "Replace" : sg.Status is { MetaDiffers: true } ? "Correct" : "Flag archive")</text>
                 } else {
                     <Icon Name="upload" Class="icon-sm"/> <text>Offer</text>
                 }

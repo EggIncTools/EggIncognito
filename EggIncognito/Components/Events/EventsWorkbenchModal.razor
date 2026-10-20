@@ -11,11 +11,12 @@
 
 <CalendarWorkbench TItem="EventCalendarItem" @ref="_cal" Title="Events" TitleId="eventsWorkbenchTitle" State="State"
                    Load="LoadRange" Items="Items" DetailTitle="PopTitle" Filtering="Filtering"
-                   CardClass="evwb-card" AnchorStyle="AnchorStyle" OnWindowChanged="EnsurePredictions">
+                   CardClass="evwb-card" AnchorStyle="AnchorStyle" OnWindowChanged="EnsurePredictions"
+                   ShowPredictions="_showPredictions" OnTogglePredictions="TogglePredictions">
     <Rail>
-        <EventsFilterRail ShowStandard="_showStandard" ShowUltra="_showUltra" ShowPredictions="_showPredictions"
+        <EventsFilterRail ShowStandard="_showStandard" ShowUltra="_showUltra"
                           TypeGroups="TypeGroups" TypeSelected="TypeSelected" OnSetTier="SetTier" OnToggleType="ToggleType"
-                          OnSelectAllTypes="SelectAllTypes" OnDeselectAllTypes="DeselectAllTypes" OnTogglePredictions="TogglePredictions"/>
+                          OnSelectAllTypes="SelectAllTypes" OnDeselectAllTypes="DeselectAllTypes"/>
     </Rail>
     <Bar>
         <EventsCalendarBar Bar="context" Css="@BarCss(context)" Style="@BarStyle(context)" OnSelect="@(() => _cal?.Select(context))"/>
@@ -55,6 +56,7 @@
     IEnumerable<string> TypesPresent =>
         _events.Values
             .Select(e => e.Type)
+            .Concat(EventPalette.KnownTypes)
             .Where(t => !string.IsNullOrEmpty(t))
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .OrderBy(t => t, StringComparer.Ordinal);

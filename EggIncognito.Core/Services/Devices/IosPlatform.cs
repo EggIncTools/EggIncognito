@@ -248,7 +248,7 @@ public sealed class IosPlatform(
             }
 
             string remote = string.IsNullOrEmpty(config.IosRestartCommand)
-                ? "/bin/sh -c '" +
+                ? DeviceShell.IosSh + "'" +
                   "for p in $(ps ax 2>/dev/null | grep -i egg | grep -v grep | while read pid rest; do echo $pid; done); do kill -9 $p 2>/dev/null; done; sleep 1; " +
                   $"""uiopen --bundleid {bundle} 2>&1 | sed "s/^/diag uiopen: /"; """ +
                   "sleep 3; echo diag ps-after:; " +
@@ -299,7 +299,7 @@ public sealed class IosPlatform(
 
         if (connections.Ios() is not { } conn) return DeviceResult.Unreachable("ios ssh not configured");
         const string remote =
-            "/bin/sh -c 'for p in $(ps ax 2>/dev/null | grep -i egg | grep -v grep | " +
+            DeviceShell.IosSh + "'for p in $(ps ax 2>/dev/null | grep -i egg | grep -v grep | " +
             "while read pid rest; do echo $pid; done); do kill -9 $p 2>/dev/null; done; echo killed'";
         await conn.ShellAsync(remote, ct);
         return DeviceResult.Success("killed");
@@ -327,7 +327,7 @@ public sealed class IosPlatform(
 
     private async Task<(bool Ok, string? Note)> IosSendCmdAsync(string cmd, CancellationToken ct) {
         if (connections.Ios() is not { } conn) return (false, "ios ssh not configured");
-        string remote = $"/bin/sh -c 'printf %s {cmd} > /tmp/ehp.cmd; chmod 666 /tmp/ehp.cmd; echo sent'";
+        string remote = DeviceShell.IosSh + $"'printf %s {cmd} > /tmp/ehp.cmd; chmod 666 /tmp/ehp.cmd; echo sent'";
         var r = await conn.ShellAsync(remote, ct);
         return r.ExitCode == 0
             ? (true, null)

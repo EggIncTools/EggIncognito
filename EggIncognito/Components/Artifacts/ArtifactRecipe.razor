@@ -2,12 +2,10 @@
     @if (Ingredients is { Count: > 0 } ingredients) {
         <div class="arc-items">
             @foreach (var ingredient in ingredients) {
-                <ArtifactTip Name="@ingredient.Name" Count="@ingredient.Count">
-                    <span class="arc-item">
-                        <img class="arc-ico" src="@ingredient.Icon" alt="@ingredient.Name" loading="lazy"/>
-                        <span class="arc-count mono">@ingredient.Count</span>
-                    </span>
-                </ArtifactTip>
+                <span class="arc-item">
+                    <img class="arc-ico" src="@ingredient.Icon" alt="@ingredient.Name" loading="lazy"/>
+                    <span class="arc-count mono">@ingredient.Count</span>
+                </span>
             }
         </div>
     }

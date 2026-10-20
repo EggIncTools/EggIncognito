@@ -4,29 +4,33 @@
 
 <div class="pwb-slots">
     <div class="@SlotClass(A)">
-        <VersionCombo Label="A" Items="AItems" Selected="@A?.Format()"
-                      SelectedChanged="OnPickA"/>
+        <VersionCombo Label="A" Items="AItems" Selected="@A?.Format()" SelectedChanged="OnPickA"/>
+        <span class="pwb-stepper">
+            <button type="button" class="pwb-slot-btn" aria-label="Older version" title="Older version"
+                    disabled="@(!CanOlder)" @onclick="OnOlder">
+                <Icon Name="chevron-left" Class="icon-sm"/>
+            </button>
+            <button type="button" class="pwb-slot-btn" aria-label="Newer version" title="Newer version"
+                    disabled="@(!CanNewer)" @onclick="OnNewer">
+                <Icon Name="chevron-right" Class="icon-sm"/>
+            </button>
+        </span>
         @if (A is { } refA && IsLegacySha(refA)) {
-            <span class="pwb-slot-note pwb-warn">
-                legacy sha
-            </span>
+            <span class="pwb-chip pwb-warn" title="Stored sha predates the canonical form">legacy</span>
         }
     </div>
-    <button type="button" class="pwb-swap" aria-label="Swap A and B"
-            disabled="@(B is null)" @onclick="OnSwap">
-        <Icon Name="arrow-left-right" Class="icon-sm"/>
-    </button>
     <div class="@SlotClass(B)">
-        <VersionCombo Label="B" Items="BItems" Selected="@B?.Format()"
-                      SelectedChanged="OnPickB" AllowClear="true"/>
+        <button type="button" class="pwb-slot-btn" aria-label="Swap A and B" title="Swap A and B"
+                disabled="@(B is null)" @onclick="OnSwap">
+            <Icon Name="arrow-left-right" Class="icon-sm"/>
+        </button>
+        <VersionCombo Label="B" Items="BItems" Selected="@B?.Format()" SelectedChanged="OnPickB" AllowClear="true"/>
         @if (B is { } refB && IsLegacySha(refB)) {
-            <span class="pwb-slot-note pwb-warn">
-                legacy sha
-            </span>
+            <span class="pwb-chip pwb-warn" title="Stored sha predates the canonical form">legacy</span>
         }
         @if (Tier is { } tier) {
-            <span class="pwb-slot-note pwb-tier-note @(tier.Weak ? "pwb-warn" : "")">
-                @tier.Reason
+            <span class="pwb-tier @(tier.Weak ? "pwb-warn" : "")" title="@tier.Reason" aria-label="@tier.Reason">
+                <Icon Name="link" Class="icon-sm"/>
             </span>
         }
     </div>
@@ -47,6 +51,14 @@
     [Parameter] public EventCallback<string?> OnPickB { get; set; }
 
     [Parameter] public EventCallback OnSwap { get; set; }
+
+    [Parameter] public bool CanOlder { get; set; }
+
+    [Parameter] public bool CanNewer { get; set; }
+
+    [Parameter] public EventCallback OnOlder { get; set; }
+
+    [Parameter] public EventCallback OnNewer { get; set; }
 
     [Parameter] public Func<ProtoRef, bool> IsLegacySha { get; set; } = null!;
 

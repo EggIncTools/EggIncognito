@@ -227,7 +227,11 @@
                                              <span class="code-gutter">@GutterLabel(index)</span>
                                          }
                                          <span class="code-line">
-                                             <SpanText Text="@_highlight.LineAt(index)" Spans="@SpansFor(index)" OnSegmentClick="OnRevealClick"/>
+                                             @if (SensitiveValues is { Count: > 0 }) {
+                                                 <SpanText Text="@_highlight.LineAt(index)" Spans="@SpansFor(index)" OnSegmentClick="OnRevealClick"/>
+                                             } else {
+                                                 @SpanText.Plain(_highlight.LineAt(index), SpansFor(index))
+                                             }
                                          </span>
                                      </div>;
 

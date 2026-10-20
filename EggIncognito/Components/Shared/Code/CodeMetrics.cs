@@ -17,8 +17,9 @@ public enum CodeDiffMode {
 public static class CodeMetrics {
     public const float RowHeightPx = 20f;
     public const int VirtualizeAbove = 500;
-    public const int Overscan = 24;
+    public const int Overscan = 80;
     public const int WrapRowCap = 5000;
+    public const int JumpLead = 3;
     public const int MinGutterChars = 2;
 
     public static string GutterWidth(int chars) {

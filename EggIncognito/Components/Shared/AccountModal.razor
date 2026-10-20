@@ -17,7 +17,7 @@
 
 @if (ShowTrigger) {
     <Tooltip Text="Account settings">
-        <button type="button" class="auth-gear" aria-label="Account settings" @onclick="Open">
+        <button type="button" class="auth-gear" aria-label="Account settings" @onclick="Show">
             <Icon Name="settings" Class="icon-sm"/>
         </button>
     </Tooltip>
@@ -152,9 +152,15 @@
         }
     }
 
-    public async Task Open() {
+    Task Show() {
         _open = true;
-        await Suite.LoadAsync();
+        return Suite.LoadAsync();
+    }
+
+    public Task Open() {
+        var load = Show();
+        StateHasChanged();
+        return load;
     }
 
     async Task SyncIdentities() {

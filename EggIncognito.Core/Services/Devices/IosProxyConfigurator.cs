@@ -58,7 +58,7 @@ public sealed class IosProxyConfigurator(IProcessRunner runner, IosProxyConfigur
     private string Script(string[] expected, string unchangedNote, string[] writes, string doneNote) {
         string reload = (ssh.ReloadCommand ?? DefaultReloadCommand).Replace("'", "'\\''");
         string guard = string.Join(" && ", expected.Select(e => $"echo \"$CUR\" | grep -qF \"{e}\""));
-        return "/bin/sh -c '" +
+        return DeviceShell.IosSh + "'" +
                $"CUR=$({Plutil} {ProxiesKey} {Prefs} 2>/dev/null); " +
                $"""if {guard}; then echo "{unchangedNote}"; exit 0; fi; """ +
                string.Join("; ", writes) + "; " +

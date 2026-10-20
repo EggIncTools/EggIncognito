@@ -1,4 +1,5 @@
 @using EggIncognito.Core.Services.Syntax
+@using Microsoft.AspNetCore.Components.Rendering
 @Content
 
 @code {
@@ -8,12 +9,15 @@
     [Parameter] public string ClickClass { get; set; } = TokenClasses.Blur;
     [Parameter] public string? ClickTitle { get; set; } = "Click to reveal";
 
-    RenderFragment Content => builder => {
-        var text = Text ?? "";
+    RenderFragment Content => builder => Emit(builder, Text, Spans, OnSegmentClick.HasDelegate && ClickClass.Length > 0 ? this : null);
+
+    public static RenderFragment Plain(string? text, IReadOnlyList<Span>? spans) => builder => Emit(builder, text, spans, null);
+
+    static void Emit(RenderTreeBuilder builder, string? value, IReadOnlyList<Span>? spans, SpanText? clicks) {
+        var text = value ?? "";
         if (text.Length == 0) return;
-        var segments = TextSpans.Slice(text, Spans);
         var seq = 0;
-        foreach (var seg in segments) {
+        foreach (var seg in TextSpans.Slice(text, spans)) {
             var body = text.Substring(seg.Start, seg.Length);
             if (seg.Class is null) {
                 builder.AddContent(seq++, body);
@@ -27,20 +31,17 @@
                 continue;
             }
 
-            var clickable = OnSegmentClick.HasDelegate
-                            && ClickClass.Length > 0
-                            && seg.Class.Contains(ClickClass, StringComparison.Ordinal);
             builder.OpenElement(seq++, "span");
             builder.AddAttribute(seq++, "class", seg.Class);
-            if (clickable) {
-                builder.AddAttribute(seq++, "title", ClickTitle);
-                builder.AddAttribute(seq++, "onclick", EventCallback.Factory.Create(this, () => OnSegmentClick.InvokeAsync(body)));
+            if (clicks is not null && seg.Class.Contains(clicks.ClickClass, StringComparison.Ordinal)) {
+                builder.AddAttribute(seq++, "title", clicks.ClickTitle);
+                builder.AddAttribute(seq++, "onclick", EventCallback.Factory.Create(clicks, () => clicks.OnSegmentClick.InvokeAsync(body)));
                 builder.AddEventStopPropagationAttribute(seq++, "onclick", true);
             }
 
             builder.AddContent(seq++, body);
             builder.CloseElement();
         }
-    };
+    }
 
 }

@@ -615,9 +615,22 @@ body:has(.modal-backdrop) { overflow: hidden; }
 .pwb-split-toggle:focus-within { outline: 1px solid var(--color-accent); outline-offset: -1px; }
 .pwb-split-flag { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .pwb-split-chev { rotate: calc(var(--pwb-s, 0) * 180deg); transition: rotate var(--motion-morph, 220ms) var(--ease-standard, cubic-bezier(.2, 0, 0, 1)); }
-@media (min-width: 80rem) {
-  .evwb-card .wb-rail { --wb-rail-w: 28rem; }
+.calwb-card .wb-rail { --wb-rail-w: max-content; overflow-y: auto; }
+.calwb-card.calwb-rail-off .wb-rail { display: none; }
+.calwb-rail-toggle[aria-pressed="true"] { color: var(--color-accent); }
+.calwb-pred {
+  flex: none;
+  padding: 0.125rem 0.5rem;
+  border: 1px dashed var(--color-border-strong);
+  border-radius: 9999px;
+  background: transparent;
+  color: var(--color-muted);
+  font: inherit;
+  font-size: 0.6875rem;
+  cursor: pointer;
 }
+.calwb-pred:hover { color: var(--color-fg); }
+.calwb-pred-on { border-color: var(--color-accent); color: var(--color-accent); }
 @media (max-width: 48rem) {
   .wb-card .wb-body { flex-direction: column; overflow-y: auto; }
   .wb-card .wb-rail {

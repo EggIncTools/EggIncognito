@@ -70,6 +70,8 @@ public static class DeviceShell {
     public const string IosToolPath =
         "PATH=/var/jb/usr/bin:/var/jb/bin:/var/jb/usr/sbin:/var/jb/sbin:/cores/binpack/usr/bin:/cores/binpack/bin:$PATH; export PATH; ";
 
+    public const string IosSh = IosToolPath + "sh -c ";
+
     public static string LocateIosApp(string bundleId) =>
         IosToolPath +
         $"app=$(for a in /private/var/containers/Bundle/Application/*/*.app; do " +

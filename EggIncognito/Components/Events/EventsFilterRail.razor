@@ -6,32 +6,16 @@
         <CalendarRailRow On="ShowStandard" OnClick="@(() => OnSetTier.InvokeAsync(false))">Standard</CalendarRailRow>
         <CalendarRailRow On="ShowUltra" Ultra="true" Style="@UltraRowStyle" OnClick="@(() => OnSetTier.InvokeAsync(true))">Ultra</CalendarRailRow>
     </WorkbenchSection>
-    <WorkbenchSection Label="Types">
-        <Tools>
-            <span class="evwb-bulk">
-                <button type="button" class="evwb-bulk-btn" @onclick="@(() => OnSelectAllTypes.InvokeAsync())">All</button>
-                <button type="button" class="evwb-bulk-btn" @onclick="@(() => OnDeselectAllTypes.InvokeAsync())">None</button>
-            </span>
-        </Tools>
-        <ChildContent>
-            <div class="evwb-groups">
-                @foreach (var group in TypeGroups) {
-                    <div class="evwb-group" @key="group.Key">
-                        <div class="evwb-group-label">@group.Key</div>
-                        @foreach (var type in group) {
-                            <CalendarRailRow @key="type" On="TypeSelected(type)" DimWhenOff="true" Style="@TypeRowStyle(type)"
-                                             IconUrl="@EventPalette.IconUrl(type)" OnClick="@(() => OnToggleType.InvokeAsync(type))">
-                                <span>@EggIcons.Pretty(type)</span>
-                            </CalendarRailRow>
-                        }
-                    </div>
-                }
-            </div>
-        </ChildContent>
-    </WorkbenchSection>
-    <WorkbenchSection Label="Predictions">
-        <CalendarRailRow On="ShowPredictions" OnClick="@(() => OnTogglePredictions.InvokeAsync())">Show predictions</CalendarRailRow>
-    </WorkbenchSection>
+    @foreach (var (group, index) in TypeGroups.Select((g, i) => (g, i))) {
+        <WorkbenchSection @key="group.Key" Label="@group.Key" Tools="@(index == 0 ? BulkTools : null)">
+            @foreach (var type in group) {
+                <CalendarRailRow @key="type" On="TypeSelected(type)" DimWhenOff="true" Style="@TypeRowStyle(type)"
+                                 IconUrl="@EventPalette.IconUrl(type)" OnClick="@(() => OnToggleType.InvokeAsync(type))">
+                    <span>@EggIcons.Pretty(type)</span>
+                </CalendarRailRow>
+            }
+        </WorkbenchSection>
+    }
 </WorkbenchRail>
 
 @code {
@@ -40,9 +24,6 @@
 
     [Parameter]
     public bool ShowUltra { get; set; }
-
-    [Parameter]
-    public bool ShowPredictions { get; set; }
 
     [Parameter]
     public IEnumerable<IGrouping<string, string>> TypeGroups { get; set; } = Enumerable.Empty<IGrouping<string, string>>();
@@ -62,8 +43,11 @@
     [Parameter]
     public EventCallback OnDeselectAllTypes { get; set; }
 
-    [Parameter]
-    public EventCallback OnTogglePredictions { get; set; }
+    RenderFragment BulkTools =>
+        @<span class="evwb-bulk">
+            <button type="button" class="evwb-bulk-btn" @onclick="@(() => OnSelectAllTypes.InvokeAsync())">All</button>
+            <button type="button" class="evwb-bulk-btn" @onclick="@(() => OnDeselectAllTypes.InvokeAsync())">None</button>
+        </span>;
 
     static string TypeRowStyle(string type) {
         return FormattableString.Invariant($"--evt-color:{EventPalette.ColorFor(type)};");
