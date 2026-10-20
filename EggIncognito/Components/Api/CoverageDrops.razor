@@ -15,28 +15,30 @@
                     }
                 </span>
             </th>
-            <th class="cdp-fit">Avg</th>
-            <th class="cdp-fit">Chance</th>
-            <th class="cdp-fit">Range</th>
-            <th class="tools">
-                <label class="form-check cdp-toggle" title="Show the full count distribution under each drop">
-                    <input type="checkbox" checked="@_detail" @onchange="e => _detail = e.Value is true"/>detail
-                </label>
-            </th>
+            <th class="cdp-fit">@(Certain ? "Count" : "Avg")</th>
+            @if (!Certain) {
+                <th class="cdp-fit">Chance</th>
+                <th class="cdp-fit">Range</th>
+                <th class="tools">
+                    <label class="form-check cdp-toggle" title="Show the full count distribution under each drop">
+                        <input type="checkbox" checked="@_detail" @onchange="e => _detail = e.Value is true"/>detail
+                    </label>
+                </th>
+            }
         </tr>
         </thead>
         <tbody>
         @if (_summary is null) {
             <tr>
-                <td colspan="5" class="muted"><Icon Name="loader" Class="icon-sm text-muted"/></td>
+                <td colspan="@Columns" class="muted"><Icon Name="loader" Class="icon-sm text-muted"/></td>
             </tr>
         } else if (_summary.Rows.Count == 0 && _summary.Gold is null && _summary.Piggy is null) {
             <tr>
-                <td colspan="5" class="muted">No drops recorded for this cell.</td>
+                <td colspan="@Columns" class="muted">No drops recorded for this cell.</td>
             </tr>
         } else {
             @if (_summary.Gold is { } gold) {
-                <tr @key="@("gold")" class="@(_detail ? "cdp-open" : "")">
+                <tr @key="@("gold")" class="@(ShowDetail ? "cdp-open" : "")">
                     <td>
                         <span class="cdp-drop">
                             <span class="cdp-disc bg-r-0">
@@ -46,22 +48,19 @@
                         </span>
                     </td>
                     <td class="mono cdp-nowrap">@Avg(gold.Mean)</td>
-                    <td class="mono cdp-nowrap">@Pct(gold.Share)</td>
-                    <td class="mono cdp-nowrap">
-                        @if (gold.Min.Equals(gold.Max)) {
-                            @Avg(gold.Min)
-                        } else {
-                            <span>@Avg(gold.Min)<span class="muted"> - </span>@Avg(gold.Max)</span>
-                        }
-                    </td>
-                    <td></td>
+                    @if (!Certain) {
+                        <td class="mono cdp-nowrap">@Pct(gold.Share)</td>
+                        <td class="mono cdp-nowrap">
+                            @if (gold.Min.Equals(gold.Max)) {
+                                @Avg(gold.Min)
+                            } else {
+                                <span>@Avg(gold.Min)<span class="muted"> - </span>@Avg(gold.Max)</span>
+                            }
+                        </td>
+                        <td></td>
+                    }
                 </tr>
-                @if (_detail) {
-                    @if (gold.Buckets.Count == 1) {
-                        <tr @key="@("gold|fixed")">
-                            <td colspan="5" class="cdp-fixed">Always @Avg(gold.Buckets[0].Amount) golden eggs</td>
-                        </tr>
-                    } else {
+                @if (ShowDetail && gold.Buckets.Count > 1) {
                         <CoverageDistributionBar TBucket="GoldBucket" @key="@("gold|bar")" Buckets="gold.Buckets" Total="_summary.Observations" Share="b => b.Share" Observations="b => b.Observations">
                             <SegmentText Context="b">
                                 <span class="mono cdp-seg-text">@Avg(b.Amount)</span>
@@ -70,11 +69,10 @@
                                 <span class="tt-title">@Avg(b.Amount) golden eggs</span>
                             </Title>
                         </CoverageDistributionBar>
-                    }
                 }
             }
             @if (_summary.Piggy is { } piggy) {
-                <tr @key="@("piggy")" class="@(_detail ? "cdp-open" : "")">
+                <tr @key="@("piggy")" class="@(ShowDetail ? "cdp-open" : "")">
                     <td>
                         <span class="cdp-drop">
                             <span class="cdp-disc bg-r-0">
@@ -84,35 +82,31 @@
                         </span>
                     </td>
                     <td class="mono cdp-nowrap">@Avg(piggy.Mean)</td>
-                    <td class="mono cdp-nowrap">@Pct(piggy.Share)</td>
-                    <td class="mono cdp-nowrap">
-                        @if (piggy.Min.Equals(piggy.Max)) {
-                            @Avg(piggy.Min)
-                        } else {
-                            <span>@Avg(piggy.Min)<span class="muted"> - </span>@Avg(piggy.Max)</span>
-                        }
-                    </td>
-                    <td></td>
-                </tr>
-                @if (_detail) {
-                    @if (piggy.Buckets.Count == 1) {
-                        <tr @key="@("piggy|fixed")">
-                            <td colspan="5" class="cdp-fixed">Always @Avg(piggy.Buckets[0].Amount) piggy fill</td>
-                        </tr>
-                    } else {
-                        <CoverageDistributionBar TBucket="GoldBucket" @key="@("piggy|bar")" Buckets="piggy.Buckets" Total="_summary.Observations" Share="b => b.Share" Observations="b => b.Observations">
-                            <SegmentText Context="b">
-                                <span class="mono cdp-seg-text">@Avg(b.Amount)</span>
-                            </SegmentText>
-                            <Title Context="b">
-                                <span class="tt-title">@Avg(b.Amount) piggy fill</span>
-                            </Title>
-                        </CoverageDistributionBar>
+                    @if (!Certain) {
+                        <td class="mono cdp-nowrap">@Pct(piggy.Share)</td>
+                        <td class="mono cdp-nowrap">
+                            @if (piggy.Min.Equals(piggy.Max)) {
+                                @Avg(piggy.Min)
+                            } else {
+                                <span>@Avg(piggy.Min)<span class="muted"> - </span>@Avg(piggy.Max)</span>
+                            }
+                        </td>
+                        <td></td>
                     }
+                </tr>
+                @if (ShowDetail && piggy.Buckets.Count > 1) {
+                    <CoverageDistributionBar TBucket="GoldBucket" @key="@("piggy|bar")" Buckets="piggy.Buckets" Total="_summary.Observations" Share="b => b.Share" Observations="b => b.Observations">
+                        <SegmentText Context="b">
+                            <span class="mono cdp-seg-text">@Avg(b.Amount)</span>
+                        </SegmentText>
+                        <Title Context="b">
+                            <span class="tt-title">@Avg(b.Amount) piggy fill</span>
+                        </Title>
+                    </CoverageDistributionBar>
                 }
             }
             @foreach (var row in _summary.Rows) {
-                <tr @key="Key(row)" class="@(_detail ? "cdp-open" : "")">
+                <tr @key="Key(row)" class="@(ShowDetail ? "cdp-open" : "")">
                     <td>
                         <span class="cdp-drop">
                             <span class="cdp-disc bg-r-@RarityIndex(row.Rarity)">
@@ -122,31 +116,27 @@
                         </span>
                     </td>
                     <td class="mono cdp-nowrap">@Avg(row.Mean)</td>
-                    <td class="mono cdp-nowrap">@Pct(row.Share)</td>
-                    <td class="mono cdp-nowrap">
-                        @if (row.Min == row.Max) {
-                            @row.Min
-                        } else {
-                            <span>@row.Min<span class="muted"> - </span>@row.Max</span>
-                        }
-                    </td>
-                    <td></td>
-                </tr>
-                @if (_detail) {
-                    @if (row.Buckets.Count == 1) {
-                        <tr @key="@(Key(row) + "|fixed")">
-                            <td colspan="5" class="cdp-fixed">Always @row.Buckets[0].Count @(row.Buckets[0].Count == 1 ? "drop" : "drops")</td>
-                        </tr>
-                    } else {
-                        <CoverageDistributionBar TBucket="DropBucket" @key="@(Key(row) + "|bar")" Buckets="row.Buckets" Total="_summary.Observations" Share="b => b.Share" Observations="b => b.Observations">
-                            <SegmentText Context="b">
-                                <span class="mono cdp-seg-text">@b.Count</span>
-                            </SegmentText>
-                            <Title Context="b">
-                                <span class="tt-title">@b.Count @(b.Count == 1 ? "drop" : "drops")</span>
-                            </Title>
-                        </CoverageDistributionBar>
+                    @if (!Certain) {
+                        <td class="mono cdp-nowrap">@Pct(row.Share)</td>
+                        <td class="mono cdp-nowrap">
+                            @if (row.Min == row.Max) {
+                                @row.Min
+                            } else {
+                                <span>@row.Min<span class="muted"> - </span>@row.Max</span>
+                            }
+                        </td>
+                        <td></td>
                     }
+                </tr>
+                @if (ShowDetail && row.Buckets.Count > 1) {
+                    <CoverageDistributionBar TBucket="DropBucket" @key="@(Key(row) + "|bar")" Buckets="row.Buckets" Total="_summary.Observations" Share="b => b.Share" Observations="b => b.Observations">
+                        <SegmentText Context="b">
+                            <span class="mono cdp-seg-text">@b.Count</span>
+                        </SegmentText>
+                        <Title Context="b">
+                            <span class="tt-title">@b.Count @(b.Count == 1 ? "drop" : "drops")</span>
+                        </Title>
+                    </CoverageDistributionBar>
                 }
             }
         }
@@ -171,6 +161,15 @@
 
     bool _detail;
     DropSummary? _summary;
+
+    bool Certain => _summary is { } s
+                    && (s.Gold is null || s.Gold.Share >= 1)
+                    && (s.Piggy is null || s.Piggy.Share >= 1)
+                    && s.Rows.All(r => r.Share >= 1);
+
+    bool ShowDetail => _detail && !Certain;
+
+    int Columns => Certain ? 2 : 5;
     string? _loadedKey;
 
     protected override async Task OnParametersSetAsync() {

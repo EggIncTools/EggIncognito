@@ -3,9 +3,11 @@
 @using System.Text.Json
 @using EggIdentity.Diagrams
 @using EggIdentity.UI.Diagrams
+@using EggIncognito.Core.Services.Devices
 @using EggIncognito.Data.Services
 @using EggIncognito.Models.Coverage
 @using EggIncognito.Services.Artifacts
+@using EggIncognito.Components.Api
 @using EggIncognito.Services.Assets
 @using EggIncognito.Services.Coverage
 @using EggIncognito.Services.DataApi
@@ -18,6 +20,9 @@
 @inject IServiceScopeFactory Scopes
 @inject NavigationManager Nav
 @inject IJSRuntime JS
+@inject ICurrentUser User
+@inject IEnumerable<IDevicePanel> Panels
+@inject IEnumerable<ICoverageInventory> Inventories
 @inject ILogger<ArtifactWorkbenchModal> Logger
 
 <WorkbenchModal Open="_open" Title="@("Artifacts")" TitleId="artifactsWorkbenchTitle" Size="WorkbenchSize.Wide"
@@ -48,6 +53,7 @@
         </WorkbenchRail>
     </Rail>
     <ChildContent>
+        <div class="atb-wrap" @onpointermove="OnAdminDragMove" @onpointerup="OnAdminDragEnd" @onpointerleave="OnAdminDragEnd">
         @if (CurrentFamily() is not { } family) {
             <EmptyState Title="Pick a family" Hint="Choose an artifact, stone or ingredient from the rail."/>
         } else {
@@ -60,13 +66,12 @@
                         <h2>@EggIcons.Pretty(family.PluralName)</h2>
                         <span class="atb-head-kind">@family.Kind</span>
                     </div>
-                    <button type="button" class="atb-explore" @onclick="OpenInDataAsync">Explore in Data</button>
                 </div>
                 @if (family.Description.Length > 0) {
                     <p class="atb-desc">@family.Description</p>
                 }
                 <div class="atb-seg" role="tablist" aria-label="View">
-                    @foreach (var view in Enum.GetValues<ArtifactView>().Where(v => v != ArtifactView.ComesFrom || CanComeFromConsume(family))) {
+                    @foreach (var view in Enum.GetValues<ArtifactView>().Where(v => ViewAvailable(family, v))) {
                             var v = view;
                             <button type="button" role="tab" aria-selected="@(State.View == v ? "true" : "false")"
                                     class="atb-seg-btn @(State.View == v ? "atb-on" : "")"
@@ -74,7 +79,7 @@
                         }
                     </div>
                     <div class="atb-tiers">
-                        @foreach (var tier in family.Tiers) {
+                        @foreach (var tier in family.Tiers.Where(t => State.View != ArtifactView.Crafting || ArtifactWorkbenchState.HasRecipe(t))) {
                             var t = tier;
                             IReadOnlyList<int> rarities = State.NeedsRarity ? Rarities(family, t) : [0];
                             <div class="atb-tier-col">
@@ -82,12 +87,12 @@
                                     int rarity = r;
                                     string rarityName = ArtifactTreeBuilder.RarityName(rarity);
                                     bool on = State.Tier == t.Level && (!State.NeedsRarity || State.Rarity == rarity);
-                                    <Tooltip Text="@Hover(family.Name, t.Level, rarity)">
+                                    <ArtifactTip Name="@ArtifactTreeBuilder.DisplayName(family.Name, t.Level)" Rarity="@(State.NeedsRarity ? rarity : 0)">
                                         <button type="button" class="atb-tier-btn atb-r@(State.NeedsRarity ? rarity : 0) @(on ? "atb-on" : "")"
-                                                aria-label="@Hover(family.Name, t.Level, rarity)" @onclick="@(() => PickCellAsync(family, t, rarity))">
+                                                aria-label="@ArtifactTreeBuilder.DisplayName(family.Name, t.Level)" @onclick="@(() => PickCellAsync(family, t, rarity))">
                                             <img class="atb-ico" src="@ArtifactTreeBuilder.Icon(family.Name, t.Level)" alt="" loading="lazy"/>
                                         </button>
-                                    </Tooltip>
+                                    </ArtifactTip>
                                 }
                             </div>
                         }
@@ -102,7 +107,11 @@
                     </div>
             </div>
 
-            <ArtifactNodeDetail Ingredients="@_detailIngredients" Price="@_detailPrice" Row="@_detailRow"/>
+            <ArtifactNodeDetail Ingredients="@_detailIngredients" Price="@_detailPrice" RarityMults="@RarityMults" Row="@_detailRow"/>
+            @if (State.View == ArtifactView.ConsumesInto && State.Rarity is { } selRarity && CurrentTier(family) is { } selTier) {
+                <CoverageDrops Family="@family.Name" Level="@ArtifactTreeBuilder.LevelName(selTier.Level)"
+                               Rarity="@ArtifactTreeBuilder.RarityName(selRarity)" Version="@_dropsVersion"/>
+            }
             </div>
 
             <div class="atb-canvas">
@@ -114,19 +123,23 @@
                     <EmptyState Title="No recorded drops" Hint="No consume observations cover this tier and rarity yet."/>
                 } else {
                     <TreeDiagram Graph="@_graph" Roots="@_roots" Direction="@_direction"
+                                 ShowTools="false" Style="SplitStyle"
                                  AriaLabel="@(n => NodeName(n.Id))"
                                  NodeClass="@(n => NodeClass(n.Node.Id))"
+                                 EdgeClass="@(e => ShareEdges ? "atb-share" : null)"
+                                 EdgeStyle="@(ShareEdges ? EdgeStyle : null)"
+                                 EdgeLabelTemplate="@(ShareEdges ? ShareLabel : null)"
                                  SelectedId="@_selectedNodeId" SelectedIdChanged="OnNodeSelectedAsync"
                                  @bind-Collapsed="State.Collapsed">
                         <NodeTemplate Context="node">
-                            <Tooltip Text="@NodeHover(node.Node.Id)">
+                            <ArtifactTip Name="@NodeName(node.Node.Id)" Rarity="@NodeRarity(node.Node.Id)">
                                 <span class="atb-node">
                                     @if (NodeIcon(node.Node.Id) is { } icon) {
                                         <img class="atb-node-ico" src="@icon" alt="" loading="lazy"/>
                                     }
                                     <span class="atb-node-name">@NodeName(node.Node.Id)</span>
                                 </span>
-                            </Tooltip>
+                            </ArtifactTip>
                         </NodeTemplate>
                     </TreeDiagram>
                 }
@@ -134,6 +147,22 @@
             </div>
 
         }
+        @if (_admin && PanelShelf.Any(Panels, DevicePanelShelves.Artifacts)) {
+            <div class="atb-admin @(_adminCollapsed ? "atb-admin-collapsed" : "")" style="@AdminStyle">
+                <div class="atb-admin-head" @onpointerdown="OnAdminDragStart">
+                    <span class="atb-admin-title">Admin</span>
+                    <button type="button" class="btn-mini" @onclick="@(() => _adminCollapsed = !_adminCollapsed)">
+                        <Icon Name="@(_adminCollapsed ? "chevron-down" : "chevron-up")" Class="icon-sm"/>
+                    </button>
+                </div>
+                @if (!_adminCollapsed) {
+                    <div class="atb-admin-body">
+                        <PanelShelf Shelf="@DevicePanelShelves.Artifacts" Context="ArtifactContext"/>
+                    </div>
+                }
+            </div>
+        }
+        </div>
     </ChildContent>
 </WorkbenchModal>
 
@@ -149,8 +178,79 @@
     ConsumeCoverageMap? _coverage;
     ArtifactCatalog? _catalog;
     IReadOnlyList<ArtifactNodeDetail.Ingredient>? _detailIngredients;
-    ArtifactNodeDetail.PriceCurve? _detailPrice;
+    ArtifactCraftPlot.PriceCurve? _detailPrice;
     DropRow? _detailRow;
+    bool _admin;
+    bool _adminCollapsed;
+    double _adminX = 16;
+    double _adminY = 16;
+    bool _adminDragging;
+    double _adminDragStartX;
+    double _adminDragStartY;
+    double _adminDragOriginX;
+    double _adminDragOriginY;
+    int _coverageReloadPending;
+    int _dropsVersion;
+
+    IReadOnlyList<double> RarityMults => _catalog is { } c ? [.. c.CraftingLevels.OrderBy(l => l.Level).Select(l => l.RarityMult)] : [];
+
+    string AdminStyle => FormattableString.Invariant($"--x:{_adminX}px;--y:{_adminY}px;");
+
+    ArtifactPanelContext ArtifactContext {
+        get {
+            var family = CurrentFamily();
+            string? levelName = family is not null && CurrentTier(family) is { } tier ? ArtifactTreeBuilder.LevelName(tier.Level) : null;
+            string? rarityName = State.Rarity is { } rarity ? ArtifactTreeBuilder.RarityName(rarity) : null;
+            int suggestedBatch = levelName is not null && rarityName is not null
+                && _coverage?.Families.FirstOrDefault(f => f.SpecName == State.Family)?.Tiers
+                    .FirstOrDefault(t => t.Level == levelName)?.Cells.FirstOrDefault(c => c.Rarity == rarityName) is { } cell
+                ? cell.SuggestedBatch
+                : 0;
+            return new ArtifactPanelContext(State.Family, levelName, rarityName, suggestedBatch);
+        }
+    }
+
+    protected override void OnInitialized() {
+        _admin = User.Current.IsAtLeast(UserRole.Admin);
+        if (_admin) {
+            foreach (var inv in Inventories) inv.Changed += OnInventoryChanged;
+        }
+    }
+
+    void OnInventoryChanged() {
+        if (Interlocked.Exchange(ref _coverageReloadPending, 1) == 1) return;
+        _ = InvokeAsync(async () => {
+            try {
+                await Task.Delay(750);
+                _coverage = null;
+                await LoadCoverageAsync();
+                _dropsVersion++;
+                if (CurrentFamily() is { } family) await RefreshAsync(family);
+            } finally {
+                Interlocked.Exchange(ref _coverageReloadPending, 0);
+            }
+
+            StateHasChanged();
+        });
+    }
+
+    void OnAdminDragStart(PointerEventArgs e) {
+        _adminDragging = true;
+        _adminDragStartX = e.ClientX;
+        _adminDragStartY = e.ClientY;
+        _adminDragOriginX = _adminX;
+        _adminDragOriginY = _adminY;
+    }
+
+    void OnAdminDragMove(PointerEventArgs e) {
+        if (!_adminDragging) return;
+        _adminX = Math.Max(0, _adminDragOriginX + (e.ClientX - _adminDragStartX));
+        _adminY = Math.Max(0, _adminDragOriginY + (e.ClientY - _adminDragStartY));
+    }
+
+    void OnAdminDragEnd() {
+        _adminDragging = false;
+    }
 
     protected override async Task OnAfterRenderAsync(bool firstRender) {
         if (!firstRender) return;
@@ -225,6 +325,8 @@
         State.SelectFamily(family.Name, TopTier(family));
         State.Collapsed = new HashSet<string>(StringComparer.Ordinal);
         await LoadCatalogAsync();
+        if (State.NeedsRarity) SnapRarity(family);
+        SnapCraftTier(family);
         await RefreshAsync(family);
         await WriteHashAsync();
     }
@@ -239,7 +341,11 @@
             State.Rarity = null;
         }
 
-        if (family is not null) await RefreshAsync(family);
+        if (family is not null) {
+            SnapCraftTier(family);
+            await RefreshAsync(family);
+        }
+
         await WriteHashAsync();
     }
 
@@ -251,6 +357,17 @@
     }
 
     static bool CanComeFromConsume(ArtifactFamily family) => family.Kind == ArtifactKind.Stone || ArtifactTreeBuilder.IsFragment(family.Name);
+
+    static bool ViewAvailable(ArtifactFamily family, ArtifactView view) => view switch {
+        ArtifactView.Crafting => ArtifactWorkbenchState.CanCraft(family),
+        ArtifactView.ComesFrom => CanComeFromConsume(family),
+        _ => true
+    };
+
+    void SnapCraftTier(ArtifactFamily family) {
+        if (State.View != ArtifactView.Crafting || CurrentTier(family) is { } tier && ArtifactWorkbenchState.HasRecipe(tier)) return;
+        State.Tier = family.Tiers.Where(ArtifactWorkbenchState.HasRecipe).Select(t => (int?)t.Level).DefaultIfEmpty(null).Max();
+    }
 
     async Task RefreshAsync(ArtifactFamily family) {
         await RebuildGraphAsync(family);
@@ -326,8 +443,9 @@
             string common = ArtifactTreeBuilder.RarityName(0);
             var entry = _catalog?.Artifacts.FirstOrDefault(a =>
                 a.SpecName == tierNode.Family.Name && (a.Level == levelName || a.Level == tier.Name) && a.Rarity == common);
-            if (entry is { CraftingPrice: { } high, CraftingPriceLow: { } low, CraftingPriceCurve: { } curve, CraftingPriceDomain: { } domain }) {
-                _detailPrice = new ArtifactNodeDetail.PriceCurve(high, low, curve, domain);
+            if (ArtifactWorkbenchState.HasRecipe(tier)
+                && entry is { CraftingPrice: { } high, CraftingPriceLow: { } low, CraftingPriceCurve: { } curve, CraftingPriceDomain: { } domain }) {
+                _detailPrice = new ArtifactCraftPlot.PriceCurve(high, low, curve, domain);
             }
 
             return;
@@ -341,37 +459,25 @@
     static ArtifactNodeDetail.Ingredient? ToIngredient(ArtifactIngredient ingredient) {
         var family = ArtifactDefinitions.All.FirstOrDefault(f => f.AfxId == ingredient.AfxId);
         if (family is null) return null;
-        string name = ShortName(family.Name, ingredient.Level);
-        return new ArtifactNodeDetail.Ingredient(ArtifactTreeBuilder.Icon(family.Name, ingredient.Level), name, ingredient.Count,
-            Hover(family.Name, ingredient.Level, 0));
+        return new ArtifactNodeDetail.Ingredient(ArtifactTreeBuilder.Icon(family.Name, ingredient.Level),
+            ArtifactTreeBuilder.DisplayName(family.Name, ingredient.Level), ingredient.Count);
     }
 
-    static string ShortName(string familyName, int level) {
-        var family = FamilyOf(familyName);
-        if (family is null) return EggIcons.Pretty(familyName);
-        var tier = family.Tiers.FirstOrDefault(t => t.Level == level);
-        return EggIcons.Pretty(tier?.Name ?? family.PluralName);
-    }
+    static readonly DiagramStyle SplitStyle = DiagramStyle.Default with { SplitRoot = true };
 
-    static string Hover(string familyName, int level, int rarity) {
-        string name = ShortName(familyName, level);
-        string? effect = ArtifactDefinitions.EffectText(familyName, level, rarity);
-        string rarityName = EggIcons.Pretty(ArtifactTreeBuilder.RarityName(rarity));
-        string head = rarity > 0 ? $"{rarityName} {name}" : name;
-        return string.IsNullOrWhiteSpace(effect) ? head : $"{head}: {effect}";
-    }
+    bool ShareEdges => State.View != ArtifactView.Crafting && _graph is { } g && ArtifactTreeBuilder.IsShareGraph(g);
 
-    static string? NodeHover(string nodeId) {
-        if (ArtifactTreeBuilder.ResolveTierNode(ArtifactDefinitions.All, nodeId) is { } tierNode) {
-            return Hover(tierNode.Family.Name, tierNode.Tier.Level, 0);
-        }
+    double MaxShare => _graph is { Edges.Count: > 0 } g ? g.Edges.Max(e => e.Weight ?? 0) : 0;
 
-        if (ArtifactTreeBuilder.ResolveCellNode(nodeId) is { } cell) {
-            return Hover(cell.FamilyName, ArtifactTreeBuilder.LevelIndex(cell.LevelName), ArtifactTreeBuilder.RarityIndex(cell.RarityName));
-        }
+    double RelativeShare(PositionedEdge edge) => MaxShare <= 0 ? 0 : Math.Clamp((edge.Edge.Weight ?? 0) / MaxShare, 0, 1);
 
-        return null;
-    }
+    string EdgeStyle(PositionedEdge edge) => string.Create(System.Globalization.CultureInfo.InvariantCulture,
+        $"stroke-width:{edge.Width:0.##};opacity:1;--p:{RelativeShare(edge):0.###}");
+
+    RenderFragment<PositionedEdge> ShareLabel => edge => @<span class="atb-share-label mono" style="@($"--p:{RelativeShare(edge).ToString("0.###", System.Globalization.CultureInfo.InvariantCulture)}")">@edge.Edge.Label</span>;
+
+    static int NodeRarity(string nodeId) =>
+        ArtifactTreeBuilder.ResolveCellNode(nodeId) is { } cell ? ArtifactTreeBuilder.RarityIndex(cell.RarityName) : 0;
 
 
     IReadOnlyList<int> Rarities(ArtifactFamily family, ArtifactTier tier) {
@@ -432,12 +538,17 @@
     }
 
     string NodeClass(string nodeId) {
-        int rarity = ArtifactTreeBuilder.ResolveCellNode(nodeId) is { } cell ? ArtifactTreeBuilder.RarityIndex(cell.RarityName) : 0;
-        string css = $"atb-r{rarity}";
+        string css = $"atb-r{NodeRarity(nodeId)}";
         return _selectedNodeId == nodeId ? css + " atb-on" : css;
     }
 
+    static readonly string? GoldIcon = EggIcons.Asset("icon", RewardIconMap.Stem(Ei.RewardType.Gold, null)!);
+
+    static readonly string? PiggyIcon = EggIcons.Asset("icon", RewardIconMap.Stem(Ei.RewardType.PiggyFill, null)!);
+
     static string? NodeIcon(string nodeId) {
+        if (nodeId == ArtifactTreeBuilder.GoldNodeId) return GoldIcon;
+        if (nodeId == ArtifactTreeBuilder.PiggyNodeId) return PiggyIcon;
         if (ArtifactTreeBuilder.ResolveTierNode(ArtifactDefinitions.All, nodeId) is { } tierNode) {
             return ArtifactTreeBuilder.Icon(tierNode.Family.Name, tierNode.Tier.Level);
         }
@@ -450,23 +561,17 @@
     }
 
     static string NodeName(string nodeId) {
+        if (nodeId == ArtifactTreeBuilder.GoldNodeId) return "Golden eggs";
+        if (nodeId == ArtifactTreeBuilder.PiggyNodeId) return "Piggy fill";
         if (ArtifactTreeBuilder.ResolveTierNode(ArtifactDefinitions.All, nodeId) is { } tierNode) {
-            return ShortName(tierNode.Family.Name, tierNode.Tier.Level);
+            return ArtifactTreeBuilder.DisplayName(tierNode.Family.Name, tierNode.Tier.Level);
         }
 
         if (ArtifactTreeBuilder.ResolveCellNode(nodeId) is { } cell) {
-            return ShortName(cell.FamilyName, ArtifactTreeBuilder.LevelIndex(cell.LevelName));
+            return ArtifactTreeBuilder.DisplayName(cell.FamilyName, ArtifactTreeBuilder.LevelIndex(cell.LevelName));
         }
 
         return nodeId;
-    }
-
-    [Parameter] public EventCallback OnOpenConsumptionExplorer { get; set; }
-
-    async Task OpenInDataAsync() {
-        _open = false;
-        await WriteHashAsync(true, true);
-        await OnOpenConsumptionExplorer.InvokeAsync();
     }
 
     async Task ApplyHashAsync(string hash) {
@@ -486,6 +591,7 @@
             await LoadCatalogAsync();
             if (State.NeedsRarity) SnapRarity(family);
             else State.Rarity = null;
+            SnapCraftTier(family);
             await RefreshAsync(family);
         }
 
@@ -501,6 +607,10 @@
 
     public ValueTask DisposeAsync() {
         _hash?.Dispose();
+        if (_admin) {
+            foreach (var inv in Inventories) inv.Changed -= OnInventoryChanged;
+        }
+
         return ValueTask.CompletedTask;
     }
 }

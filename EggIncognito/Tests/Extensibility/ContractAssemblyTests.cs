@@ -17,7 +17,7 @@ public class ContractAssemblyTests {
         typeof(IGameDataDocuments), typeof(IDeviceCaptureHubs), typeof(IDeviceResponseSources),
         typeof(IDeviceResponseTransforms), typeof(IDeviceAppLauncher), typeof(IDeviceFleet), typeof(DeviceEntry),
         typeof(ArtifactByproductRow), typeof(ArtifactRewardRow), typeof(IDevicePanel), typeof(DevicePanel),
-        typeof(DevicePanelShelves), typeof(DevicePanelContext), typeof(CoverageCellContext), typeof(ICoverageAnnotations),
+        typeof(DevicePanelShelves), typeof(DevicePanelContext), typeof(ArtifactPanelContext),
         typeof(ICoverageInventory), typeof(IDeviceExtensionModule), typeof(DeviceExtension), typeof(IDeviceRinfo),
         typeof(IArtifactObservationSink), typeof(IArtifactObservationQuery), typeof(ICoverageMap), typeof(IContractReleases),
         typeof(ConsumeCoverageMap), typeof(CoverageFamily), typeof(CoverageTier), typeof(CoverageCell), typeof(CoverageSelection),

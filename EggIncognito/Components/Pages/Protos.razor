@@ -65,7 +65,7 @@
                 <PeriodicalsPanel OnManageDevices="OpenDeviceWorkbench" OnOpenNotifications="OpenNotifications"
                                   OnOpenApis="OpenApisWorkbench" OnOpenData="OpenDataWorkbench" OnOpenArtifacts="OpenArtifactsWorkbench" OnOpenCapture="OpenCaptureModal"
                                   OnOpenFeed="@(f => _dataWorkbench?.OpenFeed(f) ?? Task.CompletedTask)"
-                                  OnOpenCoverage="@(() => _dataWorkbench?.OpenCoverage() ?? Task.CompletedTask)"
+                                  OnOpenCoverage="@(() => _dataWorkbench?.OpenConsumption() ?? Task.CompletedTask)"
                                   OnOpenEvents="OpenEvents" OnOpenContracts="OpenContracts" OnOpenSupport="OpenSupport"/>
             </CircuitGuard>
         </div>
@@ -85,7 +85,7 @@
     <DeviceWorkbenchModal @ref="_deviceWorkbench" OnChanged="OnMutated"/>
     <ApisWorkbenchModal @ref="_apisWorkbench"/>
     <DataWorkbenchModal @ref="_dataWorkbench"/>
-    <ArtifactWorkbenchModal @ref="_artifactsWorkbench" OnOpenConsumptionExplorer="@(() => _dataWorkbench?.OpenConsumption() ?? Task.CompletedTask)"/>
+    <ArtifactWorkbenchModal @ref="_artifactsWorkbench"/>
     <EventsWorkbenchModal @ref="_eventsModal"/>
     <ContractsWorkbenchModal @ref="_contractsModal"/>
     <AdminWorkbenchModal @ref="_adminWorkbench"/>

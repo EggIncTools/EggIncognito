@@ -1,3 +1,4 @@
+.atb-wrap { position: relative; display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; min-width: 0; }
 .atb-rail-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0.75rem; align-items: start; }
 .atb-rail-col { display: flex; flex-direction: column; gap: 0.75rem; min-width: 0; }
 
@@ -19,7 +20,6 @@
 .atb-head-title h2 { margin: 0; font-size: 1.1rem; }
 .atb-head-kind { font-size: 0.75rem; color: var(--color-muted); }
 .atb-desc { margin: 0; font-size: 0.8125rem; color: var(--color-muted); }
-.atb-explore { flex: none; padding: 0; border: 0; background: transparent; font-size: 0.75rem; color: var(--color-accent); text-decoration: underline; cursor: pointer; }
 
 .atb-seg { flex: none; align-self: flex-start; display: inline-flex; border: 1px solid var(--color-border); border-radius: 0.375rem; overflow: hidden; }
 .atb-seg-btn { padding: 0.3rem 0.75rem; border: 0; background: var(--color-panel2); color: var(--color-muted); font-size: 0.8125rem; cursor: pointer; transition: background-color var(--motion-fast) var(--ease-standard); }
@@ -37,8 +37,17 @@
 .atb-r2, .atb-canvas ::deep .diagram-node.atb-r2 { --atb-rc: var(--color-rarity-2); }
 .atb-r3, .atb-canvas ::deep .diagram-node.atb-r3 { --atb-rc: var(--color-rarity-3); }
 
-.atb-canvas { display: flex; flex-direction: column; flex: 1; min-height: 20rem; overflow: auto; }.atb-node { display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 0.25rem; width: 100%; height: 100%; padding: 0.375rem 0.375rem 1rem; }
+.atb-canvas { display: flex; flex-direction: column; flex: 1; min-height: 20rem; min-width: 0; }
+.atb-node { display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 0.25rem; width: 100%; height: 100%; padding: 0.375rem 0.375rem 1rem; }
 .atb-node-ico { flex: none; width: 2rem; height: 2rem; object-fit: contain; }
 .atb-node-name { max-width: 100%; font-size: 0.6875rem; line-height: 1.2; text-align: center; text-transform: none; white-space: normal; overflow-wrap: anywhere; }
+.atb-canvas ::deep .atb-share { stroke: color-mix(in oklab, var(--color-ok) calc(var(--p, 0) * 100%), var(--color-err)); opacity: 1; }
+.atb-canvas ::deep .atb-share-label { font-weight: 600; color: color-mix(in oklab, var(--color-ok) calc(var(--p, 0) * 100%), var(--color-err)); }
 .atb-canvas ::deep .diagram-node { --atb-rc: var(--color-border-strong); border: 2px solid var(--atb-rc); }
 .atb-canvas ::deep .diagram-node.atb-on { background: color-mix(in oklab, var(--atb-rc) 50%, transparent); box-shadow: none; }
+
+.atb-admin { position: absolute; left: 0; top: 0; z-index: 5; display: flex; flex-direction: column; min-width: 16rem; max-width: 28rem; max-height: calc(100% - 2rem); border: 1px solid var(--color-border-strong); border-radius: 0.5rem; background: var(--color-panel); box-shadow: 0 0.5rem 1.5rem rgb(0 0 0 / 0.25); transform: translate(var(--x, 0), var(--y, 0)); overflow: hidden; }
+.atb-admin-collapsed { max-height: none; }
+.atb-admin-head { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; padding: 0.375rem 0.5rem; border-bottom: 1px solid var(--color-border); background: var(--color-panel2); cursor: move; touch-action: none; user-select: none; }
+.atb-admin-title { font-size: 0.75rem; font-weight: 600; color: var(--color-muted); text-transform: uppercase; letter-spacing: 0.02em; }
+.atb-admin-body { flex: 1 1 auto; padding: 0.5rem; overflow: auto; }

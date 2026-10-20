@@ -51,12 +51,7 @@
                                     }
                                 </WorkbenchSection>
                             }
-                            <WorkbenchSection Label="Coverage">
-                                <WorkbenchEntry Selected="@(State.Kind == DataPaneKind.Coverage)"
-                                                OnClick="@(_ => SelectSection(DataPaneKind.Coverage))"
-                                                Trail="@CoverageTrail">
-                                    <Name>Consume coverage</Name>
-                                </WorkbenchEntry>
+                            <WorkbenchSection Label="Consumption">
                                 <WorkbenchEntry Selected="@(State.Kind == DataPaneKind.ConsumptionExplorer)"
                                                 OnClick="@(_ => SelectSection(DataPaneKind.ConsumptionExplorer))"
                                                 Trail="@CoverageTrail">
@@ -96,9 +91,6 @@
     </Rail>
     <ChildContent>
         @switch (State.Kind) {
-            case DataPaneKind.Coverage:
-                <ConsumeCoveragePane/>
-                break;
             case DataPaneKind.ConsumptionExplorer:
                 <ConsumptionExplorerPane/>
                 break;
@@ -134,9 +126,8 @@
         StateHasChanged();
     }
 
-    public Task OpenCoverage() => OpenWith(() => State.Kind = DataPaneKind.Coverage);
-
     public Task OpenConsumption() => OpenWith(() => State.Kind = DataPaneKind.ConsumptionExplorer);
+
 
     public Task OpenFeed(string feed) => OpenWith(() => {
         if (State.Sources?.FirstOrDefault(s => s.Feed == feed) is { } src) State.SelectDataset(src.Group, src.Id, null);

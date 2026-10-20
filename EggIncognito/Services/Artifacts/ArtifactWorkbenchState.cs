@@ -24,11 +24,17 @@ public sealed class ArtifactWorkbenchState : WorkbenchStateBase {
     public bool HasFamily => Family.Length > 0;
     public bool NeedsRarity => View != ArtifactView.Crafting;
 
+    public static bool HasRecipe(ArtifactTier tier) => tier.Recipe.Count > 0;
+
+    public static bool CanCraft(ArtifactFamily family) => family.Tiers.Any(HasRecipe);
+
     public void SelectFamily(string family, int? tierLevel) {
         Family = family;
-        View = ArtifactView.Crafting;
+        View = ArtifactDefinitions.All.FirstOrDefault(f => f.Name == family) is { } f && !CanCraft(f)
+            ? ArtifactView.ConsumesInto
+            : ArtifactView.Crafting;
         Tier = tierLevel;
-        Rarity = null;
+        Rarity = NeedsRarity ? 0 : null;
     }
 
     private static string ViewKey(ArtifactView view) => view switch {
@@ -74,6 +80,7 @@ public sealed class ArtifactWorkbenchState : WorkbenchStateBase {
         if (parts.Length < 2) return true;
 
         View = ParseView(parts[1]);
+        if (View == ArtifactView.Crafting && !CanCraft(family)) View = ArtifactView.ConsumesInto;
         if (parts.Length < 3 || !int.TryParse(parts[2], out int tierLevel)) return true;
         var tier = family.Tiers.FirstOrDefault(t => t.Level == tierLevel);
         if (tier is null) return true;

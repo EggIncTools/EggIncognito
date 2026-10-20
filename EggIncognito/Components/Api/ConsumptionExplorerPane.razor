@@ -1,9 +1,18 @@
+@using System.Text.Json
 @using EggIdentity.Reports
 @using EggIdentity.Reports.Browser
 @using EggIdentity.UI.Reports
+@using EggSharp.GameData
+@using EggIncognito.Models.Coverage
 @using EggIncognito.Services.Coverage
+@inject IServiceScopeFactory Scopes
+@inject ILogger<ConsumptionExplorerPane> Logger
 @inject BrowserReportRegistry Reports
 @inject IReadOnlyList<IReportSource> Sources
+
+<ConsumeCoverageHeadlineStats Map="_map"/>
+
+<ConsumeCoverageOverview/>
 
 @if (_tier is { } tier) {
     <ReportExplorer Sources="Sources" Registry="Reports.Registry" @bind-Value="_definition" Presets="ConsumptionReportSource.Presets" Tier="tier"/>
@@ -12,10 +21,22 @@
 @code {
     private ReportDefinition _definition = ConsumptionReportSource.Presets[0].Definition;
     private ReportTier? _tier;
+    private ConsumeCoverageMap? _map;
 
     protected override async Task OnAfterRenderAsync(bool firstRender) {
         if (!firstRender) return;
         _tier = await Reports.ReadyAsync();
+        await LoadCoverageAsync();
         StateHasChanged();
+    }
+
+    private async Task LoadCoverageAsync() {
+        using var scope = Scopes.CreateScope();
+        if (scope.ServiceProvider.GetService<ConsumeCoverageCache>() is not { } cache) return;
+        try {
+            _map = await cache.GetAsync(CancellationToken.None);
+        } catch (Exception ex) when (ex is JsonException or InvalidOperationException or GameDataSchemaException) {
+            Logger.LogWarning(ex, "consume coverage could not be built");
+        }
     }
 }

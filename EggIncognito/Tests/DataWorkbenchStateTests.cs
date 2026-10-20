@@ -75,11 +75,11 @@ public class DataWorkbenchStateTests {
     }
 
     [Fact]
-    public void ApplyHash_ReadsCoverage() {
+    public void ApplyHash_ReadsCoverageAsConsumptionExplorer() {
         var state = new DataWorkbenchState();
         Assert.True(state.ApplyHash("#data/coverage"));
-        Assert.Equal(DataPaneKind.Coverage, state.Kind);
-        Assert.Equal("data/coverage", state.Hash());
+        Assert.Equal(DataPaneKind.ConsumptionExplorer, state.Kind);
+        Assert.Equal("data/consumption", state.Hash());
     }
 
     [Fact]

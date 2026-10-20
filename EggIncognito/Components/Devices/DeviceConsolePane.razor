@@ -119,10 +119,6 @@
                         </div>
 
                         @Sections
-
-                        <div hidden="@(!State.ShelfIs(DeviceWorkbenchState.ShelfCoverage))">
-                            <ConsumeCoveragePane DeviceId="@_deviceId" AndroidUserId="@_selectedAndroidUserId"/>
-                        </div>
                     </div>
                 </div>
             </div>
@@ -249,7 +245,6 @@
         tabs.Add((DeviceWorkbenchState.ShelfCapture, "Capture", CaptureCount));
         tabs.Add((DeviceWorkbenchState.ShelfJobs, "Jobs", JobCount));
         tabs.Add((DeviceWorkbenchState.ShelfBinaries, "Binaries", BinaryCount));
-        tabs.Add((DeviceWorkbenchState.ShelfCoverage, "Coverage", null));
         return tabs;
     }
 

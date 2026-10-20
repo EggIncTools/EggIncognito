@@ -1,0 +1,137 @@
+@using System.Globalization
+
+<div class="acp">
+    <div class="acp-inputs">
+        <label class="acp-field">
+            <span>Crafting level</span>
+            <input type="number" class="form-input mono" min="1" max="@MaxLevel" value="@_level" @onchange="OnLevelInput"/>
+        </label>
+        <label class="acp-field">
+            <span>Crafted count</span>
+            <input type="number" class="form-input mono" min="0" max="@Price.Domain" value="@_count" @onchange="OnCountInput"/>
+        </label>
+    </div>
+    <svg class="acp-plot" width="@PlotW" height="@PlotH" viewBox="0 0 @PlotW @PlotH" role="img"
+         aria-label="@Readout">
+        @for (int row = 0; row < MaxLevel; row++) {
+            int level = MaxLevel - row;
+            for (int col = 0; col < Cols; col++) {
+                <rect class="acp-cell" x="@F(PadL + col * CellW)" y="@F(PadT + row * CellH)" width="@F(CellW + 0.5)" height="@F(CellH + 0.5)"
+                      style="@CellStyle(level, col)"/>
+            }
+        }
+        <line class="acp-axis" x1="@PadL" y1="@(PadT + GridH)" x2="@(PadL + GridW)" y2="@(PadT + GridH)"/>
+        <line class="acp-axis" x1="@PadL" y1="@PadT" x2="@PadL" y2="@(PadT + GridH)"/>
+        <text class="acp-tick" x="@(PadL - 4)" y="@(PadT + 8)" text-anchor="end">@MaxLevel</text>
+        <text class="acp-tick" x="@(PadL - 4)" y="@(PadT + GridH)" text-anchor="end">1</text>
+        <text class="acp-tick" x="@PadL" y="@(PadT + GridH + 12)" text-anchor="start">0</text>
+        <text class="acp-tick" x="@(PadL + GridW)" y="@(PadT + GridH + 12)" text-anchor="end">@Price.Domain.ToString("N0", CultureInfo.InvariantCulture)</text>
+        <line class="acp-guide" x1="@F(PointX)" y1="@PadT" x2="@F(PointX)" y2="@(PadT + GridH)"/>
+        <line class="acp-guide" x1="@PadL" y1="@F(PointY)" x2="@(PadL + GridW)" y2="@F(PointY)"/>
+        <circle class="acp-point" cx="@F(PointX)" cy="@F(PointY)" r="5"/>
+        <text class="acp-label mono" x="@F(LabelX)" y="@F(LabelY)" text-anchor="@LabelAnchor">@Readout</text>
+        <rect class="acp-hit" x="0" y="0" width="@PlotW" height="@PlotH"
+              @onpointerdown="OnDown" @onpointermove="OnMove" @onpointerup="OnUp" @onpointerleave="OnUp"/>
+    </svg>
+    <div class="acp-readout">
+        <span><span class="muted">Rare odds</span> <span class="mono acp-val" style="@PctStyle(LevelFrac(_level))">@Pct(RarityMult(_level))</span></span>
+        <span><span class="muted">Craft cost</span> <span class="mono acp-val" style="@PctStyle(CountFrac(_count))">@Cost(_count)</span></span>
+    </div>
+</div>
+
+@code {
+    public sealed record PriceCurve(double High, double Low, double Curve, uint Domain);
+
+    [Parameter, EditorRequired] public PriceCurve Price { get; set; } = default!;
+    [Parameter, EditorRequired] public IReadOnlyList<double> RarityMults { get; set; } = [];
+
+    const double PlotW = 320;
+    const double PlotH = 200;
+    const double PadL = 28;
+    const double PadT = 8;
+    const double PadR = 8;
+    const double PadB = 18;
+    const int Cols = 24;
+    const double GridW = PlotW - PadL - PadR;
+    const double GridH = PlotH - PadT - PadB;
+
+    int _level = 1;
+    uint _count;
+    bool _dragging;
+
+    int MaxLevel => Math.Max(1, RarityMults.Count);
+    double CellW => GridW / Cols;
+    double CellH => GridH / MaxLevel;
+
+    double PointX => PadL + (Price.Domain == 0 ? 0 : (double)_count / Price.Domain) * GridW;
+    double PointY => PadT + (MaxLevel - _level + 0.5) * CellH;
+    bool LabelLeft => PointX > PadL + GridW / 2;
+    double LabelX => LabelLeft ? PointX - 8 : PointX + 8;
+    double LabelY => PointY < PadT + 14 ? PointY + 14 : PointY - 8;
+    string LabelAnchor => LabelLeft ? "end" : "start";
+
+    string Readout => string.Create(CultureInfo.InvariantCulture,
+        $"Lv {_level}, {_count:N0} crafted: {Pct(RarityMult(_level))}, {Cost(_count)}");
+
+    protected override void OnParametersSet() {
+        _level = Math.Clamp(_level, 1, MaxLevel);
+        _count = Math.Min(_count, Price.Domain);
+    }
+
+    double RarityMult(int level) => RarityMults.Count == 0 ? 1 : RarityMults[Math.Clamp(level, 1, RarityMults.Count) - 1];
+
+    double PriceAt(double count) {
+        double t = Price.Domain == 0 ? 1 : Math.Clamp(count / Price.Domain, 0, 1);
+        return Price.High - (Price.High - Price.Low) * Math.Pow(t, Price.Curve);
+    }
+
+    double CountFrac(double count) {
+        double span = Price.High - Price.Low;
+        return span <= 0 ? 1 : Math.Clamp((Price.High - PriceAt(count)) / span, 0, 1);
+    }
+
+    double LevelFrac(int level) {
+        double lo = RarityMult(1);
+        double hi = RarityMult(MaxLevel);
+        return hi - lo <= 0 ? 1 : Math.Clamp((RarityMult(level) - lo) / (hi - lo), 0, 1);
+    }
+
+    string CellStyle(int level, int col) {
+        double count = (col + 0.5) / Cols * Price.Domain;
+        return string.Create(CultureInfo.InvariantCulture, $"--p:{CountFrac(count):0.###};--q:{LevelFrac(level):0.###}");
+    }
+
+    void SetFromPointer(PointerEventArgs e) {
+        double tx = Math.Clamp((e.OffsetX - PadL) / GridW, 0, 1);
+        double ty = Math.Clamp((e.OffsetY - PadT) / GridH, 0, 0.9999);
+        _count = (uint)Math.Round(tx * Price.Domain);
+        _level = Math.Clamp(MaxLevel - (int)(ty * MaxLevel), 1, MaxLevel);
+    }
+
+    void OnDown(PointerEventArgs e) {
+        _dragging = true;
+        SetFromPointer(e);
+    }
+
+    void OnMove(PointerEventArgs e) {
+        if (_dragging && e.Buttons != 0) SetFromPointer(e);
+    }
+
+    void OnUp() => _dragging = false;
+
+    void OnLevelInput(ChangeEventArgs e) {
+        if (int.TryParse(e.Value?.ToString(), NumberStyles.Integer, CultureInfo.InvariantCulture, out int level)) _level = Math.Clamp(level, 1, MaxLevel);
+    }
+
+    void OnCountInput(ChangeEventArgs e) {
+        if (long.TryParse(e.Value?.ToString(), NumberStyles.Integer, CultureInfo.InvariantCulture, out long count)) _count = (uint)Math.Clamp(count, 0, Price.Domain);
+    }
+
+    string Cost(double count) => PriceAt(count).ToString("N0", CultureInfo.InvariantCulture) + " GE";
+
+    static string Pct(double mult) => (mult * 100).ToString("0.#", CultureInfo.InvariantCulture) + "%";
+
+    static string PctStyle(double p) => string.Create(CultureInfo.InvariantCulture, $"--p:{p:0.###}");
+
+    static string F(double v) => v.ToString("0.##", CultureInfo.InvariantCulture);
+}

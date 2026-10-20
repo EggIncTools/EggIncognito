@@ -7,32 +7,26 @@
             <span class="atb-detail-head">Recipe</span>
             <div class="atb-recipe">
                 @foreach (var ingredient in ingredients) {
-                    <Tooltip Text="@ingredient.Hover">
+                    <ArtifactTip Name="@ingredient.Name" Count="@ingredient.Count">
                         <span class="atb-recipe-item">
                             <img class="atb-recipe-ico" src="@ingredient.Icon" alt="@ingredient.Name" loading="lazy"/>
                             <span class="atb-recipe-count mono">@ingredient.Count</span>
                         </span>
-                    </Tooltip>
+                    </ArtifactTip>
                 }
             </div>
         </section>
     }
     @if (Price is { } price) {
         <section class="atb-detail-col">
-            <span class="atb-detail-head">Crafting price</span>
-            <Tooltip Text="@PriceHover(price)">
-                <svg class="atb-curve" viewBox="0 0 @W @H" preserveAspectRatio="none" role="img" aria-label="@PriceHover(price)">
-                    <polyline class="atb-curve-line" points="@CurvePoints(price)"/>
-                </svg>
-            </Tooltip>
+            <span class="atb-detail-head">Crafting price and odds</span>
+            <ArtifactCraftPlot Price="price" RarityMults="RarityMults"/>
         </section>
     }
     @if (Row is { Buckets.Count: 1 } single) {
         <section class="atb-detail-col">
             <span class="atb-detail-head">Drops per consume</span>
-            <Tooltip Text="@BucketHover(single.Buckets[0].Count, single.Buckets[0].Share)">
-                <span class="atb-fixed mono">@single.Buckets[0].Count</span>
-            </Tooltip>
+            <span class="atb-fixed mono">@single.Buckets[0].Count</span>
         </section>
     } else if (Row is { Buckets.Count: > 0 } row) {
         <section class="atb-detail-col">
@@ -49,34 +43,13 @@
 </div>
 
 @code {
-    public sealed record Ingredient(string Icon, string Name, int Count, string Hover);
-
-    public sealed record PriceCurve(double High, double Low, double Curve, uint Domain);
+    public sealed record Ingredient(string Icon, string Name, int Count);
 
     [Parameter] public IReadOnlyList<Ingredient>? Ingredients { get; set; }
-    [Parameter] public PriceCurve? Price { get; set; }
+    [Parameter] public ArtifactCraftPlot.PriceCurve? Price { get; set; }
+    [Parameter] public IReadOnlyList<double> RarityMults { get; set; } = [];
     [Parameter] public DropRow? Row { get; set; }
-
-    const double W = 200;
-    const double H = 80;
-    const int Steps = 40;
-
-    static string PriceHover(PriceCurve p) =>
-        string.Create(CultureInfo.InvariantCulture, $"Crafting price {p.High:N0} falling to {p.Low:N0} after {p.Domain:N0} crafts");
 
     static string BucketHover(int count, double share) =>
         string.Create(CultureInfo.InvariantCulture, $"{count} dropped: {share * 100:0.#}% of consumes");
-
-    static string CurvePoints(PriceCurve p) {
-        var points = new List<string>(Steps + 1);
-        double span = Math.Max(p.High - p.Low, 1);
-        for (int i = 0; i <= Steps; i++) {
-            double t = (double)i / Steps;
-            double price = p.High - (p.High - p.Low) * Math.Pow(t, p.Curve);
-            double y = H - (price - p.Low) / span * H;
-            points.Add(FormattableString.Invariant($"{t * W:0.##},{y:0.##}"));
-        }
-
-        return string.Join(' ', points);
-    }
 }

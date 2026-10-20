@@ -10,7 +10,6 @@ public sealed class DeviceWorkbenchState : WorkbenchStateBase {
     public const string ShelfCapture = "capture";
     public const string ShelfJobs = "jobs";
     public const string ShelfBinaries = "binaries";
-    public const string ShelfCoverage = "coverage";
 
     public override IReadOnlyList<(string Key, string Label, int? Count)> Modes { get; } = [];
 

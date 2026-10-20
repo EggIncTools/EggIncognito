@@ -1,0 +1,14 @@
+.acp { display: flex; flex-direction: column; gap: 0.5rem; }
+.acp-inputs { display: flex; gap: 0.75rem; }
+.acp-field { display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.75rem; color: var(--color-muted); }
+.acp-field input { width: 7rem; }
+.acp-plot { display: block; touch-action: none; user-select: none; }
+.acp-cell { fill: color-mix(in oklab, var(--color-ok) calc(var(--p, 0) * 100%), var(--color-err)); fill-opacity: calc(0.25 + var(--q, 0) * 0.55); }
+.acp-axis { stroke: var(--color-muted); stroke-width: 1; }
+.acp-tick { font-size: 0.625rem; fill: var(--color-muted); font-family: var(--font-mono); }
+.acp-guide { stroke: var(--color-fg); stroke-width: 1; stroke-dasharray: 2 3; opacity: 0.6; pointer-events: none; }
+.acp-point { fill: var(--color-accent); stroke: var(--color-fg-max); stroke-width: 1.5; pointer-events: none; }
+.acp-label { font-size: 0.6875rem; fill: var(--color-fg-max); paint-order: stroke; stroke: var(--color-bg); stroke-width: 3; pointer-events: none; }
+.acp-hit { fill: transparent; cursor: crosshair; }
+.acp-readout { display: flex; gap: 1rem; font-size: 0.75rem; }
+.acp-val { font-weight: 600; color: color-mix(in oklab, var(--color-ok) calc(var(--p, 0) * 100%), var(--color-err)); }

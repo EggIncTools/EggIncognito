@@ -1,6 +1,7 @@
 using System.Globalization;
 using EggIdentity.Diagrams;
 using EggIncognito.Core.Services;
+using EggIncognito.Services.Assets;
 using EggIncognito.Services.Coverage;
 using EggSharp.GameData.Artifacts;
 using Ei;
@@ -28,6 +29,13 @@ public static class ArtifactTreeBuilder {
         if (IsFragment(familyName)) return ArtifactAssets.IconPath(familyName[..^FragmentSuffix.Length], 1);
         int offset = familyName.EndsWith(StoneSuffix, StringComparison.Ordinal) ? 2 : 1;
         return ArtifactAssets.IconPath(ArtifactAssets.KeyFor(familyName), level + offset);
+    }
+
+    public static string DisplayName(string familyName, int level) {
+        var family = ArtifactDefinitions.All.FirstOrDefault(f => f.Name == familyName);
+        if (family is null) return EggIcons.Pretty(familyName);
+        var tier = family.Tiers.FirstOrDefault(t => t.Level == level);
+        return EggIcons.Pretty(tier?.Name ?? family.PluralName);
     }
 
     public static int LevelIndex(string levelName) =>
@@ -87,14 +95,22 @@ public static class ArtifactTreeBuilder {
         string rootId = CellNodeId(familyName, levelName, rarityName);
         var nodes = new List<DiagramNode> { new(rootId) { Width = TierNodeWidth, Height = TierNodeHeight } };
         var edges = new List<DiagramEdge>();
-        foreach (var row in summary.Rows) {
-            string childId = CellNodeId(row.Name, row.Level, row.Rarity);
+        void Add(string childId, double share) {
             nodes.Add(new DiagramNode(childId) { Width = TierNodeWidth, Height = TierNodeHeight });
-            edges.Add(new DiagramEdge(rootId, childId) { Weight = row.Mean, Label = FormatShare(row.Share) });
+            edges.Add(new DiagramEdge(rootId, childId) { Weight = share, Label = FormatShare(share) });
         }
+
+        if (summary.Gold is { } gold) Add(GoldNodeId, gold.Share);
+        if (summary.Piggy is { } piggy) Add(PiggyNodeId, piggy.Share);
+        foreach (var row in summary.Rows) Add(CellNodeId(row.Name, row.Level, row.Rarity), row.Share);
 
         return new DiagramGraph(nodes, edges);
     }
+
+    public const string GoldNodeId = "r:gold";
+    public const string PiggyNodeId = "r:piggy";
+
+    public static bool IsShareGraph(DiagramGraph graph) => graph.Nodes.Any(n => !n.Id.StartsWith("t:", StringComparison.Ordinal));
 
     public static async Task<DiagramGraph> BuildReverseConsumptionGraphAsync(DropStats dropStats,
         string targetName, string targetLevel, string targetRarity, CancellationToken ct) {
@@ -106,7 +122,7 @@ public static class ArtifactTreeBuilder {
         foreach (var (family, level, rarity, hit) in sources.OrderByDescending(s => s.Hit.Share)) {
             string sourceId = CellNodeId(family, level, rarity);
             nodes.Add(new DiagramNode(sourceId) { Width = TierNodeWidth, Height = TierNodeHeight });
-            edges.Add(new DiagramEdge(targetId, sourceId) { Weight = hit.Mean, Label = FormatShare(hit.Share) });
+            edges.Add(new DiagramEdge(targetId, sourceId) { Weight = hit.Share, Label = FormatShare(hit.Share) });
         }
 
         return new DiagramGraph(nodes, edges);

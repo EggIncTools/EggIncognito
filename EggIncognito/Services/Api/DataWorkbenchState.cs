@@ -6,7 +6,6 @@ namespace EggIncognito.Services.Api;
 
 public enum DataPaneKind {
     Dataset,
-    Coverage,
     ConsumptionExplorer
 }
 
@@ -55,7 +54,6 @@ public sealed class DataWorkbenchState : WorkbenchStateBase {
         return Kind switch {
             DataPaneKind.Dataset when Group.Length > 0 && Id.Length > 0 =>
                 Sub is { Length: > 0 } sub ? $"data/{Group}/{Id}/{sub}" : $"data/{Group}/{Id}",
-            DataPaneKind.Coverage => "data/coverage",
             DataPaneKind.ConsumptionExplorer => "data/consumption",
             _ => "data"
         };
@@ -67,12 +65,7 @@ public sealed class DataWorkbenchState : WorkbenchStateBase {
         string? rest = body.Length > 4 && body[4] == '/' ? body[5..] : body == "data" ? "" : null;
         if (rest is null) return false;
 
-        if (rest == "coverage") {
-            Kind = DataPaneKind.Coverage;
-            return true;
-        }
-
-        if (rest == "consumption") {
+        if (rest is "coverage" or "consumption") {
             Kind = DataPaneKind.ConsumptionExplorer;
             return true;
         }
