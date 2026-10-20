@@ -19,7 +19,7 @@
 .pwb-reg-row.pwb-sel-b { border-left-color: var(--color-accent); border-left-style: dashed; }
 .pwb-reg-icon { grid-column: 1; grid-row: 1 / span 2; display: inline-flex; align-items: center; gap: 0.375rem; color: var(--color-muted); }
 .pwb-reg-icon ::deep .pwb-reg-arch { color: var(--color-accent); }
-.pwb-reg-ver { grid-column: 2 / span 2; grid-row: 1; min-width: 0; overflow: hidden; font-size: 0.75rem; line-height: 1; }
+.pwb-reg-ver { grid-column: 2 / span 2; grid-row: 1; min-width: 0; overflow: hidden; contain: inline-size; font-size: 0.75rem; line-height: 1; }
 .pwb-reg-sha {
   grid-column: 2;
   grid-row: 2;

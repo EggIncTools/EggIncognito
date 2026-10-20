@@ -14,7 +14,7 @@ public class DiscordFeedPayloadTests {
     public void Build_Changed_ContainsVersionLabelBuildAndShortSha() {
         string json = DiscordFeedPayload.Build(Proto(
             "android", "1.99.0", "111343", "72", "abcdef0123456789deadbeef", true,
-            "https://eggincognito.egginc.tools/protos/android/111343"));
+            "https://eggincognito.egginc.tools/android/111343"));
 
         Assert.Contains("Egg, Inc. 1.99.0 (build 111343, android)", json);
         Assert.Contains("changed", json);
@@ -34,21 +34,21 @@ public class DiscordFeedPayloadTests {
     [Fact]
     public void BuildPageUrl_DefaultsToMainHost_NotAbandonedSubdomain() {
         string url = FeedDispatcher.BuildPageUrl(null, "android", "111343");
-        Assert.Equal("https://eggincognito.egginc.tools/protos/android/111343", url);
+        Assert.Equal("https://eggincognito.egginc.tools/android/111343", url);
         Assert.DoesNotContain("protos.eggincognito", url);
     }
 
     [Fact]
     public void BuildPageUrl_HonorsConfiguredBaseUrl_TrimmingSlash() {
         string url = FeedDispatcher.BuildPageUrl("https://example.test/", "ios", "1.36.0.2");
-        Assert.Equal("https://example.test/protos/ios/1.36.0.2", url);
+        Assert.Equal("https://example.test/ios/1.36.0.2", url);
     }
 
     [Fact]
     public void MarkAsTest_Embed_AddsVisibleContentNoticeAndFooter() {
         string real = DiscordFeedPayload.Build(Proto(
             "android", "1.37.0", "111358", "72", "abcdef0123456789", true,
-            "https://eggincognito.egginc.tools/protos/android/111358"));
+            "https://eggincognito.egginc.tools/android/111358"));
         Assert.DoesNotContain(DiscordFeedPayload.TestNotice, real, StringComparison.Ordinal);
 
         string marked = DiscordFeedPayload.MarkAsTest(real);

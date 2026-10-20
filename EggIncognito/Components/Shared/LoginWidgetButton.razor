@@ -5,7 +5,7 @@
 @using EggIdentity.Client
 
 @if (!Auth.WidgetEnabled) {
-    <span class="@CssClass auth-unavailable">Login unavailable (identity service not configured)</span>
+    <DependencyNotice Dependency="SuiteDependency.Identity" Feature="Login"/>
 } else {
     <div class="auth-source-anchor">
         <button type="button" class="@CssClass" @onclick="Toggle" disabled="@_loading">
@@ -21,6 +21,10 @@
                         <span>@s.Name</span>
                     </a>
                 }
+            </div>
+        } else if (_unreachable) {
+            <div class="@MenuCss">
+                <DependencyNotice Dependency="SuiteDependency.Identity" Feature="Login" OnRetry="RetryAsync"/>
             </div>
         } else if (_error is not null) {
             <div class="@MenuCss">
@@ -38,6 +42,7 @@
     private IReadOnlyList<LoginSourceResponse>? _sources;
     private bool _loading;
     private string? _error;
+    private bool _unreachable;
 
     private string Abs(string url) {
         return !url.StartsWith('/') || string.IsNullOrEmpty(Auth.IdentityHostUrl)
@@ -50,14 +55,24 @@
     private void Close() {
         _sources = null;
         _error = null;
+        _unreachable = false;
     }
 
     private async Task Toggle() {
-        if (_sources is not null || _error is not null) {
+        if (_sources is not null || _error is not null || _unreachable) {
             Close();
             return;
         }
 
+        await LoadAsync();
+    }
+
+    private async Task RetryAsync() {
+        Close();
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync() {
         _loading = true;
         try {
             var resp = await Identity.GetLoginSourcesAsync(Nav.Uri, CancellationToken.None);
@@ -66,7 +81,7 @@
             else
                 _sources = resp.Sources;
         } catch (Exception) {
-            _error = "Login temporarily unavailable.";
+            _unreachable = true;
         } finally {
             _loading = false;
         }

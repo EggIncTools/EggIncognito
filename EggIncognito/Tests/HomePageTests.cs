@@ -16,21 +16,29 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
-using ProtosPage = EggIncognito.Components.Pages.Protos;
+using HomePage = EggIncognito.Components.Pages.Home;
 
 namespace EggIncognito.Tests;
 
-public class ProtosPageTests {
+public class HomePageTests {
     [Collection(SharedAppCollection.Name)]
     public class Integration(SharedAppFactory f) {
         private readonly WebApplicationFactory<Program> _f = f;
 
         [Fact]
-        public async Task Protos_Anonymous_ServesTheShell() {
+        public async Task Home_Anonymous_ServesTheShell() {
             var c = _f.CreateClient();
-            var r = await c.GetAsync("/protos");
+            var r = await c.GetAsync("/");
             Assert.Equal(HttpStatusCode.OK, r.StatusCode);
             Assert.Contains("blazor.web.js", await r.Content.ReadAsStringAsync());
+        }
+
+        [Fact]
+        public async Task OldProtosPath_RedirectsPermanentlyToRoot() {
+            var c = _f.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+            var r = await c.GetAsync("/protos/ios/1.37.0.1");
+            Assert.Equal(HttpStatusCode.MovedPermanently, r.StatusCode);
+            Assert.Equal("/ios/1.37.0.1", r.Headers.Location?.OriginalString);
         }
 
         [Fact]
@@ -49,6 +57,10 @@ public class ProtosPageTests {
         [Fact]
         public async Task SubscribeRoute_StillResponds() =>
             Assert.Equal(HttpStatusCode.OK, (await _f.CreateClient().GetAsync("/protos/subscribe")).StatusCode);
+
+        [Fact]
+        public async Task VersionRoute_ServesTheShell() =>
+            Assert.Equal(HttpStatusCode.OK, (await _f.CreateClient().GetAsync("/android/111358")).StatusCode);
     }
 
     public class Component : BunitContext {
@@ -104,7 +116,7 @@ public class ProtosPageTests {
         [Fact]
         public void EmptyRegistry_ShowsEmptyState() {
             Wire(UserRole.Viewer);
-            var cut = Render<ProtosPage>();
+            var cut = Render<HomePage>();
 
             Assert.Contains("No proto versions yet.", cut.Markup);
         }
@@ -112,7 +124,7 @@ public class ProtosPageTests {
         [Fact]
         public void Anonymous_RendersTableShell_NoBackfillPanel() {
             Wire(UserRole.Viewer);
-            var cut = Render<ProtosPage>();
+            var cut = Render<HomePage>();
 
             Assert.Contains("pd-grid", cut.Markup);
             Assert.Contains("pd-band", cut.Markup);

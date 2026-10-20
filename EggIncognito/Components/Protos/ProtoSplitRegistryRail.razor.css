@@ -1,5 +1,0 @@
-.pwb-rail-reg { flex: 1 1 60%; }
-
-.pwb-x { display: grid; place-items: center; width: 1.25rem; height: 1.25rem; flex-shrink: 0; padding: 0; border: 0; border-radius: 0.25rem; background: transparent; color: var(--color-muted); cursor: pointer; }
-.pwb-x:hover { color: var(--color-fg); }
-.pwb-x-head { margin-block: -0.25rem; }

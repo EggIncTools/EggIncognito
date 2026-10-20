@@ -19,7 +19,6 @@ public static class PageMeta {
             "EggIncognito - Capture",
             "A TLS-intercepting proxy that records live Egg, Inc. game traffic into reusable endpoint " +
             "fixtures.")),
-        ("/protos", ProtoRegistry),
         ("/protodata", ProtoRegistry),
         ("/docs", new Meta(
             "EggIncognito - Docs",
@@ -52,10 +51,10 @@ public static class PageMeta {
 
     private static Meta? ProtoVersion(string path) {
         string[] parts = path.Trim('/').Split('/');
-        if (parts.Length != 3 || !parts[0].Equals("protos", StringComparison.OrdinalIgnoreCase)) return null;
+        if (parts.Length != 2 || !Platforms.Matches(parts[0], Platforms.Ios) && !Platforms.Matches(parts[0], Platforms.Android)) return null;
 
-        string platform = parts[1];
-        string build = Uri.UnescapeDataString(parts[2]);
+        string platform = parts[0];
+        string build = Uri.UnescapeDataString(parts[1]);
         if (platform.Length is 0 or > 16 || !platform.All(char.IsAsciiLetter)) return null;
         if (build.Length is 0 or > 32 || !build.All(c => char.IsAsciiLetterOrDigit(c) || c is '.' or '_' or '-'))
             return null;

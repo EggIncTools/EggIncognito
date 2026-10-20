@@ -13,7 +13,7 @@ public static class FeedFixtures {
 
     public static ProtoBuildEvent Proto(string platform, string app, string build, string? client, string sha,
         bool created, bool changed, VersionDelta delta, bool hasProto = true) =>
-        new(1, platform, app, build, client, sha, created, changed, "https://x/protos", delta, "prev-app", "prev-build",
+        new(1, platform, app, build, client, sha, created, changed, "https://x/", delta, "prev-app", "prev-build",
             ProtoVersionQuality.Flaws(platform, build, client, sha, hasProto));
 
     public static ProtoBuildEvent ProtoForward() => Proto("android", "2.0.0", "200000", "80", "sha-a", true, true, VersionDelta.Forward);

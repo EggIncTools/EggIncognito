@@ -27,12 +27,10 @@
     var groups = Groups();
     var offerAllCount = groups.Count(CanOffer);
     var counterparts = CounterpartLinks();
-    <WorkbenchModal Open="true" Title="Proto workbench" Size="WorkbenchSize.Wide" CardClass="@CardCss(groups)"
+    <WorkbenchModal Open="true" Title="Proto workbench" Size="WorkbenchSize.Wide" CardClass="@CardCss()"
                     BodyId="wbDrop" OnClose="Close">
     <HeadTools>
-        <ProtoWorkbenchHeadTools SplitActive="@(State.SplitQuery is not null)" OnToggleSplit="ToggleSplit"
-                                  ShowAdmin="@User.Current.IsAtLeast(UserRole.Contributor)" AdminOpen="_adminOpen"
-                                  AdminOpenChanged="@(v => _adminOpen = v)" OfferAllCount="offerAllCount" OfferBusy="_offerBusy"
+        <ProtoWorkbenchHeadTools OfferAllCount="offerAllCount" OfferBusy="_offerBusy"
                                   OnOfferAll="@(() => OfferBatch([.. groups.Where(CanOffer)]))"/>
     </HeadTools>
     <Rail>
@@ -40,20 +38,28 @@
             <ProtoSessionRail Entries="State.Entries" Query="State.SessionQuery" QueryChanged="@(q => State.SessionQuery = q)"
                               CardTemplate="@((e, g, grouped) => Card(e, g, grouped))"
                               AnalysedBodyTemplate="@(listed => AnalysedBody(listed, groups))"/>
-            @if (State.SplitQuery is { } split) {
-                <ProtoSplitRegistryRail Split="split" OnClose="ToggleSplit" SplitChanged="@(q => State.SplitQuery = q)"
-                                        Rows="State.Registry" IsAdmin="@User.Current.IsAtLeast(UserRole.Admin)" RowClass="RowClass"
-                                        IsSelected="IsSelected" OnRowClick="@(t => RegistryRowClick(t.Row, t.Args))"
-                                        OnToggleRow="ToggleRow" OnToggleAll="@(t => ToggleAll(t.Rows, t.On))"/>
-            }
             <div class="wb-rail-slot pwb-rail-reg">
                 <WorkbenchSection Label="Registry">
-                    <RegistryPane Query="State.Query" QueryChanged="@(q => State.Query = q)" Rows="State.Registry"
-                                  IsAdmin="@User.Current.IsAtLeast(UserRole.Admin)" RowClass="RowClass" IsSelected="IsSelected"
-                                  OnRowClick="@(t => RegistryRowClick(t.Row, t.Args))" OnToggleRow="ToggleRow"
-                                  OnToggleAll="@(t => ToggleAll(t.Rows, t.On))"/>
+                    <Tools>
+                        <label class="pwb-split-toggle">
+                            <input type="checkbox" class="pwb-split-flag" aria-label="Toggle split registry"
+                                   checked="@State.SplitFlip" @onchange="@(e => State.SplitFlip = e.Value is true)"/>
+                            <span>split</span>
+                            <Icon Name="chevron-right" Class="icon-sm pwb-split-chev"/>
+                        </label>
+                    </Tools>
+                    <ChildContent>
+                        <RegistryPane Query="State.Query" QueryChanged="@(q => State.Query = q)" Rows="State.Registry"
+                                      IsAdmin="@User.Current.IsAtLeast(UserRole.Admin)" RowClass="RowClass" IsSelected="IsSelected"
+                                      OnRowClick="@(t => RegistryRowClick(t.Row, t.Args))" OnToggleRow="ToggleRow"
+                                      OnToggleAll="@(t => ToggleAll(t.Rows, t.On))"/>
+                    </ChildContent>
                 </WorkbenchSection>
             </div>
+            <ProtoSplitRegistryRail Split="@(State.SplitQuery ?? OppositeOf(State.Query))" SplitChanged="@(q => State.SplitQuery = q)"
+                                    Rows="State.Registry" IsAdmin="@User.Current.IsAtLeast(UserRole.Admin)" RowClass="RowClass"
+                                    IsSelected="IsSelected" OnRowClick="@(t => RegistryRowClick(t.Row, t.Args))"
+                                    OnToggleRow="ToggleRow" OnToggleAll="@(t => ToggleAll(t.Rows, t.On))"/>
         </WorkbenchRail>
     </Rail>
     <ChildContent>
@@ -395,14 +401,9 @@
         if (match is not null) _ = SetA(RegistryRef(match));
     }
 
-    string CardCss(List<OfferGroup> groups) {
-        var cols = 1 + (State.Entries.Count > 0 ? 1 : 0) + (State.SplitQuery is not null ? 1 : 0);
-        var css = $"pwb-card pwb-cols-{cols}";
+    string CardCss() {
+        var css = State.Entries.Count > 0 ? "pwb-card pwb-has-sess" : "pwb-card";
         return _adminOpen ? css + " wb-drawer-on" : css;
-    }
-
-    void ToggleSplit() {
-        State.SplitQuery = State.SplitQuery is null ? OppositeOf(State.Query) : null;
     }
 
     static ListQuery OppositeOf(ListQuery query) {

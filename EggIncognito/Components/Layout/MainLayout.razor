@@ -5,7 +5,7 @@
 @inject AuthState Auth
 @inject IHttpContextAccessor HttpContextAccessor
 @inject BootFlags Boot
-@Body
+<CircuitGuard Name="Page" Scope="FaultScope.Page">@Body</CircuitGuard>
 @if (Boot.DbEnabled) {
     <VisitCounter/>
 }

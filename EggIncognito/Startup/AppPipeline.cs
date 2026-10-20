@@ -83,9 +83,13 @@ public static class AppPipeline {
         app.UseMiddleware<Services.Security.SecurityHeadersMiddleware>();
         app.UseSuitePrerender();
         app.Use(async (ctx, next) => {
-            if (ctx.Request.Host.Host.StartsWith("protos.", StringComparison.OrdinalIgnoreCase)
-                && ctx.Request.Path == "/") {
-                ctx.Request.Path = "/protos";
+            var path = ctx.Request.Path;
+            if (path.StartsWithSegments("/protos", StringComparison.OrdinalIgnoreCase, out var rest)
+                && !path.StartsWithSegments("/protos/subscribe", StringComparison.OrdinalIgnoreCase)
+                && !path.StartsWithSegments("/protos/sources", StringComparison.OrdinalIgnoreCase)) {
+                string target = rest.Value is { Length: > 1 } tail ? tail : "/";
+                ctx.Response.Redirect(target + ctx.Request.QueryString, permanent: true);
+                return;
             }
 
             await next();

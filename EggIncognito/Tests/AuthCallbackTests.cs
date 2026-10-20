@@ -28,16 +28,16 @@ public class AuthCallbackTests {
 
     [Fact]
     public async Task Code_OnAnyPage_RedirectsClean() {
-        var (status, location, continued) = await RunAsync(Enabled, "GET", "/protos", "?code=goodcode");
+        var (status, location, continued) = await RunAsync(Enabled, "GET", "/ios/1.37.0.1", "?code=goodcode");
         Assert.Equal(StatusCodes.Status302Found, status);
-        Assert.Equal("/protos", location);
+        Assert.Equal("/ios/1.37.0.1", location);
         Assert.False(continued);
     }
 
     [Fact]
     public async Task Code_PreservesOtherQueryParams() {
-        var (_, location, _) = await RunAsync(Enabled, "GET", "/protos", "?tab=discord&code=goodcode");
-        Assert.Equal("/protos?tab=discord", location);
+        var (_, location, _) = await RunAsync(Enabled, "GET", "/ios/1.37.0.1", "?tab=discord&code=goodcode");
+        Assert.Equal("/ios/1.37.0.1?tab=discord", location);
     }
 
     [Fact]
@@ -48,8 +48,8 @@ public class AuthCallbackTests {
 
     [Fact]
     public async Task State_IsStrippedToo() {
-        var (_, location, _) = await RunAsync(Enabled, "GET", "/protos", "?code=c&state=s");
-        Assert.Equal("/protos", location);
+        var (_, location, _) = await RunAsync(Enabled, "GET", "/ios/1.37.0.1", "?code=c&state=s");
+        Assert.Equal("/ios/1.37.0.1", location);
     }
 
     [Fact]
@@ -68,7 +68,7 @@ public class AuthCallbackTests {
 
     [Fact]
     public async Task Code_PassesThrough_OnPost() {
-        var (_, location, continued) = await RunAsync(Enabled, "POST", "/protos", "?code=abc");
+        var (_, location, continued) = await RunAsync(Enabled, "POST", "/", "?code=abc");
         Assert.True(continued);
         Assert.Null(location);
     }

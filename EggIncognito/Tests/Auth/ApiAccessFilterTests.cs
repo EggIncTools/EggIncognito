@@ -44,7 +44,7 @@ public class ApiAccessFilterTests {
 
     [Fact]
     public async Task NonApiPath_WithNoAccessPolicy_IsLeftAlone() {
-        var ctx = Context("/protos", UserRole.Viewer);
+        var ctx = Context("/", UserRole.Viewer);
         await new ApiAccessFilter().OnAuthorizationAsync(ctx);
         Assert.Null(ctx.Result);
     }

@@ -13,7 +13,7 @@ public sealed class FeedDispatcher(
     private const int DeadAfterFailures = 5;
 
     public static string BuildPageUrl(string? baseUrl, string platform, string build) =>
-        FeedPages.Url(string.IsNullOrEmpty(baseUrl) ? FeedPages.DefaultPageBaseUrl : baseUrl, $"protos/{platform}/{build}");
+        FeedPages.Url(string.IsNullOrEmpty(baseUrl) ? FeedPages.DefaultPageBaseUrl : baseUrl, $"{platform}/{build}");
 
     public async Task DispatchAsync(INotificationEvent evt, CancellationToken ct = default) {
         var kind = FeedEventKinds.For(evt);

@@ -36,12 +36,12 @@
                         @foreach (var group in column) {
                             var families = FilteredFamilies(group);
                             @if (families.Count > 0) {
-                                <WorkbenchSection Label="@GroupLabel(group)">
+                                <WorkbenchSection Label="@group.ToString()">
                                     @foreach (var family in families) {
-                                        <WorkbenchEntry @key="family.Name" Selected="@(State.Family == family.Name)"
+                                        <WorkbenchEntry @key="family.Name" Selected="@RailSelected(family)"
                                                         OnClick="@(_ => SelectFamilyAsync(family))" Style="@CoverageStyle(family)">
                                             <Lead><img class="atb-ico" src="@ArtifactTreeBuilder.Icon(family.Name, family.Tiers.Count == 0 ? 0 : family.Tiers.Max(t => t.Level))" alt="" loading="lazy"/></Lead>
-                                            <Name>@RailName(family)</Name>
+                                            <Name>@EggIcons.Pretty(family.PluralName)</Name>
                                         </WorkbenchEntry>
                                     }
                                 </WorkbenchSection>
@@ -80,22 +80,25 @@
                         }
                     </div>
                     <div class="atb-tiers">
-                        @foreach (var tier in family.Tiers.Where(t => TierShown(family, t))) {
-                            var t = tier;
-                            IReadOnlyList<int> rarities = State.NeedsRarity ? Rarities(family, t) : [0];
-                            <div class="atb-tier-col">
-                                @foreach (var r in rarities) {
-                                    int rarity = r;
-                                    string rarityName = ArtifactTreeBuilder.RarityName(rarity);
-                                    bool on = State.Tier == t.Level && (!State.NeedsRarity || State.Rarity == rarity);
-                                    <ArtifactTip Name="@ArtifactTreeBuilder.DisplayName(family.Name, t.Level)" Rarity="@(State.NeedsRarity ? rarity : 0)">
-                                        <button type="button" class="atb-tier-btn atb-r@(State.NeedsRarity ? rarity : 0) @(on ? "atb-on" : "")"
-                                                aria-label="@ArtifactTreeBuilder.DisplayName(family.Name, t.Level)" @onclick="@(() => PickCellAsync(family, t, rarity))">
-                                            <img class="atb-ico" src="@ArtifactTreeBuilder.Icon(family.Name, t.Level)" alt="" loading="lazy"/>
-                                        </button>
-                                    </ArtifactTip>
-                                }
-                            </div>
+                        @foreach (var member in GroupFamilies(family)) {
+                            var f = member;
+                            @foreach (var tier in f.Tiers) {
+                                var t = tier;
+                                bool current = f.Name == family.Name;
+                                IReadOnlyList<int> rarities = current && State.NeedsRarity ? Rarities(f, t) : [0];
+                                <div class="atb-tier-col">
+                                    @foreach (var r in rarities) {
+                                        int rarity = r;
+                                        bool on = current && State.Tier == t.Level && (!State.NeedsRarity || State.Rarity == rarity);
+                                        <ArtifactTip Name="@ArtifactTreeBuilder.DisplayName(f.Name, t.Level)" Rarity="@rarity">
+                                            <button type="button" class="atb-tier-btn atb-r@(rarity) @(on ? "atb-on" : "")"
+                                                    aria-label="@ArtifactTreeBuilder.DisplayName(f.Name, t.Level)" @onclick="@(() => PickCellAsync(f, t, rarity))">
+                                                <img class="atb-ico" src="@ArtifactTreeBuilder.Icon(f.Name, t.Level)" alt="" loading="lazy"/>
+                                            </button>
+                                        </ArtifactTip>
+                                    }
+                                </div>
+                            }
                         }
                     </div>
             </div>
@@ -160,15 +163,12 @@
         @if (AdminPanels && !_adminDocked) {
             <DragPanel @bind-Placement="_adminPlacement" Label="Crafting" Class="atb-admin">
                 <Handle>
-                    <span class="atb-admin-head">
-                        <Icon Name="grip-vertical" Class="icon-sm"/>Crafting
-                        <button type="button" class="btn-mini atb-admin-hide" aria-label="Dock crafting panel"
-                                @onpointerdown:stopPropagation="true" @onclick="() => _adminDocked = true">
-                            <Icon Name="minus" Class="icon-sm"/>
-                        </button>
-                    </span>
+                    <span class="atb-admin-head"><Icon Name="grip-vertical" Class="icon-sm"/>Crafting</span>
                 </Handle>
                 <ChildContent>
+                    <button type="button" class="btn-mini atb-admin-hide" aria-label="Dock crafting panel" @onclick="DockAdmin">
+                        <Icon Name="minus" Class="icon-sm"/>
+                    </button>
                     <div class="atb-admin-body">
                         <PanelShelf Shelf="@DevicePanelShelves.Artifacts" Context="ArtifactContext"/>
                     </div>
@@ -197,7 +197,9 @@
     PanelPlacement _adminPlacement = new(24, 96, 640, 560);
     bool _adminDocked;
 
-    bool AdminPanels => _admin && PanelShelf.Any(Panels, DevicePanelShelves.Artifacts);
+    void DockAdmin() => _adminDocked = true;
+
+    bool AdminPanels =>_admin && PanelShelf.Any(Panels, DevicePanelShelves.Artifacts);
     int _coverageReloadPending;
     int _dropsVersion;
 
@@ -263,9 +265,20 @@
 
     public async Task Open() {
         _open = true;
-        await LoadCoverageAsync();
+        _ = LoadCoverageLaterAsync();
         await WriteHashAsync(true);
         StateHasChanged();
+    }
+
+    async Task LoadCoverageLaterAsync() {
+        if (_coverage is not null) return;
+        try {
+            await LoadCoverageAsync();
+            await InvokeAsync(StateHasChanged);
+        } catch (Exception ex) when (ex is ObjectDisposedException or OperationCanceledException or InvalidOperationException) {
+        } catch (Exception ex) {
+            Logger.LogWarning(ex, "artifact workbench coverage load failed");
+        }
     }
 
     async Task CloseAsync() {
@@ -297,21 +310,13 @@
         Fragments
     }
 
-    static readonly RailGroup[][] RailColumns = [[RailGroup.Artifacts, RailGroup.Ingredients], [RailGroup.Stones, RailGroup.Fragments]];
+    static readonly RailGroup[][] RailColumns = [[RailGroup.Artifacts, RailGroup.Ingredients], [RailGroup.Stones]];
 
     static RailGroup GroupOf(ArtifactFamily family) =>
         ArtifactTreeBuilder.IsFragment(family.Name) ? RailGroup.Fragments
         : family.Kind == ArtifactKind.Artifact ? RailGroup.Artifacts
         : family.Kind == ArtifactKind.Ingredient ? RailGroup.Ingredients
         : RailGroup.Stones;
-
-    static string GroupLabel(RailGroup group) => group switch {
-        RailGroup.Fragments => "Frags",
-        _ => group.ToString()
-    };
-
-    static string RailName(ArtifactFamily family) =>
-        EggIcons.Pretty(family.PluralName).Replace("Stone Fragments", "Frags", StringComparison.OrdinalIgnoreCase);
 
     List<ArtifactFamily> FilteredFamilies(RailGroup group) {
         var filter = State.RailFilter.Trim();
@@ -324,6 +329,8 @@
 
     async Task SelectFamilyAsync(ArtifactFamily family) {
         State.SelectFamily(family.Name, TopTier(family));
+        if (!ViewAvailable(family, State.View)) State.View = FirstView(family);
+        if (!State.NeedsRarity) State.Rarity = null;
         State.Collapsed = new HashSet<string>(StringComparer.Ordinal);
         await LoadCatalogAsync();
         if (State.NeedsRarity) SnapRarity(family);
@@ -351,11 +358,45 @@
     }
 
     async Task PickCellAsync(ArtifactFamily family, ArtifactTier tier, int rarity) {
+        if (State.Family != family.Name) {
+            State.Family = family.Name;
+            State.Collapsed = new HashSet<string>(StringComparer.Ordinal);
+        }
+
+        if (!TierAvailable(family, tier, State.View)) {
+            State.View = Enum.GetValues<ArtifactView>().FirstOrDefault(v => TierAvailable(family, tier, v), FirstView(family));
+        }
+
         State.Tier = tier.Level;
         State.Rarity = State.NeedsRarity ? rarity : null;
+        await LoadCatalogAsync();
+        if (State.NeedsRarity) SnapRarity(family);
         await RefreshAsync(family);
         await WriteHashAsync();
     }
+
+    static ArtifactView FirstView(ArtifactFamily family) =>
+        Enum.GetValues<ArtifactView>().FirstOrDefault(v => ViewAvailable(family, v), ArtifactView.ConsumesInto);
+
+    static bool TierAvailable(ArtifactFamily family, ArtifactTier tier, ArtifactView view) => view switch {
+        ArtifactView.Crafting => ArtifactWorkbenchState.HasRecipe(tier),
+        ArtifactView.CraftsInto => ArtifactWorkbenchState.IsUsed(family, tier),
+        ArtifactView.ComesFrom => CanComeFromConsume(family),
+        _ => true
+    };
+
+    static ArtifactFamily? FragmentOf(ArtifactFamily stone) => FamilyOf(stone.Name + "_FRAGMENT");
+
+    static ArtifactFamily? StoneOf(ArtifactFamily family) =>
+        ArtifactTreeBuilder.IsFragment(family.Name) ? FamilyOf(family.Name[..^"_FRAGMENT".Length]) : null;
+
+    static IReadOnlyList<ArtifactFamily> GroupFamilies(ArtifactFamily family) {
+        var stone = StoneOf(family) ?? family;
+        return FragmentOf(stone) is { } fragment ? [fragment, stone] : [stone];
+    }
+
+    bool RailSelected(ArtifactFamily family) =>
+        State.Family == family.Name || FragmentOf(family) is { } fragment && State.Family == fragment.Name;
 
     static bool CanComeFromConsume(ArtifactFamily family) => family.Kind == ArtifactKind.Stone || ArtifactTreeBuilder.IsFragment(family.Name);
 
@@ -366,11 +407,7 @@
         _ => true
     };
 
-    bool TierShown(ArtifactFamily family, ArtifactTier tier) => State.View switch {
-        ArtifactView.Crafting => ArtifactWorkbenchState.HasRecipe(tier),
-        ArtifactView.CraftsInto => ArtifactWorkbenchState.IsUsed(family, tier),
-        _ => true
-    };
+    bool TierShown(ArtifactFamily family, ArtifactTier tier) => TierAvailable(family, tier, State.View);
 
     void SnapCraftTier(ArtifactFamily family) {
         if (!State.IsRecipeView || CurrentTier(family) is { } tier && TierShown(family, tier)) return;
@@ -533,13 +570,21 @@
         State.Rarity = rarities.Count > 0 ? rarities[0] : 0;
     }
 
+    static (string Json, ArtifactCatalog Catalog)? s_catalog;
+
     async Task LoadCatalogAsync() {
         if (_catalog is not null) return;
         using var scope = Scopes.CreateScope();
         if (scope.ServiceProvider.GetService<GameDataStore>() is not { } store) return;
         if (store.Doc(ArtifactCatalog.DocumentId) is not { } json) return;
+        if (s_catalog is { } cached && ReferenceEquals(cached.Json, json)) {
+            _catalog = cached.Catalog;
+            return;
+        }
+
         try {
             _catalog = ArtifactCatalog.Parse(json);
+            s_catalog = (json, _catalog);
         } catch (Exception ex) when (ex is JsonException or InvalidOperationException or GameDataSchemaException) {
             Logger.LogDebug(ex, "artifact catalog could not be loaded for the artifacts workbench");
         }
@@ -611,9 +656,9 @@
         }
 
         _open = true;
-        await LoadCoverageAsync();
+        _ = LoadCoverageLaterAsync();
         if (CurrentFamily() is { } family) {
-            if (State.View == ArtifactView.ComesFrom && !CanComeFromConsume(family)) State.View = ArtifactView.Crafting;
+            if (!ViewAvailable(family, State.View)) State.View = FirstView(family);
             await LoadCatalogAsync();
             if (State.NeedsRarity) SnapRarity(family);
             else State.Rarity = null;

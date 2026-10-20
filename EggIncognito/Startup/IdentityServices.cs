@@ -58,5 +58,6 @@ public static class IdentityServices {
             o.Themes = [.. ThemePresets.All.Select(p => p.Slug)];
         });
         builder.Services.AddScoped<ClipboardInterop>();
+        builder.Services.AddScoped<IFaultDetailGate, AdminFaultDetailGate>();
     }
 }

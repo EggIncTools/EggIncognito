@@ -65,6 +65,7 @@ public sealed class ProtoWorkbenchState : WorkbenchStateBase {
     public Dictionary<string, string> CanonicalShas { get; } = [];
     public ListQuery Query { get; set; } = ListQuery.Empty;
     public ListQuery? SplitQuery { get; set; }
+    public bool SplitFlip { get; set; }
     public ListQuery SessionQuery { get; set; } = ListQuery.Empty;
     public Dictionary<string, string> ViewFilters { get; } = [];
     public ProtoRef? A { get; set; }

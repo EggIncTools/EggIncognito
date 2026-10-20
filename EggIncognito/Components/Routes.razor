@@ -1,5 +1,4 @@
-@using EggIncognito.Components.Pages
-<Router AppAssembly="@typeof(Program).Assembly" NotFoundPage="typeof(NotFound)">
+<Router AppAssembly="@typeof(Program).Assembly" NotFoundPage="typeof(FaultNotFound)">
     <Found Context="routeData">
         <RouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)"/>
         <FocusOnNavigate RouteData="@routeData" Selector="h1"/>

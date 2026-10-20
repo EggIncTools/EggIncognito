@@ -1,26 +1,17 @@
 @using EggIncognito.Services.Protos
 
-<div class="wb-rail-slot pwb-rail-reg wb-pane-in">
+<div class="wb-rail-slot pwb-rail-split">
     <WorkbenchSection Label="Registry (split)">
-        <Tools>
-            <button type="button" class="pwb-x pwb-x-head" aria-label="Close split registry" @onclick="OnClose">
-                <Icon Name="x" Class="icon-sm"/>
-            </button>
-        </Tools>
-        <ChildContent>
-            <RegistryPane Query="Split" QueryChanged="SplitChanged" Rows="Rows"
-                          IsAdmin="IsAdmin" RowClass="RowClass" IsSelected="IsSelected"
-                          OnRowClick="OnRowClick" OnToggleRow="OnToggleRow"
-                          OnToggleAll="OnToggleAll"/>
-        </ChildContent>
+        <RegistryPane Query="Split" QueryChanged="SplitChanged" Rows="Rows"
+                      IsAdmin="IsAdmin" RowClass="RowClass" IsSelected="IsSelected"
+                      OnRowClick="OnRowClick" OnToggleRow="OnToggleRow"
+                      OnToggleAll="OnToggleAll"/>
     </WorkbenchSection>
 </div>
 
 @code {
 
     [Parameter, EditorRequired] public ListQuery Split { get; set; } = ListQuery.Empty;
-
-    [Parameter] public EventCallback OnClose { get; set; }
 
     [Parameter] public EventCallback<ListQuery> SplitChanged { get; set; }
 

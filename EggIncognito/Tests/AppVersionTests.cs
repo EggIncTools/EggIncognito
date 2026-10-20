@@ -30,7 +30,7 @@ public class AppVersionTests(SharedAppFactory f) {
     [Fact]
     public async Task RootPage_RendersSharedCircuitLifecycle_NotTheOldWatcher() {
         var c = _factory.CreateClient();
-        string html = await c.GetStringAsync("/protos");
+        string html = await c.GetStringAsync("/");
         Assert.Contains("id=\"components-reconnect-modal\"", html);
         Assert.Contains("_content/EggIdentity.UI/circuit.js", html);
         Assert.DoesNotContain("reconnectWatcher.js", html);

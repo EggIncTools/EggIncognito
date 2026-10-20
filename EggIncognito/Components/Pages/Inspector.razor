@@ -8,10 +8,10 @@
         if (!firstRender) return;
         var fragment = new Uri(Nav.Uri).Fragment.TrimStart('#');
         var target = fragment.Length > 0 && !fragment.StartsWith("api", StringComparison.Ordinal)
-            ? $"/protos#api/{fragment}"
+            ? $"/#api/{fragment}"
             : fragment.Length > 0
-                ? $"/protos#{fragment}"
-                : "/protos#api";
+                ? $"/#{fragment}"
+                : "/#api";
         Nav.NavigateTo(target, replace: true);
     }
 

@@ -567,25 +567,56 @@ body:has(.modal-backdrop) { overflow: hidden; }
   .account-modal { max-width: 42rem; }
 }
 
-.pwb-card { --wb-drawer-border: var(--color-border-strong); }
-.wb-card.pwb-card, .wb-card.wb-card-wide.pwb-card { --wb-card-w: 97vw; --wb-card-max: none; min-width: min(94vw, 76rem); }
-.pwb-card .wb-rail { --wb-rail-w: 15.5rem; }
+.pwb-card { --wb-drawer-border: var(--color-border-strong); --pwb-col: 16.5rem; --pwb-gap: 0.75rem; --pwb-main-w: 66rem; }
+.wb-card.pwb-card, .wb-card.wb-card-wide.pwb-card { --wb-card-w: fit-content; --wb-card-max: 97vw; }
+.pwb-card .wb-rail { --pwb-n: 1; --pwb-s: 0; }
+.pwb-card:has(.pwb-split-flag:checked) .wb-rail { --pwb-s: 1; }
 @media (min-width: 80rem) {
-  .pwb-cols-2 .wb-rail, .pwb-cols-3 .wb-rail {
-    --wb-rail-w: 31.5rem;
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    grid-template-rows: minmax(0, 1fr);
-    column-gap: 0.75rem;
-    overflow: hidden;
-  }
-  .pwb-cols-2 .wb-rail:has(.pwb-rail-sess-empty), .pwb-cols-3 .wb-rail:has(.pwb-rail-sess-empty) { grid-template-rows: auto minmax(0, 1fr); }
-  .pwb-cols-2 .wb-rail-slot, .pwb-cols-3 .wb-rail-slot { flex: none; min-height: 0; }
-  .pwb-cols-2 .pwb-rail-sess-empty, .pwb-cols-3 .pwb-rail-sess-empty { grid-column: 1 / -1; grid-row: 1; }
+  .pwb-has-sess .wb-rail { --pwb-n: 2; }
 }
 @media (min-width: 100rem) {
-  .pwb-cols-3 .wb-rail { --wb-rail-w: 47.5rem; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .pwb-card .wb-rail { --pwb-s: 1; }
+  .pwb-card:has(.pwb-split-flag:checked) .wb-rail { --pwb-s: 0; }
 }
+@media (min-width: 48.01rem) {
+  .pwb-card .wb-main { flex: 0 1 auto; width: var(--pwb-main-w); }
+  .pwb-card .wb-rail {
+    --wb-rail-w: calc((var(--pwb-n) + var(--pwb-s)) * var(--pwb-col) + (var(--pwb-n) + var(--pwb-s) - 1) * var(--pwb-gap) + 1rem + 1px);
+    display: grid;
+    grid-template-columns: repeat(3, var(--pwb-col));
+    grid-template-rows: auto minmax(0, 1fr);
+    column-gap: var(--pwb-gap);
+    overflow-x: clip;
+    overflow-y: visible;
+    scrollbar-gutter: auto;
+  }
+  .pwb-card .wb-rail:has(.pwb-rail-sess:not(.pwb-rail-sess-empty)) { grid-template-rows: minmax(0, 2fr) minmax(0, 3fr); }
+  .pwb-card .wb-rail-slot { flex: none; min-height: 0; }
+  .pwb-card .pwb-rail-sess { grid-column: 1; grid-row: 1; }
+  .pwb-card .pwb-rail-reg { grid-column: 1; grid-row: 2; }
+  .pwb-card .pwb-rail-split { grid-column: 2; grid-row: 1 / span 2; opacity: var(--pwb-s); transition: opacity var(--motion-morph, 220ms) var(--ease-standard, cubic-bezier(.2, 0, 0, 1)); }
+}
+@media (min-width: 80rem) {
+  .pwb-has-sess .wb-rail, .pwb-has-sess .wb-rail:has(.pwb-rail-sess:not(.pwb-rail-sess-empty)) { grid-template-rows: minmax(0, 1fr); }
+  .pwb-has-sess .pwb-rail-sess { grid-column: 1; grid-row: 1; }
+  .pwb-has-sess .pwb-rail-reg { grid-column: 2; grid-row: 1; }
+  .pwb-has-sess .pwb-rail-split { grid-column: 3; grid-row: 1; }
+}
+.pwb-split-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.125rem;
+  margin-block: -0.25rem;
+  padding: 0.125rem 0.125rem 0.125rem 0.375rem;
+  border-radius: 0.25rem;
+  color: color-mix(in oklab, var(--color-accent) calc(var(--pwb-s, 0) * 100%), var(--color-muted));
+  cursor: pointer;
+  transition: color var(--motion-fast, 120ms) var(--ease-standard, cubic-bezier(.2, 0, 0, 1));
+}
+.pwb-split-toggle:hover { color: var(--color-fg); }
+.pwb-split-toggle:focus-within { outline: 1px solid var(--color-accent); outline-offset: -1px; }
+.pwb-split-flag { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.pwb-split-chev { rotate: calc(var(--pwb-s, 0) * 180deg); transition: rotate var(--motion-morph, 220ms) var(--ease-standard, cubic-bezier(.2, 0, 0, 1)); }
 @media (min-width: 80rem) {
   .evwb-card .wb-rail { --wb-rail-w: 28rem; }
 }
@@ -600,5 +631,6 @@ body:has(.modal-backdrop) { overflow: hidden; }
   }
   .wb-card .wb-main { flex: none; overflow: visible; padding: 0.75rem; }
   .pwb-card .wb-rail { max-height: none; overflow: visible; }
+  .pwb-split-toggle, .pwb-card .pwb-rail-split { display: none; }
   .wb-card.wb-drawer-on .wb-main { margin-right: 0; padding-right: 0.75rem; }
 }

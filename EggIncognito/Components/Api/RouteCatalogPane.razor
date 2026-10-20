@@ -12,7 +12,7 @@
 <div class="awb-pane">
     <RouteCatalogHeadBar Binary="_binary" Refreshing="_refreshing" BinaryUnavailable="_binaryUnavailable" OnRefresh="RefreshBinary"/>
     @if (_binaryUnavailable) {
-        <p class="routes-note">Binary route status unavailable (no database).</p>
+        <DependencyNotice Dependency="SuiteDependency.Database" Feature="Binary route status"/>
     }
     <KpiGrid Columns="4" MaxWidth="26rem">
         <KpiTile Value="@(_binary?.Discovered.ToString() ?? "-")" Label="discovered"/>

@@ -20,7 +20,7 @@ public static class DevBrowserLauncher {
         && !app.Configuration.GetValue("NoBrowser", false);
 
     private static async Task OpenAsync(WebApplication app, bool captureMode) {
-        string url = ServerAddress(app).TrimEnd('/') + (captureMode ? "/protos#api/capture" : "/protos#api");
+        string url = ServerAddress(app).TrimEnd('/') + (captureMode ? "/#api/capture" : "/#api");
         if (captureMode && await DashboardAlreadyOpenAsync(app)) {
             app.Logger.LogInformation("Dashboard already open (reconnected) - not opening a new tab.");
             return;

@@ -1,6 +1,10 @@
 @page "/"
-@page "/protos"
-@page "/protos/{*Path}"
+@page "/ios/{*Path}"
+@page "/android/{*Path}"
+@page "/file/{*Path}"
+@page "/support"
+@page "/add"
+@page "/review"
 @page "/data"
 @page "/periodicals"
 @page "/capture"
@@ -10,7 +14,7 @@
 @inject ICurrentUser User
 @inject IJSRuntime JS
 @inject IWebHostEnvironment Env
-@inject ILogger<Protos> Logger
+@inject ILogger<Home> Logger
 @inject ProtoWorkbenchState State
 @inject NavigationManager Nav
 @inject ToastService Toasts
@@ -90,7 +94,9 @@
     <ContractsWorkbenchModal @ref="_contractsModal"/>
     <AdminWorkbenchModal @ref="_adminWorkbench"/>
 </CircuitGuard>
-<CaptureModal @ref="_captureModal"/>
+<CircuitGuard Name="Capture">
+    <CaptureModal @ref="_captureModal"/>
+</CircuitGuard>
 <SupportModal @ref="_supportModal"/>
 <TermsModal @ref="_termsModal"/>
 <PrivacyModal @ref="_privacyModal"/>
@@ -173,22 +179,24 @@
 
     PathRouteSync? _routeSync;
 
+    static readonly HashSet<string> NonProtoRoots = new(StringComparer.OrdinalIgnoreCase) { "data", "periodicals", "capture" };
+
     Task OpenVersion(ProtoRegistryRow r) {
         var value = new ProtoRef(ProtoRefSource.Registry, r.Platform, r.Build, null);
         _workbench?.OpenAt(value, null, null);
-        _routeSync?.Push($"/protos/{r.Platform}/{Uri.EscapeDataString(r.Build)}");
+        _routeSync?.Push($"/{r.Platform}/{Uri.EscapeDataString(r.Build)}");
         return Task.CompletedTask;
     }
 
     void OnWorkbenchRef(WorkbenchRef value) {
-        _routeSync?.Replace(value.A is null ? "/protos" : "/protos/" + ProtoRefParser.Format(value));
+        _routeSync?.Replace("/" + ProtoRefParser.Format(value));
     }
 
     bool _closingFromRoute;
 
     Task OnWorkbenchClosed() {
         if (_closingFromRoute) return Task.CompletedTask;
-        _routeSync?.Push("/protos");
+        _routeSync?.Push("/");
         return Task.CompletedTask;
     }
 
@@ -209,7 +217,7 @@
 
     void ApplyPath() {
         var segments = _routeSync!.Segments;
-        var tail = segments.Count > 0 && segments[0] == "protos" ? string.Join("/", segments.Skip(1)) : "";
+        var tail = segments.Count > 0 && !NonProtoRoots.Contains(segments[0]) ? string.Join("/", segments) : "";
 
         if (tail.Length == 0) {
             ApplyRef(new WorkbenchRef(null, null, null));
@@ -255,19 +263,40 @@
         base.OnInitialized();
 
         if (LoginError == 1) Toasts.Push(StatusNoteKind.Error, "Login failed. Try again.");
-    }
-
-    protected override async Task OnInitializedAsync() {
         if (ViewerClock.Of(Services) is { } clock) {
-            await clock.EnsureAsync(Services, User, CancellationToken.None);
+            _ = EnsureClockAsync(clock);
             clock.Changed += OnZoneChanged;
         }
 
-        if (!Speculative) await Load();
+        if (!Speculative) _ = LoadInBackgroundAsync();
+    }
+
+    async Task EnsureClockAsync(ViewerClock clock) {
+        try {
+            await clock.EnsureAsync(Services, User, CancellationToken.None);
+            if (!_disposed) await InvokeAsync(StateHasChanged);
+        } catch (Exception ex) when (ex is not OutOfMemoryException) {
+            Logger.LogDebug(ex, "viewer clock could not be resolved");
+        }
+    }
+
+    async Task LoadInBackgroundAsync() {
+        await Load();
+        if (!_disposed) await InvokeAsync(StateHasChanged);
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender) {
         if (!firstRender) return;
+        _routeSync = new PathRouteSync(Nav, JS, "");
+        _routeSync.Changed += () => InvokeAsync(() => {
+            ApplyPath();
+            StateHasChanged();
+        });
+        _routeSync.Start();
+        ApplyPath();
+        await ApplyRouteAsync();
+        await ApplyFragmentAsync();
+
         if (ViewerClock.Of(Services) is { } clock) await clock.SyncAsync();
         _topics ??= Notifier.Subscribe(OnTopic);
         _vis = new PageVisibility(JS);
@@ -280,16 +309,6 @@
         } catch (JSDisconnectedException ex) {
             Logger.LogDebug(ex, "proto drop zone not wired, the circuit is already gone");
         }
-
-        _routeSync = new PathRouteSync(Nav, JS, "/protos");
-        _routeSync.Changed += () => InvokeAsync(() => {
-            ApplyPath();
-            StateHasChanged();
-        });
-        _routeSync.Start();
-        ApplyPath();
-        await ApplyRouteAsync();
-        await ApplyFragmentAsync();
     }
 
     Task ApplyRouteAsync() {
@@ -309,6 +328,16 @@
             return _deviceWorkbench?.Open() ?? Task.CompletedTask;
         if (fragment.StartsWith("capture/", StringComparison.OrdinalIgnoreCase))
             return _deviceWorkbench?.OpenCapture(fragment["capture/".Length..]) ?? Task.CompletedTask;
+
+        if (string.Equals(fragment, "terms", StringComparison.OrdinalIgnoreCase)) {
+            OpenTerms();
+            return Task.CompletedTask;
+        }
+
+        if (string.Equals(fragment, "privacy", StringComparison.OrdinalIgnoreCase)) {
+            OpenPrivacy();
+            return Task.CompletedTask;
+        }
 
         if (_adminWorkbench is not { } admin) return Task.CompletedTask;
         if (string.Equals(fragment, "admin", StringComparison.OrdinalIgnoreCase)) admin.Open();

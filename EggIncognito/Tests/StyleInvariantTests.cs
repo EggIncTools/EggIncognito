@@ -17,7 +17,7 @@ public partial class StyleInvariantTests(SharedAppFactory f) {
     private static readonly string[] EngineDirectives = ["@theme", "@apply", "@layer", "@utility", "@source", "@custom-variant"];
 
     [Theory]
-    [InlineData("/protos")]
+    [InlineData("/")]
     [InlineData("/capture")]
     public async Task Page_LinksSharedThenAppThenScoped(string path) {
         string html = await f.CreateClient().GetStringAsync(path);
