@@ -1,5 +1,3 @@
-@using System.Globalization
-
 <div class="arc">
     @if (Ingredients is { Count: > 0 } ingredients) {
         <div class="arc-items">
@@ -14,7 +12,10 @@
         </div>
     }
     @if (Cost is { } cost) {
-        <span class="arc-cost mono"><img class="arc-ge" src="@GoldIcon" alt="Golden eggs"/>@cost.ToString("N0", CultureInfo.InvariantCulture)</span>
+        <span class="arc-price">
+            <CompactNumber Value="@cost" IconSrc="@GoldIcon" Class="arc-cost mono"/>
+            <span class="arc-base">(base)</span>
+        </span>
     }
 </div>
 

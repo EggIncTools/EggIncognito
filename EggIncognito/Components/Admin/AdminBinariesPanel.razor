@@ -31,7 +31,7 @@
                         <PlatformIcon Platform="@b.Platform"/>
                     </td>
                     <td class="mono">@EggIncognito.Core.Hashes.Short(b.Sha256)</td>
-                    <td class="mono">@ByteFormat.Mb(b.ByteSize, "F1")</td>
+                    <td class="mono">@ByteFormat.Humanize(b.ByteSize)</td>
                     <td class="mono">
                         @EffectiveSymbols(b).ToString("N0")
                         @if (b.EffectiveSymbols > b.NativeSymbols) {

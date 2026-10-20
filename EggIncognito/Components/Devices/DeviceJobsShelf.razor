@@ -59,7 +59,7 @@
                                         }
                                         <span class="@LevelClass(l.Level)">@l.Text</span>
                                         @if (l.Bytes is > 0) {
-                                            <span class="dwb-mono muted">@ByteFormat.Mb(l.Bytes.Value, "F1")</span>
+                                            <span class="dwb-mono muted">@ByteFormat.Humanize(l.Bytes.Value)</span>
                                         }
                                     </div>
                                 }

@@ -62,7 +62,7 @@
 .evcal-pane ::deep .evcal-pop-tags { display: flex; flex-wrap: wrap; gap: 0.25rem; margin-top: 0.375rem; }
 .evcal-pane ::deep .evcal-pop-choices { display: flex; flex-direction: column; margin-top: 0.375rem; font-size: 0.75rem; color: var(--color-fg-soft); }
 .evcal-pane ::deep .evcal-pop-choice { display: flex; justify-content: space-between; gap: 1rem; }
-.evcal-pane ::deep .evcal-choice-pct { font-family: var(--font-mono); font-weight: 600; color: color-mix(in oklab, var(--color-ok) calc(var(--p, 0) * 100%), var(--color-err)); }
+.evcal-pane ::deep .evcal-choice-pct { font-family: var(--font-mono); font-weight: 600; color: color-mix(in oklab, var(--color-ok) calc(var(--ratio, 0) * 100%), var(--color-err)); }
 .evcal-pane ::deep .evcal-pop-tag {
   padding: 0.0625rem 0.375rem;
   border: 1px solid var(--color-border);

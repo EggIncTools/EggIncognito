@@ -39,7 +39,7 @@
                                 <ChildContent>
                                     <span class="season-goal">
                                         <span class="season-goal-cs">
-                                            @FormatAmount(goal.Cxp)<span class="season-goal-unit">CS</span>
+                                            @NumberFormat.Compact(goal.Cxp)<span class="season-goal-unit">CS</span>
                                         </span>
                                         <span class="season-goal-reward">
                                             @if (!string.IsNullOrEmpty(goal.Icon)) {
@@ -47,7 +47,7 @@
                                             }
 
                                             @if (goal.RewardAmount != 1) {
-                                                <span class="season-goal-amt">@($"x{FormatAmount(goal.RewardAmount)}")</span>
+                                                <span class="season-goal-amt">@($"x{NumberFormat.Compact(goal.RewardAmount)}")</span>
                                             }
                                         </span>
                                     </span>
@@ -102,13 +102,6 @@
         return grade;
     }
 
-    static string FormatAmount(double n) {
-        if (n >= 1e9) return (n / 1e9).ToString("0.##") + "B";
-        if (n >= 1e6) return (n / 1e6).ToString("0.##") + "M";
-        if (n >= 1e3) return (n / 1e3).ToString("0.##") + "K";
-        return n.ToString("N0");
-    }
-
     static string RewardName(string rewardType, string? subType, bool plural) {
         return rewardType switch {
             "Gold" => "GE",
@@ -160,11 +153,6 @@
         };
     }
 
-    static string FormatDuration(double seconds) {
-        if (seconds >= 3600) return $"{seconds / 3600:0.#}h";
-        if (seconds >= 60) return $"{seconds / 60:0.#}m";
-        return $"{seconds:0}s";
-    }
 
     async Task LoadBoostCatalog() {
         try {
@@ -178,14 +166,14 @@
                 var dn = b.TryGetProperty("displayName", out var dnEl) ? dnEl.GetString() : null;
                 var dur = b.TryGetProperty("durationSeconds", out var duEl)
                           && duEl.TryGetDouble(out var ds) && ds > 0
-                    ? FormatDuration(ds)
+                    ? DurationFormat.Fractional(TimeSpan.FromSeconds(ds))
                     : null;
                 string? eff = null;
                 if (b.TryGetProperty("magnitude", out var mgEl) && mgEl.TryGetDouble(out var mg) && mg > 0) {
                     var tgt = b.TryGetProperty("target", out var tEl) ? tEl.GetString() ?? "" : "";
                     eff = tgt.Length > 0
-                        ? $"{FormatAmount(mg)}x {EggIcons.Pretty(tgt.StartsWith("bd-", StringComparison.Ordinal) ? tgt[3..] : tgt)}"
-                        : $"{FormatAmount(mg)}x";
+                        ? $"{NumberFormat.Compact(mg)}x {EggIcons.Pretty(tgt.StartsWith("bd-", StringComparison.Ordinal) ? tgt[3..] : tgt)}"
+                        : $"{NumberFormat.Compact(mg)}x";
                 }
 
                 _boosts[id] = new BoostMeta(string.IsNullOrEmpty(dn) ? EggIcons.Pretty(id) : dn, dur, eff);

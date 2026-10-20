@@ -550,12 +550,10 @@ body:has(.modal-backdrop) { overflow: hidden; }
 .admin-wb-card .wb-rail { overflow-y: auto; }
 .awb-card { --wb-rail-w: 13.5rem; }
 .wb-card.dtw-card, .wb-card.atb-card { max-height: 96vh; }
-.wb-card.atb-card { --wb-card-w: 97vw; --wb-card-max: none; height: 96vh; }
 .dtw-card .wb-body, .atb-card .wb-body { min-height: 0; }
 .dtw-card .wb-main, .atb-card .wb-main { display: flex; flex-direction: column; min-height: 0; overflow-y: auto; }
 .dtw-card .wb-rail, .atb-card .wb-rail { --wb-rail-w: 16rem; overflow-y: auto; }
 .atb-card .wb-rail { --wb-rail-w: max-content; }
-.atb-card .wb-entry[style*="--p"] { background-image: linear-gradient(90deg, color-mix(in oklab, color-mix(in oklab, var(--color-ok) calc(var(--p) * 100%), var(--color-err)) 22%, transparent) calc(var(--p) * 100%), transparent calc(var(--p) * 100%)); }
 .dtw-card .wb-entry-head { align-items: flex-start; }
 .dtw-card .wb-entry-meta { display: flex; flex-direction: column; gap: 0.125rem; min-width: 0; }
 @media (min-width: 80rem) {

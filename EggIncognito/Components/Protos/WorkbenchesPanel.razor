@@ -46,13 +46,13 @@
         <div class="wbx-row wbx-row-gap">
             <span class="wbx-k">Coverage</span>
             <button type="button" class="wbx-feed wbx-feed-link wbx-cov" @onclick="@(() => OnOpenCoverage.InvokeAsync())">
-                <span class="wbx-feed-name mono" style="@PctStyle(m.Validity)">@Pct(m.Validity)</span>
+                <span class="wbx-feed-name mono" style="@RatioStyle.Var(m.Validity)">@NumberFormat.Percent(m.Validity)</span>
                 <span class="wbx-n"><Icon Name="layout-grid" Class="icon-sm"/>@m.CellsComplete/@m.CellsInScope</span>
-                <span class="wbx-n"><Icon Name="database" Class="icon-sm"/>@Compact(m.Observations)</span>
+                <span class="wbx-n"><Icon Name="database" Class="icon-sm"/>@NumberFormat.Compact(m.Observations)</span>
             </button>
         </div>
-        <div class="wbx-covbar" role="img" aria-label="@($"{Pct(m.Validity)} valid")">
-            <span class="wbx-covfill" style="@PctStyle(m.Validity)"></span>
+        <div class="wbx-covbar" role="img" aria-label="@($"{NumberFormat.Percent(m.Validity)} valid")">
+            <span class="wbx-covfill" style="@RatioStyle.Var(m.Validity)"></span>
         </div>
     }
 </section>
@@ -84,14 +84,5 @@
         }
     }
 
-    static string Pct(double v) => FormattableString.Invariant($"{v * 100:0.#}%");
-
-    static string PctStyle(double v) => FormattableString.Invariant($"--p:{Math.Clamp(v, 0, 1):0.###};");
-
-    static string Compact(long n) => n switch {
-        >= 1_000_000 => FormattableString.Invariant($"{n / 1_000_000d:0.#}M"),
-        >= 1_000 => FormattableString.Invariant($"{n / 1_000d:0.#}k"),
-        _ => n.ToString(System.Globalization.CultureInfo.InvariantCulture)
-    };
 
 }

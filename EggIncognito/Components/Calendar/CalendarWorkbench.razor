@@ -331,9 +331,7 @@
     }
 
     void WriteHash(bool push = false, bool clear = false) {
-        var fragment = clear ? "" : State.Hash() ?? "";
-        if (push) _hash?.PushFragment(fragment);
-        else _hash?.ReplaceFragment(fragment);
+        _hash.WriteRootFragment(clear ? "" : State.Hash() ?? "", push);
     }
 
     static string ZoomLabel(CalendarZoom zoom) {

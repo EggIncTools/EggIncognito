@@ -32,7 +32,7 @@
                     </span>
                 }
                 @if (s.Bytes is { } bytes) {
-                    <span class="ds-bytes">@ByteFormat.Humanize(bytes, "0")</span>
+                    <span class="ds-bytes">@ByteFormat.Humanize(bytes)</span>
                 }
                 @if (s.Meta?.BinaryVersion is { Length: > 0 } binaryVersion) {
                     <span>

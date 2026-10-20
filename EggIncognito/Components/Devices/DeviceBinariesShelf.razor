@@ -19,7 +19,7 @@
                     <VersionLine App="@b.Version"/>
                 </td>
                 <td class="mono">@EggIncognito.Core.Hashes.Short(b.Sha256)</td>
-                <td class="mono">@ByteFormat.Mb(b.ByteSize, "F1")</td>
+                <td class="mono">@ByteFormat.Humanize(b.ByteSize)</td>
                 <td class="mono">@(b.EffectiveSymbols > 0 ? b.EffectiveSymbols : b.NativeSymbols)</td>
                 <td>@b.Source</td>
                 <td class="muted">@ViewerClock.At(Services, b.PulledAt).ToString("yyyy-MM-dd HH:mm")</td>
@@ -50,7 +50,7 @@
                 <tr>
                     <td class="mono">@e.Entry</td>
                     <td>@e.Outcome</td>
-                    <td class="mono">@ByteFormat.Mb(e.Bytes, "F1")</td>
+                    <td class="mono">@ByteFormat.Humanize(e.Bytes)</td>
                     <td class="muted">@e.Note</td>
                     <td class="muted">@ViewerClock.At(Services, e.RanAt).ToString("HH:mm:ss")</td>
                 </tr>

@@ -29,7 +29,7 @@
                     <td><span class="agd-dot agd-dot-@state" title="@StateLabel(state)"></span></td>
                     <td class="mono">@d.Id</td>
                     <td class="mono agd-num">@(d.Count?.ToString("N0") ?? "")</td>
-                    <td class="mono agd-num">@(d.Bytes is { } b ? Size(b) : "")</td>
+                    <td class="mono agd-num">@(d.Bytes is { } b ? ByteFormat.Humanize(b) : "")</td>
                     <td class="small">
                         @if (d.UpdatedAt is { } updated) {
                             <TimeAgo At="@updated" Class="time-ago"/>
@@ -60,7 +60,7 @@
                 <div class="agd-card" @key="p.Platform">
                     <PlatformIcon Platform="@p.Platform"/>
                     <span class="agd-card-k">@p.Platform</span>
-                    <span class="mono">@Size(p.Bytes)</span>
+                    <span class="mono">@ByteFormat.Humanize(p.Bytes)</span>
                     <TimeAgo At="@p.SavedAt" Class="time-ago"/>
                 </div>
             }
@@ -86,7 +86,7 @@
                 @foreach (var f in _data.Fixtures) {
                     <tr @key="f.Name">
                         <td class="mono">@f.Name</td>
-                        <td class="mono agd-num">@Size(f.Bytes)</td>
+                        <td class="mono agd-num">@ByteFormat.Humanize(f.Bytes)</td>
                         <td class="small"><TimeAgo At="@f.UpdatedAt" Class="time-ago"/></td>
                         <td class="small @(f.Status == "ok" ? "" : "muted")">@f.Status</td>
                     </tr>
@@ -141,11 +141,6 @@
     static string SourceTitle(GameDataSourceRow s) =>
         string.Join(" / ", new[] { s.Origin, s.Locator, s.Method }.Where(x => !string.IsNullOrEmpty(x)));
 
-    static string Size(long bytes) => bytes switch {
-        >= 1_048_576 => FormattableString.Invariant($"{bytes / 1_048_576d:0.#} MB"),
-        >= 1024 => FormattableString.Invariant($"{bytes / 1024d:0.#} KB"),
-        _ => FormattableString.Invariant($"{bytes} B")
-    };
 
     string RebuildNote(string id) {
         if (_rebuildResult?.Results.FirstOrDefault(r => r.Id == id) is not { } r) return "";

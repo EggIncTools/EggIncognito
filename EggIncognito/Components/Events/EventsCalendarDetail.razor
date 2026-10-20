@@ -21,7 +21,7 @@
         @if (EventPalette.IconUrl(p.Type, p.Ultra) is { } iconUrl) {
             <FallbackImg Class="evcal-pop-icon" Src="@iconUrl" Alt=""/>
         }
-        <span class="evcal-pop-big">@Percent(p.Confidence)</span>
+        <span class="evcal-pop-big">@NumberFormat.Percent(p.Confidence, 0)</span>
     </div>
     <span class="evcal-pop-when">@Absolute(p.PredictedStart) to @Absolute(p.PredictedEnd)</span>
     @if (p.Magnitudes.Count > 1) {
@@ -29,7 +29,7 @@
             @foreach (var odds in p.Magnitudes) {
                 <span class="evcal-pop-choice" @key="odds.Multiplier">
                     <span>@EventMagnitude.Describe(odds.Multiplier)</span>
-                    <span class="evcal-choice-pct" style="@PctStyle(odds.Probability)">@Percent(odds.Probability)</span>
+                    <span class="evcal-choice-pct" style="@RatioStyle.Var(odds.Probability)">@NumberFormat.Percent(odds.Probability, 0)</span>
                 </span>
             }
         </div>
@@ -39,7 +39,7 @@
             @foreach (var candidate in popChoices) {
                 <span class="evcal-pop-choice" @key="candidate.Type">
                     <span>@ChoiceLabel(candidate)</span>
-                    <span class="evcal-choice-pct" style="@PctStyle(candidate.Probability)">@Percent(candidate.Probability)</span>
+                    <span class="evcal-choice-pct" style="@RatioStyle.Var(candidate.Probability)">@NumberFormat.Percent(candidate.Probability, 0)</span>
                 </span>
             }
         </div>
@@ -58,10 +58,6 @@
     [Parameter]
     public Func<double, string> Absolute { get; set; } = null!;
 
-    static string Percent(double value) {
-        return (value * 100).ToString("0", CultureInfo.InvariantCulture) + "%";
-    }
-
     static IReadOnlyList<EventCandidate> Choices(EventPrediction? p) =>
         p is { Candidates.Count: > 1 }
             ? [.. p.Candidates.Where(c => !string.IsNullOrEmpty(c.Type)).OrderByDescending(c => c.Probability)]
@@ -71,6 +67,4 @@
 
     static string WithMagnitude(string label, IReadOnlyList<EventMagnitudeOdds> odds) =>
         odds.Count > 0 && EventMagnitude.Describe(odds[0].Multiplier) is { Length: > 0 } scalar ? $"{label} {scalar}" : label;
-
-    static string PctStyle(double p) => FormattableString.Invariant($"--p:{Math.Clamp(p, 0, 1):0.###};");
 }

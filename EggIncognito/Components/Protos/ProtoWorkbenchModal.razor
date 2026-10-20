@@ -234,7 +234,7 @@
                                                                                @if (!grouped && e.IsAnalyzed) {
                                                                                    <VersionLine App="@e.AppVersion" Build="@e.Build" Client="@e.ClientVersionText"/>
                                                                                } else if (!e.IsAnalyzed) {
-                                                                                   <span class="pwb-size">@ByteFormat.Mb(e.Size, culture: CultureInfo.InvariantCulture)</span>
+                                                                                   <span class="pwb-size">@ByteFormat.Humanize(e.Size)</span>
                                                                                }
                                                                            </Name>
                                                                            <Trail>

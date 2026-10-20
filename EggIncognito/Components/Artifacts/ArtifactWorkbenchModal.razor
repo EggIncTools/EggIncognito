@@ -38,11 +38,28 @@
                             @if (families.Count > 0) {
                                 <WorkbenchSection Label="@group.ToString()">
                                     @foreach (var family in families) {
-                                        <WorkbenchEntry @key="family.Name" Selected="@RailSelected(family)"
-                                                        OnClick="@(_ => SelectFamilyAsync(family))" Style="@CoverageStyle(family)">
-                                            <Lead><img class="atb-ico" src="@ArtifactTreeBuilder.Icon(family.Name, family.Tiers.Count == 0 ? 0 : family.Tiers.Max(t => t.Level))" alt="" loading="lazy"/></Lead>
-                                            <Name>@EggIcons.Pretty(family.PluralName)</Name>
-                                        </WorkbenchEntry>
+                                        <div @key="family.Name" class="atb-fam @(RailSelected(family) ? "atb-on" : "")" style="@CoverageStyle(family)">
+                                            <button type="button" class="atb-fam-name" @onclick="@(() => SelectFamilyAsync(family))">
+                                                <img class="atb-ico" src="@ArtifactTreeBuilder.Icon(family.Name, TopTier(family) ?? 0)" alt="" loading="lazy"/>
+                                                <span>@EggIcons.Pretty(family.PluralName)</span>
+                                            </button>
+                                            <div class="atb-fam-tiers">
+                                                @foreach (var member in GroupFamilies(family)) {
+                                                    var f = member;
+                                                    @foreach (var tier in f.Tiers) {
+                                                        var t = tier;
+                                                        bool on = State.Family == f.Name && State.Tier == t.Level;
+                                                        <ArtifactTip Name="@ArtifactTreeBuilder.DisplayName(f.Name, t.Level)" Rarity="0">
+                                                            <button type="button" class="atb-tier-btn @(on ? "atb-on" : null)"
+                                                                    aria-label="@ArtifactTreeBuilder.DisplayName(f.Name, t.Level)"
+                                                                    @onclick="@(() => PickCellAsync(f, t, State.Rarity ?? 0))">
+                                                                <img class="atb-ico" src="@ArtifactTreeBuilder.Icon(f.Name, t.Level)" alt="" loading="lazy"/>
+                                                            </button>
+                                                        </ArtifactTip>
+                                                    }
+                                                }
+                                            </div>
+                                        </div>
                                     }
                                 </WorkbenchSection>
                             }
@@ -62,45 +79,17 @@
             <div class="atb-head">
                 <div class="atb-head-row">
                     <img class="atb-ico atb-ico-lg" src="@ArtifactAssets.TargetIconFor(family.Name)" alt="" loading="lazy"/>
-                    <div class="atb-head-title">
-                        <h2>@EggIcons.Pretty(family.PluralName)</h2>
-                        <span class="atb-head-kind">@family.Kind</span>
-                    </div>
-                    <ArtifactRecipe Ingredients="@_detailIngredients" Cost="@_detailPrice?.High"/>
+                    <h2 class="atb-head-title">@HeadName(family)</h2>
                 </div>
+                <ArtifactRecipe Ingredients="@_detailIngredients" Cost="@_detailPrice?.High"/>
                 @if (family.Description.Length > 0) {
                     <p class="atb-desc">@family.Description</p>
                 }
-                <div class="atb-seg" role="tablist" aria-label="View">
-                    @foreach (var view in Enum.GetValues<ArtifactView>().Where(v => ViewAvailable(family, v))) {
-                            var v = view;
-                            <button type="button" role="tab" aria-selected="@(State.View == v ? "true" : "false")"
-                                    class="atb-seg-btn @(State.View == v ? "atb-on" : "")"
-                                    @onclick="@(() => SwitchViewAsync(v))">@ViewLabel(v)</button>
-                        }
-                    </div>
-                    <div class="atb-tiers">
-                        @foreach (var member in GroupFamilies(family)) {
-                            var f = member;
-                            @foreach (var tier in f.Tiers) {
-                                var t = tier;
-                                bool current = f.Name == family.Name;
-                                IReadOnlyList<int> rarities = current && State.NeedsRarity ? Rarities(f, t) : [0];
-                                <div class="atb-tier-col">
-                                    @foreach (var r in rarities) {
-                                        int rarity = r;
-                                        bool on = current && State.Tier == t.Level && (!State.NeedsRarity || State.Rarity == rarity);
-                                        <ArtifactTip Name="@ArtifactTreeBuilder.DisplayName(f.Name, t.Level)" Rarity="@rarity">
-                                            <button type="button" class="atb-tier-btn atb-r@(rarity) @(on ? "atb-on" : "")"
-                                                    aria-label="@ArtifactTreeBuilder.DisplayName(f.Name, t.Level)" @onclick="@(() => PickCellAsync(f, t, rarity))">
-                                                <img class="atb-ico" src="@ArtifactTreeBuilder.Icon(f.Name, t.Level)" alt="" loading="lazy"/>
-                                            </button>
-                                        </ArtifactTip>
-                                    }
-                                </div>
-                            }
-                        }
-                    </div>
+                <ViewTabs TKey="ArtifactView" Tabs="@Views(family)" Active="@State.View" ActiveChanged="SwitchViewAsync" AriaLabel="View"/>
+                @if (State.NeedsRarity && CurrentTier(family) is { } rarityTier) {
+                    <Segmented T="int" Options="@RarityOptions(family, rarityTier)" Selected="@(State.Rarity ?? 0)"
+                               SelectedChanged="@(r => PickCellAsync(family, rarityTier, r))" AriaLabel="Rarity"/>
+                }
             </div>
 
             <ArtifactNodeDetail Price="@_detailPrice" Catalog="@_catalog" Tier="@_detailTier" Row="@_detailRow"/>
@@ -112,22 +101,38 @@
 
             <div class="atb-tree">
             <div class="atb-tree-bar">
-                <div class="atb-seg" role="radiogroup" aria-label="Layout">
-                    <button type="button" role="radio" aria-checked="@(_direction == DiagramDirection.Down ? "true" : "false")"
-                            class="atb-seg-btn @(_direction == DiagramDirection.Down ? "atb-on" : "")"
-                            @onclick="@(() => _direction = DiagramDirection.Down)">Top down</button>
-                    <button type="button" role="radio" aria-checked="@(_direction == DiagramDirection.Right ? "true" : "false")"
-                            class="atb-seg-btn @(_direction == DiagramDirection.Right ? "atb-on" : "")"
-                            @onclick="@(() => _direction = DiagramDirection.Right)">Side branches</button>
-                </div>
-                @if (AdminPanels && _adminDocked) {
-                    <button type="button" class="atb-dock" aria-label="Show crafting panel" @onclick="() => _adminDocked = false">
-                        <Icon Name="panel-top-open" Class="icon-sm"/>Crafting
-                    </button>
+                @if (SourceCards) {
+                    <Segmented T="bool" Options="@SourceModes" Selected="@ShowCards" SelectedChanged="@(v => _cards = v)" AriaLabel="Sources"/>
+                }
+                @if (!ShowCards) {
+                    <Segmented T="DiagramDirection" Options="@Layouts" @bind-Selected="_direction" AriaLabel="Layout"/>
                 }
             </div>
             <div class="atb-canvas">
-                @if (_loadingGraph) {
+                @if (!_loadingGraph && ShowCards) {
+                    <div class="atb-src-grid">
+                        @foreach (var source in SourceFamilies()) {
+                            <div @key="source.Family" class="atb-src">
+                                <div class="atb-src-head">
+                                    <img class="atb-ico" src="@ArtifactAssets.TargetIconFor(source.Family)" alt="" loading="lazy"/>
+                                    <span>@(FamilyOf(source.Family) is { } sf ? EggIcons.Pretty(sf.PluralName) : source.Family)</span>
+                                </div>
+                                <div class="atb-src-cells">
+                                    @foreach (var cell in source.Cells) {
+                                        <ArtifactTip Name="@NodeName(cell.Id)" Rarity="@NodeRarity(cell.Id)">
+                                            <span class="atb-src-cell atb-r@(NodeRarity(cell.Id))">
+                                                @if (NodeIcon(cell.Id) is { } cellIcon) {
+                                                    <img class="atb-ico" src="@cellIcon" alt="" loading="lazy"/>
+                                                }
+                                                <span class="atb-share-label mono" style="@RatioStyle.Var(cell.Ratio)">@cell.Label</span>
+                                            </span>
+                                        </ArtifactTip>
+                                    }
+                                </div>
+                            </div>
+                        }
+                    </div>
+                } else if (_loadingGraph) {
                     <div class="wb-note">Loading...</div>
                 } else if (_graph is null || _graph.Nodes.Count == 0) {
                     <EmptyState Title="Nothing to show" Hint="Pick a tier above."/>
@@ -160,22 +165,20 @@
             </div>
 
         }
-        @if (AdminPanels && !_adminDocked) {
-            <DragPanel @bind-Placement="_adminPlacement" Label="Crafting" Class="atb-admin">
-                <Handle>
-                    <span class="atb-admin-head"><Icon Name="grip-vertical" Class="icon-sm"/>Crafting</span>
-                </Handle>
-                <ChildContent>
-                    <button type="button" class="btn-mini atb-admin-hide" aria-label="Dock crafting panel" @onclick="DockAdmin">
-                        <Icon Name="minus" Class="icon-sm"/>
-                    </button>
-                    <div class="atb-admin-body">
-                        <PanelShelf Shelf="@DevicePanelShelves.Artifacts" Context="ArtifactContext"/>
-                    </div>
-                </ChildContent>
-            </DragPanel>
-        }
         </div>
+        @if (AdminPanels) {
+            <button type="button" class="wb-drawer-tab @(_adminOpen ? "wb-drawer-tab-open" : "")"
+                    aria-label="@(_adminOpen ? "Close crafting" : "Open crafting")" aria-expanded="@(_adminOpen ? "true" : "false")"
+                    @onclick="@(() => _adminOpen = !_adminOpen)">
+                <Icon Name="@(_adminOpen ? "chevron-right" : "chevron-left")" Class="icon-sm"/>
+                <span class="wb-drawer-tab-label">Crafting</span>
+            </button>
+            <aside class="wb-drawer @(_adminOpen ? "wb-drawer-open" : "")" aria-hidden="@(_adminOpen ? "false" : "true")">
+                @if (_adminOpen) {
+                    <PanelShelf Shelf="@DevicePanelShelves.Artifacts" Context="ArtifactContext"/>
+                }
+            </aside>
+        }
     </ChildContent>
 </WorkbenchModal>
 
@@ -194,12 +197,9 @@
     ArtifactCraftPlot.PriceCurve? _detailPrice;
     DropRow? _detailRow;
     bool _admin;
-    PanelPlacement _adminPlacement = new(24, 96, 640, 560);
-    bool _adminDocked;
+    bool _adminOpen;
 
-    void DockAdmin() => _adminDocked = true;
-
-    bool AdminPanels =>_admin && PanelShelf.Any(Panels, DevicePanelShelves.Artifacts);
+    bool AdminPanels => _admin && PanelShelf.Any(Panels, DevicePanelShelves.Artifacts);
     int _coverageReloadPending;
     int _dropsVersion;
 
@@ -302,6 +302,55 @@
         _ => "Crafting"
     };
 
+    bool _cards;
+
+    const int TreeSourceLimit = 8;
+
+    bool SourceCards => State.View == ArtifactView.ComesFrom && _graph is { Edges.Count: > 0 };
+
+    bool TreeOverflows => _graph is { } g && g.Edges.Count > TreeSourceLimit;
+
+    bool ShowCards => SourceCards && (_cards || TreeOverflows);
+
+    IReadOnlyList<SegmentedOption<bool>> SourceModes => [
+        new(false, "Tree", Disabled: TreeOverflows, Title: TreeOverflows ? "Too many sources to draw as a tree" : null),
+        new(true, "Families")
+    ];
+
+    sealed record SourceCell(string Id, string Label, double Ratio);
+
+    sealed record SourceFamily(string Family, double Share, IReadOnlyList<SourceCell> Cells);
+
+    IEnumerable<SourceFamily> SourceFamilies() {
+        if (_graph is not { } graph) return [];
+        return graph.Edges
+            .Select(e => (Edge: e, Cell: ArtifactTreeBuilder.ResolveCellNode(e.To)))
+            .Where(x => x.Cell is not null)
+            .GroupBy(x => x.Cell!.Value.FamilyName)
+            .Select(g => new SourceFamily(g.Key, g.Sum(x => x.Edge.Weight ?? 0),
+                [.. g.OrderByDescending(x => x.Edge.Weight ?? 0)
+                    .Select(x => new SourceCell(x.Edge.To, x.Edge.Label ?? "", MaxShare <= 0 ? 0 : (x.Edge.Weight ?? 0) / MaxShare))]))
+            .OrderByDescending(f => f.Share);
+    }
+
+    static readonly IReadOnlyList<SegmentedOption<DiagramDirection>> Layouts = [
+        new(DiagramDirection.Down, "Top down"),
+        new(DiagramDirection.Right, "Side branches")
+    ];
+
+    string HeadName(ArtifactFamily family) =>
+        CurrentTier(family) is { } tier ? ArtifactTreeBuilder.DisplayName(family.Name, tier.Level) : EggIcons.Pretty(family.PluralName);
+
+    IReadOnlyList<ViewTab<ArtifactView>> Views(ArtifactFamily family) {
+        var tier = CurrentTier(family);
+        return [.. Enum.GetValues<ArtifactView>()
+            .Where(v => ViewAvailable(family, v) && (tier is null || TierAvailable(family, tier, v)))
+            .Select(v => new ViewTab<ArtifactView>(v, ViewLabel(v)))];
+    }
+
+    IReadOnlyList<SegmentedOption<int>> RarityOptions(ArtifactFamily family, ArtifactTier tier) =>
+        [.. Rarities(family, tier).Select(r => new SegmentedOption<int>(r, EggIcons.Pretty(ArtifactTreeBuilder.RarityName(r))))];
+
 
     enum RailGroup {
         Artifacts,
@@ -310,7 +359,7 @@
         Fragments
     }
 
-    static readonly RailGroup[][] RailColumns = [[RailGroup.Artifacts, RailGroup.Ingredients], [RailGroup.Stones]];
+    static readonly RailGroup[][] RailColumns = [[RailGroup.Artifacts], [RailGroup.Stones, RailGroup.Ingredients]];
 
     static RailGroup GroupOf(ArtifactFamily family) =>
         ArtifactTreeBuilder.IsFragment(family.Name) ? RailGroup.Fragments
@@ -537,9 +586,9 @@
     double RelativeShare(PositionedEdge edge) => MaxShare <= 0 ? 0 : Math.Clamp((edge.Edge.Weight ?? 0) / MaxShare, 0, 1);
 
     string EdgeStyle(PositionedEdge edge) => string.Create(System.Globalization.CultureInfo.InvariantCulture,
-        $"stroke-width:{edge.Width:0.##};opacity:1;--p:{RelativeShare(edge):0.###}");
+        $"stroke-width:{edge.Width:0.##};opacity:1;{RatioStyle.Var(RelativeShare(edge))}");
 
-    RenderFragment<PositionedEdge> ShareLabel => edge => @<span class="atb-share-label mono" style="@($"--p:{RelativeShare(edge).ToString("0.###", System.Globalization.CultureInfo.InvariantCulture)}")">@edge.Edge.Label</span>;
+    RenderFragment<PositionedEdge> ShareLabel => edge => @<span class="atb-share-label mono" style="@RatioStyle.Var(RelativeShare(edge))">@edge.Edge.Label</span>;
 
     static int NodeRarity(string nodeId) =>
         ArtifactTreeBuilder.ResolveCellNode(nodeId) is { } cell ? ArtifactTreeBuilder.RarityIndex(cell.RarityName) : 0;
@@ -605,7 +654,7 @@
 
     string? CoverageStyle(ArtifactFamily family) {
         var row = _coverage?.Families.FirstOrDefault(f => f.SpecName == family.Name);
-        return row is null ? null : FormattableString.Invariant($"--p:{Math.Clamp(row.Validity, 0, 1):0.###}");
+        return row is null ? null : RatioStyle.Var(row.Validity);
     }
 
     string NodeClass(string nodeId) {
@@ -670,9 +719,7 @@
     }
 
     Task WriteHashAsync(bool push = false, bool clear = false) {
-        var fragment = clear ? "" : State.Hash() ?? "";
-        if (push) _hash?.PushFragment(fragment);
-        else _hash?.ReplaceFragment(fragment);
+        _hash.WriteRootFragment(clear ? "" : State.Hash() ?? "", push);
         return Task.CompletedTask;
     }
 

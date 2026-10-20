@@ -1,5 +1,5 @@
 using Discord;
-using EggIncognito.Core;
+using EggIdentity.Formatting;
 
 namespace EggIncognito.Bot;
 

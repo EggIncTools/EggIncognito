@@ -58,7 +58,7 @@
                                 </Content>
                             </Tooltip>
                             <span class="watch-date">@Short(f.Start)</span>
-                            <span class="watch-conf" style="@PctStyle(f.Confidence)">@Percent(f.Confidence)</span>
+                            <span class="watch-conf" style="@RatioStyle.Var(f.Confidence)">@NumberFormat.Percent(f.Confidence, 0)</span>
                             @if (f.Note is { } note) {
                                 <span class="watch-note-inline">@note</span>
                             }
@@ -92,8 +92,5 @@
     string Short(double unix) =>
         ViewerClock.At(Services, UnixSeconds.ToTime(unix)).ToString("ddd d MMM", System.Globalization.CultureInfo.InvariantCulture);
 
-    static string Percent(double value) => (value * 100).ToString("0", System.Globalization.CultureInfo.InvariantCulture) + "%";
-
-    static string PctStyle(double p) => FormattableString.Invariant($"--p:{Math.Clamp(p, 0, 1):0.###};");
 
 }

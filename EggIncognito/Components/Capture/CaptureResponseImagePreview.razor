@@ -4,7 +4,7 @@
     <div class="image-preview">
         <img src="data:@(Mime);base64,@(Base64)" alt="response image" loading="lazy"/>
     </div>
-    <div class="image-meta muted">@(Mime + ", ~" + ByteFormat.Humanize(Bytes, "0.#"))</div>
+    <div class="image-meta muted">@(Mime + ", ~" + ByteFormat.Humanize(Bytes))</div>
 </div>
 
 @code {

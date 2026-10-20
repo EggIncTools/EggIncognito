@@ -84,12 +84,12 @@
 .cal-surface ::deep .evcal-bar-multi { position: relative; overflow: hidden; }
 .cal-surface ::deep .evcal-multi-more { flex: none; margin-left: auto; padding-left: 0.25rem; font-family: var(--font-mono); font-size: 0.625rem; color: var(--color-muted); }
 .cal-surface ::deep .evcal-multi-strip { position: absolute; right: 0; bottom: 0; left: 0; display: flex; height: 2px; }
-.cal-surface ::deep .evcal-multi-seg { flex: var(--p, 0) 1 0; min-width: 0; background-color: var(--evt-color, var(--color-border-input)); }
+.cal-surface ::deep .evcal-multi-seg { flex: var(--ratio, 0) 1 0; min-width: 0; background-color: var(--evt-color, var(--color-border-input)); }
 .cal-surface ::deep .evcal-choice-pct {
   flex: none;
   font-family: var(--font-mono);
   font-weight: 600;
-  color: color-mix(in oklab, var(--color-ok) calc(var(--p, 0) * 100%), var(--color-err));
+  color: color-mix(in oklab, var(--color-ok) calc(var(--ratio, 0) * 100%), var(--color-err));
 }
 .cal-surface ::deep .evcal-bar-uncertain .evcal-bar-label { opacity: 0.6; }
 .cal-surface ::deep .evcal-bar-uncertain .evcal-bar-icon { opacity: 0.3; }

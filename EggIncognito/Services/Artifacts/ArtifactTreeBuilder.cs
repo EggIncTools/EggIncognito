@@ -185,5 +185,5 @@ public static class ArtifactTreeBuilder {
         return new DiagramGraph(nodes, edges);
     }
 
-    private static string FormatShare(double share) => (share * 100).ToString("0.#", CultureInfo.InvariantCulture) + "%";
+    private static string FormatShare(double share) => EggIdentity.Formatting.NumberFormat.Percent(share);
 }

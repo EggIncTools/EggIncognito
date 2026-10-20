@@ -49,7 +49,7 @@
                     </td>
                     <td class="mono cdp-nowrap">@Avg(gold.Mean)</td>
                     @if (!Certain) {
-                        <td class="mono cdp-nowrap">@Pct(gold.Share)</td>
+                        <td class="mono cdp-nowrap">@NumberFormat.Percent(gold.Share)</td>
                         <td class="mono cdp-nowrap">
                             @if (gold.Min.Equals(gold.Max)) {
                                 @Avg(gold.Min)
@@ -83,7 +83,7 @@
                     </td>
                     <td class="mono cdp-nowrap">@Avg(piggy.Mean)</td>
                     @if (!Certain) {
-                        <td class="mono cdp-nowrap">@Pct(piggy.Share)</td>
+                        <td class="mono cdp-nowrap">@NumberFormat.Percent(piggy.Share)</td>
                         <td class="mono cdp-nowrap">
                             @if (piggy.Min.Equals(piggy.Max)) {
                                 @Avg(piggy.Min)
@@ -117,7 +117,7 @@
                     </td>
                     <td class="mono cdp-nowrap">@Avg(row.Mean)</td>
                     @if (!Certain) {
-                        <td class="mono cdp-nowrap">@Pct(row.Share)</td>
+                        <td class="mono cdp-nowrap">@NumberFormat.Percent(row.Share)</td>
                         <td class="mono cdp-nowrap">
                             @if (row.Min == row.Max) {
                                 @row.Min
@@ -200,8 +200,6 @@
         string name = EggIcons.Pretty(r.Name);
         return stone ? $"T{LevelIndex(r.Level) + 2} {name}" : name;
     }
-
-    static string Pct(double v) => FormattableString.Invariant($"{v * 100:0.#}%");
 
     static string Avg(double v) => FormattableString.Invariant($"{v:0.##}");
 }

@@ -1,4 +1,5 @@
 using System.Globalization;
+using EggIdentity.Formatting;
 using EggIncognito.Models.Events;
 
 namespace EggIncognito.Services.Events;
@@ -10,12 +11,9 @@ public static class EventMagnitude {
 
     public static string Describe(double multiplier) {
         if (multiplier <= 0) return "";
-        if (multiplier < 1) return Percent(1 - multiplier) + " off";
+        if (multiplier < 1) return NumberFormat.Percent(1 - multiplier, 0) + " off";
         return multiplier.ToString("0.###", CultureInfo.InvariantCulture) + "x";
     }
-
-    private static string Percent(double fraction) =>
-        (fraction * 100).ToString("0.##", CultureInfo.InvariantCulture) + "%";
 
     private static string? Lead(string? message) {
         if (string.IsNullOrWhiteSpace(message)) return null;

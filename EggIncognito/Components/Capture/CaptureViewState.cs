@@ -1,7 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
-using EggIncognito.Core;
 using EggIncognito.Core.Services;
 using EggIncognito.Services;
 
@@ -109,7 +108,6 @@ public sealed partial class CaptureViewState {
 }
 
 public static class CaptureHelpers {
-    public static string FormatBytes(long bytes) => ByteFormat.Humanize(bytes);
 
     public static OutcomeMeta? Outcome(string? outcome) => outcome switch {
         "wrote" => new OutcomeMeta("wrote", "plus", "New endpoint written to disk."),

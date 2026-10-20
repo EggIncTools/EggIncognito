@@ -29,5 +29,5 @@
   font-family: var(--font-mono);
   font-size: 0.625rem;
   font-weight: 600;
-  color: color-mix(in oklab, var(--color-ok) calc(var(--p, 0) * 100%), var(--color-err));
+  color: color-mix(in oklab, var(--color-ok) calc(var(--ratio, 0) * 100%), var(--color-err));
 }

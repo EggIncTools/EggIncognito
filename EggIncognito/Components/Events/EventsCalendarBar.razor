@@ -16,7 +16,7 @@
         <span class="evcal-multi-more">+@(choices.Count - 1)</span>
         <span class="evcal-multi-strip">
             @foreach (var choice in choices) {
-                <span class="evcal-multi-seg" @key="choice.Type" style="@(EventPalette.BarStyle(choice.Type, Bar.Item.Ultra) + PctStyle(choice.Probability))"></span>
+                <span class="evcal-multi-seg" @key="choice.Type" style="@($"{EventPalette.BarStyle(choice.Type, Bar.Item.Ultra)}{RatioStyle.Var(choice.Probability)};")"></span>
             }
         </span>
     </button>
@@ -54,7 +54,6 @@
     static string WithMagnitude(string label, IReadOnlyList<EventMagnitudeOdds> odds) =>
         odds.Count > 0 && EventMagnitude.Describe(odds[0].Multiplier) is { Length: > 0 } scalar ? $"{label} {scalar}" : label;
 
-    static string PctStyle(double p) => FormattableString.Invariant($"--p:{Math.Clamp(p, 0, 1):0.###};");
 
     static string Label(EventCalendarItem item) {
         if (item.Prediction is { } p) {

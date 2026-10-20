@@ -22,7 +22,7 @@
         </label>
         <span class="acp-field">
             <span class="acp-field-key">Cost</span>
-            <span class="acp-cost mono"><img class="acp-ge" src="@GoldIcon" alt="Golden eggs"/>@Money(PriceAt(_count))</span>
+            <CompactNumber Value="@PriceAt(_count)" IconSrc="@GoldIcon" Class="acp-cost mono"/>
         </span>
     </div>
     @if (_loading) {
@@ -31,9 +31,18 @@
         <DependencyNotice Dependency="SuiteDependency.EggIncApi" Feature="Backup loading" OnRetry="() => LoadFromAsync(failed)"/>
     }
     <div class="acp-frame">
-        <svg class="acp-plot" width="@PlotW" height="@PlotH" viewBox="0 0 @PlotW @PlotH" role="img" aria-label="@Readout">
+        @if (Shiny) {
+            <div class="acp-scale">
+                <span class="acp-r@(Top)">@RarityLabel(Top)</span>
+                <span class="mono">0%</span>
+                <span class="acp-scale-bar"></span>
+                <span class="mono">@NumberFormat.Odds(_topMax)</span>
+            </div>
+        }
+        <div class="acp-stage">
+        <svg class="acp-plot" viewBox="0 0 @PlotW @PlotH" role="img" aria-label="@PointText">
             @if (Shiny) {
-                @_cells
+                <g class="acp-cells">@_cells</g>
             } else {
                 <path class="acp-curve" d="@_curve"/>
             }
@@ -46,8 +55,8 @@
                 </g>
             } else {
                 <g>
-                    <text class="acp-tick" x="@(AxisX - 4)" y="@F(CostY(Price.High) + 4)" text-anchor="end">@Short(Price.High)</text>
-                    <text class="acp-tick" x="@(AxisX - 4)" y="@F(CostY(Price.Low) + 4)" text-anchor="end">@Short(Price.Low)</text>
+                    <text class="acp-tick" x="@(AxisX - 4)" y="@F(CostY(Price.High) + 4)" text-anchor="end">@NumberFormat.Compact(Price.High)</text>
+                    <text class="acp-tick" x="@(AxisX - 4)" y="@F(CostY(Price.Low) + 4)" text-anchor="end">@NumberFormat.Compact(Price.Low)</text>
                 </g>
             }
             <text class="acp-axis-title" transform="@YTitleTransform" text-anchor="middle">@(Shiny ? "Crafting level" : "Cost")</text>
@@ -66,7 +75,6 @@
                 <line class="acp-guide" x1="@PadL" y1="@F(PointY)" x2="@GridRight" y2="@F(PointY)"/>
             }
             <circle class="acp-point" cx="@F(PointX)" cy="@F(PointY)" r="5"/>
-            <text class="acp-label" x="@F(LabelX)" y="@F(LabelY)" text-anchor="@LabelAnchor">@PointText</text>
             @if (Shiny) {
                 <g>
                     @foreach (var seg in Segments()) {
@@ -75,20 +83,23 @@
                     @foreach (var key in Keys()) {
                         <g class="acp-r@(key.Rarity)">
                             <path class="acp-leader" d="@key.Leader"/>
-                            <text class="acp-key" x="@F(key.X)" y="@KeyY" text-anchor="middle">@key.Name <tspan class="acp-key-pct">@key.Pct</tspan></text>
+                            <text class="acp-key" x="@F(key.X)" y="@KeyY" text-anchor="middle">@key.Name <tspan class="acp-key-pct" style="@ChanceStyle(key.Rarity)">@key.Pct</tspan></text>
                         </g>
                     }
                 </g>
             }
             <rect class="acp-hit" x="0" y="0" width="@PlotW" height="@GridBottom" @onpointerdown="OnDown"/>
         </svg>
+        <span class="acp-label @LabelPlacement" style="@LabelStyle">
+            @if (Shiny) {
+                <span class="mono">Lv @_level</span>
+            }
+            <span class="mono">@NumberFormat.Full(_count)</span>
+            <CompactNumber Value="@PriceAt(_count)" IconSrc="@GoldIcon" Class="acp-cost mono"/>
+        </span>
+        </div>
         @if (Shiny) {
-            <div class="acp-scale">
-                <span class="acp-scale-key">Color: @RarityLabel(Top) chance</span>
-                <span class="mono">0%</span>
-                <span class="acp-scale-bar"></span>
-                <span class="mono">@Pct(_topMax)</span>
-            </div>
+            <span class="acp-common"><span class="acp-r0">@RarityLabel(0)</span><span class="mono">@NumberFormat.Odds(Odds(0, _level, _count))</span></span>
         }
     </div>
     @if (_dragging) {
@@ -106,7 +117,7 @@
     [Parameter, EditorRequired] public int AfxId { get; set; }
     [Parameter, EditorRequired] public int AfxLevel { get; set; }
 
-    const double PlotW = 360;
+    const double PlotW = 384;
     const double PadL = 48;
     const double PadT = 10;
     const double PadR = 10;
@@ -156,14 +167,12 @@
     const double PointInset = 6;
     double PointY => Shiny ? RowY(_level) : CostY(PriceAt(_count));
     bool LabelLeft => PointX > PadL + GridW / 2;
-    double LabelX => LabelLeft ? PointX - 9 : PointX + 9;
-    double LabelY => PointY < PadT + 16 ? PointY + 16 : PointY - 9;
-    string LabelAnchor => LabelLeft ? "end" : "start";
+    bool LabelBelow => Shiny ? PointY < PadT + GridH / 3 : LabelLeft;
+    string LabelPlacement => (LabelLeft ? "acp-label-left" : "acp-label-right") + (LabelBelow ? " acp-label-below" : " acp-label-above");
+    string LabelStyle => string.Create(CultureInfo.InvariantCulture, $"left:{PointX / PlotW * 100:0.##}%;top:{PointY / PlotH * 100:0.##}%");
     string PointText => Shiny
         ? string.Create(CultureInfo.InvariantCulture, $"Level {_level}, {_count:N0} crafted")
-        : string.Create(CultureInfo.InvariantCulture, $"{_count:N0} crafted, {Money(PriceAt(_count))}");
-
-    string Readout => PointText;
+        : string.Create(CultureInfo.InvariantCulture, $"{_count:N0} crafted, {NumberFormat.Full(PriceAt(_count))}");
 
     protected override void OnParametersSet() {
         var key = (Catalog, AfxId, AfxLevel, Price);
@@ -192,12 +201,11 @@
             int seq = 0;
             foreach (var (x, y, style) in cells) {
                 b.OpenElement(seq, "rect");
-                b.AddAttribute(seq + 1, "fill-opacity", "0.45");
-                b.AddAttribute(seq + 2, "x", x);
-                b.AddAttribute(seq + 3, "y", y);
-                b.AddAttribute(seq + 4, "width", w);
-                b.AddAttribute(seq + 5, "height", h);
-                b.AddAttribute(seq + 6, "style", style);
+                b.AddAttribute(seq + 1, "x", x);
+                b.AddAttribute(seq + 2, "y", y);
+                b.AddAttribute(seq + 3, "width", w);
+                b.AddAttribute(seq + 4, "height", h);
+                b.AddAttribute(seq + 5, "style", style);
                 b.CloseElement();
             }
         };
@@ -236,18 +244,25 @@
     }
 
     IEnumerable<(int Rarity, double X, double W)> Segments() {
+        var shiny = Rarities.Where(r => r > 0).ToList();
+        double total = shiny.Sum(r => Math.Max(0, Odds(r, _level, _count)));
         double x = PadL;
-        foreach (int rarity in Rarities) {
-            double w = Math.Max(0, Odds(rarity, _level, _count)) * GridW;
+        foreach (int rarity in shiny) {
+            double w = total <= 0 ? GridW / shiny.Count : Math.Max(0, Odds(rarity, _level, _count)) / total * GridW;
             yield return (rarity, x, w);
             x += w;
         }
     }
 
+    string ChanceStyle(int rarity) {
+        double max = Odds(rarity, MaxLevel, Domain);
+        return RatioStyle.Var(max <= 0 ? 0 : Odds(rarity, _level, _count) / max);
+    }
+
     IReadOnlyList<Key> Keys() {
         var segs = Segments().ToList();
         var names = segs.Select(s => RarityLabel(s.Rarity)).ToList();
-        var pcts = segs.Select(s => Pct(Odds(s.Rarity, _level, _count))).ToList();
+        var pcts = segs.Select(s => NumberFormat.Odds(Odds(s.Rarity, _level, _count))).ToList();
         var widths = names.Select((n, i) => (n.Length + 1 + pcts[i].Length) * CharW).ToList();
         var xs = segs.Select(s => s.X + s.W / 2).ToList();
         for (int i = 0; i < xs.Count; i++) {
@@ -302,6 +317,10 @@
 
             _level = Math.Clamp(CraftOdds.Level(Catalog, progress.CraftingXp), 1, MaxLevel);
             _count = Math.Min(progress.Counts.GetValueOrDefault((AfxId, AfxLevel)), Domain);
+            var prior = account.Snapshot;
+            progress.Snapshot.Color ??= prior?.Color;
+            progress.Snapshot.EbText ??= prior?.EbText;
+            progress.Snapshot.SeText ??= prior?.SeText;
             await Suite.UpdateEidSnapshotAsync(account.Eid, progress.Snapshot);
         } finally {
             _loading = false;
@@ -357,16 +376,6 @@
 
     static readonly string? GoldIcon = EggIncognito.Services.Assets.EggIcons.Asset("icon",
         EggIncognito.Services.Assets.RewardIconMap.Stem(Ei.RewardType.Gold, null)!);
-
-    static string Money(double v) => v.ToString("N0", CultureInfo.InvariantCulture);
-
-    static string Short(double v) => v >= 1e6 ? (v / 1e6).ToString("0.#", CultureInfo.InvariantCulture) + "M"
-        : v >= 1e3 ? (v / 1e3).ToString("0.#", CultureInfo.InvariantCulture) + "K"
-        : Money(v);
-
-    static string Pct(double p) => p >= 0.001 || p == 0
-        ? (p * 100).ToString("0.##", CultureInfo.InvariantCulture) + "%"
-        : "1 in " + (1 / p).ToString("N0", CultureInfo.InvariantCulture);
 
     static string F(double v) => v.ToString("0.##", CultureInfo.InvariantCulture);
 }

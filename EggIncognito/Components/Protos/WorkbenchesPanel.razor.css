@@ -8,14 +8,14 @@
 .wbx-feeds { display: flex; flex-direction: column; align-items: flex-start; gap: 0.125rem; min-width: 0; }
 .wbx-feed-link { padding: 0; border: 0; background: transparent; font: inherit; color: inherit; cursor: pointer; }
 .wbx-feed-link:hover .wbx-feed-name { color: var(--color-accent); text-decoration: underline; }
-.wbx-cov .wbx-feed-name { font-weight: 600; color: color-mix(in oklab, var(--color-ok) calc(var(--p) * 100%), var(--color-err)); }
+.wbx-cov .wbx-feed-name { font-weight: 600; color: color-mix(in oklab, var(--color-ok) calc(var(--ratio) * 100%), var(--color-err)); }
 .wbx-cov .wbx-n { display: inline-flex; align-items: center; gap: 0.2rem; }
 .wbx-covbar { height: 0.375rem; margin-top: 0.375rem; border-radius: 0.25rem; background-color: var(--color-panel2); overflow: hidden; }
 .wbx-covfill {
   display: block;
   height: 100%;
-  width: calc(var(--p) * 100%);
-  background-color: color-mix(in oklab, var(--color-ok) calc(var(--p) * 100%), var(--color-err));
+  width: calc(var(--ratio) * 100%);
+  background-color: color-mix(in oklab, var(--color-ok) calc(var(--ratio) * 100%), var(--color-err));
 }
 .wbx-feed-ok .wbx-dot { background-color: var(--color-ok); }
 .wbx-feed-missing { color: var(--color-muted); }

@@ -2,27 +2,17 @@
     <span class="cov-head-tools">
         @if (Map is { } m) {
             <Tooltip Text="Average validity across in-scope cells">
-                <span class="cov-pct mono" style="@PctStyle(m.Validity)">@Pct(m.Validity)</span>
+                <span class="cov-pct mono" style="@RatioStyle.Var(m.Validity)">@NumberFormat.Percent(m.Validity)</span>
             </Tooltip>
             <Tooltip Text="@($"{m.CellsComplete} of {m.CellsInScope} cells complete")">
                 <span class="cov-tick mono"><Icon Name="layout-grid" Class="icon-sm"/>@m.CellsComplete/@m.CellsInScope</span>
             </Tooltip>
             <Tooltip Text="@($"{m.Observations:N0} consumed")">
-                <span class="cov-tick mono"><Icon Name="database" Class="icon-sm"/>@Compact(m.Observations)</span>
+                <span class="cov-tick mono"><Icon Name="database" Class="icon-sm"/>@NumberFormat.Compact(m.Observations)</span>
             </Tooltip>
         }
     </span>
 
 @code {
     [Parameter] public ConsumeCoverageMap? Map { get; set; } = default;
-
-    static string Pct(double v) => FormattableString.Invariant($"{v * 100:0.#}%");
-
-    static string PctStyle(double v) => FormattableString.Invariant($"--p:{Math.Clamp(v, 0, 1):0.###};");
-
-    static string Compact(long n) => n switch {
-        >= 1_000_000 => FormattableString.Invariant($"{n / 1_000_000d:0.#}M"),
-        >= 1_000 => FormattableString.Invariant($"{n / 1_000d:0.#}k"),
-        _ => n.ToString(System.Globalization.CultureInfo.InvariantCulture)
-    };
 }
