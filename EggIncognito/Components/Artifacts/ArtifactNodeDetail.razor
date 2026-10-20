@@ -17,10 +17,10 @@
             </div>
         </section>
     }
-    @if (Price is { } price) {
+    @if (Price is { } price && Catalog is { } catalog && Tier is { } tier) {
         <section class="atb-detail-col">
-            <span class="atb-detail-head">Crafting price and odds</span>
-            <ArtifactCraftPlot Price="price" RarityMults="RarityMults"/>
+            <span class="atb-detail-head">Craft</span>
+            <ArtifactCraftPlot Price="price" Catalog="catalog" AfxId="tier.AfxId" AfxLevel="tier.AfxLevel"/>
         </section>
     }
     @if (Row is { Buckets.Count: 1 } single) {
@@ -47,7 +47,8 @@
 
     [Parameter] public IReadOnlyList<Ingredient>? Ingredients { get; set; }
     [Parameter] public ArtifactCraftPlot.PriceCurve? Price { get; set; }
-    [Parameter] public IReadOnlyList<double> RarityMults { get; set; } = [];
+    [Parameter] public EggSharp.GameData.IArtifactCatalog? Catalog { get; set; }
+    [Parameter] public (int AfxId, int AfxLevel)? Tier { get; set; }
     [Parameter] public DropRow? Row { get; set; }
 
     static string BucketHover(int count, double share) =>

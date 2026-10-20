@@ -53,11 +53,11 @@
         </WorkbenchRail>
     </Rail>
     <ChildContent>
-        <div class="atb-wrap" @onpointermove="OnAdminDragMove" @onpointerup="OnAdminDragEnd" @onpointerleave="OnAdminDragEnd">
+        <div class="atb-wrap">
         @if (CurrentFamily() is not { } family) {
             <EmptyState Title="Pick a family" Hint="Choose an artifact, stone or ingredient from the rail."/>
         } else {
-            <div class="atb-body @(_direction == DiagramDirection.Right ? "atb-body-side" : "")">
+            <div class="atb-body">
             <div class="atb-side">
             <div class="atb-head">
                 <div class="atb-head-row">
@@ -107,7 +107,7 @@
                     </div>
             </div>
 
-            <ArtifactNodeDetail Ingredients="@_detailIngredients" Price="@_detailPrice" RarityMults="@RarityMults" Row="@_detailRow"/>
+            <ArtifactNodeDetail Ingredients="@_detailIngredients" Price="@_detailPrice" Catalog="@_catalog" Tier="@_detailTier" Row="@_detailRow"/>
             @if (State.View == ArtifactView.ConsumesInto && State.Rarity is { } selRarity && CurrentTier(family) is { } selTier) {
                 <CoverageDrops Family="@family.Name" Level="@ArtifactTreeBuilder.LevelName(selTier.Level)"
                                Rarity="@ArtifactTreeBuilder.RarityName(selRarity)" Version="@_dropsVersion"/>
@@ -148,19 +148,14 @@
 
         }
         @if (_admin && PanelShelf.Any(Panels, DevicePanelShelves.Artifacts)) {
-            <div class="atb-admin @(_adminCollapsed ? "atb-admin-collapsed" : "")" style="@AdminStyle">
-                <div class="atb-admin-head" @onpointerdown="OnAdminDragStart">
-                    <span class="atb-admin-title">Admin</span>
-                    <button type="button" class="btn-mini" @onclick="@(() => _adminCollapsed = !_adminCollapsed)">
-                        <Icon Name="@(_adminCollapsed ? "chevron-down" : "chevron-up")" Class="icon-sm"/>
-                    </button>
-                </div>
-                @if (!_adminCollapsed) {
+            <DragPanel @bind-Placement="_adminPlacement" Label="Admin" Class="atb-admin">
+                <Handle><span class="atb-admin-title">Admin</span></Handle>
+                <ChildContent>
                     <div class="atb-admin-body">
                         <PanelShelf Shelf="@DevicePanelShelves.Artifacts" Context="ArtifactContext"/>
                     </div>
-                }
-            </div>
+                </ChildContent>
+            </DragPanel>
         }
         </div>
     </ChildContent>
@@ -181,20 +176,12 @@
     ArtifactCraftPlot.PriceCurve? _detailPrice;
     DropRow? _detailRow;
     bool _admin;
-    bool _adminCollapsed;
-    double _adminX = 16;
-    double _adminY = 16;
-    bool _adminDragging;
-    double _adminDragStartX;
-    double _adminDragStartY;
-    double _adminDragOriginX;
-    double _adminDragOriginY;
+    PanelPlacement _adminPlacement = new(24, 96, 560, 420);
     int _coverageReloadPending;
     int _dropsVersion;
 
-    IReadOnlyList<double> RarityMults => _catalog is { } c ? [.. c.CraftingLevels.OrderBy(l => l.Level).Select(l => l.RarityMult)] : [];
+    (int AfxId, int AfxLevel)? _detailTier;
 
-    string AdminStyle => FormattableString.Invariant($"--x:{_adminX}px;--y:{_adminY}px;");
 
     ArtifactPanelContext ArtifactContext {
         get {
@@ -232,24 +219,6 @@
 
             StateHasChanged();
         });
-    }
-
-    void OnAdminDragStart(PointerEventArgs e) {
-        _adminDragging = true;
-        _adminDragStartX = e.ClientX;
-        _adminDragStartY = e.ClientY;
-        _adminDragOriginX = _adminX;
-        _adminDragOriginY = _adminY;
-    }
-
-    void OnAdminDragMove(PointerEventArgs e) {
-        if (!_adminDragging) return;
-        _adminX = Math.Max(0, _adminDragOriginX + (e.ClientX - _adminDragStartX));
-        _adminY = Math.Max(0, _adminDragOriginY + (e.ClientY - _adminDragStartY));
-    }
-
-    void OnAdminDragEnd() {
-        _adminDragging = false;
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender) {
@@ -428,6 +397,7 @@
     void ClearDetail() {
         _detailIngredients = null;
         _detailPrice = null;
+        _detailTier = null;
         _detailRow = null;
     }
 
@@ -446,6 +416,7 @@
             if (ArtifactWorkbenchState.HasRecipe(tier)
                 && entry is { CraftingPrice: { } high, CraftingPriceLow: { } low, CraftingPriceCurve: { } curve, CraftingPriceDomain: { } domain }) {
                 _detailPrice = new ArtifactCraftPlot.PriceCurve(high, low, curve, domain);
+                _detailTier = (entry.AfxId, entry.AfxLevel);
             }
 
             return;

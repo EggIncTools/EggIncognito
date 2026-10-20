@@ -1,4 +1,6 @@
 @using System.Globalization
+@using EggIncognito.Core.Services.Artifacts
+@using EggSharp.GameData
 
 <div class="acp">
     <div class="acp-inputs">
@@ -11,8 +13,7 @@
             <input type="number" class="form-input mono" min="0" max="@Price.Domain" value="@_count" @onchange="OnCountInput"/>
         </label>
     </div>
-    <svg class="acp-plot" width="@PlotW" height="@PlotH" viewBox="0 0 @PlotW @PlotH" role="img"
-         aria-label="@Readout">
+    <svg class="acp-plot" width="@PlotW" height="@PlotH" viewBox="0 0 @PlotW @PlotH" role="img" aria-label="@Readout">
         @for (int row = 0; row < MaxLevel; row++) {
             int level = MaxLevel - row;
             for (int col = 0; col < Cols; col++) {
@@ -33,17 +34,23 @@
         <rect class="acp-hit" x="0" y="0" width="@PlotW" height="@PlotH"
               @onpointerdown="OnDown" @onpointermove="OnMove" @onpointerup="OnUp" @onpointerleave="OnUp"/>
     </svg>
-    <div class="acp-readout">
-        <span><span class="muted">Rare odds</span> <span class="mono acp-val" style="@PctStyle(LevelFrac(_level))">@Pct(RarityMult(_level))</span></span>
-        <span><span class="muted">Craft cost</span> <span class="mono acp-val" style="@PctStyle(CountFrac(_count))">@Cost(_count)</span></span>
-    </div>
+    <dl class="acp-readout">
+        <dt class="muted">Cost</dt>
+        <dd class="mono">@Cost(_count)</dd>
+        @foreach (int rarity in Rarities) {
+            <dt class="acp-r@(rarity)">@RarityLabel(rarity)</dt>
+            <dd class="mono">@Pct(Odds(rarity, _level, _count))</dd>
+        }
+    </dl>
 </div>
 
 @code {
     public sealed record PriceCurve(double High, double Low, double Curve, uint Domain);
 
     [Parameter, EditorRequired] public PriceCurve Price { get; set; } = default!;
-    [Parameter, EditorRequired] public IReadOnlyList<double> RarityMults { get; set; } = [];
+    [Parameter, EditorRequired] public IArtifactCatalog Catalog { get; set; } = default!;
+    [Parameter, EditorRequired] public int AfxId { get; set; }
+    [Parameter, EditorRequired] public int AfxLevel { get; set; }
 
     const double PlotW = 320;
     const double PlotH = 200;
@@ -58,8 +65,12 @@
     int _level = 1;
     uint _count;
     bool _dragging;
+    IReadOnlyList<int> _rarities = [0];
+    double _topMax;
 
-    int MaxLevel => Math.Max(1, RarityMults.Count);
+    IReadOnlyList<int> Rarities => _rarities;
+    int Top => _rarities[^1];
+    int MaxLevel => CraftOdds.MaxLevel(Catalog);
     double CellW => GridW / Cols;
     double CellH => GridH / MaxLevel;
 
@@ -70,35 +81,31 @@
     double LabelY => PointY < PadT + 14 ? PointY + 14 : PointY - 8;
     string LabelAnchor => LabelLeft ? "end" : "start";
 
-    string Readout => string.Create(CultureInfo.InvariantCulture,
-        $"Lv {_level}, {_count:N0} crafted: {Pct(RarityMult(_level))}, {Cost(_count)}");
+    string Readout => string.Create(CultureInfo.InvariantCulture, $"Lv {_level}, {_count:N0} crafted");
 
     protected override void OnParametersSet() {
+        _rarities = [0, .. Enumerable.Range(1, 3).Where(r => CraftOdds.Constant(Catalog, AfxId, AfxLevel, r) > 0)];
+        _topMax = Top == 0 ? 0 : Odds(Top, MaxLevel, Price.Domain);
         _level = Math.Clamp(_level, 1, MaxLevel);
         _count = Math.Min(_count, Price.Domain);
     }
 
-    double RarityMult(int level) => RarityMults.Count == 0 ? 1 : RarityMults[Math.Clamp(level, 1, RarityMults.Count) - 1];
+    double Odds(int rarity, int level, uint count) {
+        if (rarity > 0) return CraftOdds.ChanceAtLevel(Catalog, AfxId, AfxLevel, rarity, level, count);
+        double shiny = 0;
+        for (int r = 1; r <= 3; r++) shiny += CraftOdds.ChanceAtLevel(Catalog, AfxId, AfxLevel, r, level, count);
+        return Math.Max(0, 1 - shiny);
+    }
 
     double PriceAt(double count) {
         double t = Price.Domain == 0 ? 1 : Math.Clamp(count / Price.Domain, 0, 1);
         return Price.High - (Price.High - Price.Low) * Math.Pow(t, Price.Curve);
     }
 
-    double CountFrac(double count) {
-        double span = Price.High - Price.Low;
-        return span <= 0 ? 1 : Math.Clamp((Price.High - PriceAt(count)) / span, 0, 1);
-    }
-
-    double LevelFrac(int level) {
-        double lo = RarityMult(1);
-        double hi = RarityMult(MaxLevel);
-        return hi - lo <= 0 ? 1 : Math.Clamp((RarityMult(level) - lo) / (hi - lo), 0, 1);
-    }
-
     string CellStyle(int level, int col) {
-        double count = (col + 0.5) / Cols * Price.Domain;
-        return string.Create(CultureInfo.InvariantCulture, $"--p:{CountFrac(count):0.###};--q:{LevelFrac(level):0.###}");
+        uint count = (uint)Math.Round((col + 0.5) / Cols * Price.Domain);
+        double p = _topMax <= 0 ? 0 : Math.Clamp(Odds(Top, level, count) / _topMax, 0, 1);
+        return string.Create(CultureInfo.InvariantCulture, $"--p:{p:0.###}");
     }
 
     void SetFromPointer(PointerEventArgs e) {
@@ -127,11 +134,13 @@
         if (long.TryParse(e.Value?.ToString(), NumberStyles.Integer, CultureInfo.InvariantCulture, out long count)) _count = (uint)Math.Clamp(count, 0, Price.Domain);
     }
 
+    static string RarityLabel(int rarity) => EggIncognito.Services.Assets.EggIcons.Pretty(EggIncognito.Services.Artifacts.ArtifactTreeBuilder.RarityName(rarity));
+
     string Cost(double count) => PriceAt(count).ToString("N0", CultureInfo.InvariantCulture) + " GE";
 
-    static string Pct(double mult) => (mult * 100).ToString("0.#", CultureInfo.InvariantCulture) + "%";
-
-    static string PctStyle(double p) => string.Create(CultureInfo.InvariantCulture, $"--p:{p:0.###}");
+    static string Pct(double p) => p >= 0.001 || p == 0
+        ? (p * 100).ToString("0.##", CultureInfo.InvariantCulture) + "%"
+        : "1 in " + (1 / p).ToString("N0", CultureInfo.InvariantCulture);
 
     static string F(double v) => v.ToString("0.##", CultureInfo.InvariantCulture);
 }
