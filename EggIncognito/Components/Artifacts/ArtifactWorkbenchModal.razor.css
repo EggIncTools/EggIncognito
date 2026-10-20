@@ -16,8 +16,8 @@
 .atb-head { display: flex; flex-direction: column; align-items: flex-start; gap: 0.5rem; padding-bottom: 0.75rem; border-bottom: 1px solid var(--color-border); }
 .atb-head-title { margin: 0; font-size: 1.1rem; }
 .atb-desc { margin: 0; font-size: 0.8125rem; color: var(--color-muted); }
-.atb-head ::deep .view-tabs { align-self: stretch; }
-.atb-head ::deep .view-tab { min-height: 0; padding: 0.375rem 0.5rem; }
+.atb-head ::deep .view-tabs { align-self: stretch; flex-wrap: wrap; }
+.atb-head ::deep .view-tab { flex: 1 0 auto; min-height: 0; padding: 0.375rem 0.625rem; }
 .atb-head ::deep .view-tab-label { font-size: 0.8125rem; white-space: nowrap; }
 
 .atb-fam { display: flex; flex-direction: column; align-items: flex-start; gap: 0.375rem; padding: 0.375rem 0.375rem 0.5rem; border: 1px solid var(--color-border); border-radius: 0.5rem; background: var(--color-panel2); }
