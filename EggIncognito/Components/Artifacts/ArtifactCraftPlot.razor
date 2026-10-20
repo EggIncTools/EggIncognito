@@ -141,7 +141,7 @@
         @if (Shiny) {
             <div class="acp-scale">
                 @if (Shinies.Count > 1) {
-                    <Segmented T="int" Options="@TargetOptions" Selected="@_target" SelectedChanged="PickTarget" AriaLabel="Heatmap rarity"/>
+                    <Segmented T="int" Class="@TargetClass" Options="@TargetOptions" Selected="@_target" SelectedChanged="PickTarget" AriaLabel="Heatmap rarity"/>
                 } else {
                     <span class="acp-r@(_target)">@RarityLabel(_target)</span>
                 }
@@ -253,7 +253,8 @@
     double CellH => (GridH - AxisGap) / MaxLevel;
     double CapX => XOf(Price.Domain);
     IReadOnlyList<int> Shinies => [.. _rarities.Where(r => r > 0)];
-    IReadOnlyList<SegmentedOption<int>> TargetOptions => [.. Shinies.Select(r => new SegmentedOption<int>(r, RarityLabel(r)))];
+    string TargetClass => "acp-targets " + string.Join(' ', Shinies.Select((r, i) => $"acp-t{i + 1}-r{r}"));
+    IReadOnlyList<SegmentedOption<int>> TargetOptions =>[.. Shinies.Select(r => new SegmentedOption<int>(r, RarityLabel(r)))];
     string YTitleTransform =>string.Create(CultureInfo.InvariantCulture, $"translate(12 {PadT + GridH / 2}) rotate(-90)");
 
     double RowY(int level) => PadT + (MaxLevel - level + 0.5) * CellH;
