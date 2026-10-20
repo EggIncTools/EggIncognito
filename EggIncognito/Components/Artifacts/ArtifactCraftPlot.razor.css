@@ -1,12 +1,11 @@
 .acp { position: relative; display: flex; flex-direction: column; align-items: stretch; gap: 0.5rem; min-width: 0; }
-.acp-bar { display: flex; flex-wrap: wrap; align-items: stretch; align-self: flex-start; max-width: 100%; border: 1px solid var(--color-border); border-radius: 0.375rem; background: var(--color-panel2); }
+.acp-bar { display: flex; flex-wrap: nowrap; align-items: stretch; align-self: flex-start; max-width: 100%; border: 1px solid var(--color-border); border-radius: 0.375rem; background: var(--color-panel2); }
 .acp-bar ::deep .acp-picker { border-right: 1px solid var(--color-border); }
-.acp-field { display: inline-flex; align-items: center; gap: 0.375rem; padding: 0.25rem 0.625rem; border-right: 1px solid var(--color-border); font-size: 0.75rem; white-space: nowrap; }
+.acp-field { display: inline-flex; align-items: center; gap: 0.375rem; padding: 0.25rem 0.5rem; border-right: 1px solid var(--color-border); font-size: 0.75rem; white-space: nowrap; }
 .acp-field:last-child { border-right: 0; }
 .acp-field-key { color: var(--color-muted); }
-.acp-input { width: 3.5rem; padding: 0.125rem 0.25rem; border: 0; border-radius: 0.25rem; background: transparent; color: var(--color-fg-max); font-size: 0.8125rem; font-weight: 600; text-align: right; appearance: textfield; }
-.acp-input:hover { background: var(--color-panel); }
-.acp-input:focus { background: var(--color-panel); outline: 1px solid var(--color-accent); }
+.acp-input { width: 4ch; box-sizing: content-box; padding: 0.125rem 0.25rem; border: 0; border-radius: 0.25rem; background: var(--color-panel); color: var(--color-fg-max); font-size: 0.8125rem; font-weight: 600; text-align: right; appearance: textfield; }
+.acp-input:focus { outline: 1px solid var(--color-accent); }
 .acp-input::-webkit-inner-spin-button, .acp-input::-webkit-outer-spin-button { margin: 0; appearance: none; }
 .acp ::deep .acp-cost { display: inline-flex; flex: none; align-items: center; gap: 0.25rem; font-size: 0.8125rem; font-weight: 600; color: var(--color-warn); white-space: nowrap; }
 .acp ::deep .acp-cost .compact-number-icon { width: 0.875rem; height: 0.875rem; object-fit: contain; }
@@ -23,7 +22,8 @@
 .acp-cells { opacity: 0.85; }
 .acp-guide { stroke: var(--color-fg-max); stroke-width: 1; stroke-dasharray: 3 3; opacity: 0.5; pointer-events: none; }
 .acp-point { fill: var(--color-accent); stroke: var(--color-fg-max); stroke-width: 2; pointer-events: none; }
-.acp-label { position: absolute; z-index: 1; display: inline-flex; align-items: center; gap: 0.375rem; padding: 0.125rem 0.375rem; border: 1px solid var(--color-border); border-radius: 0.25rem; background: var(--color-panel); color: var(--color-fg); font-size: 0.75rem; white-space: nowrap; pointer-events: auto; }
+.acp-label-row { display: inline-flex; align-items: center; gap: 0.375rem; }
+.acp-label { position: absolute; z-index: 1; display: inline-flex; flex-direction: column; align-items: flex-start; gap: 0.125rem; padding: 0.125rem 0.375rem; border: 1px solid var(--color-border); border-radius: 0.25rem; background: var(--color-panel); color: var(--color-fg); font-size: 0.75rem; white-space: nowrap; pointer-events: auto; }
 .acp-label-right.acp-label-above { transform: translate(0.5rem, calc(-100% - 0.5rem)); }
 .acp-label-right.acp-label-below { transform: translate(0.5rem, 0.5rem); }
 .acp-label-left.acp-label-above { transform: translate(calc(-100% - 0.5rem), calc(-100% - 0.5rem)); }
@@ -35,7 +35,8 @@
 .acp-leader { fill: none; stroke: currentColor; stroke-width: 1; opacity: 0.7; }
 .acp-key { font-size: 0.75rem; fill: currentColor; }
 .acp-key-pct { fill: color-mix(in oklab, var(--color-ok) calc(var(--ratio, 0) * 100%), var(--color-err)); font-family: var(--font-mono); font-weight: 600; }
-.acp-common { display: inline-flex; align-self: flex-end; gap: 0.375rem; padding: 0 0.625rem; font-size: 0.6875rem; color: var(--color-muted); }
+.acp-common { font-size: 0.6875rem; fill: var(--color-muted); }
+.acp-common-pct { font-family: var(--font-mono); }
 .acp-bg0 { fill: var(--color-muted); }
 .acp-bg1 { fill: var(--color-rarity-1); }
 .acp-bg2 { fill: var(--color-rarity-2); }

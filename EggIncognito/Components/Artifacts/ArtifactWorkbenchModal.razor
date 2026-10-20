@@ -25,7 +25,7 @@
 @inject IEnumerable<ICoverageInventory> Inventories
 @inject ILogger<ArtifactWorkbenchModal> Logger
 
-<WorkbenchModal Open="_open" Title="@("Artifacts")" TitleId="artifactsWorkbenchTitle" Size="WorkbenchSize.Wide"
+<WorkbenchModal Open="_open" Title="@("Artifacts")" TitleId="artifactsWorkbenchTitle" Size="WorkbenchSize.Fit"
                 CardClass="atb-card" OnClose="CloseAsync">
     <Rail>
         <WorkbenchRail HasFilter="true" Filter="@State.RailFilter" FilterChanged="@(v => State.RailFilter = v)"
@@ -86,7 +86,7 @@
                     <p class="atb-desc">@family.Description</p>
                 }
                 <ViewTabs TKey="ArtifactView" Tabs="@Views(family)" Active="@State.View" ActiveChanged="SwitchViewAsync" AriaLabel="View"/>
-                @if (State.NeedsRarity && CurrentTier(family) is { } rarityTier) {
+                @if (State.NeedsRarity && CurrentTier(family) is { } rarityTier && Rarities(family, rarityTier).Count > 1) {
                     <Segmented T="int" Options="@RarityOptions(family, rarityTier)" Selected="@(State.Rarity ?? 0)"
                                SelectedChanged="@(r => PickCellAsync(family, rarityTier, r))" AriaLabel="Rarity"/>
                 }
