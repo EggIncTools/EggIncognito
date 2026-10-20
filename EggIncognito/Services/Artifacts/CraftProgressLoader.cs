@@ -34,8 +34,7 @@ public sealed class CraftProgressLoader(IHttpClientFactory httpFactory, IService
             }
 
             string body = (await resp.Content.ReadAsStringAsync(ct)).Trim();
-            byte[] raw = ProtoFraming.FromBase64Loose(body);
-            var response = EggIncFirstContactResponse.Parser.ParseFrom(ProtoFraming.TryUnwrap(raw) ?? raw);
+            var response = EggIncFirstContactResponse.Parser.ParseFrom(ProtoFraming.FromBase64Loose(body));
             if (response.Backup is not { } backup) {
                 logger.LogWarning("craft progress: bot_first_contact returned no backup (error code {Code}, {Message})",
                     response.ErrorCode, response.ErrorMessage);

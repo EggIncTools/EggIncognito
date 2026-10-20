@@ -39,10 +39,10 @@
                                 <WorkbenchSection Label="@group.ToString()">
                                     @foreach (var family in families) {
                                         <div @key="family.Name" class="atb-fam @(RailSelected(family) ? "atb-on" : "")" style="@CoverageStyle(family)">
-                                            <button type="button" class="atb-fam-name" @onclick="@(() => SelectFamilyAsync(family))">
-                                                <img class="atb-ico" src="@ArtifactTreeBuilder.Icon(family.Name, TopTier(family) ?? 0)" alt="" loading="lazy"/>
+                                            <span class="atb-fam-name">
+                                                <img class="atb-ico" src="@ArtifactAssets.TargetIconFor(family.Name)" alt="" loading="lazy"/>
                                                 <span>@EggIcons.Pretty(family.PluralName)</span>
-                                            </button>
+                                            </span>
                                             <div class="atb-fam-tiers">
                                                 @foreach (var member in GroupFamilies(family)) {
                                                     var f = member;
@@ -77,10 +77,7 @@
             <div class="atb-body">
             <div class="atb-side">
             <div class="atb-head">
-                <div class="atb-head-row">
-                    <img class="atb-ico atb-ico-lg" src="@ArtifactAssets.TargetIconFor(family.Name)" alt="" loading="lazy"/>
-                    <h2 class="atb-head-title">@HeadName(family)</h2>
-                </div>
+                <h2 class="atb-head-title">@HeadName(family)</h2>
                 <ArtifactRecipe Ingredients="@_detailIngredients" Cost="@_detailPrice?.High"/>
                 @if (family.Description.Length > 0) {
                     <p class="atb-desc">@family.Description</p>
@@ -293,7 +290,6 @@
     ArtifactTier? CurrentTier(ArtifactFamily family) =>
         State.Tier is { } level ? family.Tiers.FirstOrDefault(t => t.Level == level) : null;
 
-    static int? TopTier(ArtifactFamily family) => family.Tiers.Count == 0 ? null : family.Tiers.Max(t => t.Level);
 
     static string ViewLabel(ArtifactView view) => view switch {
         ArtifactView.CraftsInto => "Crafts into",
@@ -374,18 +370,6 @@
                         || f.Name.Contains(filter, StringComparison.OrdinalIgnoreCase)
                         || f.PluralName.Contains(filter, StringComparison.OrdinalIgnoreCase))
             .OrderBy(f => f.Order)];
-    }
-
-    async Task SelectFamilyAsync(ArtifactFamily family) {
-        State.SelectFamily(family.Name, TopTier(family));
-        if (!ViewAvailable(family, State.View)) State.View = FirstView(family);
-        if (!State.NeedsRarity) State.Rarity = null;
-        State.Collapsed = new HashSet<string>(StringComparer.Ordinal);
-        await LoadCatalogAsync();
-        if (State.NeedsRarity) SnapRarity(family);
-        SnapCraftTier(family);
-        await RefreshAsync(family);
-        await WriteHashAsync();
     }
 
     async Task SwitchViewAsync(ArtifactView view) {

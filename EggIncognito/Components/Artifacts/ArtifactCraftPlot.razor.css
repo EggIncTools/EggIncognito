@@ -28,6 +28,22 @@
 .acp-label-right.acp-label-below { transform: translate(0.5rem, 0.5rem); }
 .acp-label-left.acp-label-above { transform: translate(calc(-100% - 0.5rem), calc(-100% - 0.5rem)); }
 .acp-label-left.acp-label-below { transform: translate(calc(-100% - 0.5rem), 0.5rem); }
+.acp-bound { fill: none; stroke: var(--color-fg-max); stroke-width: 2; pointer-events: none; }
+.acp-void { cursor: not-allowed; }
+.acp-void-base { fill: var(--color-bg); fill-opacity: 0.55; }
+.acp-hatch-line { stroke: var(--color-muted); stroke-width: 1.5; }
+.acp-void:hover .acp-void-base { fill-opacity: 0.7; }
+.acp-void-tip { position: absolute; z-index: 2; display: flex; flex-direction: column; gap: 0.125rem; max-width: 14rem; margin: 0.5rem; padding: 0.375rem 0.5rem; border: 1px solid var(--color-border); border-radius: 0.375rem; background: var(--color-panel); color: var(--color-fg-soft); font-size: 0.6875rem; opacity: 0; pointer-events: none; transition: opacity var(--motion-fast) var(--ease-standard); }
+.acp-void-tip-title { font-weight: 600; color: var(--color-fg); }
+.acp-stage:has(.acp-void:hover) .acp-void-tip { opacity: 1; }
+.acp-math { display: flex; flex-direction: column; gap: 0.5rem; padding: 0.5rem 0.625rem; border: 1px solid var(--color-border); border-radius: 0.375rem; background: var(--color-panel2); font-size: 0.75rem; }
+.acp-math-head { display: flex; flex-direction: column; gap: 0.125rem; color: var(--color-fg-soft); }
+.acp-math-table { border-collapse: collapse; }
+.acp-math-table th { padding: 0.25rem 0.5rem; border-bottom: 1px solid var(--color-border); color: var(--color-muted); font-weight: 500; text-align: right; white-space: nowrap; }
+.acp-math-table td { padding: 0.25rem 0.5rem; text-align: right; white-space: nowrap; }
+.acp-math-table th:first-child, .acp-math-table td:first-child { text-align: left; }
+.acp-math-table td.acp-key-pct { color: color-mix(in oklab, var(--color-ok) calc(var(--ratio, 0) * 100%), var(--color-err)); font-weight: 600; }
+.acp-math-note { color: var(--color-muted); text-align: center; }
 .acp-curve { fill: none; stroke: var(--color-warn); stroke-width: 2; pointer-events: none; }
 .acp-hit { fill: transparent; cursor: crosshair; }
 .acp-capture { position: fixed; inset: 0; z-index: 2000; cursor: crosshair; touch-action: none; }
