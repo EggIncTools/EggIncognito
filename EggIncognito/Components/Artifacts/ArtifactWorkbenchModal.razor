@@ -100,10 +100,10 @@
 
             <div class="atb-tree">
             <div class="atb-tree-bar">
-                @if (SourceCards) {
+                @if (SourceCards && !_loadingGraph) {
                     <Segmented T="bool" Options="@SourceModes" Selected="@ShowCards" SelectedChanged="@(v => _cards = v)" AriaLabel="Sources"/>
                 }
-                @if (!ShowCards) {
+                @if (!ShowCards && !_loadingGraph) {
                     <Segmented T="DiagramDirection" Options="@Layouts" @bind-Selected="_direction" AriaLabel="Layout"/>
                 }
             </div>
@@ -133,7 +133,7 @@
                         }
                     </div>
                 } else if (_loadingGraph) {
-                    <div class="wb-note">Loading...</div>
+                    <EmptyState Title="Loading" Hint="Fetching drop observations."/>
                 } else if (_graph is null || _graph.Nodes.Count == 0) {
                     <EmptyState Title="Nothing to show" Hint="Pick a tier above."/>
                 } else if (State.NeedsRarity && _graph.Nodes.Count == 1) {
@@ -528,6 +528,8 @@
             return;
         }
 
+        _graph = null;
+        _roots = [];
         _loadingGraph = true;
         StateHasChanged();
         try {
