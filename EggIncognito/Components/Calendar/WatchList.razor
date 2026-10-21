@@ -24,12 +24,6 @@
                 <FilterInput Class="watch-pick-query" Placeholder="@Placeholder" AriaLabel="@AddLabel"
                              Value="@_query" ValueChanged="OnQuery" autofocus="true"
                              role="combobox" aria-autocomplete="list" aria-expanded="true"/>
-                @if (HasUltra) {
-                    <label class="watch-pick-toggle">
-                        <input type="checkbox" class="watch-pick-toggle-input" checked="@_ultra" @onchange="OnUltra"/>
-                        <span>Ultra</span>
-                    </label>
-                }
             </div>
             <div class="watch-pick-list" role="listbox" aria-label="@AddLabel">
                 @if (_shown.Count == 0) {
@@ -44,6 +38,9 @@
                             <FallbackImg Class="watch-pick-icon" Src="@icon" Alt=""/>
                         }
                         <span class="watch-pick-name">@e.Label</span>
+                        @if (e.Ultra) {
+                            <span class="watch-pick-ultra">ULTRA</span>
+                        }
                         @if (e.LastStart is { } ls) {
                             <span class="watch-pick-when"><TimeAgo At="@UnixSeconds.ToTime(ls)" Hover="false" Class="time-ago"/></span>
                         }
@@ -86,14 +83,11 @@
     string _note = "";
     bool _prefsLoaded;
     bool _open;
-    bool _ultra;
     int _minPct;
     string _query = "";
     int _active = -1;
     List<WatchEntry> _shown = [];
     CancellationTokenSource? _retryCts;
-
-    bool HasUltra => _entries?.Any(e => e.Ultra) == true && _entries.Any(e => !e.Ultra);
 
     List<WatchEntry> Pinned =>
         _entries is null ? [] : [.. _pinned.Select(k => _entries.FirstOrDefault(e => e.Key == k)).OfType<WatchEntry>()];
@@ -212,18 +206,13 @@
         Rebuild();
     }
 
-    void OnUltra(ChangeEventArgs e) {
-        _ultra = e.Value is true;
-        Rebuild();
-    }
-
     void Rebuild() {
         var q = _query.Trim();
         _shown = [
             .. (_entries ?? [])
                 .Where(e => !_pinned.Contains(e.Key))
-                .Where(e => !HasUltra || e.Ultra == _ultra)
                 .Where(e => q.Length == 0 || e.Label.Contains(q, StringComparison.OrdinalIgnoreCase) || e.Key.Contains(q, StringComparison.OrdinalIgnoreCase))
+                .OrderBy(e => e.Ultra)
         ];
         _active = _shown.Count == 0 ? -1 : 0;
     }

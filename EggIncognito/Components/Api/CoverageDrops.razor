@@ -201,5 +201,5 @@
         return stone ? $"T{LevelIndex(r.Level) + 2} {name}" : name;
     }
 
-    static string Avg(double v) => FormattableString.Invariant($"{v:0.##}");
+    internal static string Avg(double v) => FormattableString.Invariant($"{v:0.##}");
 }

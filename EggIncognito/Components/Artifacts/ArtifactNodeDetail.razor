@@ -1,27 +1,7 @@
-@using System.Globalization
-@using EggIncognito.Services.Coverage
-
 <div class="atb-detail">
     @if (Price is { } price && Catalog is { } catalog && Tier is { } tier) {
         <section class="atb-detail-col atb-detail-wide">
             <ArtifactCraftPlot Price="price" Catalog="catalog" AfxId="tier.AfxId" AfxLevel="tier.AfxLevel"/>
-        </section>
-    }
-    @if (Row is { Buckets.Count: 1 } single) {
-        <section class="atb-detail-col">
-            <span class="atb-detail-head">Drops per consume</span>
-            <span class="atb-fixed mono">@single.Buckets[0].Count</span>
-        </section>
-    } else if (Row is { Buckets.Count: > 0 } row) {
-        <section class="atb-detail-col">
-            <span class="atb-detail-head">Drops per consume</span>
-            <div class="atb-buckets">
-                @foreach (var bucket in row.Buckets) {
-                    <Tooltip Text="@BucketHover(bucket.Count, bucket.Share)">
-                        <span class="atb-bucket" style="@RatioStyle.Var(bucket.Share)"></span>
-                    </Tooltip>
-                }
-            </div>
         </section>
     }
 </div>
@@ -30,8 +10,4 @@
     [Parameter] public ArtifactCraftPlot.PriceCurve? Price { get; set; }
     [Parameter] public EggSharp.GameData.IArtifactCatalog? Catalog { get; set; }
     [Parameter] public (int AfxId, int AfxLevel)? Tier { get; set; }
-    [Parameter] public DropRow? Row { get; set; }
-
-    static string BucketHover(int count, double share) =>
-        string.Create(CultureInfo.InvariantCulture, $"{count} dropped: {share * 100:0.#}% of consumes");
 }

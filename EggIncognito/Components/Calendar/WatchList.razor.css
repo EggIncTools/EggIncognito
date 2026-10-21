@@ -41,22 +41,16 @@
   font-size: 0.75rem;
 }
 .watch-pick ::deep .watch-pick-query:focus { outline: none; }
-.watch-pick-toggle {
-  position: relative;
+.watch-pick-ultra {
   flex: none;
-  display: inline-flex;
-  align-items: center;
-  padding-inline: 0.625rem;
-  margin: 0;
-  border-left: 1px solid var(--color-border);
-  font-size: 0.6875rem;
-  line-height: 1;
-  color: var(--color-muted);
-  cursor: pointer;
+  font-size: 0.5625rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  background: linear-gradient(to right, var(--color-ultra-from), var(--color-ultra-to));
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
 }
-.watch-pick-toggle:hover { color: var(--color-fg); }
-.watch-pick-toggle:has(input:checked) { color: var(--color-accent); background-color: color-mix(in oklab, var(--color-accent) 12%, transparent); }
-.watch-pick-toggle-input { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
 .watch-pick-list { max-height: 12.75rem; overflow-y: auto; scrollbar-gutter: stable; background-color: var(--color-panel0); }
 .watch-pick-opt {
   display: flex;

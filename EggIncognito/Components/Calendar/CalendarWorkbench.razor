@@ -11,14 +11,6 @@
 
 <WorkbenchModal Open="_open" Title="@Title" TitleId="@TitleId" Size="WorkbenchSize.Wide" CardClass="@CardCss" OnClose="Close">
     <HeadTools>
-        <button type="button" class="icon-btn icon-btn-sm calwb-rail-toggle" aria-label="@(_railOpen ? "Hide filters" : "Show filters")"
-                aria-pressed="@(_railOpen ? "true" : "false")" @onclick="@(() => _railOpen = !_railOpen)">
-            <Icon Name="filter"/>
-        </button>
-        @if (OnTogglePredictions.HasDelegate) {
-            <button type="button" class="@(ShowPredictions ? "calwb-pred calwb-pred-on" : "calwb-pred")"
-                    aria-pressed="@(ShowPredictions ? "true" : "false")" @onclick="@(() => OnTogglePredictions.InvokeAsync())">Predictions</button>
-        }
         <CalendarRangePicker TZoom="CalendarZoom" AvailableZooms="Zooms" Zoom="_zoom" ZoomLabel="ZoomLabel" RangeLabel="@RangeLabel"
                              DateValue="@CenterDate" ZoomChanged="SetZoom" OnPan="Pan" OnToday="Today" DateChanged="JumpToDate"/>
         <span class="evwb-zone">@_zone.Id</span>
@@ -28,6 +20,10 @@
     </Rail>
     <ChildContent>
         <div class="@PaneCss" style="@PaneStyle">
+            <button type="button" class="calwb-pull" aria-label="@(_railOpen ? "Hide filters" : "Show filters")"
+                    aria-expanded="@(_railOpen ? "true" : "false")" @onclick="@(() => _railOpen = !_railOpen)">
+                <Icon Name="@(_railOpen ? "chevron-left" : "chevron-right")"/>
+            </button>
             @if (Note is { Length: > 0 } note) {
                 <div class="evcal-note">@note</div>
             }
@@ -95,10 +91,6 @@
     [Parameter] public string FilterNote { get; set; } = "Nothing matches these filters.";
 
     [Parameter] public bool Filtering { get; set; }
-
-    [Parameter] public bool ShowPredictions { get; set; }
-
-    [Parameter] public EventCallback OnTogglePredictions { get; set; }
 
     bool _open;
     bool _railOpen = true;

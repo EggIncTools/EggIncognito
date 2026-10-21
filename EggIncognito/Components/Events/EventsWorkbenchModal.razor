@@ -11,8 +11,7 @@
 
 <CalendarWorkbench TItem="EventCalendarItem" @ref="_cal" Title="Events" TitleId="eventsWorkbenchTitle" State="State"
                    Load="LoadRange" Items="Items" DetailTitle="PopTitle" Filtering="Filtering"
-                   CardClass="evwb-card" AnchorStyle="AnchorStyle" OnWindowChanged="EnsurePredictions"
-                   ShowPredictions="_showPredictions" OnTogglePredictions="TogglePredictions">
+                   CardClass="evwb-card" AnchorStyle="AnchorStyle" OnWindowChanged="EnsurePredictions">
     <Rail>
         <EventsFilterRail ShowStandard="_showStandard" ShowUltra="_showUltra"
                           TypeGroups="TypeGroups" TypeSelected="TypeSelected" OnSetTier="SetTier" OnToggleType="ToggleType"
@@ -40,7 +39,6 @@
     HashSet<string>? _typeFilter;
     bool _showStandard = true;
     bool _showUltra = true;
-    bool _showPredictions = true;
     DateTimeOffset _horizonEnd;
     EventPredictionSet? _predictions;
 
@@ -107,16 +105,10 @@
         _cal?.ApplyFilters();
     }
 
-    async Task TogglePredictions() {
-        _showPredictions = !_showPredictions;
-        if (_showPredictions && _cal is not null) await EnsurePredictions(_cal.VisibleStart, _cal.VisibleEnd);
-        _cal?.ApplyFilters();
-    }
-
     IReadOnlyList<EventCalendarItem> Items() {
         var items = new List<EventCalendarItem>(_events.Count);
         items.AddRange(_events.Values.Where(Match).Select(EventCalendarItem.Of));
-        if (_showPredictions && _predictions?.Predictions is { } predictions) {
+        if (_predictions?.Predictions is { } predictions) {
             items.AddRange(predictions.Where(GhostVisible).Select(EventCalendarItem.Of));
         }
 
@@ -147,7 +139,6 @@
     }
 
     async Task EnsurePredictions(DateTimeOffset visibleStart, DateTimeOffset visibleEnd) {
-        if (!_showPredictions) return;
         if (visibleEnd <= DateTimeOffset.UtcNow) return;
         var reach = visibleEnd + (visibleEnd - visibleStart);
         var horizon = Math.Clamp((int)Math.Ceiling((reach - DateTimeOffset.UtcNow).TotalDays),

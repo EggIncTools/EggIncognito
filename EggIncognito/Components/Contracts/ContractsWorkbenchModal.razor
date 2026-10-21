@@ -12,8 +12,7 @@
 
 <CalendarWorkbench TItem="ContractCalendarItem" @ref="_cal" Title="Contracts" TitleId="contractsWorkbenchTitle" State="State"
                    Load="LoadRange" Items="Items" DetailTitle="PopTitle" Filtering="Filtering"
-                   AnchorStyle="AnchorStyle" OnWindowChanged="OnWindowChanged"
-                   ShowPredictions="_showPredictions" OnTogglePredictions="TogglePredictions">
+                   AnchorStyle="AnchorStyle" OnWindowChanged="OnWindowChanged">
     <Rail>
         <WorkbenchRail HasFilter="true" Filter="@_search" FilterChanged="SetSearch" FilterLabel="Filter contracts">
             <WorkbenchSection Label="Kinds">
@@ -87,7 +86,6 @@
     bool _showLeggacy = true;
     bool _showPe = true;
     bool _showUltra = true;
-    bool _showPredictions = true;
     ContractPredictionResponse? _predictions;
 
     public Task Open() {
@@ -125,16 +123,10 @@
         _cal?.ApplyFilters();
     }
 
-    async Task TogglePredictions() {
-        _showPredictions = !_showPredictions;
-        if (_showPredictions && _cal is not null) await EnsurePredictions(_cal.VisibleEnd);
-        _cal?.ApplyFilters();
-    }
-
     IReadOnlyList<ContractCalendarItem> Items() {
         var items = new List<ContractCalendarItem>(_contracts.Count);
         items.AddRange(_contracts.Values.Where(Match).Select(ContractCalendarItem.Of));
-        if (_showPredictions && _search.Length == 0 && _predictions?.Slots is { } slots) {
+        if (_search.Length == 0 && _predictions?.Slots is { } slots) {
             items.AddRange(slots.Where(s => KindShown(s.Kind)).Select(ContractCalendarItem.Of));
         }
 
@@ -169,7 +161,7 @@
     }
 
     async Task EnsurePredictions(DateTimeOffset visibleEnd) {
-        if (!_showPredictions || _predictions is not null) return;
+        if (_predictions is not null) return;
         if (visibleEnd <= DateTimeOffset.UtcNow) return;
         try {
             var res = await Client().GetAsync(

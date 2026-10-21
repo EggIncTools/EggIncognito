@@ -90,7 +90,7 @@
                 }
             </div>
 
-            <ArtifactNodeDetail Price="@_detailPrice" Catalog="@_catalog" Tier="@_detailTier" Row="@_detailRow"/>
+            <ArtifactNodeDetail Price="@_detailPrice" Catalog="@_catalog" Tier="@_detailTier"/>
             @if (State.View == ArtifactView.ConsumesInto && State.Rarity is { } selRarity && CurrentTier(family) is { } selTier) {
                 <CoverageDrops Family="@family.Name" Level="@ArtifactTreeBuilder.LevelName(selTier.Level)"
                                Rarity="@ArtifactTreeBuilder.RarityName(selRarity)" Version="@_dropsVersion"/>
@@ -123,8 +123,10 @@
                                                 <img class="atb-ico" src="@cellIcon" alt="@NodeName(cell.Id)" loading="lazy"/>
                                             }
                                             <span class="atb-share-label mono" style="@RatioStyle.Var(cell.Ratio)">@cell.Label</span>
-                                            @if (NodeCount(cell.Id) is { } cellCount) {
-                                                <CompactNumber Value="@cellCount" Class="atb-node-count mono"/>
+                                            @if (NodeStats(cell.Id) is { } cellStats) {
+                                                <Tooltip Lines="@StatLines(cell.Id, cellStats)" Class="atb-node-count">
+                                                    <span class="mono">@CoverageDrops.Avg(cellStats.Mean)</span><span class="muted"> avg</span>
+                                                </Tooltip>
                                             }
                                         </span>
                                     }
@@ -154,8 +156,10 @@
                                     <img class="atb-node-ico" src="@icon" alt="" loading="lazy"/>
                                 }
                                 <span class="atb-node-name">@NodeName(node.Node.Id)</span>
-                                @if (NodeCount(node.Node.Id) is { } count) {
-                                    <CompactNumber Value="@count" Class="atb-node-count mono"/>
+                                @if (NodeStats(node.Node.Id) is { } stats) {
+                                    <Tooltip Lines="@StatLines(node.Node.Id, stats)" Class="atb-node-count">
+                                        <span class="mono">@CoverageDrops.Avg(stats.Mean)</span><span class="muted"> avg</span>
+                                    </Tooltip>
                                 }
                             </span>
                         </NodeTemplate>
@@ -197,7 +201,6 @@
     ArtifactCatalog? _catalog;
     IReadOnlyList<ArtifactRecipe.Ingredient>? _detailIngredients;
     ArtifactCraftPlot.PriceCurve? _detailPrice;
-    DropRow? _detailRow;
     bool _admin;
     bool _adminOpen;
 
@@ -562,7 +565,6 @@
         _detailIngredients = null;
         _detailPrice = null;
         _detailTier = null;
-        _detailRow = null;
     }
 
     async Task UpdateDetailAsync(ArtifactFamily family) {
@@ -583,10 +585,7 @@
                 _detailTier = (entry.AfxId, entry.AfxLevel);
             }
 
-            return;
         }
-
-        _detailRow = DropOf(_selectedNodeId);
     }
 
     static ArtifactRecipe.Ingredient? ToIngredient(ArtifactIngredient ingredient) {
@@ -695,12 +694,24 @@
         return null;
     }
 
-    double? NodeCount(string nodeId) => nodeId switch {
-        ArtifactTreeBuilder.GoldNodeId => _consumeSummary?.Gold?.Mean,
-        ArtifactTreeBuilder.PiggyNodeId => _consumeSummary?.Piggy?.Mean,
+    sealed record NodeStat(double Mean, double Share, double Min, double Max, int Observations);
+
+    NodeStat? NodeStats(string nodeId) => nodeId switch {
+        ArtifactTreeBuilder.GoldNodeId => Stat(_consumeSummary?.Gold),
+        ArtifactTreeBuilder.PiggyNodeId => Stat(_consumeSummary?.Piggy),
         _ when _roots.Contains(nodeId) => null,
-        _ => DropOf(nodeId)?.Mean
+        _ => DropOf(nodeId) is { } row ? new NodeStat(row.Mean, row.Share, row.Min, row.Max, row.Observations) : null
     };
+
+    static NodeStat? Stat(GoldStats? g) => g is null ? null : new NodeStat(g.Mean, g.Share, g.Min, g.Max, g.Observations);
+
+    IReadOnlyList<TooltipLine> StatLines(string nodeId, NodeStat s) => [
+        new(NodeName(nodeId), Head: true),
+        new("Average per consume", Value: CoverageDrops.Avg(s.Mean)),
+        new("Chance", Value: NumberFormat.Percent(s.Share)),
+        new("Range", Value: s.Min.Equals(s.Max) ? CoverageDrops.Avg(s.Min) : $"{CoverageDrops.Avg(s.Min)} - {CoverageDrops.Avg(s.Max)}"),
+        new("Observed", Value: s.Observations.ToString("N0", System.Globalization.CultureInfo.InvariantCulture))
+    ];
 
     DropRow? DropOf(string nodeId) =>
         _consumeSummary?.Rows.FirstOrDefault(r => nodeId == ArtifactTreeBuilder.CellNodeId(r.Name, r.Level, r.Rarity))
