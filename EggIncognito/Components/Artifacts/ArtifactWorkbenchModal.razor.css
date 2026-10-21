@@ -47,7 +47,7 @@
 .atb-src { display: flex; flex-direction: column; gap: 0.5rem; padding: 0.5rem; border: 1px solid var(--color-border); border-radius: 0.5rem; background: var(--color-panel2); }
 .atb-src-head { display: flex; align-items: center; gap: 0.5rem; font-size: 0.8125rem; font-weight: 600; }
 .atb-src-cells { display: flex; flex-wrap: wrap; gap: 0.375rem; }
-.atb-src-cell { display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.125rem 0.375rem 0.125rem 0.125rem; border: 2px solid var(--color-border-strong); border-radius: 0.375rem; background: var(--color-bg); font-size: 0.75rem; }
+.atb-src-cell { display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.125rem 0.375rem 0.125rem 0.125rem; border-width: 2px; border-style: solid; border-radius: 0.375rem; background: var(--color-bg); font-size: 0.75rem; }
 .atb-src-cell .atb-node-count { font-size: 0.75rem; font-weight: 600; color: var(--color-fg); }
 .atb-src-cell .atb-share-label { font-weight: 600; color: color-mix(in oklab, var(--color-ok) calc(var(--ratio, 0) * 100%), var(--color-err)); }
 .atb-canvas ::deep .diagram-node { border-width: 2px; border-style: solid; }
