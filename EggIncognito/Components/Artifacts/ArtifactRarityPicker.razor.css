@@ -1,7 +1,7 @@
 .arp { display: inline-flex; flex-wrap: wrap; gap: 0.375rem; }
-.arp-opt { --arp-rc: var(--color-border-strong); display: grid; place-items: center; width: 2.5rem; height: 2.5rem; padding: 0; border: 2px solid color-mix(in oklab, var(--arp-rc) 55%, transparent); border-radius: 0.375rem; background: var(--color-panel2); cursor: pointer; transition: background-color var(--motion-fast) var(--ease-standard), border-color var(--motion-fast) var(--ease-standard); }
-.arp-opt:hover { border-color: var(--arp-rc); }
+.arp-opt { display: grid; place-items: center; width: 2.5rem; height: 2.5rem; padding: 0; border: 2px solid color-mix(in oklab, currentColor 55%, transparent); border-radius: 0.375rem; background: var(--color-panel2); cursor: pointer; transition: background-color var(--motion-fast) var(--ease-standard), border-color var(--motion-fast) var(--ease-standard); }
+.arp-opt:hover { border-color: currentColor; }
 .arp-opt:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--color-accent); }
-.arp-on { background: color-mix(in oklab, currentColor 35%, transparent); }
+.arp-on { border-color: currentColor; background: color-mix(in oklab, currentColor 35%, transparent); }
 .arp-on.border-rarity-0 { border-color: var(--color-accent); background: color-mix(in oklab, var(--color-accent) 35%, transparent); }
 .arp-ico { width: 1.75rem; height: 1.75rem; object-fit: contain; }

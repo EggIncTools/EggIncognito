@@ -1,0 +1,111 @@
+@using System.Globalization
+@using EggIncognito.Services.Artifacts
+@using EggIncognito.Services.Coverage
+@using EggSharp.GameData
+
+@if (_model is { } model) {
+    <section class="acd">
+        <div class="acd-head">
+            <span class="atb-detail-head">Consume odds</span>
+            <Tooltip Text="@ConsumeDropModel.Source">
+                <span class="acd-tag">fitted</span>
+            </Tooltip>
+            <label class="form-check acd-toggle">
+                <input type="checkbox" checked="@_math" @onchange="e => _math = e.Value is true"/>math
+            </label>
+        </div>
+
+        <div class="table-scroll">
+            <table class="data-table">
+                <thead>
+                <tr>
+                    <th>Drop</th>
+                    <th class="acd-fit">Chance</th>
+                    <th class="acd-fit">Model</th>
+                    <th class="acd-fit">Avg</th>
+                    <th class="acd-fit">Model</th>
+                    @if (_math) {
+                        <th class="acd-fit">Cost</th>
+                        <th class="acd-fit">Weight</th>
+                    }
+                </tr>
+                </thead>
+                <tbody>
+                @foreach (var p in model.Predictions) {
+                    var observed = Observed(p);
+                    var item = model.Items.First(i => i.Family == p.Family && i.AfxLevel == p.AfxLevel && i.IsFragment == p.IsFragment);
+                    <tr @key="@(p.Family + "|" + p.AfxLevel)">
+                        <td>
+                            <span class="cdp-drop">
+                                <img class="atb-ico" src="@ArtifactTreeBuilder.Icon(p.Family, p.AfxLevel)" alt="" loading="lazy"/>
+                                <span>@ArtifactTreeBuilder.DisplayName(p.Family, p.AfxLevel)</span>
+                            </span>
+                        </td>
+                        <td class="mono">@(observed is { } o ? NumberFormat.Percent(o.Share) : "")</td>
+                        <td class="mono @Delta(observed?.Share, p.Chance)">@NumberFormat.Percent(p.Chance)</td>
+                        <td class="mono">@(observed is { } o2 ? Num(o2.Mean) : "")</td>
+                        <td class="mono @Delta(observed?.Mean, p.Mean)">@Num(p.Mean)</td>
+                        @if (_math) {
+                            <td class="mono">@Num(item.Cost)</td>
+                            <td class="mono">@Num(item.Weight / model.Items.Sum(i => i.Weight))</td>
+                        }
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+
+        @if (_math) {
+            <dl class="acd-math mono">
+                <dt>budget</dt>
+                <dd>@Num(ConsumeDropModel.BudgetPerQuality[model.Rarity]) × @Num(model.InputQuality) + @Num(ConsumeDropModel.BudgetOffset) = @Num(model.Budget)</dd>
+                <dt>weight floor</dt>
+                <dd>@Num(ConsumeDropModel.FloorFraction[model.Rarity]) × @Num(model.InputQuality) = @Num(model.WeightFloor)</dd>
+                <dt>fragment cost</dt>
+                <dd>quality + @Num(ConsumeDropModel.FragmentCostOffset)</dd>
+                <dt>stone cost</dt>
+                <dd>@Num(ConsumeDropModel.StoneCostPerQuality) × quality + @Num(ConsumeDropModel.StoneCostOffset[model.Rarity])</dd>
+                <dt>weight</dt>
+                <dd>odds ÷ max(quality, floor)², × @Num(ConsumeDropModel.StoneWeight[model.Rarity]) for stones</dd>
+                <dt>draw</dt>
+                <dd>pick an affordable item by weight, pay its cost, repeat until nothing fits</dd>
+            </dl>
+            <p class="acd-note">Constants are fitted to recorded consumes and are not game values. The budget jitters per roll by up to one fragment; the model here uses the centre value.</p>
+        }
+    </section>
+}
+
+@code {
+    [Parameter, EditorRequired] public string Family { get; set; } = "";
+    [Parameter, EditorRequired] public int AfxLevel { get; set; }
+    [Parameter, EditorRequired] public int Rarity { get; set; }
+    [Parameter] public IArtifactCatalog? Catalog { get; set; }
+    [Parameter] public DropSummary? Summary { get; set; }
+
+    bool _math;
+    ConsumeDropExplanation? _model;
+    string? _key;
+    IArtifactCatalog? _catalog;
+
+    protected override void OnParametersSet() {
+        string key = $"{Family}|{AfxLevel}|{Rarity}|{Summary?.Observations}";
+        if (key == _key && ReferenceEquals(Catalog, _catalog)) return;
+        _key = key;
+        _catalog = Catalog;
+        _model = null;
+        if (Catalog is null || Summary is null) return;
+        var families = Summary.Rows.Select(r => r.Name.EndsWith("_FRAGMENT", StringComparison.Ordinal) ? r.Name[..^"_FRAGMENT".Length] : r.Name).Distinct().ToList();
+        _model = ConsumeDropModel.Explain(Catalog, Family, AfxLevel, Rarity, families);
+    }
+
+    DropRow? Observed(ConsumeDropPrediction p) =>
+        Summary?.Rows.FirstOrDefault(r => r.Name == p.Family && ArtifactTreeBuilder.LevelIndex(r.Level) == p.AfxLevel);
+
+    static string Delta(double? observed, double predicted) {
+        if (observed is not { } o) return "";
+        double gap = Math.Abs(o - predicted);
+        return gap < 0.01 ? "acd-ok" : gap < 0.03 ? "acd-near" : "acd-off";
+    }
+
+    static string Num(double v) => v.ToString("0.###", CultureInfo.InvariantCulture);
+}

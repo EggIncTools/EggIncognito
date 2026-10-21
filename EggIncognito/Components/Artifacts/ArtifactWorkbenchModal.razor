@@ -94,6 +94,7 @@
             @if (State.View == ArtifactView.ConsumesInto && State.Rarity is { } selRarity && CurrentTier(family) is { } selTier) {
                 <CoverageDrops Family="@family.Name" Level="@ArtifactTreeBuilder.LevelName(selTier.Level)"
                                Rarity="@ArtifactTreeBuilder.RarityName(selRarity)" Version="@_dropsVersion"/>
+                <ArtifactConsumeDetail Family="@family.Name" AfxLevel="@selTier.Level" Rarity="@selRarity" Catalog="@_catalog" Summary="@_consumeSummary"/>
             }
             </div>
 
