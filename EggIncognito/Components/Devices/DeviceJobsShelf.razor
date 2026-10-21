@@ -115,9 +115,7 @@
     }
 
     static string Duration(JobGroupRow j) {
-        if (j.FinishedAt is not { } end) return "running";
-        var span = end - j.LastAt;
-        return span.TotalSeconds < 1 ? "<1s" : $"{(int)span.TotalSeconds}s";
+        return j.FinishedAt is { } end ? DurationFormat.Brief(end - j.LastAt) : "running";
     }
 
     IReadOnlyList<JobLineRow> LinesFor(long jobId) {

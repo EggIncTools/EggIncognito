@@ -94,10 +94,10 @@
                 <g>
                     <text class="acp-common" x="@PadL" y="@F(BarY - 5)" text-anchor="start">@RarityLabel(0) <tspan class="acp-common-pct">@NumberFormat.Odds(Odds(0, _level, _count))</tspan></text>
                     @foreach (var seg in Segments()) {
-                        <rect class="acp-bg@(seg.Rarity)" x="@F(seg.X)" y="@F(BarY)" width="@F(seg.W)" height="@BarH"/>
+                        <rect class="acp-bg @RarityTokens.Text(seg.Rarity)" x="@F(seg.X)" y="@F(BarY)" width="@F(seg.W)" height="@BarH"/>
                     }
                     @foreach (var key in Keys()) {
-                        <g class="acp-r@(key.Rarity)">
+                        <g class="@RarityTokens.Text(key.Rarity)">
                             <path class="acp-leader" d="@key.Leader"/>
                             <text class="acp-key" x="@F(key.X)" y="@F(KeyY)" text-anchor="middle">@key.Name <tspan class="acp-key-pct" style="@ChanceStyle(key.Rarity)">@key.Pct</tspan></text>
                         </g>
@@ -138,7 +138,7 @@
                     <ArtifactRarityPicker Icon="@TierIcon" Rarities="@Shinies" Selected="@_target" SelectedChanged="PickTarget" AriaLabel="Heatmap rarity"/>
                 }
                 <span class="acp-scale" style="@ScaleStyle">
-                    <span class="acp-r@(_target)">@RarityLabel(_target)</span>
+                    <span class="@RarityTokens.Text(_target)">@RarityLabel(_target)</span>
                     <span class="mono">0%</span>
                     <span class="acp-scale-bar"></span>
                     <span class="mono">@NumberFormat.Odds(_maxOdds[_target])</span>
@@ -161,7 +161,7 @@
                 <tbody>
                     @foreach (int rarity in Rarities.Where(r => r > 0)) {
                         <tr>
-                            <td class="acp-r@(rarity)">@RarityLabel(rarity)</td>
+                            <td class="@RarityTokens.Text(rarity)">@RarityLabel(rarity)</td>
                             <td class="mono">@F(_constants[rarity])</td>
                             <td class="mono">@F(Scaled(rarity))</td>
                             <td class="mono">@NumberFormat.Odds(Threshold(rarity))</td>
@@ -169,7 +169,7 @@
                         </tr>
                     }
                     <tr>
-                        <td class="acp-r0">@RarityLabel(0)</td>
+                        <td class="@RarityTokens.Text(0)">@RarityLabel(0)</td>
                         <td colspan="3" class="acp-math-note">1 - sum of shiny chances</td>
                         <td class="mono">@NumberFormat.Odds(Odds(0, _level, _count))</td>
                     </tr>

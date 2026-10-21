@@ -2,7 +2,7 @@
     @foreach (int rarity in Rarities) {
         int r = rarity;
         bool on = r == Selected;
-        <button type="button" class="arp-opt arp-r@(r) @(on ? "arp-on" : null)" aria-pressed="@(on ? "true" : "false")"
+        <button type="button" class="arp-opt @(on ? $"arp-on {RarityTokens.Border(r)} {RarityTokens.Text(r)}" : null)" aria-pressed="@(on ? "true" : "false")"
                 aria-label="@Label(r)" @onclick="() => PickAsync(r)">
             <img class="arp-ico" src="@Icon" alt="" loading="lazy"/>
         </button>

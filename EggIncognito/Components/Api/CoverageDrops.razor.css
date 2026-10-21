@@ -12,7 +12,3 @@
 .cdp-nowrap { white-space: nowrap; }
 .cdp-seg-text { font-size: 0.75rem; font-weight: 700; line-height: 1; color: var(--color-bg); white-space: nowrap; }
 .cdp-fixed { padding-top: 0; font-size: 0.75rem; color: var(--color-muted); }
-.rar-0 { color: var(--color-fg); }
-.rar-1 { color: var(--color-rarity-1); }
-.rar-2 { color: var(--color-rarity-2); }
-.rar-3 { color: var(--color-rarity-3); }

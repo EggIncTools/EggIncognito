@@ -38,7 +38,7 @@
                             @if (families.Count > 0) {
                                 <WorkbenchSection Label="@group.ToString()">
                                     @foreach (var family in families) {
-                                        <div @key="family.Name" class="atb-fam @(RailSelected(family) ? "atb-on" : "")" style="@CoverageStyle(family)">
+                                        <div @key="family.Name" class="atb-fam @(RailSelected(family) ? "atb-on" : "")">
                                             <span class="atb-fam-name">
                                                 <img class="atb-ico" src="@ArtifactAssets.TargetIconFor(family.Name)" alt="" loading="lazy"/>
                                                 <span>@EggIcons.Pretty(family.PluralName)</span>
@@ -117,11 +117,14 @@
                                 </div>
                                 <div class="atb-src-cells">
                                     @foreach (var cell in source.Cells) {
-                                        <span class="atb-src-cell atb-r@(NodeRarity(cell.Id))">
+                                        <span class="atb-src-cell @RarityTokens.Border(NodeRarity(cell.Id))">
                                             @if (NodeIcon(cell.Id) is { } cellIcon) {
                                                 <img class="atb-ico" src="@cellIcon" alt="@NodeName(cell.Id)" loading="lazy"/>
                                             }
                                             <span class="atb-share-label mono" style="@RatioStyle.Var(cell.Ratio)">@cell.Label</span>
+                                            @if (NodeCount(cell.Id) is { } cellCount) {
+                                                <CompactNumber Value="@cellCount" Class="atb-node-count mono"/>
+                                            }
                                         </span>
                                     }
                                 </div>
@@ -188,6 +191,7 @@
     IReadOnlyList<string> _roots = [];
     string? _selectedNodeId;
     DropSummary? _consumeSummary;
+    IReadOnlyList<(string Family, string Level, string Rarity, DropRow Hit)> _sources = [];
     ConsumeCoverageMap? _coverage;
     ArtifactCatalog? _catalog;
     IReadOnlyList<ArtifactRecipe.Ingredient>? _detailIngredients;
@@ -492,6 +496,7 @@
 
     async Task RebuildGraphAsync(ArtifactFamily family) {
         _consumeSummary = null;
+        _sources = [];
         if (State.View == ArtifactView.CraftsInto) {
             if (CurrentTier(family) is { } used) {
                 _graph = ArtifactTreeBuilder.BuildUsageGraph(ArtifactDefinitions.All, family, used);
@@ -528,8 +533,8 @@
             string levelName = ArtifactTreeBuilder.LevelName(tier.Level);
             string rarityName = ArtifactTreeBuilder.RarityName(rarity);
             if (State.View == ArtifactView.ComesFrom) {
-                _graph = await ArtifactTreeBuilder.BuildReverseConsumptionGraphAsync(Stats,
-                    family.Name, levelName, rarityName, CancellationToken.None);
+                _sources = await Stats.SourcesOfAsync(family.Name, levelName, rarityName, CancellationToken.None);
+                _graph = ArtifactTreeBuilder.BuildReverseConsumptionGraph(_sources, family.Name, levelName, rarityName);
             } else {
                 _consumeSummary = await Stats.ForCellAsync(family.Name, levelName, rarityName, CancellationToken.None);
                 _graph = ArtifactTreeBuilder.BuildConsumptionGraph(_consumeSummary, family.Name, levelName, rarityName);
@@ -578,9 +583,7 @@
             return;
         }
 
-        if (_consumeSummary is not null) {
-            _detailRow = _consumeSummary.Rows.FirstOrDefault(r => _selectedNodeId == ArtifactTreeBuilder.CellNodeId(r.Name, r.Level, r.Rarity));
-        }
+        _detailRow = DropOf(_selectedNodeId);
     }
 
     static ArtifactRecipe.Ingredient? ToIngredient(ArtifactIngredient ingredient) {
@@ -665,14 +668,10 @@
         }
     }
 
-    string? CoverageStyle(ArtifactFamily family) {
-        var row = _coverage?.Families.FirstOrDefault(f => f.SpecName == family.Name);
-        return row is null ? null : RatioStyle.Var(row.Validity);
-    }
-
     string NodeClass(string nodeId) {
-        string css = $"atb-r{NodeRarity(nodeId)}";
-        return _selectedNodeId == nodeId ? css + " atb-on" : css;
+        int rarity = NodeRarity(nodeId);
+        string css = RarityTokens.Border(rarity);
+        return _selectedNodeId == nodeId ? $"{css} {RarityTokens.Text(rarity)} atb-on" : css;
     }
 
     static readonly string? GoldIcon = EggIcons.Asset("icon", RewardIconMap.Stem(Ei.RewardType.Gold, null)!);
@@ -696,8 +695,13 @@
     double? NodeCount(string nodeId) => nodeId switch {
         ArtifactTreeBuilder.GoldNodeId => _consumeSummary?.Gold?.Mean,
         ArtifactTreeBuilder.PiggyNodeId => _consumeSummary?.Piggy?.Mean,
-        _ => null
+        _ when _roots.Contains(nodeId) => null,
+        _ => DropOf(nodeId)?.Mean
     };
+
+    DropRow? DropOf(string nodeId) =>
+        _consumeSummary?.Rows.FirstOrDefault(r => nodeId == ArtifactTreeBuilder.CellNodeId(r.Name, r.Level, r.Rarity))
+        ?? _sources.Where(s => nodeId == ArtifactTreeBuilder.CellNodeId(s.Family, s.Level, s.Rarity)).Select(s => s.Hit).FirstOrDefault();
 
     static string NodeName(string nodeId) {
         if (nodeId == ArtifactTreeBuilder.GoldNodeId) return "Golden eggs";

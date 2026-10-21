@@ -41,6 +41,10 @@
   --color-rarity-1: #6ab6ff;
   --color-rarity-2: #c03fe2;
   --color-rarity-3: #eeab42;
+  --rarity-fg-0: var(--color-fg);
+  --rarity-fg-1: var(--color-rarity-1);
+  --rarity-fg-2: var(--color-rarity-2);
+  --rarity-fg-3: var(--color-rarity-3);
   --color-heat-low: var(--color-panel2);
   --color-heat-high: var(--color-accent);
   --font-mono: "Cascadia Code", "Fira Code", Consolas, monospace;
@@ -254,7 +258,6 @@ input[type="search"]::placeholder { color: var(--color-muted); }
 .table-scroll .data-table tbody tr.row-hot { background: color-mix(in oklab, var(--color-accent) 10%, transparent); }
 .data-table .mono { font-family: var(--font-mono); font-size: 0.75rem; }
 
-body:has(.modal-backdrop) { overflow: hidden; }
 .modal-backdrop { align-items: flex-start; background-color: var(--color-scrim); }
 .modal-card { margin-block: auto; background-color: var(--egi-panel-tint, var(--color-panel)); }
 .modal-card:focus, .modal-card:focus-visible { outline: none; }
@@ -534,7 +537,6 @@ body:has(.modal-backdrop) { overflow: hidden; }
 }
 #adminWorkbench select:hover, #adminWorkbench button:hover { border-color: var(--color-accent); }
 
-.modal-card.wb-card:not(.wb-card-fit) { --wb-card-w: fit-content; --wb-card-max: 97vw; min-width: min(92vw, 60rem); }
 .wb-card.calwb-card, .wb-card.admin-wb-card { --wb-card-w: 97vw; --wb-card-max: none; }
 .wb-card.nwb-card { min-width: min(92vw, 48rem); max-height: 96vh; }
 .wb-card.awb-card, .wb-card.pwb-card, .wb-card.admin-wb-card { max-height: 96vh; }
@@ -566,7 +568,6 @@ body:has(.modal-backdrop) { overflow: hidden; }
 }
 
 .pwb-card { --wb-drawer-border: var(--color-border-strong); --pwb-col: 16.5rem; --pwb-gap: 0.75rem; --pwb-main-w: 66rem; }
-.wb-card.pwb-card, .wb-card.wb-card-wide.pwb-card { --wb-card-w: fit-content; --wb-card-max: 97vw; }
 .pwb-card .wb-rail { --pwb-n: 1; --pwb-s: 0; }
 .pwb-card:has(.pwb-split-flag:checked) .wb-rail { --pwb-s: 1; }
 @media (min-width: 80rem) {

@@ -109,10 +109,10 @@
                 <tr @key="Key(row)" class="@(ShowDetail ? "cdp-open" : "")">
                     <td>
                         <span class="cdp-drop">
-                            <span class="cdp-disc bg-r-@RarityIndex(row.Rarity)">
+                            <span class="cdp-disc @RarityTokens.Background(RarityIndex(row.Rarity))">
                                 <img src="@Icon(row)" alt="" loading="lazy"/>
                             </span>
-                            <span class="rar-@RarityIndex(row.Rarity)">@Label(row)</span>
+                            <span class="@RarityTokens.Text(RarityIndex(row.Rarity))">@Label(row)</span>
                         </span>
                     </td>
                     <td class="mono cdp-nowrap">@Avg(row.Mean)</td>

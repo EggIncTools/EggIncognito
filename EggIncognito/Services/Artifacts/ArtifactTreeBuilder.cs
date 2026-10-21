@@ -169,13 +169,12 @@ public static class ArtifactTreeBuilder {
 
     public static bool IsShareGraph(DiagramGraph graph) => graph.Nodes.Any(n => !n.Id.StartsWith("t:", StringComparison.Ordinal));
 
-    public static async Task<DiagramGraph> BuildReverseConsumptionGraphAsync(DropStats dropStats,
-        string targetName, string targetLevel, string targetRarity, CancellationToken ct) {
+    public static DiagramGraph BuildReverseConsumptionGraph(IReadOnlyList<(string Family, string Level, string Rarity, DropRow Hit)> sources,
+        string targetName, string targetLevel, string targetRarity) {
         string targetId = CellNodeId(targetName, targetLevel, targetRarity);
         var nodes = new List<DiagramNode> { new(targetId) { Width = TierNodeWidth, Height = TierNodeHeight } };
         var edges = new List<DiagramEdge>();
 
-        var sources = await dropStats.SourcesOfAsync(targetName, targetLevel, targetRarity, ct);
         foreach (var (family, level, rarity, hit) in sources.OrderByDescending(s => s.Hit.Share)) {
             string sourceId = CellNodeId(family, level, rarity);
             nodes.Add(new DiagramNode(sourceId) { Width = TierNodeWidth, Height = TierNodeHeight });
