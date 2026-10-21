@@ -15,7 +15,7 @@ public sealed record ConsumeDropExplanation(
     IReadOnlyList<ConsumeDropPrediction> Predictions);
 
 public static class ConsumeDropModel {
-    public const string Source = "Fitted to PROD consume observations, client 1.37.2, 2026-10-20. Not a game file value.";
+    public const string Source = "Fitted to PROD consumes, 2026-10-20";
 
     public static readonly double[] BudgetPerQuality = [1.772, 3.537, 6.382, 7.976];
     public const double BudgetOffset = 0.202;
