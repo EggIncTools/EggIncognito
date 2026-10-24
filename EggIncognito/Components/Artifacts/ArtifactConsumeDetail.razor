@@ -24,8 +24,13 @@
                     <th class="acd-fit">Avg</th>
                     <th class="acd-fit">Model</th>
                     @if (_math) {
-                        <th class="acd-fit">Cost</th>
-                        <th class="acd-fit">Weight</th>
+                        <th class="acd-fit acd-game"><Tooltip Text="baseQuality from the game config">q</Tooltip></th>
+                        <th class="acd-fit acd-game"><Tooltip Text="oddsMultiplier from the game config">odds</Tooltip></th>
+                        @if (model.HasSecondFamily) {
+                            <th class="acd-fit acd-fitted"><Tooltip Text="Second family factor, fitted per artifact">fam</Tooltip></th>
+                        }
+                        <th class="acd-fit"><Tooltip Text="Quality units this item takes from the budget">cost</Tooltip></th>
+                        <th class="acd-fit"><Tooltip Text="Share of the first pick while every item is still affordable">pick</Tooltip></th>
                     }
                 </tr>
                 </thead>
@@ -40,13 +45,18 @@
                                 <span>@ArtifactTreeBuilder.DisplayName(p.Family, p.AfxLevel)</span>
                             </span>
                         </td>
-                        <td class="mono">@(observed is { } o ? NumberFormat.Percent(o.Share) : "")</td>
+                        <td class="mono">@(observed is { } o ? NumberFormat.Percent(o.Share) : Summary?.Observations > 0 ? "0%" : "")</td>
                         <td class="mono @Delta(observed?.Share, p.Chance)">@NumberFormat.Percent(p.Chance)</td>
-                        <td class="mono">@(observed is { } o2 ? Num(o2.Mean) : "")</td>
+                        <td class="mono">@(observed is { } o2 ? Num(o2.Mean) : Summary?.Observations > 0 ? "0" : "")</td>
                         <td class="mono @Delta(observed?.Mean, p.Mean)">@Num(p.Mean)</td>
                         @if (_math) {
+                            <td class="mono acd-game">@Num(item.Quality)</td>
+                            <td class="mono acd-game">@Num(item.OddsMultiplier)</td>
+                            @if (model.HasSecondFamily) {
+                                <td class="mono acd-fitted">@(item.FamilyFactor == 1 ? "" : Num(item.FamilyFactor))</td>
+                            }
                             <td class="mono">@Num(item.Cost)</td>
-                            <td class="mono">@Num(item.Weight / model.Items.Sum(i => i.Weight))</td>
+                            <td class="mono">@NumberFormat.Percent(item.Weight / model.Items.Sum(i => i.Weight))</td>
                         }
                     </tr>
                 }
@@ -56,19 +66,32 @@
 
         @if (_math) {
             <dl class="acd-math mono">
+                <dt>input q</dt>
+                <dd><span class="acd-game">@Num(model.InputQuality)</span></dd>
                 <dt>budget</dt>
-                <dd>@Num(ConsumeDropModel.BudgetPerQuality[model.Rarity]) × @Num(model.InputQuality) + @Num(ConsumeDropModel.BudgetOffset) = @Num(model.Budget)</dd>
+                <dd><span class="acd-fitted">@Num(ConsumeDropModel.BudgetPerQuality[model.Rarity])</span> × <span class="acd-game">@Num(model.InputQuality)</span> + <span class="acd-fitted">@Num(ConsumeDropModel.BudgetOffset)</span> = @Num(model.Budget)</dd>
                 <dt>floor</dt>
-                <dd>@Num(ConsumeDropModel.FloorFraction[model.Rarity]) × @Num(model.InputQuality) = @Num(model.WeightFloor)</dd>
+                <dd><span class="acd-fitted">@Num(ConsumeDropModel.FloorFraction[model.Rarity])</span> × <span class="acd-game">@Num(model.InputQuality)</span> = @Num(model.WeightFloor)</dd>
                 <dt>frag cost</dt>
-                <dd>q + @Num(ConsumeDropModel.FragmentCostOffset)</dd>
+                <dd><span class="acd-game">q</span> + <span class="acd-fitted">@Num(ConsumeDropModel.FragmentCostOffset)</span></dd>
                 <dt>stone cost</dt>
-                <dd>@Num(ConsumeDropModel.StoneCostPerQuality) q + @Num(ConsumeDropModel.StoneCostOffset[model.Rarity])</dd>
+                <dd><span class="acd-fitted">@Num(ConsumeDropModel.StoneCostPerQuality)</span> × <span class="acd-game">q</span> + <span class="acd-fitted">@Num(ConsumeDropModel.StoneCostOffset[model.Rarity])</span></dd>
                 <dt>weight</dt>
-                <dd>odds / max(q, floor)²</dd>
+                <dd>
+                    <span class="acd-game">odds</span>
+                    @if (model.HasSecondFamily) {
+                        <text>× </text><span class="acd-fitted">fam</span>
+                    }
+                    / max(<span class="acd-game">q</span>, floor)²
+                </dd>
                 <dt>stone weight</dt>
-                <dd>× @Num(ConsumeDropModel.StoneWeight[model.Rarity])</dd>
+                <dd>× <span class="acd-fitted">@Num(ConsumeDropModel.StoneWeight[model.Rarity])</span></dd>
+                <dt>draw</dt>
+                <dd>pick an affordable drop by weight, pay its cost, repeat until none fits</dd>
+                <dt>jitter</dt>
+                <dd>budget varies per roll by under one fragment cost, so totals near a cost boundary split both ways</dd>
             </dl>
+            <p class="acd-legend"><span class="acd-game">game config</span> <span class="acd-fitted">fitted to recorded consumes</span></p>
         }
     </section>
 }

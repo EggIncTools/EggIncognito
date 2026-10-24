@@ -2,7 +2,7 @@ using EggSharp.GameData;
 
 namespace EggIncognito.Services.Artifacts;
 
-public sealed record ConsumeDropItem(string Family, string Level, int AfxLevel, bool IsFragment, double Quality, double OddsMultiplier, double Cost, double Weight);
+public sealed record ConsumeDropItem(string Family, string Level, int AfxLevel, bool IsFragment, double Quality, double OddsMultiplier, double FamilyFactor, double Cost, double Weight);
 
 public sealed record ConsumeDropPrediction(string Family, string Level, int AfxLevel, bool IsFragment, double Chance, double Mean);
 
@@ -12,7 +12,9 @@ public sealed record ConsumeDropExplanation(
     double Budget,
     double WeightFloor,
     IReadOnlyList<ConsumeDropItem> Items,
-    IReadOnlyList<ConsumeDropPrediction> Predictions);
+    IReadOnlyList<ConsumeDropPrediction> Predictions) {
+    public bool HasSecondFamily => Items.Any(i => i.FamilyFactor != 1);
+}
 
 public static class ConsumeDropModel {
     public const string Source = "Fitted to PROD consumes, 2026-10-20";
@@ -68,12 +70,12 @@ public static class ConsumeDropModel {
             if (SecondFamily.TryGetValue(artifact, out var second) && second.Family == family) (fragFactor, stoneFactor) = (second.Fragment, second.Stone);
             var fragment = catalog.Artifacts.FirstOrDefault(a => a.SpecName == family + FragmentSuffix && a.AfxLevel == 0 && a.AfxRarity == 0);
             if (fragment is not null) {
-                items.Add(new ConsumeDropItem(fragment.SpecName, fragment.Level, 0, true, fragment.BaseQuality, fragment.OddsMultiplier,
+                items.Add(new ConsumeDropItem(fragment.SpecName, fragment.Level, 0, true, fragment.BaseQuality, fragment.OddsMultiplier, fragFactor,
                     Cost(fragment.BaseQuality, true, rarity), Weight(fragment.BaseQuality, fragment.OddsMultiplier, true, floor, rarity, fragFactor)));
             }
 
             foreach (var stone in catalog.Artifacts.Where(a => a.SpecName == family && a.AfxRarity == 0).OrderBy(a => a.AfxLevel)) {
-                items.Add(new ConsumeDropItem(stone.SpecName, stone.Level, stone.AfxLevel, false, stone.BaseQuality, stone.OddsMultiplier,
+                items.Add(new ConsumeDropItem(stone.SpecName, stone.Level, stone.AfxLevel, false, stone.BaseQuality, stone.OddsMultiplier, stoneFactor,
                     Cost(stone.BaseQuality, false, rarity), Weight(stone.BaseQuality, stone.OddsMultiplier, false, floor, rarity, stoneFactor)));
             }
         }
