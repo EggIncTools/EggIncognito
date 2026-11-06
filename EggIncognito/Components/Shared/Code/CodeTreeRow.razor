@@ -15,7 +15,7 @@
                 <span class="jtree-colon">: </span>
             }
             @if (Node.IsContainer) {
-                <span class="jtree-summary">@Node.Summary</span>
+                <span class="jtree-summary">@SummaryText</span>
             } else {
                 @LeafSpan()
             }
@@ -45,6 +45,10 @@
     CodeRevealState RevealState => Reveal ?? (_ownReveal ??= new CodeRevealState());
 
     bool Hidden => Search.Length > 0 && Node.Dim;
+
+    string SummaryText => Search.Length > 0
+        ? $"{Node.Summary}, {Node.Children.Count(c => !c.Dim)} matching"
+        : Node.Summary;
 
     RenderFragment ChildRows() => builder => {
         IReadOnlyList<CodeTreeNode> visible = Search.Length > 0 ? [.. Node.Children.Where(c => !c.Dim)] : Node.Children;

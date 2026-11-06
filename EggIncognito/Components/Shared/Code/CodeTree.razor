@@ -16,7 +16,9 @@
             <CopyButton Text="@CopyText()" Class="btn-mini data-copy" IconClass="icon-sm">Copy</CopyButton>
         }
     </div>
-    @if (Root is not null) {
+    @if (_needle.Length > 0 && _matches == 0) {
+        <EmptyState Icon="search" Title="No matches" Hint="@($"Nothing in this payload contains \"{_needle}\".")"/>
+    } else if (Root is not null) {
         <CodeTreeRow Node="Root" View="View" Search="@_needle" IsRoot="true" Reveal="RevealState"/>
     }
 </div>
@@ -35,6 +37,7 @@
     string _search = "";
     string _needle = "";
     string _count = "";
+    int _matches;
     CancellationTokenSource? _debounceCts;
 
     CodeRevealState RevealState => Reveal ?? _ownReveal;
@@ -111,6 +114,7 @@
         Root.Dim = false;
         Root.SelfMatch = false;
         if (Root.IsContainer) Root.Expanded = true;
+        _matches = matches;
         _count = matches + (matches == 1 ? " match" : " matches");
     }
 
