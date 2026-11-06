@@ -2,11 +2,9 @@
 @using EggIncognito.Core.Services.Syntax
 @if (FlattenRoot) {
     <div class="jtree-flat">
-        @foreach (var child in Node.Children) {
-            <CodeTreeRow Node="child" View="View" Search="@Search" Reveal="Reveal"/>
-        }
+        @ChildRows()
     </div>
-} else {
+} else if (!Hidden) {
     <div class="jtree-node @(IsRoot ? "jtree-root" : "") @(Node.Expanded ? "jtree-expanded" : "") @(Node.Dim ? "jtree-dim" : "") @(Node.SelfMatch ? "jtree-match" : "")">
         <div class="jtree-row" @onclick="ToggleRow">
             <span class="jtree-caret @(Node.IsContainer ? "caret" : "jtree-caret-leaf") @(Node.IsContainer && Node.Expanded ? "open" : "")"></span>
@@ -24,9 +22,7 @@
         </div>
         @if (Node.IsContainer && Node.Expanded) {
             <div class="jtree-children">
-                @foreach (var child in Node.Children) {
-                    <CodeTreeRow Node="child" View="View" Search="@Search" Reveal="Reveal"/>
-                }
+                @ChildRows()
             </div>
         }
     </div>
@@ -39,11 +35,38 @@
     [Parameter] public bool IsRoot { get; set; }
     [Parameter] public CodeRevealState? Reveal { get; set; }
 
+    const int RowPage = 200;
+
     bool _clampOpen;
     string[] _needle = [];
     CodeRevealState? _ownReveal;
+    int _shown = RowPage;
 
     CodeRevealState RevealState => Reveal ?? (_ownReveal ??= new CodeRevealState());
+
+    bool Hidden => Search.Length > 0 && Node.Dim;
+
+    RenderFragment ChildRows() => builder => {
+        IReadOnlyList<CodeTreeNode> visible = Search.Length > 0 ? [.. Node.Children.Where(c => !c.Dim)] : Node.Children;
+        var count = Math.Min(_shown, visible.Count);
+        for (var i = 0; i < count; i++) {
+            builder.OpenComponent<CodeTreeRow>(0);
+            builder.SetKey(visible[i]);
+            builder.AddComponentParameter(1, nameof(Node), visible[i]);
+            builder.AddComponentParameter(2, nameof(View), View);
+            builder.AddComponentParameter(3, nameof(Search), Search);
+            builder.AddComponentParameter(4, nameof(Reveal), Reveal);
+            builder.CloseComponent();
+        }
+
+        if (visible.Count <= count) return;
+        builder.OpenElement(5, "button");
+        builder.AddAttribute(6, "type", "button");
+        builder.AddAttribute(7, "class", "btn-mini jtree-more");
+        builder.AddAttribute(8, "onclick", EventCallback.Factory.Create<MouseEventArgs>(this, () => _shown += RowPage));
+        builder.AddContent(9, $"Show {Math.Min(RowPage, visible.Count - count)} more of {visible.Count - count}");
+        builder.CloseElement();
+    };
 
     void ToggleRow() {
         if (Node.IsContainer) Node.Expanded = !Node.Expanded;

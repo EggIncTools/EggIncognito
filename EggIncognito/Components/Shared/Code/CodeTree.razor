@@ -1,13 +1,15 @@
 @using EggIncognito.Components.Capture
 @implements IDisposable
 
-<div class="code-surface jtree-viewer @(_needle.Length > 0 ? "jtree-searching" : "")" style="@RootStyle">
+<div class="code-surface jtree-viewer @(_needle.Length > 0 ? "jtree-searching" : "")" style="@RootStyle"
+     data-bwignore="true" data-1p-ignore="true" data-lpignore="true" data-form-type="other">
     <div class="code-toolbar">
         @Tools
         <button class="btn-mini" type="button" @onclick="ExpandAll">Expand all</button>
         <button class="btn-mini" type="button" @onclick="CollapseAll">Collapse all</button>
         <FilterInput Class="jtree-search" Placeholder="Filter keys" AriaLabel="Filter keys and values"
-                     Value="@_search" ValueChanged="OnSearchInput"/>
+                     Value="@_search" ValueChanged="OnSearchInput"
+                     data-bwignore="true" data-1p-ignore="true" data-lpignore="true" data-form-type="other"/>
         <span class="jtree-search-count">@_count</span>
         @Actions
         @if (CopyText is not null) {

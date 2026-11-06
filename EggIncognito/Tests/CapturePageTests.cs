@@ -44,7 +44,7 @@ public class CapturePageTests {
         }
 
         [Fact]
-        public void CodeTree_Search_MarksMatchesAndDimsOthers() {
+        public void CodeTree_Search_MarksMatchesAndHidesOthers() {
             var root = CodeTreeNode.Parse("{\"alpha\":1,\"beta\":2}");
             var cut = Render<CodeTree>(p => p
                 .Add(c => c.Root, root)
@@ -54,7 +54,7 @@ public class CapturePageTests {
 
             cut.WaitForAssertion(() => {
                 Assert.Contains("<mark>", cut.Markup);
-                Assert.Contains("jtree-dim", cut.Markup);
+                Assert.DoesNotContain("beta", cut.Markup);
                 Assert.Contains("1 match", cut.Markup);
             }, TimeSpan.FromSeconds(2));
         }
