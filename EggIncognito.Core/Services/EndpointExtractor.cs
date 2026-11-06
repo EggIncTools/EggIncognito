@@ -88,8 +88,7 @@ public sealed partial class EndpointExtractor(HarDirs dirs, string? eid, string 
             return null;
         }
 
-        if (decoded is null) return null;
-        if (ExtractorConfig.AlwaysSkip.Contains(decoded.Path)) return null;
+        if (decoded is null || Skipped(decoded.Path)) return null;
 
         WriteDecoded(decoded, true, true);
         return decoded.Path;
@@ -130,6 +129,8 @@ public sealed partial class EndpointExtractor(HarDirs dirs, string? eid, string 
 
     public void Save() => dirs.Yaml.Save();
 
+    private bool Skipped(string path) => !LiveRoutes.Contains(path) && ExtractorConfig.AlwaysSkip.Contains(path);
+
     private DecodedEntry? TryDecode(string path, string? requestDataB64, string responseBodyB64,
         bool isExplicit = false) {
         byte[] respBytes;
@@ -164,7 +165,7 @@ public sealed partial class EndpointExtractor(HarDirs dirs, string? eid, string 
     private void WriteDecoded(DecodedEntry decoded, bool forceOverwrite = false, bool isExplicit = false) {
         (string path, string json, var request, string? autoResponseType, int respBest, int respSecond) = decoded;
         string slug = path;
-        if (ExtractorConfig.AlwaysSkip.Contains(slug)) return;
+        if (Skipped(slug)) return;
 
         json = PeriodicalsSanitizer.ScrubPlayerScope(
             dirs.TypeMap.TryGetValue(path, out string? knownType) ? knownType : autoResponseType, json);
@@ -179,18 +180,17 @@ public sealed partial class EndpointExtractor(HarDirs dirs, string? eid, string 
             return;
         }
 
+        bool live = LiveRoutes.Contains(path);
         string writeResult;
         try {
-            writeResult = WriteEndpointFile(outFile, json, overwrite || forceOverwrite, existing,
-                LiveRoutes.Contains(path));
-        } catch (Exception ex) when (LiveRoutes.Contains(path) &&
-                                     ex is IOException or UnauthorizedAccessException) {
+            writeResult = WriteEndpointFile(outFile, json, overwrite || forceOverwrite, existing, live);
+        } catch (Exception ex) when (live && ex is IOException or UnauthorizedAccessException) {
             Err($"  ERR   {slug}.json fixture write failed: {ex.Message}");
-            writeResult = existing is not null && Comparable(existing, true) == Comparable(json, true)
+            writeResult = existing is not null && ProtoJson.Comparable(existing, true) == ProtoJson.Comparable(json, true)
                 ? "same"
                 : "upd";
         }
-        if (writeResult is "wrote" or "upd") WriteObserver?.OnEndpointWritten(path, json, existing);
+        if (live || writeResult is "wrote" or "upd") WriteObserver?.OnEndpointWritten(path, json, existing);
         switch (writeResult) {
             case "wrote":
                 Counts.Wrote++;
@@ -368,15 +368,10 @@ public sealed partial class EndpointExtractor(HarDirs dirs, string? eid, string 
             return "wrote";
         }
 
-        if (Comparable(existing, live) == Comparable(json, live)) return "same";
+        if (ProtoJson.Comparable(existing, live) == ProtoJson.Comparable(json, live)) return "same";
         if (!overwrite) return "diff";
         File.WriteAllText(path, json, Utf8NoBom);
         return "upd";
-    }
-
-    private static string Comparable(string json, bool live) {
-        string trimmed = json.Trim();
-        return ProtoJson.NormalizeFloats(live ? ProtoJson.StripVolatile(trimmed) : trimmed);
     }
 
     public static string NormalizePath(string url) {

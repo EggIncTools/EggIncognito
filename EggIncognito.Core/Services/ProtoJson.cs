@@ -10,6 +10,11 @@ public static partial class ProtoJson {
     public static string StripVolatile(string json) =>
         VolatileLastMemberRegex().Replace(VolatileMemberWithCommaRegex().Replace(json, ""), "");
 
+    public static string Comparable(string json, bool live) {
+        string trimmed = json.Trim();
+        return NormalizeFloats(live ? StripVolatile(trimmed) : trimmed);
+    }
+
     public static string PrettyPrint(string json) {
         var sb = new StringBuilder(json.Length * 2);
         int depth = 0, i = 0;

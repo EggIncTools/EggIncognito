@@ -36,6 +36,24 @@ public sealed class ConfigChangeNotifier(
             return;
         }
 
+        _ = Task.Run(async () => {
+            try {
+                using var scope = scopes.CreateScope();
+                var landed = await UpsertStoredEndpointAsync(scope.ServiceProvider, routePath, json);
+                string? baseline = landed.Stored ? landed.Previous ?? previousJson : previousJson;
+                if (Same(baseline, json)) return;
+                await LandChangeAsync(scope.ServiceProvider, routePath, feed, json, baseline);
+            } catch (Exception ex) {
+                logger.LogWarning(ex, "config-change landing for {Feed} threw", feed);
+            }
+        });
+    }
+
+    private static bool Same(string? previous, string json) =>
+        previous is not null && ProtoJson.Comparable(previous, true) == ProtoJson.Comparable(json, true);
+
+    private async Task LandChangeAsync(IServiceProvider sp, string routePath, string feed, string json,
+        string? previousJson) {
         var change = ConfigAspects.Diff(feed, previousJson, json);
         if (change is null) {
             logger.LogInformation("config change on {Route} (feed {Feed}) could not be characterised",
@@ -51,21 +69,11 @@ public sealed class ConfigChangeNotifier(
         string fixtureSha = Hashes.Sha256Hex(ProtoJson.StripVolatile(json));
         string dedupSha = ChangeSha(change) ?? fixtureSha;
         string pageUrl = ConfigChangedKind.PageUrl(config[FeedPages.RootKey], feed);
-        _ = Task.Run(async () => {
-            IReadOnlyList<NewColleggtible> colleggtibles = [];
-            try {
-                using var scope = scopes.CreateScope();
-                await UpsertStoredEndpointAsync(scope.ServiceProvider, routePath, json);
-                colleggtibles = await InsertSnapshotAsync(scope.ServiceProvider, routePath, json, fixtureSha);
-            } catch (Exception ex) {
-                logger.LogWarning(ex, "config-change landing for {Feed} threw", feed);
-            }
-
-            if (publisher is not null)
-                await publisher.PublishAsync(
-                    new ConfigChangedEvent(feed, fixtureSha, pageUrl, change, dedupSha, colleggtibles),
-                    CancellationToken.None);
-        });
+        var colleggtibles = await InsertSnapshotAsync(sp, routePath, json, fixtureSha);
+        if (publisher is not null)
+            await publisher.PublishAsync(
+                new ConfigChangedEvent(feed, fixtureSha, pageUrl, change, dedupSha, colleggtibles),
+                CancellationToken.None);
     }
 
     private static string? ChangeSha(ConfigChangeSummary? change) =>
@@ -74,13 +82,15 @@ public sealed class ConfigChangeNotifier(
             : Hashes.Sha256Hex(string.Join('\n',
                 [.. change.Changed, "--", .. change.Added, "--", .. change.Removed]));
 
-    private async Task UpsertStoredEndpointAsync(IServiceProvider sp, string route, string json) {
+    private async Task<(bool Stored, string? Previous)> UpsertStoredEndpointAsync(IServiceProvider sp, string route,
+        string json) {
         try {
-            if (sp.GetService<DbEndpointSource>() is not { } store) return;
+            if (sp.GetService<DbEndpointSource>() is not { } store) return (false, null);
             string responseType = routes.Resolve(route)?.Response ?? "";
-            await store.UpsertAsync(route, null, json, responseType, null, time.GetUtcNow());
+            return (true, await store.UpsertAsync(route, null, json, responseType, null, time.GetUtcNow()));
         } catch (Exception ex) {
             logger.LogWarning(ex, "config-change stored_endpoint upsert for {Route} failed", route);
+            return (false, null);
         }
     }
 

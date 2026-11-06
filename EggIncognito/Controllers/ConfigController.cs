@@ -139,7 +139,22 @@ public sealed class ConfigController(
             return Ok(new { ok = false, diagnostics = $"could not decode get_config: {ex.Message}" });
         }
 
+        try {
+            WireExtractor().ForceWriteEndpoint(GetConfigUrl, "POST", 200, null, rawBody);
+        } catch (Exception ex) {
+            logger.LogWarning(ex, "refresh-live: wire landing failed for {Url}", GetConfigUrl);
+        }
+
         return await StoreAsync(platform, cfg, ct);
+    }
+
+    private EndpointExtractor WireExtractor() {
+        var extractor = EndpointExtractor.ForRepo(ContentRoot.Resolve(config["ContentRoot"]), null,
+            "EI0000000000000000", true);
+        extractor.Quiet = true;
+        extractor.LiveRoutes = new HashSet<string>(catalog.WireRoutes(), StringComparer.Ordinal);
+        extractor.WriteObserver = notifier;
+        return extractor;
     }
 
     [HttpPost("refresh-endpoints")]
@@ -152,12 +167,7 @@ public sealed class ConfigController(
             return Fail(503, "live refresh needs a signing salt; ingest a captured response instead");
 
         string? platform = string.IsNullOrEmpty(body?.Platform) ? "IOS" : body.Platform;
-
-        string contentRoot = ContentRoot.Resolve(config["ContentRoot"]);
-        var extractor = EndpointExtractor.ForRepo(contentRoot, null, "EI0000000000000000", true);
-        extractor.Quiet = true;
-        extractor.LiveRoutes = new HashSet<string>(catalog.FeedWireRoutes(), StringComparer.Ordinal);
-        extractor.WriteObserver = notifier;
+        var extractor = WireExtractor();
 
         async Task<object> One(string url, string label, byte[] inner) {
             (bool ok, string raw, string diag) = await FetchRawAsync(url, inner, salt, ct);

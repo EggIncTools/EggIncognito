@@ -57,13 +57,6 @@ public sealed class DataCatalog {
     public IReadOnlyList<DataSource> EgressSources() =>
         Sources.Where(s => s.Refresh.Egress && s.WireRoute is not null).ToArray();
 
-    public IReadOnlyList<string> FeedWireRoutes() =>
-        Sources
-            .Where(s => s.Feed is not null && s.WireRoute is not null)
-            .Select(s => s.WireRoute!)
-            .Distinct(StringComparer.Ordinal)
-            .ToArray();
-
     public IReadOnlyList<string> WireRoutes() =>
         Sources
             .Where(s => s.WireRoute is not null && s.Provenance == DataProvenance.WireFixture)
